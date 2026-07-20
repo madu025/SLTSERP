@@ -21,7 +21,8 @@ export function registerSODEventHandlers() {
         }
 
         // 2. COMPLETED → Notify managers/engineers
-        if (newStatus === 'COMPLETED') {
+        // Skip per-SOD notification for system auto-completion (batch summary is sent instead)
+        if (newStatus === 'COMPLETED' && userId !== 'SYSTEM_AUTO_COMPLETE') {
             try {
                 const { prisma } = await import('../prisma');
                 const order = await prisma.serviceOrder.findUnique({
@@ -44,29 +45,7 @@ export function registerSODEventHandlers() {
             }
         }
 
-        // 3. ASSIGNED → Notify assigned team + managers
-        if (newStatus === 'ASSIGNED' && oldStatus !== 'ASSIGNED') {
-            try {
-                const { prisma } = await import('../prisma');
-                const order = await prisma.serviceOrder.findUnique({
-                    where: { id: serviceOrderId },
-                    select: { soNum: true, customerName: true, opmcId: true, contractorId: true, contractor: { select: { name: true } } }
-                });
-                if (order) {
-                    const { DomainNotificationPolicies } = await import('../../services/notification/domain-policies.service');
-                    await DomainNotificationPolicies.notifySODAssignment({
-                        soNum: order.soNum,
-                        customerName: order.customerName || undefined,
-                        contractorName: order.contractor?.name || undefined,
-                        opmcId: order.opmcId || undefined,
-                    });
-                }
-            } catch (err) {
-                console.error('[EVENT-HANDLER-ERROR] Failed to send assignment notification:', err);
-            }
-        }
-
-        // 4. RETURN → Notify managers
+        // 3. RETURN → Notify managers
         // NOTE: Material rollback is handled INSIDE the main PATCH transaction in sod/index.ts
         // for atomic consistency. This handler only sends the return notification.
         if (newStatus === 'RETURN') {

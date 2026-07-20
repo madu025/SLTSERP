@@ -35,6 +35,22 @@ export class NotificationService {
                 return null; // User disabled this type
             }
 
+            // Anti-spam: skip if identical notification (same user+title+link) exists within last 5 minutes
+            const dedupeWindowMs = 5 * 60 * 1000;
+            const recentDuplicate = await NotificationRepository.findMany({
+                where: {
+                    userId,
+                    title,
+                    ...(link ? { link } : {}),
+                    createdAt: { gt: new Date(Date.now() - dedupeWindowMs) }
+                },
+                take: 1,
+                select: { id: true }
+            });
+            if (recentDuplicate.length > 0) {
+                return null; // Deduplicated
+            }
+
             // Limit to 50 notifications per user (FIFO)
             const count = await NotificationRepository.count({ userId });
             if (count >= 50) {

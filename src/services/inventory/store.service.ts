@@ -5,6 +5,10 @@ import { prisma } from '@/lib/prisma';
 import { StoreWithDetails } from './types';
 
 export class StoreService {
+    /** Anti-spam: cooldown map for low-stock alerts (key = storeId:itemId, value = last alert timestamp) */
+    private static lowStockCooldown = new Map<string, number>();
+    private static readonly LOW_STOCK_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
     static async getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]> {
         const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
         let whereClause: Prisma.InventoryStoreWhereInput = {};
@@ -175,6 +179,14 @@ export class StoreService {
             if (!stock || !stock.item || !stock.store) return;
 
             if (stock.quantity <= stock.minLevel) {
+                // Anti-spam: skip if same item+store alerted within cooldown window
+                const cooldownKey = `${storeId}:${itemId}`;
+                const lastAlert = StoreService.lowStockCooldown.get(cooldownKey);
+                if (lastAlert && (Date.now() - lastAlert) < StoreService.LOW_STOCK_COOLDOWN_MS) {
+                    return; // Still in cooldown, skip
+                }
+                StoreService.lowStockCooldown.set(cooldownKey, Date.now());
+
                 await eventBus.publish('inventory.low_stock_detected', {
                     store: stock.store.name,
                     item: stock.item.name || stock.item.code,

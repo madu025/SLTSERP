@@ -174,16 +174,6 @@ export class SODAutoCompletionService {
 
                             completedCount++;
 
-                            // Send notification
-                            await NotificationService.notifyByRole({
-                                roles: ['OSP_MANAGER', 'OFFICE_ADMIN', 'ADMIN'],
-                                title: 'SOD Auto-Completed',
-                                message: `SOD ${sltSOD.SO_NUM} has been automatically completed based on SLT data.`,
-                                type: 'PROJECT',
-                                priority: 'MEDIUM',
-                                link: `/service-orders/completed`
-                            });
-
                             console.log(`[SOD-AUTO-COMPLETE] ✅ Completed: ${sltSOD.SO_NUM}`);
 
                         } catch (error) {
@@ -201,6 +191,19 @@ export class SODAutoCompletionService {
             }
 
             console.log(`[SOD-AUTO-COMPLETE] ✅ Completed ${completedCount} SODs`);
+
+            // Send ONE batch summary notification instead of N individual ones (anti-spam)
+            if (completedCount > 0) {
+                await NotificationService.notifyByRole({
+                    roles: ['OSP_MANAGER', 'OFFICE_ADMIN', 'ADMIN'],
+                    title: 'SOD Auto-Completion Summary',
+                    message: `${completedCount} service order(s) auto-completed from SLT data.`,
+                    type: 'PROJECT',
+                    priority: 'MEDIUM',
+                    link: '/service-orders/completed',
+                    metadata: { batchCount: completedCount }
+                });
+            }
 
             return {
                 checked: opmcs.length,
