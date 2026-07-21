@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { ZodSchema } from 'zod';
 import { AppError, ErrorCode } from './error';
 import { AuditService } from '@/services/audit.service';
+import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 import { requestContext } from './request-context';
 
 /**
@@ -52,14 +53,25 @@ export function apiHandler<T, B = any>(
 
                 let body: B = undefined as any;
 
-                // 2. Validation Logic
-                if (options?.schema) {
-                    const rawBody = await req.json();
-                    const validation = options.schema.safeParse(rawBody);
-                    if (!validation.success) {
-                        throw AppError.validation('Invalid input data', validation.error.format());
+                // 2. Body Parsing & Validation Logic
+                if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+                    try {
+                        const rawBody = await req.clone().json();
+                        if (options?.schema) {
+                            const validation = options.schema.safeParse(rawBody);
+                            if (!validation.success) {
+                                throw AppError.validation('Invalid input data', validation.error.format());
+                            }
+                            body = validation.data;
+                        } else {
+                            body = rawBody;
+                        }
+                    } catch (e) {
+                        if (options?.schema) {
+                            throw e;
+                        }
+                        // If no schema required and body stream is empty/invalid JSON, body remains undefined
                     }
-                    body = validation.data;
                 }
 
                 // 3. Execute the actual Route Logic
@@ -115,6 +127,29 @@ export function apiHandler<T, B = any>(
                         ErrorCode.INTERNAL_ERROR,
                         500
                     );
+                }
+
+                if (appError.statusCode >= 500) {
+                    try {
+                        const url = new URL(req.url);
+                        SystemMonitoringService.logError({
+                            statusCode: appError.statusCode,
+                            errorCode: appError.code,
+                            message: appError.message,
+                            stackTrace: error instanceof Error ? error.stack : undefined,
+                            path: url.pathname,
+                            method: req.method,
+                            userId: userId || undefined,
+                            userRole: userRole || undefined,
+                            ipAddress: req.headers.get('x-real-ip') || undefined,
+                            userAgent: req.headers.get('user-agent') || undefined,
+                            metadata: {
+                                details: appError.details || null
+                            }
+                        }).catch(err => console.error('[MONITORING-LOG-FAIL]', err));
+                    } catch (e) {
+                        console.error('[MONITORING-URL-PARSE-FAIL]', e);
+                    }
                 }
 
                 return NextResponse.json({

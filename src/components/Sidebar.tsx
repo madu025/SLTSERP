@@ -75,7 +75,9 @@ function SidebarContent() {
     }, []);
 
     const userRole = user?.role || '';
-    const userInitials = user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+    const userInitials = typeof user?.name === 'string' && user.name.trim().length > 0 
+        ? user.name.trim().split(/\s+/).filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) 
+        : '??';
     const roleLabel = ROLE_LABELS[userRole] || userRole?.replace(/_/g, ' ') || 'User';
 
     const handleLogout = () => {

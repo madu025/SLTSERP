@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+    Activity,
     LayoutDashboard,
     FileText,
     Users,
@@ -624,6 +625,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'System Audit Log',
                 path: '/admin/audit-logs',
                 icon: HistoryIcon,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'System Health & Monitoring',
+                path: '/admin/monitoring',
+                icon: Activity,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {

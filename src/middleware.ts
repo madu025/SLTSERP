@@ -6,6 +6,7 @@ import { verifyJWT } from '@/lib/auth';
 const publicPaths = [
     '/login',
     '/api/login',
+    '/api/metrics',
     '/public',
     '/contractor-upload',
     '/contractor-registration',

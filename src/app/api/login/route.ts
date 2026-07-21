@@ -9,8 +9,7 @@ const loginSchema = z.object({
     password: z.string().min(1, 'Password is required')
 });
 
-export const POST = apiHandler(async (_req, _params, body) => {
-    const data = loginSchema.parse(body);
+export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginSchema>) => {
 
     try {
         const { token, user } = await UserService.login({ username: data.username, password: data.password });
@@ -39,4 +38,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
 
         throw error;
     }
+}, {
+    schema: loginSchema,
+    rawResponse: true
 });

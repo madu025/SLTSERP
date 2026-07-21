@@ -83,3 +83,28 @@ model DashboardStat {
   @@index([opmcId])
   @@index([rtom])
 }
+
+model SystemErrorLog {
+  id          String    @id @default(cuid())
+  statusCode  Int       @default(500)
+  errorCode   String    @default("INTERNAL_ERROR")
+  message     String
+  stackTrace  String?   @db.Text
+  path        String
+  method      String    @default("GET")
+  userId      String?
+  userRole    String?
+  ipAddress   String?
+  userAgent   String?
+  resolved    Boolean   @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([statusCode])
+  @@index([path])
+  @@index([resolved])
+}
+
