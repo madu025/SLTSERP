@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 /**
  * RentalPaymentService - Monthly Rented Vehicle Payment Summary Calculations
  * 
@@ -195,7 +196,7 @@ class RentalPaymentService {
     })) as DbRentalVehicle | null;
 
     if (!rentalVehicle) {
-      throw new Error(`Rental vehicle not found: ${rentalVehicleId}`);
+      throw AppError.badRequest(`Rental vehicle not found: ${rentalVehicleId}`);
     }
 
     const startDate = new Date(year, month - 1, 1);
@@ -359,7 +360,7 @@ class RentalPaymentService {
     })) as DbMonthlySummary | null;
 
     if (existing) {
-      throw new Error(`Summary already exists for ${input.year}-${input.month}. Use update instead.`);
+      throw AppError.badRequest(`Summary already exists for ${input.year}-${input.month}. Use update instead.`);
     }
 
     const preview = await this.previewSummary(input);
@@ -404,11 +405,11 @@ class RentalPaymentService {
     const existing = (await prisma.vMRentedVehicleMonthlySummary.findUnique({ where: { id } })) as DbMonthlySummary | null;
 
     if (!existing) {
-      throw new Error('Summary not found');
+      throw AppError.badRequest('Summary not found');
     }
 
     if (existing.status !== 'DRAFT') {
-      throw new Error(`Cannot update summary with status: ${existing.status}. Only DRAFT summaries can be updated.`);
+      throw AppError.badRequest(`Cannot update summary with status: ${existing.status}. Only DRAFT summaries can be updated.`);
     }
 
     const preview = await this.previewSummary(input);
@@ -447,11 +448,11 @@ class RentalPaymentService {
     const existing = (await prisma.vMRentedVehicleMonthlySummary.findUnique({ where: { id } })) as DbMonthlySummary | null;
 
     if (!existing) {
-      throw new Error('Summary not found');
+      throw AppError.badRequest('Summary not found');
     }
 
     if (existing.status !== 'DRAFT') {
-      throw new Error(`Cannot submit summary with status: ${existing.status}. Only DRAFT can be submitted.`);
+      throw AppError.badRequest(`Cannot submit summary with status: ${existing.status}. Only DRAFT can be submitted.`);
     }
 
     const updateData = {
@@ -474,11 +475,11 @@ class RentalPaymentService {
     const existing = (await prisma.vMRentedVehicleMonthlySummary.findUnique({ where: { id } })) as DbMonthlySummary | null;
 
     if (!existing) {
-      throw new Error('Summary not found');
+      throw AppError.badRequest('Summary not found');
     }
 
     if (existing.status !== 'SUBMITTED') {
-      throw new Error(`Cannot check summary with status: ${existing.status}. Only SUBMITTED can be checked.`);
+      throw AppError.badRequest(`Cannot check summary with status: ${existing.status}. Only SUBMITTED can be checked.`);
     }
 
     return (await prisma.vMRentedVehicleMonthlySummary.update({
@@ -500,11 +501,11 @@ class RentalPaymentService {
     const existing = (await prisma.vMRentedVehicleMonthlySummary.findUnique({ where: { id } })) as DbMonthlySummary | null;
 
     if (!existing) {
-      throw new Error('Summary not found');
+      throw AppError.badRequest('Summary not found');
     }
 
     if (existing.status !== 'CHECKED') {
-      throw new Error(`Cannot recommend summary with status: ${existing.status}. Only CHECKED can be recommended.`);
+      throw AppError.badRequest(`Cannot recommend summary with status: ${existing.status}. Only CHECKED can be recommended.`);
     }
 
     return (await prisma.vMRentedVehicleMonthlySummary.update({
@@ -526,11 +527,11 @@ class RentalPaymentService {
     const existing = (await prisma.vMRentedVehicleMonthlySummary.findUnique({ where: { id } })) as DbMonthlySummary | null;
 
     if (!existing) {
-      throw new Error('Summary not found');
+      throw AppError.badRequest('Summary not found');
     }
 
     if (existing.status !== 'RECOMMENDED') {
-      throw new Error(`Cannot approve summary with status: ${existing.status}. Only RECOMMENDED can be approved.`);
+      throw AppError.badRequest(`Cannot approve summary with status: ${existing.status}. Only RECOMMENDED can be approved.`);
     }
 
     return (await prisma.vMRentedVehicleMonthlySummary.update({
@@ -552,11 +553,11 @@ class RentalPaymentService {
     const existing = (await prisma.vMRentedVehicleMonthlySummary.findUnique({ where: { id } })) as DbMonthlySummary | null;
 
     if (!existing) {
-      throw new Error('Summary not found');
+      throw AppError.badRequest('Summary not found');
     }
 
     if (['APPROVED', 'REJECTED'].includes(existing.status)) {
-      throw new Error(`Cannot reject summary with status: ${existing.status}`);
+      throw AppError.badRequest(`Cannot reject summary with status: ${existing.status}`);
     }
 
     return (await prisma.vMRentedVehicleMonthlySummary.update({
@@ -578,11 +579,11 @@ class RentalPaymentService {
     const existing = (await prisma.vMRentedVehicleMonthlySummary.findUnique({ where: { id } })) as DbMonthlySummary | null;
 
     if (!existing) {
-      throw new Error('Summary not found');
+      throw AppError.badRequest('Summary not found');
     }
 
     if (existing.status !== 'DRAFT') {
-      throw new Error(`Cannot delete summary with status: ${existing.status}. Only DRAFT can be deleted.`);
+      throw AppError.badRequest(`Cannot delete summary with status: ${existing.status}. Only DRAFT can be deleted.`);
     }
 
     return (await prisma.vMRentedVehicleMonthlySummary.delete({ where: { id } })) as DbMonthlySummary;

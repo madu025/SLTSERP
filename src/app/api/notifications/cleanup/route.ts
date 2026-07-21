@@ -1,36 +1,37 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { NotificationService } from '@/services/notification.service';
-import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 
-/**
- * API Route for Scheduled Notification Cleanup
- * This can be triggered by a CRON job (e.g., GitHub Actions, Vercel Cron, or a system cron)
- * Route: /api/notifications/cleanup
- */
-export async function POST(request: Request) {
-    try {
-        // Optional: Check for an API Key or Secret to prevent unauthorized cleanup calls
-        const authHeader = request.headers.get('authorization');
-        const internalSecret = process.env.CRON_SECRET;
+export const POST = apiHandler(async (req) => {
+    const authHeader = req.headers.get('authorization');
+    const internalSecret = process.env.CRON_SECRET;
 
-        if (internalSecret && authHeader !== `Bearer ${internalSecret}`) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const result = await NotificationService.cleanup();
-
-        return NextResponse.json({
-            message: 'Notification cleanup completed successfully',
-            deletedCount: result.count,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error: any) {
-        console.error('Cleanup operation failed:', error);
-        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+    if (internalSecret && authHeader !== `Bearer ${internalSecret}`) {
+        throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
     }
-}
 
-// Allow GET for testing or simple triggers if needed, but POST is safer
-export async function GET(request: Request) {
-    return POST(request);
-}
+    const result = await NotificationService.cleanup();
+
+    return Response.json({
+        message: 'Notification cleanup completed successfully',
+        deletedCount: result.count,
+        timestamp: new Date().toISOString()
+    });
+});
+
+export const GET = apiHandler(async (req) => {
+    const authHeader = req.headers.get('authorization');
+    const internalSecret = process.env.CRON_SECRET;
+
+    if (internalSecret && authHeader !== `Bearer ${internalSecret}`) {
+        throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
+    }
+
+    const result = await NotificationService.cleanup();
+
+    return Response.json({
+        message: 'Notification cleanup completed successfully',
+        deletedCount: result.count,
+        timestamp: new Date().toISOString()
+    });
+});

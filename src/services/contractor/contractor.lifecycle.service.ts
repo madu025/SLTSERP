@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
@@ -13,7 +14,7 @@ export class ContractorLifecycleService {
      */
     static async createContractor(data: ContractorUpdateData) {
         if (!data.name) {
-            throw new Error('NAME_REQUIRED');
+            throw AppError.badRequest('NAME_REQUIRED');
         }
 
         await ContractorQueryService.validateUnique({
@@ -98,7 +99,7 @@ export class ContractorLifecycleService {
      * Update an existing contractor (Admin/Approval Flow)
      */
     static async updateContractor(id: string, data: ContractorUpdateData) {
-        if (!id) throw new Error('ID_REQUIRED');
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
 
         await ContractorQueryService.validateUnique({
             nic: data.nic,
@@ -111,7 +112,7 @@ export class ContractorLifecycleService {
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const current = await tx.contractor.findUnique({ where: { id } });
-            if (!current) throw new Error('CONTRACTOR_NOT_FOUND');
+            if (!current) throw AppError.badRequest('CONTRACTOR_NOT_FOUND');
 
             let registrationNumber = contractorData.registrationNumber;
 
@@ -281,7 +282,7 @@ export class ContractorLifecycleService {
      * Delete a contractor
      */
     static async deleteContractor(id: string) {
-        if (!id) throw new Error('ID_REQUIRED');
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
         const counts = await prisma.contractor.findUnique({
             where: { id },
             select: {
@@ -292,7 +293,7 @@ export class ContractorLifecycleService {
         });
 
         if (counts && (counts._count.serviceOrders > 0 || counts._count.projects > 0 || counts._count.stock > 0)) {
-            throw new Error('HAS_RELATED_DATA');
+            throw AppError.badRequest('HAS_RELATED_DATA');
         }
 
         const result = await ContractorRepository.delete(id);

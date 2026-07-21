@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export interface SurveyPointApprovalInput {
@@ -12,9 +13,9 @@ export class MapApprovalService {
    */
   static async verifyPoint({ pointId, userId }: SurveyPointApprovalInput) {
     const point = await prisma.surveyPoint.findUnique({ where: { id: pointId } });
-    if (!point) throw new Error('Survey point not found');
+    if (!point) throw AppError.badRequest('Survey point not found');
     if (point.verificationStatus !== 'PENDING_VERIFICATION') {
-      throw new Error(`Cannot verify: point is in status "${point.verificationStatus}"`);
+      throw AppError.badRequest(`Cannot verify: point is in status "${point.verificationStatus}"`);
     }
 
     const updated = await prisma.surveyPoint.update({
@@ -48,9 +49,9 @@ export class MapApprovalService {
    */
   static async confirmPoint({ pointId, userId }: SurveyPointApprovalInput) {
     const point = await prisma.surveyPoint.findUnique({ where: { id: pointId } });
-    if (!point) throw new Error('Survey point not found');
+    if (!point) throw AppError.badRequest('Survey point not found');
     if (point.verificationStatus !== 'VERIFIED') {
-      throw new Error(`Cannot confirm: point must be VERIFIED first, currently "${point.verificationStatus}"`);
+      throw AppError.badRequest(`Cannot confirm: point must be VERIFIED first, currently "${point.verificationStatus}"`);
     }
 
     const updated = await prisma.surveyPoint.update({
@@ -84,9 +85,9 @@ export class MapApprovalService {
    */
   static async approvePoint({ pointId, userId }: SurveyPointApprovalInput) {
     const point = await prisma.surveyPoint.findUnique({ where: { id: pointId } });
-    if (!point) throw new Error('Survey point not found');
+    if (!point) throw AppError.badRequest('Survey point not found');
     if (point.verificationStatus !== 'PENDING_APPROVAL') {
-      throw new Error(`Cannot approve: point must be visually confirmed on map first (PENDING_APPROVAL). Currently "${point.verificationStatus}"`);
+      throw AppError.badRequest(`Cannot approve: point must be visually confirmed on map first (PENDING_APPROVAL). Currently "${point.verificationStatus}"`);
     }
 
     const updated = await prisma.surveyPoint.update({
@@ -116,9 +117,9 @@ export class MapApprovalService {
    * Reject a survey point at any step (with reason)
    */
   static async rejectPoint({ pointId, userId, reason }: SurveyPointApprovalInput) {
-    if (!reason) throw new Error('Rejection reason is required');
+    if (!reason) throw AppError.badRequest('Rejection reason is required');
     const point = await prisma.surveyPoint.findUnique({ where: { id: pointId } });
-    if (!point) throw new Error('Survey point not found');
+    if (!point) throw AppError.badRequest('Survey point not found');
 
     const updated = await prisma.surveyPoint.update({
       where: { id: pointId },
@@ -148,7 +149,7 @@ export class MapApprovalService {
    */
   static async flagPoint({ pointId, userId, reason }: SurveyPointApprovalInput) {
     const point = await prisma.surveyPoint.findUnique({ where: { id: pointId } });
-    if (!point) throw new Error('Survey point not found');
+    if (!point) throw AppError.badRequest('Survey point not found');
 
     const updated = await prisma.surveyPoint.update({
       where: { id: pointId },
@@ -275,7 +276,7 @@ export class MapApprovalService {
     });
 
     if (!existing) {
-      throw new Error('SURVEY_POINT_NOT_FOUND');
+      throw AppError.badRequest('SURVEY_POINT_NOT_FOUND');
     }
 
     const existingAttrs = (existing.attributes as Record<string, unknown>) || {};

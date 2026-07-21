@@ -1,13 +1,7 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { BankService } from '@/services/bank.service';
 
-export async function GET() {
-    try {
-        const branches = await (prisma as any).bankBranch.findMany({
-            orderBy: { name: 'asc' }
-        });
-        return NextResponse.json(branches);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-}
+export const GET = apiHandler(async () => {
+    const branches = await BankService.getAllBranches();
+    return Response.json(branches);
+});

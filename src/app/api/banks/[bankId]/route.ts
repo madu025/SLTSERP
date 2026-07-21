@@ -1,46 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { apiHandler } from '@/lib/api-handler';
+import { BankService } from '@/services/bank.service';
+import { z } from 'zod';
 
-type Params = Promise<{ bankId: string }>;
+const updateBankSchema = z.object({
+    code: z.string().min(1, "Bank code is required"),
+    name: z.string().min(1, "Bank name is required")
+});
 
-// PUT /api/banks/[bankId] - Update Bank details
-export async function PUT(request: NextRequest, { params }: { params: Params }) {
-    try {
-        const { bankId } = await params;
-        const body = await request.json();
-        const { code, name } = body;
+export const PUT = apiHandler(async (_request: Request, params: any, body: any) => {
+    const { bankId } = params;
+    const data = updateBankSchema.parse(body);
+    const bank = await BankService.updateBank(bankId, data);
+    return Response.json(bank);
+}, {
+    audit: { action: 'UPDATE', entity: 'Bank' }
+});
 
-        if (!code || !name) {
-            return NextResponse.json({ error: "Bank Code and Name are required" }, { status: 400 });
-        }
-
-        const bank = await prisma.bank.update({
-            where: { id: bankId },
-            data: { code, name }
-        });
-
-        return NextResponse.json(bank);
-    } catch (error: unknown) {
-        console.error("Error updating bank:", error);
-        const errorMsg = error instanceof Error ? error.message : "Failed to update bank";
-        return NextResponse.json({ error: errorMsg }, { status: 500 });
-    }
-}
-
-// DELETE /api/banks/[bankId] - Delete Bank
-export async function DELETE(request: NextRequest, { params }: { params: Params }) {
-    try {
-        const { bankId } = await params;
-        
-        // This will cascade delete branches based on onDelete: Cascade setup in prisma
-        const bank = await prisma.bank.delete({
-            where: { id: bankId }
-        });
-
-        return NextResponse.json({ message: "Bank deleted successfully", bank });
-    } catch (error: unknown) {
-        console.error("Error deleting bank:", error);
-        const errorMsg = error instanceof Error ? error.message : "Failed to delete bank";
-        return NextResponse.json({ error: errorMsg }, { status: 500 });
-    }
-}
+export const DELETE = apiHandler(async (_request: Request, params: any) => {
+    const { bankId } = params;
+    await BankService.deleteBank(bankId);
+    return Response.json({ message: "Bank deleted successfully" });
+}, {
+    audit: { action: 'DELETE', entity: 'Bank' }
+});

@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { SystemService } from '@/services/system.service';
 
@@ -49,7 +50,7 @@ export class SectionService {
      */
     static async updateSection(id: string, data: { name?: string, code?: string, description?: string, icon?: string, color?: string, isActive?: boolean }, userId: string) {
         const existing = await prisma.section.findUnique({ where: { id } });
-        if (!existing) throw new Error('SECTION_NOT_FOUND');
+        if (!existing) throw AppError.badRequest('SECTION_NOT_FOUND');
 
         const section = await prisma.section.update({
             where: { id },
@@ -80,7 +81,7 @@ export class SectionService {
      */
     static async deleteSection(id: string, userId: string) {
         const existing = await prisma.section.findUnique({ where: { id } });
-        if (!existing) throw new Error('SECTION_NOT_FOUND');
+        if (!existing) throw AppError.badRequest('SECTION_NOT_FOUND');
 
         await prisma.section.delete({
             where: { id }

@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from '../inventory/stock.service';
 import { TransactionClient } from '../inventory/types';
@@ -35,7 +36,7 @@ export class ProjectStockIssueService {
         for (const item of items) {
             const stock = stockMap.get(item.itemId);
             if (!stock || Number(stock.quantity) < parseFloat(item.quantity.toString())) {
-                throw new Error(`INSUFFICIENT_STOCK: Insufficient stock for item: ${stock?.item.name || item.itemId}`);
+                throw AppError.badRequest(`INSUFFICIENT_STOCK: Insufficient stock for item: ${stock?.item.name || item.itemId}`);
             }
         }
 
@@ -100,11 +101,11 @@ export class ProjectStockIssueService {
         });
 
         if (!issue) {
-            throw new Error('ISSUE_NOT_FOUND');
+            throw AppError.badRequest('ISSUE_NOT_FOUND');
         }
 
         if (issue.status !== 'PENDING') {
-            throw new Error('ISSUE_NOT_PENDING');
+            throw AppError.badRequest('ISSUE_NOT_PENDING');
         }
 
         // Verify stock availability (batched to avoid N+1 queries)
@@ -121,7 +122,7 @@ export class ProjectStockIssueService {
         for (const item of issue.items) {
             const stock = issueStockMap.get(item.itemId);
             if (!stock || Number(stock.quantity) < item.quantity) {
-                throw new Error(`INSUFFICIENT_STOCK: Insufficient stock for item ID: ${item.itemId}`);
+                throw AppError.badRequest(`INSUFFICIENT_STOCK: Insufficient stock for item ID: ${item.itemId}`);
             }
         }
 
@@ -306,7 +307,7 @@ export class ProjectStockIssueService {
         });
 
         if (!returnReq || returnReq.status !== 'PENDING') {
-            throw new Error('INVALID_RETURN_REQUEST');
+            throw AppError.badRequest('INVALID_RETURN_REQUEST');
         }
 
         await prisma.$transaction(async (tx) => {

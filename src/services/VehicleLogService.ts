@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 /**
  * Vehicle Log Service - Business logic for vehicle usage/duty logs
  * Handles dynamic driver check-in, check-out, and odometer auditing
@@ -7,7 +8,7 @@ import { prisma as db } from '@/lib/prisma';
 import { VehicleLog, CreateVehicleLogDTO, EndVehicleLogDTO } from '@/types/vehicle-management.types';
 
 // Workaround for IDE/Language Server caching issues with dynamic extended PrismaClient types.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const prisma = db as any;
 
 export class VehicleLogService {
@@ -29,7 +30,7 @@ export class VehicleLogService {
 
       return log ? this.mapLogToDTO(log) : null;
     } catch (error) {
-      throw new Error(`Failed to get active log: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to get active log: ${(error as Error).message}`);
     }
   }
 
@@ -47,7 +48,7 @@ export class VehicleLogService {
       });
 
       if (activeLog) {
-        throw new Error('Vehicle is already checked out and in use.');
+        throw AppError.badRequest('Vehicle is already checked out and in use.');
       }
 
       // 2. Fetch vehicle to verify expected odometer
@@ -56,7 +57,7 @@ export class VehicleLogService {
       });
 
       if (!vehicle) {
-        throw new Error('Vehicle not found.');
+        throw AppError.badRequest('Vehicle not found.');
       }
 
       // 3. Determine odometer mismatch
@@ -99,7 +100,7 @@ export class VehicleLogService {
 
       return this.mapLogToDTO(log);
     } catch (error) {
-      throw new Error(`Failed to start vehicle log: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to start vehicle log: ${(error as Error).message}`);
     }
   }
 
@@ -117,11 +118,11 @@ export class VehicleLogService {
       });
 
       if (!activeLog) {
-        throw new Error('No active usage log found for this vehicle.');
+        throw AppError.badRequest('No active usage log found for this vehicle.');
       }
 
       if (data.end_odometer < activeLog.start_odometer) {
-        throw new Error(`End odometer (${data.end_odometer}) cannot be less than start odometer (${activeLog.start_odometer}).`);
+        throw AppError.badRequest(`End odometer (${data.end_odometer}) cannot be less than start odometer (${activeLog.start_odometer}).`);
       }
 
       // 2. Complete the log in a transaction
@@ -155,7 +156,7 @@ export class VehicleLogService {
 
       return this.mapLogToDTO(log);
     } catch (error) {
-      throw new Error(`Failed to end vehicle log: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to end vehicle log: ${(error as Error).message}`);
     }
   }
 

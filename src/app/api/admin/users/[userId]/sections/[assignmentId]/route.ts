@@ -1,20 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { UserService } from '@/services/user.service';
 
 // DELETE - Remove section assignment
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ userId: string; assignmentId: string }> }
-) {
-    try {
-        const { assignmentId } = await params;
-        await prisma.userSectionAssignment.delete({
-            where: { id: assignmentId }
-        });
+export const DELETE = apiHandler(async (_req, params) => {
+    const { assignmentId } = await params;
+    
+    await UserService.removeUserSection(assignmentId);
 
-        return NextResponse.json({ message: 'Assignment removed successfully' });
-    } catch (error) {
-        console.error('Error removing assignment:', error);
-        return NextResponse.json({ error: 'Failed to remove assignment' }, { status: 500 });
-    }
-}
+    return Response.json({ message: 'Assignment removed successfully' });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'REMOVE_USER_SECTION', entity: 'User' }
+});

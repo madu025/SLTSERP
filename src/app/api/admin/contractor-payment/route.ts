@@ -1,166 +1,70 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { handleApiError, ApiError } from '@/lib/api-utils';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { apiHandler } from '@/lib/api-handler';
+import { ContractorPaymentService } from '@/services/admin/contractor-payment.service';
+import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
-// GET - Fetch all Contractor Payment configurations
-export async function GET(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
+const createConfigSchema = z.object({
+    rtomId: z.string().optional().nullable(),
+    notes: z.string().optional(),
+    tiers: z.array(z.object({
+        minDistance: z.union([z.string(), z.number()]),
+        maxDistance: z.union([z.string(), z.number()]),
+        amount: z.union([z.string(), z.number()])
+    })).min(1, 'Pricing tiers are required')
+});
 
-        if (!['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
+const updateConfigSchema = z.object({
+    id: z.string().min(1, 'Configuration ID is required'),
+    rtomId: z.string().optional().nullable(),
+    notes: z.string().optional(),
+    isActive: z.boolean().optional(),
+    tiers: z.array(z.object({
+        minDistance: z.union([z.string(), z.number()]),
+        maxDistance: z.union([z.string(), z.number()]),
+        amount: z.union([z.string(), z.number()])
+    })).optional()
+});
 
-        const configs = await (prisma as any).contractorPaymentConfig.findMany({
-            include: {
-                rtom: {
-                    select: {
-                        id: true,
-                        rtom: true,
-                        name: true
-                    }
-                },
-                tiers: true
-            },
-            orderBy: [
-                { rtomId: 'asc' },
-                { createdAt: 'desc' }
-            ]
-        });
+export const GET = apiHandler(async () => {
+    const data = await ContractorPaymentService.getConfigs();
+    return Response.json({ success: true, data });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER']
+});
 
-        return NextResponse.json({ success: true, data: configs });
-    } catch (error) {
-        return handleApiError(error);
+export const POST = apiHandler(async (req, _params, body) => {
+    const userId = req.headers.get('x-user-id') || undefined;
+    const data = createConfigSchema.parse(body);
+
+    const config = await ContractorPaymentService.createConfig(data, userId);
+    return Response.json({ success: true, data: config });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'CREATE_PAYMENT_CONFIG', entity: 'Admin' }
+});
+
+export const PUT = apiHandler(async (_req, _params, body) => {
+    const data = updateConfigSchema.parse(body);
+
+    const config = await ContractorPaymentService.updateConfig(data.id, data);
+    return Response.json({ success: true, data: config });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'UPDATE_PAYMENT_CONFIG', entity: 'Admin' }
+});
+
+export const DELETE = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+        throw AppError.badRequest('Configuration ID required');
     }
-}
 
-// POST - Create new Contractor Payment configuration
-export async function POST(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
-        const userId = req.headers.get('x-user-id');
-
-        if (!['SUPER_ADMIN', 'ADMIN'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
-
-        const body = await req.json();
-        const { rtomId, tiers, notes } = body;
-
-        if (!tiers || !Array.isArray(tiers) || tiers.length === 0) {
-            throw new ApiError('Pricing tiers are required', 400);
-        }
-
-        const config = await (prisma as any).contractorPaymentConfig.create({
-            data: {
-                rtomId: rtomId || null,
-                notes,
-                createdBy: userId || undefined,
-                tiers: {
-                    create: tiers.map((t: any) => ({
-                        minDistance: parseFloat(t.minDistance),
-                        maxDistance: parseFloat(t.maxDistance),
-                        amount: parseFloat(t.amount)
-                    }))
-                }
-            },
-            include: {
-                rtom: {
-                    select: {
-                        id: true,
-                        rtom: true,
-                        name: true
-                    }
-                },
-                tiers: true
-            }
-        });
-
-        return NextResponse.json({ success: true, data: config });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
-
-// PUT - Update Contractor Payment configuration
-export async function PUT(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
-
-        if (!['SUPER_ADMIN', 'ADMIN'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
-
-        const body = await req.json();
-        const { id, rtomId, tiers, notes, isActive } = body;
-
-        if (!id) {
-            throw new ApiError('Configuration ID required', 400);
-        }
-
-        // Using a transaction to delete old tiers and create new ones
-        const config = await (prisma as any).$transaction(async (tx: any) => {
-            // Delete existing tiers
-            await tx.contractorPaymentTier.deleteMany({
-                where: { configId: id }
-            });
-
-            // Update main config
-            return await tx.contractorPaymentConfig.update({
-                where: { id },
-                data: {
-                    rtomId: rtomId !== undefined ? (rtomId || null) : undefined,
-                    notes: notes !== undefined ? notes : undefined,
-                    isActive: isActive !== undefined ? isActive : undefined,
-                    tiers: {
-                        create: tiers.map((t: any) => ({
-                            minDistance: parseFloat(t.minDistance),
-                            maxDistance: parseFloat(t.maxDistance),
-                            amount: parseFloat(t.amount)
-                        }))
-                    }
-                },
-                include: {
-                    rtom: {
-                        select: {
-                            id: true,
-                            rtom: true,
-                            name: true
-                        }
-                    },
-                    tiers: true
-                }
-            });
-        });
-
-        return NextResponse.json({ success: true, data: config });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
-
-// DELETE - Delete Contractor Payment configuration
-export async function DELETE(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
-
-        if (!['SUPER_ADMIN', 'ADMIN'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
-
-        const { searchParams } = new URL(req.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            throw new ApiError('Configuration ID required', 400);
-        }
-
-        await (prisma as any).contractorPaymentConfig.delete({
-            where: { id }
-        });
-
-        return NextResponse.json({ success: true, message: 'Configuration deleted successfully' });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+    await ContractorPaymentService.deleteConfig(id);
+    return Response.json({ success: true, message: 'Configuration deleted successfully' });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'DELETE_PAYMENT_CONFIG', entity: 'Admin' }
+});

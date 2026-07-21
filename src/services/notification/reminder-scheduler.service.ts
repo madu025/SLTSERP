@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Scheduled Reminder & Escalation Scheduler
  * Runs on a cron schedule to check for:

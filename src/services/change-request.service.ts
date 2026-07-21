@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export interface CreateChangeRequestInput {
@@ -86,9 +87,9 @@ export class ChangeRequestService {
       },
     });
 
-    if (!approval) throw new Error('Approval step not found');
+    if (!approval) throw AppError.badRequest('Approval step not found');
     if (approval.status !== 'PENDING') {
-      throw new Error(`Cannot approve: step is already ${approval.status}`);
+      throw AppError.badRequest(`Cannot approve: step is already ${approval.status}`);
     }
 
     // Update this step
@@ -135,9 +136,9 @@ export class ChangeRequestService {
       where: { id: changeRequestId },
     });
 
-    if (!cr) throw new Error('Change request not found');
+    if (!cr) throw AppError.badRequest('Change request not found');
     if (cr.status !== 'SUBMITTED' && cr.status !== 'DRAFT') {
-      throw new Error(`Cannot reject: request is ${cr.status}`);
+      throw AppError.badRequest(`Cannot reject: request is ${cr.status}`);
     }
 
     await prisma.projectChangeRequest.update({
@@ -167,9 +168,9 @@ export class ChangeRequestService {
       where: { id: changeRequestId },
     });
 
-    if (!cr) throw new Error('Change request not found');
+    if (!cr) throw AppError.badRequest('Change request not found');
     if (cr.status !== 'DRAFT') {
-      throw new Error(`Can only submit DRAFT requests, current: ${cr.status}`);
+      throw AppError.badRequest(`Can only submit DRAFT requests, current: ${cr.status}`);
     }
 
     return prisma.projectChangeRequest.update({

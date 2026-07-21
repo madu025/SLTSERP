@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { ServiceOrder } from '@prisma/client';
 import { TransactionClient } from '../inventory/types';
 import { SODInvoicingService } from './sod.invoicing.service';
@@ -43,10 +44,10 @@ export class ServiceOrderService {
      * Patch Update (Status Change, Completion, Material Usage, etc.)
      */
     static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder> {
-        if (!id) throw new Error('ID_REQUIRED');
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
 
         const oldOrder = await ServiceOrderRepository.findById(id, { materialUsage: true });
-        if (!oldOrder) throw new Error('ORDER_NOT_FOUND');
+        if (!oldOrder) throw AppError.badRequest('ORDER_NOT_FOUND');
 
         // 1. UNIQUE CONSTRAINT PROTECTION
         const collisionId = await SODLifecycleService.validateStatusTransition(id, oldOrder.soNum, data.status, oldOrder.status);
@@ -286,5 +287,133 @@ export class ServiceOrderService {
  
     static async bridgeSync(payload: Parameters<typeof SODSyncService.bridgeSync>[0]) {
         return SODSyncService.bridgeSync(payload);
+    }
+
+    /**
+     * One-off maintenance script to fix completed dates
+     */
+    static async fixDates(execute: boolean) {
+        const targetTime = new Date('2026-01-28T18:30:00.000Z');
+
+        const suspectOrders = await prisma.serviceOrder.findMany({
+            where: {
+                status: 'COMPLETED',
+                completedDate: {
+                    gte: targetTime
+                }
+            },
+            select: {
+                id: true,
+                soNum: true,
+                completedDate: true,
+                updatedAt: true
+            }
+        });
+
+        if (!execute) {
+            return {
+                message: "Dry Run: Found suspect orders. Add '?execute=true' to apply fix.",
+                count: suspectOrders.length,
+                samples: suspectOrders.slice(0, 5).map(o => ({
+                    soNum: o.soNum,
+                    currentDate: o.completedDate,
+                    proposedFix: o.completedDate ? new Date(o.completedDate.getTime() - 330 * 60000) : null
+                }))
+            };
+        }
+
+        let fixedCount = 0;
+        for (const order of suspectOrders) {
+            if (order.completedDate) {
+                const newDate = new Date(order.completedDate.getTime() - 330 * 60000);
+
+                await prisma.serviceOrder.update({
+                    where: { id: order.id },
+                    data: {
+                        completedDate: newDate
+                    }
+                });
+                fixedCount++;
+            }
+        }
+
+        return {
+            success: true,
+            message: "Successfully adjusted timestamps.",
+            fixedCount
+        };
+    }
+
+    /**
+     * Test/Debug method for syncing a specific SO
+     */
+    static async debugSync(soNum: string) {
+        const raw = await prisma.extensionRawData.findFirst({
+            where: { soNum }
+        });
+        if (!raw) throw AppError.notFound('No raw data');
+
+        await this.bridgeSync(raw.scrapedData as any);
+        
+        const so = await prisma.serviceOrder.findUnique({
+            where: { soNum },
+            select: { dropWireDistance: true, ontSerialNumber: true, teamId: true }
+        });
+
+        return so;
+    }
+
+    /**
+     * Store Extension Raw Data
+     */
+    static async saveExtensionRawData(soNum: string | null, body: any) {
+        if (soNum) {
+            const existing = await prisma.extensionRawData.findFirst({
+                where: { soNum: soNum }
+            });
+
+            if (existing) {
+                return prisma.extensionRawData.update({
+                    where: { id: existing.id },
+                    data: {
+                        sltUser: body.currentUser || null,
+                        activeTab: body.activeTab || null,
+                        url: body.url || null,
+                        scrapedData: body,
+                    }
+                });
+            } else {
+                return prisma.extensionRawData.create({
+                    data: {
+                        soNum: soNum,
+                        sltUser: body.currentUser || null,
+                        activeTab: body.activeTab || null,
+                        url: body.url || null,
+                        scrapedData: body,
+                    }
+                });
+            }
+        } else {
+            return prisma.extensionRawData.create({
+                data: {
+                    soNum: null,
+                    sltUser: body.currentUser || null,
+                    activeTab: body.activeTab || null,
+                    url: body.url || null,
+                    scrapedData: body,
+                }
+            });
+        }
+    }
+
+    static async getExtensionLogs() {
+        return prisma.extensionRawData.findMany({
+            orderBy: { updatedAt: 'desc' },
+            take: 100
+        });
+    }
+
+    static async clearExtensionLogs() {
+        return prisma.extensionRawData.deleteMany({});
     }
 }

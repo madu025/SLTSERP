@@ -1,82 +1,38 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectAssetService } from '@/services/project/project-asset.service';
+import { z } from 'zod';
 
-// GET: Fetch a single asset by ID
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string; assetId: string }> }
-) {
-    try {
-        const { assetId } = await params;
+export const dynamic = 'force-dynamic';
 
-        const asset = await prisma.projectAsset.findUnique({
-            where: { id: assetId },
-            include: {
-                cables: true,
-                connections: true,
-                documents: true
-            }
-        });
+export const GET = apiHandler(async (_request, params) => {
+    const { assetId } = params;
+    return await ProjectAssetService.getAsset(assetId);
+}, { rawResponse: true });
 
-        if (!asset) {
-            return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
-        }
+const patchAssetSchema = z.object({
+    assetType: z.string().optional(),
+    assetCode: z.string().optional(),
+    assetName: z.string().optional(),
+    description: z.string().optional(),
+    address: z.string().optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    status: z.string().optional(),
+});
 
-        return NextResponse.json(asset);
-    } catch (error) {
-        console.error('Error fetching asset:', error);
-        return NextResponse.json({ error: 'Failed to fetch asset' }, { status: 500 });
-    }
-}
+export const PATCH = apiHandler(async (_request, params, body) => {
+    const { assetId } = params;
+    const data = patchAssetSchema.parse(body);
+    return await ProjectAssetService.updateAsset(assetId, data);
+}, {
+    audit: { action: 'UPDATE', entity: 'ASSET' },
+    rawResponse: true
+});
 
-// PATCH: Update asset details
-export async function PATCH(
-    request: Request,
-    { params }: { params: Promise<{ id: string; assetId: string }> }
-) {
-    try {
-        const { assetId } = await params;
-        const body = await request.json();
-        const { assetType, assetCode, assetName, description, address, latitude, longitude, status } = body;
-
-        const asset = await prisma.projectAsset.update({
-            where: { id: assetId },
-            data: {
-                assetType: assetType ?? undefined,
-                assetCode: assetCode ?? undefined,
-                assetName: assetName ?? undefined,
-                description: description ?? undefined,
-                address: address ?? undefined,
-                latitude: latitude ?? undefined,
-                longitude: longitude ?? undefined,
-                status: status ?? undefined
-            },
-            include: {
-                cables: true,
-                connections: true
-            }
-        });
-
-        return NextResponse.json(asset);
-    } catch (error) {
-        console.error('Error updating asset:', error);
-        return NextResponse.json({ error: 'Failed to update asset' }, { status: 500 });
-    }
-}
-
-// DELETE: Remove an asset registration
-export async function DELETE(
-    request: Request,
-    { params }: { params: Promise<{ id: string; assetId: string }> }
-) {
-    try {
-        const { assetId } = await params;
-
-        await prisma.projectAsset.delete({ where: { id: assetId } });
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Error deleting asset:', error);
-        return NextResponse.json({ error: 'Failed to delete asset' }, { status: 500 });
-    }
-}
+export const DELETE = apiHandler(async (_request, params) => {
+    const { assetId } = params;
+    return await ProjectAssetService.deleteAsset(assetId);
+}, {
+    audit: { action: 'DELETE', entity: 'ASSET' },
+    rawResponse: true
+});

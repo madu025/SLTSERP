@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { GRN, Prisma } from '@prisma/client';
 import { NotificationService } from '../notification.service';
@@ -57,7 +58,7 @@ export class GRNService {
             }
 
             // 1. Create GRN
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const grn = await (tx as any).gRN.create({
                 data: {
                     grnNumber: `GRN-${Date.now()}`,
@@ -68,7 +69,7 @@ export class GRNService {
                     requestId: requestId || null,
                     reference: sltReferenceId || null,
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         create: items.map((i: any) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity.toString())
@@ -79,9 +80,9 @@ export class GRNService {
             });
 
             // 2. Fetch Item Metadata for Pricing
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const itemIds = items.map((i: any) => i.itemId);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const itemMetadata = await (tx as any).inventoryItem.findMany({
                 where: { id: { in: itemIds } },
                 select: { id: true, costPrice: true, unitPrice: true }
@@ -93,14 +94,14 @@ export class GRNService {
 
             for (const item of items) {
                 const qty = StockService.round(parseFloat(item.quantity.toString()));
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const meta = itemMetadata.find((m: any) => m.id === item.itemId);
                 const costPrice = meta?.costPrice || 0;
                 totalGrnCost += Number(costPrice) * qty;
                 const unitPrice = meta?.unitPrice || 0;
 
                 // A. Create Batch
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const batch = await (tx as any).inventoryBatch.create({
                     data: {
                         batchNumber: `BAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -114,10 +115,10 @@ export class GRNService {
                 });
 
                 // B. Link GRN Item to Batch
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const grnLine = grn.items.find((gi: any) => gi.itemId === item.itemId);
                 if (grnLine) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).gRNItem.update({
                         where: { id: grnLine.id },
                         data: { batchId: batch.id }
@@ -125,7 +126,7 @@ export class GRNService {
                 }
 
                 // C. Initialize Batch Stock in Store
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 await (tx as any).inventoryBatchStock.create({
                     data: {
                         storeId,
@@ -137,7 +138,7 @@ export class GRNService {
                 });
 
                 // D. Update Store Stock Total
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 await (tx as any).inventoryStock.upsert({
                     where: {
                         storeId_itemId: {
@@ -211,7 +212,7 @@ export class GRNService {
             }
 
             // 4. Create Transaction Log
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             await (tx as any).inventoryTransaction.create({
                 data: {
                     type: 'GRN_IN',
@@ -233,7 +234,7 @@ export class GRNService {
                 // Lock the StockRequest row to prevent concurrent race conditions
                 await tx.$executeRaw`SELECT id FROM "StockRequest" WHERE id = ${requestId} FOR UPDATE`;
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const request = await (tx as any).stockRequest.findUnique({
                     where: { id: requestId },
                     include: { items: true }
@@ -241,23 +242,23 @@ export class GRNService {
 
                 if (request) {
                     if (request.status !== 'APPROVED') {
-                        throw new Error(`CANNOT_RECEIVE_GRN_FOR_UNAPPROVED_REQUEST: Stock Request ${request.requestNr} has status ${request.status} and must be APPROVED first.`);
+                        throw AppError.badRequest(`CANNOT_RECEIVE_GRN_FOR_UNAPPROVED_REQUEST: Stock Request ${request.requestNr} has status ${request.status} and must be APPROVED first.`);
                     }
 
                     let allItemsCompleted = true;
 
                     // Update received quantities for each item
                     for (const reqItem of request.items) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         const grnItem = items.find((gi: any) => gi.itemId === reqItem.itemId);
                         if (grnItem) {
                             const newReceivedQty = reqItem.receivedQty + parseFloat(grnItem.quantity.toString());
                             const limitQty = reqItem.approvedQty;
                             if (newReceivedQty > limitQty) {
-                                throw new Error(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
+                                throw AppError.badRequest(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
                             }
 
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            
                             await (tx as any).stockRequestItem.update({
                                 where: { id: reqItem.id },
                                 data: { receivedQty: newReceivedQty }
@@ -275,7 +276,7 @@ export class GRNService {
 
                     const newStatus = allItemsCompleted ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     const updatedReq = await (tx as any).stockRequest.update({
                         where: { id: requestId },
                         data: {

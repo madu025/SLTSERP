@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from '../inventory/stock.service';
 
@@ -27,17 +28,17 @@ export class ProjectIRLedgerService {
   /**
    * Helper to verify project status inside a transaction context.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
   static async verifyProjectStatus(tx: any, projectId: string) {
     const proj = await tx.project.findUnique({
       where: { id: projectId },
       select: { name: true, status: true }
     });
     if (!proj) {
-      throw new Error('PROJECT_NOT_FOUND: The target project does not exist.');
+      throw AppError.badRequest('PROJECT_NOT_FOUND: The target project does not exist.');
     }
     if (proj.status === 'COMPLETED' || proj.status === 'CANCELLED') {
-      throw new Error(`INVALID_PROJECT_STATUS: Project "${proj.name}" is ${proj.status}. Material transactions are only allowed for active projects.`);
+      throw AppError.badRequest(`INVALID_PROJECT_STATUS: Project "${proj.name}" is ${proj.status}. Material transactions are only allowed for active projects.`);
     }
   }
 
@@ -45,7 +46,7 @@ export class ProjectIRLedgerService {
    * Helper to verify leftover quantity inside a Prisma transaction context.
    */
   static async verifyProjectLeftover(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    
     tx: any,
     projectId: string,
     itemId: string,
@@ -107,7 +108,7 @@ export class ProjectIRLedgerService {
     const leftover = projectReceived - projectReturned - projectTransferredOut - projectWasted - projectSLTReturned;
 
     if (leftover < requiredQty) {
-      throw new Error(`INSUFFICIENT_PROJECT_STOCK: The source project has only ${leftover} units left of this batch, but ${requiredQty} was requested.`);
+      throw AppError.badRequest(`INSUFFICIENT_PROJECT_STOCK: The source project has only ${leftover} units left of this batch, but ${requiredQty} was requested.`);
     }
 
     return leftover;
@@ -325,7 +326,7 @@ export class ProjectIRLedgerService {
           items: {
             create: items.map(i => {
               if (i.quantity <= 0) {
-                throw new Error('INVALID_QUANTITY: Received quantity must be greater than zero.');
+                throw AppError.badRequest('INVALID_QUANTITY: Received quantity must be greater than zero.');
               }
               return {
                 itemId: i.itemId,
@@ -441,7 +442,7 @@ export class ProjectIRLedgerService {
     const { projectId, storeId, batchId, itemId, quantity, userId, remarks, contractorId } = data;
 
     if (quantity <= 0) {
-      throw new Error('INVALID_QUANTITY: Issue quantity must be greater than zero.');
+      throw AppError.badRequest('INVALID_QUANTITY: Issue quantity must be greater than zero.');
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -466,7 +467,7 @@ export class ProjectIRLedgerService {
         const totalIssuedSoFar = Number(currentIssued._sum.quantity || 0) + quantity;
         const limit = Number(boqItem.quantity) * 1.20; // 120% budget ceiling
         if (totalIssuedSoFar > limit) {
-          throw new Error(`BOQ_LIMIT_EXCEEDED: Cumulative issued quantity (${totalIssuedSoFar}) exceeds the 120% BOQ budget ceiling (${limit}) for this item. Issue rejected.`);
+          throw AppError.badRequest(`BOQ_LIMIT_EXCEEDED: Cumulative issued quantity (${totalIssuedSoFar}) exceeds the 120% BOQ budget ceiling (${limit}) for this item. Issue rejected.`);
         }
       }
 
@@ -483,7 +484,7 @@ export class ProjectIRLedgerService {
       });
 
       if (!bStock || Number(bStock.quantity) < quantity) {
-        throw new Error('INSUFFICIENT_STOCK: Store does not have enough quantity for this IR batch.');
+        throw AppError.badRequest('INSUFFICIENT_STOCK: Store does not have enough quantity for this IR batch.');
       }
 
       await tx.inventoryBatchStock.update({
@@ -555,7 +556,7 @@ export class ProjectIRLedgerService {
     const { projectId, storeId, batchId, itemId, quantity, userId, remarks } = data;
 
     if (quantity <= 0) {
-      throw new Error('INVALID_QUANTITY: Return quantity must be greater than zero.');
+      throw AppError.badRequest('INVALID_QUANTITY: Return quantity must be greater than zero.');
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -635,7 +636,7 @@ export class ProjectIRLedgerService {
     const { sourceProjectId, destProjectId, storeId, batchId, itemId, quantity, userId, remarks } = data;
 
     if (quantity <= 0) {
-      throw new Error('INVALID_QUANTITY: Transfer quantity must be greater than zero.');
+      throw AppError.badRequest('INVALID_QUANTITY: Transfer quantity must be greater than zero.');
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -700,7 +701,7 @@ export class ProjectIRLedgerService {
     const { projectId, storeId, batchId, itemId, quantity, userId, remarks, contractorId } = data;
 
     if (quantity <= 0) {
-      throw new Error('INVALID_QUANTITY: Wastage quantity must be greater than zero.');
+      throw AppError.badRequest('INVALID_QUANTITY: Wastage quantity must be greater than zero.');
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -772,11 +773,11 @@ export class ProjectIRLedgerService {
     const { projectId, storeId, batchId, itemId, quantity, userId, gatepassNumber, remarks } = data;
 
     if (quantity <= 0) {
-      throw new Error('INVALID_QUANTITY: Return to SLT quantity must be greater than zero.');
+      throw AppError.badRequest('INVALID_QUANTITY: Return to SLT quantity must be greater than zero.');
     }
 
     if (!gatepassNumber || gatepassNumber.trim() === '') {
-      throw new Error('MISSING_GATEPASS: A valid SLT gatepass reference number is required to log a return back to SLT.');
+      throw AppError.badRequest('MISSING_GATEPASS: A valid SLT gatepass reference number is required to log a return back to SLT.');
     }
 
     return await prisma.$transaction(async (tx) => {

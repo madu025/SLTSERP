@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface GRNItemInput {
@@ -72,7 +73,7 @@ export class ProjectGoodsReceiptService {
             where: { id: poId }
         });
         if (!po) {
-            throw new Error('PURCHASE_ORDER_NOT_FOUND');
+            throw AppError.badRequest('PURCHASE_ORDER_NOT_FOUND');
         }
 
         // Auto-generate GRN number
@@ -177,7 +178,7 @@ export class ProjectGoodsReceiptService {
     static async updateGoodsReceiptStatus(id: string, status: string, approvedById?: string | null) {
         const validStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
         if (!validStatuses.includes(status)) {
-            throw new Error('INVALID_STATUS');
+            throw AppError.badRequest('INVALID_STATUS');
         }
 
         const updateData: Record<string, unknown> = { status };

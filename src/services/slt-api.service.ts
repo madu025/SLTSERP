@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 // SLT API Service for fetching FTTH service orders
 export interface SLTServiceOrderData {
     RTOM: string;
@@ -97,7 +98,7 @@ export class SLTApiService {
             });
 
             if (!response.ok) {
-                throw new Error(`SLT API returned ${response.status}: ${response.statusText}`);
+                throw AppError.badRequest(`SLT API returned ${response.status}: ${response.statusText}`);
             }
 
             const data: SLTApiResponse = await response.json();
@@ -125,13 +126,13 @@ export class SLTApiService {
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {
                     console.error(`SLT API timeout for RTOM ${rtom}`);
-                    throw new Error(`SLT Portal connection timed out (server unreachable)`);
+                    throw AppError.badRequest(`SLT Portal connection timed out (server unreachable)`);
                 } else {
                     console.error(`SLT API error for RTOM ${rtom}:`, error.message);
-                    throw new Error(`SLT Portal returned error: ${error.message}`);
+                    throw AppError.badRequest(`SLT Portal returned error: ${error.message}`);
                 }
             }
-            throw new Error(`SLT Portal connection failed: Unknown error`);
+            throw AppError.badRequest(`SLT Portal connection failed: Unknown error`);
         }
     }
 
@@ -173,7 +174,7 @@ export class SLTApiService {
                 signal: AbortSignal.timeout(300000),
             });
 
-            if (!response.ok) throw new Error(`HO Approved API returned ${response.status}`);
+            if (!response.ok) throw AppError.badRequest(`HO Approved API returned ${response.status}`);
 
             const data = await response.json();
             const count = Array.isArray(data.data) ? data.data.length : 0;

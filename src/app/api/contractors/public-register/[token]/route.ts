@@ -1,45 +1,28 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
+import { z } from 'zod';
 
-export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
-    try {
-        const { token } = await context.params;
-        const contractor = await ContractorService.getContractorByToken(token);
-        return NextResponse.json(contractor);
-    } catch (error: any) {
-        if (error.message === 'INVALID_TOKEN' || error.message === 'TOKEN_EXPIRED' || error.message === 'ALREADY_SUBMITTED') {
-            return NextResponse.json({ error: error.message }, { status: 400 });
-        }
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-}
+const registrationSchema = z.any(); // Assuming dynamic registration payload
+const draftSchema = z.any();
 
-export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
-    try {
-        const data = await request.json();
-        const { token } = await context.params;
+export const GET = apiHandler(async (_req, params) => {
+    const { token } = params;
+    const contractor = await ContractorService.getContractorByToken(token);
+    return Response.json(contractor);
+});
 
-        await ContractorService.submitPublicRegistration(token, data);
+export const POST = apiHandler(async (_req, params, body) => {
+    const data = registrationSchema.parse(body);
+    const { token } = params;
+    await ContractorService.submitPublicRegistration(token, data);
+    return Response.json({ success: true, message: 'Registration submitted for review.' });
+}, {
+    audit: { action: 'SUBMIT_PUBLIC_REGISTRATION', entity: 'Contractor' }
+});
 
-        return NextResponse.json({ success: true, message: 'Registration submitted for review.' });
-    } catch (error: any) {
-        console.error('Registration error:', error);
-        if (error.message === 'INVALID_TOKEN' || error.message === 'TOKEN_EXPIRED' || error.message === 'ALREADY_SUBMITTED') {
-            return NextResponse.json({ error: error.message }, { status: 400 });
-        }
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-}
-export async function PATCH(request: Request, context: { params: Promise<{ token: string }> }) {
-    try {
-        const data = await request.json();
-        const { token } = await context.params;
-
-        await ContractorService.saveRegistrationDraft(token, data);
-
-        return NextResponse.json({ success: true, message: 'Draft saved.' });
-    } catch (error: any) {
-        console.error('Draft save error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-}
+export const PATCH = apiHandler(async (_req, params, body) => {
+    const data = draftSchema.parse(body);
+    const { token } = params;
+    await ContractorService.saveRegistrationDraft(token, data);
+    return Response.json({ success: true, message: 'Draft saved.' });
+});

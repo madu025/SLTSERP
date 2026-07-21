@@ -1,78 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { handleApiError, ApiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { SodRevenueService } from '@/services/admin/sod-revenue.service';
+import { AppError } from '@/lib/error';
 
-// GET - Calculate revenue for a specific SOD or date
-export async function GET(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const rtomId = searchParams.get('rtomId');
+    const date = searchParams.get('date');
 
-        if (!role) {
-            throw new ApiError('Unauthorized', 401);
-        }
-
-        const { searchParams } = new URL(req.url);
-        const rtomId = searchParams.get('rtomId');
-        const date = searchParams.get('date');
-
-        if (!rtomId || !date) {
-            throw new ApiError('RTOM ID and date are required', 400);
-        }
-
-        const completedDate = new Date(date);
-        const revenue = await getRevenueForSOD(rtomId, completedDate);
-
-        return NextResponse.json({
-            success: true,
-            data: {
-                revenue,
-                rtomId,
-                date: completedDate.toISOString()
-            }
-        });
-    } catch (error) {
-        return handleApiError(error);
+    if (!rtomId || !date) {
+        throw AppError.badRequest('RTOM ID and date are required');
     }
-}
 
-// Utility function to get revenue for a specific SOD
-export async function getRevenueForSOD(
-    rtomId: string,
-    completedDate: Date
-): Promise<number> {
+    const completedDate = new Date(date);
+    const revenue = await SodRevenueService.getRevenueForSOD(rtomId, completedDate);
 
-    // Step 1: Check for RTOM-specific rate with date range
-    const rtomWithDate = await prisma.sODRevenueConfig.findFirst({
-        where: {
-            rtomId: rtomId,
-            effectiveFrom: { lte: completedDate },
-            effectiveTo: { gte: completedDate },
-            isActive: true
-        },
-        orderBy: { createdAt: 'desc' }
+    return Response.json({
+        success: true,
+        data: {
+            revenue,
+            rtomId,
+            date: completedDate.toISOString()
+        }
     });
-    if (rtomWithDate) return rtomWithDate.revenuePerSOD;
-
-    // Step 2: Check for RTOM-specific rate (permanent)
-    const rtomPermanent = await prisma.sODRevenueConfig.findFirst({
-        where: {
-            rtomId: rtomId,
-            effectiveFrom: null,
-            effectiveTo: null,
-            isActive: true
-        },
-        orderBy: { createdAt: 'desc' }
-    });
-    if (rtomPermanent) return rtomPermanent.revenuePerSOD;
-
-    // Step 3: Get default rate
-    const defaultRate = await prisma.sODRevenueConfig.findFirst({
-        where: {
-            rtomId: null, // Default for all RTOMs
-            isActive: true
-        },
-        orderBy: { createdAt: 'desc' }
-    });
-
-    return defaultRate?.revenuePerSOD || 10500; // Fallback to Rs. 10,500
-}
+}, {
+    // Requires any valid role
+});

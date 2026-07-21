@@ -1,31 +1,24 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { MaterialService } from '@/services/material.service';
+import { z } from 'zod';
+
+const generateSchema = z.object({
+    contractorId: z.string().min(1, "contractorId is required"),
+    storeId: z.string().min(1, "storeId is required"),
+    month: z.string().min(1, "month is required")
+});
 
 // POST - Generate contractor balance sheet for a month
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { contractorId, storeId, month } = body;
+export const POST = apiHandler(async (_req, _params, body) => {
+    const data = generateSchema.parse(body);
 
-        if (!contractorId || !storeId || !month) {
-            return NextResponse.json(
-                { error: 'contractorId, storeId, and month are required' },
-                { status: 400 }
-            );
-        }
+    await MaterialService.generateBalanceSheet(data.contractorId, data.storeId, data.month);
+    const balanceSheet = await MaterialService.getBalanceSheet(data.contractorId, data.storeId, data.month);
 
-        const sheet = await MaterialService.generateBalanceSheet(contractorId, storeId, month);
-        const balanceSheet = await MaterialService.getBalanceSheet(contractorId, storeId, month);
-
-        return NextResponse.json({
-            message: 'Balance sheet generated successfully',
-            balanceSheet
-        });
-    } catch (error) {
-        console.error('Error generating balance sheet:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
-    }
-}
+    return Response.json({
+        message: 'Balance sheet generated successfully',
+        balanceSheet
+    });
+}, {
+    audit: { action: 'GENERATE_BALANCE_SHEET', entity: 'ContractorBalanceSheet' }
+});

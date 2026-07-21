@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 /**
  * Vehicle Service - Business logic for vehicle operations
  * Handles CRUD, status updates, location tracking, etc.
@@ -95,7 +96,7 @@ export class VehicleService {
         phone: d.phone || '',
       }));
     } catch (error) {
-      throw new Error(`Failed to fetch active drivers: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to fetch active drivers: ${getErrorMessage(error)}`);
     }
   }
 
@@ -128,7 +129,7 @@ export class VehicleService {
 
       return this.mapVehicleToDTO(vehicle);
     } catch (error) {
-      throw new Error(`Failed to create vehicle: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to create vehicle: ${getErrorMessage(error)}`);
     }
   }
 
@@ -143,7 +144,7 @@ export class VehicleService {
       })) as DbVehicle | null;
       return vehicle ? this.mapVehicleToDTO(vehicle) : null;
     } catch (error) {
-      throw new Error(`Failed to fetch vehicle: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to fetch vehicle: ${getErrorMessage(error)}`);
     }
   }
 
@@ -179,7 +180,7 @@ export class VehicleService {
         total,
       };
     } catch (error) {
-      throw new Error(`Failed to list vehicles: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to list vehicles: ${getErrorMessage(error)}`);
     }
   }
 
@@ -201,7 +202,7 @@ export class VehicleService {
       })) as DbVehicle;
       return this.mapVehicleToDTO(vehicle);
     } catch (error) {
-      throw new Error(`Failed to update vehicle: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to update vehicle: ${getErrorMessage(error)}`);
     }
   }
 
@@ -215,7 +216,7 @@ export class VehicleService {
       });
       return true;
     } catch (error) {
-      throw new Error(`Failed to delete vehicle: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to delete vehicle: ${getErrorMessage(error)}`);
     }
   }
 
@@ -255,7 +256,7 @@ export class VehicleService {
 
       return this.mapVehicleToDTO(vehicle);
     } catch (error) {
-      throw new Error(`Failed to update vehicle location: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to update vehicle location: ${getErrorMessage(error)}`);
     }
   }
 
@@ -284,7 +285,7 @@ export class VehicleService {
         accuracy: vehicle.location_accuracy_meters || 10,
       };
     } catch (error) {
-      throw new Error(`Failed to get vehicle location: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to get vehicle location: ${getErrorMessage(error)}`);
     }
   }
 
@@ -329,7 +330,7 @@ export class VehicleService {
         cost_per_km: parseFloat((totalFuelCost / totalDistance).toFixed(2)),
       };
     } catch (error) {
-      throw new Error(`Failed to calculate vehicle utilization: ${getErrorMessage(error)}`);
+      throw AppError.badRequest(`Failed to calculate vehicle utilization: ${getErrorMessage(error)}`);
     }
   }
 

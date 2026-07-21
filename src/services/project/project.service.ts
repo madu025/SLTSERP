@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from '@/services/WorkflowEngine';
 import { calculateProjectProgress } from '@/lib/project-progress';
@@ -214,7 +215,7 @@ export class ProjectService {
             }
         });
 
-        if (!project) throw new Error('PROJECT_NOT_FOUND');
+        if (!project) throw AppError.badRequest('PROJECT_NOT_FOUND');
         return project;
     }
 
@@ -230,7 +231,7 @@ export class ProjectService {
         });
 
         if (existing) {
-            throw new Error('PROJECT_CODE_EXISTS');
+            throw AppError.badRequest('PROJECT_CODE_EXISTS');
         }
 
         const project = await prisma.project.create({
@@ -276,7 +277,7 @@ export class ProjectService {
         });
 
         if (!existingProject) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
         const hasActiveWorkflow = !!existingProject.workflowInstance;
@@ -378,13 +379,13 @@ export class ProjectService {
     static async deleteProject(id: string, userRole?: string | null) {
         const isDev = process.env.NODE_ENV === 'development';
         if (!isDev && (!userRole || !['SUPER_ADMIN', 'ADMIN'].includes(userRole))) {
-            throw new Error('FORBIDDEN');
+            throw AppError.badRequest('FORBIDDEN');
         }
 
         // Verify project exists and get gisMapping
         const project = await prisma.project.findUnique({ where: { id } });
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
         // Delete from QFieldCloud if mapped

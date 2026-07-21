@@ -1,26 +1,20 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/TripService';
+import { AppError } from '@/lib/error';
 
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: driverId } = await params;
-        const { searchParams } = new URL(request.url);
-        const dateStr = searchParams.get('date');
+export const GET = apiHandler(async (req, params) => {
+    const { id: driverId } = await params;
+    const { searchParams } = new URL(req.url);
+    const dateStr = searchParams.get('date');
 
-        if (!dateStr) {
-            return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Missing date query param (YYYY-MM-DD)' } }, { status: 400 });
-        }
-
-        const date = new Date(dateStr + 'T00:00:00.000Z');
-        const trips = await TripService.getDriverDailyTrips(driverId, date);
-
-        return NextResponse.json({ success: true, data: trips });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
+    if (!dateStr) {
+        throw AppError.badRequest('Missing date query param (YYYY-MM-DD)');
     }
-}
 
+    const date = new Date(dateStr + 'T00:00:00.000Z');
+    const trips = await TripService.getDriverDailyTrips(driverId, date);
+
+    return trips; // apiHandler will wrap in success: true, data: trips
+}, {
+    // Requires standard auth
+});

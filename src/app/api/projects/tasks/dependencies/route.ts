@@ -1,59 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ProjectTaskService } from '@/services/project-task.service';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectTaskService } from '@/services/project/project-task.service';
+import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
-// GET /api/projects/tasks/dependencies?taskId=xxx
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const taskId = searchParams.get('taskId');
+
+    return await ProjectTaskService.getDependencies(taskId);
+}, { rawResponse: true });
+
+const createDependencySchema = z.object({
+    taskId: z.string().min(1),
+    dependsOnTaskId: z.string().min(1),
+    dependencyType: z.string().optional(),
+});
+
+export const POST = apiHandler(async (_request, _params, body) => {
+    const data = createDependencySchema.parse(body);
+
     try {
-        const { searchParams } = new URL(request.url);
-        const taskId = searchParams.get('taskId');
-
-        const dependencies = await ProjectTaskService.getDependencies(taskId);
-        return NextResponse.json(dependencies);
+        const dependency = await ProjectTaskService.createDependency(data);
+        return Response.json(dependency, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error fetching dependencies:', error);
-        return NextResponse.json({ error: 'Failed to fetch dependencies' }, { status: 500 });
+        if (error instanceof Error) {
+            if (error.message === 'SELF_DEPENDENCY') throw AppError.badRequest('A task cannot depend on itself');
+            if (error.message === 'DEPENDENCY_EXISTS') throw AppError.badRequest('This dependency already exists');
+        }
+        throw error;
     }
-}
+}, {
+    audit: { action: 'CREATE', entity: 'TASK_DEPENDENCY' },
+    rawResponse: true
+});
 
-// POST /api/projects/tasks/dependencies
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { taskId, dependsOnTaskId } = body;
+export const DELETE = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
-        if (!taskId || !dependsOnTaskId) {
-            return NextResponse.json({ error: 'taskId and dependsOnTaskId are required' }, { status: 400 });
-        }
+    if (!id) throw AppError.badRequest('Dependency ID is required');
 
-        const dependency = await ProjectTaskService.createDependency(body);
-        return NextResponse.json(dependency, { status: 201 });
-    } catch (error: unknown) {
-        console.error('Error creating dependency:', error);
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'SELF_DEPENDENCY') {
-            return NextResponse.json({ error: 'A task cannot depend on itself' }, { status: 400 });
-        }
-        if (errorMsg === 'DEPENDENCY_EXISTS') {
-            return NextResponse.json({ error: 'This dependency already exists' }, { status: 400 });
-        }
-        return NextResponse.json({ error: 'Failed to create dependency' }, { status: 500 });
-    }
-}
-
-// DELETE /api/projects/tasks/dependencies?id=xxx
-export async function DELETE(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            return NextResponse.json({ error: 'Dependency ID is required' }, { status: 400 });
-        }
-
-        await ProjectTaskService.deleteDependency(id);
-        return NextResponse.json({ success: true });
-    } catch (error: unknown) {
-        console.error('Error deleting dependency:', error);
-        return NextResponse.json({ error: 'Failed to delete dependency' }, { status: 500 });
-    }
-}
+    await ProjectTaskService.deleteDependency(id);
+    return { success: true };
+}, {
+    audit: { action: 'DELETE', entity: 'TASK_DEPENDENCY' },
+    rawResponse: true
+});

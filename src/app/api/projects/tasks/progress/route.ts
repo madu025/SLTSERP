@@ -1,42 +1,41 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ProjectTaskService } from '@/services/project-task.service';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectTaskService } from '@/services/project/project-task.service';
+import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
-// GET /api/projects/tasks/progress?taskId=xxx
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const taskId = searchParams.get('taskId');
+    if (!taskId) throw AppError.badRequest('taskId is required');
+
+    return await ProjectTaskService.getProgressLogs(taskId);
+}, { rawResponse: true });
+
+const logProgressSchema = z.object({
+    taskId: z.string().min(1),
+    progress: z.number().min(0).max(100),
+    notes: z.string().optional().nullable(),
+    loggedById: z.string().optional().nullable(),
+    logDate: z.string().optional().nullable(),
+});
+
+export const POST = apiHandler(async (_request, _params, body) => {
+    const data = logProgressSchema.parse(body);
+
     try {
-        const { searchParams } = new URL(request.url);
-        const taskId = searchParams.get('taskId');
-
-        if (!taskId) {
-            return NextResponse.json({ error: 'taskId is required' }, { status: 400 });
-        }
-
-        const logs = await ProjectTaskService.getProgressLogs(taskId);
-        return NextResponse.json(logs);
+        const log = await ProjectTaskService.logProgress(data);
+        return Response.json(log, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error fetching progress logs:', error);
-        return NextResponse.json({ error: 'Failed to fetch progress logs' }, { status: 500 });
-    }
-}
-
-// POST /api/projects/tasks/progress
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { taskId, progress } = body;
-
-        if (!taskId || progress === undefined) {
-            return NextResponse.json({ error: 'taskId and progress are required' }, { status: 400 });
+        if (error instanceof Error) {
+            if (error.message === 'INVALID_PROGRESS_RANGE') {
+                throw AppError.badRequest('Progress must be a number between 0 and 100');
+            }
         }
-
-        const log = await ProjectTaskService.logProgress(body);
-        return NextResponse.json(log, { status: 201 });
-    } catch (error: unknown) {
-        console.error('Error logging progress:', error);
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'INVALID_PROGRESS_RANGE') {
-            return NextResponse.json({ error: 'Progress must be a number between 0 and 100' }, { status: 400 });
-        }
-        return NextResponse.json({ error: 'Failed to log progress' }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'UPDATE', entity: 'TASK_PROGRESS' },
+    rawResponse: true
+});

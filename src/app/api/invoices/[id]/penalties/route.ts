@@ -1,202 +1,82 @@
-import { NextResponse } from 'next/server';
-import { prisma, primaryClient } from '@/lib/prisma';
-import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
-import { NotificationService } from '@/services/notification';
+import { apiHandler } from '@/lib/api-handler';
+import { InvoiceService } from '@/services/invoice.service';
+import { z } from 'zod';
+import { requestContext } from '@/lib/request-context';
+import { AppError } from '@/lib/error';
 
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const body = await request.json();
-        const { amount, reason, description, serviceOrderId } = body;
+const createPenaltySchema = z.object({
+    amount: z.union([z.string(), z.number()]).transform(val => parseFloat(String(val))),
+    reason: z.string().optional(),
+    description: z.string().optional(),
+    serviceOrderId: z.string().optional()
+});
 
-        if (!amount || isNaN(parseFloat(amount))) {
-            return NextResponse.json({ error: 'Valid penalty amount is required' }, { status: 400 });
-        }
+const updatePenaltySchema = z.object({
+    penaltyId: z.string().min(1, 'Penalty ID is required'),
+    status: z.enum(['APPROVED', 'REJECTED'])
+});
 
-        const userRole = request.headers.get('x-user-role');
-        const userId = request.headers.get('x-user-id');
+export const POST = apiHandler(async (req, params, body) => {
+    const { id } = params;
+    const data = createPenaltySchema.parse(body);
 
-        if (!userId) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        }
-
-        // Fetch proposer info
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { name: true, role: true }
-        });
-        const proposerName = user ? `${user.name || 'User'} (${user.role})` : 'System User';
-
-        // Auto approve if proposed by Area Manager or above
-        const isApproverRole = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
-        const status = isApproverRole ? 'APPROVED' : 'PENDING';
-
-        const penalty = await primaryClient.$transaction(async (tx) => {
-            const record = await tx.penalty.create({
-                data: {
-                    invoiceId: id,
-                    amount: parseFloat(amount),
-                    reason: reason || 'MANUAL',
-                    description: description || null,
-                    serviceOrderId: serviceOrderId || null,
-                    status,
-                    proposedBy: proposerName
-                }
-            });
-
-            if (status === 'APPROVED') {
-                await InvoiceGeneratorService.recalculateInvoiceSplits(id, tx);
-            }
-
-            return record;
-        });
-
-        // Get invoice number for notification
-        const invoice = await prisma.invoice.findUnique({
-            where: { id },
-            select: { invoiceNumber: true, contractorId: true }
-        });
-        const invNum = invoice?.invoiceNumber || id;
-
-        // Notify Area Managers if PENDING
-        if (status === 'PENDING') {
-            await NotificationService.notifyByRole({
-                roles: ['AREA_MANAGER', 'SUPER_ADMIN', 'ADMIN'],
-                title: 'New Penalty Proposed',
-                message: `A penalty of LKR ${parseFloat(amount).toFixed(2)} has been proposed for Invoice ${invNum} by ${proposerName}. Reason: ${reason || 'MANUAL'}.`,
-                type: 'FINANCE',
-                priority: 'HIGH',
-                link: '/invoices'
-            });
-        } else if (status === 'APPROVED' && invoice?.contractorId) {
-            // If auto-approved (proposed by manager), notify contractor immediately
-            await NotificationService.send({
-                userId: invoice.contractorId,
-                title: 'Penalty Applied',
-                message: `A penalty of LKR ${parseFloat(amount).toFixed(2)} has been applied to Invoice ${invNum}. Reason: ${reason || 'MANUAL'}.`,
-                type: 'FINANCE',
-                priority: 'HIGH',
-                link: '/invoices'
-            });
-        }
-
-        return NextResponse.json({ success: true, penalty });
-    } catch (error) {
-        console.error('Error creating manual penalty:', error);
-        return NextResponse.json({ error: 'Failed to create penalty' }, { status: 500 });
+    if (isNaN(data.amount) || data.amount <= 0) {
+        throw AppError.badRequest('Valid penalty amount is required');
     }
-}
 
-export async function PATCH(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const body = await request.json();
-        const { penaltyId, status } = body; // status can be 'APPROVED' or 'REJECTED'
+    const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role') || 'UNKNOWN';
 
-        if (!penaltyId || !['APPROVED', 'REJECTED'].includes(status)) {
-            return NextResponse.json({ error: 'Valid penalty ID and status (APPROVED/REJECTED) are required' }, { status: 400 });
-        }
-
-        // Only Area Manager, Admin, and Super Admin can approve/reject
-        const userRole = request.headers.get('x-user-role');
-        const isApproverRole = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
-
-        if (!isApproverRole) {
-            return NextResponse.json({ error: 'Permission Denied. Only Area Managers or Admins can approve/reject penalties.' }, { status: 403 });
-        }
-
-        const updatedPenalty = await primaryClient.$transaction(async (tx) => {
-            const record = await tx.penalty.update({
-                where: { id: penaltyId },
-                data: { status }
-            });
-
-            await InvoiceGeneratorService.recalculateInvoiceSplits(id, tx);
-            return record;
-        });
-
-        // Notify about decision
-        const invoice = await prisma.invoice.findUnique({
-            where: { id },
-            select: { invoiceNumber: true, contractorId: true }
-        });
-        const invNum = invoice?.invoiceNumber || id;
-
-        await NotificationService.notifyByRole({
-            roles: ['AREA_COORDINATOR', 'QC_OFFICER', 'MANAGER', 'OSP_MANAGER', 'SUPER_ADMIN', 'ADMIN'],
-            title: `Penalty ${status.toLowerCase()}`,
-            message: `A proposed penalty of LKR ${updatedPenalty.amount.toFixed(2)} for Invoice ${invNum} has been ${status.toLowerCase()} by an Area Manager.`,
-            type: 'FINANCE',
-            priority: 'MEDIUM',
-            link: '/invoices'
-        });
-
-        // Notify Contractor if penalty was approved
-        if (status === 'APPROVED' && invoice?.contractorId) {
-            await NotificationService.send({
-                userId: invoice.contractorId,
-                title: 'Penalty Applied',
-                message: `A proposed penalty of LKR ${updatedPenalty.amount.toFixed(2)} has been approved and applied to your Invoice ${invNum}.`,
-                type: 'FINANCE',
-                priority: 'HIGH',
-                link: '/invoices'
-            });
-        }
-
-        return NextResponse.json({ success: true, penalty: updatedPenalty });
-    } catch (error) {
-        console.error('Error updating penalty status:', error);
-        return NextResponse.json({ error: 'Failed to update penalty status' }, { status: 500 });
+    if (!userId) {
+        throw AppError.unauthorized('Authentication required');
     }
-}
 
-export async function DELETE(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const { searchParams } = new URL(request.url);
-        const penaltyId = searchParams.get('penaltyId');
+    const penalty = await InvoiceService.proposePenalty(
+        id,
+        data.amount,
+        data.reason || 'MANUAL',
+        data.description,
+        data.serviceOrderId,
+        userId,
+        userRole
+    );
 
-        if (!penaltyId) {
-            return NextResponse.json({ error: 'Penalty ID is required' }, { status: 400 });
-        }
+    return Response.json({ success: true, penalty });
+}, {
+    audit: { action: 'PROPOSE_PENALTY', entity: 'Penalty' }
+});
 
-        const userRole = request.headers.get('x-user-role');
-        const isApproverRole = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
+export const PATCH = apiHandler(async (req, params, body) => {
+    const { id } = params;
+    const data = updatePenaltySchema.parse(body);
 
-        // Check if penalty exists and its status
-        const penalty = await primaryClient.penalty.findUnique({
-            where: { id: penaltyId }
-        });
+    const userRole = req.headers.get('x-user-role');
+    const isApproverRole = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
 
-        if (!penalty) {
-            return NextResponse.json({ error: 'Penalty not found' }, { status: 404 });
-        }
-
-        // Only allow deletion if user is Area Manager/Admin, or if the penalty is still PENDING
-        if (!isApproverRole && penalty.status !== 'PENDING') {
-            return NextResponse.json({ error: 'Permission Denied. Only Area Managers can delete approved/rejected penalties.' }, { status: 403 });
-        }
-
-        await primaryClient.$transaction(async (tx) => {
-            await tx.penalty.delete({
-                where: { id: penaltyId }
-            });
-
-            await InvoiceGeneratorService.recalculateInvoiceSplits(id, tx);
-        });
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Error deleting penalty:', error);
-        return NextResponse.json({ error: 'Failed to delete penalty' }, { status: 500 });
+    if (!isApproverRole) {
+        throw AppError.forbidden('Permission Denied. Only Area Managers or Admins can approve/reject penalties.');
     }
-}
+
+    const penalty = await InvoiceService.updatePenaltyStatus(id, data.penaltyId, data.status);
+    return Response.json({ success: true, penalty });
+}, {
+    audit: { action: 'UPDATE_PENALTY_STATUS', entity: 'Penalty' }
+});
+
+export const DELETE = apiHandler(async (req, params) => {
+    const { id } = params;
+    const { searchParams } = new URL(req.url);
+    const penaltyId = searchParams.get('penaltyId');
+
+    if (!penaltyId) {
+        throw AppError.badRequest('Penalty ID is required');
+    }
+
+    const userRole = req.headers.get('x-user-role');
+
+    await InvoiceService.deletePenalty(id, penaltyId, userRole);
+
+    return Response.json({ success: true });
+}, {
+    audit: { action: 'DELETE_PENALTY', entity: 'Penalty' }
+});

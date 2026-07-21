@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
@@ -100,10 +101,10 @@ export class WastageService {
 
         // SCENARIO 1: Contractor Wastage
         if (contractorId) {
-            if (!storeId) throw new Error('STORE_ID_REQUIRED');
+            if (!storeId) throw AppError.badRequest('STORE_ID_REQUIRED');
 
             return await prisma.$transaction(async (tx: TransactionClient) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const wastage = await (tx as any).contractorWastage.create({
                     data: {
                         contractorId,
@@ -114,7 +115,7 @@ export class WastageService {
                             : (description || reason),
                         status: status,
                         items: {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            
                             create: items.map((item: any) => ({
                                 itemId: item.itemId,
                                 quantity: parseFloat(item.quantity.toString()),
@@ -132,14 +133,14 @@ export class WastageService {
 
                         const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);
                         for (const picked of pickedBatches) {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            
                             await (tx as any).contractorBatchStock.update({
                                 where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
                                 data: { quantity: { decrement: picked.quantity } }
                             });
                         }
 
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         await (tx as any).contractorStock.update({
                             where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
                             data: { quantity: { decrement: qty } }
@@ -168,7 +169,7 @@ export class WastageService {
         }
 
         // SCENARIO 2: Store Wastage
-        if (!storeId) throw new Error('STORE_ID_REQUIRED_FOR_STORE_WASTAGE');
+        if (!storeId) throw AppError.badRequest('STORE_ID_REQUIRED_FOR_STORE_WASTAGE');
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const transactionItems: { itemId: string; quantity: number; batchId: string | null }[] = [];
@@ -181,7 +182,7 @@ export class WastageService {
                     const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);
                     for (const picked of pickedBatches) {
                         if (picked.batchId) {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            
                             await (tx as any).inventoryBatchStock.update({
                                 where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                                 data: { quantity: { decrement: picked.quantity } }
@@ -194,7 +195,7 @@ export class WastageService {
                         });
                     }
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).inventoryStock.upsert({
                         where: { storeId_itemId: { storeId, itemId: item.itemId } },
                         update: { quantity: { decrement: qty } },
@@ -209,7 +210,7 @@ export class WastageService {
                 }
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const txRecord = await (tx as any).inventoryTransaction.create({
                 data: {
                     type: 'WASTAGE',
@@ -218,7 +219,7 @@ export class WastageService {
                     referenceId: `STORE-WASTAGE-${Date.now()}`,
                     notes: `[STATUS: ${status}] ${reason || description}`,
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         create: transactionItems.map((ti: any) => ({
                             itemId: ti.itemId,
                             quantity: ti.quantity,
@@ -251,14 +252,14 @@ export class WastageService {
      */
     static async approveWastage(wastageId: string, userId: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const wastage = await (tx as any).contractorWastage.findUnique({
                 where: { id: wastageId },
                 include: { items: true }
             });
 
             if (wastage) {
-                if (wastage.status !== 'PENDING') throw new Error('ALREADY_PROCESSED');
+                if (wastage.status !== 'PENDING') throw AppError.badRequest('ALREADY_PROCESSED');
 
                 const itemIds = wastage.items.map((i: any) => i.itemId);
                 const itemMetas = await tx.inventoryItem.findMany({
@@ -281,14 +282,14 @@ export class WastageService {
 
                     const pickedBatches = StockService.pickContractorBatchesFIFOBulk(availableBatches, item.itemId, qty);
                     for (const picked of pickedBatches) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         await (tx as any).contractorBatchStock.update({
                             where: { contractorId_batchId: { contractorId: wastage.contractorId, batchId: picked.batchId! } },
                             data: { quantity: { decrement: picked.quantity } }
                         });
                     }
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).contractorStock.update({
                         where: { contractorId_itemId: { contractorId: wastage.contractorId, itemId: item.itemId } },
                         data: { quantity: { decrement: qty } }
@@ -296,7 +297,7 @@ export class WastageService {
                 }
 
                 // Update Status
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const updated = await (tx as any).contractorWastage.update({
                     where: { id: wastageId },
                     data: { 
@@ -311,18 +312,18 @@ export class WastageService {
                 return updated;
             } else {
                 // If not found in ContractorWastage, check InventoryTransaction for Store Wastage
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const txRecord = await (tx as any).inventoryTransaction.findUnique({
                     where: { id: wastageId },
                     include: { items: true }
                 });
 
                 if (!txRecord || txRecord.type !== 'WASTAGE') {
-                    throw new Error('WASTAGE_NOT_FOUND');
+                    throw AppError.badRequest('WASTAGE_NOT_FOUND');
                 }
 
                 if (!txRecord.notes?.includes('[STATUS: PENDING]')) {
-                    throw new Error('ALREADY_PROCESSED');
+                    throw AppError.badRequest('ALREADY_PROCESSED');
                 }
 
                 const itemIds = txRecord.items.map((i: any) => i.itemId);
@@ -347,14 +348,14 @@ export class WastageService {
                     const pickedBatches = StockService.pickStoreBatchesFIFOBulk(availableBatches, item.itemId, qty);
 
                     // Delete the pending log item and recreate it split by batchIds
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).inventoryTransactionItem.delete({
                         where: { id: item.id }
                     });
 
                     for (const picked of pickedBatches) {
                         if (picked.batchId) {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            
                             await (tx as any).inventoryBatchStock.update({
                                 where: { storeId_batchId: { storeId: txRecord.storeId, batchId: picked.batchId } },
                                 data: { quantity: { decrement: picked.quantity } }
@@ -362,7 +363,7 @@ export class WastageService {
                         }
 
                         // Recreate the transaction item with batch association
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         await (tx as any).inventoryTransactionItem.create({
                             data: {
                                 transactionId: txRecord.id,
@@ -373,7 +374,7 @@ export class WastageService {
                         });
                     }
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).inventoryStock.upsert({
                         where: { storeId_itemId: { storeId: txRecord.storeId, itemId: item.itemId } },
                         update: { quantity: { decrement: qty } },
@@ -383,7 +384,7 @@ export class WastageService {
 
                 // Update the notes in the transaction to APPROVED
                 const approvedNotes = txRecord.notes.replace('[STATUS: PENDING]', '[STATUS: APPROVED]');
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const updatedTx = await (tx as any).inventoryTransaction.update({
                     where: { id: txRecord.id },
                     data: {
@@ -404,16 +405,16 @@ export class WastageService {
      */
     static async rejectWastage(wastageId: string, userId: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const wastage = await (tx as any).contractorWastage.findUnique({
                 where: { id: wastageId }
             });
 
             if (wastage) {
-                if (wastage.status !== 'PENDING') throw new Error('ALREADY_PROCESSED');
+                if (wastage.status !== 'PENDING') throw AppError.badRequest('ALREADY_PROCESSED');
 
                 // Update Status to REJECTED
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const updated = await (tx as any).contractorWastage.update({
                     where: { id: wastageId },
                     data: { 
@@ -426,22 +427,22 @@ export class WastageService {
                 return updated;
             } else {
                 // If not found in ContractorWastage, check InventoryTransaction for Store Wastage
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const txRecord = await (tx as any).inventoryTransaction.findUnique({
                     where: { id: wastageId }
                 });
 
                 if (!txRecord || txRecord.type !== 'WASTAGE') {
-                    throw new Error('WASTAGE_NOT_FOUND');
+                    throw AppError.badRequest('WASTAGE_NOT_FOUND');
                 }
 
                 if (!txRecord.notes?.includes('[STATUS: PENDING]')) {
-                    throw new Error('ALREADY_PROCESSED');
+                    throw AppError.badRequest('ALREADY_PROCESSED');
                 }
 
                 // Update the notes in the transaction to REJECTED
                 const rejectedNotes = txRecord.notes.replace('[STATUS: PENDING]', '[STATUS: REJECTED]');
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const updatedTx = await (tx as any).inventoryTransaction.update({
                     where: { id: txRecord.id },
                     data: {

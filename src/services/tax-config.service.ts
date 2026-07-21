@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { TaxTypeEnum } from '@prisma/client';
 
@@ -41,11 +42,11 @@ export class TaxConfigService {
     } = data;
 
     if (!tax_name || !tax_type || tax_rate_percent === undefined || tax_rate_percent === null || !effective_from_date) {
-      throw new Error('MISSING_REQUIRED_FIELDS');
+      throw AppError.badRequest('MISSING_REQUIRED_FIELDS');
     }
 
     if (!Object.values(TaxTypeEnum).includes(tax_type as TaxTypeEnum)) {
-      throw new Error('INVALID_TAX_TYPE');
+      throw AppError.badRequest('INVALID_TAX_TYPE');
     }
 
     return prisma.vMTaxConfig.create({

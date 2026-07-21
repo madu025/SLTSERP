@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { ProjectStageInstance } from '@prisma/client';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
@@ -26,7 +27,7 @@ export class WorkflowEngine {
     });
 
     if (!template) {
-      throw new Error(`No active workflow template found for Project Type ID: ${projectTypeId}`);
+      throw AppError.badRequest(`No active workflow template found for Project Type ID: ${projectTypeId}`);
     }
 
     // 2. Create the ProjectWorkflowInstance wrapper
@@ -217,13 +218,13 @@ export class WorkflowEngine {
     });
 
     if (!stage) {
-      throw new Error('Stage not found');
+      throw AppError.badRequest('Stage not found');
     }
 
     if (nextStatus === 'COMPLETED') {
       const validation = await this.validateStageCompletion(stageId);
       if (!validation.success) {
-        throw new Error(`Gate validation failed:\n- ${validation.errors.join('\n- ')}`);
+        throw AppError.badRequest(`Gate validation failed:\n- ${validation.errors.join('\n- ')}`);
       }
 
       // Complete current stage

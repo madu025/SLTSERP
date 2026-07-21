@@ -1,27 +1,21 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
+import { z } from 'zod';
+import { AppError } from '@/lib/error';
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { id } = body;
-        
-        if (!id) {
-            return NextResponse.json({ error: 'Contractor ID is required' }, { status: 400 });
-        }
+const renewSchema = z.object({
+    id: z.string().min(1, "Contractor ID is required")
+});
 
-        const protocol = request.headers.get('x-forwarded-proto') || 'http';
-        const host = request.headers.get('host');
-        const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin);
+export const POST = apiHandler(async (req, _params, body) => {
+    const data = renewSchema.parse(body);
+    
+    const protocol = req.headers.get('x-forwarded-proto') || 'http';
+    const host = req.headers.get('host');
+    const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin);
 
-        const result = await ContractorService.generateRenewalLink(id, origin);
-
-        return NextResponse.json({
-            success: true,
-            ...result
-        });
-    } catch (error) {
-        console.error('Error generating renewal link:', error);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
-    }
-}
+    const result = await ContractorService.generateRenewalLink(data.id, origin);
+    return Response.json({ success: true, ...result });
+}, {
+    audit: { action: 'GENERATE_RENEWAL_LINK', entity: 'Contractor' }
+});

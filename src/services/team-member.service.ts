@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export interface UpdateTeamMemberProfileInput {
@@ -51,11 +52,11 @@ export class TeamMemberService {
     });
 
     if (!member) {
-      throw new Error('INVALID_TOKEN');
+      throw AppError.badRequest('INVALID_TOKEN');
     }
 
     if (member.uploadTokenExpiry && new Date() > member.uploadTokenExpiry) {
-      throw new Error('TOKEN_EXPIRED');
+      throw AppError.badRequest('TOKEN_EXPIRED');
     }
 
     return member;
@@ -70,11 +71,11 @@ export class TeamMemberService {
     });
 
     if (!member) {
-      throw new Error('INVALID_TOKEN');
+      throw AppError.badRequest('INVALID_TOKEN');
     }
 
     if (member.uploadTokenExpiry && new Date() > member.uploadTokenExpiry) {
-      throw new Error('TOKEN_EXPIRED');
+      throw AppError.badRequest('TOKEN_EXPIRED');
     }
 
     await prisma.teamMember.update({

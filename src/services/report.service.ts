@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { startOfMonth, endOfMonth, subMonths, subDays, subYears, format } from 'date-fns';
 import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
@@ -414,7 +415,7 @@ export class ReportService {
       };
     }
 
-    throw new Error('INVALID_VIEW_TYPE');
+    throw AppError.badRequest('INVALID_VIEW_TYPE');
   }
 
   /**

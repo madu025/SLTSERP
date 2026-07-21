@@ -11,6 +11,46 @@
 
 ## 1. Business Logic Services (src/services)
 
+### [contractor-payment.service.ts](src/services/admin/contractor-payment.service.ts)
+* **Class**: `ContractorPaymentService`
+  * **Methods**:
+    * `getConfigs(): any`
+    * `createConfig(data: any, userId?: string): any`
+    * `updateConfig(id: string, data: any): any`
+    * `deleteConfig(id: string): any`
+
+### [job-queue.service.ts](src/services/admin/job-queue.service.ts)
+* **Class**: `JobQueueService`
+  * **Methods**:
+    * `getQueueStats(): any`
+
+### [role.service.ts](src/services/admin/role.service.ts)
+* **Class**: `RoleService`
+  * **Methods**:
+    * `getRolesBySection(sectionId: string): any`
+    * `createRole(data: CreateRoleInput): any`
+    * `updateRole(roleId: string, data: UpdateRoleInput): any`
+    * `deleteRole(roleId: string): any`
+
+### [sod-revenue.service.ts](src/services/admin/sod-revenue.service.ts)
+* **Class**: `SodRevenueService`
+  * **Methods**:
+    * `getConfigs(): any`
+    * `createConfig(data: CreateRevenueConfigInput, userId?: string): any`
+    * `updateConfig(id: string, data: UpdateRevenueConfigInput): any`
+    * `deleteConfig(id: string): any`
+    * `getRevenueForSOD(rtomId: string, completedDate: Date): Promise<number>`
+
+### [system.service.ts](src/services/admin/system.service.ts)
+* **Class**: `AdminSystemService`
+  * **Methods**:
+    * `clearAllServiceOrders(): any`
+    * `resetSystemData(): any`
+    * `getSystemStats(): any`
+    * `getSyncStats(): any`
+    * `getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, any[]> = {}): any`
+    * `updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, any[]>): any`
+
 ### [agent-sync.service.ts](src/services/agent-sync.service.ts)
 * **Class**: `AgentSyncService`
   * **Methods**:
@@ -53,11 +93,13 @@
     * `log(params: AuditLogParams): any`
     * `getEntityLogs(entity: string, entityId: string): any`
     * `getUserLogs(userId: string): any`
+    * `getRecentLogs(take: number = 200): any`
 
 ### [auto-boq.service.ts](src/services/auto-boq.service.ts)
 * **Class**: `AutoBOQService`
   * **Methods**:
     * `generateBOQ(projectId: string, cableConfigOverride?: Partial<BOQConfig>): Promise<{ boq: BOQItem[]; summary: Record<string, number>; cableConfig: BOQConfig }>`
+    * `saveGeneratedBOQ(projectId: string, boq: BOQItem[]): any`
     * `calculateCableLength(section: CableSection): number`
 
 ### [index.ts](src/services/automation/index.ts)
@@ -68,6 +110,20 @@
     * `runDailyPerformanceSummary(): any`
     * `runAuditLogCleanup(): any`
     * `runAllDailyTasks(): any`
+
+### [bank.service.ts](src/services/bank.service.ts)
+* **Class**: `BankService`
+  * **Methods**:
+    * `getBanks(): any`
+    * `createBank(data: { code: string; name: string }): any`
+    * `updateBank(bankId: string, data: { name: string; code: string }): any`
+    * `deleteBank(bankId: string): any`
+    * `getBranches(bankId: string): any`
+    * `getAllBranches(): any`
+    * `createBranch(bankId: string, data: { code: string; name: string }): any`
+    * `updateBranch(bankId: string, branchId: string, data: { name: string; code: string }): any`
+    * `deleteBranch(branchId: string): any`
+    * `importBulk(banksData: Array<{ bankCode: string; bankName: string; branchCode?: string; branchName?: string }>): any`
 
 ### [budget-tracking.service.ts](src/services/budget-tracking.service.ts)
 * **Class**: `BudgetTrackingService`
@@ -127,13 +183,14 @@
     * `saveRegistrationDraft(token: string, draftData: ContractorUpdateData): any`
     * `submitPublicRegistration(token: string, data: ContractorUpdateData): any`
     * `verifyUploadToken(token: string): any`
-    * `submitPublicDocuments(token: string, documents: any): any`
+    * `submitPublicDocuments(token: string, documents: Record<string, string | undefined>): any`
 
 ### [contractor-kpi.service.ts](src/services/contractor-kpi.service.ts)
 * **Class**: `ContractorKPIService`
   * **Methods**:
     * `calculateMonthlyScore(contractorId: string, month: string, projectId?: string): any`
     * `getContractorRanking(limit = 10): any`
+    * `getForProject(projectId: string): any`
 
 ### [contractor.service.ts](src/services/contractor.service.ts)
 * **Class**: `ContractorService`
@@ -158,6 +215,12 @@
     * `assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean): any`
     * `removeTeamStore(teamId: string, storeId: string): any`
 
+### [cpe.service.ts](src/services/cpe.service.ts)
+* **Class**: `CpeService`
+  * **Methods**:
+    * `getCollectedCPEs(params: { contractorId?: string; status?: string; deviceType?: string }): any`
+    * `submitHandback(ids: string[], handbackReference: string): any`
+
 ### [dashboard-alert.service.ts](src/services/dashboard-alert.service.ts)
 * **Class**: `DashboardAlertService`
   * **Methods**:
@@ -167,6 +230,17 @@
 * **Class**: `ExecutiveDashboardService`
   * **Methods**:
     * `getDashboardData(opmcIds?: string[]): any`
+
+### [field-task.service.ts](src/services/field-task.service.ts)
+* **Class**: `FieldTaskService`
+  * **Methods**:
+    * `getFieldTasks(projectId: string): any`
+    * `getFieldTask(projectId: string, taskId: string): any`
+    * `createFieldTask(projectId: string, data: CreateFieldTaskInput): any`
+    * `updateFieldTask(projectId: string, taskId: string, data: UpdateFieldTaskInput): any`
+    * `deleteFieldTask(projectId: string, taskId: string): any`
+    * `syncFieldTasks(projectId: string, tasks: SyncFieldTaskInput[], deviceId?: string, appVersion?: string): any`
+    * `getSyncStatus(projectId: string): any`
 
 ### [bom-invoice.service.ts](src/services/finance/bom-invoice.service.ts)
 * **Class**: `BOMInvoiceService`
@@ -924,12 +998,43 @@
 ### [invoice.service.ts](src/services/invoice.service.ts)
 * **Class**: `InvoiceService`
   * **Methods**:
+    * `proposePenalty(invoiceId: string, amount: number, reason: string, description: string | undefined, serviceOrderId: string | undefined, userId: string, userRole: string): any`
+    * `updatePenaltyStatus(invoiceId: string, penaltyId: string, status: 'APPROVED' | 'REJECTED'): any`
+    * `deletePenalty(invoiceId: string, penaltyId: string, userRole: string | null): any`
+    * `getInvoiceDetails(id: string): any`
+    * `getDelaySheets(monthParam?: string | null, rtomParam?: string | null): any`
     * `generateMonthlyInvoice(contractorId: string, month: number, year: number): any`
     * `checkRetentionEligibility(): any`
     * `getInvoices(filters: { status?: string; contractorId?: string; projectId?: string }): any`
     * `createInvoice(data: CreateInvoiceDTO): any`
     * `updateInvoice(data: UpdateInvoiceDTO): any`
     * `deleteInvoice(id: string): any`
+
+### [job.service.ts](src/services/job.service.ts)
+* **Class**: `JobService`
+  * **Methods**:
+    * `getJobs(params: { status?: string; region?: string; assigneeId?: string }): any`
+    * `createJob(data: {
+        jobCode: string;
+        name: string;
+        description?: string;
+        customerName?: string;
+        customerContact?: string;
+        location?: string;
+        region?: string;
+        district?: string;
+        priority?: string;
+        assignedToId?: string;
+    }): any`
+    * `getJobById(id: string): any`
+    * `updateJob(id: string, data: any): any`
+    * `deleteJob(id: string): any`
+    * `assignJobToSurvey(jobId: string, data: {
+        areaManagerId?: string;
+        contractorId?: string;
+        opmcId?: string;
+        projectTypeId?: string;
+    }): any`
 
 ### [map-approval.service.ts](src/services/map-approval.service.ts)
 * **Class**: `MapApprovalService`
@@ -1258,10 +1363,15 @@
     * `markAsRead(id: string): any`
     * `markAllAsRead(userId: string): any`
     * `markLinkAsRead(userId: string, link: string, opmcId?: string | null): any`
+    * `markLinkPrefixAsRead(userId: string, linkPrefix: string): any`
     * `markTypeAsRead(userId: string, type: string): any`
     * `cleanup(days = 30, onlyRead = true): any`
     * `delete(id: string): any`
     * `deleteAll(userId: string): any`
+    * `getSidebarCounts(userId: string): any`
+    * `getUserPreferences(userId: string): any`
+    * `upsertUserPreference(userId: string, type: string, enabled: boolean): any`
+    * `sendTestNotification(userId: string | null): any`
 
 ### [notification-policy.service.ts](src/services/notification/notification-policy.service.ts)
 * **Class**: `NotificationPolicyService`
@@ -1321,6 +1431,14 @@
     * `enqueueBackground(task: RetryTask): void`
     * `getQueueStats(): { total: number; pending: number; failed: number }`
 
+### [opmc.service.ts](src/services/opmc.service.ts)
+* **Class**: `OpmcService`
+  * **Methods**:
+    * `getAllOPMCs(): any`
+    * `createOPMC(data: { name: string; rtom: string; region: string; province: string; storeId?: string | null }): any`
+    * `updateOPMC(data: { id: string; name: string; rtom: string; region: string; province: string; storeId?: string | null }): any`
+    * `deleteOPMC(id: string): any`
+
 ### [pat.service.ts](src/services/pat.service.ts)
 * **Class**: `PATService`
   * **Methods**:
@@ -1345,6 +1463,7 @@
     * `createInvoice(data: CreateInvoiceDTO): Promise<Invoice>`
     * `getInvoice(id: string): Promise<Invoice | null>`
     * `createPayment(data: CreatePaymentDTO): Promise<Payment>`
+    * `processFullPaymentReceipt(paymentId: string, paymentDate: Date, paymentRefNumber?: string): Promise<Payment>`
     * `recordPaymentReceipt(paymentId: string, amount: number, paymentDate: Date, paymentRefNumber?: string): Promise<Payment>`
     * `listPayments(filters: {
     payment_type?: PaymentType;
@@ -1372,6 +1491,37 @@
     * `generateProjectHealthReport(projectId: string): any`
     * `analyzeChangeOrderImpact(changeOrderId: string): any`
 
+### [project-approval.service.ts](src/services/project/project-approval.service.ts)
+* **Class**: `ProjectApprovalService`
+  * **Methods**:
+    * `getApprovals(projectId: string): any`
+    * `createApproval(data: CreateApprovalRequestInput): any`
+    * `processApprovalStep(stepId: string, action: string, actionedById: string, comment?: string | null): any`
+
+### [project-asset.service.ts](src/services/project/project-asset.service.ts)
+* **Class**: `ProjectAssetService`
+  * **Methods**:
+    * `getAssets(projectId: string): any`
+    * `createAsset(projectId: string, data: CreateAssetInput): any`
+    * `getAsset(assetId: string): any`
+    * `updateAsset(assetId: string, data: Record<string, unknown>): any`
+    * `deleteAsset(assetId: string): any`
+
+### [project-boq-approval.service.ts](src/services/project/project-boq-approval.service.ts)
+* **Class**: `ProjectBOQApprovalService`
+  * **Methods**:
+    * `getApprovalStatus(projectId: string): any`
+    * `submitForApproval(projectId: string, notes?: string): any`
+    * `approve(projectId: string, userId: string, notes?: string): any`
+    * `reject(projectId: string, notes: string): any`
+    * `revise(projectId: string, notes?: string): any`
+
+### [project-boq-pr.service.ts](src/services/project/project-boq-pr.service.ts)
+* **Class**: `ProjectBOQPRService`
+  * **Methods**:
+    * `getPRGenerationStatus(projectId: string): any`
+    * `generatePR(projectId: string, userId: string): any`
+
 ### [project-boq.service.ts](src/services/project/project-boq.service.ts)
 * **Class**: `ProjectBOQService`
   * **Methods**:
@@ -1382,6 +1532,8 @@
     * `getBOQRates(projectId?: string | null, isActive?: boolean | null): any`
     * `saveBOQRate(data: SaveBOQRateInput): any`
     * `bulkUpdateBOQRates(rates: BulkRateInput[]): any`
+    * `analyzeBOQ(projectId: string): any`
+    * `updateBOQSources(updates: { boqItemId: string; source: string; materialId?: string | null }[]): any`
 
 ### [project-change-order.service.ts](src/services/project/project-change-order.service.ts)
 * **Class**: `ProjectChangeOrderService`
@@ -1391,11 +1543,49 @@
     * `updateChangeOrder(id: string, action: string, updateData: UpdateChangeOrderInput): any`
     * `deleteChangeOrder(id: string): any`
 
+### [project-commissioning.service.ts](src/services/project/project-commissioning.service.ts)
+* **Class**: `ProjectCommissioningService`
+  * **Methods**:
+    * `getCommissionedAssets(projectId: string): any`
+    * `commissionAsset(projectId: string, data: CommissionAssetInput): any`
+
+### [project-contractor-rating.service.ts](src/services/project/project-contractor-rating.service.ts)
+* **Class**: `ProjectContractorRatingService`
+  * **Methods**:
+    * `getRatings(projectId: string, evaluationMonth?: string | null): any`
+    * `saveRating(data: SaveContractorRatingInput): any`
+
+### [project-document.service.ts](src/services/project/project-document.service.ts)
+* **Class**: `ProjectDocumentService`
+  * **Methods**:
+    * `getDocuments(projectId: string): any`
+    * `updateDocumentVersion(data: UpdateDocumentInput): any`
+    * `createDocument(projectId: string, data: CreateDocumentInput): any`
+
+### [project-evm.service.ts](src/services/project/project-evm.service.ts)
+* **Class**: `ProjectEVMService`
+  * **Methods**:
+    * `getEVM(projectId: string): any`
+    * `updateEVM(projectId: string, data: UpdateEVMInput): any`
+    * `getSnapshots(projectId: string, limit: number = 90): any`
+    * `recordSnapshot(projectId: string, data: Record<string, unknown>): any`
+
 ### [project-expense.service.ts](src/services/project/project-expense.service.ts)
 * **Class**: `ProjectExpenseService`
   * **Methods**:
+    * `getExpenses(projectId: string): any`
     * `createExpense(data: CreateExpenseInput): any`
     * `deleteExpense(id: string): any`
+
+### [project-export.service.ts](src/services/project/project-export.service.ts)
+* **Class**: `ProjectExportService`
+  * **Methods**:
+    * `getGPKGFile(projectId: string): any`
+
+### [project-gis-pr.service.ts](src/services/project/project-gis-pr.service.ts)
+* **Class**: `ProjectGISPRService`
+  * **Methods**:
+    * `generatePR(projectId: string, routeId: string, data: GenerateGISPRInput): any`
 
 ### [project-goods-receipt.service.ts](src/services/project/project-goods-receipt.service.ts)
 * **Class**: `ProjectGoodsReceiptService`
@@ -1403,6 +1593,20 @@
     * `getGoodsReceipts(projectId?: string | null, poId?: string | null): any`
     * `createGoodsReceipt(data: CreateGoodsReceiptInput): any`
     * `updateGoodsReceiptStatus(id: string, status: string, approvedById?: string | null): any`
+
+### [project-hse.service.ts](src/services/project/project-hse.service.ts)
+* **Class**: `ProjectHSEService`
+  * **Methods**:
+    * `getSafetyLogs(projectId: string): any`
+    * `createSafetyLog(projectId: string, data: CreateHSELogInput): any`
+    * `updateSafetyLog(logId: string, data: UpdateHSELogInput): any`
+
+### [project-inspection.service.ts](src/services/project/project-inspection.service.ts)
+* **Class**: `ProjectInspectionService`
+  * **Methods**:
+    * `getInspections(projectId: string): any`
+    * `createInspection(projectId: string, data: CreateInspectionInput): any`
+    * `updateInspection(inspectionId: string, data: UpdateInspectionInput): any`
 
 ### [project-invoice.service.ts](src/services/project/project-invoice.service.ts)
 * **Class**: `ProjectInvoiceService`
@@ -1476,6 +1680,11 @@
     remarks?: string;
   }): any`
 
+### [project-kpi.service.ts](src/services/project/project-kpi.service.ts)
+* **Class**: `ProjectKPIService`
+  * **Methods**:
+    * `getKPIAnalytics(projectId: string): any`
+
 ### [project-ld-penalty.service.ts](src/services/project/project-ld-penalty.service.ts)
 * **Class**: `ProjectLDPenaltyService`
   * **Methods**:
@@ -1492,12 +1701,27 @@
     * `updateMilestone(id: string, updateData: UpdateMilestoneInput): any`
     * `deleteMilestone(id: string): any`
 
+### [project-otdr.service.ts](src/services/project/project-otdr.service.ts)
+* **Class**: `ProjectOTDRService`
+  * **Methods**:
+    * `getOTDRTests(projectId: string): any`
+    * `createOTDRTest(projectId: string, data: CreateOTDRTestInput): any`
+
 ### [project-permit.service.ts](src/services/project/project-permit.service.ts)
 * **Class**: `ProjectPermitService`
   * **Methods**:
-    * `getPermits(projectId?: string | null): any`
+    * `getPermits(projectId?: string | null, status?: string | null): any`
     * `createPermit(data: CreatePermitInput): any`
     * `getPermitTypes(isActive?: boolean | null, authorityId?: string | null): any`
+    * `getPermit(projectId: string, permitId: string): any`
+    * `updatePermit(permitId: string, data: any): any`
+    * `deletePermit(permitId: string): any`
+
+### [project-progress.service.ts](src/services/project/project-progress.service.ts)
+* **Class**: `ProjectProgressService`
+  * **Methods**:
+    * `getDailyProgress(projectId: string): any`
+    * `createDailyProgress(data: CreateDailyProgressInput): any`
 
 ### [project-purchase-order.service.ts](src/services/project/project-purchase-order.service.ts)
 * **Class**: `ProjectPurchaseOrderService`
@@ -1507,6 +1731,12 @@
     * `updatePurchaseOrderStatus(id: string, status: string, options: UpdatePOStatusOptions): any`
     * `deletePurchaseOrder(id: string): any`
 
+### [project-qfield-config.service.ts](src/services/project/project-qfield-config.service.ts)
+* **Class**: `ProjectQFieldConfigService`
+  * **Methods**:
+    * `getConfigs(projectId: string): any`
+    * `updateConfigs(projectId: string, configs: QFieldConfigInput[]): any`
+
 ### [project-requisition.service.ts](src/services/project/project-requisition.service.ts)
 * **Class**: `ProjectRequisitionService`
   * **Methods**:
@@ -1514,6 +1744,13 @@
     * `createRequisition(data: CreateRequisitionInput): any`
     * `updateRequisitionStatus(id: string, status: string, approvedById?: string | null, rejectionReason?: string | null): any`
     * `deleteRequisition(id: string): any`
+
+### [project-resource.service.ts](src/services/project/project-resource.service.ts)
+* **Class**: `ProjectResourceService`
+  * **Methods**:
+    * `getResources(projectId: string): any`
+    * `allocateResource(projectId: string, data: AllocateResourceInput): any`
+    * `removeResource(resourceAllocationId: string): any`
 
 ### [project-retention.service.ts](src/services/project/project-retention.service.ts)
 * **Class**: `ProjectRetentionService`
@@ -1523,6 +1760,13 @@
     * `releaseRetention(id: string, releaseAmount: number, releaseDate?: string | Date, approvedById?: string | null, remarks?: string | null): any`
     * `updateRetention(id: string, updateData: UpdateRetentionInput): any`
     * `deleteRetention(id: string): any`
+
+### [project-risk.service.ts](src/services/project/project-risk.service.ts)
+* **Class**: `ProjectRiskService`
+  * **Methods**:
+    * `getRisks(projectId: string): any`
+    * `createRisk(projectId: string, data: CreateRiskInput): any`
+    * `updateRisk(riskId: string, data: UpdateRiskInput): any`
 
 ### [project-stock-issue.service.ts](src/services/project/project-stock-issue.service.ts)
 * **Class**: `ProjectStockIssueService`
@@ -1577,6 +1821,14 @@
     * `deleteDependency(id: string): any`
     * `getProgressLogs(taskId: string): any`
     * `logProgress(data: LogProgressInput): any`
+    * `addFieldPhoto(projectId: string, taskId: string, data: { fileName: string; fileUrl: string; photoType: string; latitude?: number; longitude?: number }): any`
+
+### [project-timesheet.service.ts](src/services/project/project-timesheet.service.ts)
+* **Class**: `ProjectTimesheetService`
+  * **Methods**:
+    * `getTimesheets(projectId?: string | null, taskId?: string | null, dateStr?: string | null): any`
+    * `createTimesheet(data: CreateTimesheetInput): any`
+    * `updateTimesheetStatus(id: string, status: string, verifiedById?: string | null): any`
 
 ### [project-workflow.service.ts](src/services/project/project-workflow.service.ts)
 * **Class**: `ProjectWorkflowService`
@@ -1592,12 +1844,20 @@
     * `createProject(data: CreateProjectInput): any`
     * `updateProject(id: string, updateData: UpdateProjectInput): any`
     * `deleteProject(id: string, userRole?: string | null): any`
+    * `checkClosure(projectId: string): any`
+    * `closeProject(projectId: string, userId: string, remarks?: string, finalAsBuiltGenerated?: boolean): any`
 
 ### [project-dashboard.service.ts](src/services/project-dashboard.service.ts)
 * **Class**: `ProjectDashboardService`
   * **Methods**:
     * `getProjectStats(userId: string, userRole: string): any`
     * `getProjectOverview(userId: string, userRole: string): any`
+
+### [project-type.service.ts](src/services/project-type.service.ts)
+* **Class**: `ProjectTypeService`
+  * **Methods**:
+    * `getProjectTypes(): any`
+    * `createProjectType(name: string, description?: string): any`
 
 ### [qfieldcloud-sync.service.ts](src/services/qfieldcloud-sync.service.ts)
 * **Class**: `QFieldCloudSyncService`
@@ -1685,6 +1945,11 @@
     * `getOspFtthItems(): any`
     * `bulkImportLegacyServiceOrders(rows: Parameters<typeof SODImportService.bulkImportLegacyServiceOrders>[0], skipMaterials?: boolean): any`
     * `bridgeSync(payload: Parameters<typeof SODSyncService.bridgeSync>[0]): any`
+    * `fixDates(execute: boolean): any`
+    * `debugSync(soNum: string): any`
+    * `saveExtensionRawData(soNum: string | null, body: any): any`
+    * `getExtensionLogs(): any`
+    * `clearExtensionLogs(): any`
 
 ### [sod-return-classifier.service.ts](src/services/sod/sod-return-classifier.service.ts)
 * **Class**: `SODReturnClassifierService`
@@ -1905,6 +2170,11 @@
     * `getProfile(userId: string): any`
     * `changePassword(userId: string, currentPassword: string, newPassword: string): any`
     * `updateProfile(userId: string, data: { name?: string; email?: string }): any`
+    * `getUserPermissions(userId: string): any`
+    * `updateUserPermissions(userId: string, permissions: string[]): any`
+    * `getUserSections(userId: string): any`
+    * `assignUserSection(userId: string, data: { sectionId: string; roleId: string; isPrimary?: boolean }): any`
+    * `removeUserSection(assignmentId: string): any`
 
 ### [VehicleLogService.ts](src/services/VehicleLogService.ts)
 * **Class**: `VehicleLogService`
@@ -1945,6 +2215,7 @@
     * `getVendorById(id: string): any`
     * `updateVendor(id: string, data: Partial<CreateVendorInput>): any`
     * `deleteVendor(id: string): any`
+    * `importBulk(vendorsData: any[]): any`
 
 ### [WorkflowEngine.ts](src/services/WorkflowEngine.ts)
 * **Class**: `WorkflowEngine`
@@ -2236,7 +2507,7 @@
 | `/api/service-orders/core-data/[soNum]` | [route.ts](src/app/api/service-orders/core-data/[soNum]/route.ts) | `GET` |
 | `/api/service-orders/cpe` | [route.ts](src/app/api/service-orders/cpe/route.ts) | `GET`, `POST` |
 | `/api/service-orders/import/enqueue` | [route.ts](src/app/api/service-orders/import/enqueue/route.ts) | `POST`, `GET` |
-| `/api/service-orders/import` | [route.ts](src/app/api/service-orders/import/route.ts) | `POST`, `GET` |
+| `/api/service-orders/import` | [route.ts](src/app/api/service-orders/import/route.ts) | `GET`, `POST` |
 | `/api/service-orders/pat` | [route.ts](src/app/api/service-orders/pat/route.ts) | `GET` |
 | `/api/service-orders` | [route.ts](src/app/api/service-orders/route.ts) | `GET`, `POST`, `PUT`, `PATCH` |
 | `/api/service-orders/sync` | [route.ts](src/app/api/service-orders/sync/route.ts) | `POST` |
@@ -2271,11 +2542,11 @@
 * **Fields**:
   * `id: Int` `[@id @default(autoincrement())]`
   * `assetId: String?` `[@map("asset_id")]`
-  * `asset: ITAsset?` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
   * `reportedEmployeeNumber: String?` `[@map("reported_employee_number")]`
   * `reportedEmployeeUsername: String?` `[@map("reported_employee_username")]`
   * `ipAddress: String?` `[@map("ip_address")]`
   * `syncedAt: DateTime` `[@default(now()) @map("synced_at")]`
+  * `asset: ITAsset?` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
 
 ### [Contractor](prisma/schema/contractor.prisma)
 * **Fields**:
@@ -2295,7 +2566,7 @@
   * `policeReportUrl: String?`
   * `gramaCertUrl: String?`
   * `registrationFeePaid: Boolean` `[@default(false)]`
-  * `registrationFeeSlipUrl: String?` `[// Registration Fee Payment Slip URL]`
+  * `registrationFeeSlipUrl: String?`
   * `agreementSigned: Boolean` `[@default(false)]`
   * `agreementDate: DateTime?`
   * `agreementDuration: Int?` `[@default(1)]`
@@ -2322,6 +2593,7 @@
   * `uploadTokenExpiry: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `collectedCPEs: CollectedCPE[]` `[@relation("CollectedCPEs")]`
   * `armApprovedBy: User?` `[@relation("ContractorArmApproval", fields: [armApprovedById], references: [id])]`
   * `opmc: OPMC?` `[@relation(fields: [opmcId], references: [id])]`
   * `ospApprovedBy: User?` `[@relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])]`
@@ -2331,17 +2603,16 @@
   * `balanceSheets: ContractorMaterialBalanceSheet[]` `[@relation("BalanceSheets")]`
   * `materialIssues: ContractorMaterialIssue[]` `[@relation("MaterialIssues")]`
   * `materialReturns: ContractorMaterialReturn[]` `[@relation("MaterialReturns")]`
-  * `collectedCPEs: CollectedCPE[]` `[@relation("CollectedCPEs")]`
+  * `performanceScores: ContractorPerformanceScore[]`
   * `stock: ContractorStock[]`
   * `teams: ContractorTeam[]`
   * `wastageReports: ContractorWastage[]`
-  * `invoices: Invoice[]`
   * `serials: InventoryItemSerial[]`
+  * `invoices: Invoice[]`
   * `projects: Project[]`
   * `serviceOrders: ServiceOrder[]`
   * `stockIssues: StockIssue[]` `[@relation("ContractorIssues")]`
   * `teamMembers: TeamMember[]`
-  * `performanceScores: ContractorPerformanceScore[]`
 
 ### [ContractorStock](prisma/schema/contractor.prisma)
 * **Fields**:
@@ -2432,9 +2703,9 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `amount: Float` `[@default(0)]`
-  * `reason: String` `[// QC_FAILURE, PAT_REJECT, MATERIAL_MISMATCH, MANUAL]`
+  * `reason: String`
   * `description: String?`
-  * `status: String` `[@default("PENDING") // PENDING, APPROVED, REJECTED]`
+  * `status: String` `[@default("PENDING")]`
   * `proposedBy: String?`
   * `invoiceId: String?`
   * `serviceOrderId: String?`
@@ -2448,34 +2719,34 @@
   * `id: String` `[@id @default(cuid())]`
   * `contractorId: String`
   * `projectId: String?`
-  * `project: Project?` `[@relation(fields: [projectId], references: [id], onDelete: SetNull)]`
-  * `evaluationMonth: String` `[// Format: "YYYY-MM"]`
-  * `score: Float` `[@default(0) // 0-100%]`
-  * `productivityScore: Float?` `[// 0-100]`
-  * `qualityScore: Float?` `[// 0-100]`
-  * `safetyScore: Float?` `[// 0-100]`
-  * `slaComplianceScore: Float?` `[// 0-100]`
-  * `scheduleScore: Float?` `[// 0-100]`
+  * `evaluationMonth: String`
+  * `score: Float` `[@default(0)]`
+  * `productivityScore: Float?`
+  * `qualityScore: Float?`
+  * `safetyScore: Float?`
+  * `slaComplianceScore: Float?`
+  * `scheduleScore: Float?`
   * `ncrCount: Int` `[@default(0)]`
   * `ncrClosedCount: Int` `[@default(0)]`
   * `hseIncidentCount: Int` `[@default(0)]`
   * `completedTasksCount: Int` `[@default(0)]`
   * `delayedTasksCount: Int` `[@default(0)]`
   * `totalTasksAssigned: Int` `[@default(0)]`
-  * `averageRating: Float?` `[// From inspection ratings]`
+  * `averageRating: Float?`
   * `inspectionCount: Int` `[@default(0)]`
   * `inspectionPassCount: Int` `[@default(0)]`
-  * `patPassPct: Float?` `[// Auto from PATSession pass rate]`
-  * `materialWastagePct: Float?` `[// Auto from material records]`
-  * `reworkCount: Int?` `[// Auto from PAT fine-tune count]`
-  * `timelineAdherencePct: Float?` `[// Auto from task completion vs planned]`
-  * `autoCalculated: Boolean` `[@default(false) // true = calculated by KPI engine]`
+  * `patPassPct: Float?`
+  * `materialWastagePct: Float?`
+  * `reworkCount: Int?`
+  * `timelineAdherencePct: Float?`
+  * `autoCalculated: Boolean` `[@default(false)]`
   * `evaluatedById: String?`
   * `evaluatedAt: DateTime` `[@default(now())]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id], onDelete: Cascade)]`
+  * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
 
 ### [GISRoute](prisma/schema/gis.prisma)
 * **Fields**:
@@ -2483,83 +2754,83 @@
   * `projectId: String`
   * `name: String`
   * `description: String?`
-  * `sourceFile: String?` `[// Original uploaded file URL (GeoJSON/Shapefile)]`
-  * `sourceFormat: String?` `[// GEOJSON, SHAPEFILE, KML]`
-  * `routeLength: Float?` `[// Total route length in meters]`
-  * `poleSpacing: Float?` `[// Default pole spacing in meters (e.g., 50m)]`
-  * `calculatedPoles: Int?` `[// Auto-calculated: ceil(routeLength / poleSpacing)]`
-  * `status: String` `[@default("DRAFT") // DRAFT, IMPORTED, BOQ_GENERATED, APPROVED]`
-  * `geojsonData: Json?` `[// Parsed GeoJSON features]`
-  * `metadata: Json?` `[// Import metadata (coordinate system, etc.)]`
+  * `sourceFile: String?`
+  * `sourceFormat: String?`
+  * `routeLength: Float?`
+  * `poleSpacing: Float?`
+  * `calculatedPoles: Int?`
+  * `status: String` `[@default("DRAFT")]`
+  * `geojsonData: Json?`
+  * `metadata: Json?`
   * `createdById: String?`
   * `approvedById: String?`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `version: Int` `[@default(1)]`
-  * `parentVersionId: String?` `[// Points to previous version]`
-  * `childVersionId: String?` `[// Points to next version (active)]`
-  * `versionType: String` `[@default("PLANNED") // PLANNED, FIELD_CHANGE, AS_BUILT]`
-  * `changeRequestId: String?` `[// Linked change request]`
+  * `parentVersionId: String?`
+  * `childVersionId: String?`
+  * `versionType: String` `[@default("PLANNED")]`
+  * `changeRequestId: String?`
   * `isActive: Boolean` `[@default(true)]`
-  * `polygonData: Json?` `[// Original drawn boundary for diagnostics/regeneration]`
-  * `osmData: Json?` `[// Overpass API road map data]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
-  * `poles: GISPole[]`
+  * `polygonData: Json?`
+  * `osmData: Json?`
+  * `cableSegments: GISCableSegment[]`
   * `chambers: GISChamber[]`
   * `closures: GISClosure[]`
-  * `cableSegments: GISCableSegment[]`
   * `generatedBOQs: GISGeneratedBOQ[]`
+  * `poles: GISPole[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [GISPole](prisma/schema/gis.prisma)
 * **Fields**:
-  * `properties: Json?` `[// Raw QGIS/GeoJSON feature properties]`
+  * `properties: Json?`
   * `id: String` `[@id @default(cuid())]`
   * `routeId: String`
-  * `poleNumber: Int` `[// Sequential pole number]`
+  * `poleNumber: Int`
   * `latitude: Float`
   * `longitude: Float`
   * `elevation: Float?`
-  * `poleType: String?` `[// WOOD, CONCRETE, STEEL]`
-  * `height: Float?` `[// meters]`
-  * `status: String` `[@default("PLANNED") // PLANNED, INSTALLED, VERIFIED]`
+  * `poleType: String?`
+  * `height: Float?`
+  * `status: String` `[@default("PLANNED")]`
   * `installationDate: DateTime?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
   * `outgoingSegments: GISCableSegment[]` `[@relation("SegmentFromPole")]`
   * `incomingSegments: GISCableSegment[]` `[@relation("SegmentToPole")]`
+  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
 
 ### [GISChamber](prisma/schema/gis.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `routeId: String`
   * `chamberNumber: Int`
-  * `chamberType: String?` `[// JUNCTION, PULLING, SPLICE, TERMINAL]`
+  * `chamberType: String?`
   * `latitude: Float`
   * `longitude: Float`
-  * `depth: Float?` `[// meters]`
-  * `dimensions: String?` `[// e.g., "1.2m x 0.9m x 0.75m"]`
+  * `depth: Float?`
+  * `dimensions: String?`
   * `status: String` `[@default("PLANNED")]`
   * `installationDate: DateTime?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
   * `outgoingSegments: GISCableSegment[]` `[@relation("SegmentFromChamber")]`
   * `incomingSegments: GISCableSegment[]` `[@relation("SegmentToChamber")]`
+  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
 
 ### [GISClosure](prisma/schema/gis.prisma)
 * **Fields**:
-  * `properties: Json?` `[// Raw QGIS/GeoJSON feature properties]`
+  * `properties: Json?`
   * `id: String` `[@id @default(cuid())]`
   * `routeId: String`
   * `closureNumber: Int`
-  * `closureType: String?` `[// DOME, INLINE, TERMINAL]`
+  * `closureType: String?`
   * `latitude: Float`
   * `longitude: Float`
-  * `capacity: Int?` `[// Max splice capacity]`
+  * `capacity: Int?`
   * `status: String` `[@default("PLANNED")]`
   * `installationDate: DateTime?`
   * `notes: String?`
@@ -2569,7 +2840,7 @@
 
 ### [GISCableSegment](prisma/schema/gis.prisma)
 * **Fields**:
-  * `properties: Json?` `[// Raw QGIS/GeoJSON feature properties]`
+  * `properties: Json?`
   * `id: String` `[@id @default(cuid())]`
   * `routeId: String`
   * `segmentNumber: Int`
@@ -2577,20 +2848,20 @@
   * `toPoleId: String?`
   * `fromChamberId: String?`
   * `toChamberId: String?`
-  * `length: Float` `[// meters]`
-  * `cableType: String?` `[// e.g., "24F SM", "48F SM", "96F SM"]`
+  * `length: Float`
+  * `cableType: String?`
   * `fiberCount: Int?`
   * `ductCount: Int?`
-  * `installationMethod: String?` `[// DUCT, DIRECT_BURIED, AERIAL]`
+  * `installationMethod: String?`
   * `status: String` `[@default("PLANNED")]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
-  * `fromPole: GISPole?` `[@relation("SegmentFromPole", fields: [fromPoleId], references: [id])]`
-  * `toPole: GISPole?` `[@relation("SegmentToPole", fields: [toPoleId], references: [id])]`
   * `fromChamber: GISChamber?` `[@relation("SegmentFromChamber", fields: [fromChamberId], references: [id])]`
+  * `fromPole: GISPole?` `[@relation("SegmentFromPole", fields: [fromPoleId], references: [id])]`
+  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
   * `toChamber: GISChamber?` `[@relation("SegmentToChamber", fields: [toChamberId], references: [id])]`
+  * `toPole: GISPole?` `[@relation("SegmentToPole", fields: [toPoleId], references: [id])]`
   * `otdrTests: OTDRTest[]` `[@relation("CableSegmentOTDR")]`
 
 ### [GISGeneratedBOQ](prisma/schema/gis.prisma)
@@ -2598,7 +2869,7 @@
   * `id: String` `[@id @default(cuid())]`
   * `routeId: String`
   * `projectId: String`
-  * `status: String` `[@default("DRAFT") // DRAFT, REVIEWED, APPROVED, CONVERTED]`
+  * `status: String` `[@default("DRAFT")]`
   * `totalEstimated: Float` `[@default(0)]`
   * `notes: String?`
   * `createdById: String?`
@@ -2606,23 +2877,23 @@
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
+  * `route: GISRoute` `[@relation(fields: [routeId], references: [id], onDelete: Cascade)]`
   * `items: GISGeneratedBOQItem[]`
 
 ### [GISGeneratedBOQItem](prisma/schema/gis.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `boqId: String`
-  * `itemCategory: String` `[// POLE, CHAMBER, CLOSURE, CABLE, DUCT, LABOR, MISC]`
+  * `itemCategory: String`
   * `itemCode: String`
   * `description: String`
   * `unit: String`
   * `quantity: Float`
   * `unitRate: Float` `[@default(0)]`
   * `amount: Float` `[@default(0)]`
-  * `sourceType: String?` `[// AUTO_CALCULATED, MANUAL_OVERRIDE]`
-  * `sourceReference: String?` `[// GIS element reference (e.g., pole count)]`
+  * `sourceType: String?`
+  * `sourceReference: String?`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `generatedBOQ: GISGeneratedBOQ` `[@relation(fields: [boqId], references: [id], onDelete: Cascade)]`
@@ -2631,8 +2902,8 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `syncType: String` `[// FULL_SYNC, DELTA_SYNC]`
-  * `status: String` `[// STARTED, COMPLETED, FAILED]`
+  * `syncType: String`
+  * `status: String`
   * `featuresCount: Int` `[@default(0)]`
   * `errorMessage: String?`
   * `startedAt: DateTime` `[@default(now())]`
@@ -2643,9 +2914,9 @@
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
   * `supervisorId: String`
-  * `status: String` `[@default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, ABANDONED]`
+  * `status: String` `[@default("IN_PROGRESS")]`
   * `pointsCount: Int` `[@default(0)]`
-  * `syncStatus: String` `[@default("PENDING") // PENDING, SYNCED, FAILED]`
+  * `syncStatus: String` `[@default("PENDING")]`
   * `notes: String?`
   * `startedAt: DateTime` `[@default(now())]`
   * `completedAt: DateTime?`
@@ -2675,8 +2946,8 @@
   * `rejectionReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `session: MobileSurveySession` `[@relation(fields: [sessionId], references: [id], onDelete: Cascade)]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
+  * `session: MobileSurveySession` `[@relation(fields: [sessionId], references: [id], onDelete: Cascade)]`
 
 ### [GISAuditLog](prisma/schema/gis.prisma)
 * **Fields**:
@@ -2698,9 +2969,9 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `layerId: String` `[// e.g. "SLT_Poles"]`
-  * `fieldName: String` `[// e.g. "POLE TYPE"]`
-  * `options: String[]` `[// e.g. ["Concrete", "GI", "Spun", "Wood"]]`
+  * `layerId: String`
+  * `fieldName: String`
+  * `options: String[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
@@ -2708,106 +2979,106 @@
 ### [GISRoadData](prisma/schema/gis.prisma)
 * **Fields**:
   * `fid: Int` `[@id]`
-  * `wkt: String` `[@db.Text]`
+  * `wkt: String`
   * `wayFbid: String?`
   * `highwayTag: String?`
-  * `minLat: Float?`
-  * `maxLat: Float?`
-  * `minLon: Float?`
-  * `maxLon: Float?`
   * `createdAt: DateTime` `[@default(now())]`
+  * `maxLat: Float?`
+  * `maxLon: Float?`
+  * `minLat: Float?`
+  * `minLon: Float?`
 
 ### [ITAsset](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `assetNumber: String` `[@unique // e.g., SLT-IT-2026-001]`
-  * `serialNumber: String` `[@unique // Manufacturer serial]`
+  * `assetNumber: String` `[@unique]`
+  * `serialNumber: String` `[@unique]`
   * `deviceType: ITDeviceType`
   * `brand: String`
   * `model: String`
-  * `assignedStaffId: String?`
-  * `assignedStaff: Staff?` `[@relation("AssignedITAssets", fields: [assignedStaffId], references: [id], onDelete: SetNull)]`
   * `department: String?`
-  * `siteOfficeId: String?`
-  * `siteOffice: InventoryStore?` `[@relation(fields: [siteOfficeId], references: [id], onDelete: SetNull)]`
-  * `location: String?` `[// Optional floor/room metadata]`
+  * `location: String?`
   * `status: ITAssetStatus` `[@default(ACTIVE)]`
-  * `purchaseDate: DateTime?`
-  * `warrantyExpiry: DateTime?`
-  * `purchaseCost: Float?`
-  * `agreementReceived: Boolean` `[@default(false)]`
-  * `repairRemarks: String?`
-  * `imei2: String?` `[// Secondary IMEI for dual SIM mobile devices]`
-  * `simNumber: String?` `[// SIM Card mobile phone number or SIM ID]`
-  * `mdmEnrolled: Boolean` `[@default(false) // Mobile Device Management status]`
-  * `physicallyInStores: Boolean` `[@default(false)]`
-  * `computerName: String?`
-  * `osVersion: String?`
-  * `employeeUsername: String?`
-  * `ipAddress: String?`
-  * `macAddress: String?`
-  * `lastSyncedAt: DateTime?`
-  * `assignedUserId: String?`
-  * `assignedUser: User?` `[@relation("AssignedITAssetsToUser", fields: [assignedUserId], references: [id], onDelete: SetNull)]`
-  * `pendingAssignmentReview: Boolean` `[@default(false)]`
-  * `lastSeenEmployeeUsername: String?`
-  * `lastSeenEmployeeNumber: String?`
-  * `syncLogs: AssetSyncLog[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `tickets: Ticket[]`
+  * `purchaseCost: Float?`
+  * `purchaseDate: DateTime?`
+  * `warrantyExpiry: DateTime?`
+  * `siteOfficeId: String?`
+  * `assignedStaffId: String?`
+  * `agreementReceived: Boolean` `[@default(false)]`
+  * `repairRemarks: String?`
+  * `imei2: String?`
+  * `mdmEnrolled: Boolean` `[@default(false)]`
+  * `simNumber: String?`
+  * `physicallyInStores: Boolean` `[@default(false)]`
+  * `computerName: String?`
+  * `employeeUsername: String?`
+  * `ipAddress: String?`
+  * `lastSyncedAt: DateTime?`
+  * `macAddress: String?`
+  * `osVersion: String?`
+  * `assignedUserId: String?`
+  * `lastSeenEmployeeNumber: String?`
+  * `lastSeenEmployeeUsername: String?`
+  * `pendingAssignmentReview: Boolean` `[@default(false)]`
   * `handoverLogs: AssetHandoverLog[]`
-  * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("AssetSoftwareLicenses")]`
+  * `assignedStaff: Staff?` `[@relation("AssignedITAssets", fields: [assignedStaffId], references: [id])]`
+  * `assignedUser: User?` `[@relation("AssignedITAssetsToUser", fields: [assignedUserId], references: [id])]`
+  * `siteOffice: InventoryStore?` `[@relation(fields: [siteOfficeId], references: [id])]`
   * `units: ITAssetUnit[]`
+  * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("AssetSoftwareLicenses")]`
+  * `tickets: Ticket[]`
+  * `syncLogs: AssetSyncLog[]`
 
 ### [Ticket](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `ticketNumber: String` `[@unique // e.g. IT-2026-0001]`
+  * `ticketNumber: String` `[@unique]`
   * `assetId: String?`
-  * `asset: ITAsset?` `[@relation(fields: [assetId], references: [id], onDelete: SetNull)]`
   * `userId: String`
-  * `user: User` `[@relation("CreatedTickets", fields: [userId], references: [id])]`
   * `category: IssueCategory`
   * `description: String`
   * `priority: TicketPriority` `[@default(MEDIUM)]`
   * `status: TicketStatus` `[@default(OPEN)]`
   * `assignedToId: String?`
-  * `assignedTo: User?` `[@relation("AssignedTickets", fields: [assignedToId], references: [id])]`
   * `anydeskId: String?`
-  * `anydeskSession: String?` `[// Details of support session]`
+  * `anydeskSession: String?`
   * `photoUrls: String[]` `[@default([])]`
-  * `firstResponseAt: DateTime?`
-  * `resolvedAt: DateTime?`
-  * `satisfactionRating: Int?`
-  * `satisfactionNote: String?`
-  * `slaResponseDeadline: DateTime?`
-  * `slaResolutionDeadline: DateTime?`
-  * `slaResponseBreached: Boolean` `[@default(false)]`
-  * `slaResolutionBreached: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `firstResponseAt: DateTime?`
+  * `resolvedAt: DateTime?`
+  * `satisfactionNote: String?`
+  * `satisfactionRating: Int?`
+  * `slaResolutionBreached: Boolean` `[@default(false)]`
+  * `slaResolutionDeadline: DateTime?`
+  * `slaResponseBreached: Boolean` `[@default(false)]`
+  * `slaResponseDeadline: DateTime?`
+  * `asset: ITAsset?` `[@relation(fields: [assetId], references: [id])]`
+  * `assignedTo: User?` `[@relation("AssignedTickets", fields: [assignedToId], references: [id])]`
+  * `user: User` `[@relation("CreatedTickets", fields: [userId], references: [id])]`
   * `updates: TicketUpdate[]`
 
 ### [TicketUpdate](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `ticketId: String`
-  * `ticket: Ticket` `[@relation(fields: [ticketId], references: [id], onDelete: Cascade)]`
   * `userId: String`
-  * `user: User` `[@relation("UserTicketUpdates", fields: [userId], references: [id])]`
   * `message: String`
   * `statusFrom: TicketStatus`
   * `statusTo: TicketStatus`
   * `photoUrls: String[]` `[@default([])]`
   * `createdAt: DateTime` `[@default(now())]`
+  * `ticket: Ticket` `[@relation(fields: [ticketId], references: [id], onDelete: Cascade)]`
+  * `user: User` `[@relation("UserTicketUpdates", fields: [userId], references: [id])]`
 
 ### [KnowledgeBaseArticle](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `title: String`
   * `content: String`
-  * `category: String` `[// e.g. "VPN", "Outlook", "Printers", "Passwords", "Windows"]`
+  * `category: String`
   * `views: Int` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -2816,8 +3087,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `siteOfficeId: String`
-  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
-  * `agreementType: String` `[// "RENTAL" | "LEASE" | "PURCHASE"]`
+  * `agreementType: String`
   * `contractNumber: String`
   * `startDate: DateTime`
   * `endDate: DateTime?`
@@ -2826,83 +3096,84 @@
   * `landlordName: String?`
   * `landlordPhone: String?`
   * `documentUrl: String?`
-  * `status: String` `[@default("ACTIVE") // "ACTIVE", "EXPIRED", "TERMINATED", "PENDING"]`
+  * `status: String` `[@default("ACTIVE")]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
 
 ### [SiteOfficeRequest](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `siteOfficeId: String`
-  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
   * `requestedById: String`
-  * `requestedBy: User` `[@relation("SiteOfficeRequests", fields: [requestedById], references: [id])]`
-  * `itemType: String` `[// "FURNITURE", "STATIONERY", "EQUIPMENT", "MAINTENANCE", "OTHER"]`
+  * `itemType: String`
   * `description: String`
   * `estimatedCost: Float` `[@default(0.0)]`
-  * `priority: String` `[@default("MEDIUM") // "LOW", "MEDIUM", "HIGH", "URGENT"]`
-  * `status: String` `[@default("PENDING") // "PENDING", "APPROVED", "DELIVERED", "REJECTED"]`
+  * `priority: String` `[@default("MEDIUM")]`
+  * `status: String` `[@default("PENDING")]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `requestedBy: User` `[@relation("SiteOfficeRequests", fields: [requestedById], references: [id])]`
+  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
 
 ### [SiteOfficeVehicle](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `siteOfficeId: String`
-  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
   * `vehicleRegNo: String`
   * `makeModel: String`
   * `assignedDriver: String?`
   * `driverPhone: String?`
-  * `status: String` `[@default("ACTIVE") // "ACTIVE", "MAINTENANCE", "RETURNED"]`
+  * `status: String` `[@default("ACTIVE")]`
   * `allocationDate: DateTime` `[@default(now())]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
 
 ### [SiteOfficeTender](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `siteOfficeId: String`
-  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
   * `tenderNo: String`
   * `title: String`
   * `description: String`
   * `budget: Float` `[@default(0.0)]`
   * `publishDate: DateTime`
   * `closingDate: DateTime`
-  * `status: String` `[@default("DRAFT") // "DRAFT", "OPEN", "UNDER_EVALUATION", "AWARDED"]`
+  * `status: String` `[@default("DRAFT")]`
   * `winnerVendor: String?`
   * `winnerBidAmount: Float?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
 
 ### [AssetHandoverLog](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `assetId: String`
-  * `asset: ITAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
   * `transactionType: AssetTransactionType`
   * `performedById: String`
-  * `performedBy: User` `[@relation("HandoverPerformed", fields: [performedById], references: [id])]`
-  * `targetStaffId: String?`
-  * `targetStaff: Staff?` `[@relation("HandoverReceived", fields: [targetStaffId], references: [id], onDelete: SetNull)]`
   * `condition: String?`
   * `remarks: String?`
   * `date: DateTime` `[@default(now())]`
+  * `targetStaffId: String?`
+  * `asset: ITAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
+  * `performedBy: User` `[@relation("HandoverPerformed", fields: [performedById], references: [id])]`
+  * `targetStaff: Staff?` `[@relation("HandoverReceived", fields: [targetStaffId], references: [id])]`
 
 ### [SoftwareLicense](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `name: String` `[// e.g., "Microsoft Office 2026", "AutoCAD LT"]`
-  * `key: String?` `[// License key / serial number]`
-  * `vendor: String?` `[// Vendor name]`
+  * `name: String`
+  * `key: String?`
+  * `vendor: String?`
   * `purchaseDate: DateTime?`
   * `expiryDate: DateTime?`
   * `purchaseCost: Float?`
   * `totalLicenses: Int` `[@default(1)]`
-  * `status: String` `[@default("ACTIVE") // ACTIVE, EXPIRED, DECOMMISSIONED]`
+  * `status: String` `[@default("ACTIVE")]`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -2912,28 +3183,28 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `softwareLicenseId: String`
-  * `softwareLicense: SoftwareLicense` `[@relation(fields: [softwareLicenseId], references: [id], onDelete: Cascade)]`
-  * `assignedUserId: String?`
-  * `assignedUser: User?` `[@relation("UserSoftwareLicenses", fields: [assignedUserId], references: [id], onDelete: SetNull)]`
   * `assignedAssetId: String?`
-  * `assignedAsset: ITAsset?` `[@relation("AssetSoftwareLicenses", fields: [assignedAssetId], references: [id], onDelete: SetNull)]`
   * `assignedAt: DateTime` `[@default(now())]`
-  * `assignedEmail: String?`
   * `remarks: String?`
+  * `assignedEmail: String?`
+  * `assignedUserId: String?`
+  * `assignedAsset: ITAsset?` `[@relation("AssetSoftwareLicenses", fields: [assignedAssetId], references: [id])]`
+  * `assignedUser: User?` `[@relation("UserSoftwareLicenses", fields: [assignedUserId], references: [id])]`
+  * `softwareLicense: SoftwareLicense` `[@relation(fields: [softwareLicenseId], references: [id], onDelete: Cascade)]`
 
 ### [ITAssetUnit](prisma/schema/helpdesk.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `assetId: String`
-  * `asset: ITAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
   * `serialNumber: String` `[@unique]`
   * `unitNumber: String?` `[@unique]`
-  * `status: String` `[@default("IN_HAND_STORES") // IN_HAND_STORES, ASSIGNED_TO_USER, REPAIR_MODE, DISPOSABLE]`
+  * `status: String` `[@default("IN_HAND_STORES")]`
   * `assignedStaffId: String?`
-  * `assignedStaff: Staff?` `[@relation("StaffITAssetUnits", fields: [assignedStaffId], references: [id], onDelete: SetNull)]`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `asset: ITAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
+  * `assignedStaff: Staff?` `[@relation("StaffITAssetUnits", fields: [assignedStaffId], references: [id])]`
 
 ### [ITAssetAudit](prisma/schema/helpdesk.prisma)
 * **Fields**:
@@ -2943,20 +3214,20 @@
   * `deviceType: ITDeviceType`
   * `brand: String`
   * `model: String`
-  * `employeeNo: String` `[// Custodian Employee No / EPF]`
-  * `custodianName: String` `[// Custodian Name]`
-  * `department: String?`
-  * `siteOfficeId: String?`
-  * `location: String?`
+  * `employeeNo: String`
+  * `custodianName: String`
   * `status: ITAssetStatus` `[@default(ACTIVE)]`
   * `remarks: String?`
-  * `isConfirmed: Boolean` `[@default(false) // User confirmed existing info matches]`
-  * `isMatched: Boolean` `[@default(false) // Matches existing record in DB perfectly]`
-  * `isPersonal: Boolean` `[@default(false) // Marks if this is a personal device]`
-  * `isSynced: Boolean` `[@default(false) // Admin approved and synced]`
-  * `isRejected: Boolean` `[@default(false) // Admin rejected/ignored this report]`
+  * `isConfirmed: Boolean` `[@default(false)]`
+  * `isMatched: Boolean` `[@default(false)]`
+  * `isSynced: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `department: String?`
+  * `isRejected: Boolean` `[@default(false)]`
+  * `location: String?`
+  * `siteOfficeId: String?`
+  * `isPersonal: Boolean` `[@default(false)]`
 
 ### [InventoryStore](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -2964,18 +3235,20 @@
   * `name: String`
   * `type: String` `[@default("SUB")]`
   * `location: String?`
-  * `gpsLocation: String?`
-  * `coveringRt: String?`
   * `managerId: String?`
-  * `officeAdminId: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `coveringRt: String?`
+  * `gpsLocation: String?`
+  * `officeAdminId: String?`
   * `balanceSheets: ContractorMaterialBalanceSheet[]` `[@relation("BalanceSheets")]`
   * `materialIssues: ContractorMaterialIssue[]` `[@relation("MaterialIssues")]`
   * `materialReturns: ContractorMaterialReturn[]` `[@relation("MaterialReturns")]`
   * `wastageReports: ContractorWastage[]`
   * `grns: GRN[]`
+  * `itAssets: ITAsset[]`
   * `batchStocks: InventoryBatchStock[]`
+  * `serials: InventoryItemSerial[]`
   * `stocks: InventoryStock[]`
   * `manager: User?` `[@relation(fields: [managerId], references: [id])]`
   * `officeAdmin: User?` `[@relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])]`
@@ -2983,17 +3256,15 @@
   * `mrns: MRN[]`
   * `opmcs: OPMC[]`
   * `projectReturns: ProjectMaterialReturn[]`
+  * `agreements: SiteOfficeAgreement[]`
+  * `requests: SiteOfficeRequest[]`
+  * `tenders: SiteOfficeTender[]`
+  * `vehicles: SiteOfficeVehicle[]`
   * `stockIssues: StockIssue[]` `[@relation("StockIssues")]`
   * `outRequests: StockRequest[]` `[@relation("RequestSource")]`
   * `inRequests: StockRequest[]` `[@relation("RequestTarget")]`
   * `teamAssignments: TeamStoreAssignment[]`
   * `assignedUsers: User[]` `[@relation("UserAssignedStore")]`
-  * `serials: InventoryItemSerial[]`
-  * `itAssets: ITAsset[]`
-  * `agreements: SiteOfficeAgreement[]`
-  * `requests: SiteOfficeRequest[]`
-  * `vehicles: SiteOfficeVehicle[]`
-  * `tenders: SiteOfficeTender[]`
 
 ### [InventoryItem](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -3027,6 +3298,7 @@
   * `grnItems: GRNItem[]`
   * `batches: InventoryBatch[]`
   * `batchStocks: InventoryBatchStock[]`
+  * `serials: InventoryItemSerial[]`
   * `stocks: InventoryStock[]`
   * `transactionItems: InventoryTransactionItem[]`
   * `mrnItems: MRNItem[]`
@@ -3036,7 +3308,6 @@
   * `sodUsage: SODMaterialUsage[]` `[@relation("SODUsage")]`
   * `stockIssueItems: StockIssueItem[]` `[@relation("IssueItemsStock")]`
   * `requestItems: StockRequestItem[]`
-  * `serials: InventoryItemSerial[]`
 
 ### [InventoryStock](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -3059,8 +3330,8 @@
   * `initialQty: Decimal`
   * `costPrice: Decimal` `[@default(0)]`
   * `unitPrice: Decimal` `[@default(0)]`
-  * `expiryDate: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
+  * `expiryDate: DateTime?`
   * `contractorStocks: ContractorBatchStock[]`
   * `grnItem: GRNItem?`
   * `grn: GRN?` `[@relation(fields: [grnId], references: [id])]`
@@ -3076,8 +3347,8 @@
   * `itemId: String`
   * `batchId: String`
   * `quantity: Decimal` `[@default(0)]`
-  * `locator: String?` `[// Warehouse Locator (Rack, Bin, Zone)]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `locator: String?`
   * `batch: InventoryBatch` `[@relation(fields: [batchId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
@@ -3142,24 +3413,24 @@
   * `id: String` `[@id @default(cuid())]`
   * `itemId: String`
   * `serialNumber: String` `[@unique]`
-  * `status: String` `[@default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY, ASSIGNED]`
+  * `status: String` `[@default("IN_STORE")]`
   * `storeId: String?`
   * `contractorId: String?`
   * `sodId: String?`
-  * `assignedStaffId: String?`
-  * `locator: String?` `[// Warehouse Locator (Rack, Bin, Zone)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `assignedStaffId: String?`
+  * `locator: String?`
+  * `assignedStaff: Staff?` `[@relation(fields: [assignedStaffId], references: [id])]`
+  * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `store: InventoryStore?` `[@relation(fields: [storeId], references: [id])]`
-  * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
-  * `assignedStaff: Staff?` `[@relation(fields: [assignedStaffId], references: [id])]`
 
 ### [JournalEntry](prisma/schema/inventory.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `referenceId: String?` `[// Reference to GRN, SOD, Wastage, etc.]`
-  * `referenceType: String?` `[// "GRN", "SOD", "WASTAGE", etc.]`
+  * `referenceId: String?`
+  * `referenceType: String?`
   * `description: String`
   * `date: DateTime` `[@default(now())]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -3169,7 +3440,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `entryId: String`
-  * `accountCode: String` `[// e.g. "INV-1010", "COGS-5010", "REV-4010"]`
+  * `accountCode: String`
   * `accountName: String`
   * `debit: Decimal` `[@default(0)]`
   * `credit: Decimal` `[@default(0)]`
@@ -3180,15 +3451,17 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `userId: String`
-  * `messages: Json` `[// JSON array of chat history: [{role: "user"|"model", parts: [{text: string]`
+  * `messages: Json`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [NexusAlert](prisma/schema/nexus.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `title: String`
   * `message: String`
-  * `type: String` `[// e.g., "LOW_STOCK", "OVERDUE_INVOICE", "OVERDUE_TASK", "EXPIRY"]`
-  * `priority: String` `[// e.g., "MEDIUM", "HIGH", "CRITICAL"]`
+  * `type: String`
+  * `priority: String`
   * `isRead: Boolean` `[@default(false)]`
   * `link: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -3208,18 +3481,18 @@
   * `contractorPaymentConfigs: ContractorPaymentConfig[]`
   * `contractorTeams: ContractorTeam[]`
   * `store: InventoryStore?` `[@relation(fields: [storeId], references: [id])]`
+  * `pettyCashAccount: PettyCashAccount?`
   * `projects: Project[]`
   * `revenueConfigs: SODRevenueConfig[]`
   * `serviceOrders: ServiceOrder[]`
   * `staff: Staff[]`
   * `users: User[]` `[@relation("UserOpmcs")]`
-  * `pettyCashAccount: PettyCashAccount?`
 
 ### [AuthorityEntity](prisma/schema/permits.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `name: String` `[// e.g., "Road Development Authority", "Municipal Council"]`
-  * `shortName: String?` `[// e.g., "RDA", "MC"]`
+  * `name: String`
+  * `shortName: String?`
   * `contactPerson: String?`
   * `contactNumber: String?`
   * `email: String?`
@@ -3232,16 +3505,16 @@
 ### [PermitType](prisma/schema/permits.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `name: String` `[// e.g., "Road Cutting Permit", "Wayleave Agreement"]`
-  * `code: String` `[@unique // e.g., "ROAD_CUTTING", "WAYLEAVE", "RAILWAY_CROSSING"]`
+  * `name: String`
+  * `code: String` `[@unique]`
   * `description: String?`
   * `authorityId: String`
-  * `authority: AuthorityEntity` `[@relation(fields: [authorityId], references: [id])]`
-  * `defaultDuration: Int?` `[// Default validity days]`
+  * `defaultDuration: Int?`
   * `requiresRenewal: Boolean` `[@default(false)]`
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `authority: AuthorityEntity` `[@relation(fields: [authorityId], references: [id])]`
   * `permits: ProjectPermit[]`
 
 ### [ProjectPermit](prisma/schema/permits.prisma)
@@ -3249,30 +3522,30 @@
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
   * `permitTypeId: String`
-  * `permitNumber: String?` `[// Official permit reference number]`
-  * `status: String` `[@default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED, EXPIRED, CANCELLED]`
+  * `permitNumber: String?`
+  * `status: String` `[@default("DRAFT")]`
   * `applicationDate: DateTime?`
   * `submittedDate: DateTime?`
   * `approvedDate: DateTime?`
   * `expiryDate: DateTime?`
   * `rejectionReason: String?`
-  * `approvalDocument: String?` `[// URL to uploaded approval document]`
+  * `approvalDocument: String?`
   * `remarks: String?`
   * `appliedById: String?`
   * `approvedById: String?`
-  * `cost: Float?` `[// Permit application fee]`
+  * `cost: Float?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
-  * `permitType: PermitType` `[@relation(fields: [permitTypeId], references: [id])]`
-  * `permitDocuments: ProjectPermitDocument[]`
   * `approvalSteps: PermitApprovalStep[]`
+  * `permitType: PermitType` `[@relation(fields: [permitTypeId], references: [id])]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
+  * `permitDocuments: ProjectPermitDocument[]`
 
 ### [ProjectPermitDocument](prisma/schema/permits.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `permitId: String`
-  * `documentType: String` `[// APPLICATION, APPROVAL_LETTER, PAYMENT_RECEIPT, OTHER]`
+  * `documentType: String`
   * `fileName: String`
   * `fileUrl: String`
   * `uploadedById: String`
@@ -3286,7 +3559,7 @@
   * `stepNumber: Int`
   * `roleRequired: String`
   * `assignedUserId: String?`
-  * `status: String` `[@default("PENDING") // PENDING, APPROVED, REJECTED, SKIPPED]`
+  * `status: String` `[@default("PENDING")]`
   * `actionedById: String?`
   * `actionedAt: DateTime?`
   * `comment: String?`
@@ -3299,27 +3572,27 @@
   * `opmcId: String` `[@unique]`
   * `imprestLimit: Float` `[@default(0)]`
   * `currentBalance: Float` `[@default(0)]`
-  * `status: String` `[@default("ACTIVE") // ACTIVE, SUSPENDED, CLOSED]`
+  * `status: String` `[@default("ACTIVE")]`
   * `createdById: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id], onDelete: Cascade)]`
-  * `vouchers: PettyCashVoucher[]`
   * `reimbursements: PettyCashReimbursement[]`
+  * `vouchers: PettyCashVoucher[]`
 
 ### [PettyCashVoucher](prisma/schema/petty-cash.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `accountId: String`
-  * `voucherNumber: String` `[@unique // PCV-OPMC-YEAR-XXXX]`
+  * `voucherNumber: String` `[@unique]`
   * `date: DateTime` `[@default(now())]`
   * `title: String`
   * `description: String?`
   * `amount: Float` `[@default(0)]`
-  * `category: String` `[// TRANSPORT, REFRESHMENTS, UTILITIES, STATIONERY, MISC]`
-  * `status: String` `[@default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, REIMBURSED]`
+  * `category: String`
+  * `status: String` `[@default("DRAFT")]`
   * `recipientName: String?`
-  * `receiptUrl: String?` `[// File upload link for receipt/bill]`
+  * `receiptUrl: String?`
   * `approvedById: String?`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
@@ -3334,10 +3607,10 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `accountId: String`
-  * `reimbursementNumber: String` `[@unique // PCR-OPMC-YEAR-XXXX]`
+  * `reimbursementNumber: String` `[@unique]`
   * `totalAmount: Float` `[@default(0)]`
-  * `status: String` `[@default("PENDING") // PENDING, APPROVED, REIMBURSED]`
-  * `paymentVoucherId: String?` `[// Link to Head Office Payment Voucher for fund replenishment]`
+  * `status: String` `[@default("PENDING")]`
+  * `paymentVoucherId: String?`
   * `createdById: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -3348,58 +3621,58 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `title: String`
   * `description: String`
-  * `probability: Int` `[// 1-5 Scale]`
-  * `impact: Int` `[// 1-5 Scale]`
-  * `score: Int` `[// Probability * Impact]`
+  * `probability: Int`
+  * `impact: Int`
+  * `score: Int`
   * `mitigationPlan: String?`
-  * `status: String` `[@default("OPEN") // OPEN, MITIGATED, CLOSED]`
+  * `status: String` `[@default("OPEN")]`
   * `identifiedById: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectInspection](prisma/schema/project-advanced.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `title: String`
-  * `category: String` `[// INSPECTION_REQUEST (IR), NON_CONFORMANCE (NCR)]`
-  * `status: String` `[@default("PENDING") // PENDING, PASSED, FAILED, UNDER_CORRECTION]`
-  * `checklist: Json` `[// JSON array of checked list items]`
+  * `category: String`
+  * `status: String` `[@default("PENDING")]`
+  * `checklist: Json`
   * `correctiveAction: String?`
   * `photoUrls: String[]` `[@default([])]`
   * `inspectorId: String`
   * `inspectedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectEVM](prisma/schema/project-advanced.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String` `[@unique]`
   * `lastCalculatedAt: DateTime` `[@default(now())]`
-  * `pvTotal: Float` `[@default(0) // Sum of all planned values]`
-  * `pvCurrentPeriod: Float` `[@default(0) // PV for current reporting period]`
+  * `pvTotal: Float` `[@default(0)]`
+  * `pvCurrentPeriod: Float` `[@default(0)]`
   * `evTotal: Float` `[@default(0)]`
   * `evCurrentPeriod: Float` `[@default(0)]`
   * `acTotal: Float` `[@default(0)]`
   * `acCurrentPeriod: Float` `[@default(0)]`
-  * `spi: Float?` `[// Schedule Performance Index = EV / PV]`
-  * `cpi: Float?` `[// Cost Performance Index = EV / AC]`
-  * `scheduleVariance: Float?` `[// SV = EV - PV (negative means behind schedule)]`
-  * `costVariance: Float?` `[// CV = EV - AC (negative means over budget)]`
-  * `estimateAtCompletion: Float?` `[// EAC = BAC / CPI]`
-  * `estimateToComplete: Float?` `[// ETC = EAC - AC]`
-  * `varianceAtCompletion: Float?` `[// VAC = BAC - EAC]`
-  * `status: String` `[@default("GREEN") // GREEN, AMBER, RED]`
+  * `spi: Float?`
+  * `cpi: Float?`
+  * `scheduleVariance: Float?`
+  * `costVariance: Float?`
+  * `estimateAtCompletion: Float?`
+  * `estimateToComplete: Float?`
+  * `varianceAtCompletion: Float?`
+  * `status: String` `[@default("GREEN")]`
   * `statusNotes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `snapshots: EVMSnapshot[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [EVMSnapshot](prisma/schema/project-advanced.prisma)
 * **Fields**:
@@ -3413,7 +3686,7 @@
   * `cpi: Float?`
   * `scheduleVariance: Float?`
   * `costVariance: Float?`
-  * `periodLabel: String` `[// e.g., "Week 12", "Month 3", "2026-03"]`
+  * `periodLabel: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `evm: ProjectEVM` `[@relation(fields: [evmId], references: [id], onDelete: Cascade)]`
 
@@ -3421,30 +3694,30 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `assetType: String` `[// FIBER_ROUTE, FIBER_CABLE, POLE, CHAMBER, CLOSURE, ODF, SPLICE_TRAY]`
-  * `assetCode: String?` `[// Auto-generated asset code]`
+  * `assetType: String`
+  * `assetCode: String?`
   * `assetName: String`
   * `description: String?`
   * `latitude: Float?`
   * `longitude: Float?`
   * `address: String?`
-  * `routeIdentifier: String?` `[// Reference to the fiber route / cable route name]`
+  * `routeIdentifier: String?`
   * `fiberCount: Int?`
   * `cableType: String?`
   * `manufacturer: String?`
   * `model: String?`
   * `serialNumber: String?`
-  * `status: String` `[@default("ACTIVE") // ACTIVE, INACTIVE, DECOMMISSIONED, FAULTY]`
-  * `ownership: String?` `[// SLT_OWNED, LEASED, SHARED]`
+  * `status: String` `[@default("ACTIVE")]`
+  * `ownership: String?`
   * `warrantyExpiry: DateTime?`
   * `installationDate: DateTime?`
   * `commissionedDate: DateTime?`
-  * `sourceType: String?` `[// GIS_ROUTE, MANUAL_ENTRY, SURVEY_RESULT, COMMISSIONING]`
-  * `sourceId: String?` `[// Reference to source record ID]`
+  * `sourceType: String?`
+  * `sourceId: String?`
   * `sourceDescription: String?`
-  * `transferredToNOC: Boolean` `[@default(false) // Transferred to Network Operations inventory]`
+  * `transferredToNOC: Boolean` `[@default(false)]`
   * `transferDate: DateTime?`
-  * `nocAssetId: String?` `[// Asset ID in NOC system]`
+  * `nocAssetId: String?`
   * `transferNotes: String?`
   * `createdById: String`
   * `verifiedById: String?`
@@ -3454,20 +3727,20 @@
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `cables: ProjectAssetCable[]`
   * `connections: ProjectAssetConnection[]` `[@relation("AssetConnections")]`
-  * `documents: ProjectAssetDocument[]`
   * `connectedFrom: ProjectAssetConnection[]` `[@relation("ConnectedAssets")]`
+  * `documents: ProjectAssetDocument[]`
 
 ### [ProjectAssetCable](prisma/schema/project-advanced.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `assetId: String`
-  * `cableNumber: Int` `[// Cable number within ODF/Closure]`
+  * `cableNumber: Int`
   * `fiberCount: Int`
-  * `fiberFrom: Int?` `[// Fiber range start]`
-  * `fiberTo: Int?` `[// Fiber range end]`
-  * `direction: String?` `[// A_END, B_END, BOTH]`
-  * `connectedToAssetId: String?` `[// Connected asset (e.g., another closure)]`
-  * `connectedToPort: String?` `[// Port on connected asset]`
+  * `fiberFrom: Int?`
+  * `fiberTo: Int?`
+  * `direction: String?`
+  * `connectedToAssetId: String?`
+  * `connectedToPort: String?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `asset: ProjectAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
@@ -3477,10 +3750,10 @@
   * `id: String` `[@id @default(cuid())]`
   * `assetId: String`
   * `connectedAssetId: String`
-  * `connectionType: String` `[// FIBER, DUCT, CABLE, PIGTAIL, ADAPTER]`
+  * `connectionType: String`
   * `fiberNumber: Int?`
-  * `loss: Float?` `[// dB]`
-  * `testReferenceId: String?` `[// OTDR test ID]`
+  * `loss: Float?`
+  * `testReferenceId: String?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `asset: ProjectAsset` `[@relation("AssetConnections", fields: [assetId], references: [id], onDelete: Cascade)]`
@@ -3490,7 +3763,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `assetId: String`
-  * `documentType: String` `[// DATASHEET, WARRANTY, TEST_RESULT, AS_BUILT, PHOTO]`
+  * `documentType: String`
   * `fileName: String`
   * `fileUrl: String`
   * `uploadedById: String`
@@ -3502,7 +3775,7 @@
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
   * `requestNumber: String` `[@unique]`
-  * `changeType: String` `[// SCOPE, ROUTE, MATERIAL, TIMELINE, BUDGET]`
+  * `changeType: String`
   * `title: String`
   * `description: String?`
   * `costImpact: Float?`
@@ -3513,8 +3786,8 @@
   * `submittedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `approvals: ChangeApproval[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ChangeApproval](prisma/schema/project-advanced.prisma)
 * **Fields**:
@@ -3546,7 +3819,7 @@
   * `isResolved: Boolean` `[@default(false)]`
   * `resolvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
-  * `project: Project?` `[@relation(fields: [projectId], references: [id], onDelete: SetNull)]`
+  * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
 
 ### [Job](prisma/schema/project-core.prisma)
 * **Fields**:
@@ -3565,8 +3838,8 @@
   * `projectId: String?` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
   * `assignedTo: Staff?` `[@relation(fields: [assignedToId], references: [id])]`
+  * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
 
 ### [Project](prisma/schema/project-core.prisma)
 * **Fields**:
@@ -3579,7 +3852,6 @@
   * `status: String` `[@default("PLANNING")]`
   * `progress: Float` `[@default(0)]`
   * `jobId: String?`
-  * `job: Job?`
   * `budget: Float?`
   * `actualCost: Float` `[@default(0)]`
   * `variance: Float?`
@@ -3592,61 +3864,62 @@
   * `opmcId: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `projectTypeId: String?`
+  * `gisMapping: Json?`
+  * `routeType: String?`
+  * `routeFrom: String?`
+  * `routeTo: String?`
+  * `routeLength: Float?`
+  * `surveyLayers: String[]` `[@default([])]`
+  * `aiPredictions: AiPrediction[]`
+  * `boqApprovals: BOQApproval[]`
+  * `boqRateConfigs: BOQRateConfig[]`
+  * `contractorScores: ContractorPerformanceScore[]`
+  * `dailyProgress: DailyProgress[]`
+  * `fieldTasks: FieldTask[]`
+  * `gisAuditLogs: GISAuditLog[]`
+  * `generatedBOQs: GISGeneratedBOQ[]`
+  * `gisRoutes: GISRoute[]`
+  * `hseSafetyLogs: HSESafetyLog[]`
   * `invoices: Invoice[]`
+  * `job: Job?`
+  * `surveySessions: MobileSurveySession[]`
+  * `otdrTests: OTDRTest[]`
+  * `patSessions: PATSession[]`
+  * `paymentVouchers: PaymentVoucher[]`
   * `areaManager: Staff?` `[@relation(fields: [areaManagerId], references: [id])]`
   * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
   * `opmc: OPMC?` `[@relation(fields: [opmcId], references: [id])]`
+  * `projectType: ProjectType?` `[@relation(fields: [projectTypeId], references: [id])]`
+  * `approvalRequests: ProjectApprovalRequest[]`
+  * `assets: ProjectAsset[]`
   * `boqItems: ProjectBOQItem[]`
+  * `changeOrders: ProjectChangeOrder[]`
+  * `changeRequests: ProjectChangeRequest[]`
+  * `documents: ProjectDocument[]`
+  * `evm: ProjectEVM?`
   * `expenses: ProjectExpense[]`
+  * `goodsReceipts: ProjectGoodsReceipt[]`
+  * `inspections: ProjectInspection[]`
+  * `projectInvoices: ProjectInvoice[]`
+  * `ldPenalties: ProjectLDPenalty[]`
   * `projectReturns: ProjectMaterialReturn[]`
   * `milestones: ProjectMilestone[]`
-  * `stockIssues: StockIssue[]`
-  * `tasks: ProjectTask[]`
-  * `timesheets: Timesheet[]`
-  * `requisitions: ProjectRequisition[]`
-  * `purchaseOrders: ProjectPurchaseOrder[]`
-  * `goodsReceipts: ProjectGoodsReceipt[]`
-  * `projectInvoices: ProjectInvoice[]`
-  * `paymentVouchers: PaymentVoucher[]`
-  * `ldPenalties: ProjectLDPenalty[]`
-  * `retentions: ProjectRetention[]`
-  * `changeOrders: ProjectChangeOrder[]`
-  * `resources: ProjectResource[]`
-  * `documents: ProjectDocument[]`
-  * `approvalRequests: ProjectApprovalRequest[]`
-  * `risks: ProjectRisk[]`
-  * `inspections: ProjectInspection[]`
-  * `projectTypeId: String?`
-  * `projectType: ProjectType?` `[@relation(fields: [projectTypeId], references: [id])]`
-  * `workflowInstance: ProjectWorkflowInstance?`
-  * `gisMapping: Json?` `[// Maps "POLE", "CHAMBER", "CLOSURE", "CABLE" to inventory materialIds]`
-  * `permits: ProjectPermit[]`
-  * `gisRoutes: GISRoute[]`
-  * `generatedBOQs: GISGeneratedBOQ[]`
-  * `surveys: SurveyRequest[]`
-  * `contractorScores: ContractorPerformanceScore[]`
-  * `fieldTasks: FieldTask[]`
-  * `otdrTests: OTDRTest[]`
-  * `hseSafetyLogs: HSESafetyLog[]`
-  * `evm: ProjectEVM?`
-  * `assets: ProjectAsset[]`
-  * `routeType: String?` `[// AERIAL, UNDERGROUND, HYBRID]`
-  * `routeFrom: String?` `[// Route start point]`
-  * `routeTo: String?` `[// Route end point]`
-  * `routeLength: Float?` `[// Planned route length in meters]`
-  * `surveyLayers: String[]` `[@default([]) // Active QGIS survey layer IDs]`
-  * `supervisorAssignments: ProjectSupervisorAssignment[]`
-  * `surveySessions: MobileSurveySession[]`
-  * `surveyPoints: SurveyPoint[]`
-  * `boqApprovals: BOQApproval[]`
-  * `boqRateConfigs: BOQRateConfig[]`
-  * `dailyProgress: DailyProgress[]`
-  * `changeRequests: ProjectChangeRequest[]`
-  * `gisAuditLogs: GISAuditLog[]`
-  * `patSessions: PATSession[]`
   * `projectPayments: ProjectPayment[]`
-  * `aiPredictions: AiPrediction[]`
+  * `permits: ProjectPermit[]`
+  * `purchaseOrders: ProjectPurchaseOrder[]`
+  * `requisitions: ProjectRequisition[]`
+  * `resources: ProjectResource[]`
+  * `retentions: ProjectRetention[]`
+  * `risks: ProjectRisk[]`
+  * `supervisorAssignments: ProjectSupervisorAssignment[]`
+  * `tasks: ProjectTask[]`
+  * `workflowInstance: ProjectWorkflowInstance?`
   * `qfieldConfigs: QFieldFieldConfig[]`
+  * `stockIssues: StockIssue[]`
+  * `surveyPoints: SurveyPoint[]`
+  * `surveys: SurveyRequest[]`
+  * `timesheets: Timesheet[]`
 
 ### [ProjectBOQItem](prisma/schema/project-core.prisma)
 * **Fields**:
@@ -3659,7 +3932,7 @@
   * `unitRate: Float`
   * `amount: Float`
   * `category: String?`
-  * `source: String` `[@default("NEW") // NEW = to procure, EXISTING = from inventory/stock]`
+  * `source: String` `[@default("NEW")]`
   * `actualQuantity: Float` `[@default(0)]`
   * `actualCost: Float` `[@default(0)]`
   * `materialId: String?`
@@ -3702,12 +3975,12 @@
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
   * `parentId: String?`
-  * `wbsCode: String` `[// e.g., "1.1.1", "1.2"]`
+  * `wbsCode: String`
   * `name: String`
   * `description: String?`
-  * `type: String` `[@default("TASK") // TASK, MILESTONE, PHASE]`
-  * `status: String` `[@default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED]`
-  * `priority: String` `[@default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL]`
+  * `type: String` `[@default("TASK")]`
+  * `status: String` `[@default("PENDING")]`
+  * `priority: String` `[@default("MEDIUM")]`
   * `plannedStartDate: DateTime?`
   * `plannedEndDate: DateTime?`
   * `actualStartDate: DateTime?`
@@ -3720,35 +3993,35 @@
   * `actualCost: Float?`
   * `order: Int` `[@default(0)]`
   * `isCritical: Boolean` `[@default(false)]`
-  * `assigneeType: String?` `[// STAFF, CONTRACTOR, TEAM]`
+  * `assigneeType: String?`
   * `assigneeId: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `parent: ProjectTask?` `[@relation("TaskHierarchy", fields: [parentId], references: [id])]`
   * `children: ProjectTask[]` `[@relation("TaskHierarchy")]`
-  * `dependencies: TaskDependency[]` `[@relation("TaskDependents")]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `dependsOn: TaskDependency[]` `[@relation("TaskPrerequisites")]`
+  * `dependencies: TaskDependency[]` `[@relation("TaskDependents")]`
   * `progressLogs: TaskProgressLog[]`
   * `timesheets: Timesheet[]`
 
 ### [TaskDependency](prisma/schema/project-core.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `taskId: String` `[// dependent task]`
-  * `dependsOnTaskId: String` `[// predecessor task]`
-  * `type: String` `[@default("FINISH_TO_START") // FINISH_TO_START, START_TO_START, FINISH_TO_FINISH]`
+  * `taskId: String`
+  * `dependsOnTaskId: String`
+  * `type: String` `[@default("FINISH_TO_START")]`
   * `lagDays: Int` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
-  * `task: ProjectTask` `[@relation("TaskDependents", fields: [taskId], references: [id], onDelete: Cascade)]`
   * `dependsOn: ProjectTask` `[@relation("TaskPrerequisites", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)]`
+  * `task: ProjectTask` `[@relation("TaskDependents", fields: [taskId], references: [id], onDelete: Cascade)]`
 
 ### [TaskProgressLog](prisma/schema/project-core.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `taskId: String`
   * `date: DateTime` `[@default(now())]`
-  * `progress: Float` `[@default(0) // percentage 0-100]`
+  * `progress: Float` `[@default(0)]`
   * `description: String?`
   * `photoUrls: String[]` `[@default([])]`
   * `gpsLatitude: Float?`
@@ -3767,73 +4040,73 @@
   * `date: DateTime`
   * `hours: Float`
   * `description: String?`
-  * `status: String` `[@default("PENDING") // PENDING, VERIFIED, APPROVED, REJECTED]`
+  * `status: String` `[@default("PENDING")]`
   * `verifiedById: String?`
   * `verifiedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `task: ProjectTask` `[@relation(fields: [taskId], references: [id], onDelete: Cascade)]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
+  * `task: ProjectTask` `[@relation(fields: [taskId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectResource](prisma/schema/project-core.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
-  * `resourceType: String` `[// STAFF, CONTRACTOR, TEAM, EQUIPMENT]`
-  * `resourceId: String` `[// Id referencing User/Staff, Contractor, ContractorTeam, or Equipment]`
+  * `resourceType: String`
+  * `resourceId: String`
   * `name: String`
-  * `role: String?` `[// e.g. "Lead Cable Splicer", "Excavator"]`
-  * `allocationPercentage: Float` `[@default(100) // Resource Loading % (e.g. 50%)]`
+  * `role: String?`
+  * `allocationPercentage: Float` `[@default(100)]`
   * `startDate: DateTime`
   * `endDate: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectDocument](prisma/schema/project-core.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `title: String`
   * `description: String?`
-  * `category: String` `[// DRAWING, BOQ, CONTRACT, SPECIFICATION, OTHER]`
-  * `status: String` `[@default("DRAFT") // DRAFT, UNDER_REVIEW, APPROVED, REJECTED]`
+  * `category: String`
+  * `status: String` `[@default("DRAFT")]`
   * `currentVersion: Int` `[@default(1)]`
   * `fileUrl: String`
   * `uploadedById: String`
-  * `uploadedBy: User` `[@relation(fields: [uploadedById], references: [id])]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `versions: ProjectDocumentVersion[]`
   * `approvals: ProjectApprovalRequest[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
+  * `uploadedBy: User` `[@relation(fields: [uploadedById], references: [id])]`
+  * `versions: ProjectDocumentVersion[]`
 
 ### [ProjectDocumentVersion](prisma/schema/project-core.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `documentId: String`
-  * `document: ProjectDocument` `[@relation(fields: [documentId], references: [id], onDelete: Cascade)]`
   * `versionNumber: Int`
   * `fileUrl: String`
   * `changeSummary: String?`
   * `uploadedById: String`
   * `createdAt: DateTime` `[@default(now())]`
+  * `document: ProjectDocument` `[@relation(fields: [documentId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectType](prisma/schema/project-core.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `name: String` `[@unique // e.g., "Cluster Development", "SSD"]`
+  * `name: String` `[@unique]`
   * `description: String?`
-  * `workflowTemplates: WorkflowTemplate[]`
-  * `projects: Project[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `projects: Project[]`
+  * `workflowTemplates: WorkflowTemplate[]`
 
 ### [BOQRateConfig](prisma/schema/project-core.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String?`
-  * `itemCategory: String` `[// POLE, CHAMBER, CLOSURE, CABLE, DUCT, LABOR]`
+  * `itemCategory: String`
   * `itemCode: String` `[@unique]`
   * `description: String?`
   * `unit: String` `[@default("UNIT")]`
@@ -3841,7 +4114,7 @@
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project?` `[@relation(fields: [projectId], references: [id], onDelete: SetNull)]`
+  * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
 
 ### [BOQApproval](prisma/schema/project-core.prisma)
 * **Fields**:
@@ -3906,15 +4179,15 @@
   * `date: DateTime` `[@default(now())]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `connectionTitle: String?`
   * `agreementNumber: String?`
-  * `projectNumber: Int?`
   * `bomNumber: String?`
+  * `connectionTitle: String?`
+  * `projectNumber: Int?`
   * `rtomArea: String?`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id])]`
   * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
-  * `sods: ServiceOrder[]`
   * `penalties: Penalty[]`
+  * `sods: ServiceOrder[]`
 
 ### [Bank](prisma/schema/project-finance.prisma)
 * **Fields**:
@@ -3980,10 +4253,10 @@
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `purchaseOrders: ProjectPurchaseOrder[]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `vendor: Vendor?` `[@relation("VendorRequisitions", fields: [vendorId], references: [id])]`
   * `items: ProjectRequisitionItem[]`
-  * `purchaseOrders: ProjectPurchaseOrder[]`
   * `quotations: Quotation[]` `[@relation("RequisitionQuotations")]`
 
 ### [ProjectRequisitionItem](prisma/schema/project-finance.prisma)
@@ -4073,10 +4346,10 @@
   * `cancellationReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `goodsReceipts: ProjectGoodsReceipt[]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `requisition: ProjectRequisition?` `[@relation(fields: [requisitionId], references: [id])]`
   * `items: ProjectPurchaseOrderItem[]`
-  * `goodsReceipts: ProjectGoodsReceipt[]`
 
 ### [ProjectPurchaseOrderItem](prisma/schema/project-finance.prisma)
 * **Fields**:
@@ -4145,8 +4418,8 @@
   * `projectId: String`
   * `title: String`
   * `description: String?`
-  * `status: String` `[@default("DRAFT") // DRAFT, ISSUED, PARTIALLY_PAID, FULLY_PAID, OVERDUE, CANCELLED]`
-  * `type: String` `[@default("CLIENT") // CLIENT, CONTRACTOR, INTERNAL]`
+  * `status: String` `[@default("DRAFT")]`
+  * `type: String` `[@default("CLIENT")]`
   * `invoiceDate: DateTime` `[@default(now())]`
   * `dueDate: DateTime?`
   * `subtotal: Float` `[@default(0)]`
@@ -4157,7 +4430,7 @@
   * `balanceAmount: Float` `[@default(0)]`
   * `currency: String` `[@default("LKR")]`
   * `notes: String?`
-  * `referenceNumber: String?` `[// Client PO ref, SO ref, etc.]`
+  * `referenceNumber: String?`
   * `periodFrom: DateTime?`
   * `periodTo: DateTime?`
   * `createdById: String?`
@@ -4166,9 +4439,9 @@
   * `cancelledReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `payments: PaymentVoucher[]` `[@relation("InvoicePayments")]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `items: ProjectInvoiceItem[]`
-  * `payments: PaymentVoucher[]` `[@relation("InvoicePayments")]`
   * `retentions: ProjectRetention[]`
   * `sods: ServiceOrder[]` `[@relation("ProjectInvoiceSODs")]`
 
@@ -4182,7 +4455,7 @@
   * `totalPrice: Float` `[@default(0)]`
   * `boqItemId: String?`
   * `taskId: String?`
-  * `itemType: String` `[@default("SERVICE") // SERVICE, MATERIAL, EQUIPMENT, MISC]`
+  * `itemType: String` `[@default("SERVICE")]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `invoice: ProjectInvoice` `[@relation(fields: [invoiceId], references: [id], onDelete: Cascade)]`
@@ -4194,14 +4467,14 @@
   * `projectId: String`
   * `title: String`
   * `description: String?`
-  * `status: String` `[@default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, PAID, REJECTED, CANCELLED]`
-  * `type: String` `[@default("CONTRACTOR") // CONTRACTOR, VENDOR, STAFF, CLIENT_REFUND, MISC]`
+  * `status: String` `[@default("DRAFT")]`
+  * `type: String` `[@default("CONTRACTOR")]`
   * `payeeName: String`
   * `payeeId: String?`
   * `invoiceId: String?`
   * `amount: Float` `[@default(0)]`
   * `paymentDate: DateTime?`
-  * `paymentMethod: String?` `[// BANK_TRANSFER, CHEQUE, CASH, CARD]`
+  * `paymentMethod: String?`
   * `bankName: String?`
   * `bankBranch: String?`
   * `accountNumber: String?`
@@ -4221,8 +4494,8 @@
   * `cancelledReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `invoice: ProjectInvoice?` `[@relation("InvoicePayments", fields: [invoiceId], references: [id])]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectLDPenalty](prisma/schema/project-finance.prisma)
 * **Fields**:
@@ -4230,16 +4503,16 @@
   * `projectId: String`
   * `title: String`
   * `description: String?`
-  * `type: String` `[@default("LD") // LD, PENALTY]`
-  * `category: String` `[@default("DELAY") // DELAY, QUALITY, SAFETY, PERFORMANCE, MATERIAL, OTHER]`
+  * `type: String` `[@default("LD")]`
+  * `category: String` `[@default("DELAY")]`
   * `amount: Float` `[@default(0)]`
-  * `percentage: Float?` `[// e.g., 0.5% per week]`
-  * `referenceTable: String?` `[// e.g., "ProjectMilestone", "ProjectTask"]`
+  * `percentage: Float?`
+  * `referenceTable: String?`
   * `referenceId: String?`
   * `referenceDesc: String?`
   * `waivedAmount: Float` `[@default(0)]`
   * `netAmount: Float` `[@default(0)]`
-  * `status: String` `[@default("PROPOSED") // PROPOSED, APPROVED, WAIVED, COLLECTED]`
+  * `status: String` `[@default("PROPOSED")]`
   * `appliedDate: DateTime?`
   * `leviedById: String?`
   * `approvedById: String?`
@@ -4256,18 +4529,18 @@
   * `invoiceId: String?`
   * `title: String`
   * `description: String?`
-  * `retentionPercent: Float` `[@default(10) // e.g., 10%]`
+  * `retentionPercent: Float` `[@default(10)]`
   * `retentionAmount: Float` `[@default(0)]`
   * `releasedAmount: Float` `[@default(0)]`
   * `balanceAmount: Float` `[@default(0)]`
-  * `status: String` `[@default("HELD") // HELD, PARTIALLY_RELEASED, FULLY_RELEASED]`
-  * `releaseCondition: String?` `[// e.g., "DEFECT_LIABILITY_PERIOD", "COMPLETION_CERTIFICATE"]`
-  * `defectLiabilityPeriod: Int?` `[// days]`
+  * `status: String` `[@default("HELD")]`
+  * `releaseCondition: String?`
+  * `defectLiabilityPeriod: Int?`
   * `defectLiabilityEnd: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `invoice: ProjectInvoice?` `[@relation(fields: [invoiceId], references: [id])]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `releases: RetentionRelease[]`
 
 ### [RetentionRelease](prisma/schema/project-finance.prisma)
@@ -4290,16 +4563,16 @@
   * `projectId: String`
   * `title: String`
   * `description: String?`
-  * `type: String` `[@default("SCOPE") // SCOPE, TIME, COST, RESOURCE, QUALITY]`
-  * `status: String` `[@default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, IMPLEMENTED, CANCELLED]`
+  * `type: String` `[@default("SCOPE")]`
+  * `status: String` `[@default("DRAFT")]`
   * `priority: String` `[@default("MEDIUM")]`
-  * `reason: String?` `[// CLIENT_REQUEST, DESIGN_CHANGE, SITE_CONDITION, REGULATORY, OTHER]`
-  * `referenceTable: String?` `[// e.g., "ProjectTask", "ProjectMilestone", "ProjectBOQItem"]`
+  * `reason: String?`
+  * `referenceTable: String?`
   * `referenceId: String?`
-  * `originalValue: Float?` `[// Original cost/duration value]`
-  * `newValue: Float?` `[// Revised cost/duration value]`
+  * `originalValue: Float?`
+  * `newValue: Float?`
   * `costImpact: Float` `[@default(0)]`
-  * `timeImpact: Int?` `[// days added or removed]`
+  * `timeImpact: Int?`
   * `scopeImpact: String?`
   * `riskAssessment: String?`
   * `supportingDocs: String[]` `[@default([])]`
@@ -4347,14 +4620,14 @@
   * `memoNumber: String` `[@unique]`
   * `title: String`
   * `description: String?`
-  * `allocationTarget: String?` `[// e.g. OPMC region, IT department, HQ, etc.]`
-  * `approvedAt: DateTime?`
-  * `receivedAt: DateTime?`
-  * `documentUrl: String?` `[// link/path to uploaded document]`
   * `totalCost: Float` `[@default(0)]`
-  * `journalEntryId: String?` `[// Reference to the ledger entry]`
+  * `journalEntryId: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `allocationTarget: String?`
+  * `approvedAt: DateTime?`
+  * `documentUrl: String?`
+  * `receivedAt: DateTime?`
   * `items: CostAllocationMemoItem[]`
 
 ### [CostAllocationMemoItem](prisma/schema/project-finance.prisma)
@@ -4371,56 +4644,55 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
-  * `type: String` `[// BUDGET, MATERIAL, CHANGE_ORDER, DOCUMENT, INSPECTION]`
-  * `referenceId: String` `[// Id of the related entity (e.g. DocumentId, ChangeOrderId, etc.)]`
+  * `type: String`
+  * `referenceId: String`
   * `documentId: String?`
-  * `document: ProjectDocument?` `[@relation(fields: [documentId], references: [id], onDelete: SetNull)]`
   * `title: String`
   * `description: String?`
-  * `amount: Float?` `[// If applicable (e.g., Change Order value)]`
-  * `status: String` `[@default("PENDING") // PENDING, APPROVED, REJECTED]`
+  * `amount: Float?`
+  * `status: String` `[@default("PENDING")]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `document: ProjectDocument?` `[@relation(fields: [documentId], references: [id])]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `steps: ProjectApprovalStep[]`
 
 ### [ProjectApprovalStep](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `requestId: String`
-  * `request: ProjectApprovalRequest` `[@relation(fields: [requestId], references: [id], onDelete: Cascade)]`
-  * `stepNumber: Int` `[// e.g. Step 1 (Engineer), Step 2 (ARM), Step 3 (OPMC Manager)]`
-  * `roleRequired: String` `[// Role name or User role enum (e.g. ENGINEER, OPMC_MANAGER, FINANCE_ADMIN)]`
+  * `stepNumber: Int`
+  * `roleRequired: String`
   * `assignedUserId: String?`
-  * `assignedUser: User?` `[@relation("StepAssignee", fields: [assignedUserId], references: [id])]`
-  * `status: String` `[@default("PENDING") // PENDING, APPROVED, REJECTED, SKIPPED]`
+  * `status: String` `[@default("PENDING")]`
   * `actionedById: String?`
-  * `actionedBy: User?` `[@relation("StepActioner", fields: [actionedById], references: [id])]`
   * `actionedAt: DateTime?`
   * `comment: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `actionedBy: User?` `[@relation("StepActioner", fields: [actionedById], references: [id])]`
+  * `assignedUser: User?` `[@relation("StepAssignee", fields: [assignedUserId], references: [id])]`
+  * `request: ProjectApprovalRequest` `[@relation(fields: [requestId], references: [id], onDelete: Cascade)]`
 
 ### [WorkflowTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `name: String` `[@unique // e.g., "Cluster Dev Standard Workflow"]`
+  * `name: String` `[@unique]`
   * `description: String?`
   * `projectTypeId: String`
-  * `projectType: ProjectType` `[@relation(fields: [projectTypeId], references: [id])]`
-  * `stages: WorkflowStageTemplate[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `isActive: Boolean` `[@default(true)]`
+  * `stages: WorkflowStageTemplate[]`
+  * `projectType: ProjectType` `[@relation(fields: [projectTypeId], references: [id])]`
 
 ### [WorkflowStageTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `name: String` `[// e.g., "Splicing", "OTDR Testing"]`
+  * `name: String`
   * `description: String?`
-  * `sequence: Int` `[// Drag-and-drop order]`
+  * `sequence: Int`
   * `workflowTemplateId: String`
-  * `workflowTemplate: WorkflowTemplate` `[@relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)]`
   * `reqApproval: Boolean` `[@default(false)]`
   * `reqChecklist: Boolean` `[@default(false)]`
   * `reqPhotos: Boolean` `[@default(false)]`
@@ -4428,26 +4700,27 @@
   * `reqDocuments: Boolean` `[@default(false)]`
   * `reqOTDR: Boolean` `[@default(false)]`
   * `reqGPS: Boolean` `[@default(false)]`
-  * `taskTemplates: WorkflowTaskTemplate[]`
-  * `checklistTemplates: WorkflowChecklistTemplate[]`
-  * `approvalTemplates: WorkflowApprovalTemplate[]`
-  * `conditions: WorkflowConditionTemplate[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `approvalTemplates: WorkflowApprovalTemplate[]`
+  * `checklistTemplates: WorkflowChecklistTemplate[]`
+  * `conditions: WorkflowConditionTemplate[]`
+  * `workflowTemplate: WorkflowTemplate` `[@relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)]`
+  * `taskTemplates: WorkflowTaskTemplate[]`
 
 ### [WorkflowTaskTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `name: String`
   * `description: String?`
-  * `priority: String` `[@default("MEDIUM") // LOW, MEDIUM, HIGH]`
+  * `priority: String` `[@default("MEDIUM")]`
   * `stageTemplateId: String`
   * `stageTemplate: WorkflowStageTemplate` `[@relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)]`
 
 ### [WorkflowChecklistTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `label: String` `[// e.g., "Verify core alignment"]`
+  * `label: String`
   * `isMandatory: Boolean` `[@default(true)]`
   * `reqPhoto: Boolean` `[@default(false)]`
   * `stageTemplateId: String`
@@ -4456,18 +4729,18 @@
 ### [WorkflowApprovalTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `level: Int` `[@default(1) // Level 1, 2, 3]`
-  * `role: String` `[// e.g., "PROJECT_MANAGER", "OPMC_MANAGER"]`
+  * `level: Int` `[@default(1)]`
+  * `role: String`
   * `stageTemplateId: String`
   * `stageTemplate: WorkflowStageTemplate` `[@relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)]`
 
 ### [WorkflowConditionTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `field: String` `[// e.g., "permitRequired" or "otdrRequired"]`
-  * `operator: String` `[// e.g., "EQUALS"]`
-  * `value: String` `[// e.g., "true"]`
-  * `action: String` `[// e.g., "SKIP" or "REQUIRE"]`
+  * `field: String`
+  * `operator: String`
+  * `value: String`
+  * `action: String`
   * `stageTemplateId: String`
   * `stageTemplate: WorkflowStageTemplate` `[@relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)]`
 
@@ -4475,11 +4748,11 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String` `[@unique]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `currentStageId: String?`
-  * `stages: ProjectStageInstance[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `stages: ProjectStageInstance[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectStageInstance](prisma/schema/project-workflow.prisma)
 * **Fields**:
@@ -4487,9 +4760,8 @@
   * `name: String`
   * `description: String?`
   * `sequence: Int`
-  * `status: String` `[@default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED]`
+  * `status: String` `[@default("PENDING")]`
   * `projectWorkflowInstanceId: String`
-  * `projectWorkflowInstance: ProjectWorkflowInstance` `[@relation(fields: [projectWorkflowInstanceId], references: [id], onDelete: Cascade)]`
   * `reqApproval: Boolean`
   * `reqChecklist: Boolean`
   * `reqPhotos: Boolean`
@@ -4497,13 +4769,14 @@
   * `reqDocuments: Boolean`
   * `reqOTDR: Boolean`
   * `reqGPS: Boolean`
-  * `tasks: ProjectTaskInstance[]`
-  * `checklists: ProjectChecklistInstance[]`
-  * `approvals: ProjectApprovalInstance[]`
   * `actualStart: DateTime?`
   * `actualFinish: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `approvals: ProjectApprovalInstance[]`
+  * `checklists: ProjectChecklistInstance[]`
+  * `projectWorkflowInstance: ProjectWorkflowInstance` `[@relation(fields: [projectWorkflowInstanceId], references: [id], onDelete: Cascade)]`
+  * `tasks: ProjectTaskInstance[]`
 
 ### [ProjectTaskInstance](prisma/schema/project-workflow.prisma)
 * **Fields**:
@@ -4511,7 +4784,7 @@
   * `name: String`
   * `description: String?`
   * `priority: String` `[@default("MEDIUM")]`
-  * `status: String` `[@default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED]`
+  * `status: String` `[@default("PENDING")]`
   * `assignedTeamId: String?`
   * `assignedUserId: String?`
   * `plannedStart: DateTime?`
@@ -4537,7 +4810,7 @@
   * `id: String` `[@id @default(cuid())]`
   * `level: Int`
   * `role: String`
-  * `status: String` `[@default("PENDING") // PENDING, APPROVED, REJECTED]`
+  * `status: String` `[@default("PENDING")]`
   * `approvedById: String?`
   * `approvedAt: DateTime?`
   * `comments: String?`
@@ -4548,21 +4821,21 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `userId: String`
-  * `action: String` `[// e.g., "STAGE_COMPLETE", "APPROVAL_SUBMITTED"]`
-  * `entityType: String` `[// e.g., "ProjectStageInstance"]`
+  * `action: String`
+  * `entityType: String`
   * `entityId: String`
-  * `details: Json?` `[// Stores request IP, previous state, etc.]`
+  * `details: Json?`
   * `createdAt: DateTime` `[@default(now())]`
 
 ### [StageGateRule](prisma/schema/project-workflow.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `stageFrom: String` `[// Source stage identifier (e.g., "PERMIT_MANAGEMENT")]`
-  * `stageTo: String` `[// Target stage identifier (e.g., "GIS_ROUTE_DESIGN")]`
-  * `ruleType: String` `[// PERMIT_REQUIRED, SURVEY_REQUIRED, APPROVAL_REQUIRED, CHECKLIST_REQUIRED]`
+  * `stageFrom: String`
+  * `stageTo: String`
+  * `ruleType: String`
   * `description: String?`
-  * `entityType: String?` `[// "ProjectPermit", "SurveyRequest", etc.]`
-  * `condition: String?` `[// JSON condition expression]`
+  * `entityType: String?`
+  * `condition: String?`
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -4572,8 +4845,8 @@
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
   * `supervisorId: String`
-  * `role: String` `[@default("PRIMARY") // PRIMARY, ASSISTANT]`
-  * `status: String` `[@default("ASSIGNED") // ASSIGNED, REMOVED]`
+  * `role: String` `[@default("PRIMARY")]`
+  * `status: String` `[@default("ASSIGNED")]`
   * `assignedAt: DateTime` `[@default(now())]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `supervisor: User` `[@relation(fields: [supervisorId], references: [id], onDelete: Cascade)]`
@@ -4583,7 +4856,7 @@
   * `id: String` `[@id @default(cuid())]`
   * `rtom: String`
   * `lea: String?`
-  * `soNum: String`
+  * `soNum: String` `[@unique]`
   * `voiceNumber: String?`
   * `orderType: String?`
   * `serviceType: String?`
@@ -4620,7 +4893,6 @@
   * `isInvoicable: Boolean` `[@default(false)]`
   * `invoiced: Boolean` `[@default(false)]`
   * `invoiceId: String?`
-  * `projectInvoiceId: String?`
   * `wiredOnly: Boolean` `[@default(false)]`
   * `delayReasons: Json?`
   * `stbShortage: Boolean` `[@default(false)]`
@@ -4641,28 +4913,32 @@
   * `isLegacyImport: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `restoreRequests: RestoreRequest[]`
-  * `materialUsage: SODMaterialUsage[]`
-  * `materialReturns: ContractorMaterialReturn[]` `[@relation("SODMaterialReturns")  // GAP 4: physical returns linked to this SOD]`
+  * `projectInvoiceId: String?`
   * `collectedCPEs: CollectedCPE[]` `[@relation("CollectedCPEs")]`
+  * `materialReturns: ContractorMaterialReturn[]` `[@relation("SODMaterialReturns")]`
+  * `penalties: Penalty[]`
+  * `restoreRequests: RestoreRequest[]`
   * `erectedPoles: SODErectedPole[]`
+  * `forensicAudit: SODForensicAudit?`
   * `iptvSerials: SODIptvSerial[]`
-  * `statusHistory: ServiceOrderStatusHistory[]`
-  * `commentsHistory: ServiceOrderComment[]`
+  * `materialUsage: SODMaterialUsage[]`
   * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
   * `invoice: Invoice?` `[@relation(fields: [invoiceId], references: [id])]`
-  * `projectInvoice: ProjectInvoice?` `[@relation("ProjectInvoiceSODs", fields: [projectInvoiceId], references: [id])]`
   * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id], onDelete: Cascade)]`
+  * `projectInvoice: ProjectInvoice?` `[@relation("ProjectInvoiceSODs", fields: [projectInvoiceId], references: [id])]`
   * `team: ContractorTeam?` `[@relation(fields: [teamId], references: [id])]`
-  * `forensicAudit: SODForensicAudit?`
-  * `penalties: Penalty[]`
+  * `commentsHistory: ServiceOrderComment[]`
+  * `statusHistory: ServiceOrderStatusHistory[]`
 
 ### [SODForensicAudit](prisma/schema/service-order.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `soNum: String` `[@unique]`
+  * `auditData: Json`
+  * `voiceTestStatus: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [soNum], references: [soNum], onDelete: Cascade)]`
-  * `auditData: Json` `[// [{ name: string, status: string, uuid: string]`
 
 ### [ExtensionRawData](prisma/schema/service-order.prisma)
 * **Fields**:
@@ -4679,21 +4955,21 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `serviceOrderId: String`
-  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
   * `status: String`
   * `statusDate: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
+  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
 ### [ServiceOrderComment](prisma/schema/service-order.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `serviceOrderId: String`
-  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
   * `comment: String`
   * `authorId: String?`
-  * `author: User?` `[@relation("UserComments", fields: [authorId], references: [id])]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `author: User?` `[@relation("UserComments", fields: [authorId], references: [id])]`
+  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
 ### [RestoreRequest](prisma/schema/service-order.prisma)
 * **Fields**:
@@ -4763,14 +5039,14 @@
   * `status: String`
   * `source: String`
   * `statusDate: DateTime?`
-  * `hasDuplicate: Boolean` `[@default(false)]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `hasDuplicate: Boolean` `[@default(false)]`
 
 ### [PATSession](prisma/schema/service-order.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `patType: String` `[// PRE_PAT, SLT_PAT]`
+  * `patType: String`
   * `status: String` `[@default("PENDING")]`
   * `sltOfficers: Json?`
   * `fineTuneNeeded: Boolean` `[@default(false)]`
@@ -4785,8 +5061,8 @@
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `pointResults: PATPointResult[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [PATPointResult](prisma/schema/service-order.prisma)
 * **Fields**:
@@ -4810,36 +5086,36 @@
   * `id: String` `[@id @default(cuid())]`
   * `serviceOrderId: String`
   * `contractorId: String`
-  * `deviceType: String` `[// e.g., "ONT", "STB", "PHONE"]`
-  * `serialNumber: String` `[// Serial number of the old device]`
-  * `condition: String` `[@default("FAULTY") // FAULTY, WORKING]`
-  * `status: String` `[@default("PENDING_HANDBACK") // PENDING_HANDBACK, HANDED_BACK]`
+  * `deviceType: String`
+  * `serialNumber: String`
+  * `condition: String` `[@default("FAULTY")]`
+  * `status: String` `[@default("PENDING_HANDBACK")]`
   * `collectedDate: DateTime` `[@default(now())]`
   * `handbackDate: DateTime?`
-  * `handbackReference: String?` `[// Reference key from SLT handback receipt]`
+  * `handbackReference: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `serviceOrder: ServiceOrder` `[@relation("CollectedCPEs", fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
   * `contractor: Contractor` `[@relation("CollectedCPEs", fields: [contractorId], references: [id], onDelete: Cascade)]`
+  * `serviceOrder: ServiceOrder` `[@relation("CollectedCPEs", fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
 ### [SODErectedPole](prisma/schema/service-order.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `serviceOrderId: String`
-  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
-  * `poleType: String` `[// e.g. "PLC-5_6-CE", "PLC-6_7-CE", "PLC-8", "SLTPL"]`
-  * `poleNumber: String` `[// Unique serial painted on the pole]`
+  * `poleType: String`
+  * `poleNumber: String` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
 ### [SODIptvSerial](prisma/schema/service-order.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `serviceOrderId: String`
-  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
-  * `serialNumber: String` `[// Unique serial of the IPTV STB box]`
+  * `serialNumber: String` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
 ### [ContractorBatchStock](prisma/schema/stock-management.prisma)
 * **Fields**:
@@ -5014,7 +5290,7 @@
   * `id: String` `[@id @default(cuid())]`
   * `contractorId: String`
   * `storeId: String`
-  * `serviceOrderId: String?` `[// GAP 4 FIX: optional link to the SOD that triggered this return]`
+  * `serviceOrderId: String?`
   * `returnDate: DateTime` `[@default(now())]`
   * `month: String`
   * `reason: String?`
@@ -5023,8 +5299,8 @@
   * `status: String` `[@default("PENDING")]`
   * `createdAt: DateTime` `[@default(now())]`
   * `contractor: Contractor` `[@relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)]`
+  * `serviceOrder: ServiceOrder?` `[@relation("SODMaterialReturns", fields: [serviceOrderId], references: [id])]`
   * `store: InventoryStore` `[@relation("MaterialReturns", fields: [storeId], references: [id])]`
-  * `serviceOrder: ServiceOrder?` `[@relation("SODMaterialReturns", fields: [serviceOrderId], references: [id], onDelete: SetNull)]`
   * `items: ContractorMaterialReturnItem[]`
 
 ### [ContractorMaterialReturnItem](prisma/schema/stock-management.prisma)
@@ -5177,31 +5453,31 @@
   * `requestNumber: String` `[@unique]`
   * `title: String`
   * `description: String?`
-  * `surveyType: String` `[// ROUTE_SURVEY, SITE_SURVEY, FEASIBILITY, TOPOGRAPHICAL]`
-  * `priority: String` `[@default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT]`
-  * `status: String` `[@default("PENDING") // PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, APPROVED, REJECTED]`
+  * `surveyType: String`
+  * `priority: String` `[@default("MEDIUM")]`
+  * `status: String` `[@default("PENDING")]`
   * `assignedTeamId: String?`
   * `assignedToId: String?`
   * `scheduledDate: DateTime?`
   * `completedDate: DateTime?`
-  * `estimatedBOQ: Float?` `[// Initial BOQ estimation from survey]`
-  * `finalBOQ: Float?` `[// Final BOQ after survey approval]`
+  * `estimatedBOQ: Float?`
+  * `finalBOQ: Float?`
   * `remarks: String?`
   * `createdById: String`
   * `approvedById: String?`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `checkins: SurveyCheckIn[]`
-  * `photos: SurveyPhoto[]`
   * `findings: SurveyFinding[]`
+  * `photos: SurveyPhoto[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [SurveyCheckIn](prisma/schema/survey.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `surveyRequestId: String`
-  * `checkInType: String` `[// CHECK_IN, CHECK_OUT]`
+  * `checkInType: String`
   * `timestamp: DateTime` `[@default(now())]`
   * `latitude: Float?`
   * `longitude: Float?`
@@ -5219,8 +5495,8 @@
   * `latitude: Float?`
   * `longitude: Float?`
   * `altitude: Float?`
-  * `bearing: Float?` `[// compass direction]`
-  * `photoType: String` `[// ROUTE, OBSTRUCTION, ACCESS_POINT, EXISTING_INFRA, OTHER]`
+  * `bearing: Float?`
+  * `photoType: String`
   * `description: String?`
   * `uploadedById: String`
   * `uploadedAt: DateTime` `[@default(now())]`
@@ -5230,13 +5506,13 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `surveyRequestId: String`
-  * `findingType: String` `[// OBSTRUCTION, UTILITY_CONFLICT, ACCESS_ISSUE, ENVIRONMENTAL, OTHER]`
+  * `findingType: String`
   * `description: String`
-  * `severity: String` `[@default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL]`
+  * `severity: String` `[@default("MEDIUM")]`
   * `latitude: Float?`
   * `longitude: Float?`
   * `recommendation: String?`
-  * `status: String` `[@default("OPEN") // OPEN, RESOLVED, WAIVED]`
+  * `status: String` `[@default("OPEN")]`
   * `resolvedAt: DateTime?`
   * `resolvedById: String?`
   * `photoId: String?`
@@ -5248,12 +5524,12 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `taskInstanceId: String?` `[// Reference to ProjectTaskInstance or ProjectTask]`
+  * `taskInstanceId: String?`
   * `assignedTeamId: String?`
   * `assignedUserId: String?`
   * `title: String`
   * `description: String?`
-  * `status: String` `[@default("ASSIGNED") // ASSIGNED, IN_PROGRESS, COMPLETED, VERIFIED]`
+  * `status: String` `[@default("ASSIGNED")]`
   * `priority: String` `[@default("MEDIUM")]`
   * `scheduledDate: DateTime?`
   * `startedAt: DateTime?`
@@ -5262,15 +5538,15 @@
   * `latitude: Float?`
   * `longitude: Float?`
   * `address: String?`
-  * `syncStatus: String` `[@default("PENDING") // PENDING, SYNCED, FAILED]`
+  * `syncStatus: String` `[@default("PENDING")]`
   * `deviceId: String?`
   * `appVersion: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
-  * `photos: FieldPhoto[]`
   * `checklists: FieldChecklist[]`
+  * `photos: FieldPhoto[]`
   * `signatures: FieldSignature[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [FieldPhoto](prisma/schema/survey.prisma)
 * **Fields**:
@@ -5278,7 +5554,7 @@
   * `fieldTaskId: String`
   * `fileName: String`
   * `fileUrl: String`
-  * `photoType: String` `[// PROOF, PROGRESS, COMPLETION, DEFECT, OTHER]`
+  * `photoType: String`
   * `latitude: Float?`
   * `longitude: Float?`
   * `uploadedAt: DateTime` `[@default(now())]`
@@ -5301,8 +5577,8 @@
   * `id: String` `[@id @default(cuid())]`
   * `fieldTaskId: String`
   * `signatoryName: String`
-  * `signatureDataUrl: String` `[// Base64 encoded signature]`
-  * `role: String?` `[// TECHNICIAN, SUPERVISOR, CUSTOMER]`
+  * `signatureDataUrl: String`
+  * `role: String?`
   * `signedAt: DateTime` `[@default(now())]`
   * `fieldTask: FieldTask` `[@relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)]`
 
@@ -5313,36 +5589,36 @@
   * `cableSegmentId: String?`
   * `testNumber: String` `[@unique]`
   * `testDate: DateTime` `[@default(now())]`
-  * `testType: String` `[// INSTALLATION_ACCEPTANCE, MAINTENANCE, TROUBLESHOOTING]`
-  * `fiberNumber: Int?` `[// Fiber number within the cable]`
-  * `wavelength: Int?` `[// 1310, 1550, 1625 nm]`
+  * `testType: String`
+  * `fiberNumber: Int?`
+  * `wavelength: Int?`
   * `traceFileName: String?`
   * `traceFileUrl: String?`
-  * `fileFormat: String?` `[// SOR, PDF, PNG]`
-  * `totalLength: Float?` `[// km]`
-  * `endToEndLoss: Float?` `[// dB]`
-  * `lossPerKm: Float?` `[// dB/km]`
-  * `orl: Float?` `[// Optical Return Loss (dB)]`
-  * `spliceLoss: Float?` `[// Total splice loss (dB)]`
-  * `connectorLoss: Float?` `[// Total connector loss (dB)]`
+  * `fileFormat: String?`
+  * `totalLength: Float?`
+  * `endToEndLoss: Float?`
+  * `lossPerKm: Float?`
+  * `orl: Float?`
+  * `spliceLoss: Float?`
+  * `connectorLoss: Float?`
   * `spliceCount: Int?`
   * `eventCount: Int?`
-  * `lossLimit: Float?` `[// Max allowable loss per km (e.g., 0.3 dB/km)]`
-  * `orlLimit: Float?` `[// Min ORL threshold]`
-  * `autoResult: String?` `[// PASS, FAIL, BORDERLINE]`
+  * `lossLimit: Float?`
+  * `orlLimit: Float?`
+  * `autoResult: String?`
   * `failureReason: String?`
   * `testedById: String`
   * `equipmentModel: String?`
   * `equipmentSerial: String?`
   * `remarks: String?`
-  * `status: String` `[@default("PENDING_REVIEW") // PENDING_REVIEW, REVIEWED, APPROVED, FAILED]`
+  * `status: String` `[@default("PENDING_REVIEW")]`
   * `reviewedById: String?`
   * `reviewedAt: DateTime?`
   * `reviewNotes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `cableSegment: GISCableSegment?` `[@relation("CableSegmentOTDR", fields: [cableSegmentId], references: [id])]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `events: OTDRTestEvent[]`
 
 ### [OTDRTestEvent](prisma/schema/survey.prisma)
@@ -5350,11 +5626,11 @@
   * `id: String` `[@id @default(cuid())]`
   * `testId: String`
   * `eventNumber: Int`
-  * `eventType: String` `[// REFLECTIVE, NON_REFLECTIVE, END_OF_FIBER, SPLICE, CONNECTOR]`
-  * `distance: Float` `[// km from launch]`
-  * `loss: Float?` `[// dB]`
-  * `reflectance: Float?` `[// dB]`
-  * `cumulativeLoss: Float?` `[// dB]`
+  * `eventType: String`
+  * `distance: Float`
+  * `loss: Float?`
+  * `reflectance: Float?`
+  * `cumulativeLoss: Float?`
   * `comment: String?`
   * `test: OTDRTest` `[@relation(fields: [testId], references: [id], onDelete: Cascade)]`
 
@@ -5362,35 +5638,35 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `logType: String` `[// TOOLBOX_TALK, INCIDENT, NEAR_MISS, PPE_CHECK, INSPECTION, ENVIRONMENTAL]`
+  * `logType: String`
   * `title: String`
   * `description: String?`
   * `location: String?`
   * `date: DateTime` `[@default(now())]`
-  * `severity: String?` `[// For incidents: LOW, MEDIUM, HIGH, CRITICAL]`
-  * `status: String` `[@default("OPEN") // OPEN, CLOSED, INVESTIGATING, ESCALATED]`
+  * `severity: String?`
+  * `status: String` `[@default("OPEN")]`
   * `topic: String?`
   * `presenterName: String?`
   * `attendeeCount: Int?`
   * `durationMinutes: Int?`
-  * `incidentType: String?` `[// FIRE, ELECTRICAL, FALL, VEHICLE, EQUIPMENT, OTHER]`
+  * `incidentType: String?`
   * `injuryCount: Int?` `[@default(0)]`
   * `fatalityCount: Int?` `[@default(0)]`
-  * `propertyDamage: Float?` `[// Estimated damage cost]`
+  * `propertyDamage: Float?`
   * `rootCause: String?`
   * `correctiveAction: String?`
-  * `ppeChecklist: Json?` `[// JSON of PPE items checked]`
+  * `ppeChecklist: Json?`
   * `allCompliant: Boolean?` `[@default(false)]`
   * `photoUrls: String[]` `[@default([])]`
   * `documentUrls: String[]` `[@default([])]`
   * `recordedById: String`
   * `closedById: String?`
   * `closedAt: DateTime?`
-  * `blocksStage: Boolean` `[@default(false) // If true, blocks project stage progression]`
+  * `blocksStage: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
   * `attendees: HSEAttendee[]`
+  * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [HSEAttendee](prisma/schema/survey.prisma)
 * **Fields**:
@@ -5492,26 +5768,37 @@
   * `employeeId: String?` `[@unique]`
   * `supervisorId: String?`
   * `assignedStoreId: String?`
-  * `permissions: String?`
   * `mustChangePassword: Boolean` `[@default(false)]`
-  * `status: String` `[@default("active")]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `permissions: String?`
+  * `status: String` `[@default("active")]`
+  * `handoversPerformed: AssetHandoverLog[]` `[@relation("HandoverPerformed")]`
   * `auditLogs: AuditLog[]`
   * `armApprovedContractors: Contractor[]` `[@relation("ContractorArmApproval")]`
   * `ospApprovedContractors: Contractor[]` `[@relation("ContractorOspApproval")]`
   * `rejectedContractors: Contractor[]` `[@relation("ContractorRejection")]`
   * `generatedContractorLinks: Contractor[]` `[@relation("ContractorLinkGenerator")]`
   * `receivedGRNs: GRN[]`
+  * `assignedITAssets: ITAsset[]` `[@relation("AssignedITAssetsToUser")]`
   * `managedStores: InventoryStore[]`
+  * `managedSiteOffices: InventoryStore[]` `[@relation("SiteOfficeAdmin")]`
   * `approvedMRNs: MRN[]` `[@relation("MRNApprover")]`
   * `returnedMRNs: MRN[]`
   * `notifications: Notification[]`
   * `notificationPreferences: NotificationPreference[]`
+  * `actionedApprovalSteps: ProjectApprovalStep[]` `[@relation("StepActioner")]`
+  * `assignedApprovalSteps: ProjectApprovalStep[]` `[@relation("StepAssignee")]`
+  * `uploadedDocuments: ProjectDocument[]`
   * `approvedProjectReturns: ProjectMaterialReturn[]` `[@relation("ProjectReturnApprover")]`
   * `projectReturns: ProjectMaterialReturn[]` `[@relation("ProjectReturnUser")]`
+  * `supervisorAssignments: ProjectSupervisorAssignment[]`
+  * `pushSubscriptions: PushSubscription[]`
   * `approvedRestores: RestoreRequest[]` `[@relation("ApprovedRestores")]`
   * `requestedRestores: RestoreRequest[]` `[@relation("RequestedRestores")]`
+  * `comments: ServiceOrderComment[]` `[@relation("UserComments")]`
+  * `siteOfficeRequests: SiteOfficeRequest[]` `[@relation("SiteOfficeRequests")]`
+  * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("UserSoftwareLicenses")]`
   * `approvedIssues: StockIssue[]` `[@relation("IssueApprover")]`
   * `stockIssues: StockIssue[]` `[@relation("StockIssuer")]`
   * `approvedStock: StockRequest[]` `[@relation("ApproveUser")]`
@@ -5520,26 +5807,15 @@
   * `releasedRequests: StockRequest[]` `[@relation("ReleasedBy")]`
   * `requestedStock: StockRequest[]` `[@relation("RequestUser")]`
   * `storesManagerApprovedRequests: StockRequest[]` `[@relation("StoresManagerApprover")]`
-  * `comments: ServiceOrderComment[]` `[@relation("UserComments")]`
+  * `assignedTickets: Ticket[]` `[@relation("AssignedTickets")]`
+  * `createdTickets: Ticket[]` `[@relation("CreatedTickets")]`
+  * `ticketUpdates: TicketUpdate[]` `[@relation("UserTicketUpdates")]`
   * `assignedStore: InventoryStore?` `[@relation("UserAssignedStore", fields: [assignedStoreId], references: [id])]`
   * `staff: Staff?` `[@relation(fields: [staffId], references: [id])]`
   * `supervisor: User?` `[@relation("UserSupervisor", fields: [supervisorId], references: [id])]`
   * `subordinates: User[]` `[@relation("UserSupervisor")]`
   * `sectionAssignments: UserSectionAssignment[]`
   * `accessibleOpmcs: OPMC[]` `[@relation("UserOpmcs")]`
-  * `uploadedDocuments: ProjectDocument[]`
-  * `assignedApprovalSteps: ProjectApprovalStep[]` `[@relation("StepAssignee")]`
-  * `actionedApprovalSteps: ProjectApprovalStep[]` `[@relation("StepActioner")]`
-  * `supervisorAssignments: ProjectSupervisorAssignment[]`
-  * `createdTickets: Ticket[]` `[@relation("CreatedTickets")]`
-  * `assignedTickets: Ticket[]` `[@relation("AssignedTickets")]`
-  * `ticketUpdates: TicketUpdate[]` `[@relation("UserTicketUpdates")]`
-  * `managedSiteOffices: InventoryStore[]` `[@relation("SiteOfficeAdmin")]`
-  * `siteOfficeRequests: SiteOfficeRequest[]` `[@relation("SiteOfficeRequests")]`
-  * `handoversPerformed: AssetHandoverLog[]` `[@relation("HandoverPerformed")]`
-  * `pushSubscriptions: PushSubscription[]`
-  * `assignedITAssets: ITAsset[]` `[@relation("AssignedITAssetsToUser")]`
-  * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("UserSoftwareLicenses")]`
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:
@@ -5581,16 +5857,16 @@
   * `reportsToId: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `projects: Project[]`
+  * `handoversReceived: AssetHandoverLog[]` `[@relation("HandoverReceived")]`
+  * `assignedITAssets: ITAsset[]` `[@relation("AssignedITAssets")]`
+  * `assignedITAssetUnits: ITAssetUnit[]` `[@relation("StaffITAssetUnits")]`
+  * `serials: InventoryItemSerial[]`
   * `jobs: Job[]`
+  * `projects: Project[]`
   * `opmc: OPMC?` `[@relation(fields: [opmcId], references: [id])]`
   * `reportsTo: Staff?` `[@relation("Hierarchy", fields: [reportsToId], references: [id])]`
   * `subordinates: Staff[]` `[@relation("Hierarchy")]`
   * `user: User?`
-  * `serials: InventoryItemSerial[]`
-  * `assignedITAssets: ITAsset[]` `[@relation("AssignedITAssets")]`
-  * `handoversReceived: AssetHandoverLog[]` `[@relation("HandoverReceived")]`
-  * `assignedITAssetUnits: ITAssetUnit[]` `[@relation("StaffITAssetUnits")]`
 
 ### [NotificationPreference](prisma/schema/user.prisma)
 * **Fields**:
@@ -5647,12 +5923,12 @@
   * `manager_id: String`
   * `status: String` `[@default("ACTIVE")]`
   * `vehicle_pool_capacity: Int` `[@default(50)]`
-  * `vehicles: VMVehicle[]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
   * `dispatchOrders: VMDispatchOrder[]`
   * `geofences: VMGeofence[]`
   * `invoices: VMInvoice[]`
-  * `createdAt: DateTime` `[@default(now())]`
-  * `updatedAt: DateTime` `[@updatedAt]`
+  * `vehicles: VMVehicle[]`
 
 ### [VMVehicle](prisma/schema/vehicle-management.prisma)
 * **Fields**:
@@ -5671,9 +5947,7 @@
   * `capacity_cargo_weight_kg: Float`
   * `capacity_cargo_volume_m3: Float`
   * `site_id: String`
-  * `site: VMSite` `[@relation(fields: [site_id], references: [id])]`
   * `current_driver_id: String?`
-  * `driver: VMDriver?` `[@relation(fields: [current_driver_id], references: [id])]`
   * `latitude: Float?`
   * `longitude: Float?`
   * `location_timestamp: DateTime?`
@@ -5685,24 +5959,25 @@
   * `fuel_cost_per_liter: Float?`
   * `last_odometer: Float` `[@default(0)]`
   * `photo_url: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `complianceStatuses: VMComplianceStatus[]`
+  * `dispatchOrders: VMDispatchOrder[]`
+  * `fuelLogs: VMFuelLog[]`
+  * `gpsLocations: VMGPSLocation[]`
+  * `insurancePolicies: VMInsurancePolicy[]`
   * `ownedVehicle: VMOwnedVehicle?`
   * `rentalVehicle: VMRentalVehicle?`
   * `trips: VMTrip[]`
-  * `fuelLogs: VMFuelLog[]`
-  * `insurancePolicies: VMInsurancePolicy[]`
-  * `warranties: VMWarranty[]`
-  * `complianceStatuses: VMComplianceStatus[]`
-  * `dispatchOrders: VMDispatchOrder[]`
-  * `gpsLocations: VMGPSLocation[]`
+  * `driver: VMDriver?` `[@relation(fields: [current_driver_id], references: [id])]`
+  * `site: VMSite` `[@relation(fields: [site_id], references: [id])]`
   * `vehicleLogs: VMVehicleLog[]`
-  * `createdAt: DateTime` `[@default(now())]`
-  * `updatedAt: DateTime` `[@updatedAt]`
+  * `warranties: VMWarranty[]`
 
 ### [VMOwnedVehicle](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String` `[@unique]`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id], onDelete: Cascade)]`
   * `purchase_date: DateTime`
   * `purchase_cost: Float`
   * `depreciation_rate_percent: Float`
@@ -5715,12 +5990,12 @@
   * `loan_end_date: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id], onDelete: Cascade)]`
 
 ### [VMRentalVehicle](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String` `[@unique]`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id], onDelete: Cascade)]`
   * `supplier_id: String`
   * `supplier_contact: String?`
   * `rental_contract_id: String` `[@unique]`
@@ -5735,28 +6010,28 @@
   * `mileage_limit_monthly: Int?`
   * `excess_mileage_cost_per_km: Float?`
   * `contract_terms: String`
-  * `driver_portion_monthly: Float?` `[// monthly driver allowance portion]`
-  * `expected_working_days: Int?` `[// expected working days per month]`
-  * `rate_per_additional_km: Float?` `[// rate charged per km over limit (if different from excess_mileage)]`
-  * `absent_deduction_rate: Float?` `[// per-day deduction for driver absence]`
-  * `fuel_allowance_per_km: Float?` `[// fuel allowance if fuel is supplied by owner]`
-  * `driver_term: String?` `[// driver term/description e.g. "Included", "Separate", "N/A"]`
-  * `fuel_supplying: String?` `[// "OWNER" or "COMPANY"]`
-  * `fuel_efficiency: Float?` `[// km per liter expected]`
+  * `driver_portion_monthly: Float?`
+  * `expected_working_days: Int?`
+  * `rate_per_additional_km: Float?`
+  * `absent_deduction_rate: Float?`
+  * `fuel_allowance_per_km: Float?`
+  * `driver_term: String?`
+  * `fuel_supplying: String?`
+  * `fuel_efficiency: Float?`
   * `bank_name: String?`
   * `bank_account_number: String?`
   * `bank_branch: String?`
   * `bank_branch_code: String?`
-  * `document_url: String?`
-  * `monthlySummaries: VMRentedVehicleMonthlySummary[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `document_url: String?`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id], onDelete: Cascade)]`
+  * `monthlySummaries: VMRentedVehicleMonthlySummary[]`
 
 ### [VMRentedVehicleMonthlySummary](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `rentalVehicleId: String`
-  * `rentalVehicle: VMRentalVehicle` `[@relation(fields: [rentalVehicleId], references: [id], onDelete: Cascade)]`
   * `year: Int`
   * `month: Int`
   * `rental_cost_monthly: Float`
@@ -5765,20 +6040,20 @@
   * `rate_per_additional_km: Float?`
   * `absent_deduction_rate: Float?`
   * `fuel_allowance_per_km: Float?`
-  * `fuel_supplying: String?` `[// "OWNER" or "COMPANY"]`
+  * `fuel_supplying: String?`
   * `fuel_efficiency: Float?`
   * `mileage_limit_monthly: Int?`
   * `excess_mileage_cost_per_km: Float?`
   * `fuel_included: Boolean` `[@default(false)]`
-  * `total_days_worked: Int?` `[// Actual days vehicle was used]`
-  * `absent_days: Int?` `[// Days driver was absent]`
-  * `total_km_traveled: Float?` `[// Total km from VMVehicleLog]`
-  * `base_rental: Float` `[// Vehicle Rental Rate + Driver Portion]`
-  * `fuel_allowance_amount: Float` `[// Adjusted Mileage Ãƒâ€” Fuel Allowance Per Km (if OWNER)]`
-  * `driver_overtime_pay: Float` `[// Total OT cost from VMDriverOT]`
-  * `absent_deductions: Float` `[// Absent Days Ãƒâ€” Absent Deduction Rate]`
-  * `additional_km_charges: Float` `[// Additional km over limit Ãƒâ€” rate]`
-  * `net_payment: Float` `[// Base Rental + Fuel + OT - Deductions]`
+  * `total_days_worked: Int?`
+  * `absent_days: Int?`
+  * `total_km_traveled: Float?`
+  * `base_rental: Float`
+  * `fuel_allowance_amount: Float`
+  * `driver_overtime_pay: Float`
+  * `absent_deductions: Float`
+  * `additional_km_charges: Float`
+  * `net_payment: Float`
   * `status: SummaryStatusEnum` `[@default(DRAFT)]`
   * `prepared_by_id: String?`
   * `prepared_by_name: String?`
@@ -5794,6 +6069,7 @@
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `rentalVehicle: VMRentalVehicle` `[@relation(fields: [rentalVehicleId], references: [id], onDelete: Cascade)]`
 
 ### [VMDriver](prisma/schema/vehicle-management.prisma)
 * **Fields**:
@@ -5828,22 +6104,20 @@
   * `license_back_url: String?`
   * `nic_front_url: String?`
   * `nic_back_url: String?`
-  * `vehicles: VMVehicle[]`
-  * `trips: VMTrip[]`
-  * `driverOTs: VMDriverOT[]`
-  * `insurancePolicies: VMInsurancePolicy[]`
-  * `dispatchOrders: VMDispatchOrder[]`
-  * `vehicleLogs: VMVehicleLog[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `dispatchOrders: VMDispatchOrder[]`
+  * `driverOTs: VMDriverOT[]`
+  * `insurancePolicies: VMInsurancePolicy[]`
+  * `trips: VMTrip[]`
+  * `vehicles: VMVehicle[]`
+  * `vehicleLogs: VMVehicleLog[]`
 
 ### [VMDriverOT](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `driver_id: String`
-  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
   * `trip_id: String?` `[@unique]`
-  * `trip: VMTrip?` `[@relation(fields: [trip_id], references: [id])]`
   * `date: DateTime`
   * `shift_start_time: DateTime`
   * `shift_end_time: DateTime`
@@ -5860,14 +6134,14 @@
   * `approved_at: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
+  * `trip: VMTrip?` `[@relation(fields: [trip_id], references: [id])]`
 
 ### [VMTrip](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
   * `driver_id: String`
-  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
   * `start_location_name: String`
   * `start_location_lat: Float`
   * `start_location_lng: Float`
@@ -5888,19 +6162,19 @@
   * `trip_type: String`
   * `fuel_consumed_liters: Float?`
   * `fuel_cost: Float?`
-  * `fuelLog: VMFuelLog?`
-  * `driverOT: VMDriverOT?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `driverOT: VMDriverOT?`
+  * `fuelLog: VMFuelLog?`
+  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [VMFuelLog](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
   * `trip_id: String?` `[@unique]`
-  * `trip: VMTrip?` `[@relation(fields: [trip_id], references: [id])]`
   * `fuel_type: String`
   * `quantity_liters: Float`
   * `cost_per_liter: Float`
@@ -5912,14 +6186,14 @@
   * `fuel_station: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `trip: VMTrip?` `[@relation(fields: [trip_id], references: [id])]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [VMInsurancePolicy](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String?`
-  * `vehicle: VMVehicle?` `[@relation(fields: [vehicle_id], references: [id])]`
   * `driver_id: String?`
-  * `driver: VMDriver?` `[@relation(fields: [driver_id], references: [id])]`
   * `policy_number: String` `[@unique]`
   * `insurer_name: String`
   * `insurer_contact: String`
@@ -5939,12 +6213,13 @@
   * `certificate_url: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `driver: VMDriver?` `[@relation(fields: [driver_id], references: [id])]`
+  * `vehicle: VMVehicle?` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [VMWarranty](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
   * `warranty_type: String`
   * `start_date: DateTime`
   * `expiry_date: DateTime`
@@ -5958,12 +6233,12 @@
   * `status: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [VMComplianceStatus](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
   * `compliance_type: ComplianceTypeEnum`
   * `compliance_due_date: DateTime`
   * `compliance_status: String`
@@ -5973,19 +6248,18 @@
   * `alert_sent_date: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [VMPayment](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `invoice_id: String`
-  * `invoice: VMInvoice` `[@relation(fields: [invoice_id], references: [id])]`
   * `payment_type: PaymentTypeEnum`
   * `reference_id: String`
   * `base_amount: Float`
   * `tax_amount: Float`
   * `total_amount: Float`
   * `tax_config_id: String?`
-  * `tax_config: VMTaxConfig?` `[@relation(fields: [tax_config_id], references: [id])]`
   * `tax_rate_percent: Float?`
   * `tax_type: String?`
   * `payment_date: DateTime?`
@@ -5997,13 +6271,14 @@
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `invoice: VMInvoice` `[@relation(fields: [invoice_id], references: [id])]`
+  * `tax_config: VMTaxConfig?` `[@relation(fields: [tax_config_id], references: [id])]`
 
 ### [VMInvoice](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `invoice_number: String` `[@unique]`
   * `site_id: String`
-  * `site: VMSite` `[@relation(fields: [site_id], references: [id])]`
   * `issued_to_customer_id: String?`
   * `subtotal: Float`
   * `discount: Float?` `[@default(0)]`
@@ -6014,28 +6289,29 @@
   * `due_date: DateTime`
   * `status: String`
   * `description: String?`
-  * `items: VMInvoiceItem[]`
-  * `payments: VMPayment[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `site: VMSite` `[@relation(fields: [site_id], references: [id])]`
+  * `items: VMInvoiceItem[]`
+  * `payments: VMPayment[]`
 
 ### [VMInvoiceItem](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `invoice_id: String`
-  * `invoice: VMInvoice` `[@relation(fields: [invoice_id], references: [id], onDelete: Cascade)]`
   * `description: String`
   * `quantity: Float`
   * `unit_price: Float`
   * `line_total: Float`
   * `tax_config_id: String?`
-  * `tax_config: VMTaxConfig?` `[@relation(fields: [tax_config_id], references: [id])]`
   * `tax_rate_percent: Float?`
   * `line_tax: Float`
   * `item_type: PaymentTypeEnum`
   * `reference_id: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `invoice: VMInvoice` `[@relation(fields: [invoice_id], references: [id], onDelete: Cascade)]`
+  * `tax_config: VMTaxConfig?` `[@relation(fields: [tax_config_id], references: [id])]`
 
 ### [VMTaxConfig](prisma/schema/vehicle-management.prisma)
 * **Fields**:
@@ -6049,20 +6325,17 @@
   * `tax_inclusive: Boolean` `[@default(false)]`
   * `tax_exempt_items: String?`
   * `status: String`
-  * `payments: VMPayment[]`
-  * `invoiceItems: VMInvoiceItem[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `invoiceItems: VMInvoiceItem[]`
+  * `payments: VMPayment[]`
 
 ### [VMDispatchOrder](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `site_id: String`
-  * `site: VMSite` `[@relation(fields: [site_id], references: [id])]`
   * `vehicle_id: String`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
   * `driver_id: String`
-  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
   * `trip_id: String?`
   * `assignment_date: DateTime`
   * `scheduled_start_time: DateTime`
@@ -6074,12 +6347,14 @@
   * `customer_info: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
+  * `site: VMSite` `[@relation(fields: [site_id], references: [id])]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [VMGPSLocation](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
   * `trip_id: String?`
   * `latitude: Float`
   * `longitude: Float`
@@ -6089,12 +6364,12 @@
   * `accuracy_meters: Int?`
   * `recorded_at: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [VMGeofence](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `site_id: String?`
-  * `site: VMSite?` `[@relation(fields: [site_id], references: [id])]`
   * `name: String`
   * `fence_type: FenceTypeEnum`
   * `boundary_points: String`
@@ -6106,14 +6381,13 @@
   * `status: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `site: VMSite?` `[@relation(fields: [site_id], references: [id])]`
 
 ### [VMVehicleLog](prisma/schema/vehicle-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `vehicle_id: String`
-  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
   * `driver_id: String`
-  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
   * `start_time: DateTime` `[@default(now())]`
   * `end_time: DateTime?`
   * `start_odometer: Float`
@@ -6122,9 +6396,11 @@
   * `odometer_mismatch: Boolean` `[@default(false)]`
   * `mismatch_reason: String?`
   * `passengers: String?`
-  * `status: String` `[@default("ACTIVE") // ACTIVE, COMPLETED]`
+  * `status: String` `[@default("ACTIVE")]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `driver: VMDriver` `[@relation(fields: [driver_id], references: [id])]`
+  * `vehicle: VMVehicle` `[@relation(fields: [vehicle_id], references: [id])]`
 
 ### [OPMC](prisma/schema.prisma)
 * **Fields**:

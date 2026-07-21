@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { InvoiceGeneratorService } from '../invoice/invoice.generator.service';
 import { ProjectInvoiceService } from '../project/project-invoice.service';
@@ -19,7 +20,7 @@ export class BOMInvoiceService {
      */
     static async processBOMImport(rows: Record<string, unknown>[], userId: string, bomPath?: string) {
         if (!rows || rows.length === 0) {
-            throw new Error('NO_ROWS_PROVIDED');
+            throw AppError.badRequest('NO_ROWS_PROVIDED');
         }
 
 
@@ -47,7 +48,7 @@ export class BOMInvoiceService {
 
         const uniqueSoNums = Array.from(new Set(soNumsRaw.filter(Boolean)));
         if (uniqueSoNums.length === 0) {
-            throw new Error('NO_SERVICE_ORDERS_FOUND_IN_SHEET');
+            throw AppError.badRequest('NO_SERVICE_ORDERS_FOUND_IN_SHEET');
         }
 
         // 3. Query matching ServiceOrder records from the database
@@ -74,10 +75,10 @@ export class BOMInvoiceService {
             const defaultContractor = contractors.find(c => c.name.toUpperCase() === 'SLTS') || contractors[0];
             
             if (!defaultOpmc) {
-                throw new Error('NO_OPMCS_FOUND_IN_DATABASE');
+                throw AppError.badRequest('NO_OPMCS_FOUND_IN_DATABASE');
             }
             if (!defaultContractor) {
-                throw new Error('NO_CONTRACTORS_FOUND_IN_DATABASE');
+                throw AppError.badRequest('NO_CONTRACTORS_FOUND_IN_DATABASE');
             }
 
             const stubsToCreate = [];
@@ -328,7 +329,7 @@ export class BOMInvoiceService {
         
         const contractorId = serviceOrders.find(s => s.contractorId)?.contractorId;
         if (!contractorId) {
-            throw new Error('NO_CONTRACTOR_FOUND_IN_MATCHED_SODS');
+            throw AppError.badRequest('NO_CONTRACTOR_FOUND_IN_MATCHED_SODS');
         }
 
         const now = new Date();
@@ -363,7 +364,7 @@ export class BOMInvoiceService {
         }
 
         if (!projectId) {
-            throw new Error('NO_PROJECT_FOUND_FOR_BILLING');
+            throw AppError.badRequest('NO_PROJECT_FOUND_FOR_BILLING');
         }
 
         // Create Client Invoice (ProjectInvoice table)
@@ -411,12 +412,12 @@ export class BOMInvoiceService {
      */
     static async processBOMCSVImport(csvText: string, userId: string, bomPath?: string) {
         if (!csvText || typeof csvText !== 'string') {
-            throw new Error('INVALID_CSV_TEXT');
+            throw AppError.badRequest('INVALID_CSV_TEXT');
         }
 
         const lines = csvText.split(/\r?\n/);
         if (lines.length === 0) {
-            throw new Error('EMPTY_CSV');
+            throw AppError.badRequest('EMPTY_CSV');
         }
 
         // Clean headers and fields

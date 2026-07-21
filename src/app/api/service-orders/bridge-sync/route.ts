@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
 import { bridgeSyncSchema } from '@/lib/validations/service-order.schema';
 import { z } from 'zod';
+import { AppError } from '@/lib/error';
 import { redis } from '@/lib/redis';
 
 export async function OPTIONS() {
@@ -20,7 +21,7 @@ export const GET = apiHandler(async (request: Request) => {
     const soNum = searchParams.get('soNum');
 
     if (!soNum) {
-        throw new Error('soNum is required');
+        throw AppError.badRequest('soNum is required');
     }
 
     const rawData = await ServiceOrderService.getExtensionRawData(soNum);
@@ -41,7 +42,7 @@ export const GET = apiHandler(async (request: Request) => {
 export const POST = apiHandler(async (_req, _params, payload: z.infer<typeof bridgeSyncSchema>) => {
     const soNum = payload.soNum;
     if (!soNum) {
-        throw new Error('Service Order Number is required for sync.');
+        throw AppError.badRequest('Service Order Number is required for sync.');
     }
 
     const lockKey = `lock:bridge-sync:${soNum}`;
@@ -50,7 +51,7 @@ export const POST = apiHandler(async (_req, _params, payload: z.infer<typeof bri
         const lockAcquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
         acquired = !!lockAcquired;
         if (!acquired) {
-            throw new Error('CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.');
+            throw AppError.conflict('CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.');
         }
     } catch (redisErr) {
         console.warn('[BRIDGE-SYNC] Redis unavailable, bypassing lock:', redisErr);

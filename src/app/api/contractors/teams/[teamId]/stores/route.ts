@@ -1,80 +1,38 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
+import { z } from 'zod';
 
-// GET - Get team's assigned stores
-export async function GET(
-    request: Request,
-    context: { params: Promise<{ teamId: string }> }
-) {
-    const params = await context.params;
-    try {
-        const team = await ContractorService.getTeamStores(params.teamId);
+const assignStoreSchema = z.object({
+    storeId: z.string().min(1, "Store ID is required"),
+    isPrimary: z.boolean().optional().default(false)
+});
 
-        if (!team) {
-            return NextResponse.json({ error: 'Team not found' }, { status: 404 });
-        }
+const removeStoreSchema = z.object({
+    storeId: z.string().min(1, "Store ID is required")
+});
 
-        return NextResponse.json(team);
-    } catch (error) {
-        console.error('Error fetching team stores:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-    }
-}
+export const GET = apiHandler(async (_req, params) => {
+    const { teamId } = params;
+    const team = await ContractorService.getTeamStores(teamId);
+    return Response.json(team);
+});
 
-// POST - Add store to team or update primary
-export async function POST(
-    request: Request,
-    context: { params: Promise<{ teamId: string }> }
-) {
-    const params = await context.params;
-    try {
-        const role = request.headers.get('x-user-role');
+export const POST = apiHandler(async (_req, params, body) => {
+    const { teamId } = params;
+    const data = assignStoreSchema.parse(body);
+    const assignment = await ContractorService.assignTeamStore(teamId, data.storeId, data.isPrimary);
+    return Response.json(assignment);
+}, {
+    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'ASSIGN_TEAM_STORE', entity: 'ContractorTeam' }
+});
 
-        // Check user role
-        if (!role || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(role)) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-        }
-
-        const { storeId, isPrimary } = await request.json();
-
-        if (!storeId) {
-            return NextResponse.json({ error: 'Store ID is required' }, { status: 400 });
-        }
-
-        const assignment = await ContractorService.assignTeamStore(params.teamId, storeId, isPrimary);
-
-        return NextResponse.json(assignment);
-    } catch (error) {
-        console.error('Error adding store to team:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-    }
-}
-
-// DELETE - Remove store from team
-export async function DELETE(
-    request: Request,
-    context: { params: Promise<{ teamId: string }> }
-) {
-    const params = await context.params;
-    try {
-        const role = request.headers.get('x-user-role');
-
-        // Check user role
-        if (!role || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(role)) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-        }
-
-        const { storeId } = await request.json();
-
-        if (!storeId) {
-            return NextResponse.json({ error: 'Store ID is required' }, { status: 400 });
-        }
-
-        await ContractorService.removeTeamStore(params.teamId, storeId);
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Error removing store from team:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-    }
-}
+export const DELETE = apiHandler(async (_req, params, body) => {
+    const { teamId } = params;
+    const data = removeStoreSchema.parse(body);
+    await ContractorService.removeTeamStore(teamId, data.storeId);
+    return Response.json({ success: true });
+}, {
+    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'REMOVE_TEAM_STORE', entity: 'ContractorTeam' }
+});

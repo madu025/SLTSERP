@@ -4,6 +4,7 @@ import { signJWT } from '@/lib/auth';
 import { SystemService } from '@/services/system.service';
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { Role, Prisma } from '@prisma/client';
+import { AppError } from '@/lib/error';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -733,5 +734,118 @@ export class UserService {
                 email: true
             }
         });
+    }
+
+    /**
+     * Get user permissions
+     */
+    static async getUserPermissions(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
+        const assignments = await prisma.userSectionAssignment.findMany({
+            where: { userId: userId },
+            include: {
+                section: true,
+                role: true
+            }
+        });
+
+        return assignments.map(a => {
+            if (user?.permissions) {
+                return {
+                    ...a,
+                    role: {
+                        ...a.role,
+                        permissions: user.permissions
+                    }
+                };
+            }
+            return a;
+        });
+    }
+
+    /**
+     * Update user permissions
+     */
+    static async updateUserPermissions(userId: string, permissions: string[]) {
+        return prisma.user.update({
+            where: { id: userId },
+            data: {
+                permissions: JSON.stringify(permissions)
+            }
+        });
+    }
+
+    /**
+     * Get user section assignments
+     */
+    static async getUserSections(userId: string) {
+        return prisma.userSectionAssignment.findMany({
+            where: { userId: userId },
+            include: {
+                section: true,
+                role: true
+            },
+            orderBy: [
+                { isPrimary: 'desc' },
+                { createdAt: 'asc' }
+            ]
+        });
+    }
+
+    /**
+     * Assign section/role to user
+     */
+    static async assignUserSection(userId: string, data: { sectionId: string; roleId: string; isPrimary?: boolean }) {
+        if (!data.sectionId || !data.roleId) {
+            throw AppError.badRequest('Section and role are required');
+        }
+
+        if (data.isPrimary) {
+            await prisma.userSectionAssignment.updateMany({
+                where: { userId: userId, isPrimary: true },
+                data: { isPrimary: false }
+            });
+        }
+
+        try {
+            return await prisma.userSectionAssignment.create({
+                data: {
+                    userId: userId,
+                    sectionId: data.sectionId,
+                    roleId: data.roleId,
+                    isPrimary: data.isPrimary || false
+                },
+                include: {
+                    section: true,
+                    role: true
+                }
+            });
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                throw AppError.badRequest('User already assigned to this section');
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Remove section assignment
+     */
+    static async removeUserSection(assignmentId: string) {
+        try {
+            await prisma.userSectionAssignment.delete({
+                where: { id: assignmentId }
+            });
+            return { success: true };
+        } catch (error: any) {
+            if (error.code === 'P2025') {
+                throw AppError.notFound('Assignment not found');
+            }
+            throw error;
+        }
     }
 }

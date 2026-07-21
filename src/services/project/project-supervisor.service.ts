@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export class ProjectSupervisorService {
@@ -27,7 +28,7 @@ export class ProjectSupervisorService {
     });
 
     if (!project) {
-      throw new Error('PROJECT_NOT_FOUND');
+      throw AppError.badRequest('PROJECT_NOT_FOUND');
     }
 
     // 2. Check for duplicate assignment
@@ -40,7 +41,7 @@ export class ProjectSupervisorService {
     });
 
     if (existing) {
-      throw new Error('SUPERVISOR_ALREADY_ASSIGNED');
+      throw AppError.badRequest('SUPERVISOR_ALREADY_ASSIGNED');
     }
 
     // 3. Verify supervisor is a valid user
@@ -50,7 +51,7 @@ export class ProjectSupervisorService {
     });
 
     if (!supervisor) {
-      throw new Error('SUPERVISOR_NOT_FOUND');
+      throw AppError.badRequest('SUPERVISOR_NOT_FOUND');
     }
 
     // 4. Create assignment
@@ -88,7 +89,7 @@ export class ProjectSupervisorService {
     });
 
     if (!assignment) {
-      throw new Error('ASSIGNMENT_NOT_FOUND');
+      throw AppError.badRequest('ASSIGNMENT_NOT_FOUND');
     }
 
     return prisma.projectSupervisorAssignment.update({

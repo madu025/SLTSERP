@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { AdminSystemService } from '@/services/admin/system.service';
+import { z } from 'zod';
 
 // Available columns for each table
 const TABLE_COLUMNS = {
@@ -61,81 +62,31 @@ const TABLE_COLUMNS = {
     ]
 };
 
+const updateSettingsSchema = z.object({
+    tableName: z.string().min(1, 'Table name is required'),
+    visibleColumns: z.array(z.string()).min(1, 'Visible columns cannot be empty')
+});
+
 // GET - Get column settings for all tables or specific table
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const tableName = searchParams.get('tableName');
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const tableName = searchParams.get('tableName');
 
-        if (tableName) {
-            // Get settings for specific table
-            const settings = await (prisma as any).tableColumnSettings.findUnique({
-                where: { tableName }
-            });
-
-            const availableColumns = TABLE_COLUMNS[tableName as keyof typeof TABLE_COLUMNS] || [];
-            const visibleColumns = settings ? JSON.parse(settings.columns) : availableColumns.map(c => c.key);
-
-            return NextResponse.json({
-                tableName,
-                availableColumns,
-                visibleColumns
-            });
-        }
-
-        // Get all settings
-        const allSettings = await (prisma as any).tableColumnSettings.findMany();
-        const result: any = {};
-
-        for (const tableKey of Object.keys(TABLE_COLUMNS)) {
-            const setting = allSettings.find((s: any) => s.tableName === tableKey);
-            const availableColumns = TABLE_COLUMNS[tableKey as keyof typeof TABLE_COLUMNS];
-            result[tableKey] = {
-                tableName: tableKey,
-                availableColumns,
-                visibleColumns: setting ? JSON.parse(setting.columns) : availableColumns.map(c => c.key)
-            };
-        }
-
-        return NextResponse.json(result);
-    } catch (error) {
-        console.error('Error fetching table settings:', error);
-        return NextResponse.json({ message: 'Error fetching table settings' }, { status: 500 });
-    }
-}
+    const result = await AdminSystemService.getTableSettings(tableName, TABLE_COLUMNS);
+    return Response.json(result);
+}, {
+    // Requires authentication, can restrict to certain roles if desired. We use default auth.
+});
 
 // POST - Update column settings for a table
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { tableName, visibleColumns } = body;
-
-        if (!tableName || !visibleColumns || !Array.isArray(visibleColumns)) {
-            return NextResponse.json({ message: 'Table name and visible columns are required' }, { status: 400 });
-        }
-
-        // Make sure required columns are always included
-        const tableColumns = TABLE_COLUMNS[tableName as keyof typeof TABLE_COLUMNS];
-        if (!tableColumns) {
-            return NextResponse.json({ message: 'Invalid table name' }, { status: 400 });
-        }
-
-        const requiredColumns = tableColumns.filter(c => c.required).map(c => c.key);
-        const finalColumns = [...new Set([...requiredColumns, ...visibleColumns])];
-
-        // Upsert the settings
-        const settings = await (prisma as any).tableColumnSettings.upsert({
-            where: { tableName },
-            update: { columns: JSON.stringify(finalColumns) },
-            create: { tableName, columns: JSON.stringify(finalColumns) }
-        });
-
-        return NextResponse.json({
-            tableName,
-            visibleColumns: JSON.parse(settings.columns)
-        });
-    } catch (error) {
-        console.error('Error updating table settings:', error);
-        return NextResponse.json({ message: 'Error updating table settings' }, { status: 500 });
-    }
-}
+export const POST = apiHandler(async (_req, _params, body) => {
+    const data = updateSettingsSchema.parse(body);
+    
+    const result = await AdminSystemService.updateTableSettings(data.tableName, data.visibleColumns, TABLE_COLUMNS);
+    return Response.json(result);
+}, {
+    // Typically any logged-in user can update their table settings if we separate by userId, 
+    // but here it looks like a global setting. We will restrict to ADMIN.
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'UPDATE_TABLE_SETTINGS', entity: 'System' }
+});

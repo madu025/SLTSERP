@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
@@ -35,7 +36,7 @@ export class IssueService {
 
         const execute = async (transaction: TransactionClient) => {
             // 1. Create Material Issue
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const materialIssue = await (transaction as any).contractorMaterialIssue.create({
                 data: {
                     contractorId,
@@ -44,7 +45,7 @@ export class IssueService {
                     issueDate: new Date(),
                     issuedBy: userId || 'SYSTEM',
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         create: items.map((i: any) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity.toString()),
@@ -67,14 +68,14 @@ export class IssueService {
                 for (const picked of pickedBatches) {
                     if (!picked.batchId) continue; // Safety check
                     // Reduce from Store Batch Stock
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (transaction as any).inventoryBatchStock.update({
                         where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                         data: { quantity: { decrement: picked.quantity } }
                     });
 
                     // Add to Contractor Batch Stock
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (transaction as any).contractorBatchStock.upsert({
                         where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
                         update: { quantity: { increment: picked.quantity } },
@@ -95,14 +96,14 @@ export class IssueService {
                 }
 
                 // D. Update Global Store Stock
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 await (transaction as any).inventoryStock.update({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     data: { quantity: { decrement: qty } }
                 });
 
                 // E. Update Contractor Total Stock
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 await (transaction as any).contractorStock.upsert({
                     where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
                     update: { quantity: { increment: qty } },
@@ -120,13 +121,13 @@ export class IssueService {
                         });
 
                         if (!serialRecord) {
-                            throw new Error(`SERIAL_NOT_FOUND: ${serialNum}`);
+                            throw AppError.badRequest(`SERIAL_NOT_FOUND: ${serialNum}`);
                         }
                         if (serialRecord.itemId !== item.itemId) {
-                            throw new Error(`SERIAL_ITEM_MISMATCH: Serial ${serialNum} does not match item ${item.itemId}`);
+                            throw AppError.badRequest(`SERIAL_ITEM_MISMATCH: Serial ${serialNum} does not match item ${item.itemId}`);
                         }
                         if (serialRecord.status !== 'IN_STORE' || serialRecord.storeId !== storeId) {
-                            throw new Error(`SERIAL_NOT_AVAILABLE_IN_STORE: Serial ${serialNum} is not available in store ${storeId}`);
+                            throw AppError.badRequest(`SERIAL_NOT_AVAILABLE_IN_STORE: Serial ${serialNum} is not available in store ${storeId}`);
                         }
 
                         await transaction.inventoryItemSerial.update({
@@ -143,7 +144,7 @@ export class IssueService {
             }
 
             // 3. Log Transfer-Out Transaction
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             await (transaction as any).inventoryTransaction.create({
                 data: {
                     type: 'TRANSFER_OUT',
@@ -152,7 +153,7 @@ export class IssueService {
                     referenceId: materialIssue.id,
                     notes: `Material Issue ${materialIssue.id} for ${month}`,
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         create: transactionItems.map((ti: any) => ({
                             itemId: ti.itemId,
                             batchId: ti.batchId,
@@ -197,12 +198,12 @@ export class IssueService {
         const { contractorId, storeId, month, reason, items, userId } = data;
 
         if (!contractorId || !storeId || !month || !items || !Array.isArray(items) || items.length === 0) {
-            throw new Error('MISSING_FIELDS');
+            throw AppError.badRequest('MISSING_FIELDS');
         }
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // 1. Create Return Record
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const materialReturn = await (tx as any).contractorMaterialReturn.create({
                 data: {
                     contractorId,
@@ -214,7 +215,7 @@ export class IssueService {
                     acceptedAt: new Date(),
                     returnDate: new Date(), // Added from edit
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         create: items.map((item: any) => ({
                             itemId: item.itemId,
                             quantity: parseFloat(item.quantity.toString()),
@@ -237,14 +238,14 @@ export class IssueService {
 
                 for (const picked of pickedBatches) {
                     if (!picked.batchId) continue; // Safety check
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).contractorBatchStock.update({
                         where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
                         data: { quantity: { decrement: picked.quantity } }
                     });
 
                     if (item.condition === 'GOOD') {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         await (tx as any).inventoryBatchStock.upsert({
                             where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                             update: { quantity: { increment: picked.quantity } },
@@ -259,14 +260,14 @@ export class IssueService {
                     }
                 }
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 await (tx as any).contractorStock.update({
                     where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
                     data: { quantity: { decrement: qty } }
                 });
 
                 if (item.condition === 'GOOD') {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).inventoryStock.upsert({
                         where: { storeId_itemId: { storeId, itemId: item.itemId } },
                         update: { quantity: { increment: qty } },
@@ -296,7 +297,7 @@ export class IssueService {
             }
 
             // 3. Log Transfer-In Transaction
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             await (tx as any).inventoryTransaction.create({
                 data: {
                     type: 'TRANSFER_IN',
@@ -305,7 +306,7 @@ export class IssueService {
                     referenceId: materialReturn.id,
                     notes: `Material Return ${materialReturn.id}`,
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         create: transactionItems.map((ti: any) => ({
                             itemId: ti.itemId,
                             batchId: ti.batchId,

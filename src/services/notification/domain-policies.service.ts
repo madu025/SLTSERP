@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Domain Integration Notification Policies
  * Covers Helpdesk, Service Orders, Projects, and Finance notification triggers.

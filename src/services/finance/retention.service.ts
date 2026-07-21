@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
@@ -43,13 +44,13 @@ export class RetentionService {
       where: { id: data.retentionId }
     });
 
-    if (!retention) throw new Error('RETENTION_RECORD_NOT_FOUND');
+    if (!retention) throw AppError.badRequest('RETENTION_RECORD_NOT_FOUND');
 
     const newReleasedAmount = retention.releasedAmount + data.releaseAmount;
     const balanceAmount = retention.retentionAmount - newReleasedAmount;
 
     if (balanceAmount < 0) {
-      throw new Error('RELEASE_AMOUNT_EXCEEDS_BALANCE');
+      throw AppError.badRequest('RELEASE_AMOUNT_EXCEEDS_BALANCE');
     }
 
     const status = balanceAmount === 0 ? 'FULLY_RELEASED' : 'PARTIALLY_RELEASED';

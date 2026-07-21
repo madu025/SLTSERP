@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 import { updateProgressOnBOQGenerate } from '@/lib/project-progress';
@@ -84,7 +85,7 @@ export class ProjectSurveyService {
         where: { projectId, supervisorId: userId, status: 'ASSIGNED' },
       });
       if (!assignment) {
-        throw new Error('SUPERVISOR_NOT_ASSIGNED');
+        throw AppError.badRequest('SUPERVISOR_NOT_ASSIGNED');
       }
 
       // Check for existing in-progress session
@@ -128,7 +129,7 @@ export class ProjectSurveyService {
     // ── Action: CONTINUE existing session ──────────────────────────────
     if (action === 'continue') {
       if (!sessionId) {
-        throw new Error('SESSION_ID_REQUIRED');
+        throw AppError.badRequest('SESSION_ID_REQUIRED');
       }
 
       const session = await prisma.mobileSurveySession.findFirst({
@@ -137,15 +138,15 @@ export class ProjectSurveyService {
       });
 
       if (!session) {
-        throw new Error('SESSION_NOT_FOUND_OR_UNAUTHORIZED');
+        throw AppError.badRequest('SESSION_NOT_FOUND_OR_UNAUTHORIZED');
       }
 
       if (session.status === 'COMPLETED') {
-        throw new Error('SESSION_ALREADY_COMPLETED');
+        throw AppError.badRequest('SESSION_ALREADY_COMPLETED');
       }
 
       if (session.status === 'ABANDONED') {
-        throw new Error('SESSION_ABANDONED');
+        throw AppError.badRequest('SESSION_ABANDONED');
       }
 
       // Re-activate if paused
@@ -180,7 +181,7 @@ export class ProjectSurveyService {
       };
     }
 
-    throw new Error('INVALID_ACTION');
+    throw AppError.badRequest('INVALID_ACTION');
   }
 
   /**
@@ -199,7 +200,7 @@ export class ProjectSurveyService {
     });
 
     if (!session) {
-      throw new Error('SESSION_NOT_FOUND_OR_UNAUTHORIZED');
+      throw AppError.badRequest('SESSION_NOT_FOUND_OR_UNAUTHORIZED');
     }
 
     if (action === 'complete') {
@@ -241,7 +242,7 @@ export class ProjectSurveyService {
       return { session: updated, action: 'abandoned' };
     }
 
-    throw new Error('INVALID_ACTION');
+    throw AppError.badRequest('INVALID_ACTION');
   }
 
   /**
@@ -257,7 +258,7 @@ export class ProjectSurveyService {
     });
 
     if (!project) {
-      throw new Error('PROJECT_NOT_FOUND');
+      throw AppError.badRequest('PROJECT_NOT_FOUND');
     }
 
     const routes = project.gisRoutes.filter(r => r.status !== 'BOQ_GENERATED');

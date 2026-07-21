@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { Prisma, InventoryItem } from '@prisma/client';
@@ -28,7 +29,7 @@ export class ItemService {
 
     static async createItem(data: CreateItemData): Promise<InventoryItem> {
         if (!data.code || !data.name || !data.commonName) {
-            throw new Error('CODE_NAME_AND_GENERIC_NAME_REQUIRED');
+            throw AppError.badRequest('CODE_NAME_AND_GENERIC_NAME_REQUIRED');
         }
 
         try {
@@ -56,14 +57,14 @@ export class ItemService {
             return item;
         } catch (error: any) {
             if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-                throw new Error('ITEM_EXISTS');
+                throw AppError.badRequest('ITEM_EXISTS');
             }
             throw error;
         }
     }
 
     static async updateItem(id: string, data: Partial<CreateItemData>): Promise<InventoryItem> {
-        if (!id) throw new Error('ID_REQUIRED');
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
 
         const updated = await InventoryRepository.updateItem(id, {
             name: data.name,
@@ -89,7 +90,7 @@ export class ItemService {
     }
 
     static async patchBulkItems(updates: { id: string; data: Partial<CreateItemData> }[]): Promise<boolean> {
-        if (!Array.isArray(updates)) throw new Error('UPDATES_MUST_BE_ARRAY');
+        if (!Array.isArray(updates)) throw AppError.badRequest('UPDATES_MUST_BE_ARRAY');
 
         await prisma.$transaction(async (tx: TransactionClient) => {
             for (const u of updates) {
@@ -102,12 +103,12 @@ export class ItemService {
     }
 
     static async mergeItems(sourceId: string, targetId: string): Promise<boolean> {
-        if (!sourceId || !targetId) throw new Error('BOTH_IDS_REQUIRED');
-        if (sourceId === targetId) throw new Error('CANNOT_MERGE_SAME_ITEM');
+        if (!sourceId || !targetId) throw AppError.badRequest('BOTH_IDS_REQUIRED');
+        if (sourceId === targetId) throw AppError.badRequest('CANNOT_MERGE_SAME_ITEM');
 
         const source = await InventoryRepository.findItemById(sourceId);
         const target = await InventoryRepository.findItemById(targetId);
-        if (!source || !target) throw new Error('ITEM_NOT_FOUND');
+        if (!source || !target) throw AppError.badRequest('ITEM_NOT_FOUND');
 
         await prisma.$transaction(async (tx: TransactionClient) => {
             // 2. Transfer ContractorStock
@@ -165,7 +166,7 @@ export class ItemService {
     }
 
     static async deleteItem(id: string): Promise<boolean> {
-        if (!id) throw new Error('ID_REQUIRED');
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
         await InventoryRepository.deleteItem(id);
         emitSystemEvent('INVENTORY_UPDATE');
         return true;

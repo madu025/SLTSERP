@@ -1,20 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { handleApiError } from '@/lib/api-utils';
-import { requireAuth } from '@/lib/server-utils';
-import { DynamicReportService } from '@/services/inventory/dynamic-report.service';
-import { runInRealtimeContext } from '@/lib/request-context';
+import { apiHandler } from '@/lib/api-handler';
+import { DynamicReportService, DynamicReportPayload } from '@/services/inventory/dynamic-report.service';
+import { z } from 'zod';
 
-export async function POST(req: NextRequest) {
-    try {
-        await requireAuth(['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']);
-        const body = await req.json();
+const dynamicReportSchema = z.object({
+    entity: z.enum(['serviceOrder', 'materialUsage', 'contractorStock', 'journalEntry', 'wastage']),
+    columns: z.array(z.string()).min(1, 'At least one column is required'),
+    filters: z.array(z.object({
+        field: z.string(),
+        operator: z.enum(['equals', 'contains', 'gt', 'lt', 'gte', 'lte', 'startsWith']),
+        value: z.string()
+    })),
+    aggregation: z.object({
+        groupBy: z.string(),
+        targetField: z.string(),
+        type: z.enum(['SUM', 'AVG', 'COUNT'])
+    }).optional()
+});
 
-        const report = await runInRealtimeContext(async () => {
-            return await DynamicReportService.generateReport(body);
-        });
-
-        return NextResponse.json({ success: true, data: report });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+export const POST = apiHandler(async (_req, _params, body) => {
+    const payload = dynamicReportSchema.parse(body) as DynamicReportPayload;
+    const report = await DynamicReportService.generateReport(payload);
+    
+    return Response.json({ success: true, data: report });
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'],
+    audit: { action: 'GENERATE_DYNAMIC_REPORT', entity: 'Reports' }
+});

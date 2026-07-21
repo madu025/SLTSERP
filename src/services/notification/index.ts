@@ -1,7 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { NotificationRepository } from '@/repositories/notification.repository';
 import { emitNotification } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
+import { Role } from '@prisma/client';
 
 export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type NotificationType = 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE' | 'HELPDESK';
@@ -25,7 +26,7 @@ export class NotificationService {
         type?: NotificationType;
         priority?: NotificationPriority;
         link?: string;
-        metadata?: any;
+        metadata?: Record<string, unknown>;
     }) {
         try {
             // Check user preferences
@@ -109,7 +110,7 @@ export class NotificationService {
         type?: NotificationType;
         priority?: NotificationPriority;
         link?: string;
-        metadata?: any;
+        metadata?: Record<string, unknown>;
     }) {
         try {
             // Check notification counts in bulk using GroupBy
@@ -153,7 +154,7 @@ export class NotificationService {
 
             // Filter userIds based on preferences
             const disabledPreferences = await NotificationRepository.findDisabledPreferences(userIds, type);
-            const disabledUserIds = new Set(disabledPreferences.map((p: any) => p.userId));
+            const disabledUserIds = new Set(disabledPreferences.map((p: { userId: string }) => p.userId));
             const filteredUserIds = userIds.filter(id => !disabledUserIds.has(id));
 
             if (filteredUserIds.length === 0) return { count: 0 };
@@ -171,7 +172,7 @@ export class NotificationService {
             const createdNotifications = await NotificationRepository.createManyAndReturn(data);
 
             // Emit events for each user with the full database object (including id)
-            createdNotifications.forEach((notification: any) => {
+            createdNotifications.forEach((notification: { userId: string; [key: string]: unknown }) => {
                 emitNotification(notification.userId, notification);
             });
 
@@ -201,13 +202,13 @@ export class NotificationService {
         type?: NotificationType;
         priority?: NotificationPriority;
         link?: string;
-        metadata?: any;
+        metadata?: Record<string, unknown>;
         opmcId?: string;
     }) {
         try {
             const users = await prisma.user.findMany({
                 where: {
-                    role: { in: roles as any },
+                    role: { in: roles as Role[] },
                     ...(opmcId ? {
                         OR: [
                             { accessibleOpmcs: { some: { id: opmcId } } },
@@ -376,5 +377,61 @@ export class NotificationService {
             materialRequests: materialRequestsCount,
             materialApprovals: materialApprovalsCount
         };
+    }
+
+    /**
+     * Get notification preferences for a user
+     */
+    static async getUserPreferences(userId: string) {
+        return prisma.notificationPreference.findMany({
+            where: { userId }
+        });
+    }
+
+    /**
+     * Upsert a notification preference for a user
+     */
+    static async upsertUserPreference(userId: string, type: string, enabled: boolean) {
+        return prisma.notificationPreference.upsert({
+            where: {
+                userId_type: {
+                    userId,
+                    type
+                }
+            },
+            update: { enabled },
+            create: {
+                userId,
+                type,
+                enabled
+            }
+        });
+    }
+
+    /**
+     * Send a test notification (useful for debugging/testing)
+     */
+    static async sendTestNotification(userId: string | null) {
+        let targetUserId = userId;
+        
+        if (!targetUserId) {
+            const firstUser = await prisma.user.findFirst({ select: { id: true } });
+            if (firstUser) {
+                targetUserId = firstUser.id;
+            }
+        }
+
+        if (!targetUserId) {
+            throw new Error('No user found in the database to receive the test notification');
+        }
+
+        return this.send({
+            userId: targetUserId,
+            title: "🔔 Test Notification Successful",
+            message: `This is a test notification generated at ${new Date().toLocaleTimeString()} to verify the real-time notification bell, sound, and browser push alerts!`,
+            type: 'SYSTEM',
+            priority: 'HIGH',
+            link: '/service-orders'
+        });
     }
 }

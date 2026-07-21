@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 
@@ -22,7 +23,7 @@ export class CostAllocationService {
         const { title, description, allocationTarget = "General", approvedAt, receivedAt, documentUrl, items } = payload;
         
         if (!items || items.length === 0) {
-            throw new Error("INVALID_PAYLOAD: Memo must contain at least one item.");
+            throw AppError.badRequest("INVALID_PAYLOAD: Memo must contain at least one item.");
         }
 
         // Calculate item costs and total cost

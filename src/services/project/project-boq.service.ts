@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface CreateBOQItemInput {
@@ -233,7 +234,7 @@ export class ProjectBOQService {
         const results = await Promise.allSettled(
             rates.map(async (r) => {
                 if (!r.itemCode || r.unitRate === undefined) {
-                    throw new Error(`Missing itemCode or unitRate for entry`);
+                    throw AppError.badRequest(`Missing itemCode or unitRate for entry`);
                 }
 
                 const existing = await prisma.bOQRateConfig.findFirst({
@@ -282,7 +283,7 @@ export class ProjectBOQService {
             include: { opmc: true }
         });
 
-        if (!project) throw new Error('PROJECT_NOT_FOUND');
+        if (!project) throw AppError.badRequest('PROJECT_NOT_FOUND');
 
         const boqItems = await prisma.projectBOQItem.findMany({
             where: {
@@ -306,7 +307,7 @@ export class ProjectBOQService {
         }
 
         if (!store) {
-            throw new Error('NO_STORE_FOUND');
+            throw AppError.badRequest('NO_STORE_FOUND');
         }
 
         const materialIds = boqItems.map(i => i.materialId).filter((id): id is string => id !== null);

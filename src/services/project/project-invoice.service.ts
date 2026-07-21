@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface InvoiceItemInput {
@@ -88,7 +89,7 @@ export class ProjectInvoiceService {
         // Verify project exists
         const project = await prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
         // Auto-generate invoice number
@@ -166,7 +167,7 @@ export class ProjectInvoiceService {
         const invoice = await prisma.$transaction(async (tx) => {
             const existing = await tx.projectInvoice.findUnique({ where: { id } });
             if (!existing) {
-                throw new Error('INVOICE_NOT_FOUND');
+                throw AppError.badRequest('INVOICE_NOT_FOUND');
             }
 
             const updateData: Record<string, unknown> = {};
@@ -220,11 +221,11 @@ export class ProjectInvoiceService {
     static async deleteInvoice(id: string) {
         const existing = await prisma.projectInvoice.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('INVOICE_NOT_FOUND');
+            throw AppError.badRequest('INVOICE_NOT_FOUND');
         }
 
         if (existing.status !== 'DRAFT') {
-            throw new Error('DRAFT_ONLY_DELETION');
+            throw AppError.badRequest('DRAFT_ONLY_DELETION');
         }
 
         await prisma.projectInvoice.delete({ where: { id } });

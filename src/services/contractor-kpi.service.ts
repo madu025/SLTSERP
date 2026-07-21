@@ -152,4 +152,12 @@ export class ContractorKPIService {
       month: item.evaluationMonth,
     }));
   }
+
+  static async getForProject(projectId: string) {
+    return await prisma.contractorPerformanceScore.findMany({
+      where: { project: { id: projectId } },
+      orderBy: { evaluationMonth: 'desc' }
+    });
+  }
+
 }

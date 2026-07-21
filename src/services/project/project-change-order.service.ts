@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface CreateChangeOrderInput {
@@ -64,7 +65,7 @@ export class ProjectChangeOrderService {
         // Verify project exists
         const project = await prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
         // Auto-generate CO number: CO-XXXXX
@@ -114,45 +115,45 @@ export class ProjectChangeOrderService {
         // Fetch existing
         const existing = await prisma.projectChangeOrder.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('CHANGE_ORDER_NOT_FOUND');
+            throw AppError.badRequest('CHANGE_ORDER_NOT_FOUND');
         }
 
         const data: Record<string, unknown> = {};
 
         if (action === 'SUBMIT') {
             if (existing.status !== 'DRAFT') {
-                throw new Error('INVALID_STATUS_DRAFT_ONLY');
+                throw AppError.badRequest('INVALID_STATUS_DRAFT_ONLY');
             }
             data.status = 'PENDING_APPROVAL';
         } else if (action === 'APPROVE') {
             if (existing.status !== 'PENDING_APPROVAL') {
-                throw new Error('INVALID_STATUS_PENDING_ONLY');
+                throw AppError.badRequest('INVALID_STATUS_PENDING_ONLY');
             }
             data.status = 'APPROVED';
             data.approvedById = updateData.approvedById || null;
             data.approvedAt = new Date();
         } else if (action === 'REJECT') {
             if (existing.status !== 'PENDING_APPROVAL') {
-                throw new Error('INVALID_STATUS_PENDING_ONLY');
+                throw AppError.badRequest('INVALID_STATUS_PENDING_ONLY');
             }
             data.status = 'REJECTED';
             data.rejectionReason = updateData.rejectionReason || null;
         } else if (action === 'IMPLEMENT') {
             if (existing.status !== 'APPROVED') {
-                throw new Error('INVALID_STATUS_APPROVED_ONLY');
+                throw AppError.badRequest('INVALID_STATUS_APPROVED_ONLY');
             }
             data.status = 'IMPLEMENTED';
             data.implementedById = updateData.implementedById || null;
             data.implementedAt = new Date();
         } else if (action === 'CANCEL') {
             if (existing.status === 'IMPLEMENTED' || existing.status === 'CANCELLED') {
-                throw new Error('CANNOT_CANCEL_COMPLETED');
+                throw AppError.badRequest('CANNOT_CANCEL_COMPLETED');
             }
             data.status = 'CANCELLED';
         } else if (action === 'UPDATE') {
             // Update editable fields for DRAFT/PENDING_APPROVAL
             if (existing.status !== 'DRAFT' && existing.status !== 'PENDING_APPROVAL') {
-                throw new Error('CAN_ONLY_UPDATE_DRAFT_PENDING');
+                throw AppError.badRequest('CAN_ONLY_UPDATE_DRAFT_PENDING');
             }
             const { title, description, type, priority, reason, referenceTable, referenceId,
                 originalValue, newValue, costImpact, timeImpact, scopeImpact, riskAssessment, notes } = updateData;
@@ -171,7 +172,7 @@ export class ProjectChangeOrderService {
             if (riskAssessment !== undefined) data.riskAssessment = riskAssessment;
             if (notes !== undefined) data.notes = notes;
         } else {
-            throw new Error('INVALID_ACTION');
+            throw AppError.badRequest('INVALID_ACTION');
         }
 
         const updated = await prisma.projectChangeOrder.update({
@@ -188,10 +189,10 @@ export class ProjectChangeOrderService {
     static async deleteChangeOrder(id: string) {
         const existing = await prisma.projectChangeOrder.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('CHANGE_ORDER_NOT_FOUND');
+            throw AppError.badRequest('CHANGE_ORDER_NOT_FOUND');
         }
         if (existing.status !== 'DRAFT') {
-            throw new Error('DRAFT_ONLY_DELETION');
+            throw AppError.badRequest('DRAFT_ONLY_DELETION');
         }
 
         await prisma.projectChangeOrder.delete({ where: { id } });

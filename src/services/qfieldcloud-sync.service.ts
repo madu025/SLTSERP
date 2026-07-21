@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 
@@ -63,7 +64,7 @@ export class QFieldCloudSyncService {
       }),
     });
 
-    if (!res.ok) throw new Error('QFieldCloud authentication failed');
+    if (!res.ok) throw AppError.badRequest('QFieldCloud authentication failed');
 
     const data = await res.json();
     this.authToken = data.token || data.access_token;
@@ -102,7 +103,7 @@ export class QFieldCloudSyncService {
       select: { name: true, projectCode: true, description: true },
     });
 
-    if (!sltProject) throw new Error('SLTSERP project not found');
+    if (!sltProject) throw AppError.badRequest('SLTSERP project not found');
 
     const cleanProjectName = `${sltProject.projectCode}_${sltProject.name}`.replace(/[^a-zA-Z0-9_.-]/g, '_');
 
@@ -138,14 +139,14 @@ export class QFieldCloudSyncService {
 
       if (!res.ok) {
         const err = await res.text();
-        throw new Error(`Failed to create QField project: ${err}`);
+        throw AppError.badRequest(`Failed to create QField project: ${err}`);
       }
 
       qfieldProject = await res.json();
     }
     
     if (!qfieldProject) {
-      throw new Error('Failed to retrieve or create QFieldCloud project');
+      throw AppError.badRequest('Failed to retrieve or create QFieldCloud project');
     }
 
     // Upload QGIS project template file if path exists
@@ -197,7 +198,7 @@ export class QFieldCloudSyncService {
               encoding: 'utf-8',
             });
             if (patchResult.status !== 0) {
-              throw new Error(`Dynamic patcher exited with code ${patchResult.status}: ${patchResult.stderr || patchResult.stdout}`);
+              throw AppError.badRequest(`Dynamic patcher exited with code ${patchResult.status}: ${patchResult.stderr || patchResult.stdout}`);
             }
 
             uploadFilePath = tempQgzPath;
@@ -293,7 +294,7 @@ export class QFieldCloudSyncService {
     if (!res.ok && res.status !== 404) {
       const err = await res.text();
       console.error(`Failed to delete QField project ${qfieldProjectId} from QFieldCloud: ${err}`);
-      throw new Error(`Failed to delete QFieldCloud project: ${err}`);
+      throw AppError.badRequest(`Failed to delete QFieldCloud project: ${err}`);
     }
   }
 

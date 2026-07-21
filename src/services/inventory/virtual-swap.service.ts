@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
 import { TransactionClient } from './types';
@@ -248,7 +249,7 @@ export class VirtualSwapService {
                 }
 
                 if (!txStoreId) {
-                    throw new Error("NO_STORE_FOUND_FOR_VIRTUAL_SWAP");
+                    throw AppError.badRequest("NO_STORE_FOUND_FOR_VIRTUAL_SWAP");
                 }
 
                 await tx.inventoryTransaction.create({

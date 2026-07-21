@@ -5,13 +5,14 @@
  * Uses Next.js Edge compatible WebSocket handling.
  */
 
-import { NextRequest } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // WebSocket upgrade handler
-export async function GET(req: NextRequest) {
+export const GET = apiHandler(async (req) => {
     const isDeno = typeof (globalThis as any).Deno !== 'undefined';
     const { socket: ws, response } = isDeno
         ? await (globalThis as any).Deno.upgradeWebSocket(req)
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
         const userId = url.searchParams.get('userId');
 
         if (!userId) {
-            return new Response('userId required', { status: 400 });
+            throw AppError.badRequest('userId required');
         }
 
         ws.onopen = () => {
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 
         ws.onmessage = (event: MessageEvent) => {
             try {
-                const data = JSON.parse(event.data);
+                const data = JSON.parse(event.data as string);
                 // Handle client pings
                 if (data.type === 'ping') {
                     ws.send(JSON.stringify({ type: 'pong' }));
@@ -42,10 +43,6 @@ export async function GET(req: NextRequest) {
             } catch {
                 // Ignore unparseable messages
             }
-        };
-
-        ws.onclose = () => {
-            console.log(`[WS] User ${userId} disconnected`);
         };
 
         ws.onerror = (error: Event) => {
@@ -60,6 +57,7 @@ export async function GET(req: NextRequest) {
         }, 30000);
 
         ws.onclose = () => {
+            console.log(`[WS] User ${userId} disconnected`);
             clearInterval(keepAlive);
         };
 
@@ -71,7 +69,7 @@ export async function GET(req: NextRequest) {
     const userId = url.searchParams.get('userId');
 
     if (!userId) {
-        return new Response('userId required', { status: 400 });
+        throw AppError.badRequest('userId required');
     }
 
     const encoder = new TextEncoder();
@@ -101,7 +99,7 @@ export async function GET(req: NextRequest) {
             'X-Accel-Buffering': 'no',
         },
     });
-}
+}, { rawResponse: true });
 
 // Handle CORS preflight
 export async function OPTIONS() {

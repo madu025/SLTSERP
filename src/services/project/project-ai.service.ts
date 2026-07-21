@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { primaryClient as prisma } from '@/lib/prisma';
 
 interface GeminiResponse {
@@ -94,7 +95,7 @@ export class ProjectAIService {
     const task = await prisma.projectTask.findUnique({
       where: { id: taskId }
     });
-    if (!task) throw new Error("Task not found");
+    if (!task) throw AppError.badRequest("Task not found");
 
     // Fetch all active contractors
     const contractors = await prisma.contractor.findMany({
@@ -152,7 +153,7 @@ export class ProjectAIService {
   // 4. Generative Project Health Report
   static async generateProjectHealthReport(projectId: string) {
     const project = await prisma.project.findUnique({ where: { id: projectId } });
-    if (!project) throw new Error("Project not found");
+    if (!project) throw AppError.badRequest("Project not found");
 
     const riskData = await this.predictProjectRisks(projectId);
     const materialData = await this.forecastMaterialShortages(projectId);
@@ -183,7 +184,7 @@ export class ProjectAIService {
       where: { id: changeOrderId },
       include: { project: true }
     });
-    if (!co) throw new Error("Change Order not found");
+    if (!co) throw AppError.badRequest("Change Order not found");
 
     const prompt = `
       You are an AI Impact Analyst for SLTS ERP.

@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 
@@ -12,7 +13,7 @@ export class PettyCashService {
     createdById: string;
   }) {
     if (data.imprestLimit <= 0) {
-      throw new Error('INVALID_IMPREST_LIMIT');
+      throw AppError.badRequest('INVALID_IMPREST_LIMIT');
     }
 
     // Check if account already exists for OPMC
@@ -20,7 +21,7 @@ export class PettyCashService {
       where: { opmcId: data.opmcId }
     });
     if (existing) {
-      throw new Error('PETTY_CASH_ACCOUNT_ALREADY_EXISTS_FOR_OPMC');
+      throw AppError.badRequest('PETTY_CASH_ACCOUNT_ALREADY_EXISTS_FOR_OPMC');
     }
 
     return await prisma.pettyCashAccount.create({
@@ -77,18 +78,18 @@ export class PettyCashService {
     createdById: string;
   }) {
     if (data.amount <= 0) {
-      throw new Error('INVALID_VOUCHER_AMOUNT');
+      throw AppError.badRequest('INVALID_VOUCHER_AMOUNT');
     }
 
     const account = await prisma.pettyCashAccount.findUnique({
       where: { id: data.accountId },
       include: { opmc: true }
     });
-    if (!account) throw new Error('PETTY_CASH_ACCOUNT_NOT_FOUND');
-    if (account.status !== 'ACTIVE') throw new Error('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
+    if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
+    if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
     if (data.amount > account.imprestLimit) {
-      throw new Error('VOUCHER_AMOUNT_EXCEEDS_IMPREST_LIMIT');
+      throw AppError.badRequest('VOUCHER_AMOUNT_EXCEEDS_IMPREST_LIMIT');
     }
 
     // Generate Voucher Number: PCV-[RTOM]-[YEAR]-[COUNT]
@@ -131,15 +132,15 @@ export class PettyCashService {
         where: { id: voucherId },
         include: { account: true }
       });
-      if (!voucher) throw new Error('VOUCHER_NOT_FOUND');
-      if (voucher.status !== 'DRAFT') throw new Error('VOUCHER_ALREADY_PROCESSED');
+      if (!voucher) throw AppError.badRequest('VOUCHER_NOT_FOUND');
+      if (voucher.status !== 'DRAFT') throw AppError.badRequest('VOUCHER_ALREADY_PROCESSED');
 
       const account = voucher.account;
-      if (account.status !== 'ACTIVE') throw new Error('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
+      if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
       // Check if enough funds in petty cash
       if (account.currentBalance < voucher.amount) {
-        throw new Error('INSUFFICIENT_PETTY_CASH_BALANCE');
+        throw AppError.badRequest('INSUFFICIENT_PETTY_CASH_BALANCE');
       }
 
       // 1. Update Voucher Status
@@ -174,8 +175,8 @@ export class PettyCashService {
     const voucher = await prisma.pettyCashVoucher.findUnique({
       where: { id: voucherId }
     });
-    if (!voucher) throw new Error('VOUCHER_NOT_FOUND');
-    if (voucher.status !== 'DRAFT') throw new Error('VOUCHER_ALREADY_PROCESSED');
+    if (!voucher) throw AppError.badRequest('VOUCHER_NOT_FOUND');
+    if (voucher.status !== 'DRAFT') throw AppError.badRequest('VOUCHER_ALREADY_PROCESSED');
 
     return prisma.pettyCashVoucher.update({
       where: { id: voucherId },
@@ -198,13 +199,13 @@ export class PettyCashService {
         where: { id: accountId },
         include: { opmc: true }
       });
-      if (!account) throw new Error('PETTY_CASH_ACCOUNT_NOT_FOUND');
+      if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
 
       const pendingReimbursement = await tx.pettyCashReimbursement.findFirst({
         where: { accountId, status: 'PENDING' }
       });
       if (pendingReimbursement) {
-        throw new Error('PENDING_REIMBURSEMENT_EXISTS');
+        throw AppError.badRequest('PENDING_REIMBURSEMENT_EXISTS');
       }
 
       // Get all APPROVED vouchers not currently in a reimbursement
@@ -217,7 +218,7 @@ export class PettyCashService {
       });
 
       if (eligibleVouchers.length === 0) {
-        throw new Error('NO_APPROVED_VOUCHERS_FOR_REIMBURSEMENT');
+        throw AppError.badRequest('NO_APPROVED_VOUCHERS_FOR_REIMBURSEMENT');
       }
 
       const totalAmount = eligibleVouchers.reduce((sum, v) => sum + v.amount, 0);
@@ -265,8 +266,8 @@ export class PettyCashService {
         where: { id: reimbursementId },
         include: { account: true, vouchers: true }
       });
-      if (!reimbursement) throw new Error('REIMBURSEMENT_NOT_FOUND');
-      if (reimbursement.status !== 'PENDING') throw new Error('REIMBURSEMENT_ALREADY_PROCESSED');
+      if (!reimbursement) throw AppError.badRequest('REIMBURSEMENT_NOT_FOUND');
+      if (reimbursement.status !== 'PENDING') throw AppError.badRequest('REIMBURSEMENT_ALREADY_PROCESSED');
 
       // 1. Update Reimbursement status
       const updatedReimbursement = await tx.pettyCashReimbursement.update({
@@ -313,7 +314,7 @@ export class PettyCashService {
       const account = await prisma.pettyCashAccount.findUnique({
         where: { id: accountId }
       });
-      if (!account) throw new Error('PETTY_CASH_ACCOUNT_NOT_FOUND');
+      if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
       return prisma.pettyCashReimbursement.findMany({
         where: { accountId },
         orderBy: { createdAt: 'desc' }

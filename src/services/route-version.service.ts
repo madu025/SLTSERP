@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export interface CreateVersionInput {
@@ -29,8 +30,8 @@ export class RouteVersionService {
       },
     });
 
-    if (!currentRoute) throw new Error('GIS route not found');
-    if (!currentRoute.isActive) throw new Error('Cannot version an inactive route');
+    if (!currentRoute) throw AppError.badRequest('GIS route not found');
+    if (!currentRoute.isActive) throw AppError.badRequest('Cannot version an inactive route');
 
     // Deactivate current version
     await prisma.gISRoute.update({
@@ -113,14 +114,14 @@ export class RouteVersionService {
       },
     });
 
-    if (!currentRoute) throw new Error('Route not found');
-    if (!currentRoute.parentVersionId) throw new Error('No parent version to rollback to');
+    if (!currentRoute) throw AppError.badRequest('Route not found');
+    if (!currentRoute.parentVersionId) throw AppError.badRequest('No parent version to rollback to');
 
     const parentRoute = await prisma.gISRoute.findUnique({
       where: { id: currentRoute.parentVersionId },
     });
 
-    if (!parentRoute) throw new Error('Parent route version not found');
+    if (!parentRoute) throw AppError.badRequest('Parent route version not found');
 
     // Deactivate current
     await prisma.gISRoute.update({
@@ -180,7 +181,7 @@ export class RouteVersionService {
       },
     });
 
-    if (!route) throw new Error('Route not found');
+    if (!route) throw AppError.badRequest('Route not found');
 
     // Walk back to origin
     const history: typeof route[] = [route];
@@ -233,7 +234,7 @@ export class RouteVersionService {
       }),
     ]);
 
-    if (!versionA || !versionB) throw new Error('One or both versions not found');
+    if (!versionA || !versionB) throw AppError.badRequest('One or both versions not found');
 
     const lengthDiff = (versionB.routeLength ?? 0) - (versionA.routeLength ?? 0);
 

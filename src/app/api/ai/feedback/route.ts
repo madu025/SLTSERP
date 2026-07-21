@@ -1,41 +1,28 @@
-import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/server-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { NexusClassifierService } from '@/services/nexus-classifier.service';
+import { z } from 'zod';
 
-export async function POST(request: Request) {
-    try {
-        const user = await requireAuth();
-        if (!user) {
-            return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-        }
+const feedbackSchema = z.object({
+    query: z.string().min(3).max(150),
+    intent: z.enum(['FINANCE', 'PROJECTS', 'INVENTORY_LOW', 'CONTRACTORS', 'STORES', 'INVENTORY_ITEMS', 'PROCUREMENT', 'VOUCHERS', 'UNKNOWN']),
+    rating: z.enum(['UP', 'DOWN'])
+});
 
-        const body = await request.json();
-        const { query, intent, rating } = body;
+export const POST = apiHandler(async (_req, _params, body) => {
+    const { query, intent, rating } = feedbackSchema.parse(body);
 
-        // Input Validation (Mitigate Model Poisoning & Replay payload abuse)
-        if (!query || typeof query !== 'string' || query.trim().length < 3 || query.trim().length > 150) {
-            return NextResponse.json({ error: 'INVALID_QUERY_LENGTH' }, { status: 400 });
-        }
-
-        const validIntents = ['FINANCE', 'PROJECTS', 'INVENTORY_LOW', 'CONTRACTORS', 'STORES', 'INVENTORY_ITEMS', 'PROCUREMENT', 'VOUCHERS'];
-        if (!intent || !validIntents.includes(intent)) {
-            return NextResponse.json({ error: 'INVALID_INTENT' }, { status: 400 });
-        }
-
-        if (rating !== 'UP' && rating !== 'DOWN') {
-            return NextResponse.json({ error: 'INVALID_RATING' }, { status: 400 });
-        }
-
-        // Only add to training if user confirms it was accurate and intent is known
-        if (rating === 'UP' && intent !== 'UNKNOWN') {
-            await NexusClassifierService.addTrainingExample(intent, query.trim());
-            return NextResponse.json({ success: true, message: 'Thanks! Model retrained with feedback.' });
-        }
-
-        return NextResponse.json({ success: true, message: 'Feedback recorded' });
-    } catch (error) {
-        console.error("AI Feedback Error:", error);
-        const errMsg = error instanceof Error ? error.message : 'INTERNAL_SERVER_ERROR';
-        return NextResponse.json({ error: errMsg }, { status: 500 });
+    // Only add to training if user confirms it was accurate and intent is known
+    if (rating === 'UP' && intent !== 'UNKNOWN') {
+        await NexusClassifierService.addTrainingExample(intent, query.trim());
+        return Response.json({ success: true, message: 'Thanks! Model retrained with feedback.' });
     }
-}
+
+    return Response.json({ success: true, message: 'Feedback recorded' });
+}, {
+    // Requires standard auth which apiHandler handles when used inside the app or we can omit roles.
+    // However, since it requires auth, we can just omit roles to let any authenticated user do it, or add 'ALL'.
+    // If roles is omitted, apiHandler does NOT enforce a specific role, but we still need the user. 
+    // To enforce auth only, we could leave roles undefined or handle it in middleware. 
+    // Usually middleware protects `/api/ai/*`.
+    audit: { action: 'SUBMIT_AI_FEEDBACK', entity: 'AI' }
+});

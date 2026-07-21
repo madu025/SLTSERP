@@ -1,42 +1,23 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import PaymentService from '@/services/PaymentService';
-import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
 
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const { payment_received_date, payment_ref_number } = await request.json();
+const receiptSchema = z.object({
+    payment_received_date: z.string().min(1, 'Missing payment_received_date'),
+    payment_ref_number: z.string().optional()
+});
 
-        if (!payment_received_date) {
-            return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Missing payment_received_date' } }, { status: 400 });
-        }
+export const POST = apiHandler(async (_req, params, body) => {
+    const { id } = params;
+    const data = receiptSchema.parse(body);
 
-        const existingPayment = await prisma.vMPayment.findUnique({
-            where: { id },
-        });
+    const payment = await PaymentService.processFullPaymentReceipt(
+        id,
+        new Date(data.payment_received_date),
+        data.payment_ref_number
+    );
 
-        if (!existingPayment) {
-            return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Payment not found' } }, { status: 404 });
-        }
-
-        if (existingPayment.status === 'COMPLETED') {
-            return NextResponse.json({ success: false, error: { code: 'ALREADY_COMPLETED', message: 'Payment is already completed' } }, { status: 409 });
-        }
-
-        const payment = await PaymentService.recordPaymentReceipt(
-            id,
-            existingPayment.total_amount,
-            new Date(payment_received_date),
-            payment_ref_number
-        );
-
-        return NextResponse.json({ success: true, data: payment });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
-    }
-}
-
+    return Response.json({ success: true, data: payment });
+}, {
+    audit: { action: 'RECORD_PAYMENT_RECEIPT', entity: 'Payment' }
+});

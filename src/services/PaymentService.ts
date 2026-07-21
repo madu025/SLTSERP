@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 /**
  * Payment Service - Business logic for payments and invoicing with tax/VAT support
  */
@@ -6,7 +7,7 @@ import { Payment, CreatePaymentDTO, Invoice, CreateInvoiceDTO, PaymentStatus, Pa
 import { prisma as db } from '@/lib/prisma';
 
 // Workaround for IDE/Language Server caching issues with dynamic extended PrismaClient types.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const prisma = db as any;
 
 interface PrismaPaymentModel {
@@ -149,7 +150,7 @@ export class PaymentService {
 
       return this.mapInvoiceToDTO(invoice);
     } catch (error) {
-      throw new Error(`Failed to create invoice: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to create invoice: ${(error as Error).message}`);
     }
   }
 
@@ -164,7 +165,7 @@ export class PaymentService {
       });
       return invoice ? this.mapInvoiceToDTO(invoice) : null;
     } catch (error) {
-      throw new Error(`Failed to fetch invoice: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to fetch invoice: ${(error as Error).message}`);
     }
   }
 
@@ -202,7 +203,32 @@ export class PaymentService {
 
       return this.mapPaymentToDTO(payment);
     } catch (error) {
-      throw new Error(`Failed to create payment: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to create payment: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Process a full payment receipt without requiring the amount explicitly
+   */
+  async processFullPaymentReceipt(paymentId: string, paymentDate: Date, paymentRefNumber?: string): Promise<Payment> {
+    try {
+      const payment = await prisma.vMPayment.findUnique({
+        where: { id: paymentId },
+        include: { invoice: true },
+      });
+
+      if (!payment) {
+        throw AppError.notFound('Payment not found');
+      }
+
+      if (payment.status === 'COMPLETED') {
+        throw AppError.conflict('Payment is already completed');
+      }
+
+      return this.recordPaymentReceipt(paymentId, payment.total_amount, paymentDate, paymentRefNumber);
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw AppError.badRequest(`Failed to process payment receipt: ${(error as Error).message}`);
     }
   }
 
@@ -217,11 +243,11 @@ export class PaymentService {
       });
 
       if (!payment) {
-        throw new Error('Payment not found');
+        throw AppError.badRequest('Payment not found');
       }
 
       if (payment.status === 'COMPLETED') {
-        throw new Error('Payment is already completed');
+        throw AppError.badRequest('Payment is already completed');
       }
 
       // Determine payment status
@@ -269,7 +295,7 @@ export class PaymentService {
 
       return this.mapPaymentToDTO(updatedPayment);
     } catch (error) {
-      throw new Error(`Failed to record payment receipt: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to record payment receipt: ${(error as Error).message}`);
     }
   }
 
@@ -313,7 +339,7 @@ export class PaymentService {
         total,
       };
     } catch (error) {
-      throw new Error(`Failed to list payments: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to list payments: ${(error as Error).message}`);
     }
   }
 
@@ -347,7 +373,7 @@ export class PaymentService {
 
       return taxConfig.id;
     } catch (error) {
-      throw new Error(`Failed to ensure tax config: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to ensure tax config: ${(error as Error).message}`);
     }
   }
 
@@ -427,7 +453,7 @@ export class PaymentService {
         status_breakdown: statusBreakdown,
       };
     } catch (error) {
-      throw new Error(`Failed to generate payment report: ${(error as Error).message}`);
+      throw AppError.badRequest(`Failed to generate payment report: ${(error as Error).message}`);
     }
   }
 

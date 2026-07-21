@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
@@ -80,11 +81,11 @@ export class LDPenaltyService {
   ) {
     const validStatuses = ['APPROVED', 'WAIVED', 'COLLECTED'];
     if (!validStatuses.includes(status)) {
-      throw new Error('INVALID_STATUS');
+      throw AppError.badRequest('INVALID_STATUS');
     }
 
     const penalty = await prisma.projectLDPenalty.findUnique({ where: { id } });
-    if (!penalty) throw new Error('PENALTY_NOT_FOUND');
+    if (!penalty) throw AppError.badRequest('PENALTY_NOT_FOUND');
 
     const updateData: Prisma.ProjectLDPenaltyUpdateInput = { status };
 
@@ -115,9 +116,9 @@ export class LDPenaltyService {
    */
   static async deletePenalty(id: string) {
     const penalty = await prisma.projectLDPenalty.findUnique({ where: { id } });
-    if (!penalty) throw new Error('PENALTY_NOT_FOUND');
+    if (!penalty) throw AppError.badRequest('PENALTY_NOT_FOUND');
     if (penalty.status !== 'PROPOSED') {
-      throw new Error('ONLY_PROPOSED_PENALTIES_CAN_BE_DELETED');
+      throw AppError.badRequest('ONLY_PROPOSED_PENALTIES_CAN_BE_DELETED');
     }
 
     return prisma.projectLDPenalty.delete({ where: { id } });

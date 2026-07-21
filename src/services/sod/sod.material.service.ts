@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { AppError } from '@/lib/error';
+
 import { Prisma } from '@prisma/client';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
@@ -29,7 +30,7 @@ export class SODMaterialService {
         const opmc = await ContractorRepository.findOpmcWithStore(opmcId, tx);
         const storeId = opmc?.storeId;
         const hasActiveDeductions = materialUsage.some(m => parseFloat(m.quantity || '0') > 0);
-        if (hasActiveDeductions && !contractorId && !storeId) throw new Error('STORE_NOT_FOUND_FOR_OPMC');
+        if (hasActiveDeductions && !contractorId && !storeId) throw AppError.badRequest('STORE_NOT_FOUND_FOR_OPMC');
 
         // 2. Process each material
         for (const m of materialUsage) {
@@ -40,11 +41,11 @@ export class SODMaterialService {
             
             // 2.1 Fetch Item Meta for validation
             const itemMeta = await InventoryRepository.findItemById(m.itemId, tx);
-            if (!itemMeta) throw new Error(`ITEM_NOT_FOUND: ${m.itemId}`);
+            if (!itemMeta) throw AppError.badRequest(`ITEM_NOT_FOUND: ${m.itemId}`);
 
             // 2.2 Serial Number validation
             if (itemMeta.hasSerial && !m.serialNumber && isDecrementingUsage) {
-                throw new Error(`SERIAL_REQUIRED_FOR_ITEM: ${itemMeta.name}`);
+                throw AppError.badRequest(`SERIAL_REQUIRED_FOR_ITEM: ${itemMeta.name}`);
             }
 
             if (isDecrementingUsage) {

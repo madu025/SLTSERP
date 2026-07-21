@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { TransactionClient } from './types';
@@ -62,11 +63,11 @@ export class TransactionService {
         const { contractorId, storeId, month, items, userId } = data;
 
         if (!contractorId || !storeId || !month || !items) {
-            throw new Error('MISSING_FIELDS');
+            throw AppError.badRequest('MISSING_FIELDS');
         }
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const existing = await (tx as any).contractorMaterialBalanceSheet.findUnique({
                 where: {
                     contractorId_storeId_month: { contractorId, storeId, month }
@@ -74,12 +75,12 @@ export class TransactionService {
             });
 
             if (existing) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 await (tx as any).contractorBalanceSheetItem.deleteMany({
                     where: { balanceSheetId: existing.id }
                 });
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 return await (tx as any).contractorMaterialBalanceSheet.update({
                     where: { id: existing.id },
                     data: {
@@ -99,7 +100,7 @@ export class TransactionService {
                     }
                 });
             } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 return await (tx as any).contractorMaterialBalanceSheet.create({
                     data: {
                         contractorId,
@@ -139,7 +140,7 @@ export class TransactionService {
         const prevMonthDate = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1);
         const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        
         const prevSheet = await (prisma as any).contractorMaterialBalanceSheet.findUnique({
             where: {
                 contractorId_storeId_month: {
@@ -153,7 +154,7 @@ export class TransactionService {
 
         const openingMap = new Map<string, number>();
         if (prevSheet) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             prevSheet.items.forEach((item: any) => {
                 openingMap.set(item.itemId, item.closingBalance);
             });

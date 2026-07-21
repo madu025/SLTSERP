@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface CreateRetentionInput {
@@ -81,11 +82,11 @@ export class ProjectRetentionService {
     ) {
         const existing = await prisma.projectRetention.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('RETENTION_NOT_FOUND');
+            throw AppError.badRequest('RETENTION_NOT_FOUND');
         }
 
         if (releaseAmount > existing.balanceAmount) {
-            throw new Error('RELEASE_AMOUNT_EXCEEDS_BALANCE');
+            throw AppError.badRequest('RELEASE_AMOUNT_EXCEEDS_BALANCE');
         }
 
         const newReleased = (existing.releasedAmount || 0) + releaseAmount;
@@ -125,7 +126,7 @@ export class ProjectRetentionService {
     static async updateRetention(id: string, updateData: UpdateRetentionInput) {
         const existing = await prisma.projectRetention.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('RETENTION_NOT_FOUND');
+            throw AppError.badRequest('RETENTION_NOT_FOUND');
         }
 
         const data: Record<string, unknown> = {};
@@ -156,11 +157,11 @@ export class ProjectRetentionService {
     static async deleteRetention(id: string) {
         const existing = await prisma.projectRetention.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('RETENTION_NOT_FOUND');
+            throw AppError.badRequest('RETENTION_NOT_FOUND');
         }
 
         if ((existing.releasedAmount || 0) > 0) {
-            throw new Error('HAS_RELEASES');
+            throw AppError.badRequest('HAS_RELEASES');
         }
 
         await prisma.projectRetention.delete({ where: { id } });

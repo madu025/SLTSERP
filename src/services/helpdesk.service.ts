@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { AppError } from '@/lib/error';
+
 import { HelpdeskRepository } from '@/repositories/helpdesk.repository';
 import { AuditService } from '@/services/audit.service';
 import { NotificationService } from '@/services/notification.service';
@@ -123,13 +124,13 @@ export class HelpdeskService {
     // Check if asset number is already taken
     const existingAssetNo = await HelpdeskRepository.findAssetByAssetNumber(data.assetNumber);
     if (existingAssetNo) {
-      throw new Error('ASSET_NUMBER_TAKEN');
+      throw AppError.badRequest('ASSET_NUMBER_TAKEN');
     }
 
     // Check if serial number is already taken
     const existingSerial = await HelpdeskRepository.findAssetBySerialNumber(data.serialNumber);
     if (existingSerial) {
-      throw new Error('SERIAL_NUMBER_TAKEN');
+      throw AppError.badRequest('SERIAL_NUMBER_TAKEN');
     }
 
     const asset = await prisma.$transaction(async (tx) => {
@@ -238,17 +239,17 @@ export class HelpdeskService {
   ) {
     const oldAsset = await HelpdeskRepository.findAssetById(id);
     if (!oldAsset) {
-      throw new Error('ASSET_NOT_FOUND');
+      throw AppError.badRequest('ASSET_NOT_FOUND');
     }
 
     // If updating assetNumber/serialNumber, check uniqueness
     if (data.assetNumber && data.assetNumber !== oldAsset.assetNumber) {
       const existing = await HelpdeskRepository.findAssetByAssetNumber(data.assetNumber);
-      if (existing) throw new Error('ASSET_NUMBER_TAKEN');
+      if (existing) throw AppError.badRequest('ASSET_NUMBER_TAKEN');
     }
     if (data.serialNumber && data.serialNumber !== oldAsset.serialNumber) {
       const existing = await HelpdeskRepository.findAssetBySerialNumber(data.serialNumber);
-      if (existing) throw new Error('SERIAL_NUMBER_TAKEN');
+      if (existing) throw AppError.badRequest('SERIAL_NUMBER_TAKEN');
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -447,7 +448,7 @@ export class HelpdeskService {
   static async deleteAsset(userId: string, id: string, ipAddress?: string, userAgent?: string) {
     const oldAsset = await HelpdeskRepository.findAssetById(id);
     if (!oldAsset) {
-      throw new Error('ASSET_NOT_FOUND');
+      throw AppError.badRequest('ASSET_NOT_FOUND');
     }
 
     const result = await HelpdeskRepository.deleteAsset(id);
@@ -487,7 +488,7 @@ export class HelpdeskService {
       where: { serialNumber: data.serialNumber }
     });
     if (existing) {
-      throw new Error('SERIAL_NUMBER_TAKEN');
+      throw AppError.badRequest('SERIAL_NUMBER_TAKEN');
     }
 
     if (data.unitNumber) {
@@ -495,7 +496,7 @@ export class HelpdeskService {
         where: { unitNumber: data.unitNumber }
       });
       if (existingUnitNo) {
-        throw new Error('UNIT_NUMBER_TAKEN');
+        throw AppError.badRequest('UNIT_NUMBER_TAKEN');
       }
     }
 
@@ -549,7 +550,7 @@ export class HelpdeskService {
       where: { id: unitId }
     });
     if (!old) {
-      throw new Error('UNIT_NOT_FOUND');
+      throw AppError.badRequest('UNIT_NOT_FOUND');
     }
 
     if (data.serialNumber && data.serialNumber !== old.serialNumber) {
@@ -557,7 +558,7 @@ export class HelpdeskService {
         where: { serialNumber: data.serialNumber }
       });
       if (existing) {
-        throw new Error('SERIAL_NUMBER_TAKEN');
+        throw AppError.badRequest('SERIAL_NUMBER_TAKEN');
       }
     }
 
@@ -566,7 +567,7 @@ export class HelpdeskService {
         where: { unitNumber: data.unitNumber }
       });
       if (existing) {
-        throw new Error('UNIT_NUMBER_TAKEN');
+        throw AppError.badRequest('UNIT_NUMBER_TAKEN');
       }
     }
 
@@ -614,7 +615,7 @@ export class HelpdeskService {
       where: { id: unitId }
     });
     if (!old) {
-      throw new Error('UNIT_NOT_FOUND');
+      throw AppError.badRequest('UNIT_NOT_FOUND');
     }
 
     await prismaDb.iTAssetUnit.delete({
@@ -651,7 +652,7 @@ export class HelpdeskService {
     userAgent?: string
   ) {
     const asset = await HelpdeskRepository.findAssetById(assetId);
-    if (!asset) throw new Error('ASSET_NOT_FOUND');
+    if (!asset) throw AppError.badRequest('ASSET_NOT_FOUND');
 
     const log = await prisma.$transaction(async (tx) => {
       // Create handover log
@@ -860,7 +861,7 @@ export class HelpdeskService {
   ) {
     const oldTicket = await HelpdeskRepository.findTicketById(id);
     if (!oldTicket) {
-      throw new Error('TICKET_NOT_FOUND');
+      throw AppError.badRequest('TICKET_NOT_FOUND');
     }
 
     // Determine status log message
@@ -1079,7 +1080,7 @@ export class HelpdeskService {
   ) {
     const ticket = await HelpdeskRepository.findTicketById(ticketId);
     if (!ticket) {
-      throw new Error('TICKET_NOT_FOUND');
+      throw AppError.badRequest('TICKET_NOT_FOUND');
     }
 
     const statusFrom = ticket.status as TicketStatus;
@@ -1255,7 +1256,7 @@ export class HelpdeskService {
     userAgent?: string
   ) {
     const old = await HelpdeskRepository.findKBArticleById(id);
-    if (!old) throw new Error('ARTICLE_NOT_FOUND');
+    if (!old) throw AppError.badRequest('ARTICLE_NOT_FOUND');
 
     const updated = await HelpdeskRepository.updateKBArticle(id, data);
 
@@ -1276,7 +1277,7 @@ export class HelpdeskService {
 
   static async deleteKBArticle(userId: string, id: string, ipAddress?: string, userAgent?: string) {
     const old = await HelpdeskRepository.findKBArticleById(id);
-    if (!old) throw new Error('ARTICLE_NOT_FOUND');
+    if (!old) throw AppError.badRequest('ARTICLE_NOT_FOUND');
 
     const result = await HelpdeskRepository.deleteKBArticle(id);
 
@@ -1338,7 +1339,7 @@ export class HelpdeskService {
   ) {
     const existing = await HelpdeskRepository.findSiteOfficeByName(data.name);
     if (existing) {
-      throw new Error('SITE_OFFICE_NAME_TAKEN');
+      throw AppError.badRequest('SITE_OFFICE_NAME_TAKEN');
     }
 
     const siteOffice = await HelpdeskRepository.createSiteOffice({
@@ -1382,12 +1383,12 @@ export class HelpdeskService {
   ) {
     const old = await HelpdeskRepository.findSiteOfficeById(id);
     if (!old) {
-      throw new Error('SITE_OFFICE_NOT_FOUND');
+      throw AppError.badRequest('SITE_OFFICE_NOT_FOUND');
     }
 
     if (data.name && data.name !== old.name) {
       const existing = await HelpdeskRepository.findSiteOfficeByName(data.name);
-      if (existing) throw new Error('SITE_OFFICE_NAME_TAKEN');
+      if (existing) throw AppError.badRequest('SITE_OFFICE_NAME_TAKEN');
     }
 
     const updated = await HelpdeskRepository.updateSiteOffice(id, {
@@ -1418,7 +1419,7 @@ export class HelpdeskService {
   static async deleteSiteOffice(userId: string, id: string, ipAddress?: string, userAgent?: string) {
     const old = await HelpdeskRepository.findSiteOfficeById(id);
     if (!old) {
-      throw new Error('SITE_OFFICE_NOT_FOUND');
+      throw AppError.badRequest('SITE_OFFICE_NOT_FOUND');
     }
 
     const result = await HelpdeskRepository.deleteSiteOffice(id);

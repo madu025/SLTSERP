@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 
@@ -31,7 +32,7 @@ export class AsBuiltService {
       select: { name: true, projectCode: true, routeLength: true },
     });
 
-    if (!project) throw new Error('Project not found');
+    if (!project) throw AppError.badRequest('Project not found');
 
     // Get ALL survey points (not just approved — as-built uses actual field data)
     const allPoints = await prisma.surveyPoint.findMany({
@@ -105,7 +106,7 @@ export class AsBuiltService {
    */
   static async exportLayerGeoJSON(projectId: string, layerId: string): Promise<GeoJSON.FeatureCollection> {
     const layerConfig = SURVEY_LAYERS.find((l) => l.id === layerId);
-    if (!layerConfig) throw new Error(`Unknown layer: ${layerId}`);
+    if (!layerConfig) throw AppError.badRequest(`Unknown layer: ${layerId}`);
 
     const points = await prisma.surveyPoint.findMany({
       where: { projectId, layerId },
@@ -141,7 +142,7 @@ export class AsBuiltService {
       select: { name: true, projectCode: true },
     });
 
-    if (!project) throw new Error('Project not found');
+    if (!project) throw AppError.badRequest('Project not found');
 
     const allPoints = await prisma.surveyPoint.findMany({
       where: { projectId },

@@ -1,49 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { RoleService } from '@/services/admin/role.service';
+import { z } from 'zod';
+
+const updateRoleSchema = z.object({
+    name: z.string().optional(),
+    code: z.string().optional(),
+    description: z.string().optional(),
+    level: z.number().optional(),
+    permissions: z.string().optional(),
+    isActive: z.boolean().optional()
+});
 
 // PATCH - Update role
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string; roleId: string }> }
-) {
-    try {
-        const { roleId } = await params;
-        const body = await request.json();
-        const { name, code, description, level, permissions, isActive } = body;
+export const PATCH = apiHandler(async (_req, params, body) => {
+    const { roleId } = await params;
+    const data = updateRoleSchema.parse(body);
 
-        const role = await prisma.systemRole.update({
-            where: { id: roleId },
-            data: {
-                ...(name && { name }),
-                ...(code && { code: code.toUpperCase() }),
-                ...(description !== undefined && { description }),
-                ...(level !== undefined && { level }),
-                ...(permissions !== undefined && { permissions }),
-                ...(isActive !== undefined && { isActive })
-            }
-        });
-
-        return NextResponse.json(role);
-    } catch (error) {
-        console.error('Error updating role:', error);
-        return NextResponse.json({ error: 'Failed to update role' }, { status: 500 });
-    }
-}
+    const role = await RoleService.updateRole(roleId, data);
+    return Response.json(role);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'UPDATE_ROLE', entity: 'Admin' }
+});
 
 // DELETE - Delete role
-export async function DELETE(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string; roleId: string }> }
-) {
-    try {
-        const { roleId } = await params;
-        await prisma.systemRole.delete({
-            where: { id: roleId }
-        });
-
-        return NextResponse.json({ message: 'Role deleted successfully' });
-    } catch (error) {
-        console.error('Error deleting role:', error);
-        return NextResponse.json({ error: 'Failed to delete role' }, { status: 500 });
-    }
-}
+export const DELETE = apiHandler(async (_req, params) => {
+    const { roleId } = await params;
+    
+    await RoleService.deleteRole(roleId);
+    return Response.json({ message: 'Role deleted successfully' });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'DELETE_ROLE', entity: 'Admin' }
+});

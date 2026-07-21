@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface CreateExpenseInput {
@@ -74,7 +75,7 @@ export class ProjectExpenseService {
             });
 
             if (!expense) {
-                throw new Error('EXPENSE_NOT_FOUND');
+                throw AppError.badRequest('EXPENSE_NOT_FOUND');
             }
 
             const projectId = expense.projectId;

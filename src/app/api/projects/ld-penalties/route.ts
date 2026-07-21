@@ -1,91 +1,84 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ProjectLDPenaltyService } from '@/services/project-ld-penalty.service';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectLDPenaltyService } from '@/services/project/project-ld-penalty.service';
+import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
-// GET /api/projects/ld-penalties?projectId=xxx - List LD/Penalties by project
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('projectId');
+    if (!projectId) throw AppError.badRequest('projectId is required');
+
+    return await ProjectLDPenaltyService.getPenalties(projectId);
+}, { rawResponse: true });
+
+const createPenaltySchema = z.object({
+    projectId: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    type: z.string().optional(),
+    category: z.string().optional(),
+    amount: z.number().min(0),
+    percentage: z.number().optional(),
+    referenceTable: z.string().optional(),
+    referenceId: z.string().optional(),
+    referenceDesc: z.string().optional(),
+    appliedDate: z.string().optional(),
+    leviedById: z.string().optional(),
+    remarks: z.string().optional(),
+});
+
+export const POST = apiHandler(async (_request, _params, body) => {
+    const data = createPenaltySchema.parse(body);
+    const penalty = await ProjectLDPenaltyService.createPenalty(data);
+    return Response.json(penalty, { status: 201 });
+}, {
+    audit: { action: 'CREATE', entity: 'LD_PENALTY' },
+    rawResponse: true
+});
+
+const updatePenaltySchema = z.object({
+    id: z.string().min(1),
+    status: z.string().min(1),
+    approvedById: z.string().optional(),
+    waivedAmount: z.number().optional(),
+    remarks: z.string().optional(),
+});
+
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const data = updatePenaltySchema.parse(body);
+    const { id, status, ...options } = data;
+    
     try {
-        const { searchParams } = new URL(request.url);
-        const projectId = searchParams.get('projectId');
-
-        if (!projectId) {
-            return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
-        }
-
-        const penalties = await ProjectLDPenaltyService.getPenalties(projectId);
-        return NextResponse.json(penalties);
+        return await ProjectLDPenaltyService.updatePenalty(id, status, options);
     } catch (error: unknown) {
-        console.error('Error fetching LD/penalties:', error);
-        return NextResponse.json({ error: 'Failed to fetch LD/penalties' }, { status: 500 });
+        if (error instanceof Error && error.message === 'LD_PENALTY_NOT_FOUND') {
+            throw AppError.notFound('LD/penalty not found');
+        }
+        throw error;
     }
-}
+}, {
+    audit: { action: 'UPDATE', entity: 'LD_PENALTY' },
+    rawResponse: true
+});
 
-// POST /api/projects/ld-penalties - Create a new LD/Penalty
-export async function POST(request: NextRequest) {
+export const DELETE = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) throw AppError.badRequest('id is required');
+
     try {
-        const body = await request.json();
-        const { projectId, title, amount } = body;
-
-        if (!projectId || !title || !amount) {
-            return NextResponse.json(
-                { error: 'projectId, title, and amount are required' },
-                { status: 400 }
-            );
-        }
-
-        const penalty = await ProjectLDPenaltyService.createPenalty(body);
-        return NextResponse.json(penalty, { status: 201 });
-    } catch (error: unknown) {
-        console.error('Error creating LD/penalty:', error);
-        return NextResponse.json({ error: 'Failed to create LD/penalty' }, { status: 500 });
-    }
-}
-
-// PATCH /api/projects/ld-penalties - Update LD/Penalty status
-export async function PATCH(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { id, status, ...options } = body;
-
-        if (!id || !status) {
-            return NextResponse.json({ error: 'id and status are required' }, { status: 400 });
-        }
-
-        const penalty = await ProjectLDPenaltyService.updatePenalty(id, status, options);
-        return NextResponse.json(penalty);
-    } catch (error: unknown) {
-        console.error('Error updating LD/penalty:', error);
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'LD_PENALTY_NOT_FOUND') {
-            return NextResponse.json({ error: 'LD/penalty not found' }, { status: 404 });
-        }
-        return NextResponse.json({ error: 'Failed to update LD/penalty' }, { status: 500 });
-    }
-}
-
-// DELETE /api/projects/ld-penalties - Delete
-export async function DELETE(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            return NextResponse.json({ error: 'id is required' }, { status: 400 });
-        }
-
         await ProjectLDPenaltyService.deletePenalty(id);
-        return NextResponse.json({ message: 'LD/penalty deleted successfully' });
+        return { success: true };
     } catch (error: unknown) {
-        console.error('Error deleting LD/penalty:', error);
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'LD_PENALTY_NOT_FOUND') {
-            return NextResponse.json({ error: 'LD/penalty not found' }, { status: 404 });
+        if (error instanceof Error) {
+            if (error.message === 'LD_PENALTY_NOT_FOUND') throw AppError.notFound('LD/penalty not found');
+            if (error.message === 'PROPOSED_ONLY_DELETION') throw AppError.badRequest('Only PROPOSED LD/penalties can be deleted');
         }
-        if (errorMsg === 'PROPOSED_ONLY_DELETION') {
-            return NextResponse.json(
-                { error: 'Only PROPOSED LD/penalties can be deleted' },
-                { status: 400 }
-            );
-        }
-        return NextResponse.json({ error: 'Failed to delete LD/penalty' }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'DELETE', entity: 'LD_PENALTY' },
+    rawResponse: true
+});

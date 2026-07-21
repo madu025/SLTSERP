@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export class AiPredictionService {
@@ -25,7 +26,7 @@ export class AiPredictionService {
       }),
     ]);
 
-    if (!project) throw new Error('Project not found');
+    if (!project) throw AppError.badRequest('Project not found');
 
     // Calculate delay indicators
     const overdueTasks = tasks.filter(
@@ -98,7 +99,7 @@ export class AiPredictionService {
       }),
     ]);
 
-    if (!project) throw new Error('Project not found');
+    if (!project) throw AppError.badRequest('Project not found');
 
     const budget = project.budget ?? 0;
     const actual = project.actualCost;

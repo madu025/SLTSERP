@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface POItemInput {
@@ -80,7 +81,7 @@ export class ProjectPurchaseOrderService {
         // Verify project exists
         const project = await prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
         // Auto-generate PO number
@@ -156,12 +157,12 @@ export class ProjectPurchaseOrderService {
     static async updatePurchaseOrderStatus(id: string, status: string, options: UpdatePOStatusOptions) {
         const existing = await prisma.projectPurchaseOrder.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('PURCHASE_ORDER_NOT_FOUND');
+            throw AppError.badRequest('PURCHASE_ORDER_NOT_FOUND');
         }
 
         const finalizedStatuses = ['FULLY_RECEIVED', 'CLOSED', 'CANCELLED'];
         if (finalizedStatuses.includes(existing.status)) {
-            throw new Error('STATUS_LOCKED');
+            throw AppError.badRequest('STATUS_LOCKED');
         }
 
         const updateData: Record<string, unknown> = { status };
@@ -169,21 +170,21 @@ export class ProjectPurchaseOrderService {
         switch (status) {
             case 'APPROVED':
                 if (!options.approvedById) {
-                    throw new Error('APPROVED_BY_ID_REQUIRED');
+                    throw AppError.badRequest('APPROVED_BY_ID_REQUIRED');
                 }
                 updateData.approvedById = options.approvedById;
                 updateData.approvedAt = new Date();
                 break;
             case 'ISSUED':
                 if (!options.issuedById) {
-                    throw new Error('ISSUED_BY_ID_REQUIRED');
+                    throw AppError.badRequest('ISSUED_BY_ID_REQUIRED');
                 }
                 updateData.issuedById = options.issuedById;
                 updateData.issuedAt = new Date();
                 break;
             case 'CLOSED':
                 if (!options.closedById) {
-                    throw new Error('CLOSED_BY_ID_REQUIRED');
+                    throw AppError.badRequest('CLOSED_BY_ID_REQUIRED');
                 }
                 updateData.closedById = options.closedById;
                 updateData.closedAt = new Date();
@@ -210,11 +211,11 @@ export class ProjectPurchaseOrderService {
     static async deletePurchaseOrder(id: string) {
         const existing = await prisma.projectPurchaseOrder.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('PURCHASE_ORDER_NOT_FOUND');
+            throw AppError.badRequest('PURCHASE_ORDER_NOT_FOUND');
         }
 
         if (existing.status !== 'DRAFT') {
-            throw new Error('DRAFT_ONLY_DELETION');
+            throw AppError.badRequest('DRAFT_ONLY_DELETION');
         }
 
         await prisma.projectPurchaseOrder.delete({ where: { id } });

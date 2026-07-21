@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { MRN, Prisma } from '@prisma/client';
 import { NotificationService } from '../notification.service';
@@ -103,15 +104,15 @@ export class MRNService {
 
         if (action === 'APPROVE') {
             return await prisma.$transaction(async (tx: TransactionClient) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const mrn = await (tx as any).mRN.findUnique({
                     where: { id: mrnId },
                     include: { items: true }
                 });
 
-                if (!mrn) throw new Error("MRN_NOT_FOUND");
+                if (!mrn) throw AppError.badRequest("MRN_NOT_FOUND");
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 const updatedMrn = await (tx as any).mRN.update({
                     where: { id: mrnId },
                     data: {
@@ -133,14 +134,14 @@ export class MRNService {
                     const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, mrn.storeId, item.itemId, item.quantity);
 
                     for (const picked of pickedBatches) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        
                         await (tx as any).inventoryBatchStock.update({
                             where: { storeId_batchId: { storeId: mrn.storeId, batchId: picked.batchId } },
                             data: { quantity: { decrement: picked.quantity } }
                         });
                     }
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    
                     await (tx as any).inventoryStock.upsert({
                         where: { storeId_itemId: { storeId: mrn.storeId, itemId: item.itemId } },
                         update: { quantity: { decrement: item.quantity } },
@@ -153,7 +154,7 @@ export class MRNService {
                     });
                 }
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 await (tx as any).inventoryTransaction.create({
                     data: {
                         type: 'RETURN',
@@ -187,6 +188,6 @@ export class MRNService {
             });
         }
 
-        throw new Error('INVALID_ACTION');
+        throw AppError.badRequest('INVALID_ACTION');
     }
 }

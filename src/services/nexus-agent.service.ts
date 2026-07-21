@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { primaryClient as prisma } from '@/lib/prisma';
 import { AssetCustodyService } from './inventory/asset-custody.service';
 import { StockRequestService } from './inventory/stock-request.service';
@@ -158,7 +159,7 @@ export class NexusAgentService {
      */
     static async executeAction(action: NexusAction, userId: string) {
         if (action.type === 'ASSIGN_CUSTODY') {
-            if (!action.serialNumber || !action.staffId) throw new Error("MISSING_PARAMS");
+            if (!action.serialNumber || !action.staffId) throw AppError.badRequest("MISSING_PARAMS");
             return await AssetCustodyService.assignAsset(
                 action.serialNumber,
                 action.staffId,
@@ -168,7 +169,7 @@ export class NexusAgentService {
 
         if (action.type === 'STOCK_HEAL' || action.type === 'STOCK_TRANSFER') {
             if (!action.itemId || !action.fromStoreId || !action.toStoreId || !action.quantity) {
-                throw new Error("MISSING_PARAMS");
+                throw AppError.badRequest("MISSING_PARAMS");
             }
             return await StockRequestService.createStockRequest({
                 fromStoreId: action.toStoreId, // Target store requests it
@@ -185,10 +186,10 @@ export class NexusAgentService {
         }
 
         if (action.type === 'CREATE_USER') {
-            throw new Error("SECURITY_VIOLATION: Direct user creation via AI is disabled for security reasons. Please register new users manually through the User Management Dashboard.");
+            throw AppError.badRequest("SECURITY_VIOLATION: Direct user creation via AI is disabled for security reasons. Please register new users manually through the User Management Dashboard.");
         }
 
-        throw new Error("UNKNOWN_ACTION_TYPE");
+        throw AppError.badRequest("UNKNOWN_ACTION_TYPE");
     }
 
     /**

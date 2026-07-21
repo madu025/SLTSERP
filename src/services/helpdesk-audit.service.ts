@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from "@/lib/prisma";
 import { HelpdeskService } from "./helpdesk.service";
 import { ITDeviceType, ITAssetStatus } from "@prisma/client";
@@ -204,11 +205,11 @@ export class HelpdeskAuditService {
     });
 
     if (!audit) {
-      throw new Error("Audit record not found");
+      throw AppError.badRequest("Audit record not found");
     }
 
     if (audit.isSynced) {
-      throw new Error("Audit record is already synchronized");
+      throw AppError.badRequest("Audit record is already synchronized");
     }
 
     // Merge submitted details with optional admin updates & sanitize empty strings to null
@@ -274,7 +275,7 @@ export class HelpdeskAuditService {
           }
         });
         if (duplicateAsset) {
-          throw new Error(`Asset Number "${assetNumber}" is already assigned to a device with Serial Number: "${duplicateAsset.serialNumber}"`);
+          throw AppError.badRequest(`Asset Number "${assetNumber}" is already assigned to a device with Serial Number: "${duplicateAsset.serialNumber}"`);
         }
       }
 

@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { AppError } from '@/lib/error';
+
 import { prisma } from '@/lib/prisma';
 import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue } from '@prisma/client';
 import { TransactionClient, PickedBatch } from './types';
@@ -12,7 +13,7 @@ export class StockService {
     }
 
     static async getStock(storeId: string) {
-        if (!storeId) throw new Error('STORE_ID_REQUIRED');
+        if (!storeId) throw AppError.badRequest('STORE_ID_REQUIRED');
 
         const whereClause = storeId === 'all' ? {} : { storeId };
 
@@ -86,7 +87,7 @@ export class StockService {
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
-                throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+                throw AppError.badRequest(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
             }
         }
 
@@ -126,7 +127,7 @@ export class StockService {
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
-                throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+                throw AppError.badRequest(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
             }
         }
 
@@ -163,7 +164,7 @@ export class StockService {
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
-                throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+                throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
             }
         }
 
@@ -201,7 +202,7 @@ export class StockService {
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
-                throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+                throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
             }
         }
 
@@ -212,7 +213,7 @@ export class StockService {
      * Initialize or Adjust Stock Levels in Bulk
      */
     static async initializeStock(storeId: string, items: { itemId: string; quantity: string | number }[], reason?: string, userId?: string) {
-        if (!storeId || !Array.isArray(items)) throw new Error('INVALID_PAYLOAD');
+        if (!storeId || !Array.isArray(items)) throw AppError.badRequest('INVALID_PAYLOAD');
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const transactionItems: { itemId: string; quantity: number; beforeQty: number; afterQty: number }[] = [];
@@ -299,7 +300,7 @@ export class StockService {
         const { storeId, issuedById, issueType, projectId, contractorId, teamId, recipientName, remarks, items } = data;
 
         if (!storeId || !issuedById || !recipientName || !items || items.length === 0) {
-            throw new Error('MISSING_FIELDS');
+            throw AppError.badRequest('MISSING_FIELDS');
         }
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
@@ -318,13 +319,13 @@ export class StockService {
                         });
 
                         if (!serialRecord) {
-                            throw new Error(`SERIAL_NOT_FOUND: ${serialNum}`);
+                            throw AppError.badRequest(`SERIAL_NOT_FOUND: ${serialNum}`);
                         }
                         if (serialRecord.itemId !== item.itemId) {
-                            throw new Error(`SERIAL_ITEM_MISMATCH: Serial ${serialNum} does not match item ${item.itemId}`);
+                            throw AppError.badRequest(`SERIAL_ITEM_MISMATCH: Serial ${serialNum} does not match item ${item.itemId}`);
                         }
                         if (serialRecord.status !== 'IN_STORE' || serialRecord.storeId !== storeId) {
-                            throw new Error(`SERIAL_NOT_AVAILABLE_IN_STORE: Serial ${serialNum} is not available in store ${storeId}`);
+                            throw AppError.badRequest(`SERIAL_NOT_AVAILABLE_IN_STORE: Serial ${serialNum} is not available in store ${storeId}`);
                         }
                     }
                 }
@@ -356,7 +357,7 @@ export class StockService {
                     const existingStock = await InventoryRepository.findStock(storeId, item.itemId, tx);
 
                     if (!existingStock || existingStock.quantity < quantity) {
-                        throw new Error(`INSUFFICIENT_STOCK: ${item.itemId}`);
+                        throw AppError.badRequest(`INSUFFICIENT_STOCK: ${item.itemId}`);
                     }
 
                     // A. Pick store batches FIFO and decrement batch stock
@@ -464,7 +465,7 @@ export class StockService {
      * Get item serials in store
      */
     static async getItemSerials(storeId: string, itemId: string) {
-        if (!storeId || !itemId) throw new Error('MISSING_PARAMS');
+        if (!storeId || !itemId) throw AppError.badRequest('MISSING_PARAMS');
         
         return await prisma.inventoryItemSerial.findMany({
             where: {
@@ -481,7 +482,7 @@ export class StockService {
      */
     static async getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }) {
         const { storeId, itemId, search, staffId } = filters;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        
         const where: any = {};
         
         if (storeId) where.storeId = storeId;

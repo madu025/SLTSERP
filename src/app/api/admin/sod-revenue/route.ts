@@ -1,157 +1,67 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { handleApiError, ApiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { SodRevenueService } from '@/services/admin/sod-revenue.service';
+import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
-// GET - Fetch all SOD revenue configurations
-export async function GET(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
+const createConfigSchema = z.object({
+    rtomId: z.string().optional().nullable(),
+    revenuePerSOD: z.union([z.string(), z.number()]),
+    effectiveFrom: z.union([z.string(), z.date()]).optional().nullable(),
+    effectiveTo: z.union([z.string(), z.date()]).optional().nullable(),
+    circularRef: z.string().optional(),
+    notes: z.string().optional()
+});
 
-        if (!['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
+const updateConfigSchema = z.object({
+    id: z.string().min(1, 'Configuration ID is required'),
+    rtomId: z.string().optional().nullable(),
+    revenuePerSOD: z.union([z.string(), z.number()]).optional(),
+    effectiveFrom: z.union([z.string(), z.date()]).optional().nullable(),
+    effectiveTo: z.union([z.string(), z.date()]).optional().nullable(),
+    circularRef: z.string().optional(),
+    notes: z.string().optional(),
+    isActive: z.boolean().optional()
+});
 
-        const configs = await prisma.sODRevenueConfig.findMany({
-            include: {
-                rtom: {
-                    select: {
-                        id: true,
-                        rtom: true,
-                        name: true
-                    }
-                }
-            },
-            orderBy: [
-                { rtomId: 'asc' },
-                { effectiveFrom: 'desc' }
-            ]
-        });
+export const GET = apiHandler(async () => {
+    const configs = await SodRevenueService.getConfigs();
+    return Response.json({ success: true, data: configs });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER']
+});
 
-        return NextResponse.json({ success: true, data: configs });
-    } catch (error) {
-        return handleApiError(error);
+export const POST = apiHandler(async (req, _params, body) => {
+    const userId = req.headers.get('x-user-id') || undefined;
+    const data = createConfigSchema.parse(body);
+
+    const config = await SodRevenueService.createConfig(data, userId);
+    return Response.json({ success: true, data: config });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'CREATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
+});
+
+export const PUT = apiHandler(async (_req, _params, body) => {
+    const data = updateConfigSchema.parse(body);
+
+    const config = await SodRevenueService.updateConfig(data.id, data);
+    return Response.json({ success: true, data: config });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'UPDATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
+});
+
+export const DELETE = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+        throw AppError.badRequest('Configuration ID required');
     }
-}
 
-// POST - Create new SOD revenue configuration
-export async function POST(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
-        const userId = req.headers.get('x-user-id');
-
-        if (!['SUPER_ADMIN', 'ADMIN'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
-
-        const body = await req.json();
-        const { rtomId, revenuePerSOD, effectiveFrom, effectiveTo, circularRef, notes } = body;
-
-        if (!revenuePerSOD || revenuePerSOD <= 0) {
-            throw new ApiError('Invalid revenue amount', 400);
-        }
-
-        // Validate date range if provided
-        if (effectiveFrom && effectiveTo) {
-            const from = new Date(effectiveFrom);
-            const to = new Date(effectiveTo);
-            if (from >= to) {
-                throw new ApiError('Invalid date range', 400);
-            }
-        }
-
-        const config = await prisma.sODRevenueConfig.create({
-            data: {
-                rtomId: rtomId || null,
-                revenuePerSOD: parseFloat(revenuePerSOD),
-                effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : null,
-                effectiveTo: effectiveTo ? new Date(effectiveTo) : null,
-                circularRef,
-                notes,
-                createdBy: userId || undefined
-            },
-            include: {
-                rtom: {
-                    select: {
-                        id: true,
-                        rtom: true,
-                        name: true
-                    }
-                }
-            }
-        });
-
-        return NextResponse.json({ success: true, data: config });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
-
-// PUT - Update SOD revenue configuration
-export async function PUT(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
-
-        if (!['SUPER_ADMIN', 'ADMIN'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
-
-        const body = await req.json();
-        const { id, revenuePerSOD, effectiveFrom, effectiveTo, circularRef, notes, isActive } = body;
-
-        if (!id) {
-            throw new ApiError('Configuration ID required', 400);
-        }
-
-        const updateData: any = {};
-        if (revenuePerSOD !== undefined) updateData.revenuePerSOD = parseFloat(revenuePerSOD);
-        if (effectiveFrom !== undefined) updateData.effectiveFrom = effectiveFrom ? new Date(effectiveFrom) : null;
-        if (effectiveTo !== undefined) updateData.effectiveTo = effectiveTo ? new Date(effectiveTo) : null;
-        if (circularRef !== undefined) updateData.circularRef = circularRef;
-        if (notes !== undefined) updateData.notes = notes;
-        if (isActive !== undefined) updateData.isActive = isActive;
-
-        const config = await prisma.sODRevenueConfig.update({
-            where: { id },
-            data: updateData,
-            include: {
-                rtom: {
-                    select: {
-                        id: true,
-                        rtom: true,
-                        name: true
-                    }
-                }
-            }
-        });
-
-        return NextResponse.json({ success: true, data: config });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
-
-// DELETE - Delete SOD revenue configuration
-export async function DELETE(req: NextRequest) {
-    try {
-        const role = req.headers.get('x-user-role');
-
-        if (!['SUPER_ADMIN', 'ADMIN'].includes(role || '')) {
-            throw new ApiError('Forbidden', 403);
-        }
-
-        const { searchParams } = new URL(req.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            throw new ApiError('Configuration ID required', 400);
-        }
-
-        await prisma.sODRevenueConfig.delete({
-            where: { id }
-        });
-
-        return NextResponse.json({ success: true, message: 'Configuration deleted successfully' });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+    await SodRevenueService.deleteConfig(id);
+    return Response.json({ success: true, message: 'Configuration deleted successfully' });
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'DELETE_SOD_REVENUE_CONFIG', entity: 'Admin' }
+});

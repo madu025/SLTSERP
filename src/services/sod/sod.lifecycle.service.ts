@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ServiceOrderUpdateData } from './sod-types';
@@ -35,7 +36,7 @@ export class SODLifecycleService {
 
         if (sltsStatus) {
             if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'OFFLINE'].includes(sltsStatus)) {
-                throw new Error('INVALID_STATUS');
+                throw AppError.badRequest('INVALID_STATUS');
             }
             updateData.sltsStatus = sltsStatus;
             if (sltsStatus === 'COMPLETED' && !completedDate) {

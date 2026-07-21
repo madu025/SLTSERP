@@ -1,16 +1,20 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { cookies } from 'next/headers';
 import { UserService } from '@/services/user.service';
+import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
-export async function POST(request: Request) {
+const loginSchema = z.object({
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required')
+});
+
+export const POST = apiHandler(async (_req, _params, body) => {
+    const data = loginSchema.parse(body);
+
     try {
-        const body = await request.json();
-        const { username, password } = body;
+        const { token, user } = await UserService.login({ username: data.username, password: data.password });
 
-        // Call Service
-        const { token, user } = await UserService.login({ username, password });
-
-        // Set HttpOnly Cookie
         const cookieStore = await cookies();
 
         cookieStore.set('token', token, {
@@ -21,7 +25,7 @@ export async function POST(request: Request) {
             path: '/',
         });
 
-        return NextResponse.json({
+        return Response.json({
             message: 'Login successful',
             user,
         });
@@ -29,18 +33,10 @@ export async function POST(request: Request) {
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-        // Handle known errors from Service
-        if (errorMessage === 'USERNAME_PASSWORD_REQUIRED') {
-            return NextResponse.json({ message: 'Username and password are required' }, { status: 400 });
-        }
         if (errorMessage === 'INVALID_CREDENTIALS') {
-            return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
+            throw AppError.unauthorized('Invalid credentials');
         }
 
-        console.error('CRITICAL LOGIN ERROR:', error);
-        return NextResponse.json(
-            { message: 'Internal server error', debug: errorMessage },
-            { status: 500 }
-        );
+        throw error;
     }
-}
+});

@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { GetServiceOrdersParams } from './sod-types';
@@ -58,7 +59,7 @@ export class SODQueryService {
         const skip = cursor ? 1 : (page - 1) * limit;
 
         if (!opmcId) {
-            throw new Error('RTOM_ID_REQUIRED');
+            throw AppError.badRequest('RTOM_ID_REQUIRED');
         }
 
         // Build where clause using an array of AND filters to avoid OR collisions

@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import * as cheerio from 'cheerio';
 
 interface SODDetailsData {
@@ -46,7 +47,7 @@ export class SODDetailsScraper {
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to fetch SOD details: ${response.status}`);
+                throw AppError.badRequest(`Failed to fetch SOD details: ${response.status}`);
             }
 
             const html = await response.text();

@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { TransactionClient } from './types';
 
@@ -17,13 +18,13 @@ export class AssetCustodyService {
         const staff = await client.staff.findUnique({
             where: { id: staffId }
         });
-        if (!staff) throw new Error("STAFF_NOT_FOUND");
+        if (!staff) throw AppError.badRequest("STAFF_NOT_FOUND");
 
         // 2. Verify serial exists
         const serial = await client.inventoryItemSerial.findUnique({
             where: { serialNumber }
         });
-        if (!serial) throw new Error("SERIAL_NOT_FOUND");
+        if (!serial) throw AppError.badRequest("SERIAL_NOT_FOUND");
 
         // 2.5 If the serial was located in a store, decrement stock counts
         if (serial.storeId) {
@@ -89,13 +90,13 @@ export class AssetCustodyService {
         const toStaff = await client.staff.findUnique({
             where: { id: toStaffId }
         });
-        if (!toStaff) throw new Error("DESTINATION_STAFF_NOT_FOUND");
+        if (!toStaff) throw AppError.badRequest("DESTINATION_STAFF_NOT_FOUND");
 
         // 2. Verify serial is currently assigned to source staff
         const serial = await client.inventoryItemSerial.findFirst({
             where: { serialNumber, assignedStaffId: fromStaffId }
         });
-        if (!serial) throw new Error("SERIAL_NOT_ASSIGNED_TO_SOURCE_STAFF");
+        if (!serial) throw AppError.badRequest("SERIAL_NOT_ASSIGNED_TO_SOURCE_STAFF");
 
         // 3. Update assignee
         const updated = await client.inventoryItemSerial.update({
@@ -137,14 +138,14 @@ export class AssetCustodyService {
         const serial = await client.inventoryItemSerial.findUnique({
             where: { serialNumber }
         });
-        if (!serial) throw new Error("SERIAL_NOT_FOUND");
+        if (!serial) throw AppError.badRequest("SERIAL_NOT_FOUND");
 
         // 2. If storeId is provided, verify store exists
         if (storeId) {
             const store = await client.inventoryStore.findUnique({
                 where: { id: storeId }
             });
-            if (!store) throw new Error("STORE_NOT_FOUND");
+            if (!store) throw AppError.badRequest("STORE_NOT_FOUND");
         }
 
         // 2.5 If returning/retiring to store, increment stock counts

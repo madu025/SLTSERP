@@ -63,4 +63,22 @@ export class AuditService {
             take: 100
         });
     }
+
+    /**
+     * Get recent global audit logs
+     */
+    static async getRecentLogs(take: number = 200) {
+        return await AuditRepository.findMany({
+            take,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        username: true
+                    }
+                }
+            }
+        });
+    }
 }

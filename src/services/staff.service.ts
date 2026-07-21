@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Role } from '@prisma/client';
 
@@ -78,7 +79,7 @@ export class StaffService {
     const { name, designation, reportsToId, opmcId, userId } = data;
 
     if (id === reportsToId) {
-      throw new Error('CANNOT_REPORT_TO_SELF');
+      throw AppError.badRequest('CANNOT_REPORT_TO_SELF');
     }
 
     const updateData: Record<string, unknown> = {};
@@ -119,7 +120,7 @@ export class StaffService {
     });
 
     if (subordinates > 0) {
-      throw new Error(`HAS_SUBORDINATES_${subordinates}`);
+      throw AppError.badRequest(`HAS_SUBORDINATES_${subordinates}`);
     }
 
     // 2. Check linked user
@@ -128,7 +129,7 @@ export class StaffService {
     });
 
     if (linkedUser) {
-      throw new Error('HAS_LINKED_USER');
+      throw AppError.badRequest('HAS_LINKED_USER');
     }
 
     return prisma.staff.delete({ where: { id } });

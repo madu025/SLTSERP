@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
 import { eventBus } from '@/lib/events/event-bus';
@@ -20,7 +21,7 @@ export class StoreService {
             });
 
             if (!dbUser) {
-                throw new Error('USER_NOT_FOUND');
+                throw AppError.badRequest('USER_NOT_FOUND');
             }
 
             const accessibleOpmcIds = dbUser.accessibleOpmcs.map(o => o.id);
@@ -103,7 +104,7 @@ export class StoreService {
         managerId?: string;
         opmcIds?: string[];
     }): Promise<InventoryStore> {
-        if (!id) throw new Error('ID_REQUIRED');
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
 
         const { opmcIds, ...storeData } = data;
 
@@ -142,13 +143,13 @@ export class StoreService {
     }
 
     static async deleteStore(id: string): Promise<void> {
-        if (!id) throw new Error('ID_REQUIRED');
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
 
         const hasStock = await InventoryRepository.findFirstStock({
             storeId: id,
             quantity: { gt: 0 }
         });
-        if (hasStock) throw new Error('STORE_HAS_STOCK');
+        if (hasStock) throw AppError.badRequest('STORE_HAS_STOCK');
 
         // Remove OPMC assignments first
         await InventoryRepository.updateManyOpmcs(

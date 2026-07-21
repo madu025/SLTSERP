@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { Prisma, ContractorType, ContractorStatus } from '@prisma/client';
@@ -79,7 +80,7 @@ export class ContractorRegistrationService {
             where: { id }
         });
 
-        if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
+        if (!contractor) throw AppError.badRequest('CONTRACTOR_NOT_FOUND');
 
         if (!['PENDING', 'REJECTED'].includes(contractor.status)) {
             await prisma.contractor.update({
@@ -124,7 +125,7 @@ export class ContractorRegistrationService {
             }
         });
 
-        if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
+        if (!contractor) throw AppError.badRequest('CONTRACTOR_NOT_FOUND');
 
         // Copy current data into draft
         const draft: Partial<ContractorUpdateData> = {
@@ -204,14 +205,14 @@ export class ContractorRegistrationService {
             }
         });
 
-        if (!contractor) throw new Error('INVALID_TOKEN');
+        if (!contractor) throw AppError.badRequest('INVALID_TOKEN');
 
         if (contractor.registrationTokenExpiry && new Date(contractor.registrationTokenExpiry) < new Date()) {
-            throw new Error('TOKEN_EXPIRED');
+            throw AppError.badRequest('TOKEN_EXPIRED');
         }
 
         if (!['PENDING', 'REJECTED'].includes(contractor.status)) {
-            throw new Error('ALREADY_SUBMITTED');
+            throw AppError.badRequest('ALREADY_SUBMITTED');
         }
 
         if (!contractor.registrationStartedAt && contractor.status === 'PENDING') {
@@ -368,10 +369,10 @@ export class ContractorRegistrationService {
             }
         });
 
-        if (!contractor) throw new Error('INVALID_TOKEN');
+        if (!contractor) throw AppError.badRequest('INVALID_TOKEN');
 
         if (contractor.uploadTokenExpiry && new Date() > contractor.uploadTokenExpiry) {
-            throw new Error('TOKEN_EXPIRED');
+            throw AppError.badRequest('TOKEN_EXPIRED');
         }
 
         return contractor;
@@ -380,14 +381,14 @@ export class ContractorRegistrationService {
     /**
      * Submit documents publicly using upload token
      */
-    static async submitPublicDocuments(token: string, documents: any) {
+    static async submitPublicDocuments(token: string, documents: Record<string, string | undefined>) {
         const contractor = await prisma.contractor.findUnique({
             where: { uploadToken: token }
         });
 
-        if (!contractor) throw new Error('INVALID_TOKEN');
+        if (!contractor) throw AppError.badRequest('INVALID_TOKEN');
         if (contractor.uploadTokenExpiry && new Date() > contractor.uploadTokenExpiry) {
-            throw new Error('TOKEN_EXPIRED');
+            throw AppError.badRequest('TOKEN_EXPIRED');
         }
 
         return await prisma.contractor.update({

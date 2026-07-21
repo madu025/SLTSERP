@@ -1,63 +1,68 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { QuotationService } from '@/services/quotation.service';
+import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
-// GET /api/projects/quotations?requisitionId=xxx - List quotations
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const requisitionId = searchParams.get('requisitionId');
+    if (!requisitionId) throw AppError.badRequest('requisitionId is required');
+
+    return await QuotationService.getQuotations(requisitionId);
+}, { rawResponse: true });
+
+const createQuotationSchema = z.object({
+    requisitionId: z.string().min(1),
+    vendorId: z.string().min(1),
+    vendorName: z.string().optional(),
+    quoteDate: z.string().optional(),
+    validUntil: z.string().optional(),
+    currency: z.string().optional(),
+    deliveryDays: z.number().optional(),
+    warrantyPeriod: z.union([z.string(), z.number()]).optional(),
+    paymentTerms: z.string().optional(),
+    remarks: z.string().optional(),
+    items: z.array(z.object({
+        itemCode: z.string().min(1),
+        description: z.string().min(1),
+        unit: z.string().optional(),
+        quantity: z.number().min(0),
+        unitPrice: z.number().min(0),
+        deliveryDate: z.string().optional(),
+        deliveryDays: z.number().optional(),
+        notes: z.string().optional(),
+    })).min(1),
+});
+
+export const POST = apiHandler(async (_request, _params, body) => {
+    const data = createQuotationSchema.parse(body);
+    
     try {
-        const { searchParams } = new URL(request.url);
-        const requisitionId = searchParams.get('requisitionId');
-
-        if (!requisitionId) {
-            return NextResponse.json({ error: 'requisitionId is required' }, { status: 400 });
-        }
-
-        const quotations = await QuotationService.getQuotations(requisitionId);
-        return NextResponse.json(quotations);
+        const quotation = await QuotationService.createQuotation(data);
+        return Response.json(quotation, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error fetching quotations:', error);
-        return NextResponse.json({ error: 'Failed to fetch quotations' }, { status: 500 });
-    }
-}
-
-// POST /api/projects/quotations - Create a new quotation
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { requisitionId, vendorId, items } = body;
-
-        if (!requisitionId || !vendorId || !items?.length) {
-            return NextResponse.json(
-                { error: 'requisitionId, vendorId, and items are required' },
-                { status: 400 }
-            );
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+            throw AppError.badRequest('Quote number already exists');
         }
-
-        const quotation = await QuotationService.createQuotation(body);
-        return NextResponse.json(quotation, { status: 201 });
-    } catch (error: unknown) {
-        console.error('Error creating quotation:', error);
-        const errorCode = (error as { code?: string }).code;
-        if (errorCode === 'P2002') {
-            return NextResponse.json({ error: 'Quote number already exists' }, { status: 400 });
-        }
-        return NextResponse.json({ error: 'Failed to create quotation' }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'CREATE', entity: 'QUOTATION' },
+    rawResponse: true
+});
 
-// PATCH /api/projects/quotations - Update quotation status
-export async function PATCH(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { id, status, acceptedById } = body;
+const updateQuotationSchema = z.object({
+    id: z.string().min(1),
+    status: z.string().min(1),
+    acceptedById: z.string().optional(),
+});
 
-        if (!id || !status) {
-            return NextResponse.json({ error: 'id and status are required' }, { status: 400 });
-        }
-
-        const quotation = await QuotationService.updateQuotationStatus(id, status, acceptedById);
-        return NextResponse.json(quotation);
-    } catch (error: unknown) {
-        console.error('Error updating quotation:', error);
-        return NextResponse.json({ error: 'Failed to update quotation' }, { status: 500 });
-    }
-}
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const data = updateQuotationSchema.parse(body);
+    return await QuotationService.updateQuotationStatus(data.id, data.status, data.acceptedById);
+}, {
+    audit: { action: 'UPDATE', entity: 'QUOTATION' },
+    rawResponse: true
+});

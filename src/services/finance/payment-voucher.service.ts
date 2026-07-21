@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export interface CreatePVInput {
@@ -47,7 +48,7 @@ export class PaymentVoucherService {
     projectId?: string;
     type?: string;
   }) {
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (filters?.status && filters.status !== 'ALL') {
       where.status = filters.status;
@@ -119,7 +120,7 @@ export class PaymentVoucherService {
         });
         const currentPaidSum = existingPVs.reduce((sum, pv) => sum + pv.amount, 0);
         if (currentPaidSum + data.amount > invoice.totalAmount) {
-          throw new Error('INVOICE_PAYMENT_EXCEEDS_TOTAL');
+          throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
         }
       }
     }
@@ -184,9 +185,9 @@ export class PaymentVoucherService {
    */
   static async updatePaymentVoucher(id: string, data: Partial<CreatePVInput>) {
     const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
-    if (!existing) throw new Error('VOUCHER_NOT_FOUND');
+    if (!existing) throw AppError.badRequest('VOUCHER_NOT_FOUND');
     if (existing.status !== 'DRAFT') {
-      throw new Error('ONLY_DRAFT_VOUCHERS_CAN_BE_UPDATED');
+      throw AppError.badRequest('ONLY_DRAFT_VOUCHERS_CAN_BE_UPDATED');
     }
 
     const amount = data.amount !== undefined ? data.amount : existing.amount;
@@ -222,7 +223,7 @@ export class PaymentVoucherService {
         });
         const currentPaidSum = existingPVs.reduce((sum, pv) => sum + pv.amount, 0);
         if (currentPaidSum + amount > invoice.totalAmount) {
-          throw new Error('INVOICE_PAYMENT_EXCEEDS_TOTAL');
+          throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
         }
       }
     }
@@ -267,30 +268,30 @@ export class PaymentVoucherService {
   ) {
     const validStatuses = ['PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED'];
     if (!validStatuses.includes(status)) {
-      throw new Error('INVALID_STATUS');
+      throw AppError.badRequest('INVALID_STATUS');
     }
 
     const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
-    if (!existing) throw new Error('VOUCHER_NOT_FOUND');
+    if (!existing) throw AppError.badRequest('VOUCHER_NOT_FOUND');
 
     // Enforce proper state machine transitions and protect terminal states
     const currentStatus = existing.status;
     if (currentStatus === 'PAID' || currentStatus === 'CANCELLED' || currentStatus === 'REJECTED') {
-      throw new Error(`CANNOT_CHANGE_STATUS_FROM_TERMINAL_STATE_${currentStatus}`);
+      throw AppError.badRequest(`CANNOT_CHANGE_STATUS_FROM_TERMINAL_STATE_${currentStatus}`);
     }
 
     if (status === 'PENDING_APPROVAL' && currentStatus !== 'DRAFT') {
-      throw new Error('ONLY_DRAFT_VOUCHERS_CAN_BE_SUBMITTED_FOR_APPROVAL');
+      throw AppError.badRequest('ONLY_DRAFT_VOUCHERS_CAN_BE_SUBMITTED_FOR_APPROVAL');
     }
     if (status === 'APPROVED' && currentStatus !== 'PENDING_APPROVAL') {
-      throw new Error('ONLY_PENDING_APPROVAL_VOUCHERS_CAN_BE_APPROVED');
+      throw AppError.badRequest('ONLY_PENDING_APPROVAL_VOUCHERS_CAN_BE_APPROVED');
     }
     if (status === 'PAID' && currentStatus !== 'APPROVED') {
-      throw new Error('ONLY_APPROVED_VOUCHERS_CAN_BE_PAID');
+      throw AppError.badRequest('ONLY_APPROVED_VOUCHERS_CAN_BE_PAID');
     }
 
     return prisma.$transaction(async (tx) => {
-      const updateData: any = { status };
+      const updateData: Record<string, unknown> = { status };
 
       if (status === 'APPROVED') {
         updateData.approvedById = userId;
@@ -366,7 +367,7 @@ export class PaymentVoucherService {
   static async updateVoucherStatus(id: string, status: string, options: UpdateVoucherStatusOptions) {
     const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
     if (!existing) {
-      throw new Error('PAYMENT_VOUCHER_NOT_FOUND');
+      throw AppError.badRequest('PAYMENT_VOUCHER_NOT_FOUND');
     }
 
     return prisma.$transaction(async (tx) => {
@@ -375,7 +376,7 @@ export class PaymentVoucherService {
       switch (status) {
         case 'APPROVED':
           if (!options.approvedById) {
-            throw new Error('APPROVED_BY_ID_REQUIRED');
+            throw AppError.badRequest('APPROVED_BY_ID_REQUIRED');
           }
           updateData.approvedById = options.approvedById;
           updateData.approvedAt = new Date();
@@ -434,9 +435,9 @@ export class PaymentVoucherService {
    */
   static async deletePaymentVoucher(id: string) {
     const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
-    if (!existing) throw new Error('VOUCHER_NOT_FOUND');
+    if (!existing) throw AppError.badRequest('VOUCHER_NOT_FOUND');
     if (existing.status !== 'DRAFT') {
-      throw new Error('ONLY_DRAFT_VOUCHERS_CAN_BE_DELETED');
+      throw AppError.badRequest('ONLY_DRAFT_VOUCHERS_CAN_BE_DELETED');
     }
 
     return prisma.paymentVoucher.delete({ where: { id } });
@@ -451,10 +452,10 @@ export class PaymentVoucherService {
       return { success: true };
     } catch (error) {
       if (error instanceof Error && error.message === 'VOUCHER_NOT_FOUND') {
-        throw new Error('PAYMENT_VOUCHER_NOT_FOUND');
+        throw AppError.badRequest('PAYMENT_VOUCHER_NOT_FOUND');
       }
       if (error instanceof Error && error.message === 'ONLY_DRAFT_VOUCHERS_CAN_BE_DELETED') {
-        throw new Error('DRAFT_ONLY_DELETION');
+        throw AppError.badRequest('DRAFT_ONLY_DELETION');
       }
       throw error;
     }

@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface RequisitionItemInput {
@@ -67,7 +68,7 @@ export class ProjectRequisitionService {
         // Verify project exists
         const project = await prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
         // Auto-generate PR number
@@ -134,17 +135,17 @@ export class ProjectRequisitionService {
         // Validate status transitions
         const validStatuses = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
         if (!validStatuses.includes(status)) {
-            throw new Error('INVALID_STATUS');
+            throw AppError.badRequest('INVALID_STATUS');
         }
 
         const existing = await prisma.projectRequisition.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('REQUISITION_NOT_FOUND');
+            throw AppError.badRequest('REQUISITION_NOT_FOUND');
         }
 
         // Only allow status transitions from DRAFT or PENDING
         if (existing.status === 'APPROVED' || existing.status === 'REJECTED' || existing.status === 'CANCELLED') {
-            throw new Error('STATUS_LOCKED');
+            throw AppError.badRequest('STATUS_LOCKED');
         }
 
         const updateData: Record<string, unknown> = { status };
@@ -171,11 +172,11 @@ export class ProjectRequisitionService {
     static async deleteRequisition(id: string) {
         const existing = await prisma.projectRequisition.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('REQUISITION_NOT_FOUND');
+            throw AppError.badRequest('REQUISITION_NOT_FOUND');
         }
 
         if (existing.status !== 'DRAFT') {
-            throw new Error('DRAFT_ONLY_DELETION');
+            throw AppError.badRequest('DRAFT_ONLY_DELETION');
         }
 
         await prisma.projectRequisition.delete({ where: { id } });

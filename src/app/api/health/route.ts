@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 
-export async function GET() {
+export const GET = apiHandler(async () => {
     const health: any = {
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -53,5 +53,5 @@ export async function GET() {
     }
 
     const status = health.status === 'ok' ? 200 : 503;
-    return NextResponse.json(health, { status });
-}
+    return Response.json(health, { status });
+}, { rawResponse: true });

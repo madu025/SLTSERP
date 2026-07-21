@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export interface FilterRule {
@@ -88,20 +89,20 @@ export class DynamicReportService {
 
         // 1. Validation
         if (!this.whitelists[entity]) {
-            throw new Error(`INVALID_ENTITY: Entity '${entity}' is not queryable.`);
+            throw AppError.badRequest(`INVALID_ENTITY: Entity '${entity}' is not queryable.`);
         }
 
         const allowedFields = this.whitelists[entity];
         const invalidColumns = columns.filter(c => !allowedFields.includes(c));
         if (invalidColumns.length > 0) {
-            throw new Error(`INVALID_COLUMN: Columns [${invalidColumns.join(', ')}] are not permitted for entity '${entity}'.`);
+            throw AppError.badRequest(`INVALID_COLUMN: Columns [${invalidColumns.join(', ')}] are not permitted for entity '${entity}'.`);
         }
 
         // 2. Build Where Filter Object
         const whereClause: Record<string, any> = {};
         for (const rule of filters) {
             if (!allowedFields.includes(rule.field)) {
-                throw new Error(`INVALID_FILTER: Filter on field '${rule.field}' is not permitted.`);
+                throw AppError.badRequest(`INVALID_FILTER: Filter on field '${rule.field}' is not permitted.`);
             }
             const parts = rule.field.split('.');
             const filterObj = buildNestedFilter(parts, rule.operator, rule.value);
@@ -140,7 +141,7 @@ export class DynamicReportService {
         // 5. Apply Aggregations if configured
         if (aggregation && aggregation.groupBy) {
             if (!allowedFields.includes(aggregation.groupBy) || !allowedFields.includes(aggregation.targetField)) {
-                throw new Error(`INVALID_AGGREGATION: Group by or target field is not queryable.`);
+                throw AppError.badRequest(`INVALID_AGGREGATION: Group by or target field is not queryable.`);
             }
 
             const groups: Record<string, any[]> = {};

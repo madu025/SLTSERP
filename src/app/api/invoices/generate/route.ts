@@ -1,33 +1,25 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice.service';
+import { z } from 'zod';
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { contractorId, month, year } = body;
+const generateSchema = z.object({
+    contractorId: z.string().min(1, "contractorId is required"),
+    month: z.union([z.string(), z.number()]).transform(val => Number(val)),
+    year: z.union([z.string(), z.number()]).transform(val => Number(val))
+});
 
-        if (!contractorId || !month || !year) {
-            return NextResponse.json({ success: false, message: 'Missing required fields' }, { status: 400 });
-        }
+export const POST = apiHandler(async (_req, _params, body) => {
+    const data = generateSchema.parse(body);
 
-        // Auth Check via Middleware Headers
-        const userRole = request.headers.get('x-user-role');
-        const userId = request.headers.get('x-user-id') || 'ADMIN';
+    const result = await InvoiceService.generateMonthlyInvoice(data.contractorId, data.month, data.year);
 
-        if (userRole === 'AREA_COORDINATOR' || userRole === 'QC_OFFICER') {
-            return NextResponse.json({ success: false, message: 'Permission Denied: Role not authorized to generate invoices.' }, { status: 403 });
-        }
-
-        const result = await InvoiceService.generateMonthlyInvoice(contractorId, parseInt(month), parseInt(year));
-
-        if (!result.success) {
-            return NextResponse.json(result, { status: 400 });
-        }
-
-        return NextResponse.json(result);
-    } catch (error: unknown) {
-        console.error('Invoice Generation Error:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return NextResponse.json({ success: false, message: 'Internal Server Error', error: errorMessage }, { status: 500 });
+    if (!result.success) {
+        // According to our standard, non-success should throw AppError, but since the service returns {success: false}, we return 400
+        return Response.json(result, { status: 400 });
     }
-}
+
+    return Response.json(result);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'REGIONAL_MANAGER'], // Excluded AREA_COORDINATOR, QC_OFFICER based on legacy logic
+    audit: { action: 'GENERATE_MONTHLY_INVOICE', entity: 'Invoice' }
+});

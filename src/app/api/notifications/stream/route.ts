@@ -1,24 +1,20 @@
-import { NextRequest } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
 /**
  * SSE Route for real-time notifications
  * This route remains open and pushes new notifications as they occur
  * Route: /api/notifications/stream
  */
-export async function GET(req: NextRequest) {
-    // Note: SSE in Next.js App Router requires a specific response format
+export const GET = apiHandler(async (req) => {
     const responseStream = new TransformStream();
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    // In a real app, get user ID from auth headers/cookies
-    // Here we'll assume the frontend passes it for simplicity, 
-    // but in a real ERP it MUST be extracted from the session.
-    const url = new URL(req.url);
-    const userId = url.searchParams.get('userId');
+    const userId = req.headers.get('x-user-id');
 
     if (!userId) {
-        return new Response('Missing userId', { status: 400 });
+        throw AppError.unauthorized('Missing user authentication');
     }
 
     // Keep-alive interval
@@ -54,4 +50,4 @@ export async function GET(req: NextRequest) {
             'Connection': 'keep-alive',
         },
     });
-}
+}, { rawResponse: true });

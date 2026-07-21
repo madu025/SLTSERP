@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface CreatePenaltyInput {
@@ -74,7 +75,7 @@ export class ProjectLDPenaltyService {
     static async updatePenalty(id: string, status: string, options: UpdatePenaltyOptions) {
         const existing = await prisma.projectLDPenalty.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('LD_PENALTY_NOT_FOUND');
+            throw AppError.badRequest('LD_PENALTY_NOT_FOUND');
         }
 
         const updateData: Record<string, unknown> = { status };
@@ -105,11 +106,11 @@ export class ProjectLDPenaltyService {
     static async deletePenalty(id: string) {
         const existing = await prisma.projectLDPenalty.findUnique({ where: { id } });
         if (!existing) {
-            throw new Error('LD_PENALTY_NOT_FOUND');
+            throw AppError.badRequest('LD_PENALTY_NOT_FOUND');
         }
 
         if (existing.status !== 'PROPOSED') {
-            throw new Error('PROPOSED_ONLY_DELETION');
+            throw AppError.badRequest('PROPOSED_ONLY_DELETION');
         }
 
         await prisma.projectLDPenalty.delete({ where: { id } });

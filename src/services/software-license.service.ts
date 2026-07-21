@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { SoftwareLicenseRepository } from '@/repositories/software-license.repository';
 import { AuditService } from '@/services/audit.service';
 import { prisma } from '@/lib/prisma';
@@ -77,7 +78,7 @@ export class SoftwareLicenseService {
   ) {
     const old = await SoftwareLicenseRepository.findLicenseById(id);
     if (!old) {
-      throw new Error('LICENSE_NOT_FOUND');
+      throw AppError.badRequest('LICENSE_NOT_FOUND');
     }
 
     const updated = await SoftwareLicenseRepository.updateLicense(id, {
@@ -110,7 +111,7 @@ export class SoftwareLicenseService {
   static async deleteLicense(userId: string, id: string, ipAddress?: string, userAgent?: string) {
     const old = await SoftwareLicenseRepository.findLicenseById(id);
     if (!old) {
-      throw new Error('LICENSE_NOT_FOUND');
+      throw AppError.badRequest('LICENSE_NOT_FOUND');
     }
 
     const result = await SoftwareLicenseRepository.deleteLicense(id);
@@ -143,14 +144,14 @@ export class SoftwareLicenseService {
   ) {
     const license = await SoftwareLicenseRepository.findLicenseById(licenseId);
     if (!license) {
-      throw new Error('LICENSE_NOT_FOUND');
+      throw AppError.badRequest('LICENSE_NOT_FOUND');
     }
 
     // Run transaction
     const assignment = await prisma.$transaction(async (tx) => {
       // Check if assignment target is provided
       if (!data.assignedUserId && !data.assignedAssetId) {
-        throw new Error('ASSIGNMENT_TARGET_REQUIRED');
+        throw AppError.badRequest('ASSIGNMENT_TARGET_REQUIRED');
       }
 
       return await SoftwareLicenseRepository.createAssignment({
@@ -181,7 +182,7 @@ export class SoftwareLicenseService {
   static async revokeLicense(userId: string, assignmentId: string, ipAddress?: string, userAgent?: string) {
     const old = await SoftwareLicenseRepository.findAssignmentById(assignmentId);
     if (!old) {
-      throw new Error('ASSIGNMENT_NOT_FOUND');
+      throw AppError.badRequest('ASSIGNMENT_NOT_FOUND');
     }
 
     const result = await SoftwareLicenseRepository.deleteAssignment(assignmentId);

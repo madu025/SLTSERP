@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 export class PATService {
@@ -10,7 +11,7 @@ export class PATService {
       where: { projectId, patType, status: { in: ['PENDING', 'IN_PROGRESS'] } },
     });
     if (existing) {
-      throw new Error(`A ${patType} session is already in progress for this project`);
+      throw AppError.badRequest(`A ${patType} session is already in progress for this project`);
     }
 
     return prisma.pATSession.create({
@@ -42,8 +43,8 @@ export class PATService {
     }
   ) {
     const session = await prisma.pATSession.findUnique({ where: { id: sessionId } });
-    if (!session) throw new Error('PAT session not found');
-    if (session.status !== 'IN_PROGRESS') throw new Error('PAT session is not in progress');
+    if (!session) throw AppError.badRequest('PAT session not found');
+    if (session.status !== 'IN_PROGRESS') throw AppError.badRequest('PAT session is not in progress');
 
     const powerStatus = data.measuredPower != null && data.acceptedPower != null
       ? data.measuredPower >= data.acceptedPower ? 'PASS' : 'FAIL'
@@ -103,7 +104,7 @@ export class PATService {
       where: { id: sessionId },
       include: { pointResults: true },
     });
-    if (!session) throw new Error('PAT session not found');
+    if (!session) throw AppError.badRequest('PAT session not found');
 
     const passRate = session.totalPoints > 0
       ? (session.passedPoints / session.totalPoints) * 100

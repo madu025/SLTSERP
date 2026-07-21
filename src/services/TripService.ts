@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 /**
  * Trip Service - Business logic for trip operations
  * Handles trip creation, status updates, trip analytics
@@ -35,7 +36,7 @@ export class TripService {
 
       return this.mapTripToDTO(trip);
     } catch (error) {
-      throw new Error(`Failed to create trip: ${(error as any).message}`);
+      throw AppError.badRequest(`Failed to create trip: ${(error as any).message}`);
     }
   }
 
@@ -50,7 +51,7 @@ export class TripService {
       });
       return trip ? this.mapTripToDTO(trip) : null;
     } catch (error) {
-      throw new Error(`Failed to fetch trip: ${(error as any).message}`);
+      throw AppError.badRequest(`Failed to fetch trip: ${(error as any).message}`);
     }
   }
 
@@ -95,7 +96,7 @@ export class TripService {
         total,
       };
     } catch (error) {
-      throw new Error(`Failed to list trips: ${(error as any).message}`);
+      throw AppError.badRequest(`Failed to list trips: ${(error as any).message}`);
     }
   }
 
@@ -123,7 +124,7 @@ export class TripService {
 
       return this.mapTripToDTO(trip);
     } catch (error) {
-      throw new Error(`Failed to start trip: ${(error as any).message}`);
+      throw AppError.badRequest(`Failed to start trip: ${(error as any).message}`);
     }
   }
 
@@ -171,7 +172,7 @@ export class TripService {
 
       return this.mapTripToDTO(updatedTrip);
     } catch (error) {
-      throw new Error(`Failed to end trip: ${(error as any).message}`);
+      throw AppError.badRequest(`Failed to end trip: ${(error as any).message}`);
     }
   }
 
@@ -200,7 +201,7 @@ export class TripService {
 
       return trips.map(t => this.mapTripToDTO(t));
     } catch (error) {
-      throw new Error(`Failed to get driver daily trips: ${(error as any).message}`);
+      throw AppError.badRequest(`Failed to get driver daily trips: ${(error as any).message}`);
     }
   }
 
@@ -238,7 +239,7 @@ export class TripService {
         trip_status: trip.trip_status,
       };
     } catch (error) {
-      throw new Error(`Failed to get trip metrics: ${(error as any).message}`);
+      throw AppError.badRequest(`Failed to get trip metrics: ${(error as any).message}`);
     }
   }
 

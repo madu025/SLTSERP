@@ -1,23 +1,19 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
+import { AppError } from '@/lib/error';
 
-export async function GET(req: Request) {
-    try {
-        const raw = await prisma.extensionRawData.findFirst({
-            where: { soNum: 'HAV202607170008702' }
-        });
-        if (!raw) return NextResponse.json({ error: 'No raw data' });
+export const GET = apiHandler(async (req) => {
+    // Basic Security: Check for CRON_SECRET or specific test secret
+    const { searchParams } = new URL(req.url);
+    const secret = searchParams.get('secret');
 
-        await ServiceOrderService.bridgeSync(raw.scrapedData as any);
-        
-        const so = await prisma.serviceOrder.findUnique({
-            where: { soNum: 'HAV202607170008702' },
-            select: { dropWireDistance: true, ontSerialNumber: true, teamId: true }
-        });
-
-        return NextResponse.json({ success: true, so });
-    } catch (e: any) {
-        return NextResponse.json({ success: false, error: e.message, stack: e.stack });
+    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+        throw AppError.unauthorized('Unauthorized');
     }
-}
+
+    const soNum = searchParams.get('soNum') || 'HAV202607170008702';
+
+    const so = await ServiceOrderService.debugSync(soNum);
+
+    return Response.json({ success: true, so });
+});

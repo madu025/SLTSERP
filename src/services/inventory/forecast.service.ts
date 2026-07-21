@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
 import { ProjectPurchaseOrderService } from '../project-purchase-order.service';
@@ -107,7 +108,7 @@ export class ForecastService {
         const vendor = await prisma.vendor.findUnique({
             where: { id: options.vendorId }
         });
-        if (!vendor) throw new Error("VENDOR_NOT_FOUND");
+        if (!vendor) throw AppError.badRequest("VENDOR_NOT_FOUND");
 
         const po = await ProjectPurchaseOrderService.createPurchaseOrder({
             projectId: options.projectId,

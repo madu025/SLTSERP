@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { StockRequest, Prisma, StockRequestItem } from '@prisma/client';
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
 import { InventoryRepository } from '@/repositories/inventory.repository';
@@ -34,13 +35,13 @@ export class StockRequestService {
         const { fromStoreId, toStoreId, requestedById, items, priority, requiredDate, purpose, sourceType, projectTypes, maintenanceMonths, irNumber, sltReferenceId } = data;
 
         const fromStore = await InventoryRepository.findStoreById(fromStoreId);
-        if (!fromStore) throw new Error("INVALID_STORE");
+        if (!fromStore) throw AppError.badRequest("INVALID_STORE");
 
         let finalToStoreId = toStoreId;
 
         if (fromStore.type === 'SUB') {
             if (sourceType === 'SLT') {
-                throw new Error("SUB_STORE_CANNOT_REQUEST_SLT");
+                throw AppError.badRequest("SUB_STORE_CANNOT_REQUEST_SLT");
             }
 
             if (sourceType !== 'LOCAL_PURCHASE' && !toStoreId) {
@@ -174,7 +175,7 @@ export class StockRequestService {
                 select: { role: true }
             });
             if (user?.role !== 'SUPER_ADMIN' && stockReq && stockReq.requestedById === userId) {
-                throw new Error("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
+                throw AppError.badRequest("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
             }
         }
 
@@ -196,7 +197,7 @@ export class StockRequestService {
             case 'RECEIVE':
                 return this.handleSubStoreReceive(data);
             default:
-                throw new Error('INVALID_ACTION');
+                throw AppError.badRequest('INVALID_ACTION');
         }
     }
 
@@ -259,7 +260,7 @@ export class StockRequestService {
         const { requestId, userId, remarks, items } = data;
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const stockReq = await StockRequestRepository.findById(requestId, { items: true, fromStore: true, toStore: true }, tx);
-            if (!stockReq) throw new Error("REQUEST_NOT_FOUND");
+            if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
 
             if (items && Array.isArray(items)) {
                 for (const item of items) {
@@ -328,8 +329,8 @@ export class StockRequestService {
                 include: { items: true, fromStore: true }
             }> | null;
 
-            if (!stockReq) throw new Error("REQUEST_NOT_FOUND");
-            if (stockReq.workflowStage !== 'MAIN_STORE_RELEASE') throw new Error("INVALID_WORKFLOW_STAGE");
+            if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
+            if (stockReq.workflowStage !== 'MAIN_STORE_RELEASE') throw AppError.badRequest("INVALID_WORKFLOW_STAGE");
 
             const transitStoreId = await this.getOrCreateTransitStore(tx);
             const prismaTx = tx as unknown as typeof prisma;
@@ -479,8 +480,8 @@ export class StockRequestService {
                 include: { items: true }
             }> | null;
 
-            if (!stockReq) throw new Error("REQUEST_NOT_FOUND");
-            if (stockReq.workflowStage !== 'SUB_STORE_RECEIVE') throw new Error("INVALID_WORKFLOW_STAGE");
+            if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
+            if (stockReq.workflowStage !== 'SUB_STORE_RECEIVE') throw AppError.badRequest("INVALID_WORKFLOW_STAGE");
 
             const transitStoreId = await this.getOrCreateTransitStore(tx);
             const prismaTx = tx as unknown as typeof prisma;

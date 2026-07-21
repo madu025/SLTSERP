@@ -1,41 +1,20 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/user.service';
+import { z } from 'zod';
 
-export async function POST(request: Request) {
-    try {
-        const { token, newPassword } = await request.json();
+const resetSchema = z.object({
+    token: z.string().min(1, 'Token is required'),
+    newPassword: z.string().min(6, 'Password must be at least 6 characters')
+});
 
-        if (!token || !newPassword) {
-            return NextResponse.json(
-                { message: 'Token and new password are required' },
-                { status: 400 }
-            );
-        }
+export const POST = apiHandler(async (_req, _params, body) => {
+    const { token, newPassword } = resetSchema.parse(body);
 
-        await UserService.forgotPasswordReset(token, newPassword);
+    await UserService.forgotPasswordReset(token, newPassword);
 
-        return NextResponse.json({
-            message: 'Password reset successful'
-        });
-
-    } catch (error: unknown) {
-        console.error('Password reset error:', error);
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'PASSWORD_TOO_SHORT') {
-            return NextResponse.json(
-                { message: 'Password must be at least 6 characters' },
-                { status: 400 }
-            );
-        }
-        if (errorMsg === 'INVALID_TOKEN') {
-            return NextResponse.json(
-                { message: 'Invalid or expired token' },
-                { status: 401 }
-            );
-        }
-        return NextResponse.json(
-            { message: 'Internal server error' },
-            { status: 500 }
-        );
-    }
-}
+    return Response.json({
+        message: 'Password reset successful'
+    });
+}, {
+    // Public route, no roles required
+});

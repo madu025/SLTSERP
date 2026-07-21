@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 interface UpdateEVMInput {
@@ -72,4 +73,36 @@ export class ProjectEVMService {
 
         return evm;
     }
+
+
+    static async getSnapshots(projectId: string, limit: number = 90) {
+        const evm = await prisma.projectEVM.findFirst({ where: { projectId } });
+        if (!evm) return [];
+        return await prisma.eVMSnapshot.findMany({
+            where: { evmId: evm.id },
+            orderBy: { snapshotDate: 'desc' },
+            take: limit
+        });
+    }
+
+    static async recordSnapshot(projectId: string, data: Record<string, unknown>) {
+        const evm = await prisma.projectEVM.findFirst({ where: { projectId } });
+        if (!evm) throw AppError.notFound('EVM not found for this project');
+        
+        return await prisma.eVMSnapshot.create({
+            data: {
+                evmId: evm.id,
+                snapshotDate: data.snapshotDate ? new Date(String(data.snapshotDate)) : new Date(),
+                periodLabel: data.periodLabel ? String(data.periodLabel) : new Date().toISOString().slice(0,7),
+                pvCumulative: data.pvCumulative ? Number(data.pvCumulative) : 0,
+                evCumulative: data.evCumulative ? Number(data.evCumulative) : 0,
+                acCumulative: data.acCumulative ? Number(data.acCumulative) : 0,
+                costVariance: data.evCumulative && data.acCumulative ? Number(data.evCumulative) - Number(data.acCumulative) : 0,
+                scheduleVariance: data.evCumulative && data.pvCumulative ? Number(data.evCumulative) - Number(data.pvCumulative) : 0,
+                cpi: data.evCumulative && data.acCumulative && Number(data.acCumulative) > 0 ? Number(data.evCumulative) / Number(data.acCumulative) : 1,
+                spi: data.evCumulative && data.pvCumulative && Number(data.pvCumulative) > 0 ? Number(data.evCumulative) / Number(data.pvCumulative) : 1,
+            }
+        });
+    }
+
 }

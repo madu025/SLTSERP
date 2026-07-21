@@ -1,32 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { handleApiError } from '@/lib/api-utils';
-import { requireAuth } from '@/lib/server-utils';
+import { apiHandler } from '@/lib/api-handler';
 import { CostAllocationService } from '@/services/finance/cost-allocation.service';
-import { runInRealtimeContext } from '@/lib/request-context';
+import { z } from 'zod';
 
-export async function GET() {
-    try {
-        await requireAuth(['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']);
-        const memos = await runInRealtimeContext(async () => {
-            return await CostAllocationService.getAllocationMemos();
-        });
-        return NextResponse.json({ success: true, data: memos });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+const createMemoSchema = z.object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    allocationTarget: z.string().optional(),
+    approvedAt: z.union([z.string(), z.date()]).optional().nullable(),
+    receivedAt: z.union([z.string(), z.date()]).optional().nullable(),
+    documentUrl: z.string().optional(),
+    items: z.array(z.object({
+        itemName: z.string().min(1, "Item name is required"),
+        quantity: z.number().min(1, "Quantity must be at least 1"),
+        unitCost: z.number().min(0, "Unit cost must be positive")
+    })).min(1, "At least one item is required")
+});
 
-export async function POST(req: NextRequest) {
-    try {
-        await requireAuth(['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']);
-        const body = await req.json();
+export const GET = apiHandler(async () => {
+    const memos = await CostAllocationService.getAllocationMemos();
+    return Response.json({ success: true, data: memos });
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']
+});
 
-        const memo = await runInRealtimeContext(async () => {
-            return await CostAllocationService.createAllocationMemo(body);
-        });
-
-        return NextResponse.json({ success: true, data: memo });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+export const POST = apiHandler(async (_req, _params, body) => {
+    const payload = createMemoSchema.parse(body);
+    const memo = await CostAllocationService.createAllocationMemo(payload);
+    return Response.json({ success: true, data: memo });
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'],
+    audit: { action: 'CREATE_COST_ALLOCATION_MEMO', entity: 'Finance' }
+});

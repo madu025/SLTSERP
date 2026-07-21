@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from '@/services/WorkflowEngine';
 
@@ -72,7 +73,7 @@ export class ProjectWorkflowService {
     });
 
     if (existing) {
-      throw new Error('WORKFLOW_ALREADY_INITIALIZED');
+      throw AppError.badRequest('WORKFLOW_ALREADY_INITIALIZED');
     }
 
     return WorkflowEngine.initializeProjectWorkflow(projectId, projectTypeId);

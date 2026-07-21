@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Web Push Notification Service
  * Delivers push notifications via the Web Push API (VAPID protocol)

@@ -1,30 +1,18 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { NotificationService } from '@/services/notification.service';
 
-export async function PATCH(
-    request: Request,
-    context: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await context.params;
-        await NotificationService.markAsRead(id);
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
-}
+export const PATCH = apiHandler(async (_req, params) => {
+    const { id } = params;
+    await NotificationService.markAsRead(id);
+    return Response.json({ success: true });
+}, {
+    audit: { action: 'MARK_NOTIFICATION_AS_READ', entity: 'Notification' }
+});
 
-export async function DELETE(
-    request: Request,
-    context: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await context.params;
-        await NotificationService.delete(id);
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: message }, { status: 500 });
-    }
-}
+export const DELETE = apiHandler(async (_req, params) => {
+    const { id } = params;
+    await NotificationService.delete(id);
+    return Response.json({ success: true });
+}, {
+    audit: { action: 'DELETE_NOTIFICATION', entity: 'Notification' }
+});

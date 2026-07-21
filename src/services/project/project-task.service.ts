@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -187,7 +188,7 @@ export class ProjectTaskService {
         // Check if task has children
         const childCount = await prisma.projectTask.count({ where: { parentId: id } });
         if (childCount > 0) {
-            throw new Error('HAS_SUB_TASKS');
+            throw AppError.badRequest('HAS_SUB_TASKS');
         }
 
         await prisma.projectTask.delete({ where: { id } });
@@ -219,7 +220,7 @@ export class ProjectTaskService {
         const { taskId, dependsOnTaskId, type, lagDays } = data;
 
         if (taskId === dependsOnTaskId) {
-            throw new Error('SELF_DEPENDENCY');
+            throw AppError.badRequest('SELF_DEPENDENCY');
         }
 
         // Check for circular dependency
@@ -227,7 +228,7 @@ export class ProjectTaskService {
             where: { taskId_dependsOnTaskId: { taskId, dependsOnTaskId } }
         });
         if (existing) {
-            throw new Error('DEPENDENCY_EXISTS');
+            throw AppError.badRequest('DEPENDENCY_EXISTS');
         }
 
         const dependency = await prisma.taskDependency.create({
@@ -273,7 +274,7 @@ export class ProjectTaskService {
 
         const progressVal = parseInt(String(progress), 10);
         if (isNaN(progressVal) || progressVal < 0 || progressVal > 100) {
-            throw new Error('INVALID_PROGRESS_RANGE');
+            throw AppError.badRequest('INVALID_PROGRESS_RANGE');
         }
 
         const log = await prisma.$transaction(async (tx) => {
@@ -330,7 +331,7 @@ export class ProjectTaskService {
         });
 
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
         // Verify the field task exists and belongs to the project
@@ -339,11 +340,11 @@ export class ProjectTaskService {
         });
 
         if (!fieldTask) {
-            throw new Error('TASK_NOT_FOUND');
+            throw AppError.badRequest('TASK_NOT_FOUND');
         }
 
         if (fieldTask.projectId !== projectId) {
-            throw new Error('TASK_PROJECT_MISMATCH');
+            throw AppError.badRequest('TASK_PROJECT_MISMATCH');
         }
 
         // Create the field photo record

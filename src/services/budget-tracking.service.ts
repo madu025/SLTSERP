@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
 type VarianceStatus = 'UNDER' | 'ON_TRACK' | 'OVER' | 'CRITICAL';
@@ -111,7 +112,7 @@ export class BudgetTrackingService {
       }),
     ]);
 
-    if (!project) throw new Error('Project not found');
+    if (!project) throw AppError.badRequest('Project not found');
 
     const materialCost = materialIssues.reduce((s) => s + 0, 0); // No direct cost on StockIssue
     const expenseCost = expenses.reduce((s, e) => s + e.amount, 0);

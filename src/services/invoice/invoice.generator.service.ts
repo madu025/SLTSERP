@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { InvoiceCalculatorService } from './invoice.calculator.service';
 
@@ -142,9 +143,9 @@ export class InvoiceGeneratorService {
                 rtomArea = firstSod?.rtom || other.regionName;
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            
             const invoice = await tx.invoice.create({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                
                 data: {
                     invoiceNumber: other.invoiceNumber,
                     contractorId: other.contractorId,
@@ -189,16 +190,16 @@ export class InvoiceGeneratorService {
     /**
      * Recalculate splits (amountA / amountB) for an invoice based on its associated Penalty records
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    
     static async recalculateInvoiceSplits(invoiceId: string, tx?: any) {
         const db = tx || prisma;
         const invoice = await db.invoice.findUnique({
             where: { id: invoiceId },
             include: { penalties: true }
         });
-        if (!invoice) throw new Error('Invoice not found');
+        if (!invoice) throw AppError.badRequest('Invoice not found');
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        
         const penaltyTotal = invoice.penalties
             .filter((p: any) => p.status === 'APPROVED')
             .reduce((sum: number, p: any) => sum + p.amount, 0);

@@ -1,52 +1,30 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { AsBuiltService } from '@/services/as-built.service';
+import { AppError } from '@/lib/error';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// GET /api/projects/[id]/as-built - Generate as-built outputs (QGIS, CAD, comparison)
-export async function GET(request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
-    const userId = request.headers.get('x-user-id');
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+export const GET = apiHandler(async (request, params) => {
+    const { id: projectId } = params;
     const { searchParams } = new URL(request.url);
-    const format = searchParams.get('format') || 'qgis'; // qgis, cad, layer, comparison
+    const format = searchParams.get('format') || 'qgis';
     const layerId = searchParams.get('layerId');
 
     switch (format) {
-      case 'qgis':
-        // Full QGIS project GeoJSON export (all layers)
-        const qgisOutput = await AsBuiltService.generateQGIS(projectId);
-        return NextResponse.json(qgisOutput);
+        case 'qgis':
+            return await AsBuiltService.generateQGIS(projectId);
 
-      case 'layer':
-        // Single layer export
-        if (!layerId) {
-          return NextResponse.json({ error: 'layerId required for layer export' }, { status: 400 });
-        }
-        const layerGeoJSON = await AsBuiltService.exportLayerGeoJSON(projectId, layerId);
-        return NextResponse.json(layerGeoJSON);
+        case 'layer':
+            if (!layerId) throw AppError.badRequest('layerId required for layer export');
+            return await AsBuiltService.exportLayerGeoJSON(projectId, layerId);
 
-      case 'cad':
-        // CAD-compatible block format export
-        const cadOutput = await AsBuiltService.exportCAD(projectId);
-        return NextResponse.json(cadOutput);
+        case 'cad':
+            return await AsBuiltService.exportCAD(projectId);
 
-      case 'comparison':
-        // Surveyed vs Approved vs Installed stats
-        const comparison = await AsBuiltService.getAsBuiltComparison(projectId);
-        return NextResponse.json(comparison);
+        case 'comparison':
+            return await AsBuiltService.getAsBuiltComparison(projectId);
 
-      default:
-        return NextResponse.json(
-          { error: 'Invalid format. Use: qgis, layer, cad, comparison' },
-          { status: 400 }
-        );
+        default:
+            throw AppError.badRequest('Invalid format. Use: qgis, layer, cad, comparison');
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to generate as-built output';
-    console.error('As-built generation error:', error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+}, { rawResponse: true });

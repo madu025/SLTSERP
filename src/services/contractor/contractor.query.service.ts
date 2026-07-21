@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ContractorQueryParams } from './contractor-types';
@@ -141,9 +142,9 @@ export class ContractorQueryService {
         });
 
         if (existing) {
-            if (data.nic && existing.nic === data.nic) throw new Error('NIC_ALREADY_REGISTERED');
-            if (data.contactNumber && existing.contactNumber === data.contactNumber) throw new Error('CONTACT_NUMBER_ALREADY_EXISTS');
-            if (data.registrationNumber && existing.registrationNumber === data.registrationNumber) throw new Error('REGISTRATION_NUMBER_ALREADY_EXISTS');
+            if (data.nic && existing.nic === data.nic) throw AppError.badRequest('NIC_ALREADY_REGISTERED');
+            if (data.contactNumber && existing.contactNumber === data.contactNumber) throw AppError.badRequest('CONTACT_NUMBER_ALREADY_EXISTS');
+            if (data.registrationNumber && existing.registrationNumber === data.registrationNumber) throw AppError.badRequest('REGISTRATION_NUMBER_ALREADY_EXISTS');
         }
     }
 

@@ -48,4 +48,27 @@ export class ProjectAssetService {
             }
         });
     }
+
+    static async getAsset(assetId: string) {
+        const asset = await prisma.projectAsset.findUnique({
+            where: { id: assetId },
+            include: { cables: true, connections: true, documents: true }
+        });
+        if (!asset) throw AppError.notFound('Asset not found');
+        return asset;
+    }
+
+    static async updateAsset(assetId: string, data: Record<string, unknown>) {
+        return await prisma.projectAsset.update({
+            where: { id: assetId },
+            data
+        });
+    }
+
+    static async deleteAsset(assetId: string) {
+        return await prisma.projectAsset.delete({
+            where: { id: assetId }
+        });
+    }
+
 }

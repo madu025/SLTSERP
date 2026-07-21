@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import fs from 'fs';
 import path from 'path';
 import { SLTPortalAuthService } from '@/services/slt-portal-auth.service';
+import { z } from 'zod';
+import { AppError } from '@/lib/error';
+import { requestContext } from '@/lib/request-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,12 +51,11 @@ function parseBOMHtml(html: string): BOMItem[] {
     return boms;
 }
 
-export async function GET() {
+export const GET = apiHandler(async () => {
     let cachedBoms: BOMItem[] = [];
     let cookieSaved = false;
     let sltCookie = '';
 
-    // Load cached list if it exists
     if (fs.existsSync(REGISTRY_FILE)) {
         try {
             cachedBoms = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf-8'));
@@ -62,7 +64,6 @@ export async function GET() {
         }
     }
 
-    // Get or refresh SLT session cookie automatically
     sltCookie = await SLTPortalAuthService.getOrRefreshCookie();
     cookieSaved = !!sltCookie;
 
@@ -97,12 +98,12 @@ export async function GET() {
                 }
 
                 fs.writeFileSync(REGISTRY_FILE, JSON.stringify(liveBoms, null, 2), 'utf-8');
-                return NextResponse.json({ success: true, boms: liveBoms, cookieSaved, source: 'live' });
+                return Response.json({ success: true, boms: liveBoms, cookieSaved, source: 'live' });
             }
         } catch (error: unknown) {
             const err = error as Error;
             console.error('Live BOM fetch failed, falling back to cache:', err.message);
-            return NextResponse.json({
+            return Response.json({
                 success: true,
                 boms: cachedBoms,
                 cookieSaved,
@@ -112,11 +113,11 @@ export async function GET() {
         }
     }
 
-    return NextResponse.json({ success: true, boms: cachedBoms, cookieSaved, source: 'cache' });
-}
+    return Response.json({ success: true, boms: cachedBoms, cookieSaved, source: 'cache' });
+}, { rawResponse: true });
 
 export async function OPTIONS() {
-    return new NextResponse(null, {
+    return new Response(null, {
         status: 204,
         headers: {
             'Access-Control-Allow-Origin': '*',
@@ -126,55 +127,46 @@ export async function OPTIONS() {
     });
 }
 
-export async function POST(request: Request) {
-    try {
-        const extensionKey = request.headers.get('x-extension-key');
-        const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
-        const isExtension = extensionKey === extensionSecret;
+const postSchema = z.object({
+    action: z.string().optional(),
+    cookie: z.string().optional(),
+    boms: z.array(z.any()).optional()
+}).catchall(z.any());
 
-        const userRole = request.headers.get('x-user-role');
-        const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'];
-        const hasAllowedRole = userRole && allowedRoles.includes(userRole);
+export const POST = apiHandler(async (req, _params, body) => {
+    const extensionKey = req.headers.get('x-extension-key');
+    const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
+    const isExtension = extensionKey === extensionSecret;
 
-        if (!isExtension && !hasAllowedRole) {
-            return NextResponse.json(
-                { success: false, message: 'Permission Denied: Unauthorized.' },
-                { status: 403, headers: { 'Access-Control-Allow-Origin': '*' } }
-            );
-        }
+    const userRole = req.headers.get('x-user-role');
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'];
+    const hasAllowedRole = userRole && allowedRoles.includes(userRole);
 
-        const body = await request.json();
-        const { action, cookie, boms } = body;
+    if (!isExtension && !hasAllowedRole) {
+        throw AppError.forbidden('Permission Denied: Unauthorized.');
+    }
 
-        const dir = path.dirname(REGISTRY_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
+    const data = postSchema.parse(body);
 
-        if (action === 'save-cookie') {
-            fs.writeFileSync(CONFIG_FILE, JSON.stringify({ cookie }, null, 2), 'utf-8');
-            return NextResponse.json({ success: true, message: 'SLT cookie configuration saved successfully' }, {
-                headers: { 'Access-Control-Allow-Origin': '*' }
-            });
-        }
+    const dir = path.dirname(REGISTRY_FILE);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
 
-        const listToSave = boms || body;
-        if (!listToSave || !Array.isArray(listToSave)) {
-            return NextResponse.json(
-                { success: false, message: 'Invalid payload: boms must be an array' },
-                { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-            );
-        }
-
-        fs.writeFileSync(REGISTRY_FILE, JSON.stringify(listToSave, null, 2), 'utf-8');
-        return NextResponse.json({ success: true, count: listToSave.length }, {
+    if (data.action === 'save-cookie') {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify({ cookie: data.cookie }, null, 2), 'utf-8');
+        return Response.json({ success: true, message: 'SLT cookie configuration saved successfully' }, {
             headers: { 'Access-Control-Allow-Origin': '*' }
         });
-    } catch (error: unknown) {
-        console.error('Failed to save request payload:', error);
-        return NextResponse.json(
-            { success: false, message: 'Failed to process request' },
-            { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
-        );
     }
-}
+
+    const listToSave = data.boms || body;
+    if (!listToSave || !Array.isArray(listToSave)) {
+        throw AppError.badRequest('Invalid payload: boms must be an array');
+    }
+
+    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(listToSave, null, 2), 'utf-8');
+    return Response.json({ success: true, count: listToSave.length }, {
+        headers: { 'Access-Control-Allow-Origin': '*' }
+    });
+}, { rawResponse: true });
