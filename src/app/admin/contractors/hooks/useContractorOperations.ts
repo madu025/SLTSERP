@@ -21,11 +21,11 @@ export function useContractorOperations() {
             toast.success("Contractor created successfully");
             queryClient.invalidateQueries({ queryKey: ["contractors"] });
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const updateMutation = useMutation({
-        mutationFn: async ({ id, data }: { id: string, data: any }) => {
+        mutationFn: async ({ id, data }: { id: string, data: Partial<ContractorSchema> }) => {
             const res = await fetch("/api/contractors", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -38,7 +38,7 @@ export function useContractorOperations() {
             toast.success("Contractor record updated");
             queryClient.invalidateQueries({ queryKey: ["contractors"] });
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const deleteMutation = useMutation({
@@ -53,7 +53,7 @@ export function useContractorOperations() {
             toast.success("Contractor removed from registry");
             queryClient.invalidateQueries({ queryKey: ["contractors"] });
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const approveMutation = useMutation({
@@ -70,7 +70,7 @@ export function useContractorOperations() {
             toast.success("Entity authorized and activated");
             queryClient.invalidateQueries({ queryKey: ["contractors"] });
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const rejectMutation = useMutation({
@@ -87,7 +87,7 @@ export function useContractorOperations() {
             toast.warning("Entity registration rejected");
             queryClient.invalidateQueries({ queryKey: ["contractors"] });
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     return {

@@ -237,6 +237,37 @@ function SystemSettingsCard() {
                             </div>
                         )}
                     </div>
+
+                    {/* Offline Order Types Setting */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Offline Order Types</h4>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Define which order types should automatically be marked as OFFLINE during synchronization.
+                                    <br /><span className="italic opacity-70">Comma-separated values (e.g., MODIFY-LOCATION, RE-LOCATION).</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                                <Label className="text-xs font-semibold text-slate-500 mb-1.5 block">Order Types (Comma-separated)</Label>
+                                <Input 
+                                    defaultValue={configs['OFFLINE_ORDER_TYPES'] || 'MODIFY-LOCATION'}
+                                    onBlur={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val !== (configs['OFFLINE_ORDER_TYPES'] || 'MODIFY-LOCATION')) {
+                                            mutation.mutate({ key: 'OFFLINE_ORDER_TYPES', value: val });
+                                        }
+                                    }}
+                                    disabled={mutation.isPending}
+                                    placeholder="e.g. MODIFY-LOCATION, RE-LOCATION"
+                                    className="h-9 bg-white text-xs"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </CardContent>
         </Card>

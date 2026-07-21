@@ -1,80 +1,61 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ProjectSupervisorService } from '@/services/project-supervisor.service';
+import { AppError } from '@/lib/error';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// GET /api/projects/[id]/supervisors - Get assigned supervisors
-export async function GET(_request: Request, { params }: { params: Params }) {
-  try {
+export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = await params;
-    const userId = _request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    return await ProjectSupervisorService.getAssignments(projectId);
+}, { rawResponse: true });
 
-    const assignments = await ProjectSupervisorService.getAssignments(projectId);
-    return NextResponse.json(assignments);
-  } catch (error) {
-    console.error('Error fetching supervisors:', error);
-    return NextResponse.json({ error: 'Failed to fetch supervisors' }, { status: 500 });
-  }
-}
-
-// POST /api/projects/[id]/supervisors - Assign a supervisor to the project
-export async function POST(request: Request, { params }: { params: Params }) {
-  try {
+export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId } = await params;
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { supervisorId, role } = body;
+    const { supervisorId, role } = body || {};
 
     if (!supervisorId) {
-      return NextResponse.json({ error: 'supervisorId is required' }, { status: 400 });
+        throw AppError.badRequest('supervisorId is required');
     }
 
-    const assignment = await ProjectSupervisorService.assignSupervisor(projectId, supervisorId, role);
-    return NextResponse.json(assignment, { status: 201 });
-  } catch (error: any) {
-    console.error('Error assigning supervisor:', error);
-    const message = error.message;
-    if (message === 'PROJECT_NOT_FOUND' || message === 'SUPERVISOR_NOT_FOUND') {
-      return NextResponse.json({ error: message === 'PROJECT_NOT_FOUND' ? 'Project not found' : 'Supervisor user not found' }, { status: 404 });
-    }
-    if (message === 'SUPERVISOR_ALREADY_ASSIGNED') {
-      return NextResponse.json({ error: 'Supervisor already assigned to this project' }, { status: 409 });
-    }
-    return NextResponse.json({ error: message || 'Failed to assign supervisor' }, { status: 500 });
-  }
-}
+    try {
+        return await ProjectSupervisorService.assignSupervisor(projectId, supervisorId, role);
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        const message = err?.message;
 
-// DELETE /api/projects/[id]/supervisors - Remove a supervisor assignment
-export async function DELETE(request: Request, { params }: { params: Params }) {
-  try {
+        if (message === 'PROJECT_NOT_FOUND' || message === 'SUPERVISOR_NOT_FOUND') {
+            throw AppError.notFound(message === 'PROJECT_NOT_FOUND' ? 'Project not found' : 'Supervisor user not found');
+        }
+        if (message === 'SUPERVISOR_ALREADY_ASSIGNED') {
+            throw AppError.conflict('Supervisor already assigned to this project');
+        }
+        throw error;
+    }
+}, {
+    audit: { action: 'ASSIGN_SUPERVISOR', entity: 'PROJECT' },
+    rawResponse: true
+});
+
+export const DELETE = apiHandler(async (request, params) => {
     const { id: projectId } = await params;
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const assignmentId = searchParams.get('assignmentId');
 
     if (!assignmentId) {
-      return NextResponse.json({ error: 'assignmentId is required' }, { status: 400 });
+        throw AppError.badRequest('assignmentId is required');
     }
 
-    await ProjectSupervisorService.removeAssignment(projectId, assignmentId);
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('Error removing supervisor:', error);
-    const message = error.message;
-    if (message === 'ASSIGNMENT_NOT_FOUND') {
-      return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
+    try {
+        await ProjectSupervisorService.removeAssignment(projectId, assignmentId);
+        return { success: true };
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err?.message === 'ASSIGNMENT_NOT_FOUND') {
+            throw AppError.notFound('Assignment not found');
+        }
+        throw error;
     }
-    return NextResponse.json({ error: 'Failed to remove supervisor' }, { status: 500 });
-  }
-}
+}, {
+    audit: { action: 'REMOVE_SUPERVISOR', entity: 'PROJECT' },
+    rawResponse: true
+});

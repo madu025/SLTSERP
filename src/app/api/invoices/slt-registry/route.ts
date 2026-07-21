@@ -3,44 +3,53 @@ import fs from 'fs';
 import path from 'path';
 import { SLTPortalAuthService } from '@/services/slt-portal-auth.service';
 
+export const dynamic = 'force-dynamic';
+
 const REGISTRY_FILE = path.join(process.cwd(), 'src/data/slt-boms.json');
 const CONFIG_FILE = path.join(process.cwd(), 'src/data/slt-config.json');
 
-function parseBOMHtml(html: string) {
-    const boms: Array<{ bomRef: string; rtom: string; contractor: string; path: string }> = [];
+interface BOMItem {
+    bomRef: string;
+    rtom: string;
+    contractor: string;
+    path: string;
+}
+
+function parseBOMHtml(html: string): BOMItem[] {
+    const boms: BOMItem[] = [];
     const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    let match;
-    
+    let match: RegExpExecArray | null;
+
     while ((match = trRegex.exec(html)) !== null) {
         const trContent = match[1];
         const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
         const tds: string[] = [];
-        let tdMatch;
-        
+        let tdMatch: RegExpExecArray | null;
+
         while ((tdMatch = tdRegex.exec(trContent)) !== null) {
             const text = tdMatch[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
             tds.push(text);
         }
-        
+
         if (tds.length >= 3) {
             const bomRef = tds[0];
             const rtom = tds[1];
             const contractor = tds[2];
-            
+
             const onclickMatch = trContent.match(/bomDwnload\('([^']+)'\)/);
-            const path = onclickMatch ? onclickMatch[1] : bomRef;
-            
+            const pathVal = onclickMatch ? onclickMatch[1] : bomRef;
+
             if (bomRef && (bomRef.toUpperCase().includes('BOM') || bomRef.toUpperCase().startsWith('BOM'))) {
-                boms.push({ bomRef, rtom, contractor, path });
+                boms.push({ bomRef, rtom, contractor, path: pathVal });
             }
         }
     }
-    
+
     return boms;
 }
 
 export async function GET() {
-    let cachedBoms: any[] = [];
+    let cachedBoms: BOMItem[] = [];
     let cookieSaved = false;
     let sltCookie = '';
 
@@ -66,7 +75,7 @@ export async function GET() {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
                 },
-                next: { revalidate: 0 } // disable next.js fetch caching
+                next: { revalidate: 0 }
             });
 
             if (!res.ok) {
@@ -74,8 +83,7 @@ export async function GET() {
             }
 
             const html = await res.text();
-            
-            // Check if redirecting to login page
+
             if (html.includes('login') || html.includes('Username') || html.includes('Password')) {
                 throw new Error('SESSION_EXPIRED');
             }
@@ -83,24 +91,23 @@ export async function GET() {
             const liveBoms = parseBOMHtml(html);
 
             if (liveBoms.length > 0) {
-                // Ensure data directory exists
                 const dir = path.dirname(REGISTRY_FILE);
                 if (!fs.existsSync(dir)) {
                     fs.mkdirSync(dir, { recursive: true });
                 }
-                
-                // Update cache
+
                 fs.writeFileSync(REGISTRY_FILE, JSON.stringify(liveBoms, null, 2), 'utf-8');
                 return NextResponse.json({ success: true, boms: liveBoms, cookieSaved, source: 'live' });
             }
-        } catch (error: any) {
-            console.error('Live BOM fetch failed, falling back to cache:', error.message);
-            return NextResponse.json({ 
-                success: true, 
-                boms: cachedBoms, 
-                cookieSaved, 
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Live BOM fetch failed, falling back to cache:', err.message);
+            return NextResponse.json({
+                success: true,
+                boms: cachedBoms,
+                cookieSaved,
                 source: 'cache',
-                warning: error.message === 'SESSION_EXPIRED' ? 'SESSION_EXPIRED' : 'SLT_PORTAL_OFFLINE'
+                warning: err.message === 'SESSION_EXPIRED' ? 'SESSION_EXPIRED' : 'SLT_PORTAL_OFFLINE'
             });
         }
     }
@@ -125,7 +132,6 @@ export async function POST(request: Request) {
         const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
         const isExtension = extensionKey === extensionSecret;
 
-        // Fetch auth headers (from middleware if authenticated)
         const userRole = request.headers.get('x-user-role');
         const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'];
         const hasAllowedRole = userRole && allowedRoles.includes(userRole);
@@ -140,7 +146,6 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { action, cookie, boms } = body;
 
-        // Ensure data directory exists
         const dir = path.dirname(REGISTRY_FILE);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -153,7 +158,6 @@ export async function POST(request: Request) {
             });
         }
 
-        // Default: save scraped BOMs array
         const listToSave = boms || body;
         if (!listToSave || !Array.isArray(listToSave)) {
             return NextResponse.json(

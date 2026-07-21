@@ -1,8 +1,3 @@
-// ============================================================
-// Module: opmc
-// Models: OPMC
-// ============================================================
-
 model OPMC {
   id                       String                    @id @default(cuid())
   name                     String                    @default("")
@@ -16,10 +11,10 @@ model OPMC {
   contractorPaymentConfigs ContractorPaymentConfig[]
   contractorTeams          ContractorTeam[]
   store                    InventoryStore?           @relation(fields: [storeId], references: [id])
+  pettyCashAccount         PettyCashAccount?
   projects                 Project[]
   revenueConfigs           SODRevenueConfig[]
   serviceOrders            ServiceOrder[]
   staff                    Staff[]
   users                    User[]                    @relation("UserOpmcs")
-  pettyCashAccount         PettyCashAccount?
 }

@@ -317,4 +317,47 @@ export class ProjectTaskService {
 
         return log;
     }
+
+    /**
+     * Add a field photo for a task
+     */
+    static async addFieldPhoto(projectId: string, taskId: string, data: { fileName: string; fileUrl: string; photoType: string; latitude?: number; longitude?: number }) {
+        const { fileName, fileUrl, photoType, latitude, longitude } = data;
+
+        // Verify the project exists
+        const project = await prisma.project.findUnique({
+            where: { id: projectId }
+        });
+
+        if (!project) {
+            throw new Error('PROJECT_NOT_FOUND');
+        }
+
+        // Verify the field task exists and belongs to the project
+        const fieldTask = await prisma.fieldTask.findUnique({
+            where: { id: taskId }
+        });
+
+        if (!fieldTask) {
+            throw new Error('TASK_NOT_FOUND');
+        }
+
+        if (fieldTask.projectId !== projectId) {
+            throw new Error('TASK_PROJECT_MISMATCH');
+        }
+
+        // Create the field photo record
+        const photo = await prisma.fieldPhoto.create({
+            data: {
+                fieldTaskId: taskId,
+                fileName,
+                fileUrl,
+                photoType,
+                latitude: latitude ?? null,
+                longitude: longitude ?? null,
+            }
+        });
+
+        return photo;
+    }
 }

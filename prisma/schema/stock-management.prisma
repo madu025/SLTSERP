@@ -1,8 +1,3 @@
-// ============================================================
-// Module: stock-management
-// Models: ContractorBatchStock, StockRequest, StockRequestItem, GRN, GRNItem, MRN, MRNItem, ContractorMaterialIssue, ContractorMaterialIssueItem, ContractorMaterialReturn, ContractorMaterialReturnItem, ContractorWastage, ContractorWastageItem, ContractorMaterialBalanceSheet, ContractorBalanceSheetItem, StockIssue, StockIssueItem, ProjectMaterialReturn, ProjectMaterialReturnItem, StockMovement
-// ============================================================
-
 model ContractorBatchStock {
   id           String         @id @default(cuid())
   contractorId String
@@ -210,7 +205,7 @@ model ContractorMaterialReturn {
   id             String                         @id @default(cuid())
   contractorId   String
   storeId        String
-  serviceOrderId String?                        // GAP 4 FIX: optional link to the SOD that triggered this return
+  serviceOrderId String?
   returnDate     DateTime                       @default(now())
   month          String
   reason         String?
@@ -219,8 +214,8 @@ model ContractorMaterialReturn {
   status         String                         @default("PENDING")
   createdAt      DateTime                       @default(now())
   contractor     Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  serviceOrder   ServiceOrder?                  @relation("SODMaterialReturns", fields: [serviceOrderId], references: [id])
   store          InventoryStore                 @relation("MaterialReturns", fields: [storeId], references: [id])
-  serviceOrder   ServiceOrder?                  @relation("SODMaterialReturns", fields: [serviceOrderId], references: [id], onDelete: SetNull)
   items          ContractorMaterialReturnItem[]
 
   @@index([contractorId, storeId, month])

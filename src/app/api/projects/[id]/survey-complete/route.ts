@@ -1,22 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ProjectSurveyService } from "@/services/project-survey.service";
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectSurveyService } from '@/services/project-survey.service';
+import { AppError } from '@/lib/error';
 
-export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = apiHandler(async (_request, params, body) => {
+    const { id: projectId } = await params;
+
     try {
-        const { id: projectId } = await params;
-        const body = await request.json();
-
         const result = await ProjectSurveyService.completeSurveyAndGenerateBOQ(projectId, body);
-        return NextResponse.json(result, { status: 201 });
-    } catch (error: any) {
-        console.error("survey-complete error:", error);
-        const message = error.message;
-        if (message === 'PROJECT_NOT_FOUND') {
-            return NextResponse.json({ error: "Project not found" }, { status: 404 });
+        return result;
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err?.message === 'PROJECT_NOT_FOUND') {
+            throw AppError.notFound('Project not found');
         }
-        return NextResponse.json({ error: "Failed to complete survey" }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'SURVEY_COMPLETE', entity: 'Project' },
+    rawResponse: true
+});

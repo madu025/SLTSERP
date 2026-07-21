@@ -1,27 +1,23 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { AutoBOQService } from '@/services/auto-boq.service';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// POST /api/projects/[id]/boq/generate
-export async function POST(_request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
+export const POST = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
 
     const { boq, summary } = await AutoBOQService.generateBOQ(projectId);
 
     if (!boq.length) {
-      return NextResponse.json({
-        message: 'No approved survey points found. Please ensure survey points are fully approved before generating BOQ.',
-        boq: [],
-        summary: {},
-      });
+        return {
+            message: 'No approved survey points found. Please ensure survey points are fully approved before generating BOQ.',
+            boq: [],
+            summary: {},
+        };
     }
 
-    return NextResponse.json({ boq, summary, count: boq.length });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'BOQ generation failed';
-    console.error('Auto-BOQ generation error:', error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+    return { boq, summary, count: boq.length };
+}, {
+    audit: { action: 'PREVIEW_AUTO_BOQ', entity: 'PROJECT_BOQ' },
+    rawResponse: true
+});

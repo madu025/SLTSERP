@@ -117,9 +117,13 @@ export class SODQueryService {
         }
 
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
-            andFilters.push({ status: statusFilter });
+            if (statusFilter === 'ASSIGNED') {
+                andFilters.push({ status: { in: ['ASSIGNED', 'ASSIGN'] } });
+            } else {
+                andFilters.push({ status: statusFilter });
+            }
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
-            andFilters.push({ status: { in: ["ASSIGNED", "INPROGRESS", "PROV_CLOSED"] } });
+            andFilters.push({ status: { in: ["ASSIGNED", "ASSIGN", "INPROGRESS", "PROV_CLOSED", "OFFLINE"] } });
         }
 
         if (patFilter && patFilter !== 'ALL') {

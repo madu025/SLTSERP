@@ -1,43 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import VehicleService from '@/services/VehicleService';
+import { AppError } from '@/lib/error';
 
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const location = await VehicleService.getVehicleLocation(id);
-        if (!location) {
-            return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Location not found' } }, { status: 404 });
-        }
-        return NextResponse.json({
-            success: true,
-            data: location,
-        });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
+export const dynamic = 'force-dynamic';
+
+export const GET = apiHandler(async (_request, params) => {
+    const { id } = await params;
+    const location = await VehicleService.getVehicleLocation(id);
+
+    if (!location) {
+        throw AppError.notFound('Location not found');
     }
-}
 
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const { latitude, longitude, speed_kmh, heading } = await request.json();
+    return location;
+});
 
-        if (!latitude || !longitude) {
-            return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Missing latitude, longitude' } }, { status: 400 });
-        }
+export const POST = apiHandler(async (_request, params, body) => {
+    const { id } = await params;
+    const { latitude, longitude, speed_kmh, heading } = body || {};
 
-        const vehicle = await VehicleService.updateVehicleLocation(id, latitude, longitude, speed_kmh, heading);
-
-        return NextResponse.json({ success: true, data: vehicle });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
+    if (!latitude || !longitude) {
+        throw AppError.badRequest('Missing latitude, longitude');
     }
-}
 
+    const vehicle = await VehicleService.updateVehicleLocation(id, latitude, longitude, speed_kmh, heading);
+    return vehicle;
+}, {
+    audit: { action: 'LOCATION_UPDATE', entity: 'Vehicle' }
+});

@@ -1,26 +1,18 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISRouteOptimizerService } from '@/services/gis-optimizer.service';
-import { requireAuth } from '@/lib/server-utils';
+import { AppError } from '@/lib/error';
 
-type Params = Promise<{ id: string; routeId: string }>;
+export const dynamic = 'force-dynamic';
 
-// GET /api/projects/[id]/gis/[routeId]/optimize - Detect overlaps & optimize survey path
-export async function GET(request: Request, { params }: { params: Params }) {
+export const GET = apiHandler(async (request, params) => {
+    const { id: projectId, routeId } = await params;
+    const { searchParams } = new URL(request.url);
+    const tolerance = parseInt(searchParams.get('tolerance') || '10', 10);
+
     try {
-        // Require auth
-        await requireAuth();
-
-        const { id: projectId, routeId } = await params;
-        const { searchParams } = new URL(request.url);
-        const tolerance = parseInt(searchParams.get('tolerance') || '10');
-
-        const result = await GISRouteOptimizerService.optimizeRoute(projectId, routeId, tolerance);
-        return NextResponse.json(result);
-    } catch (error: any) {
-        console.error('Error optimizing GIS route:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to optimize GIS route' },
-            { status: 500 }
-        );
+        return await GISRouteOptimizerService.optimizeRoute(projectId, routeId, tolerance);
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        throw AppError.internal(err?.message || 'Failed to optimize GIS route');
     }
-}
+}, { rawResponse: true });

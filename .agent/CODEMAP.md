@@ -1633,6 +1633,14 @@
     * `getVersionHistory(routeId: string): any`
     * `getVersionDiff(versionAId: string, versionBId: string): any`
 
+### [section.service.ts](src/services/section.service.ts)
+* **Class**: `SectionService`
+  * **Methods**:
+    * `getSections(): any`
+    * `createSection(data: { name: string, code: string, description?: string, icon?: string, color?: string }, userId: string): any`
+    * `updateSection(id: string, data: { name?: string, code?: string, description?: string, icon?: string, color?: string, isActive?: boolean }, userId: string): any`
+    * `deleteSection(id: string, userId: string): any`
+
 ### [slt-api.service.ts](src/services/slt-api.service.ts)
 * **Class**: `SLTApiService`
   * **Methods**:
@@ -1745,7 +1753,7 @@
     * `syncHoRejectedResults(): any`
     * `syncAllOpmcs(): any`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
-    * `syncServiceOrders(opmcId: string, rtom: string): any`
+    * `syncServiceOrders(opmcId: string, rtom: string, preloadedPendingSods?: { id: string; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: string }[]): any`
     * `bridgeSync(payload: {
         soNum?: string;
         allTabs?: Record<string, Record<string, string>>;
@@ -1837,6 +1845,12 @@
     * `createStaff(data: CreateStaffInput): any`
     * `updateStaff(id: string, data: UpdateStaffInput): any`
     * `deleteStaff(id: string): any`
+
+### [system-config.service.ts](src/services/system-config.service.ts)
+* **Class**: `SystemConfigService`
+  * **Methods**:
+    * `getConfigs(): Promise<Record<string, string>>`
+    * `updateConfig(key: string, value: string, description: string | undefined, userId: string): any`
 
 ### [system.service.ts](src/services/system.service.ts)
 * **Class**: `SystemService`
@@ -2104,7 +2118,7 @@
 | `/api/notifications/cleanup` | [route.ts](src/app/api/notifications/cleanup/route.ts) | `POST`, `GET` |
 | `/api/notifications/preferences` | [route.ts](src/app/api/notifications/preferences/route.ts) | `GET`, `POST` |
 | `/api/notifications/push` | [route.ts](src/app/api/notifications/push/route.ts) | `POST`, `DELETE` |
-| `/api/notifications` | [route.ts](src/app/api/notifications/route.ts) | `PATCH`, `DELETE` |
+| `/api/notifications` | [route.ts](src/app/api/notifications/route.ts) | `GET`, `PATCH`, `DELETE` |
 | `/api/notifications/scheduler` | [route.ts](src/app/api/notifications/scheduler/route.ts) | `GET`, `POST` |
 | `/api/notifications/sidebar-counts` | [route.ts](src/app/api/notifications/sidebar-counts/route.ts) | `GET` |
 | `/api/notifications/stream` | [route.ts](src/app/api/notifications/stream/route.ts) | `GET` |
@@ -2233,6 +2247,7 @@
 | `/api/tax-configs` | [route.ts](src/app/api/tax-configs/route.ts) | `GET`, `POST` |
 | `/api/team-members/generate-link` | [route.ts](src/app/api/team-members/generate-link/route.ts) | `POST` |
 | `/api/team-members/public` | [route.ts](src/app/api/team-members/public/route.ts) | `GET`, `POST` |
+| `/api/test/debug-sync` | [route.ts](src/app/api/test/debug-sync/route.ts) | `GET` |
 | `/api/test/extension-push` | [route.ts](src/app/api/test/extension-push/route.ts) | `OPTIONS`, `POST`, `GET`, `DELETE` |
 | `/api/trips` | [route.ts](src/app/api/trips/route.ts) | `GET`, `POST` |
 | `/api/trips/[id]/end` | [route.ts](src/app/api/trips/[id]/end/route.ts) | `PATCH` |

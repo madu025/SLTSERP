@@ -272,4 +272,105 @@ export class ProjectBOQService {
             total: rates.length
         };
     }
+
+    /**
+     * Analyze BOQ items against inventory stock
+     */
+    static async analyzeBOQ(projectId: string) {
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            include: { opmc: true }
+        });
+
+        if (!project) throw new Error('PROJECT_NOT_FOUND');
+
+        const boqItems = await prisma.projectBOQItem.findMany({
+            where: {
+                projectId,
+                category: { in: ['MATERIAL', 'CABLE', 'CIVIL'] }
+            },
+            include: { material: true }
+        });
+
+        let store = null;
+        if (project.opmcId) {
+            store = await prisma.inventoryStore.findFirst({
+                where: { opmcs: { some: { id: project.opmcId } } }
+            });
+        }
+
+        if (!store) {
+            store = await prisma.inventoryStore.findFirst({
+                where: { type: 'MAIN' }
+            });
+        }
+
+        if (!store) {
+            throw new Error('NO_STORE_FOUND');
+        }
+
+        const materialIds = boqItems.map(i => i.materialId).filter((id): id is string => id !== null);
+        const itemCodes = boqItems.filter(i => !i.materialId).map(i => i.itemCode);
+
+        const stocks = await prisma.inventoryStock.findMany({
+            where: {
+                storeId: store.id,
+                item: {
+                    OR: [
+                        { id: { in: materialIds } },
+                        { code: { in: itemCodes } }
+                    ]
+                }
+            },
+            include: { item: true }
+        });
+
+        const analysis = boqItems.map(boqItem => {
+            const stock = stocks.find(s =>
+                s.itemId === boqItem.materialId ||
+                s.item.code === boqItem.itemCode
+            );
+
+            const stockQty = stock ? Number(stock.quantity) : 0;
+            const requiredQty = Number(boqItem.quantity);
+            const shortfall = Math.max(0, requiredQty - stockQty);
+            const recommendedSource = shortfall > 0 ? 'NEW' : 'EXISTING';
+
+            return {
+                boqItemId: boqItem.id,
+                itemCode: boqItem.itemCode,
+                description: boqItem.description,
+                unit: boqItem.unit,
+                requiredQty,
+                availableStock: stockQty,
+                shortfall,
+                currentSource: boqItem.source,
+                recommendedSource,
+                materialId: stock?.item?.id || boqItem.materialId
+            };
+        });
+
+        return {
+            store: { id: store.id, name: store.name, type: store.type },
+            analysis
+        };
+    }
+
+    /**
+     * Bulk update BOQ sources
+     */
+    static async updateBOQSources(updates: { boqItemId: string; source: string; materialId?: string | null }[]) {
+        const updatePromises = updates.map(update =>
+            prisma.projectBOQItem.update({
+                where: { id: update.boqItemId },
+                data: {
+                    source: update.source,
+                    materialId: update.materialId || undefined
+                }
+            })
+        );
+
+        await Promise.all(updatePromises);
+        return { success: true };
+    }
 }

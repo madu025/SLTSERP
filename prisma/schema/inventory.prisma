@@ -1,25 +1,22 @@
-// ============================================================
-// Module: inventory
-// Models: InventoryStore, InventoryItem, InventoryStock, InventoryBatch, InventoryBatchStock, InventoryTransaction, InventoryTransactionItem, MaterialCategory, MaterialStandard, CurrentStock, InventoryItemSerial
-// ============================================================
-
 model InventoryStore {
   id              String                           @id @default(cuid())
   name            String
   type            String                           @default("SUB")
   location        String?
-  gpsLocation     String?
-  coveringRt      String?
   managerId       String?
-  officeAdminId   String?
   createdAt       DateTime                         @default(now())
   updatedAt       DateTime                         @updatedAt
+  coveringRt      String?
+  gpsLocation     String?
+  officeAdminId   String?
   balanceSheets   ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
   materialIssues  ContractorMaterialIssue[]        @relation("MaterialIssues")
   materialReturns ContractorMaterialReturn[]       @relation("MaterialReturns")
   wastageReports  ContractorWastage[]
   grns            GRN[]
+  itAssets        ITAsset[]
   batchStocks     InventoryBatchStock[]
+  serials         InventoryItemSerial[]
   stocks          InventoryStock[]
   manager         User?                            @relation(fields: [managerId], references: [id])
   officeAdmin     User?                            @relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])
@@ -27,17 +24,15 @@ model InventoryStore {
   mrns            MRN[]
   opmcs           OPMC[]
   projectReturns  ProjectMaterialReturn[]
+  agreements      SiteOfficeAgreement[]
+  requests        SiteOfficeRequest[]
+  tenders         SiteOfficeTender[]
+  vehicles        SiteOfficeVehicle[]
   stockIssues     StockIssue[]                     @relation("StockIssues")
   outRequests     StockRequest[]                   @relation("RequestSource")
   inRequests      StockRequest[]                   @relation("RequestTarget")
   teamAssignments TeamStoreAssignment[]
   assignedUsers   User[]                           @relation("UserAssignedStore")
-  serials         InventoryItemSerial[]
-  itAssets        ITAsset[]
-  agreements      SiteOfficeAgreement[]
-  requests        SiteOfficeRequest[]
-  vehicles        SiteOfficeVehicle[]
-  tenders         SiteOfficeTender[]
 
   @@index([type])
   @@index([managerId])
@@ -74,6 +69,7 @@ model InventoryItem {
   grnItems              GRNItem[]
   batches               InventoryBatch[]
   batchStocks           InventoryBatchStock[]
+  serials               InventoryItemSerial[]
   stocks                InventoryStock[]
   transactionItems      InventoryTransactionItem[]
   mrnItems              MRNItem[]
@@ -83,7 +79,6 @@ model InventoryItem {
   sodUsage              SODMaterialUsage[]             @relation("SODUsage")
   stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
   requestItems          StockRequestItem[]
-  serials               InventoryItemSerial[]
 
   @@index([code])
   @@index([type])
@@ -113,8 +108,8 @@ model InventoryBatch {
   initialQty       Decimal
   costPrice        Decimal                    @default(0)
   unitPrice        Decimal                    @default(0)
-  expiryDate       DateTime?
   createdAt        DateTime                   @default(now())
+  expiryDate       DateTime?
   contractorStocks ContractorBatchStock[]
   grnItem          GRNItem?
   grn              GRN?                       @relation(fields: [grnId], references: [id])
@@ -134,8 +129,8 @@ model InventoryBatchStock {
   itemId    String
   batchId   String
   quantity  Decimal        @default(0)
-  locator   String?        // Warehouse Locator (Rack, Bin, Zone)
   updatedAt DateTime       @updatedAt
+  locator   String?
   batch     InventoryBatch @relation(fields: [batchId], references: [id])
   item      InventoryItem  @relation(fields: [itemId], references: [id])
   store     InventoryStore @relation(fields: [storeId], references: [id])
@@ -216,19 +211,18 @@ model InventoryItemSerial {
   id              String          @id @default(cuid())
   itemId          String
   serialNumber    String          @unique
-  status          String          @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY, ASSIGNED
+  status          String          @default("IN_STORE")
   storeId         String?
   contractorId    String?
   sodId           String?
-  assignedStaffId String?
-  locator         String?         // Warehouse Locator (Rack, Bin, Zone)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-  
+  assignedStaffId String?
+  locator         String?
+  assignedStaff   Staff?          @relation(fields: [assignedStaffId], references: [id])
+  contractor      Contractor?     @relation(fields: [contractorId], references: [id])
   item            InventoryItem   @relation(fields: [itemId], references: [id])
   store           InventoryStore? @relation(fields: [storeId], references: [id])
-  contractor      Contractor?     @relation(fields: [contractorId], references: [id])
-  assignedStaff   Staff?          @relation(fields: [assignedStaffId], references: [id])
 
   @@index([itemId])
   @@index([storeId])
@@ -239,8 +233,8 @@ model InventoryItemSerial {
 
 model JournalEntry {
   id            String        @id @default(cuid())
-  referenceId   String?       // Reference to GRN, SOD, Wastage, etc.
-  referenceType String?       // "GRN", "SOD", "WASTAGE", etc.
+  referenceId   String?
+  referenceType String?
   description   String
   date          DateTime      @default(now())
   createdAt     DateTime      @default(now())
@@ -252,7 +246,7 @@ model JournalEntry {
 model JournalLine {
   id          String       @id @default(cuid())
   entryId     String
-  accountCode String       // e.g. "INV-1010", "COGS-5010", "REV-4010"
+  accountCode String
   accountName String
   debit       Decimal      @default(0)
   credit      Decimal      @default(0)

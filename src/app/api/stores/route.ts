@@ -1,49 +1,39 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
+import { AppError } from '@/lib/error';
+
+export const dynamic = 'force-dynamic';
 
 // GET - Get all stores with their OPMCs (Filtered by User Role)
-export async function GET(request: Request) {
-    try {
-        const userId = request.headers.get('x-user-id');
-        const userRole = request.headers.get('x-user-role');
+export const GET = apiHandler(async (request) => {
+    const userId = request.headers.get('x-user-id');
+    const userRole = request.headers.get('x-user-role');
 
-        if (!userId || !userRole) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const stores = await InventoryService.getAccessibleStores(userId, userRole);
-        return NextResponse.json(stores);
-    } catch (error: unknown) {
-        console.error('Error fetching stores:', error);
-        const err = error as { message?: string };
-        if (err.message === 'USER_NOT_FOUND') {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    if (!userId || !userRole) {
+        throw AppError.unauthorized('Unauthorized');
     }
-}
+
+    try {
+        const stores = await InventoryService.getAccessibleStores(userId, userRole);
+        return stores;
+    } catch (error: any) {
+        if (error?.message === 'USER_NOT_FOUND') {
+            throw AppError.notFound('User not found');
+        }
+        throw error;
+    }
+}, { rawResponse: true });
 
 // POST - Create new store
-export async function POST(request: Request) {
-    try {
-        const role = request.headers.get('x-user-role');
-        if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-            return NextResponse.json(
-                { error: 'Forbidden: Insufficient Permissions' },
-                { status: 403 }
-            );
-        }
-
-        const body = await request.json();
-
-        if (!body.name) {
-            return NextResponse.json({ error: 'Store name is required' }, { status: 400 });
-        }
-
-        const store = await InventoryService.createStore(body);
-        return NextResponse.json(store);
-    } catch (error) {
-        console.error('Error creating store:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+export const POST = apiHandler(async (_request, _params, body) => {
+    if (!body?.name) {
+        throw AppError.badRequest('Store name is required');
     }
-}
+
+    const store = await InventoryService.createStore(body);
+    return store;
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'STORE_CREATE', entity: 'Store' },
+    rawResponse: true
+});

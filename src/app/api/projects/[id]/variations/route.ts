@@ -1,48 +1,33 @@
-import { NextResponse } from "next/server";
-import { ProjectChangeOrderService } from "@/services/project-change-order.service";
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectChangeOrderService } from '@/services/project-change-order.service';
+import { AppError } from '@/lib/error';
 
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: projectId } = await params;
-        const changeOrders = await ProjectChangeOrderService.getChangeOrders(projectId);
-        return NextResponse.json(changeOrders);
-    } catch (error) {
-        console.error("Error fetching change orders:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch change orders" },
-            { status: 500 }
-        );
+export const dynamic = 'force-dynamic';
+
+export const GET = apiHandler(async (_request, params) => {
+    const { id: projectId } = await params;
+    return await ProjectChangeOrderService.getChangeOrders(projectId);
+}, { rawResponse: true });
+
+export const POST = apiHandler(async (_request, params, body) => {
+    const { id: projectId } = await params;
+    const {
+        title,
+        description,
+        type,
+        reason,
+        costImpact,
+        timeImpact,
+        requestedById,
+        notes
+    } = body || {};
+
+    if (!title || !type || !requestedById) {
+        throw AppError.badRequest('Missing required fields: title, type, requestedById');
     }
-}
 
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
     try {
-        const { id: projectId } = await params;
-        const body = await request.json();
-        const {
-            title,
-            description,
-            type,
-            reason,
-            costImpact,
-            timeImpact,
-            requestedById,
-            notes
-        } = body;
-        if (!title || !type || !requestedById) {
-            return NextResponse.json(
-                { error: "Missing required fields: title, type, requestedById" },
-                { status: 400 }
-            );
-        }
-
-        const co = await ProjectChangeOrderService.createChangeOrder({
+        return await ProjectChangeOrderService.createChangeOrder({
             projectId,
             title,
             description,
@@ -53,58 +38,50 @@ export async function POST(
             requestedById,
             notes
         });
-        return NextResponse.json(co, { status: 201 });
-    } catch (error: any) {
-        console.error("Error creating change order:", error);
-        const message = error.message;
-        if (message === 'PROJECT_NOT_FOUND') {
-            return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err?.message === 'PROJECT_NOT_FOUND') {
+            throw AppError.notFound('Project not found');
         }
-        return NextResponse.json(
-            { error: message || "Failed to create change order" },
-            { status: 500 }
-        );
+        throw error;
     }
-}
+}, {
+    audit: { action: 'CREATE', entity: 'CHANGE_ORDER' },
+    rawResponse: true
+});
 
-export async function PATCH(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const { coId, status, approvedById, rejectionReason } = body || {};
+
+    if (!coId) {
+        throw AppError.badRequest('Change order ID is required');
+    }
+
+    // Map status update to service action
+    let action = 'UPDATE';
+    if (status === 'APPROVED') {
+        action = 'APPROVE';
+    } else if (status === 'REJECTED') {
+        action = 'REJECT';
+    } else if (status === 'PENDING_APPROVAL') {
+        action = 'SUBMIT';
+    } else if (status === 'IMPLEMENTED') {
+        action = 'IMPLEMENT';
+    } else if (status === 'CANCELLED') {
+        action = 'CANCEL';
+    }
+
     try {
-        const body = await request.json();
-        const { coId, status, approvedById, rejectionReason } = body;
-        if (!coId) {
-            return NextResponse.json(
-                { error: "Change order ID is required" },
-                { status: 400 }
-            );
-        }
-
-        // Map status update to service action
-        let action = "UPDATE";
-        if (status === "APPROVED") {
-            action = "APPROVE";
-        } else if (status === "REJECTED") {
-            action = "REJECT";
-        } else if (status === "PENDING_APPROVAL") {
-            action = "SUBMIT";
-        } else if (status === "IMPLEMENTED") {
-            action = "IMPLEMENT";
-        } else if (status === "CANCELLED") {
-            action = "CANCEL";
-        }
-
-        const updated = await ProjectChangeOrderService.updateChangeOrder(coId, action, {
+        return await ProjectChangeOrderService.updateChangeOrder(coId, action, {
             approvedById,
             rejectionReason
         });
-        return NextResponse.json(updated);
-    } catch (error: any) {
-        console.error("Error updating change order:", error);
-        const message = error.message;
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        const message = err?.message;
+
         if (message === 'CHANGE_ORDER_NOT_FOUND') {
-            return NextResponse.json({ error: "Change order not found" }, { status: 404 });
+            throw AppError.notFound('Change order not found');
         }
         if (
             message === 'INVALID_STATUS_DRAFT_ONLY' ||
@@ -114,11 +91,11 @@ export async function PATCH(
             message === 'CAN_ONLY_UPDATE_DRAFT_PENDING' ||
             message === 'INVALID_ACTION'
         ) {
-            return NextResponse.json({ error: message }, { status: 400 });
+            throw AppError.badRequest(message);
         }
-        return NextResponse.json(
-            { error: message || "Failed to update change order" },
-            { status: 500 }
-        );
+        throw error;
     }
-}
+}, {
+    audit: { action: 'UPDATE', entity: 'CHANGE_ORDER' },
+    rawResponse: true
+});

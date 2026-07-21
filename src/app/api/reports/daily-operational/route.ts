@@ -1,16 +1,11 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ReportService } from '@/services/report.service';
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const dateParam = searchParams.get('date');
+export const dynamic = 'force-dynamic';
 
-        const result = await ReportService.getDailyOperationalReport({ date: dateParam });
-        return NextResponse.json(result);
-    } catch (error) {
-        console.error('Daily Operational Report Error:', error);
-        return NextResponse.json({ error: 'Failed to generate report' }, { status: 500 });
-    }
-}
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const dateParam = searchParams.get('date');
 
+    return await ReportService.getDailyOperationalReport({ date: dateParam });
+}, { rawResponse: true });

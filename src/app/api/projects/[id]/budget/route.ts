@@ -1,28 +1,17 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { BudgetTrackingService } from '@/services/budget-tracking.service';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// GET /api/projects/[id]/budget - Full budget dashboard
-export async function GET(_request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
-    const dashboard = await BudgetTrackingService.getBudgetDashboard(projectId);
-    return NextResponse.json(dashboard);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch budget data';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+export const GET = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
+    return await BudgetTrackingService.getBudgetDashboard(projectId);
+}, { rawResponse: true });
 
-// POST /api/projects/[id]/budget - Sync/recalculate actual cost
-export async function POST(_request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
-    const result = await BudgetTrackingService.syncActualCost(projectId);
-    return NextResponse.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to sync budget';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+export const POST = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
+    return await BudgetTrackingService.syncActualCost(projectId);
+}, {
+    audit: { action: 'SYNC_BUDGET', entity: 'PROJECT_BUDGET' },
+    rawResponse: true
+});

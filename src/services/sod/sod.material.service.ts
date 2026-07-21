@@ -28,7 +28,8 @@ export class SODMaterialService {
         // 1. Identify Source Store
         const opmc = await ContractorRepository.findOpmcWithStore(opmcId, tx);
         const storeId = opmc?.storeId;
-        if (!contractorId && !storeId) throw new Error('STORE_NOT_FOUND_FOR_OPMC');
+        const hasActiveDeductions = materialUsage.some(m => parseFloat(m.quantity || '0') > 0);
+        if (hasActiveDeductions && !contractorId && !storeId) throw new Error('STORE_NOT_FOUND_FOR_OPMC');
 
         // 2. Process each material
         for (const m of materialUsage) {

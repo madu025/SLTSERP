@@ -45,17 +45,27 @@ export const POST = apiHandler(async (_req, _params, payload: z.infer<typeof bri
     }
 
     const lockKey = `lock:bridge-sync:${soNum}`;
-    // Acquire distributed lock for 10 seconds to prevent concurrent updates on the same SOD
-    const acquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
-
-    if (!acquired) {
-        throw new Error('CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.');
+    let acquired = false;
+    try {
+        const lockAcquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
+        acquired = !!lockAcquired;
+        if (!acquired) {
+            throw new Error('CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.');
+        }
+    } catch (redisErr) {
+        console.warn('[BRIDGE-SYNC] Redis unavailable, bypassing lock:', redisErr);
     }
 
     try {
         return await ServiceOrderService.bridgeSync(payload);
     } finally {
-        await redis.del(lockKey);
+        if (acquired) {
+            try {
+                await redis.del(lockKey);
+            } catch (redisErr) {
+                console.warn('[BRIDGE-SYNC] Redis unavailable, failed to release lock:', redisErr);
+            }
+        }
     }
 }, { 
     schema: bridgeSyncSchema,

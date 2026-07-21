@@ -24,10 +24,11 @@ export class SODImportService {
                     select: { id: true, sltsStatus: true, comments: true }
                 });
 
-                const excelStatus = String(item['Status'] || item['CON_STATUS'] || '');
+                const excelStatus = String(item['Status'] || item['CON_STATUS'] || '').trim();
+                const cleanStatus = excelStatus.toUpperCase() === 'ASSIGN' ? 'ASSIGNED' : excelStatus;
                 const completionStatuses = ['INSTALL_CLOSED', 'COMPLETED', 'FINISHED'];
                 const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
-                const excelStatusUpper = excelStatus.toUpperCase();
+                const excelStatusUpper = cleanStatus.toUpperCase();
                 const isCompleted = completionStatuses.includes(excelStatusUpper);
                 const isReturned = returnStatuses.includes(excelStatusUpper);
                 const sltsStatusVal = isCompleted ? 'COMPLETED' : (isReturned ? 'RETURN' : 'INPROGRESS');
@@ -48,7 +49,7 @@ export class SODImportService {
                     soNum,
                     rtom: rtom,
                     opmcId: opmcId,
-                    status: excelStatus,
+                    status: cleanStatus,
                     sltsStatus: sltsStatusVal,
                     voiceNumber,
                     orderType,
@@ -63,16 +64,16 @@ export class SODImportService {
                     sales,
                     receivedDate: new Date(),
                     completedDate: isCompleted ? new Date() : null,
-                    returnReason: isReturned ? SODReturnClassifierService.classify(excelStatus || 'Returned in Excel Import').category : null,
-                    comments: isReturned ? `[AI_CLASSIFIED] Reason: ${excelStatus || 'Returned in Excel Import'}` : null
+                    returnReason: isReturned ? SODReturnClassifierService.classify(cleanStatus || 'Returned in Excel Import').category : null,
+                    comments: isReturned ? `[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}` : null
                 };
 
                 const updateData = {
-                    status: excelStatus,
+                    status: cleanStatus,
                     sltsStatus: sltsStatusVal,
                     completedDate: isCompleted ? new Date() : (isReturned ? null : undefined),
-                    returnReason: isReturned ? SODReturnClassifierService.classify(excelStatus || 'Returned in Excel Import').category : (isCompleted ? null : undefined),
-                    comments: isReturned ? (existing?.comments ? `${existing.comments}\n[AI_CLASSIFIED] Reason: ${excelStatus || 'Returned in Excel Import'}` : `[AI_CLASSIFIED] Reason: ${excelStatus || 'Returned in Excel Import'}`) : undefined,
+                    returnReason: isReturned ? SODReturnClassifierService.classify(cleanStatus || 'Returned in Excel Import').category : (isCompleted ? null : undefined),
+                    comments: isReturned ? (existing?.comments ? `${existing.comments}\n[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}` : `[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}`) : undefined,
                     voiceNumber,
                     orderType,
                     serviceType,

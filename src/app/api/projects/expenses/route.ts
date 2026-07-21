@@ -1,57 +1,41 @@
-import { NextResponse } from 'next/server';
-import { ProjectExpenseService } from '@/services/project-expense.service';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectExpenseService } from '@/services/project/project-expense.service';
+import { AppError } from '@/lib/error';
 
-// POST create expense
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { projectId, type, amount } = body;
+export const dynamic = 'force-dynamic';
 
-        if (!projectId || !type || !amount) {
-            return NextResponse.json(
-                { error: 'Project ID, Type and Amount are required' },
-                { status: 400 }
-            );
-        }
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { projectId, type, amount } = body || {};
 
-        const expense = await ProjectExpenseService.createExpense(body);
-        return NextResponse.json(expense);
-    } catch (error: unknown) {
-        console.error('Error creating expense:', error);
-        return NextResponse.json(
-            { error: 'Failed to create expense' },
-            { status: 500 }
-        );
+    if (!projectId || !type || !amount) {
+        throw AppError.badRequest('Project ID, Type and Amount are required');
     }
-}
 
-// DELETE expense
-export async function DELETE(request: Request) {
+    return await ProjectExpenseService.createExpense(body);
+}, {
+    audit: { action: 'CREATE', entity: 'PROJECT_EXPENSE' },
+    rawResponse: true
+});
+
+export const DELETE = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+        throw AppError.badRequest('Expense ID required');
+    }
+
     try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            return NextResponse.json(
-                { error: 'Expense ID required' },
-                { status: 400 }
-            );
-        }
-
         await ProjectExpenseService.deleteExpense(id);
-        return NextResponse.json({ success: true });
+        return { success: true };
     } catch (error: unknown) {
-        console.error('Error deleting expense:', error);
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'EXPENSE_NOT_FOUND') {
-            return NextResponse.json(
-                { error: 'Expense not found' },
-                { status: 404 }
-            );
+            throw AppError.notFound('Expense not found');
         }
-        return NextResponse.json(
-            { error: 'Failed to delete expense' },
-            { status: 500 }
-        );
+        throw error;
     }
-}
+}, {
+    audit: { action: 'DELETE', entity: 'PROJECT_EXPENSE' },
+    rawResponse: true
+});

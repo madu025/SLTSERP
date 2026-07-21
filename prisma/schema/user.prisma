@@ -1,69 +1,64 @@
-// ============================================================
-// Module: user
-// Models: User, Notification, AuditLog, Staff, NotificationPreference
-// ============================================================
-
 model User {
-  id                            String                   @id @default(cuid())
-  email                         String                   @unique
-  username                      String                   @unique
+  id                            String                        @id @default(cuid())
+  email                         String                        @unique
+  username                      String                        @unique
   password                      String
   name                          String?
-  role                          Role                     @default(ENGINEER)
-  staffId                       String?                  @unique
+  role                          Role                          @default(ENGINEER)
+  staffId                       String?                       @unique
   securityQuestion              String?
   securityAnswer                String?
-  employeeId                    String?                  @unique
+  employeeId                    String?                       @unique
   supervisorId                  String?
   assignedStoreId               String?
+  mustChangePassword            Boolean                       @default(false)
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
   permissions                   String?
-  mustChangePassword            Boolean                  @default(false)
-  status                        String                   @default("active")
-  createdAt                     DateTime                 @default(now())
-  updatedAt                     DateTime                 @updatedAt
+  status                        String                        @default("active")
+  handoversPerformed            AssetHandoverLog[]            @relation("HandoverPerformed")
   auditLogs                     AuditLog[]
-  armApprovedContractors        Contractor[]             @relation("ContractorArmApproval")
-  ospApprovedContractors        Contractor[]             @relation("ContractorOspApproval")
-  rejectedContractors           Contractor[]             @relation("ContractorRejection")
-  generatedContractorLinks      Contractor[]             @relation("ContractorLinkGenerator")
+  armApprovedContractors        Contractor[]                  @relation("ContractorArmApproval")
+  ospApprovedContractors        Contractor[]                  @relation("ContractorOspApproval")
+  rejectedContractors           Contractor[]                  @relation("ContractorRejection")
+  generatedContractorLinks      Contractor[]                  @relation("ContractorLinkGenerator")
   receivedGRNs                  GRN[]
+  assignedITAssets              ITAsset[]                     @relation("AssignedITAssetsToUser")
   managedStores                 InventoryStore[]
-  approvedMRNs                  MRN[]                    @relation("MRNApprover")
+  managedSiteOffices            InventoryStore[]              @relation("SiteOfficeAdmin")
+  approvedMRNs                  MRN[]                         @relation("MRNApprover")
   returnedMRNs                  MRN[]
   notifications                 Notification[]
   notificationPreferences       NotificationPreference[]
-  approvedProjectReturns        ProjectMaterialReturn[]  @relation("ProjectReturnApprover")
-  projectReturns                ProjectMaterialReturn[]  @relation("ProjectReturnUser")
-  approvedRestores              RestoreRequest[]         @relation("ApprovedRestores")
-  requestedRestores             RestoreRequest[]         @relation("RequestedRestores")
-  approvedIssues                StockIssue[]             @relation("IssueApprover")
-  stockIssues                   StockIssue[]             @relation("StockIssuer")
-  approvedStock                 StockRequest[]           @relation("ApproveUser")
-  armApprovedRequests           StockRequest[]           @relation("ARMApprover")
-  receivedRequests              StockRequest[]           @relation("ReceivedBy")
-  releasedRequests              StockRequest[]           @relation("ReleasedBy")
-  requestedStock                StockRequest[]           @relation("RequestUser")
-  storesManagerApprovedRequests StockRequest[]           @relation("StoresManagerApprover")
-  comments                      ServiceOrderComment[]    @relation("UserComments")
-  assignedStore                 InventoryStore?          @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
-  staff                         Staff?                   @relation(fields: [staffId], references: [id])
-  supervisor                    User?                    @relation("UserSupervisor", fields: [supervisorId], references: [id])
-  subordinates                  User[]                   @relation("UserSupervisor")
-  sectionAssignments            UserSectionAssignment[]
-  accessibleOpmcs               OPMC[]                   @relation("UserOpmcs")
+  actionedApprovalSteps         ProjectApprovalStep[]         @relation("StepActioner")
+  assignedApprovalSteps         ProjectApprovalStep[]         @relation("StepAssignee")
   uploadedDocuments             ProjectDocument[]
-  assignedApprovalSteps         ProjectApprovalStep[]     @relation("StepAssignee")
-  actionedApprovalSteps         ProjectApprovalStep[]     @relation("StepActioner")
+  approvedProjectReturns        ProjectMaterialReturn[]       @relation("ProjectReturnApprover")
+  projectReturns                ProjectMaterialReturn[]       @relation("ProjectReturnUser")
   supervisorAssignments         ProjectSupervisorAssignment[]
-  createdTickets                Ticket[]                 @relation("CreatedTickets")
-  assignedTickets               Ticket[]                 @relation("AssignedTickets")
-  ticketUpdates                 TicketUpdate[]           @relation("UserTicketUpdates")
-  managedSiteOffices            InventoryStore[]         @relation("SiteOfficeAdmin")
-  siteOfficeRequests            SiteOfficeRequest[]      @relation("SiteOfficeRequests")
-  handoversPerformed            AssetHandoverLog[]       @relation("HandoverPerformed")
   pushSubscriptions             PushSubscription[]
-  assignedITAssets              ITAsset[]                @relation("AssignedITAssetsToUser")
-  softwareAssignments           SoftwareLicenseAssignment[] @relation("UserSoftwareLicenses")
+  approvedRestores              RestoreRequest[]              @relation("ApprovedRestores")
+  requestedRestores             RestoreRequest[]              @relation("RequestedRestores")
+  comments                      ServiceOrderComment[]         @relation("UserComments")
+  siteOfficeRequests            SiteOfficeRequest[]           @relation("SiteOfficeRequests")
+  softwareAssignments           SoftwareLicenseAssignment[]   @relation("UserSoftwareLicenses")
+  approvedIssues                StockIssue[]                  @relation("IssueApprover")
+  stockIssues                   StockIssue[]                  @relation("StockIssuer")
+  approvedStock                 StockRequest[]                @relation("ApproveUser")
+  armApprovedRequests           StockRequest[]                @relation("ARMApprover")
+  receivedRequests              StockRequest[]                @relation("ReceivedBy")
+  releasedRequests              StockRequest[]                @relation("ReleasedBy")
+  requestedStock                StockRequest[]                @relation("RequestUser")
+  storesManagerApprovedRequests StockRequest[]                @relation("StoresManagerApprover")
+  assignedTickets               Ticket[]                      @relation("AssignedTickets")
+  createdTickets                Ticket[]                      @relation("CreatedTickets")
+  ticketUpdates                 TicketUpdate[]                @relation("UserTicketUpdates")
+  assignedStore                 InventoryStore?               @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
+  staff                         Staff?                        @relation(fields: [staffId], references: [id])
+  supervisor                    User?                         @relation("UserSupervisor", fields: [supervisorId], references: [id])
+  subordinates                  User[]                        @relation("UserSupervisor")
+  sectionAssignments            UserSectionAssignment[]
+  accessibleOpmcs               OPMC[]                        @relation("UserOpmcs")
 
   @@index([role])
   @@index([supervisorId])
@@ -107,25 +102,25 @@ model AuditLog {
 }
 
 model Staff {
-  id           String    @id @default(cuid())
-  name         String
-  employeeId   String    @unique
-  designation  Role
-  area         String?
-  opmcId       String?
-  reportsToId  String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  projects     Project[]
-  jobs         Job[]
-  opmc         OPMC?     @relation(fields: [opmcId], references: [id])
-  reportsTo    Staff?    @relation("Hierarchy", fields: [reportsToId], references: [id])
-  subordinates Staff[]   @relation("Hierarchy")
-  user              User?
-  serials           InventoryItemSerial[]
-  assignedITAssets  ITAsset[]             @relation("AssignedITAssets")
-  handoversReceived AssetHandoverLog[]    @relation("HandoverReceived")
-  assignedITAssetUnits ITAssetUnit[]        @relation("StaffITAssetUnits")
+  id                   String                @id @default(cuid())
+  name                 String
+  employeeId           String                @unique
+  designation          Role
+  area                 String?
+  opmcId               String?
+  reportsToId          String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  handoversReceived    AssetHandoverLog[]    @relation("HandoverReceived")
+  assignedITAssets     ITAsset[]             @relation("AssignedITAssets")
+  assignedITAssetUnits ITAssetUnit[]         @relation("StaffITAssetUnits")
+  serials              InventoryItemSerial[]
+  jobs                 Job[]
+  projects             Project[]
+  opmc                 OPMC?                 @relation(fields: [opmcId], references: [id])
+  reportsTo            Staff?                @relation("Hierarchy", fields: [reportsToId], references: [id])
+  subordinates         Staff[]               @relation("Hierarchy")
+  user                 User?
 
   @@index([opmcId])
   @@index([reportsToId])

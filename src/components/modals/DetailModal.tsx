@@ -335,7 +335,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-400 uppercase font-black">Photos Captured</span>
                                                     <span className="text-sm font-black text-slate-900">
-                                                        {coreOrder.forensicAudit?.auditData?.filter(a => a.status === 'UPLOADED').length || 0} / {coreOrder.forensicAudit?.auditData?.length || 0}
+                                                        {coreOrder.forensicAudit?.auditData?.filter(a => a.status === 'OK' || a.status === 'UPLOADED').length || 0} / {coreOrder.forensicAudit?.auditData?.length || 0}
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-col border-l pl-4">

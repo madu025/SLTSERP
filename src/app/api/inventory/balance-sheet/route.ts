@@ -4,15 +4,16 @@ import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (request, _params, body) => {
     const userId = request.headers.get('x-user-id');
-    
+
     try {
         const result = await InventoryService.saveBalanceSheet({
             ...body,
             userId
         });
         return { message: 'Balance sheet saved successfully', id: result.id };
-    } catch (error: any) {
-        if (error.message === 'MISSING_FIELDS') {
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err?.message === 'MISSING_FIELDS') {
             throw AppError.badRequest('Missing fields');
         }
         console.error('Error saving balance sheet:', error);

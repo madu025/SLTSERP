@@ -1,105 +1,68 @@
-import { NextResponse } from 'next/server';
-import { ProjectBOQService } from '@/services/project-boq.service';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectBOQService } from '@/services/project/project-boq.service';
+import { AppError } from '@/lib/error';
+
+export const dynamic = 'force-dynamic';
 
 // GET list BOQ items for a project
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const projectId = searchParams.get('projectId');
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('projectId');
 
-        if (!projectId) {
-            return NextResponse.json(
-                { error: 'projectId query parameter is required' },
-                { status: 400 }
-            );
-        }
-
-        const boqItems = await ProjectBOQService.getBOQItems(projectId);
-        return NextResponse.json(boqItems);
-    } catch (error: unknown) {
-        console.error('Error fetching BOQ items:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch BOQ items' },
-            { status: 500 }
-        );
+    if (!projectId) {
+        throw AppError.badRequest('projectId query parameter is required');
     }
-}
+
+    return await ProjectBOQService.getBOQItems(projectId);
+}, { rawResponse: true });
 
 // POST create BOQ item
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const {
-            projectId,
-            itemCode,
-            description,
-            unit,
-            quantity,
-            unitRate
-        } = body;
+export const POST = apiHandler(async (_request, _params, body) => {
+    const {
+        projectId,
+        itemCode,
+        description,
+        unit,
+        quantity,
+        unitRate
+    } = body || {};
 
-        if (!projectId || !itemCode || !description || !unit || quantity === undefined || unitRate === undefined) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
-        }
-
-        const boqItem = await ProjectBOQService.createBOQItem(body);
-        return NextResponse.json(boqItem);
-    } catch (error: unknown) {
-        console.error('Error creating BOQ item:', error);
-        return NextResponse.json(
-            { error: 'Failed to create BOQ item' },
-            { status: 500 }
-        );
+    if (!projectId || !itemCode || !description || !unit || quantity === undefined || unitRate === undefined) {
+        throw AppError.badRequest('Missing required fields');
     }
-}
+
+    return await ProjectBOQService.createBOQItem(body);
+}, {
+    audit: { action: 'CREATE', entity: 'PROJECT_BOQ' },
+    rawResponse: true
+});
 
 // PATCH update BOQ item
-export async function PATCH(request: Request) {
-    try {
-        const body = await request.json();
-        const { id, ...updateData } = body;
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const { id, ...updateData } = body || {};
 
-        if (!id) {
-            return NextResponse.json(
-                { error: 'BOQ item ID required' },
-                { status: 400 }
-            );
-        }
-
-        const boqItem = await ProjectBOQService.updateBOQItem(id, updateData);
-        return NextResponse.json(boqItem);
-    } catch (error: unknown) {
-        console.error('Error updating BOQ item:', error);
-        return NextResponse.json(
-            { error: 'Failed to update BOQ item' },
-            { status: 500 }
-        );
+    if (!id) {
+        throw AppError.badRequest('BOQ item ID required');
     }
-}
+
+    return await ProjectBOQService.updateBOQItem(id, updateData);
+}, {
+    audit: { action: 'UPDATE', entity: 'PROJECT_BOQ' },
+    rawResponse: true
+});
 
 // DELETE BOQ item
-export async function DELETE(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
+export const DELETE = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
-        if (!id) {
-            return NextResponse.json(
-                { error: 'BOQ item ID required' },
-                { status: 400 }
-            );
-        }
-
-        await ProjectBOQService.deleteBOQItem(id);
-        return NextResponse.json({ success: true });
-    } catch (error: unknown) {
-        console.error('Error deleting BOQ item:', error);
-        return NextResponse.json(
-            { error: 'Failed to delete BOQ item' },
-            { status: 500 }
-        );
+    if (!id) {
+        throw AppError.badRequest('BOQ item ID required');
     }
-}
+
+    await ProjectBOQService.deleteBOQItem(id);
+    return { success: true };
+}, {
+    audit: { action: 'DELETE', entity: 'PROJECT_BOQ' },
+    rawResponse: true
+});

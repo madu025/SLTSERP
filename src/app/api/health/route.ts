@@ -22,17 +22,19 @@ export async function GET() {
         await prisma.$queryRaw`SELECT 1`;
         health.services.database = 'healthy';
 
-        // Collect Pool Metrics (Prisma Metrics)
+        // Collect Pool Metrics (Prisma Metrics if enabled)
         try {
-            const metrics = await (prisma as any).$metrics.json();
-            const counters = metrics.counters || [];
-            health.monitoring.pool = {
-                active: counters.find((c: any) => c.name === 'prisma_client_queries_active')?.value || 0,
-                idle: counters.find((c: any) => c.name === 'prisma_client_queries_idle')?.value || 0,
-                wait: counters.find((c: any) => c.name === 'prisma_client_queries_wait_count')?.value || 0
-            };
-        } catch (mErr) {
-            console.warn('Could not collect prisma metrics:', mErr);
+            if ('$metrics' in prisma) {
+                const metrics = await (prisma as any).$metrics.json();
+                const counters = metrics?.counters || [];
+                health.monitoring.pool = {
+                    active: counters.find((c: any) => c.name === 'prisma_client_queries_active')?.value || 0,
+                    idle: counters.find((c: any) => c.name === 'prisma_client_queries_idle')?.value || 0,
+                    wait: counters.find((c: any) => c.name === 'prisma_client_queries_wait_count')?.value || 0
+                };
+            }
+        } catch {
+            // Metrics feature not enabled in schema or client, skip gracefully
         }
     } catch (e) {
         health.status = 'error';

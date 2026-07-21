@@ -67,11 +67,14 @@ export class SLTApiService {
                 return [];
             }
 
-            return data.data.map((item) => ({
-                ...item,
-                CON_STATUS: item.CON_STATUS || 'UNKNOWN',
-                CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
-            } as SLTServiceOrderData));
+            return data.data.map((item) => {
+                const status = item.CON_STATUS || 'UNKNOWN';
+                return {
+                    ...item,
+                    CON_STATUS: status === 'ASSIGN' ? 'ASSIGNED' : status,
+                    CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
+                } as SLTServiceOrderData;
+            });
         } catch (error) {
             console.error(`SLT Completed SOD API error for RTOM ${rtom}:`, error);
             return [];
@@ -109,12 +112,15 @@ export class SLTApiService {
                 return [];
             }
 
-            return data.data.map((item) => ({
-                ...item,
-                // Ensure consistency
-                CON_STATUS: item.CON_STATUS || 'UNKNOWN',
-                CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
-            } as SLTServiceOrderData));
+            return data.data.map((item) => {
+                // Ensure consistency and normalize ASSIGN -> ASSIGNED
+                const status = item.CON_STATUS || 'UNKNOWN';
+                return {
+                    ...item,
+                    CON_STATUS: status === 'ASSIGN' ? 'ASSIGNED' : status,
+                    CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
+                } as SLTServiceOrderData;
+            });
         } catch (error) {
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {

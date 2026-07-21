@@ -1,36 +1,41 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/WorkflowEngine';
+import { AppError } from '@/lib/error';
 
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { action } = body || {};
+
     try {
-        const { id } = await params;
-        const body = await request.json();
-        const { action } = body;
-
         if (action === 'update_task') {
             const { taskId, status, progress } = body;
             if (!taskId || !status) {
-                return NextResponse.json({ error: 'taskId and status are required' }, { status: 400 });
+                throw AppError.badRequest('taskId and status are required');
             }
             const updated = await WorkflowEngine.updateTaskStatus(taskId, status, progress);
-            return NextResponse.json({ success: true, task: updated });
+            return { success: true, task: updated };
         }
 
         if (action === 'update_checklist') {
             const { checklistId, isCompleted, photoUrl } = body;
             if (!checklistId) {
-                return NextResponse.json({ error: 'checklistId is required' }, { status: 400 });
+                throw AppError.badRequest('checklistId is required');
             }
             const updated = await WorkflowEngine.updateChecklistItem(checklistId, isCompleted, photoUrl);
-            return NextResponse.json({ success: true, checklist: updated });
+            return { success: true, checklist: updated };
         }
 
-        return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 });
-    } catch (error: any) {
-        console.error('Error updating task/checklist details:', error);
-        return NextResponse.json({ error: error.message || 'Failed to update details' }, { status: 500 });
+        throw AppError.badRequest('Invalid action parameter');
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        const msg = err?.message || 'Failed to update details';
+        
+        if (msg === 'taskId and status are required' || msg === 'checklistId is required' || msg === 'Invalid action parameter') {
+            throw error; // Let apiHandler handle AppError
+        }
+        
+        throw AppError.internal(msg);
     }
-}
+}, {
+    audit: { action: 'UPDATE_TASK', entity: 'WORKFLOW' },
+    rawResponse: true
+});

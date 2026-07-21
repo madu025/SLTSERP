@@ -97,9 +97,14 @@ export function useOrderAction(
         // AUTO-ADD OSP_FTTH items for quick access if they are missing
         items.forEach(item => {
             if (item.isOspFtth && !rows.find(r => r.itemId === item.id)) {
+                let usedQty = "";
+                // Auto-prefill Drop Wire distance if synced from portal
+                if (item.code === 'OSPFTA003' && orderData.dropWireDistance) {
+                    usedQty = String(orderData.dropWireDistance);
+                }
                 rows.push({
                     itemId: item.id,
-                    usedQty: "",
+                    usedQty,
                     f1Qty: "",
                     g1Qty: "",
                     wastageQty: "",

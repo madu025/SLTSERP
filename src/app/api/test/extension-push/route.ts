@@ -49,6 +49,16 @@ export async function POST(request: Request) {
         const body = await request.json();
         const soNum = body.soNum;
 
+        // Sanitize Materials (Replace GRID_MATERIAL dummy names with actual Types for UI/DB)
+        if (Array.isArray(body.materialDetails)) {
+            body.materialDetails = body.materialDetails.map((mat: any) => {
+                if (mat.ITEM === 'GRID_MATERIAL' || mat.ITEM === 'TABLE_MAT') {
+                    return { ...mat, ITEM: mat.TYPE || mat.ITEM, NAME: mat.TYPE || mat.NAME };
+                }
+                return mat;
+            });
+        }
+
         // Ignore IMAGES tab as requested
         if (body.activeTab === 'IMAGES' || body.activeTab === 'PHOTOS') {
             return NextResponse.json({ success: true, message: 'Images tab ignored' }, {
@@ -59,13 +69,17 @@ export async function POST(request: Request) {
         let acquired = false;
         const lockKey = `lock:bridge-sync:${soNum}`;
         if (soNum) {
-            const lockAcquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
-            acquired = !!lockAcquired;
-            if (!acquired) {
-                return NextResponse.json(
-                    { success: false, error: 'CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.' },
-                    { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } }
-                );
+            try {
+                const lockAcquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
+                acquired = !!lockAcquired;
+                if (!acquired) {
+                    return NextResponse.json(
+                        { success: false, error: 'CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.' },
+                        { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } }
+                    );
+                }
+            } catch (redisErr) {
+                console.warn('[EXTENSION-PUSH] Redis unavailable, bypassing lock:', redisErr);
             }
         }
 
@@ -138,7 +152,11 @@ export async function POST(request: Request) {
             });
         } finally {
             if (acquired) {
-                await redis.del(lockKey);
+                try {
+                    await redis.del(lockKey);
+                } catch (redisErr) {
+                    console.warn('[EXTENSION-PUSH] Redis unavailable, failed to release lock:', redisErr);
+                }
             }
         }
 

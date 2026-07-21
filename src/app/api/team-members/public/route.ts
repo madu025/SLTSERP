@@ -1,50 +1,50 @@
-
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { TeamMemberService } from '@/services/team-member.service';
+import { AppError } from '@/lib/error';
 
-export async function GET(request: Request) {
+export const dynamic = 'force-dynamic';
+
+export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 
     if (!token) {
-        return NextResponse.json({ isValid: false, message: 'Missing token' }, { status: 400 });
+        throw AppError.badRequest('Missing token');
     }
 
     try {
         const member = await TeamMemberService.verifyUploadToken(token);
-        return NextResponse.json({ isValid: true, member });
+        return { isValid: true, member };
     } catch (error: any) {
-        console.error("Error verifying team token:", error);
-        const message = error.message;
+        const message = error?.message;
         if (message === 'INVALID_TOKEN') {
-            return NextResponse.json({ isValid: false, message: 'Invalid token' }, { status: 404 });
+            throw AppError.notFound('Invalid token');
         }
         if (message === 'TOKEN_EXPIRED') {
-            return NextResponse.json({ isValid: false, message: 'Link expired' }, { status: 410 });
+            throw new AppError('Link expired', undefined as any, 410);
         }
-        return NextResponse.json({ isValid: false, message: 'Server error' }, { status: 500 });
+        throw error;
     }
-}
+}, { rawResponse: true });
 
-export async function POST(request: Request) {
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { token, data } = body || {};
+
+    if (!token) {
+        throw AppError.badRequest('Missing token');
+    }
+
     try {
-        const { token, data } = await request.json();
-
-        if (!token) {
-            return NextResponse.json({ error: "Missing token" }, { status: 400 });
-        }
-
         await TeamMemberService.updateProfileByToken(token, data);
-        return NextResponse.json({ success: true });
+        return { success: true };
     } catch (error: any) {
-        console.error("Error updating team member public:", error);
-        const message = error.message;
+        const message = error?.message;
         if (message === 'INVALID_TOKEN') {
-            return NextResponse.json({ error: "Invalid token" }, { status: 404 });
+            throw AppError.notFound('Invalid token');
         }
         if (message === 'TOKEN_EXPIRED') {
-            return NextResponse.json({ error: "Link expired" }, { status: 410 });
+            throw new AppError('Link expired', undefined as any, 410);
         }
-        return NextResponse.json({ error: "Failed to submit" }, { status: 500 });
+        throw error;
     }
-}
+}, { rawResponse: true });

@@ -1,14 +1,16 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISAuditService } from '@/services/gis-audit.service';
+import { AppError } from '@/lib/error';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// GET /api/projects/[id]/gis-audit - Get audit trail for project or specific entity
-export async function GET(request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
+export const GET = apiHandler(async (request, params) => {
+    const { id: projectId } = params;
     const userId = request.headers.get('x-user-id');
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    if (!userId) {
+        throw AppError.unauthorized('Unauthorized');
+    }
 
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get('entityType') ?? undefined;
@@ -22,24 +24,17 @@ export async function GET(request: Request, { params }: { params: Params }) {
 
     // If querying a specific entity
     if (entityType && entityId) {
-      const result = await GISAuditService.getAuditTrail(entityType, entityId, { page, limit });
-      return NextResponse.json(result);
+        return await GISAuditService.getAuditTrail(entityType, entityId, { page, limit });
     }
 
     // Project-level filtered queries
-    const result = await GISAuditService.getProjectLogs(projectId, {
-      entityType,
-      action,
-      source,
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
-      page,
-      limit,
+    return await GISAuditService.getProjectLogs(projectId, {
+        entityType,
+        action,
+        source,
+        from: from ? new Date(from) : undefined,
+        to: to ? new Date(to) : undefined,
+        page,
+        limit,
     });
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('Error fetching GIS audit:', error);
-    return NextResponse.json({ error: 'Failed to fetch audit data' }, { status: 500 });
-  }
-}
+}, { rawResponse: true });

@@ -1617,10 +1617,10 @@ export class GISImportService {
           const stageTemplateBySeq = new Map(existingStageTemplates.map(s => [s.sequence, s]));
 
           // Create stage templates if they don't exist, and backfill any missing sub-templates
-          const stagesToCreate: any[] = [];
-          const tasksToCreate: any[] = [];
-          const checklistsToCreate: any[] = [];
-          const approvalsToCreate: any[] = [];
+          const stagesToCreate: import('@prisma/client').Prisma.WorkflowStageTemplateCreateManyInput[] = [];
+          const tasksToCreate: import('@prisma/client').Prisma.WorkflowTaskTemplateCreateManyInput[] = [];
+          const checklistsToCreate: import('@prisma/client').Prisma.WorkflowChecklistTemplateCreateManyInput[] = [];
+          const approvalsToCreate: import('@prisma/client').Prisma.WorkflowApprovalTemplateCreateManyInput[] = [];
           const stageTemplatesToBackfillChecklist: { id: string; name: string; reqPhotos: boolean }[] = [];
           const stageTemplatesToBackfillApproval: { id: string; name: string }[] = [];
 

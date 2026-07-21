@@ -1,11 +1,11 @@
 model AssetSyncLog {
-  id                       Int       @id @default(autoincrement())
-  assetId                  String?   @map("asset_id")
-  asset                    ITAsset?  @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  reportedEmployeeNumber   String?   @map("reported_employee_number")
-  reportedEmployeeUsername String?   @map("reported_employee_username")
-  ipAddress                String?   @map("ip_address")
-  syncedAt                 DateTime  @default(now()) @map("synced_at")
+  id                       Int      @id @default(autoincrement())
+  assetId                  String?  @map("asset_id")
+  reportedEmployeeNumber   String?  @map("reported_employee_number")
+  reportedEmployeeUsername String?  @map("reported_employee_username")
+  ipAddress                String?  @map("ip_address")
+  syncedAt                 DateTime @default(now()) @map("synced_at")
+  asset                    ITAsset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId])
   @@map("asset_sync_log")

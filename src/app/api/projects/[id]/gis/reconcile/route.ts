@@ -1,22 +1,16 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISReconciliationService } from '@/services/GISReconciliationService';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
+export const POST = apiHandler(async (request, params) => {
     const userId = request.headers.get('x-user-id') || 'system';
-    const { id: projectId } = await params;
+    const { id: projectId } = params;
 
     const result = await GISReconciliationService.reconcile(projectId, userId);
 
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('Error reconciling GIS route:', error);
-    const message = error instanceof Error ? error.message : 'Failed to reconcile GIS route';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+    return Response.json(result);
+}, {
+    audit: { action: 'RECONCILE', entity: 'PROJECT_GIS' },
+    rawResponse: true
+});

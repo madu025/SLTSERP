@@ -9,6 +9,8 @@ All code additions, edits, or refactors MUST comply with strict production-level
 3. **Database Integrity**: Never create "soft relations" (e.g. matching strings across tables with mismatched Prisma relations). Ensure all schemas are explicitly typed and linked with foreign keys.
 4. **Strategic Indexing & Pagination**: Ensure any newly introduced query lookup field has an explicit `@@index` in the Prisma model. Implement server-side pagination for dynamic tables with more than 100 entries.
 5. **No Caching Drift**: Declare `export const dynamic = 'force-dynamic'` in any GET API route returning dynamic database records.
+6. **Zero `any` Type Tolerance**: Never use `any` or `any[]` types. All variables, API payloads, error catches, and return types must be strictly typed using interfaces, `Record<string, unknown>`, `unknown`, or Zod validation schemas. Using `any` is strictly prohibited and violates code quality standards.
+7. **Algorithmic Efficiency (Big-O)**: Avoid $O(N^2)$ loops (e.g., nested `find` or database queries inside a loop). Utilize $O(1)$ Hash Maps, Sets, and Prisma `$transaction` batch operations to optimize time and space complexity.
 
 
 ## 🗺️ GIS Map Integration & OpenLayers Sizing Standards

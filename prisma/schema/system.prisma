@@ -1,8 +1,3 @@
-// ============================================================
-// Module: system
-// Models: TableColumnSettings, Section, SystemRole, UserSectionAssignment, SystemConfig, SystemSetting, DashboardStat
-// ============================================================
-
 model TableColumnSettings {
   id        String   @id @default(cuid())
   tableName String   @unique

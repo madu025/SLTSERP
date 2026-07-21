@@ -1,22 +1,22 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/WorkflowEngine';
+import { AppError } from '@/lib/error';
 
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const { approvalId, status, userId, comments } = await request.json();
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { approvalId, status, userId, comments } = body || {};
 
-        if (!approvalId || !status || !userId) {
-            return NextResponse.json({ error: 'approvalId, status, and userId are required' }, { status: 400 });
-        }
-
-        const updated = await WorkflowEngine.submitApproval(approvalId, status, userId, comments);
-        return NextResponse.json({ success: true, approval: updated });
-    } catch (error: any) {
-        console.error('Error submitting approval:', error);
-        return NextResponse.json({ error: error.message || 'Failed to submit approval' }, { status: 500 });
+    if (!approvalId || !status || !userId) {
+        throw AppError.badRequest('approvalId, status, and userId are required');
     }
-}
+
+    try {
+        const updated = await WorkflowEngine.submitApproval(approvalId, status, userId, comments);
+        return { success: true, approval: updated };
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        throw AppError.internal(err?.message || 'Failed to submit approval');
+    }
+}, {
+    audit: { action: 'SUBMIT_APPROVAL', entity: 'WORKFLOW' },
+    rawResponse: true
+});

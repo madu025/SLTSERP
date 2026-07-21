@@ -1,149 +1,46 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { CacheService } from '@/lib/cache.service';
+import { apiHandler } from '@/lib/api-handler';
+import { OpmcService } from '@/services/opmc.service';
+import { AppError } from '@/lib/error';
 
-interface OPMCData {
-    id: string;
-    rtom: string;
-    name: string;
-    region: string;
-    province: string;
-    storeId?: string | null;
-    store?: { id: string; name: string } | null;
-    users?: Array<{ id: string; name: string }>;
-    _count?: { staff: number; projects: number };
-}
-
-const OPMC_CACHE_KEY = 'opmcs:all';
+export const dynamic = 'force-dynamic';
 
 // GET all OPMCs
-export async function GET() {
-    try {
-        const isTestEnv = process.env.NODE_ENV === 'test' || process.env.READ_REPLICA_URL === "";
-
-        // Transparent, fail-safe read-through cache (bypassed in test environment)
-        if (!isTestEnv) {
-            try {
-                const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
-                if (cached) {
-                    console.log(`[CACHE HIT] OPMCs read from Redis`);
-                    return NextResponse.json(cached);
-                }
-            } catch (cacheError) {
-                console.error(`[CACHE ERROR] Failed to read from Redis cache:`, cacheError);
-                // Fallthrough to direct DB query
-            }
-        }
-
-        const opmcs = await prisma.oPMC.findMany({
-            include: {
-                store: { select: { id: true, name: true } },
-                users: {
-                    where: { role: 'AREA_MANAGER' },
-                    select: { id: true, name: true }
-                },
-                _count: {
-                    select: {
-                        staff: true,
-                        projects: true
-                    }
-                }
-            },
-            orderBy: { rtom: 'asc' }
-        });
-
-        if (!isTestEnv) {
-            try {
-                await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
-            } catch (cacheError) {
-                console.error(`[CACHE ERROR] Failed to write to Redis cache:`, cacheError);
-            }
-        }
-
-        return NextResponse.json(opmcs);
-    } catch (error) {
-        console.error('Error fetching OPMCs:', error);
-        return NextResponse.json({ message: 'Error fetching OPMCs' }, { status: 500 });
-    }
-}
+export const GET = apiHandler(async () => {
+    return await OpmcService.getAllOPMCs();
+}, { rawResponse: true });
 
 // POST new OPMC
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { name, rtom, region, province, storeId } = body;
-
-        const opmc = await prisma.oPMC.create({
-            data: {
-                name, rtom, region, province,
-                storeId: storeId || null
-            }
-        });
-
-        try {
-            await CacheService.del(OPMC_CACHE_KEY);
-        } catch (cacheError) {
-            console.error(`[CACHE ERROR] Failed to invalidate OPMCs cache:`, cacheError);
-        }
-        return NextResponse.json(opmc);
-    } catch (error) {
-        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-            return NextResponse.json({ message: 'OPMC RTOM already exists' }, { status: 400 });
-        }
-        return NextResponse.json({ message: 'Error creating OPMC' }, { status: 500 });
-    }
-}
+export const POST = apiHandler(async (_request, _params, body) => {
+    return await OpmcService.createOPMC(body);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'OPMC_CREATE', entity: 'OPMC' },
+    rawResponse: true
+});
 
 // PUT update OPMC
-export async function PUT(request: Request) {
-    try {
-        const body = await request.json();
-        const { id, name, rtom, region, province, storeId } = body;
+export const PUT = apiHandler(async (_request, _params, body) => {
+    const { id } = body;
+    if (!id) throw AppError.badRequest('ID required');
 
-        if (!id) return NextResponse.json({ message: 'ID required' }, { status: 400 });
-
-        const opmc = await prisma.oPMC.update({
-            where: { id },
-            data: {
-                name, rtom, region, province,
-                storeId: storeId || null
-            }
-        });
-
-        try {
-            await CacheService.del(OPMC_CACHE_KEY);
-        } catch (cacheError) {
-            console.error(`[CACHE ERROR] Failed to invalidate OPMCs cache:`, cacheError);
-        }
-        return NextResponse.json(opmc);
-    } catch (error) {
-        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-            return NextResponse.json({ message: 'RTOM already exists' }, { status: 400 });
-        }
-        return NextResponse.json({ message: 'Error updating OPMC' }, { status: 500 });
-    }
-}
+    return await OpmcService.updateOPMC(body);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'OPMC_UPDATE', entity: 'OPMC' },
+    rawResponse: true
+});
 
 // DELETE OPMC
-export async function DELETE(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
+export const DELETE = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
-        if (!id) return NextResponse.json({ message: 'ID required' }, { status: 400 });
+    if (!id) throw AppError.badRequest('ID required');
 
-        await prisma.oPMC.delete({
-            where: { id }
-        });
-
-        try {
-            await CacheService.del(OPMC_CACHE_KEY);
-        } catch (cacheError) {
-            console.error(`[CACHE ERROR] Failed to invalidate OPMCs cache:`, cacheError);
-        }
-        return NextResponse.json({ message: 'OPMC deleted successfully' });
-    } catch (error) {
-        console.error('Error deleting OPMC:', error);
-        return NextResponse.json({ message: 'Error deleting OPMC' }, { status: 500 });
-    }
-}
+    await OpmcService.deleteOPMC(id);
+    return { message: 'OPMC deleted successfully' };
+}, {
+    roles: ['SUPER_ADMIN'],
+    audit: { action: 'OPMC_DELETE', entity: 'OPMC' },
+    rawResponse: true
+});

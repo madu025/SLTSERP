@@ -1,10 +1,4 @@
-// ============================================================
-// Module: contractor
-// Models: Contractor, ContractorStock, ContractorTeam, TeamStoreAssignment, TeamMember, ContractorPaymentConfig, ContractorPaymentTier, Penalty, ContractorPerformanceScore
-// ============================================================
-
 model Contractor {
-
   id                      String                           @id @default(cuid())
   name                    String
   contactNumber           String?
@@ -21,7 +15,7 @@ model Contractor {
   policeReportUrl         String?
   gramaCertUrl            String?
   registrationFeePaid     Boolean                          @default(false)
-  registrationFeeSlipUrl  String?                          // Registration Fee Payment Slip URL
+  registrationFeeSlipUrl  String?
   agreementSigned         Boolean                          @default(false)
   agreementDate           DateTime?
   agreementDuration       Int?                             @default(1)
@@ -48,6 +42,7 @@ model Contractor {
   uploadTokenExpiry       DateTime?
   createdAt               DateTime                         @default(now())
   updatedAt               DateTime                         @updatedAt
+  collectedCPEs           CollectedCPE[]                   @relation("CollectedCPEs")
   armApprovedBy           User?                            @relation("ContractorArmApproval", fields: [armApprovedById], references: [id])
   opmc                    OPMC?                            @relation(fields: [opmcId], references: [id])
   ospApprovedBy           User?                            @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
@@ -57,17 +52,16 @@ model Contractor {
   balanceSheets           ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
   materialIssues          ContractorMaterialIssue[]        @relation("MaterialIssues")
   materialReturns         ContractorMaterialReturn[]       @relation("MaterialReturns")
-  collectedCPEs           CollectedCPE[]                   @relation("CollectedCPEs")
+  performanceScores       ContractorPerformanceScore[]
   stock                   ContractorStock[]
   teams                   ContractorTeam[]
   wastageReports          ContractorWastage[]
-  invoices                Invoice[]
   serials                 InventoryItemSerial[]
+  invoices                Invoice[]
   projects                Project[]
   serviceOrders           ServiceOrder[]
   stockIssues             StockIssue[]                     @relation("ContractorIssues")
   teamMembers             TeamMember[]
-  performanceScores       ContractorPerformanceScore[]
 
   @@index([status])
   @@index([opmcId])
@@ -175,9 +169,9 @@ model ContractorPaymentTier {
 model Penalty {
   id             String        @id @default(cuid())
   amount         Float         @default(0)
-  reason         String        // QC_FAILURE, PAT_REJECT, MATERIAL_MISMATCH, MANUAL
+  reason         String
   description    String?
-  status         String        @default("PENDING") // PENDING, APPROVED, REJECTED
+  status         String        @default("PENDING")
   proposedBy     String?
   invoiceId      String?
   serviceOrderId String?
@@ -188,46 +182,37 @@ model Penalty {
 }
 
 model ContractorPerformanceScore {
-  id                  String    @id @default(cuid())
-  contractorId        String
-  projectId           String?
-  project             Project?                  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  evaluationMonth     String    // Format: "YYYY-MM"
-  score               Float     @default(0) // 0-100%
-  
-  // Component Scores
-  productivityScore   Float?    // 0-100
-  qualityScore        Float?    // 0-100
-  safetyScore         Float?    // 0-100
-  slaComplianceScore  Float?   // 0-100
-  scheduleScore       Float?    // 0-100
-  
-  // Metrics
-  ncrCount            Int       @default(0)
-  ncrClosedCount      Int       @default(0)
-  hseIncidentCount    Int       @default(0)
-  completedTasksCount Int       @default(0)
-  delayedTasksCount   Int       @default(0)
-  totalTasksAssigned  Int       @default(0)
-  
-  // Ratings
-  averageRating       Float?    // From inspection ratings
-  inspectionCount     Int       @default(0)
-  inspectionPassCount Int       @default(0)
-
-  // Auto-KPI Fields (Phase 17)
-  patPassPct          Float?    // Auto from PATSession pass rate
-  materialWastagePct  Float?    // Auto from material records
-  reworkCount         Int?      // Auto from PAT fine-tune count
-  timelineAdherencePct Float?   // Auto from task completion vs planned
-  autoCalculated      Boolean   @default(false) // true = calculated by KPI engine
-  
-  evaluatedById       String?
-  evaluatedAt         DateTime  @default(now())
-  notes               String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  contractor          Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  id                   String     @id @default(cuid())
+  contractorId         String
+  projectId            String?
+  evaluationMonth      String
+  score                Float      @default(0)
+  productivityScore    Float?
+  qualityScore         Float?
+  safetyScore          Float?
+  slaComplianceScore   Float?
+  scheduleScore        Float?
+  ncrCount             Int        @default(0)
+  ncrClosedCount       Int        @default(0)
+  hseIncidentCount     Int        @default(0)
+  completedTasksCount  Int        @default(0)
+  delayedTasksCount    Int        @default(0)
+  totalTasksAssigned   Int        @default(0)
+  averageRating        Float?
+  inspectionCount      Int        @default(0)
+  inspectionPassCount  Int        @default(0)
+  patPassPct           Float?
+  materialWastagePct   Float?
+  reworkCount          Int?
+  timelineAdherencePct Float?
+  autoCalculated       Boolean    @default(false)
+  evaluatedById        String?
+  evaluatedAt          DateTime   @default(now())
+  notes                String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  contractor           Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  project              Project?   @relation(fields: [projectId], references: [id])
 
   @@unique([contractorId, evaluationMonth])
   @@index([contractorId])

@@ -4,6 +4,8 @@ import { TripStatusEnum } from '@prisma/client';
 import { createTripSchema, CreateTripSchema } from '@/lib/validations/trip.schema';
 import { Trip } from '@/types/vehicle-management.types';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET: List trips with filters
  */

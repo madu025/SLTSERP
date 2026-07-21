@@ -280,6 +280,17 @@ export class NotificationService {
     }
 
     /**
+     * Mark notifications matching linkPrefix as read for a user
+     */
+    static async markLinkPrefixAsRead(userId: string, linkPrefix: string) {
+        return await NotificationRepository.updateMany({
+            userId,
+            link: { startsWith: linkPrefix },
+            isRead: false
+        }, { isRead: true });
+    }
+
+    /**
      * Mark specific type notifications as read for a user
      */
     static async markTypeAsRead(userId: string, type: string) {
@@ -311,5 +322,59 @@ export class NotificationService {
      */
     static async deleteAll(userId: string) {
         return await NotificationRepository.deleteMany({ userId });
+    }
+
+    /**
+     * Get aggregated sidebar notification counts in memory
+     */
+    static async getSidebarCounts(userId: string) {
+        const unreadNotifications = await prisma.notification.findMany({
+            where: {
+                userId,
+                isRead: false
+            },
+            select: {
+                link: true,
+                metadata: true
+            },
+            take: 100
+        });
+
+        let approvalsCount = 0;
+        let helpdeskCount = 0;
+        let serviceOrdersCount = 0;
+        let procurementApprovalsCount = 0;
+        let contractorApprovalsCount = 0;
+        let materialRequestsCount = 0;
+        let materialApprovalsCount = 0;
+
+        for (const n of unreadNotifications) {
+            const link = n.link || "";
+
+            if (link.startsWith("/projects")) approvalsCount++;
+            else if (link.startsWith("/helpdesk")) helpdeskCount++;
+            else if (link.startsWith("/admin/inventory")) procurementApprovalsCount++;
+            else if (link.startsWith("/admin/contractors")) contractorApprovalsCount++;
+            else if (link.startsWith("/inventory/requests")) materialRequestsCount++;
+            else if (link.startsWith("/inventory/approvals")) materialApprovalsCount++;
+            else if (link.startsWith("/service-orders")) {
+                if (n.metadata && typeof n.metadata === 'object' && !Array.isArray(n.metadata)) {
+                    const meta = n.metadata as Record<string, unknown>;
+                    serviceOrdersCount += typeof meta.count === 'number' ? meta.count : 1;
+                } else {
+                    serviceOrdersCount += 1;
+                }
+            }
+        }
+
+        return {
+            approvals: approvalsCount,
+            helpdesk: helpdeskCount,
+            serviceOrders: serviceOrdersCount,
+            procurementApprovals: procurementApprovalsCount,
+            contractorApprovals: contractorApprovalsCount,
+            materialRequests: materialRequestsCount,
+            materialApprovals: materialApprovalsCount
+        };
     }
 }

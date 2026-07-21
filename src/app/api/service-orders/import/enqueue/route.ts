@@ -1,72 +1,57 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { sodImportQueue, addJob } from '@/lib/queue';
-import { handleApiError } from '@/lib/api-utils';
+import { AppError } from '@/lib/error';
 
-export async function POST(request: Request) {
-    try {
-        const userId = request.headers.get('x-user-id');
-        const userRole = request.headers.get('x-user-role');
+export const dynamic = 'force-dynamic';
 
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+export const POST = apiHandler(async (request, _params, body) => {
+    const userId = request.headers.get('x-user-id') || 'SYSTEM';
+    const { rows, skipMaterials = false } = body || {};
 
-        if (!['ADMIN', 'SUPER_ADMIN'].includes(userRole || '')) {
-            return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-        }
-
-        const body = await request.json();
-        const { rows, skipMaterials = false } = body;
-
-        if (!rows || !Array.isArray(rows) || rows.length === 0) {
-            return NextResponse.json({ error: 'No data to import' }, { status: 400 });
-        }
-
-        // Add job to the queue
-        const job = await addJob(sodImportQueue, 'sod-import-task', {
-            rows,
-            skipMaterials,
-            userId
-        });
-
-        return NextResponse.json({
-            success: true,
-            jobId: job.id,
-            message: 'Import task queued successfully'
-        });
-    } catch (error) {
-        return handleApiError(error);
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw AppError.badRequest('No data to import');
     }
-}
 
-// GET status of a job
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const jobId = searchParams.get('jobId');
+    const job = await addJob(sodImportQueue, 'sod-import-task', {
+        rows,
+        skipMaterials,
+        userId
+    });
 
-        if (!jobId) {
-            return NextResponse.json({ error: 'Job ID required' }, { status: 400 });
-        }
+    return {
+        success: true,
+        jobId: job.id,
+        message: 'Import task queued successfully'
+    };
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'ENQUEUE_BULK_IMPORT', entity: 'ServiceOrder' },
+    rawResponse: true
+});
 
-        const job = await sodImportQueue.getJob(jobId);
-        if (!job) {
-            return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-        }
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const jobId = searchParams.get('jobId');
 
-        const state = await job.getState();
-        const progress = job.progress;
-        const result = job.returnvalue;
-        const failedReason = job.failedReason;
-
-        return NextResponse.json({
-            id: job.id,
-            state,
-            progress,
-            result,
-            failedReason
-        });
-    } catch (error) {
-        return handleApiError(error);
+    if (!jobId) {
+        throw AppError.badRequest('Job ID required');
     }
-}
+
+    const job = await sodImportQueue.getJob(jobId);
+    if (!job) {
+        throw AppError.notFound('Job not found');
+    }
+
+    const state = await job.getState();
+    const progress = job.progress;
+    const result = job.returnvalue;
+    const failedReason = job.failedReason;
+
+    return {
+        id: job.id,
+        state,
+        progress,
+        result,
+        failedReason
+    };
+}, { rawResponse: true });

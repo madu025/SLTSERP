@@ -14,12 +14,13 @@ export const GET = apiHandler(async (request) => {
 }, { rawResponse: true });
 
 // POST /api/vendors - Create a new vendor with auto-generated code
-export const POST = apiHandler(async (request, _params, body) => {
+export const POST = apiHandler(async (_request, _params, body) => {
     try {
         const vendor = await VendorService.createVendor(body);
         return vendor;
-    } catch (error: any) {
-        const message = error.message;
+    } catch (error: unknown) {
+        const err = error as { code?: string; message?: string };
+        const message = err.message;
 
         if (message === 'NAME_REQUIRED') {
             throw AppError.badRequest("Vendor name is required");
@@ -29,7 +30,7 @@ export const POST = apiHandler(async (request, _params, body) => {
             throw AppError.badRequest("A vendor with this name already exists");
         }
 
-        if (error.code === "P2002") {
+        if (err.code === "P2002") {
             throw AppError.badRequest("A vendor with this code already exists");
         }
 

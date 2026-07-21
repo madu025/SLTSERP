@@ -40,6 +40,10 @@ export class AppError extends Error {
         return new AppError(message, ErrorCode.FORBIDDEN, 403);
     }
 
+    static conflict(message: string) {
+        return new AppError(message, ErrorCode.CONFLICT, 409);
+    }
+
     static validation(message: string, details?: any) {
         return new AppError(message, ErrorCode.VALIDATION_ERROR, 422, details);
     }

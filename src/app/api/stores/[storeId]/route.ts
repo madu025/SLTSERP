@@ -1,56 +1,47 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
+import { AppError } from '@/lib/error';
+
+export const dynamic = 'force-dynamic';
 
 // GET - Get single store
-export async function GET(
-    request: Request,
-    props: { params: Promise<{ storeId: string }> }
-) {
-    const params = await props.params;
-    try {
-        const store = await InventoryService.getStore(params.storeId);
+export const GET = apiHandler(async (_request, params) => {
+    const { storeId } = await params;
+    const store = await InventoryService.getStore(storeId);
 
-        if (!store) {
-            return NextResponse.json({ error: 'Store not found' }, { status: 404 });
-        }
-
-        return NextResponse.json(store);
-    } catch (error) {
-        console.error('Error fetching store:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    if (!store) {
+        throw AppError.notFound('Store not found');
     }
-}
+
+    return store;
+}, { rawResponse: true });
 
 // PUT - Update store
-export async function PUT(
-    request: Request,
-    props: { params: Promise<{ storeId: string }> }
-) {
-    const params = await props.params;
-    try {
-        const body = await request.json();
-        const store = await InventoryService.updateStore(params.storeId, body);
-        return NextResponse.json(store);
-    } catch (error) {
-        console.error('Error updating store:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-    }
-}
+export const PUT = apiHandler(async (_request, params, body) => {
+    const { storeId } = await params;
+    const store = await InventoryService.updateStore(storeId, body);
+    return store;
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'STORE_UPDATE', entity: 'Store' },
+    rawResponse: true
+});
 
 // DELETE - Delete store
-export async function DELETE(
-    request: Request,
-    props: { params: Promise<{ storeId: string }> }
-) {
-    const params = await props.params;
+export const DELETE = apiHandler(async (_request, params) => {
+    const { storeId } = await params;
+
     try {
-        await InventoryService.deleteStore(params.storeId);
-        return NextResponse.json({ success: true });
+        await InventoryService.deleteStore(storeId);
+        return { success: true };
     } catch (error: any) {
-        if (error.message === 'STORE_HAS_STOCK' || error.message === 'STORE_HAS_TRANSACTIONS') {
-            return NextResponse.json({ error: 'Store cannot be deleted as it has associated stock or transactions' }, { status: 400 });
+        if (error?.message === 'STORE_HAS_STOCK' || error?.message === 'STORE_HAS_TRANSACTIONS') {
+            throw AppError.badRequest('Store cannot be deleted as it has associated stock or transactions');
         }
-        console.error('Error deleting store:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    roles: ['SUPER_ADMIN'],
+    audit: { action: 'STORE_DELETE', entity: 'Store' },
+    rawResponse: true
+});

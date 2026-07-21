@@ -1,47 +1,41 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ProjectWorkflowService } from '@/services/project-workflow.service';
+import { AppError } from '@/lib/error';
 
-// GET /api/projects/[id]/workflow - Get active workflow instance
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const workflowInstance = await ProjectWorkflowService.getWorkflow(id);
+export const dynamic = 'force-dynamic';
 
-        if (!workflowInstance) {
-            return NextResponse.json({ error: 'No active workflow found and could not auto-initialize' }, { status: 404 });
-        }
+// GET /api/projects/[id]/workflow
+export const GET = apiHandler(async (_request, params) => {
+    const { id } = await params;
+    const workflowInstance = await ProjectWorkflowService.getWorkflow(id);
 
-        return NextResponse.json(workflowInstance);
-    } catch (error: any) {
-        console.error('Error fetching project workflow:', error);
-        return NextResponse.json({ error: error.message || 'Failed to fetch project workflow' }, { status: 500 });
+    if (!workflowInstance) {
+        throw AppError.notFound('No active workflow found and could not auto-initialize');
     }
-}
+
+    return workflowInstance;
+}, { rawResponse: true });
 
 // POST /api/projects/[id]/workflow - Initialize workflow manually
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const { projectTypeId } = await request.json();
+export const POST = apiHandler(async (_request, params, body) => {
+    const { id } = await params;
+    const { projectTypeId } = body || {};
 
-        if (!projectTypeId) {
-            return NextResponse.json({ error: 'projectTypeId is required' }, { status: 400 });
-        }
-
-        const workflowInstance = await ProjectWorkflowService.initializeWorkflow(id, projectTypeId);
-        return NextResponse.json({ success: true, workflowInstance });
-    } catch (error: any) {
-        console.error('Error initializing workflow:', error);
-        const message = error.message;
-        if (message === 'WORKFLOW_ALREADY_INITIALIZED') {
-            return NextResponse.json({ error: 'Workflow already initialized for this project' }, { status: 400 });
-        }
-        return NextResponse.json({ error: message || 'Failed to initialize workflow' }, { status: 500 });
+    if (!projectTypeId) {
+        throw AppError.badRequest('projectTypeId is required');
     }
-}
+
+    try {
+        const workflowInstance = await ProjectWorkflowService.initializeWorkflow(id, projectTypeId);
+        return { success: true, workflowInstance };
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err?.message === 'WORKFLOW_ALREADY_INITIALIZED') {
+            throw AppError.badRequest('Workflow already initialized for this project');
+        }
+        throw error;
+    }
+}, {
+    audit: { action: 'INITIALIZE_WORKFLOW', entity: 'Project' },
+    rawResponse: true
+});

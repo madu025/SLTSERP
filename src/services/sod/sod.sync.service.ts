@@ -6,8 +6,10 @@ import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
 import { SodUtils } from './sod.utils';
+import { SystemConfigService } from '../system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
 import { MaterialUsageInput } from './sod-types';
+import { format, subMonths } from 'date-fns';
 interface SyncStats {
     queuedCount: number;
     jobIds: string[];
@@ -80,21 +82,26 @@ export class SODSyncService {
 
             const sltDataMap = new Map(sltData.map(item => [item.SO_NUM, item]));
 
-            for (const order of matchingOrders) {
-                const match = sltDataMap.get(order.soNum);
-                if (match) {
-                    const status = match.CON_STATUS;
-                    await prisma.serviceOrder.update({
-                        where: { id: order.id },
-                        data: {
-                            opmcPatStatus: status,
-                            opmcPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                            isInvoicable: status === 'PAT_PASSED' && 
-                                          order.hoPatStatus === 'PAT_PASSED' && 
-                                          order.sltsPatStatus === 'PAT_PASSED'
-                        }
-                    });
-                }
+            // Optimization: Controlled concurrency chunking (50 concurrent updates at a time)
+            const updateChunkSize = 50;
+            for (let j = 0; j < matchingOrders.length; j += updateChunkSize) {
+                const chunk = matchingOrders.slice(j, j + updateChunkSize);
+                await Promise.all(chunk.map(async (order) => {
+                    const match = sltDataMap.get(order.soNum || '');
+                    if (match) {
+                        const status = match.CON_STATUS;
+                        await prisma.serviceOrder.update({
+                            where: { id: order.id },
+                            data: {
+                                opmcPatStatus: status,
+                                opmcPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+                                isInvoicable: status === 'PAT_PASSED' && 
+                                              order.hoPatStatus === 'PAT_PASSED' && 
+                                              order.sltsPatStatus === 'PAT_PASSED'
+                            }
+                        });
+                    }
+                }));
             }
 
             if (matchingOrders.length > 0) {
@@ -210,20 +217,26 @@ export class SODSyncService {
                 });
 
                 const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
-                for (const order of ordersToUpdate) {
-                    const match = batchMap.get(order.soNum);
-                    if (match) {
-                        await prisma.serviceOrder.update({
-                            where: { id: order.id },
-                            data: {
-                                hoPatStatus: 'PAT_PASSED',
-                                hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                                opmcPatStatus: 'PAT_PASSED',
-                                isInvoicable: order.sltsPatStatus === 'PAT_PASSED'
-                            }
-                        });
-                        totalUpdated++;
-                    }
+                
+                // Optimization: Controlled concurrency chunking (50 concurrent updates at a time)
+                const updateChunkSize = 50;
+                for (let j = 0; j < ordersToUpdate.length; j += updateChunkSize) {
+                    const chunk = ordersToUpdate.slice(j, j + updateChunkSize);
+                    await Promise.all(chunk.map(async (order) => {
+                        const match = batchMap.get(order.soNum || '');
+                        if (match) {
+                            await prisma.serviceOrder.update({
+                                where: { id: order.id },
+                                data: {
+                                    hoPatStatus: 'PAT_PASSED',
+                                    hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+                                    opmcPatStatus: 'PAT_PASSED',
+                                    isInvoicable: order.sltsPatStatus === 'PAT_PASSED'
+                                }
+                            });
+                            totalUpdated++;
+                        }
+                    }));
                 }
             }
 
@@ -332,24 +345,30 @@ export class SODSyncService {
                 });
 
                 const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
-                for (const order of ordersToUpdate) {
-                    const match = batchMap.get(order.soNum);
-                    if (match) {
-                        await prisma.$transaction(async (tx) => {
-                            await tx.serviceOrder.update({
-                                where: { id: order.id },
-                                data: {
-                                    hoPatStatus: 'PAT_REJECTED',
-                                    hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                                    isInvoicable: false
-                                }
+                
+                // Optimization: Controlled concurrency chunking (5 concurrent transactions at a time to prevent deadlocks)
+                const updateChunkSize = 5;
+                for (let j = 0; j < ordersToUpdate.length; j += updateChunkSize) {
+                    const chunk = ordersToUpdate.slice(j, j + updateChunkSize);
+                    await Promise.all(chunk.map(async (order) => {
+                        const match = batchMap.get(order.soNum || '');
+                        if (match) {
+                            await prisma.$transaction(async (tx) => {
+                                await tx.serviceOrder.update({
+                                    where: { id: order.id },
+                                    data: {
+                                        hoPatStatus: 'PAT_REJECTED',
+                                        hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+                                        isInvoicable: false
+                                    }
+                                });
+                                // Trigger rollbacks since it got HO-rejected
+                                await SODMaterialService.rollbackMaterialUsage(tx, order.id, 'HO_REJECT');
+                                await LedgerService.rollbackSodTransaction(tx, order.id);
                             });
-                            // Trigger rollbacks since it got HO-rejected
-                            await SODMaterialService.rollbackMaterialUsage(tx, order.id, 'HO_REJECT');
-                            await LedgerService.rollbackSodTransaction(tx, order.id);
-                        });
-                        totalUpdated++;
-                    }
+                            totalUpdated++;
+                        }
+                    }));
                 }
             }
 
@@ -388,19 +407,48 @@ export class SODSyncService {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
         
         if (process.env.VERCEL === '1') {
-            console.log('[SYNC] Serverless/Vercel environment: running sync synchronously for all OPMCs...');
+            console.log('[SYNC] Serverless/Vercel environment: running sync synchronously for all OPMCs with controlled concurrency...');
             let created = 0;
             let updated = 0;
-            const results = [];
-            for (const opmc of opmcs) {
-                try {
-                    const res = await this.syncServiceOrders(opmc.id, opmc.rtom);
-                    created += res.created;
-                    updated += res.updated;
-                    results.push({ rtom: opmc.rtom, ...res });
-                } catch (e) {
-                    console.error(`[SYNC] Failed to sync ${opmc.rtom}:`, e);
-                    results.push({ rtom: opmc.rtom, error: String(e) });
+            const results: any[] = [];
+
+            // ── Optimization: Pre-load ALL INPROGRESS SODs across every OPMC in one query ──
+            // This eliminates 44 per-OPMC findMany queries for disappeared SOD detection.
+            const allOpmcIds = opmcs.map(o => o.id);
+            const allPendingSods = await prisma.serviceOrder.findMany({
+                where: { opmcId: { in: allOpmcIds }, sltsStatus: 'INPROGRESS' },
+                select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, opmcId: true }
+            });
+            // Group by opmcId → O(P) build time, O(1) lookup per OPMC
+            const pendingByOpmc = new Map<string, typeof allPendingSods>();
+            for (const sod of allPendingSods) {
+                const list = pendingByOpmc.get(sod.opmcId) || [];
+                list.push(sod);
+                pendingByOpmc.set(sod.opmcId, list);
+            }
+            
+            const concurrencyLimit = 4;
+            for (let i = 0; i < opmcs.length; i += concurrencyLimit) {
+                const chunk = opmcs.slice(i, i + concurrencyLimit);
+                const chunkResults = await Promise.all(chunk.map(async (opmc) => {
+                    try {
+                        const localPendingSods = pendingByOpmc.get(opmc.id) || [];
+                        const res = await this.syncServiceOrders(opmc.id, opmc.rtom, localPendingSods);
+                        return { rtom: opmc.rtom, success: true, created: res.created, updated: res.updated };
+                    } catch (e) {
+                        console.error(`[SYNC] Failed to sync ${opmc.rtom}:`, e);
+                        return { rtom: opmc.rtom, success: false, error: String(e) };
+                    }
+                }));
+
+                for (const r of chunkResults) {
+                    if (r.success) {
+                        created += r.created || 0;
+                        updated += r.updated || 0;
+                        results.push({ rtom: r.rtom, created: r.created, updated: r.updated });
+                    } else {
+                        results.push({ rtom: r.rtom, error: r.error });
+                    }
                 }
             }
 
@@ -478,9 +526,18 @@ export class SODSyncService {
     /**
      * Sync single OPMC Service Orders
      */
-    static async syncServiceOrders(opmcId: string, rtom: string) {
+    static async syncServiceOrders(
+        opmcId: string,
+        rtom: string,
+        preloadedPendingSods?: { id: string; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: string }[]
+    ) {
         const sltData = await sltApiService.fetchServiceOrders(rtom);
         if (!sltData || sltData.length === 0) return { created: 0, updated: 0 };
+
+        const configs = await SystemConfigService.getConfigs();
+        const offlineOrderTypes = (configs['OFFLINE_ORDER_TYPES'] || 'MODIFY-LOCATION')
+            .split(',')
+            .map(s => s.trim().toUpperCase());
 
         const sltSoNums = sltData.map(item => item.SO_NUM);
         const existingSods = await prisma.serviceOrder.findMany({
@@ -502,94 +559,236 @@ export class SODSyncService {
         const syncableData = Array.from(uniqueSyncMap.values());
 
         let created = 0; let updated = 0;
-        const chunkSize = 5;
-        for (let i = 0; i < syncableData.length; i += chunkSize) {
-            const chunk = syncableData.slice(i, i + chunkSize);
-            await Promise.all(chunk.map(async (item) => {
-                try {
-                    const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
-                    const completionStatuses = ['INSTALL_CLOSED'];
-                    const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+
+        // ── Optimization: Collect new records in a batch, flush with createMany ──
+        // Reduces O(N) individual DB round-trips to O(1) per OPMC
+        const toCreate: Prisma.ServiceOrderUncheckedCreateInput[] = [];
+
+        for (const item of syncableData) {
+            try {
+                const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
+                const completionStatuses = ['INSTALL_CLOSED'];
+                const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+                
+                let initialSltsStatus = 'INPROGRESS';
+                const isOfflineType = offlineOrderTypes.includes((item.ORDER_TYPE || '').toUpperCase());
+
+                if (isOfflineType || (item.CON_STATUS || '').toUpperCase() === 'OFFLINE') {
+                    initialSltsStatus = 'OFFLINE';
+                } else if (completionStatuses.includes(item.CON_STATUS)) {
+                    initialSltsStatus = 'COMPLETED';
+                } else if ((item.CON_STATUS || '').toUpperCase() === 'PROV_CLOSED') {
+                    initialSltsStatus = 'PROV_CLOSED';
+                } else if (returnStatuses.includes((item.CON_STATUS || '').toUpperCase())) {
+                    initialSltsStatus = 'RETURN';
+                }
+
+                const existing = existingMap.get(item.SO_NUM);
+                const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
+                    status: item.CON_STATUS,
+                    lea: item.LEA,
+                    voiceNumber: item.VOICENUMBER,
+                    orderType: item.ORDER_TYPE,
+                    serviceType: item.S_TYPE,
+                    customerName: item.CON_CUS_NAME,
+                    techContact: item.CON_TEC_CONTACT,
+                    statusDate,
+                    address: item.ADDRE,
+                    dp: item.DP,
+                    package: item.PKG,
+                    woroTaskName: item.CON_WORO_TASK_NAME,
+                    iptv: item.IPTV,
+                    woroSeit: item.CON_WORO_SEIT,
+                    ftthInstSeit: item.FTTH_INST_SIET,
+                    ftthWifi: item.FTTH_WIFI,
+                    ospPhoneClass: item.CON_OSP_PHONE_CLASS,
+                    phonePurchase: item.CON_PHN_PURCH,
+                    sales: item.CON_SALES,
+                    completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined,
+                    sltsStatus: initialSltsStatus,
+                    returnReason: initialSltsStatus === 'RETURN' ? (item.CON_STATUS || 'Returned in external portal') : undefined
+                };
+
+                if (existing) {
+                    const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
+                    const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
                     
-                    let initialSltsStatus = 'INPROGRESS';
-                    if (completionStatuses.includes(item.CON_STATUS)) {
-                        initialSltsStatus = 'COMPLETED';
-                    } else if (returnStatuses.includes((item.CON_STATUS || '').toUpperCase())) {
-                        initialSltsStatus = 'RETURN';
-                    }
-
-                    const existing = existingMap.get(item.SO_NUM);
-                    const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                        status: item.CON_STATUS,
-                        lea: item.LEA,
-                        voiceNumber: item.VOICENUMBER,
-                        orderType: item.ORDER_TYPE,
-                        serviceType: item.S_TYPE,
-                        customerName: item.CON_CUS_NAME,
-                        techContact: item.CON_TEC_CONTACT,
-                        statusDate,
-                        address: item.ADDRE,
-                        dp: item.DP,
-                        package: item.PKG,
-                        woroTaskName: item.CON_WORO_TASK_NAME,
-                        iptv: item.IPTV,
-                        woroSeit: item.CON_WORO_SEIT,
-                        ftthInstSeit: item.FTTH_INST_SIET,
-                        ftthWifi: item.FTTH_WIFI,
-                        ospPhoneClass: item.CON_OSP_PHONE_CLASS,
-                        phonePurchase: item.CON_PHN_PURCH,
-                        sales: item.CON_SALES,
-                        completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined,
-                        sltsStatus: initialSltsStatus,
-                        returnReason: initialSltsStatus === 'RETURN' ? (item.CON_STATUS || 'Returned in external portal') : undefined
-                    };
-
-                    if (existing) {
-                        const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
-                        const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
-                        
-                        await prisma.$transaction(async (tx) => {
-                            await tx.serviceOrder.update({
-                                where: { id: existing.id },
-                                data: {
-                                    ...updatePayload,
-                                    sltsStatus: isRestoring ? 'INPROGRESS' : (updatePayload.sltsStatus as string),
-                                    receivedDate: isRestoring ? new Date() : undefined,
-                                    comments: isRestoring
-                                        ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
-                                        : undefined,
-                                    returnReason: isRestoring ? null : undefined
-                                }
-                            });
-                            
-                            if (isReturning) {
-                                await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
-                                await LedgerService.rollbackSodTransaction(tx, existing.id);
+                    await prisma.$transaction(async (tx) => {
+                        await tx.serviceOrder.update({
+                            where: { id: existing.id },
+                            data: {
+                                ...updatePayload,
+                                sltsStatus: isRestoring ? 'INPROGRESS' : (updatePayload.sltsStatus as string),
+                                receivedDate: isRestoring ? new Date() : undefined,
+                                comments: isRestoring
+                                    ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
+                                    : undefined,
+                                returnReason: isRestoring ? null : undefined
                             }
                         });
-                        updated++;
-                    } else {
-                        const isFinished = initialSltsStatus === 'COMPLETED';
-                        const isRecent = statusDate.getFullYear() >= 2026;
-                        if (!isFinished || isRecent) {
-                            await prisma.serviceOrder.create({
-                                data: {
-                                    ...updatePayload,
-                                    opmcId,
-                                    rtom: item.RTOM || rtom,
-                                    soNum: item.SO_NUM,
-                                    receivedDate: statusDate,
-                                    completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : null,
-                                    sltsStatus: initialSltsStatus
-                                } as Prisma.ServiceOrderUncheckedCreateInput
-                            });
-                            created++;
+                        
+                        if (isReturning) {
+                            await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
+                            await LedgerService.rollbackSodTransaction(tx, existing.id);
                         }
+                    });
+                    updated++;
+                } else {
+                    const isFinished = initialSltsStatus === 'COMPLETED';
+                    const isRecent = statusDate.getFullYear() >= 2026;
+                    if (!isFinished || isRecent) {
+                        toCreate.push({
+                            ...updatePayload,
+                            opmcId,
+                            rtom: item.RTOM || rtom,
+                            soNum: item.SO_NUM,
+                            receivedDate: statusDate,
+                            completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : null,
+                            sltsStatus: initialSltsStatus
+                        } as Prisma.ServiceOrderUncheckedCreateInput);
                     }
-                } catch (err) {
-                    console.error(`[SYNC] Failed to sync ${item.SO_NUM}:`, err);
                 }
-            }));
+            } catch (err) {
+                console.error(`[SYNC] Failed to sync ${item.SO_NUM}:`, err);
+            }
+        }
+
+        // Flush all new SODs in a single createMany call — O(1) round-trip vs O(N)
+        if (toCreate.length > 0) {
+            try {
+                await prisma.serviceOrder.createMany({ data: toCreate, skipDuplicates: true });
+                created = toCreate.length;
+            } catch (createErr) {
+                console.error(`[SYNC] Failed to batch create SODs for ${rtom}:`, createErr);
+            }
+        }
+
+        // ── Optimization: Use pre-loaded pending SODs instead of re-querying DB ──
+        // When called from syncAllOpmcs, pendingSods are pre-loaded globally (O(1) lookup)
+        // When called standalone, fall back to per-OPMC query
+        const localPendingSods = preloadedPendingSods ?? await prisma.serviceOrder.findMany({
+            where: { opmcId, sltsStatus: 'INPROGRESS' },
+            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
+        });
+
+        const sltSoNumSet = new Set(sltSoNums);
+        const disappearedSods = localPendingSods.filter(sod => sod.soNum && !sltSoNumSet.has(sod.soNum));
+
+        if (disappearedSods.length > 0) {
+            console.log(`[SYNC-DISAPPEARED] Found ${disappearedSods.length} disappeared SODs for RTOM: ${rtom}. Fetching external status...`);
+            const today = new Date();
+            // Fetch last 2 months of completed SODs to locate missing ones
+            const startDate = format(subMonths(today, 2), 'yyyy-MM-dd');
+            const endDate = format(today, 'yyyy-MM-dd');
+            
+            const [completedResults, rejectedResults] = await Promise.all([
+                sltApiService.fetchCompletedSODs(rtom, startDate, endDate),
+                sltApiService.fetchOpmcRejected(rtom)
+            ]);
+
+            const externalStatusMap = new Map<string, { status: string; statusDate: string; rawItem?: any }>();
+            
+            completedResults.forEach(item => {
+                externalStatusMap.set(item.SO_NUM, { status: item.CON_STATUS, statusDate: item.CON_STATUS_DATE, rawItem: item });
+            });
+            
+            rejectedResults.forEach(item => {
+                externalStatusMap.set(item.SO_NUM, { status: item.CON_STATUS, statusDate: item.CON_STATUS_DATE, rawItem: item });
+            });
+
+            for (const disappearedSod of disappearedSods) {
+                try {
+                    const match = externalStatusMap.get(disappearedSod.soNum || '');
+                    if (match) {
+                        const statusDate = sltApiService.parseStatusDate(match.statusDate) || new Date();
+                        const completionStatuses = ['INSTALL_CLOSED'];
+                        const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+                        
+                        let nextSltsStatus = 'INPROGRESS';
+                        const isOfflineType = match.rawItem?.ORDER_TYPE 
+                            ? offlineOrderTypes.includes(match.rawItem.ORDER_TYPE.toUpperCase()) 
+                            : false;
+
+                        if (isOfflineType || match.status.toUpperCase() === 'OFFLINE') {
+                            nextSltsStatus = 'OFFLINE';
+                        } else if (completionStatuses.includes(match.status)) {
+                            nextSltsStatus = 'COMPLETED';
+                        } else if (match.status.toUpperCase() === 'PROV_CLOSED') {
+                            nextSltsStatus = 'PROV_CLOSED';
+                        } else if (returnStatuses.includes(match.status.toUpperCase())) {
+                            nextSltsStatus = 'RETURN';
+                        }
+
+                        if (nextSltsStatus !== 'INPROGRESS') {
+                            await prisma.$transaction(async (tx) => {
+                                const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
+                                    status: match.status,
+                                    statusDate,
+                                    sltsStatus: nextSltsStatus,
+                                    completedDate: nextSltsStatus === 'COMPLETED' ? statusDate : undefined,
+                                    returnReason: nextSltsStatus === 'RETURN' ? (match.status || 'Returned in external portal') : undefined
+                                };
+
+                                if (match.rawItem) {
+                                    const item = match.rawItem;
+                                    Object.assign(updatePayload, {
+                                        lea: item.LEA || undefined,
+                                        voiceNumber: item.VOICENUMBER || undefined,
+                                        orderType: item.ORDER_TYPE || undefined,
+                                        serviceType: item.S_TYPE || undefined,
+                                        customerName: item.CON_CUS_NAME || undefined,
+                                        techContact: item.CON_TEC_CONTACT || undefined,
+                                        address: item.ADDRE || undefined,
+                                        dp: item.DP || undefined,
+                                        package: item.PKG || undefined,
+                                        woroTaskName: item.CON_WORO_TASK_NAME || undefined,
+                                        iptv: item.IPTV || undefined,
+                                        woroSeit: item.CON_WORO_SEIT || undefined,
+                                        ftthInstSeit: item.FTTH_INST_SIET || undefined,
+                                        ftthWifi: item.FTTH_WIFI || undefined,
+                                        ospPhoneClass: item.CON_OSP_PHONE_CLASS || undefined,
+                                        phonePurchase: item.CON_PHN_PURCH || undefined,
+                                        sales: item.CON_SALES || undefined
+                                    });
+                                }
+
+                                await tx.serviceOrder.update({
+                                    where: { id: disappearedSod.id },
+                                    data: updatePayload
+                                });
+
+                                if (nextSltsStatus === 'RETURN') {
+                                    await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'SYNC_SERVICE');
+                                    await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
+                                }
+                            });
+                            updated++;
+                        }
+                    } else {
+                        // Disappeared and not found anywhere in completed or rejected -> mark as returned
+                        console.log(`[SYNC-DISAPPEARED] SOD ${disappearedSod.soNum} not found in completed/rejected lists. Marking as RETURN.`);
+                        await prisma.$transaction(async (tx) => {
+                            await tx.serviceOrder.update({
+                                where: { id: disappearedSod.id },
+                                data: {
+                                    status: 'RETURNED',
+                                    sltsStatus: 'RETURN',
+                                    completedDate: new Date(),
+                                    returnReason: 'Removed from external portal',
+                                    comments: disappearedSod.comments 
+                                        ? `${disappearedSod.comments}\n[AUTO-RETURN] Disappeared from external portal` 
+                                        : '[AUTO-RETURN] Disappeared from external portal'
+                                }
+                            });
+                            await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'SYNC_SERVICE');
+                            await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
+                        });
+                        updated++;
+                    }
+                } catch (disError) {
+                    console.error(`[SYNC-DISAPPEARED] Failed to process disappeared SOD ${disappearedSod.soNum}:`, disError);
+                }
+            }
         }
 
         if (created > 0 || updated > 0) {
@@ -600,21 +799,34 @@ export class SODSyncService {
             }
         }
 
-        if (created > 0) {
+        if (created > 0 || updated > 0) {
             try {
                 const { NotificationService } = await import('@/services/notification.service');
+                
+                let title = 'Service Orders Synced';
+                let message = '';
+                if (created > 0 && updated > 0) {
+                    message = `${created} new service orders were synced and ${updated} existing orders were updated in the latest portal update.`;
+                } else if (created > 0) {
+                    title = 'New Service Orders Synced';
+                    message = `${created} new pending service orders were synced in the latest portal update.`;
+                } else {
+                    title = 'Service Orders Updated';
+                    message = `${updated} existing service orders were updated (status transitions completed/returned) in the latest portal update.`;
+                }
+
                 await NotificationService.notifyByRole({
                     roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT'],
-                    title: 'New Service Orders Synced',
-                    message: `${created} new pending service orders were synced in the latest portal update.`,
+                    title,
+                    message,
                     type: 'SYSTEM',
                     priority: 'MEDIUM',
                     link: '/service-orders',
                     opmcId,
-                    metadata: { count: created, opmcId }
+                    metadata: { count: created + updated, created, updated, opmcId }
                 });
             } catch (err) {
-                console.error('[SYNC-NOTIFY] Failed to broadcast new SOD notifications:', err);
+                console.error('[SYNC-NOTIFY] Failed to broadcast SOD notifications:', err);
             }
         }
 
@@ -669,22 +881,22 @@ export class SODSyncService {
         const deepData = SodUtils.deepParse(masterData);
 
         const mapping: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
-            rtom: masterData['RTOM'] || deepData['RTOM'],
+            rtom: masterData['RTOM'] || masterData['CON_RTOM'] || deepData['RTOM'],
             lea: masterData['LEA'],
-            voiceNumber: masterData['CIRCUIT'] || masterData['VOICE NUMBER'] || deepData['CIRCUIT'] || masterData['PRIMARY'],
-            orderType: masterData['ORDER TYPE'] || deepData['ORDER TYPE'],
-            serviceType: masterData['SERVICE TYPE'] || masterData['SERVICE'] || deepData['SERVICE'],
-            customerName: masterData['CUSTOMER NAME'] || deepData['CUSTOMER NAME'],
-            techContact: masterData['CONTACT NO'] || masterData['CONTACT NUMBER'] || deepData['CONTACT NO'],
-            address: masterData['ADDRESS'] || deepData['ADDRESS'],
-            status: masterData['STATUS'] || deepData['STATUS'],
-            package: masterData['PACKAGE'] || deepData['PACKAGE'],
+            voiceNumber: masterData['VOICENUMBER'] || masterData['CIRCUIT'] || masterData['VOICE NUMBER'] || deepData['CIRCUIT'] || masterData['PRIMARY'],
+            orderType: masterData['ORDER_TYPE'] || masterData['ORDER TYPE'] || deepData['ORDER TYPE'],
+            serviceType: masterData['S_TYPE'] || masterData['SERVICE TYPE'] || masterData['SERVICE'] || deepData['SERVICE'],
+            customerName: masterData['CON_CUS_NAME'] || masterData['CUS_NAME'] || masterData['CUSTOMER NAME'] || deepData['CUSTOMER NAME'],
+            techContact: masterData['CON_TEC_CONTACT'] || masterData['CONTACT NO'] || masterData['CONTACT NUMBER'] || deepData['CONTACT NO'],
+            address: masterData['ADDRE'] || masterData['ADDRESS'] || deepData['ADDRESS'],
+            status: masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'],
+            package: masterData['PKG'] || masterData['PACKAGE'] || deepData['PACKAGE'],
             iptv: masterData['IPTV'],
-            dpDetails: masterData['DP LOOP'] || masterData['DP'] || deepData['DP LOOP'] || masterData['DP_DETAILS'] || masterData['CONNECTION POINT (DP)'],
+            dpDetails: masterData['DP'] || masterData['DP LOOP'] || deepData['DP LOOP'] || masterData['DP_DETAILS'] || masterData['CONNECTION POINT (DP)'],
             sales: masterData['SALES PERSON'] || masterData['SALES'] || deepData['SALES PERSON'],
         };
 
-        let ontVal = masterData['ONT_ROUTER_SERIAL_NUMBER'] || masterData['ONT'] || masterData['SERIAL'];
+        let ontVal = masterData['ONT_ROUTER_SERIAL_NUMBER'] || masterData['ONT_ROUTER_SERIAL_NUMBER_'] || masterData['ONT'] || masterData['SERIAL'];
         const iptvSerials: string[] = [];
 
         Object.entries(masterData).forEach(([k, v]) => {
@@ -692,10 +904,11 @@ export class SODSyncService {
             const val = String(v).trim();
             if (!val || val.length < 5) return;
 
-            if (key.includes('ont_router_serial') || key === 'ont serial' || (key === 'serial' && !ontVal)) {
+            // Match exact or startsWith to avoid picking up long concatenated table headers
+            if (!ontVal && (key.startsWith('ont_router_serial') || key === 'ont serial' || key === 'serial')) {
                 ontVal = val;
             }
-            if (key.includes('iptv_cpe_serial') || key.includes('stb serial') || key.includes('iptv serial')) {
+            if (key.includes('iptv_cpe_serial') || key.includes('stb_serial') || key === 'stb serial') {
                 if (!iptvSerials.includes(val)) iptvSerials.push(val);
             }
         });
@@ -877,24 +1090,28 @@ export class SODSyncService {
                     }
 
                     if (usagesInput.length > 0) {
-                        const { InventoryService } = await import('../inventory');
-                        await SODMaterialService.processMaterialUsage(
-                            tx,
-                            updated.id,
-                            updated.opmcId,
-                            updated.contractorId,
-                            usagesInput,
-                            InventoryService,
-                            payload.currentUser || 'BRIDGE_SYNC'
-                        );
+                        try {
+                            const { InventoryService } = await import('../inventory');
+                            await SODMaterialService.processMaterialUsage(
+                                tx,
+                                updated.id,
+                                updated.opmcId,
+                                updated.contractorId,
+                                usagesInput,
+                                InventoryService,
+                                payload.currentUser || 'BRIDGE_SYNC'
+                            );
 
-                        const updatedWithUsages = await tx.serviceOrder.findUnique({
-                            where: { id: updated.id },
-                            include: { materialUsage: true }
-                        });
-                        const usages = updatedWithUsages?.materialUsage || [];
-                        const totalSodMaterialCost = usages.reduce((sum, u) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
-                        await LedgerService.logSodConsumption(tx, updated.id, totalSodMaterialCost);
+                            const updatedWithUsages = await tx.serviceOrder.findUnique({
+                                where: { id: updated.id },
+                                include: { materialUsage: true }
+                            });
+                            const usages = updatedWithUsages?.materialUsage || [];
+                            const totalSodMaterialCost = usages.reduce((sum, u) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
+                            await LedgerService.logSodConsumption(tx, updated.id, totalSodMaterialCost);
+                        } catch (matErr) {
+                            console.warn('[BRIDGE-SYNC] Material processing skipped due to error:', matErr instanceof Error ? matErr.message : matErr);
+                        }
                     }
 
                     if (updated.revenueAmount) {
@@ -921,12 +1138,17 @@ export class SODSyncService {
         }
 
         // Sync comments list to ServiceOrderComment table if present in payload
-        const commentsList = payload.commentsList || [];
+        const rawHistory = (payload as any).history || [];
+        const commentsList = payload.commentsList || rawHistory;
         if (syncedOrder && commentsList.length > 0) {
             try {
                 for (const c of commentsList) {
-                    const parsedDate = c.date ? new Date(c.date) : new Date();
-                    const formattedComment = `[Portal Comment by ${c.user || 'Unknown'}]: ${c.comment || ''}`;
+                    const dateStr = c.date || c.DATE || c.TIME;
+                    const parsedDate = dateStr ? new Date(dateStr) : new Date();
+                    const userStr = c.user || c.USER || c.NAME || c['UPDATED BY'] || 'Unknown';
+                    const commentStr = c.comment || c.REMARKS || c.COMMENT || c.STATUS || '';
+                    if (!commentStr) continue;
+                    const formattedComment = `[Portal Comment by ${userStr}]: ${commentStr}`;
 
                     const existingComment = await prisma.serviceOrderComment.findFirst({
                         where: {
@@ -972,11 +1194,31 @@ export class SODSyncService {
         }
 
         const voiceStatus = masterData['VOICE_TEST_RESULT'] || masterData['VOICE TEST'] || null;
-        if (forensicAudit && forensicAudit.length > 0 && soNum) {
+        
+        let finalForensicAudit = forensicAudit || [];
+        if (!finalForensicAudit || finalForensicAudit.length === 0) {
+            const extractedAudit = [];
+            for (let i = 1; i <= 50; i++) {
+                const name = masterData[`${i}IMGDN_HIDDEN`];
+                const uuid = masterData[`${i}IMGN_HIDDEN`];
+                if (name) {
+                    extractedAudit.push({
+                        name: name,
+                        status: uuid ? 'OK' : 'MISSING',
+                        uuid: uuid || undefined
+                    });
+                }
+            }
+            if (extractedAudit.length > 0) {
+                finalForensicAudit = extractedAudit;
+            }
+        }
+
+        if (finalForensicAudit && finalForensicAudit.length > 0 && soNum) {
             await prisma.sODForensicAudit.upsert({
                 where: { soNum },
-                update: { auditData: forensicAudit as Prisma.InputJsonValue, voiceTestStatus: voiceStatus, updatedAt: new Date() },
-                create: { soNum, auditData: forensicAudit as Prisma.InputJsonValue, voiceTestStatus: voiceStatus }
+                update: { auditData: finalForensicAudit as Prisma.InputJsonValue, voiceTestStatus: voiceStatus, updatedAt: new Date() },
+                create: { soNum, auditData: finalForensicAudit as Prisma.InputJsonValue, voiceTestStatus: voiceStatus }
             });
         }
 

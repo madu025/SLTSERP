@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const serviceOrderPatchSchema = z.object({
     id: z.string().min(1, "ID is required"),
-    sltsStatus: z.enum(['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED']).optional(),
+    sltsStatus: z.enum(['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'OFFLINE']).optional(),
     completedDate: z.string().optional().nullable(),
     contractorId: z.string().optional().nullable(),
     comments: z.string().optional().nullable(),

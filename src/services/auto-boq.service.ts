@@ -128,6 +128,46 @@ export class AutoBOQService {
   }
 
   /**
+   * Save generated BOQ items to the database
+   * Deletes previously auto-calculated items and inserts new ones.
+   */
+  static async saveGeneratedBOQ(projectId: string, boq: BOQItem[]) {
+    if (!boq || boq.length === 0) return [];
+
+    // Delete existing auto-calculated items (identified by remarks marker)
+    await prisma.projectBOQItem.deleteMany({
+      where: {
+        projectId,
+        remarks: {
+          contains: 'AUTO_CALCULATED',
+        },
+      },
+    });
+
+    // Insert all new auto-calculated items in a transaction
+    const createdItems = await prisma.$transaction(
+      boq.map((item) =>
+        prisma.projectBOQItem.create({
+          data: {
+            projectId,
+            itemCode: item.itemCode,
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            unitRate: item.unitRate,
+            amount: item.amount,
+            category: item.itemCategory,
+            source: 'NEW',
+            remarks: `AUTO_CALCULATED | ${item.sourceReference}`,
+          },
+        })
+      )
+    );
+
+    return createdItems;
+  }
+
+  /**
    * Telecom Cable Length Formula (most accurate)
    * Uses actual QGIS route polyline length if available, fallback to GPS Haversine
    */

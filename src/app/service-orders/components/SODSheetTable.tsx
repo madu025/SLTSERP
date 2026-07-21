@@ -3,9 +3,20 @@
 import React, { useState, useMemo } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
-import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar } from "lucide-react";
+import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SODSheetTableProps {
     orders: ServiceOrder[];
@@ -49,6 +60,9 @@ export function SODSheetTable(props: SODSheetTableProps) {
             result = result.filter(order => {
                 if (key === "contractorId") {
                     return order.contractorId === filterValue;
+                }
+                if (key === "teamId") {
+                    return order.teamId === filterValue;
                 }
                 if (key === "sltsStatus") {
                     return order.sltsStatus === filterValue;
@@ -110,7 +124,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
         
         // Find existing order to verify if the value actually changed
         const order = orders.find(o => o.id === orderId);
-        if (order) {
+        if (order && fieldName !== "teamAssignment") {
             const currentValue = order[fieldName as keyof ServiceOrder];
             // Normalize values for comparison
             const normCurrent = currentValue === null || currentValue === undefined ? "" : String(currentValue);
@@ -124,7 +138,17 @@ export function SODSheetTable(props: SODSheetTableProps) {
             const payload: Record<string, unknown> = { id: orderId };
             
             // Map specific fields if needed
-            if (fieldName === "scheduledDate") {
+            if (fieldName === "teamAssignment") {
+                const valStr = String(value);
+                if (!valStr) {
+                    payload.contractorId = null;
+                    payload.teamId = null;
+                } else {
+                    const [cId, tId] = valStr.split('|');
+                    payload.contractorId = cId || null;
+                    payload.teamId = tId || null;
+                }
+            } else if (fieldName === "scheduledDate") {
                 payload.scheduledDate = value ? new Date(value as string).toISOString() : null;
             } else if (fieldName === "completedDate") {
                 payload.completedDate = value ? new Date(value as string).toISOString() : null;
@@ -199,15 +223,79 @@ export function SODSheetTable(props: SODSheetTableProps) {
         return 'bg-blue-50 text-blue-700 border-blue-200/50 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
     };
 
+    const renderContractorTeamDropdown = (order: ServiceOrder, index: number) => {
+        const selectedContractor = contractors.find(c => c.id === order.contractorId);
+        const selectedTeam = selectedContractor?.teams?.find(t => t.id === order.teamId);
+        
+        let label = "Select Team";
+        if (selectedContractor) {
+            label = selectedContractor.name;
+            if (selectedTeam) {
+                label = `${selectedContractor.name} - ${selectedTeam.name}`;
+            }
+        }
+
+        return (
+            <div className="w-full h-full relative" data-row-index={index} data-field="contractorId">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button className="w-full h-full flex items-center justify-between bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-primary/5 pl-1.5 pr-2 py-1 text-[10px] font-bold text-blue-500 text-left hover:bg-primary/5 transition-colors">
+                            <span className="truncate">{label}</span>
+                            <ChevronDown className="w-3 h-3 opacity-50 ml-1 shrink-0" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-48 p-1" align="start">
+                        <DropdownMenuLabel className="text-[10px] py-1 px-2 uppercase text-muted-foreground">Assign Contractor Team</DropdownMenuLabel>
+                        <DropdownMenuSeparator className="my-1" />
+                        <DropdownMenuItem onClick={() => handleSaveField(order.id, "teamAssignment", "")} className="text-[11px] py-1 px-2 h-auto min-h-0">
+                            <span className="text-muted-foreground italic">Clear Assignment</span>
+                        </DropdownMenuItem>
+                        {contractors.map((c) => {
+                            if (c.teams && c.teams.length > 0) {
+                                return (
+                                    <DropdownMenuSub key={c.id}>
+                                        <DropdownMenuSubTrigger className="text-[11px] py-1 px-2 h-auto min-h-0">{c.name}</DropdownMenuSubTrigger>
+                                        <DropdownMenuSubContent className="p-1">
+                                            {c.teams.map((t) => (
+                                                <DropdownMenuItem
+                                                    key={t.id}
+                                                    onClick={() => handleSaveField(order.id, "teamAssignment", `${c.id}|${t.id}`)}
+                                                    className="text-[11px] py-1 px-2 h-auto min-h-0"
+                                                >
+                                                    {t.name}
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuSubContent>
+                                    </DropdownMenuSub>
+                                );
+                            } else {
+                                return (
+                                    <DropdownMenuItem
+                                        key={c.id}
+                                        onClick={() => handleSaveField(order.id, "teamAssignment", `${c.id}|`)}
+                                        className="text-[11px] py-1 px-2 h-auto min-h-0 flex items-center justify-between"
+                                    >
+                                        {c.name} <span className="text-muted-foreground text-[9px] ml-2">(No Teams)</span>
+                                    </DropdownMenuItem>
+                                );
+                            }
+                        })}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                {renderCellStatus(order.id, "teamAssignment")}
+            </div>
+        );
+    };
+
     return (
         <div className="w-full h-full overflow-auto border-t border-border/20 custom-scrollbar">
             <table className="w-full border-collapse text-left table-fixed">
                 <thead className="bg-muted/80 border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
                     <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px]">
-                        <th className="w-[36px] px-1 py-1.5 border-r border-border/20 text-center">
-                            <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-border/40 data-[state=checked]:bg-primary" />
+                        <th className="w-[36px] px-1 py-1.5 border-r border-border/20 text-center md:sticky md:left-0 bg-muted/90 z-50">
+                            <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-slate-400 dark:border-slate-500 data-[state=checked]:border-primary data-[state=checked]:bg-primary" />
                         </th>
-                        <th className="w-[100px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-0 bg-muted/90 z-50">
+                        <th className="w-[100px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
                                     <span>SO Number</span>
@@ -242,7 +330,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[220px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[175px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
                                             <span>Customer Details</span>
@@ -292,21 +380,31 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 </th>
                                 <th className="w-[135px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
-                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
-                                            <span>Contractor</span>
-                                            {sortConfig?.key === "contractorId" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("teamId")}>
+                                            <span>Contractor Team</span>
+                                            {sortConfig?.key === "teamId" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <select
-                                            value={columnFilters.contractorId || ""}
-                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, contractorId: e.target.value }))}
+                                            value={columnFilters.teamId || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, teamId: e.target.value }))}
                                             onClick={(e) => e.stopPropagation()}
                                             className="h-5 px-1 py-0 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none font-sans font-normal text-foreground"
                                         >
                                             <option value="">All Teams</option>
                                             {contractors.map((c) => (
-                                                <option key={c.id} value={c.id}>
-                                                    {c.name}
-                                                </option>
+                                                <optgroup key={c.id} label={c.name}>
+                                                    {c.teams && c.teams.length > 0 ? (
+                                                        c.teams.map(t => (
+                                                            <option key={t.id} value={t.id}>
+                                                                {c.name} - {t.name}
+                                                            </option>
+                                                        ))
+                                                    ) : (
+                                                        <option value={c.id} disabled>
+                                                            {c.name} (No Teams)
+                                                        </option>
+                                                    )}
+                                                </optgroup>
                                             ))}
                                         </select>
                                     </div>
@@ -368,7 +466,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[220px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[175px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
                                             <span>Customer Details</span>
@@ -613,11 +711,11 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 }`}
                             >
                                 {/* Checkbox */}
-                                <td className="px-1 text-center border-r border-border/15">
-                                    <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-border/40 data-[state=checked]:bg-primary" />
+                                <td className="px-1 text-center border-r border-border/15 md:sticky md:left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
+                                    <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-slate-400 dark:border-slate-500 data-[state=checked]:border-primary data-[state=checked]:bg-primary" />
                                 </td>
                                 {/* SO Number (Read-only, clickable details) */}
-                                <td className="px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
+                                <td className="px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-[36px] bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
                                     <div className="flex items-center gap-1">
                                         <button
                                             type="button"
@@ -646,9 +744,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             </div>
                                         </td>
                                         
-                                        {/* Voice Number (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 text-[10px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
-                                            {order.voiceNumber || "-"}
+                                        {/* Voice Number & Order Type (Read-only) */}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] font-medium text-foreground truncate" title={`${order.voiceNumber || ""} - ${order.orderType || ""}`}>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span>{order.voiceNumber || "-"}</span>
+                                                {order.orderType && <span className="text-[8.5px] text-muted-foreground font-semibold uppercase">{order.orderType}</span>}
+                                            </div>
                                         </td>
 
                                         {/* ONT Serial */}
@@ -668,22 +769,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
 
                                         {/* Contractor Select */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <select
-                                                value={order.contractorId || ""}
-                                                onChange={(e) => handleSaveField(order.id, "contractorId", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "contractorId")}
-                                                data-row-index={index}
-                                                data-field="contractorId"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-medium text-foreground"
-                                            >
-                                                <option value="">Select Team</option>
-                                                {contractors.map((c) => (
-                                                    <option key={c.id} value={c.id}>
-                                                        {c.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {renderCellStatus(order.id, "contractorId")}
+                                            {renderContractorTeamDropdown(order, index)}
                                         </td>
 
                                         {/* Status (Read-only portal status) */}
@@ -741,29 +827,17 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             </div>
                                         </td>
                                         
-                                        {/* Voice Number (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 text-[10px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
-                                            {order.voiceNumber || "-"}
+                                        {/* Voice Number & Order Type (Read-only) */}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] font-medium text-foreground truncate" title={`${order.voiceNumber || ""} - ${order.orderType || ""}`}>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span>{order.voiceNumber || "-"}</span>
+                                                {order.orderType && <span className="text-[8.5px] text-muted-foreground font-semibold uppercase">{order.orderType}</span>}
+                                            </div>
                                         </td>
 
                                         {/* Contractor Select */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <select
-                                                value={order.contractorId || ""}
-                                                onChange={(e) => handleSaveField(order.id, "contractorId", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "contractorId")}
-                                                data-row-index={index}
-                                                data-field="contractorId"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-medium text-foreground"
-                                            >
-                                                <option value="">Select Team</option>
-                                                {contractors.map((c) => (
-                                                    <option key={c.id} value={c.id}>
-                                                        {c.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {renderCellStatus(order.id, "contractorId")}
+                                            {renderContractorTeamDropdown(order, index)}
                                         </td>
 
                                         {/* Status Select */}
@@ -826,9 +900,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             </div>
                                         </td>
 
-                                        {/* Voice/TP Number (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 text-[10px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
-                                            {order.voiceNumber || "-"}
+                                        {/* Voice/TP Number & Order Type (Read-only) */}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] font-medium text-foreground truncate" title={`${order.voiceNumber || ""} - ${order.orderType || ""}`}>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span>{order.voiceNumber || "-"}</span>
+                                                {order.orderType && <span className="text-[8.5px] text-muted-foreground font-semibold uppercase">{order.orderType}</span>}
+                                            </div>
                                         </td>
 
                                         {/* DP (Read-only) */}
@@ -838,22 +915,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
 
                                         {/* Contractor Dropdown */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <select
-                                                value={order.contractorId || ""}
-                                                onChange={(e) => handleSaveField(order.id, "contractorId", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "contractorId")}
-                                                data-row-index={index}
-                                                data-field="contractorId"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-bold text-blue-400"
-                                            >
-                                                <option value="">Select Team</option>
-                                                {contractors.map((c) => (
-                                                    <option key={c.id} value={c.id}>
-                                                        {c.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {renderCellStatus(order.id, "contractorId")}
+                                            {renderContractorTeamDropdown(order, index)}
                                         </td>
 
                                         {/* SLTS Status Dropdown */}
@@ -866,12 +928,16 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 data-field="sltsStatus"
                                                 className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-3 py-1 text-[10px] font-black ${
                                                     order.sltsStatus === "COMPLETED" ? "text-emerald-400" :
-                                                    order.sltsStatus === "RETURN" ? "text-rose-400" : "text-amber-400"
+                                                    order.sltsStatus === "RETURN" ? "text-rose-400" : 
+                                                    order.sltsStatus === "OFFLINE" ? "text-slate-400" : 
+                                                    order.sltsStatus === "PROV_CLOSED" ? "text-blue-400" : "text-amber-400"
                                                 }`}
                                             >
                                                 <option value="PENDING">PENDING</option>
                                                 <option value="ASSIGNED">ASSIGNED</option>
                                                 <option value="INPROGRESS">IN PROGRESS</option>
+                                                <option value="OFFLINE">OFFLINE</option>
+                                                <option value="PROV_CLOSED">PROV CLOSED</option>
                                                 <option value="COMPLETED">COMPLETED</option>
                                                 <option value="RETURN">RETURN</option>
                                             </select>

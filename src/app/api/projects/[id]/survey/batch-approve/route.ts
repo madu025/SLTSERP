@@ -1,41 +1,39 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { MapApprovalService } from '@/services/map-approval.service';
+import { AppError } from '@/lib/error';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// POST /api/projects/[id]/survey/batch-approve - Batch verify or approve survey points
-export async function POST(request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
+export const POST = apiHandler(async (request, _params, body) => {
     const userId = request.headers.get('x-user-id');
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!userId) {
+        throw AppError.unauthorized('Unauthorized');
+    }
 
-    const body = await request.json();
-    const { pointIds, action } = body;
+    const { pointIds, action } = body || {};
 
     if (!pointIds || !Array.isArray(pointIds) || pointIds.length === 0) {
-      return NextResponse.json({ error: 'pointIds array is required' }, { status: 400 });
+        throw AppError.badRequest('pointIds array is required');
     }
 
     if (!action || !['verify', 'approve'].includes(action)) {
-      return NextResponse.json({ error: 'action must be "verify" or "approve"' }, { status: 400 });
+        throw AppError.badRequest('action must be "verify" or "approve"');
     }
 
     let result: { succeeded: number; failed: number; total: number };
+    const pointIdsArray = pointIds as string[];
 
     if (action === 'verify') {
-      result = await MapApprovalService.batchVerify(pointIds, userId);
+        result = await MapApprovalService.batchVerify(pointIdsArray, userId);
     } else {
-      result = await MapApprovalService.batchApprove(pointIds, userId);
+        result = await MapApprovalService.batchApprove(pointIdsArray, userId);
     }
 
-    return NextResponse.json({
-      message: `Batch ${action} completed: ${result.succeeded}/${result.total} succeeded`,
-      ...result,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Batch operation failed';
-    console.error('Batch approve error:', error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+    return {
+        message: `Batch ${action} completed: ${result.succeeded}/${result.total} succeeded`,
+        ...result,
+    };
+}, {
+    audit: { action: 'BATCH_APPROVE_SURVEY', entity: 'PROJECT_SURVEY' },
+    rawResponse: true
+});

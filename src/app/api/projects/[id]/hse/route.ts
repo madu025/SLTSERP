@@ -1,96 +1,51 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectHSEService } from '@/services/project/project-hse.service';
+import { AppError } from '@/lib/error';
 
-// GET: Fetch all HSE records for a project
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: projectId } = await params;
+export const dynamic = 'force-dynamic';
 
-        const safetyLogs = await prisma.hSESafetyLog.findMany({
-            where: { projectId },
-            include: { attendees: true },
-            orderBy: { date: 'desc' }
-        });
+export const GET = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
+    const safetyLogs = await ProjectHSEService.getSafetyLogs(projectId);
+    return { safetyLogs };
+}, { rawResponse: true });
 
-        return NextResponse.json({ safetyLogs });
-    } catch (error) {
-        console.error('Error fetching HSE data:', error);
-        return NextResponse.json({ error: 'Failed to fetch HSE data' }, { status: 500 });
+export const POST = apiHandler(async (_request, params, body) => {
+    const { id: projectId } = params;
+    const { logType, title, recordedById } = body || {};
+
+    if (!logType || !title || !recordedById) {
+        throw AppError.badRequest('Missing required fields: logType, title, recordedById');
     }
-}
 
-// POST: Log a new HSE safety entry
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: projectId } = await params;
-        const body = await request.json();
-        const { logType, title, description, severity, location, recordedById, attendees } = body;
+    const safetyLog = await ProjectHSEService.createSafetyLog(projectId, {
+        logType: logType as string,
+        title: title as string,
+        description: body.description as string | undefined,
+        severity: body.severity as string | undefined,
+        location: body.location as string | undefined,
+        recordedById: recordedById as string,
+        attendees: body.attendees
+    });
+    return Response.json(safetyLog, { status: 201 });
+}, {
+    audit: { action: 'LOG_HSE_ENTRY', entity: 'PROJECT_HSE' },
+    rawResponse: true
+});
 
-        if (!logType || !title || !recordedById) {
-            return NextResponse.json({ error: 'Missing required fields: logType, title, recordedById' }, { status: 400 });
-        }
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const { logId, status, correctiveAction, closedById } = body || {};
 
-        const safetyLog = await prisma.hSESafetyLog.create({
-            data: {
-                projectId,
-                logType,
-                title,
-                description: description || null,
-                severity: severity || null,
-                location: location || null,
-                recordedById,
-                attendees: attendees?.length ? {
-                    create: attendees.map((a: { name: string; designation?: string; signatureUrl?: string }) => ({
-                        name: a.name,
-                        designation: a.designation || null,
-                        signatureUrl: a.signatureUrl || null,
-                        attendedAt: new Date()
-                    }))
-                } : undefined
-            },
-            include: { attendees: true }
-        });
-
-        return NextResponse.json(safetyLog, { status: 201 });
-    } catch (error) {
-        console.error('Error logging HSE entry:', error);
-        return NextResponse.json({ error: 'Failed to log HSE entry' }, { status: 500 });
+    if (!logId) {
+        throw AppError.badRequest('Log ID is required');
     }
-}
 
-// PATCH: Update HSE log status or resolution
-export async function PATCH(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const body = await request.json();
-        const { logId, status, correctiveAction, closedById } = body;
-
-        if (!logId) {
-            return NextResponse.json({ error: 'Log ID is required' }, { status: 400 });
-        }
-
-        const updated = await prisma.hSESafetyLog.update({
-            where: { id: logId },
-            data: {
-                status: status ?? undefined,
-                correctiveAction: correctiveAction ?? undefined,
-                closedById: closedById ?? undefined,
-                closedAt: status === 'CLOSED' ? new Date() : undefined
-            },
-            include: { attendees: true }
-        });
-
-        return NextResponse.json(updated);
-    } catch (error) {
-        console.error('Error updating HSE log:', error);
-        return NextResponse.json({ error: 'Failed to update HSE log' }, { status: 500 });
-    }
-}
+    return await ProjectHSEService.updateSafetyLog(logId as string, { 
+        status: status as string | undefined, 
+        correctiveAction: correctiveAction as string | undefined, 
+        closedById: closedById as string | undefined 
+    });
+}, {
+    audit: { action: 'UPDATE_HSE_LOG', entity: 'PROJECT_HSE' },
+    rawResponse: true
+});

@@ -1,101 +1,90 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ProjectInvoiceService } from '@/services/project-invoice.service';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
+import { AppError } from '@/lib/error';
 
-// GET /api/projects/invoices?projectId=xxx - List invoices by project
-export async function GET(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const projectId = searchParams.get('projectId');
-        const allClient = searchParams.get('allClient') === 'true';
+export const dynamic = 'force-dynamic';
 
-        if (allClient) {
-            const invoices = await ProjectInvoiceService.getAllClientInvoices();
-            return NextResponse.json(invoices);
-        }
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('projectId');
+    const allClient = searchParams.get('allClient') === 'true';
 
-        if (!projectId) {
-            return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
-        }
-
-        const invoices = await ProjectInvoiceService.getInvoices(projectId);
-        return NextResponse.json(invoices);
-    } catch (error: unknown) {
-        console.error('Error fetching invoices:', error);
-        return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 });
+    if (allClient) {
+        return await ProjectInvoiceService.getAllClientInvoices();
     }
-}
 
-// POST /api/projects/invoices - Create a new invoice
-export async function POST(request: NextRequest) {
+    if (!projectId) {
+        throw AppError.badRequest('projectId is required');
+    }
+
+    return await ProjectInvoiceService.getInvoices(projectId);
+}, { rawResponse: true });
+
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { projectId, title, items } = body || {};
+
+    if (!projectId || !title || !items?.length) {
+        throw AppError.badRequest('projectId, title, and items are required');
+    }
+
     try {
-        const body = await request.json();
-        const { projectId, title, items } = body;
-
-        if (!projectId || !title || !items?.length) {
-            return NextResponse.json(
-                { error: 'projectId, title, and items are required' },
-                { status: 400 }
-            );
-        }
-
         const invoice = await ProjectInvoiceService.createInvoice(body);
-        return NextResponse.json(invoice, { status: 201 });
+        return Response.json(invoice, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error creating invoice:', error);
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'PROJECT_NOT_FOUND') {
-            return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+            throw AppError.notFound('Project not found');
         }
-        return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'CREATE', entity: 'INVOICE' },
+    rawResponse: true
+});
 
-// PATCH /api/projects/invoices - Update invoice status or details
-export async function PATCH(request: NextRequest) {
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const { id, ...updateFields } = body || {};
+
+    if (!id) {
+        throw AppError.badRequest('id is required');
+    }
+
     try {
-        const body = await request.json();
-        const { id, ...updateFields } = body;
-
-        if (!id) {
-            return NextResponse.json({ error: 'id is required' }, { status: 400 });
-        }
-
-        const invoice = await ProjectInvoiceService.updateInvoice(id, updateFields);
-        return NextResponse.json(invoice);
+        return await ProjectInvoiceService.updateInvoice(id, updateFields);
     } catch (error: unknown) {
-        console.error('Error updating invoice:', error);
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'INVOICE_NOT_FOUND') {
-            return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+            throw AppError.notFound('Invoice not found');
         }
-        return NextResponse.json({ error: 'Failed to update invoice' }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'UPDATE', entity: 'INVOICE' },
+    rawResponse: true
+});
 
-// DELETE /api/projects/invoices - Delete a DRAFT invoice
-export async function DELETE(request: NextRequest) {
+export const DELETE = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+        throw AppError.badRequest('id is required');
+    }
+
     try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            return NextResponse.json({ error: 'id is required' }, { status: 400 });
-        }
-
         await ProjectInvoiceService.deleteInvoice(id);
-        return NextResponse.json({ message: 'Invoice deleted successfully' });
+        return { message: 'Invoice deleted successfully' };
     } catch (error: unknown) {
-        console.error('Error deleting invoice:', error);
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'INVOICE_NOT_FOUND') {
-            return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+            throw AppError.notFound('Invoice not found');
         }
         if (errorMsg === 'DRAFT_ONLY_DELETION') {
-            return NextResponse.json(
-                { error: 'Only DRAFT invoices can be deleted' },
-                { status: 400 }
-            );
+            throw AppError.badRequest('Only DRAFT invoices can be deleted');
         }
-        return NextResponse.json({ error: 'Failed to delete invoice' }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'DELETE', entity: 'INVOICE' },
+    rawResponse: true
+});

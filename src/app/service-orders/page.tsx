@@ -9,7 +9,7 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, FileSpreadsheet, AlertCircle, ChevronUp, ChevronDown, Download, X } from "lucide-react";
+import { RefreshCw, Plus, Layers, Filter, Search, Calendar, FileSpreadsheet, AlertCircle, ChevronUp, ChevronDown, Download, X } from "lucide-react";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
 import { OrderActionData, Contractor, InventoryItem, OrderCompletionData } from "@/components/modals/order-action/types";
@@ -59,13 +59,13 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         }, 400);
         return () => clearTimeout(handler);
     }, [searchTerm]);
-    const [showMetrics, setShowMetrics] = useState<boolean>(() => {
-        if (typeof window !== 'undefined') {
-            const storedShowMetrics = localStorage.getItem('sod_show_metrics');
-            return storedShowMetrics !== 'false';
+    const [showMetrics, setShowMetrics] = useState<boolean>(true);
+    useEffect(() => {
+        const storedShowMetrics = localStorage.getItem('sod_show_metrics');
+        if (storedShowMetrics === 'false') {
+            setShowMetrics(false);
         }
-        return true;
-    });
+    }, []);
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
@@ -184,7 +184,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const { data: systemConfigs = {} } = useQuery<Record<string, string>>({
         queryKey: ["system-configs"],
         queryFn: async () => {
-            const res = await fetch("/api/system-config");
+            const res = await fetch("/api/admin/system-config");
             return await res.json() as Record<string, string>;
         }
     });
@@ -195,7 +195,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     // Explicit array cast for safety
     const safeOpmcs: OPMC[] = React.useMemo(() => Array.isArray(opmcs) ? opmcs : [], [opmcs]);
 
-    const { selectedIds, toggleSelect, toggleAll, isAllSelected } = useSODTable(serviceOrders);
+    const { selectedIds, setSelectedIds, toggleSelect, toggleAll, isAllSelected } = useSODTable(serviceOrders);
 
     useEffect(() => {
         // Only set default if one isn't already set and we have OPMCs
@@ -238,6 +238,16 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             setSelectedRtom(opmc.rtom);
         }
     };
+
+    useEffect(() => {
+        if (!refetch) return;
+        const handleSync = (e: any) => {
+            console.log("Extension Sync Success detected for", e.detail?.soNum, ", refreshing orders...");
+            refetch();
+        };
+        window.addEventListener('SLT_BRIDGE_SYNC_SUCCESS', handleSync);
+        return () => window.removeEventListener('SLT_BRIDGE_SYNC_SUCCESS', handleSync);
+    }, [refetch]);
 
     const handleBulkAction = async (action: string) => {
         if (selectedIds.size === 0) return;
@@ -331,48 +341,21 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                 <Header />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                     <div className="flex-none px-5 py-1 space-y-1">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <Layers className="w-5 h-5 text-primary" />
-                                    <h1 className="text-xl font-bold text-foreground tracking-tight">{pageTitle}</h1>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-muted-foreground hover:text-foreground ml-0.5"
-                                        onClick={() => {
-                                            const newVal = !showMetrics;
-                                            setShowMetrics(newVal);
-                                            localStorage.setItem('sod_show_metrics', String(newVal));
-                                        }}
-                                        title={showMetrics ? "Hide Summary Metrics" : "Show Summary Metrics"}
-                                    >
-                                        {showMetrics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                                    </Button>
-                                </div>
-                                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mt-0.5">Service Order Management</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-3 text-xs shadow-sm border-border/40 hover:bg-muted"
-                                    onClick={() => syncMutation.mutate()}
-                                    disabled={!selectedRtomId || syncMutation.isPending}
-                                >
-                                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Update from Portal
-                                </Button>
-                                {filterType === 'pending' && <Button size="sm" className="h-8 px-3 text-xs bg-primary hover:bg-primary-dark text-white font-semibold shadow-sm" onClick={() => setShowManualModal(true)} disabled={!selectedRtomId}><Plus className="w-3.5 h-3.5 mr-1.5" /> Manual Entry</Button>}
-                                {filterType === 'pending' && <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-emerald-500/20 text-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 shadow-sm" onClick={() => setShowExcelModal(true)}><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Excel Import</Button>}
-                            </div>
-                        </div>
-
                         {showMetrics && (
-                            <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
+                            <div className="pt-1">
+                                <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
+                            </div>
                         )}
 
                         <div className="bg-card px-2 py-1 rounded-md border border-border/40 shadow-sm flex flex-wrap gap-1.5 items-center">
+                             <div className="flex items-center gap-1 mr-2">
+                                 <Layers className="w-4 h-4 text-primary" />
+                                 <span className="text-sm font-bold text-foreground whitespace-nowrap tracking-tight">{pageTitle}</span>
+                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { const newVal = !showMetrics; setShowMetrics(newVal); localStorage.setItem('sod_show_metrics', String(newVal)); }} title={showMetrics ? "Hide Summary Metrics" : "Show Summary Metrics"}>
+                                     {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                 </Button>
+                             </div>
+
                              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-md border border-border/20">
                                  <Filter className="w-3.5 h-3.5 text-muted-foreground" />
                                  <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
@@ -416,6 +399,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                          <SelectItem value="ALL" className="text-xs">Show All</SelectItem>
                                          <SelectItem value="ASSIGNED" className="text-xs">Assigned</SelectItem>
                                          <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
+                                         <SelectItem value="OFFLINE" className="text-xs text-slate-500 font-bold dark:text-slate-400">Offline</SelectItem>
                                          <SelectItem value="PROV_CLOSED" className="text-xs">Prov Closed</SelectItem>
                                          <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
                                          <SelectItem value="RETURN" className="text-xs text-rose-500 font-bold dark:text-rose-400">Returned/Issues</SelectItem>
@@ -456,6 +440,15 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                  <Button variant="outline" size="sm" className="h-7 px-2.5 border-blue-500/20 text-blue-500 bg-blue-500/5 hover:bg-blue-500/10 shadow-sm" onClick={handleExportCSV} title="Export CSV">
                                      <Download className="w-3.5 h-3.5" />
                                  </Button>
+
+                                 <div className="h-4 w-px bg-border/60 mx-0.5" />
+
+                                 {/* Action Icons */}
+                                 <Button variant="outline" size="sm" className="h-7 px-2.5 shadow-sm border-border/40 hover:bg-muted" onClick={() => syncMutation.mutate()} disabled={!selectedRtomId || syncMutation.isPending} title="Update from Portal">
+                                     <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                                 </Button>
+                                 {filterType === 'pending' && <Button size="sm" className="h-7 px-2.5 bg-primary hover:bg-primary-dark text-white font-semibold shadow-sm" onClick={() => setShowManualModal(true)} disabled={!selectedRtomId} title="Manual Entry"><Plus className="w-3.5 h-3.5" /></Button>}
+                                 {filterType === 'pending' && <Button variant="outline" size="sm" className="h-7 px-2.5 border-emerald-500/20 text-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 shadow-sm" onClick={() => setShowExcelModal(true)} title="Excel Import"><FileSpreadsheet className="w-3.5 h-3.5" /></Button>}
                              </div>
                         </div>
                     </div>
@@ -472,7 +465,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                     {Array.from(selectedIds).every(id => serviceOrders.find(o => o.id === id)?.isManualEntry) && (
                                         <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-rose-400 rounded-full" onClick={() => handleBulkAction('DELETE')}>Remove</Button>
                                     )}
-                                    <button onClick={() => toggleAll()} className="ml-2 p-1.5 hover:bg-slate-700 rounded-full transition-colors" title="Clear selection"><X className="w-4 h-4" /></button>
+                                    <button onClick={() => setSelectedIds(new Set())} className="ml-2 p-1.5 hover:bg-slate-700 rounded-full transition-colors" title="Clear selection"><X className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         )}
@@ -573,7 +566,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                     materialSource={systemConfigs['OSP_MATERIAL_SOURCE'] || 'SLT'}
                     onConfirm={(data: OrderCompletionData) => { 
                         if (selectedOrder?.id) {
-                            const mutationData = { ...data, id: selectedOrder.id };
+                            const mutationData = { 
+                                ...data, 
+                                id: selectedOrder.id,
+                                sltsStatus: 'COMPLETED',
+                                completedDate: data.completedDate || data.date
+                            };
                             updateStatusMutation.mutate(mutationData); 
                         }
                         setShowActionModal(false); 

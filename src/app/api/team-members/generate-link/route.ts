@@ -1,20 +1,17 @@
-
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { TeamMemberService } from '@/services/team-member.service';
+import { AppError } from '@/lib/error';
 
-export async function POST(request: Request) {
-    try {
-        const { memberId } = await request.json();
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { memberId } = body || {};
 
-        if (!memberId) {
-            return NextResponse.json({ error: "Member ID is required" }, { status: 400 });
-        }
-
-        const link = await TeamMemberService.generateUploadLink(memberId);
-
-        return NextResponse.json({ link });
-    } catch (error) {
-        console.error("Error generating team member link:", error);
-        return NextResponse.json({ error: "Failed to generate link" }, { status: 500 });
+    if (!memberId) {
+        throw AppError.badRequest('Member ID is required');
     }
-}
+
+    const link = await TeamMemberService.generateUploadLink(memberId);
+    return { link };
+}, {
+    audit: { action: 'GENERATE_LINK', entity: 'TeamMember' },
+    rawResponse: true
+});

@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ContractorFormDialog } from './components/ContractorFormDialog';
+import { ContractorFormSheet } from './components/ContractorFormSheet';
 import { useContractorOperations } from './hooks/useContractorOperations';
 import { ContractorSchema } from "@/lib/validations/contractor.schema";
 
@@ -91,15 +91,6 @@ export default function ContractorsPage() {
         queryFn: () => fetch(`/api/opmcs?t=${Date.now()}`).then(res => res.json())
     });
 
-    const { data: banks = [] } = useQuery<{ id: string; name: string }[]>({
-        queryKey: ['banks'],
-        queryFn: () => fetch('/api/banks').then(res => res.json())
-    });
-
-    const { data: branches = [] } = useQuery<{ id: string; name: string }[]>({
-        queryKey: ['branches'],
-        queryFn: () => fetch('/api/branches').then(res => res.json())
-    });
 
     // --- STATS CALCULATION ---
     const stats = useMemo(() => {
@@ -481,15 +472,12 @@ export default function ContractorsPage() {
 
                 {/* --- MODALS --- */}
                 
-                <ContractorFormDialog 
+                <ContractorFormSheet 
                     open={formOpen} 
                     onOpenChange={setFormOpen}
                     initialData={selectedContractor || undefined}
                     onSubmit={handleFormSubmit}
                     isSubmitting={createMutation.isPending || updateMutation.isPending}
-                    banks={banks}
-                    branches={branches}
-                    opmcs={opmcs}
                 />
 
                 <TeamManager 

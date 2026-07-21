@@ -1,38 +1,33 @@
-// ============================================================
-// Module: survey
-// Models: SurveyRequest, SurveyCheckIn, SurveyPhoto, SurveyFinding, FieldTask, FieldPhoto, FieldChecklist, FieldSignature, OTDRTest, OTDRTestEvent, HSESafetyLog, HSEAttendee
-// ============================================================
-
 /// Polymorphic Assignment:
 /// - assignedToId: Staff.id (individual surveyor)
 /// - assignedTeamId: ContractorTeam.id (field team)
 /// Both are raw strings (no FK relations) to support polymorphic assignment.
 /// Use assignee lookup endpoints: GET /api/staff, GET /api/contractors/teams
 model SurveyRequest {
-  id              String          @id @default(cuid())
-  projectId       String
-  requestNumber   String          @unique
-  title           String
-  description     String?
-  surveyType      String          // ROUTE_SURVEY, SITE_SURVEY, FEASIBILITY, TOPOGRAPHICAL
-  priority        String          @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  status          String          @default("PENDING") // PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, APPROVED, REJECTED
-  assignedTeamId  String?
-  assignedToId    String?
-  scheduledDate   DateTime?
-  completedDate   DateTime?
-  estimatedBOQ    Float?          // Initial BOQ estimation from survey
-  finalBOQ        Float?          // Final BOQ after survey approval
-  remarks         String?
-  createdById     String
-  approvedById    String?
-  approvedAt      DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  checkins        SurveyCheckIn[]
-  photos          SurveyPhoto[]
-  findings        SurveyFinding[]
+  id             String          @id @default(cuid())
+  projectId      String
+  requestNumber  String          @unique
+  title          String
+  description    String?
+  surveyType     String
+  priority       String          @default("MEDIUM")
+  status         String          @default("PENDING")
+  assignedTeamId String?
+  assignedToId   String?
+  scheduledDate  DateTime?
+  completedDate  DateTime?
+  estimatedBOQ   Float?
+  finalBOQ       Float?
+  remarks        String?
+  createdById    String
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  checkins       SurveyCheckIn[]
+  findings       SurveyFinding[]
+  photos         SurveyPhoto[]
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([status])
@@ -40,85 +35,85 @@ model SurveyRequest {
 }
 
 model SurveyCheckIn {
-  id              String          @id @default(cuid())
+  id              String        @id @default(cuid())
   surveyRequestId String
-  checkInType     String          // CHECK_IN, CHECK_OUT
-  timestamp       DateTime        @default(now())
+  checkInType     String
+  timestamp       DateTime      @default(now())
   latitude        Float?
   longitude       Float?
   address         String?
   userId          String
   remarks         String?
-  surveyRequest   SurveyRequest   @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
+  surveyRequest   SurveyRequest @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
 
   @@index([surveyRequestId])
 }
 
 model SurveyPhoto {
-  id              String          @id @default(cuid())
+  id              String        @id @default(cuid())
   surveyRequestId String
   fileName        String
   fileUrl         String
   latitude        Float?
   longitude       Float?
   altitude        Float?
-  bearing         Float?          // compass direction
-  photoType       String          // ROUTE, OBSTRUCTION, ACCESS_POINT, EXISTING_INFRA, OTHER
+  bearing         Float?
+  photoType       String
   description     String?
   uploadedById    String
-  uploadedAt      DateTime        @default(now())
-  surveyRequest   SurveyRequest   @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
+  uploadedAt      DateTime      @default(now())
+  surveyRequest   SurveyRequest @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
 
   @@index([surveyRequestId])
 }
 
 model SurveyFinding {
-  id              String          @id @default(cuid())
+  id              String        @id @default(cuid())
   surveyRequestId String
-  findingType     String          // OBSTRUCTION, UTILITY_CONFLICT, ACCESS_ISSUE, ENVIRONMENTAL, OTHER
+  findingType     String
   description     String
-  severity        String          @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  severity        String        @default("MEDIUM")
   latitude        Float?
   longitude       Float?
   recommendation  String?
-  status          String          @default("OPEN") // OPEN, RESOLVED, WAIVED
+  status          String        @default("OPEN")
   resolvedAt      DateTime?
   resolvedById    String?
   photoId         String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  surveyRequest   SurveyRequest   @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  surveyRequest   SurveyRequest @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
 
   @@index([surveyRequestId])
   @@index([findingType])
 }
 
 model FieldTask {
-  id                String          @id @default(cuid())
-  projectId         String
-  taskInstanceId    String?         // Reference to ProjectTaskInstance or ProjectTask
-  assignedTeamId    String?
-  assignedUserId    String?
-  title             String
-  description       String?
-  status            String          @default("ASSIGNED") // ASSIGNED, IN_PROGRESS, COMPLETED, VERIFIED
-  priority          String          @default("MEDIUM")
-  scheduledDate     DateTime?
-  startedAt         DateTime?
-  completedAt       DateTime?
-  durationMinutes   Int?
-  latitude          Float?
-  longitude         Float?
-  address           String?
-  syncStatus        String          @default("PENDING") // PENDING, SYNCED, FAILED
-  deviceId          String?
-  appVersion        String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  photos            FieldPhoto[]
-  checklists        FieldChecklist[]
-  signatures        FieldSignature[]
+  id              String           @id @default(cuid())
+  projectId       String
+  taskInstanceId  String?
+  assignedTeamId  String?
+  assignedUserId  String?
+  title           String
+  description     String?
+  status          String           @default("ASSIGNED")
+  priority        String           @default("MEDIUM")
+  scheduledDate   DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationMinutes Int?
+  latitude        Float?
+  longitude       Float?
+  address         String?
+  syncStatus      String           @default("PENDING")
+  deviceId        String?
+  appVersion      String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  checklists      FieldChecklist[]
+  photos          FieldPhoto[]
+  signatures      FieldSignature[]
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([status])
@@ -127,93 +122,82 @@ model FieldTask {
 }
 
 model FieldPhoto {
-  id                String      @id @default(cuid())
-  fieldTaskId       String
-  fileName          String
-  fileUrl           String
-  photoType         String      // PROOF, PROGRESS, COMPLETION, DEFECT, OTHER
-  latitude          Float?
-  longitude         Float?
-  uploadedAt        DateTime    @default(now())
-  fieldTask         FieldTask   @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  fieldTaskId String
+  fileName    String
+  fileUrl     String
+  photoType   String
+  latitude    Float?
+  longitude   Float?
+  uploadedAt  DateTime  @default(now())
+  fieldTask   FieldTask @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
 
   @@index([fieldTaskId])
 }
 
 model FieldChecklist {
-  id                String      @id @default(cuid())
-  fieldTaskId       String
-  label             String
-  isMandatory       Boolean     @default(true)
-  isCompleted       Boolean     @default(false)
-  completedAt       DateTime?
-  photoRequired     Boolean     @default(false)
-  photoUrl          String?
-  fieldTask         FieldTask   @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  fieldTaskId   String
+  label         String
+  isMandatory   Boolean   @default(true)
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  photoRequired Boolean   @default(false)
+  photoUrl      String?
+  fieldTask     FieldTask @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
 
   @@index([fieldTaskId])
 }
 
 model FieldSignature {
-  id                String      @id @default(cuid())
-  fieldTaskId       String
-  signatoryName     String
-  signatureDataUrl  String      // Base64 encoded signature
-  role              String?     // TECHNICIAN, SUPERVISOR, CUSTOMER
-  signedAt          DateTime    @default(now())
-  fieldTask         FieldTask   @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
+  id               String    @id @default(cuid())
+  fieldTaskId      String
+  signatoryName    String
+  signatureDataUrl String
+  role             String?
+  signedAt         DateTime  @default(now())
+  fieldTask        FieldTask @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
 
   @@index([fieldTaskId])
 }
 
 model OTDRTest {
-  id                String            @id @default(cuid())
-  projectId         String
-  cableSegmentId    String?
-  testNumber        String            @unique
-  testDate          DateTime          @default(now())
-  testType          String            // INSTALLATION_ACCEPTANCE, MAINTENANCE, TROUBLESHOOTING
-  fiberNumber       Int?              // Fiber number within the cable
-  wavelength        Int?              // 1310, 1550, 1625 nm
-  
-  // Trace File
-  traceFileName     String?
-  traceFileUrl      String?
-  fileFormat        String?           // SOR, PDF, PNG
-  
-  // Parsed Metrics
-  totalLength       Float?            // km
-  endToEndLoss      Float?            // dB
-  lossPerKm         Float?            // dB/km
-  orl               Float?            // Optical Return Loss (dB)
-  spliceLoss        Float?            // Total splice loss (dB)
-  connectorLoss     Float?            // Total connector loss (dB)
-  spliceCount       Int?
-  eventCount        Int?
-  
-  // Thresholds
-  lossLimit         Float?            // Max allowable loss per km (e.g., 0.3 dB/km)
-  orlLimit          Float?            // Min ORL threshold
-  autoResult        String?           // PASS, FAIL, BORDERLINE
-  failureReason     String?
-  
-  // Metadata
-  testedById        String
-  equipmentModel    String?
-  equipmentSerial   String?
-  remarks           String?
-  
-  // Workflow
-  status            String            @default("PENDING_REVIEW") // PENDING_REVIEW, REVIEWED, APPROVED, FAILED
-  reviewedById      String?
-  reviewedAt        DateTime?
-  reviewNotes       String?
-  
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  cableSegment      GISCableSegment?  @relation("CableSegmentOTDR", fields: [cableSegmentId], references: [id])
-  events            OTDRTestEvent[]
+  id              String           @id @default(cuid())
+  projectId       String
+  cableSegmentId  String?
+  testNumber      String           @unique
+  testDate        DateTime         @default(now())
+  testType        String
+  fiberNumber     Int?
+  wavelength      Int?
+  traceFileName   String?
+  traceFileUrl    String?
+  fileFormat      String?
+  totalLength     Float?
+  endToEndLoss    Float?
+  lossPerKm       Float?
+  orl             Float?
+  spliceLoss      Float?
+  connectorLoss   Float?
+  spliceCount     Int?
+  eventCount      Int?
+  lossLimit       Float?
+  orlLimit        Float?
+  autoResult      String?
+  failureReason   String?
+  testedById      String
+  equipmentModel  String?
+  equipmentSerial String?
+  remarks         String?
+  status          String           @default("PENDING_REVIEW")
+  reviewedById    String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  cableSegment    GISCableSegment? @relation("CableSegmentOTDR", fields: [cableSegmentId], references: [id])
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  events          OTDRTestEvent[]
 
   @@index([projectId])
   @@index([testNumber])
@@ -221,63 +205,53 @@ model OTDRTest {
 }
 
 model OTDRTestEvent {
-  id              String    @id @default(cuid())
-  testId          String
-  eventNumber     Int
-  eventType       String    // REFLECTIVE, NON_REFLECTIVE, END_OF_FIBER, SPLICE, CONNECTOR
-  distance        Float     // km from launch
-  loss            Float?    // dB
-  reflectance     Float?    // dB
-  cumulativeLoss  Float?    // dB
-  comment         String?
-  test            OTDRTest  @relation(fields: [testId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  testId         String
+  eventNumber    Int
+  eventType      String
+  distance       Float
+  loss           Float?
+  reflectance    Float?
+  cumulativeLoss Float?
+  comment        String?
+  test           OTDRTest @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([testId])
   @@index([eventNumber])
 }
 
 model HSESafetyLog {
-  id              String        @id @default(cuid())
-  projectId       String
-  logType         String        // TOOLBOX_TALK, INCIDENT, NEAR_MISS, PPE_CHECK, INSPECTION, ENVIRONMENTAL
-  title           String
-  description     String?
-  location        String?
-  date            DateTime      @default(now())
-  severity        String?       // For incidents: LOW, MEDIUM, HIGH, CRITICAL
-  status          String        @default("OPEN") // OPEN, CLOSED, INVESTIGATING, ESCALATED
-  
-  // For Toolbox Talks
-  topic           String?
-  presenterName   String?
-  attendeeCount   Int?
-  durationMinutes Int?
-  
-  // For Incidents
-  incidentType    String?       // FIRE, ELECTRICAL, FALL, VEHICLE, EQUIPMENT, OTHER
-  injuryCount     Int?          @default(0)
-  fatalityCount   Int?          @default(0)
-  propertyDamage  Float?        // Estimated damage cost
-  rootCause       String?
+  id               String        @id @default(cuid())
+  projectId        String
+  logType          String
+  title            String
+  description      String?
+  location         String?
+  date             DateTime      @default(now())
+  severity         String?
+  status           String        @default("OPEN")
+  topic            String?
+  presenterName    String?
+  attendeeCount    Int?
+  durationMinutes  Int?
+  incidentType     String?
+  injuryCount      Int?          @default(0)
+  fatalityCount    Int?          @default(0)
+  propertyDamage   Float?
+  rootCause        String?
   correctiveAction String?
-  
-  // For PPE Checks
-  ppeChecklist    Json?         // JSON of PPE items checked
-  allCompliant    Boolean?      @default(false)
-  
-  // Attachments
-  photoUrls       String[]      @default([])
-  documentUrls    String[]      @default([])
-  
-  // Relations
-  recordedById    String
-  closedById      String?
-  closedAt        DateTime?
-  blocksStage     Boolean       @default(false) // If true, blocks project stage progression
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  attendees       HSEAttendee[]
+  ppeChecklist     Json?
+  allCompliant     Boolean?      @default(false)
+  photoUrls        String[]      @default([])
+  documentUrls     String[]      @default([])
+  recordedById     String
+  closedById       String?
+  closedAt         DateTime?
+  blocksStage      Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  attendees        HSEAttendee[]
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([logType])
@@ -287,13 +261,13 @@ model HSESafetyLog {
 }
 
 model HSEAttendee {
-  id              String        @id @default(cuid())
-  safetyLogId     String
-  name            String
-  designation     String?
-  signatureUrl    String?
-  attendedAt      DateTime      @default(now())
-  safetyLog       HSESafetyLog  @relation(fields: [safetyLogId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  safetyLogId  String
+  name         String
+  designation  String?
+  signatureUrl String?
+  attendedAt   DateTime     @default(now())
+  safetyLog    HSESafetyLog @relation(fields: [safetyLogId], references: [id], onDelete: Cascade)
 
   @@index([safetyLogId])
 }

@@ -21,6 +21,16 @@
         detail: { version: version }
     }));
 
+    // Listen for background sync success
+    chrome.runtime.onMessage.addListener((msg) => {
+        if (msg.action === 'SYNC_SUCCESS') {
+            console.log(`[i-SHAMP-BRIDGE] Notifying ERP UI of successful sync for ${msg.payload?.soNum}`);
+            window.dispatchEvent(new CustomEvent('SLT_BRIDGE_SYNC_SUCCESS', {
+                detail: msg.payload
+            }));
+        }
+    });
+
     // Save ERP origin dynamically to chrome storage
     chrome.storage.local.set({ erpOrigin: window.location.origin }, () => {
         console.log(`[i-SHAMP-BRIDGE] Saved active ERP Origin: ${window.location.origin}`);

@@ -1,60 +1,23 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectProgressService } from '@/services/project/project-progress.service';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// GET /api/projects/[id]/daily-progress
-export async function GET(_request: Request, { params }: { params: Params }) {
-  try {
+export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = await params;
-    const records = await prisma.dailyProgress.findMany({
-      where: { projectId },
-      orderBy: { reportDate: 'desc' },
-    });
-    return NextResponse.json(records);
-  } catch {
-    return NextResponse.json({ error: 'Failed to fetch daily progress' }, { status: 500 });
-  }
-}
+    return await ProjectProgressService.getDailyProgress(projectId);
+}, { rawResponse: true });
 
-// POST /api/projects/[id]/daily-progress
-export async function POST(request: Request, { params }: { params: Params }) {
-  try {
+export const POST = apiHandler(async (request, params, body) => {
     const { id: projectId } = await params;
-    const userId = request.headers.get('x-user-id') ?? undefined;
-    const body = await request.json();
+    const userId = request.headers.get('x-user-id');
 
-    const record = await prisma.dailyProgress.create({
-      data: {
+    return await ProjectProgressService.createDailyProgress({
+        ...body,
         projectId,
-        reportDate: body.reportDate ? new Date(body.reportDate) : new Date(),
-        polesErected: body.polesErected ?? 0,
-        cablePulled: body.cablePulled ?? 0,
-        chambersInstalled: body.chambersInstalled ?? 0,
-        closuresInstalled: body.closuresInstalled ?? 0,
-        jointsCompleted: body.jointsCompleted ?? 0,
-        fdpsInstalled: body.fdpsInstalled ?? 0,
-        teamSize: body.teamSize,
-        hoursWorked: body.hoursWorked,
-        laborCost: body.laborCost ?? 0,
-        progressPct: body.progressPct ?? 0,
-        notes: body.notes,
-        reportedById: userId,
-        photoUrls: body.photoUrls ?? [],
-      },
+        reportedById: userId || undefined
     });
-
-    // If progressPct is provided, update the project's overall progress
-    if (body.progressPct != null) {
-      await prisma.project.update({
-        where: { id: projectId },
-        data: { progress: body.progressPct },
-      });
-    }
-
-    return NextResponse.json(record, { status: 201 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create record';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+}, {
+    audit: { action: 'CREATE', entity: 'DAILY_PROGRESS' },
+    rawResponse: true
+});

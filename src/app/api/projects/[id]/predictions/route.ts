@@ -1,27 +1,17 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { AiPredictionService } from '@/services/ai-prediction.service';
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
-// GET /api/projects/[id]/predictions - Get saved predictions
-export async function GET(_request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
-    const predictions = await AiPredictionService.getSavedPredictions(projectId);
-    return NextResponse.json(predictions);
-  } catch {
-    return NextResponse.json({ error: 'Failed to fetch predictions' }, { status: 500 });
-  }
-}
+export const GET = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
+    return await AiPredictionService.getSavedPredictions(projectId);
+}, { rawResponse: true });
 
-// POST /api/projects/[id]/predictions - Run fresh AI predictions
-export async function POST(_request: Request, { params }: { params: Params }) {
-  try {
-    const { id: projectId } = await params;
-    const predictions = await AiPredictionService.getAllPredictions(projectId);
-    return NextResponse.json(predictions);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Prediction failed';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+export const POST = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
+    return await AiPredictionService.getAllPredictions(projectId);
+}, {
+    audit: { action: 'GENERATE_AI_PREDICTION', entity: 'PROJECT' },
+    rawResponse: true
+});

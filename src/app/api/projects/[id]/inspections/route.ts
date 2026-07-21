@@ -1,85 +1,44 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectInspectionService } from '@/services/project/project-inspection.service';
+import { AppError } from '@/lib/error';
 
-// GET: Fetch QA check sheets and inspection reports
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: projectId } = await params;
+export const dynamic = 'force-dynamic';
 
-        const inspections = await prisma.projectInspection.findMany({
-            where: { projectId },
-            orderBy: { createdAt: 'desc' }
-        });
+export const GET = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
+    return await ProjectInspectionService.getInspections(projectId);
+}, { rawResponse: true });
 
-        return NextResponse.json(inspections);
-    } catch (error) {
-        console.error('Error fetching QA inspections:', error);
-        return NextResponse.json({ error: 'Failed to fetch inspections' }, { status: 500 });
+export const POST = apiHandler(async (_request, params, body) => {
+    const { id: projectId } = params;
+    const { title, category, checklist, inspectorId } = body || {};
+
+    if (!title || !category || !checklist || !inspectorId) {
+        throw AppError.badRequest('Missing required parameters');
     }
-}
 
-// POST: Add new inspection list or NCR log
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: projectId } = await params;
-        const body = await request.json();
-        const { title, category, checklist, inspectorId } = body;
+    const newInspection = await ProjectInspectionService.createInspection(
+        projectId, 
+        body as unknown as Parameters<typeof ProjectInspectionService.createInspection>[1]
+    );
+    return Response.json(newInspection, { status: 201 });
+}, {
+    audit: { action: 'CREATE', entity: 'PROJECT_INSPECTION' },
+    rawResponse: true
+});
 
-        if (!title || !category || !checklist || !inspectorId) {
-            return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
-        }
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const { inspectionId, status, checklist, correctiveAction, photoUrls } = body || {};
 
-        const newInspection = await prisma.projectInspection.create({
-            data: {
-                projectId,
-                title,
-                category, // INSPECTION_REQUEST or NON_CONFORMANCE
-                checklist: checklist, // JSON array of verification checks
-                inspectorId,
-                status: 'PENDING'
-            }
-        });
-
-        return NextResponse.json(newInspection);
-    } catch (error) {
-        console.error('Error logging inspection request:', error);
-        return NextResponse.json({ error: 'Failed to submit inspection request' }, { status: 500 });
+    if (!inspectionId) {
+        throw AppError.badRequest('Inspection ID is required');
     }
-}
 
-// PATCH: Quality checklist checks, sign-off status or corrective actions
-export async function PATCH(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const body = await request.json();
-        const { inspectionId, status, checklist, correctiveAction, photoUrls } = body;
-
-        if (!inspectionId) {
-            return NextResponse.json({ error: 'Inspection ID is required' }, { status: 400 });
-        }
-
-        const updatedInspection = await prisma.projectInspection.update({
-            where: { id: inspectionId },
-            data: {
-                status: status !== undefined ? status : undefined,
-                checklist: checklist !== undefined ? checklist : undefined,
-                correctiveAction: correctiveAction !== undefined ? correctiveAction : undefined,
-                photoUrls: photoUrls !== undefined ? photoUrls : undefined,
-                inspectedAt: status !== undefined ? new Date() : undefined
-            }
-        });
-
-        return NextResponse.json(updatedInspection);
-    } catch (error) {
-        console.error('Error updating QA inspection:', error);
-        return NextResponse.json({ error: 'Failed to update inspection' }, { status: 500 });
-    }
-}
+    return await ProjectInspectionService.updateInspection(
+        inspectionId as string, 
+        body as unknown as Parameters<typeof ProjectInspectionService.updateInspection>[1]
+    );
+}, {
+    audit: { action: 'UPDATE', entity: 'PROJECT_INSPECTION' },
+    rawResponse: true
+});

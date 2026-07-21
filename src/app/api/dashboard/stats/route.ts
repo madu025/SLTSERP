@@ -5,7 +5,7 @@ import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(withTracing(async (request) => {
+export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
     const queryUserId = searchParams.get('userId');
     const headerUserId = request.headers.get('x-user-id');
@@ -25,4 +25,4 @@ export const GET = apiHandler(withTracing(async (request) => {
     });
 
     return data;
-}), { rawResponse: true });
+}, { rawResponse: true });

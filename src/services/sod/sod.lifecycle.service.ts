@@ -34,12 +34,12 @@ export class SODLifecycleService {
         const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {};
 
         if (sltsStatus) {
-            if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED'].includes(sltsStatus)) {
+            if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'OFFLINE'].includes(sltsStatus)) {
                 throw new Error('INVALID_STATUS');
             }
             updateData.sltsStatus = sltsStatus;
             if (sltsStatus === 'COMPLETED' && !completedDate) {
-                throw new Error('COMPLETED_DATE_REQUIRED');
+                updateData.completedDate = new Date();
             }
 
             // Logic for Restoring a RETURNED SOD
@@ -53,7 +53,7 @@ export class SODLifecycleService {
         }
 
         if (completedDate) updateData.completedDate = new Date(completedDate);
-        if (contractorId !== undefined) updateData.contractorId = contractorId;
+        if (contractorId !== undefined) updateData.contractorId = contractorId || null;
         if (comments !== undefined) updateData.comments = comments;
         if (otherData.wiredOnly !== undefined) updateData.wiredOnly = otherData.wiredOnly;
 
@@ -72,7 +72,7 @@ export class SODLifecycleService {
         }
         if (otherData.scheduledTime !== undefined) updateData.scheduledTime = otherData.scheduledTime;
         if (otherData.techContact !== undefined) updateData.techContact = otherData.techContact;
-        if (otherData.teamId) updateData.teamId = otherData.teamId || null;
+        if (otherData.teamId !== undefined) updateData.teamId = otherData.teamId || null;
         if (otherData.directTeamName) updateData.directTeam = otherData.directTeamName;
 
         if (otherData.dropWireDistance !== undefined) {

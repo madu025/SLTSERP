@@ -1,41 +1,35 @@
-// ============================================================
-// Module: gis
-// Models: GISRoute, GISPole, GISChamber, GISClosure, GISCableSegment, GISGeneratedBOQ, GISGeneratedBOQItem, QFieldCloudSyncLog, MobileSurveySession, SurveyPoint, GISAuditLog
-// ============================================================
-
 model GISRoute {
-  id              String        @id @default(cuid())
+  id              String            @id @default(cuid())
   projectId       String
   name            String
   description     String?
-  sourceFile      String?       // Original uploaded file URL (GeoJSON/Shapefile)
-  sourceFormat    String?       // GEOJSON, SHAPEFILE, KML
-  routeLength     Float?        // Total route length in meters
-  poleSpacing     Float?        // Default pole spacing in meters (e.g., 50m)
-  calculatedPoles Int?          // Auto-calculated: ceil(routeLength / poleSpacing)
-  status          String        @default("DRAFT") // DRAFT, IMPORTED, BOQ_GENERATED, APPROVED
-  geojsonData     Json?         // Parsed GeoJSON features
-  metadata        Json?         // Import metadata (coordinate system, etc.)
+  sourceFile      String?
+  sourceFormat    String?
+  routeLength     Float?
+  poleSpacing     Float?
+  calculatedPoles Int?
+  status          String            @default("DRAFT")
+  geojsonData     Json?
+  metadata        Json?
   createdById     String?
   approvedById    String?
   approvedAt      DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  // Route Versioning (Phase 14)
-  version         Int           @default(1)
-  parentVersionId String?       // Points to previous version
-  childVersionId  String?       // Points to next version (active)
-  versionType     String        @default("PLANNED") // PLANNED, FIELD_CHANGE, AS_BUILT
-  changeRequestId String?       // Linked change request
-  isActive        Boolean       @default(true)
-  polygonData     Json?         // Original drawn boundary for diagnostics/regeneration
-  osmData         Json?         // Overpass API road map data
-  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  poles           GISPole[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  version         Int               @default(1)
+  parentVersionId String?
+  childVersionId  String?
+  versionType     String            @default("PLANNED")
+  changeRequestId String?
+  isActive        Boolean           @default(true)
+  polygonData     Json?
+  osmData         Json?
+  cableSegments   GISCableSegment[]
   chambers        GISChamber[]
   closures        GISClosure[]
-  cableSegments   GISCableSegment[]
   generatedBOQs   GISGeneratedBOQ[]
+  poles           GISPole[]
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([status])
@@ -44,112 +38,112 @@ model GISRoute {
 }
 
 model GISPole {
-  properties    Json?       // Raw QGIS/GeoJSON feature properties
-  id            String    @id @default(cuid())
-  routeId       String
-  poleNumber    Int       // Sequential pole number
-  latitude      Float
-  longitude     Float
-  elevation     Float?
-  poleType      String?   // WOOD, CONCRETE, STEEL
-  height        Float?    // meters
-  status        String    @default("PLANNED") // PLANNED, INSTALLED, VERIFIED
+  properties       Json?
+  id               String            @id @default(cuid())
+  routeId          String
+  poleNumber       Int
+  latitude         Float
+  longitude        Float
+  elevation        Float?
+  poleType         String?
+  height           Float?
+  status           String            @default("PLANNED")
   installationDate DateTime?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   outgoingSegments GISCableSegment[] @relation("SegmentFromPole")
   incomingSegments GISCableSegment[] @relation("SegmentToPole")
+  route            GISRoute          @relation(fields: [routeId], references: [id], onDelete: Cascade)
 
   @@index([routeId])
   @@index([poleNumber])
 }
 
 model GISChamber {
-  id            String    @id @default(cuid())
-  routeId       String
-  chamberNumber Int
-  chamberType   String?   // JUNCTION, PULLING, SPLICE, TERMINAL
-  latitude      Float
-  longitude     Float
-  depth         Float?    // meters
-  dimensions    String?   // e.g., "1.2m x 0.9m x 0.75m"
-  status        String    @default("PLANNED")
+  id               String            @id @default(cuid())
+  routeId          String
+  chamberNumber    Int
+  chamberType      String?
+  latitude         Float
+  longitude        Float
+  depth            Float?
+  dimensions       String?
+  status           String            @default("PLANNED")
   installationDate DateTime?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   outgoingSegments GISCableSegment[] @relation("SegmentFromChamber")
   incomingSegments GISCableSegment[] @relation("SegmentToChamber")
+  route            GISRoute          @relation(fields: [routeId], references: [id], onDelete: Cascade)
 
   @@index([routeId])
 }
 
 model GISClosure {
-  properties    Json?       // Raw QGIS/GeoJSON feature properties
-  id            String    @id @default(cuid())
-  routeId       String
-  closureNumber Int
-  closureType   String?   // DOME, INLINE, TERMINAL
-  latitude      Float
-  longitude     Float
-  capacity      Int?      // Max splice capacity
-  status        String    @default("PLANNED")
+  properties       Json?
+  id               String    @id @default(cuid())
+  routeId          String
+  closureNumber    Int
+  closureType      String?
+  latitude         Float
+  longitude        Float
+  capacity         Int?
+  status           String    @default("PLANNED")
   installationDate DateTime?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  route            GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
 
   @@index([routeId])
 }
 
 model GISCableSegment {
-  properties    Json?       // Raw QGIS/GeoJSON feature properties
-  id            String    @id @default(cuid())
-  routeId       String
-  segmentNumber Int
-  fromPoleId    String?
-  toPoleId      String?
-  fromChamberId String?
-  toChamberId   String?
-  length        Float     // meters
-  cableType     String?   // e.g., "24F SM", "48F SM", "96F SM"
-  fiberCount    Int?
-  ductCount     Int?
-  installationMethod String? // DUCT, DIRECT_BURIED, AERIAL
-  status        String    @default("PLANNED")
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  fromPole      GISPole?  @relation("SegmentFromPole", fields: [fromPoleId], references: [id])
-  toPole        GISPole?  @relation("SegmentToPole", fields: [toPoleId], references: [id])
-  fromChamber   GISChamber? @relation("SegmentFromChamber", fields: [fromChamberId], references: [id])
-  toChamber     GISChamber? @relation("SegmentToChamber", fields: [toChamberId], references: [id])
-  otdrTests     OTDRTest[] @relation("CableSegmentOTDR")
+  properties         Json?
+  id                 String      @id @default(cuid())
+  routeId            String
+  segmentNumber      Int
+  fromPoleId         String?
+  toPoleId           String?
+  fromChamberId      String?
+  toChamberId        String?
+  length             Float
+  cableType          String?
+  fiberCount         Int?
+  ductCount          Int?
+  installationMethod String?
+  status             String      @default("PLANNED")
+  notes              String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  fromChamber        GISChamber? @relation("SegmentFromChamber", fields: [fromChamberId], references: [id])
+  fromPole           GISPole?    @relation("SegmentFromPole", fields: [fromPoleId], references: [id])
+  route              GISRoute    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  toChamber          GISChamber? @relation("SegmentToChamber", fields: [toChamberId], references: [id])
+  toPole             GISPole?    @relation("SegmentToPole", fields: [toPoleId], references: [id])
+  otdrTests          OTDRTest[]  @relation("CableSegmentOTDR")
 
   @@index([routeId])
   @@index([segmentNumber])
 }
 
 model GISGeneratedBOQ {
-  id            String                    @id @default(cuid())
-  routeId       String
-  projectId     String
-  status        String                    @default("DRAFT") // DRAFT, REVIEWED, APPROVED, CONVERTED
-  totalEstimated Float                    @default(0)
-  notes         String?
-  createdById   String?
-  approvedById  String?
-  approvedAt    DateTime?
-  createdAt     DateTime                  @default(now())
-  updatedAt     DateTime                  @updatedAt
-  route         GISRoute                  @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  project       Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  items         GISGeneratedBOQItem[]
+  id             String                @id @default(cuid())
+  routeId        String
+  projectId      String
+  status         String                @default("DRAFT")
+  totalEstimated Float                 @default(0)
+  notes          String?
+  createdById    String?
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  project        Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  route          GISRoute              @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  items          GISGeneratedBOQItem[]
 
   @@index([routeId])
   @@index([projectId])
@@ -157,20 +151,20 @@ model GISGeneratedBOQ {
 }
 
 model GISGeneratedBOQItem {
-  id              String            @id @default(cuid())
+  id              String          @id @default(cuid())
   boqId           String
-  itemCategory    String            // POLE, CHAMBER, CLOSURE, CABLE, DUCT, LABOR, MISC
+  itemCategory    String
   itemCode        String
   description     String
   unit            String
   quantity        Float
-  unitRate        Float             @default(0)
-  amount          Float             @default(0)
-  sourceType      String?           // AUTO_CALCULATED, MANUAL_OVERRIDE
-  sourceReference String?           // GIS element reference (e.g., pole count)
+  unitRate        Float           @default(0)
+  amount          Float           @default(0)
+  sourceType      String?
+  sourceReference String?
   remarks         String?
-  createdAt       DateTime          @default(now())
-  generatedBOQ    GISGeneratedBOQ   @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  createdAt       DateTime        @default(now())
+  generatedBOQ    GISGeneratedBOQ @relation(fields: [boqId], references: [id], onDelete: Cascade)
 
   @@index([boqId])
 }
@@ -178,8 +172,8 @@ model GISGeneratedBOQItem {
 model QFieldCloudSyncLog {
   id            String    @id @default(cuid())
   projectId     String
-  syncType      String    // FULL_SYNC, DELTA_SYNC
-  status        String    // STARTED, COMPLETED, FAILED
+  syncType      String
+  status        String
   featuresCount Int       @default(0)
   errorMessage  String?
   startedAt     DateTime  @default(now())
@@ -190,19 +184,19 @@ model QFieldCloudSyncLog {
 }
 
 model MobileSurveySession {
-  id            String        @id @default(cuid())
-  projectId     String
-  supervisorId  String
-  status        String        @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, ABANDONED
-  pointsCount   Int           @default(0)
-  syncStatus    String        @default("PENDING") // PENDING, SYNCED, FAILED
-  notes         String?
-  startedAt     DateTime      @default(now())
-  completedAt   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  surveyPoints  SurveyPoint[]
+  id           String        @id @default(cuid())
+  projectId    String
+  supervisorId String
+  status       String        @default("IN_PROGRESS")
+  pointsCount  Int           @default(0)
+  syncStatus   String        @default("PENDING")
+  notes        String?
+  startedAt    DateTime      @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  surveyPoints SurveyPoint[]
 
   @@index([projectId])
   @@index([supervisorId])
@@ -210,27 +204,27 @@ model MobileSurveySession {
 }
 
 model SurveyPoint {
-  id                  String              @id @default(cuid())
-  sessionId           String
-  projectId           String
-  layerId             String
-  layerName           String
-  latitude            Float
-  longitude           Float
-  attributes          Json
-  photoUrls           String[]            @default([])
-  supervisorId        String?
-  verificationStatus  String              @default("PENDING_VERIFICATION")
-  verificationStep    String              @default("SUPERVISOR")
-  verifiedById        String?
-  verifiedAt          DateTime?
-  approvedById        String?
-  approvedAt          DateTime?
-  rejectionReason     String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  session             MobileSurveySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  project             Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(cuid())
+  sessionId          String
+  projectId          String
+  layerId            String
+  layerName          String
+  latitude           Float
+  longitude          Float
+  attributes         Json
+  photoUrls          String[]            @default([])
+  supervisorId       String?
+  verificationStatus String              @default("PENDING_VERIFICATION")
+  verificationStep   String              @default("SUPERVISOR")
+  verifiedById       String?
+  verifiedAt         DateTime?
+  approvedById       String?
+  approvedAt         DateTime?
+  rejectionReason    String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  project            Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  session            MobileSurveySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
   @@index([projectId])
@@ -239,19 +233,19 @@ model SurveyPoint {
 }
 
 model GISAuditLog {
-  id              String    @id @default(cuid())
-  projectId       String
-  entityType      String
-  entityId        String
-  action          String
-  fieldChanges    Json?
-  locationBefore  Json?
-  locationAfter   Json?
-  performedById   String
-  performedAt     DateTime  @default(now())
-  routeVersion    Int?
-  source          String    @default("WEB_PORTAL")
-  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  projectId      String
+  entityType     String
+  entityId       String
+  action         String
+  fieldChanges   Json?
+  locationBefore Json?
+  locationAfter  Json?
+  performedById  String
+  performedAt    DateTime @default(now())
+  routeVersion   Int?
+  source         String   @default("WEB_PORTAL")
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([entityType, entityId])
@@ -259,14 +253,14 @@ model GISAuditLog {
 }
 
 model QFieldFieldConfig {
-  id          String   @id @default(cuid())
-  projectId   String
-  layerId     String   // e.g. "SLT_Poles"
-  fieldName   String   // e.g. "POLE TYPE"
-  options     String[] // e.g. ["Concrete", "GI", "Spun", "Wood"]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  projectId String
+  layerId   String
+  fieldName String
+  options   String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, layerId, fieldName])
   @@index([projectId])
@@ -274,12 +268,12 @@ model QFieldFieldConfig {
 
 model GISRoadData {
   fid        Int      @id
-  wkt        String   @db.Text
+  wkt        String
   wayFbid    String?
   highwayTag String?
-  minLat     Float?
-  maxLat     Float?
-  minLon     Float?
-  maxLon     Float?
   createdAt  DateTime @default(now())
+  maxLat     Float?
+  maxLon     Float?
+  minLat     Float?
+  minLon     Float?
 }

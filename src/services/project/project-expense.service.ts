@@ -11,6 +11,13 @@ interface CreateExpenseInput {
 }
 
 export class ProjectExpenseService {
+    static async getExpenses(projectId: string) {
+        return await prisma.projectExpense.findMany({
+            where: { projectId },
+            orderBy: { date: 'desc' },
+        });
+    }
+
     /**
      * Create project expense and recalculate project cost metrics in a transaction
      */

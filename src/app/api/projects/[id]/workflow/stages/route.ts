@@ -1,22 +1,22 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/WorkflowEngine';
+import { AppError } from '@/lib/error';
 
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        const { stageId, status, userId } = await request.json();
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { stageId, status, userId } = body || {};
 
-        if (!stageId || !status || !userId) {
-            return NextResponse.json({ error: 'stageId, status, and userId are required' }, { status: 400 });
-        }
-
-        await WorkflowEngine.transitionStage(stageId, status, userId);
-        return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('Error transitioning stage:', error);
-        return NextResponse.json({ error: error.message || 'Failed to transition stage' }, { status: 500 });
+    if (!stageId || !status || !userId) {
+        throw AppError.badRequest('stageId, status, and userId are required');
     }
-}
+
+    try {
+        await WorkflowEngine.transitionStage(stageId, status, userId);
+        return { success: true };
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        throw AppError.internal(err?.message || 'Failed to transition stage');
+    }
+}, {
+    audit: { action: 'TRANSITION_STAGE', entity: 'WORKFLOW' },
+    rawResponse: true
+});

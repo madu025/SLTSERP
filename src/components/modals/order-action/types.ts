@@ -44,6 +44,7 @@ export interface OrderActionData {
         serialNumber: string;
         condition: string;
     }> | null;
+    dropWireDistance?: number | null;
 }
 
 export interface Contractor {

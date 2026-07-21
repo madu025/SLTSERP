@@ -1,88 +1,44 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectRiskService } from '@/services/project/project-risk.service';
+import { AppError } from '@/lib/error';
 
-// GET: Fetch all identified risks for a project
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: projectId } = await params;
+export const dynamic = 'force-dynamic';
 
-        const risks = await prisma.projectRisk.findMany({
-            where: { projectId },
-            orderBy: { score: 'desc' } // Prioritize high score risks
-        });
+export const GET = apiHandler(async (_request, params) => {
+    const { id: projectId } = params;
+    return await ProjectRiskService.getRisks(projectId);
+}, { rawResponse: true });
 
-        return NextResponse.json(risks);
-    } catch (error) {
-        console.error('Error fetching project risks:', error);
-        return NextResponse.json({ error: 'Failed to fetch risks' }, { status: 500 });
+export const POST = apiHandler(async (_request, params, body) => {
+    const { id: projectId } = params;
+    const { title, description, probability, impact, identifiedById } = body || {};
+
+    if (!title || !description || !probability || !impact || !identifiedById) {
+        throw AppError.badRequest('Missing required parameters');
     }
-}
 
-// POST: Add a new risk identifier
-export async function POST(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id: projectId } = await params;
-        const body = await request.json();
-        const { title, description, probability, impact, mitigationPlan, identifiedById } = body;
+    const newRisk = await ProjectRiskService.createRisk(
+        projectId, 
+        body as unknown as Parameters<typeof ProjectRiskService.createRisk>[1]
+    );
+    return Response.json(newRisk, { status: 201 });
+}, {
+    audit: { action: 'CREATE', entity: 'PROJECT_RISK' },
+    rawResponse: true
+});
 
-        if (!title || !description || !probability || !impact || !identifiedById) {
-            return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
-        }
+export const PATCH = apiHandler(async (_request, _params, body) => {
+    const { riskId } = body || {};
 
-        const prob = Number(probability);
-        const imp = Number(impact);
-
-        const newRisk = await prisma.projectRisk.create({
-            data: {
-                projectId,
-                title,
-                description,
-                probability: prob,
-                impact: imp,
-                score: prob * imp, // Auto score calculation
-                mitigationPlan: mitigationPlan || null,
-                identifiedById,
-                status: 'OPEN'
-            }
-        });
-
-        return NextResponse.json(newRisk);
-    } catch (error) {
-        console.error('Error identifying project risk:', error);
-        return NextResponse.json({ error: 'Failed to log risk' }, { status: 500 });
+    if (!riskId) {
+        throw AppError.badRequest('Risk ID is required');
     }
-}
 
-// PATCH: Update mitigation plan or close/mitigate a risk
-export async function PATCH(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const body = await request.json();
-        const { riskId, mitigationPlan, status } = body;
-
-        if (!riskId) {
-            return NextResponse.json({ error: 'Risk ID is required' }, { status: 400 });
-        }
-
-        const updatedRisk = await prisma.projectRisk.update({
-            where: { id: riskId },
-            data: {
-                mitigationPlan: mitigationPlan !== undefined ? mitigationPlan : undefined,
-                status: status !== undefined ? status : undefined
-            }
-        });
-
-        return NextResponse.json(updatedRisk);
-    } catch (error) {
-        console.error('Error updating project risk:', error);
-        return NextResponse.json({ error: 'Failed to update risk' }, { status: 500 });
-    }
-}
+    return await ProjectRiskService.updateRisk(
+        riskId as string, 
+        body as unknown as Parameters<typeof ProjectRiskService.updateRisk>[1]
+    );
+}, {
+    audit: { action: 'UPDATE', entity: 'PROJECT_RISK' },
+    rawResponse: true
+});

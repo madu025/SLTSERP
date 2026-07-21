@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,6 +125,18 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
 
     const handleSave = async () => {
         try {
+            // Validation: Ensure every team has a name and a selected OPMC
+            for (const t of teams) {
+                if (!t.name || !t.name.trim()) {
+                    toast.error("Every team must have a name");
+                    return;
+                }
+                if (!t.opmcId || t.opmcId === 'inherit') {
+                    toast.error(`Please select an Originating Office (RTOM) for team "${t.name}"`);
+                    return;
+                }
+            }
+
             console.log("[DEBUG] TeamManager handleSave teams:", JSON.stringify(teams, null, 2));
             setLoading(true);
             const res = await fetch(`/api/contractors/${contractorId}/teams`, {
@@ -351,15 +363,14 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
     const currentTeam = selectedTeamIndex !== null ? teams[selectedTeamIndex] : null;
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            {/* FORCE WIDTH: max-w-none removes default limit, w-[95vw] sets intended width */}
-            <DialogContent className="max-w-none w-[98vw] sm:w-[95vw] h-[98vh] sm:h-[95vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 sm:max-w-none">
+        <Sheet open={isOpen} onOpenChange={onClose}>
+            <SheetContent side="right" showCloseButton={false} className="w-full sm:max-w-4xl h-full flex flex-col p-0 gap-0 overflow-hidden bg-slate-50">
                 {/* Compact Header */}
                 <div className="pl-4 pr-12 py-3 border-b bg-white flex justify-between items-center shrink-0 h-14">
                     <div className="flex items-center gap-3">
-                        <DialogTitle className="text-lg font-bold text-slate-800">Team Management</DialogTitle>
+                        <SheetTitle className="text-lg font-bold text-slate-800">Team Management</SheetTitle>
                         <Separator orientation="vertical" className="h-4" />
-                        <DialogDescription className="text-xs text-slate-500 m-0">{contractorName}</DialogDescription>
+                        <SheetDescription className="text-xs text-slate-500 m-0">{contractorName}</SheetDescription>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={onClose} className="h-8">Cancel</Button>
@@ -420,12 +431,12 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                             </Button>
                                         </div>
 
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                            <div className="w-full sm:w-64">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
                                                 <Label className="text-xs text-slate-500">Team Name</Label>
                                                 <Input value={currentTeam.name} onChange={(e) => updateCurrentTeam('name', e.target.value)} className="h-8 text-sm font-medium" />
                                             </div>
-                                            <div className="w-full sm:w-48">
+                                            <div>
                                                 <Label className="text-xs text-slate-500 font-bold text-blue-600">SLT Code</Label>
                                                 <Input
                                                     value={currentTeam.sltCode || ''}
@@ -434,17 +445,16 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                                     placeholder="e.g. OSP-TEAM-01"
                                                 />
                                             </div>
-                                            <div className="w-full sm:w-48">
-                                                <Label className="text-xs text-slate-500">Originating Office (RTOM)</Label>
+                                            <div>
+                                                <Label className="text-xs text-slate-500 font-bold">Originating Office (RTOM) <span className="text-red-500">*</span></Label>
                                                 <Select value={currentTeam.opmcId || ""} onValueChange={(v) => updateCurrentTeam('opmcId', v)}>
-                                                    <SelectTrigger className="h-8"><SelectValue placeholder="Inherit from Contractor" /></SelectTrigger>
+                                                    <SelectTrigger className="h-8"><SelectValue placeholder="Select OPMC / RTOM" /></SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="inherit">Inherit from Contractor</SelectItem>
                                                         {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="w-full sm:w-32">
+                                            <div>
                                                 <Label className="text-xs text-slate-500">Status</Label>
                                                 <Select value={currentTeam.status} onValueChange={(v) => updateCurrentTeam('status', v)}>
                                                     <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
@@ -617,7 +627,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                         )}
                     </div>
                 </div>
-            </DialogContent>
-        </Dialog >
+            </SheetContent>
+        </Sheet>
     );
 }

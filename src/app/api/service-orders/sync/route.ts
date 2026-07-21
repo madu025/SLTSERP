@@ -1,29 +1,21 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
+import { AppError } from '@/lib/error';
 
-// POST - Sync service orders from SLT API
-export async function POST(request: Request) {
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { rtomId, opmcId, rtom } = body || {};
+    const targetId = rtomId || opmcId;
+
     try {
-        const body = await request.json();
-        const { rtomId, opmcId, rtom } = body;
-        const targetId = rtomId || opmcId;
-
         const result = await ServiceOrderService.syncServiceOrders(targetId, rtom);
-
-        return NextResponse.json(result);
-
-    } catch (error) {
-        const err = error as Error;
-        if (err.message === 'RTOM_AND_ID_REQUIRED') {
-            return NextResponse.json({
-                message: 'RTOM selection is required'
-            }, { status: 400 });
+        return result;
+    } catch (error: any) {
+        if (error?.message === 'RTOM_AND_ID_REQUIRED') {
+            throw AppError.badRequest('RTOM selection is required');
         }
-
-        console.error('Error syncing service orders:', err);
-        return NextResponse.json({
-            message: 'Error syncing service orders',
-            error: err.message || 'Unknown error'
-        }, { status: 500 });
+        throw error;
     }
-}
+}, {
+    audit: { action: 'SYNC_SERVICE_ORDERS', entity: 'ServiceOrder' },
+    rawResponse: true
+});
