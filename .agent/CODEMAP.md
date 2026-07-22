@@ -19,10 +19,19 @@
     * `updateConfig(id: string, data: any): any`
     * `deleteConfig(id: string): any`
 
+### [grafana-dashboard.ts](src/services/admin/grafana-dashboard.ts)
+* **Exported Functions**:
+  * `buildGrafanaDashboard(): any`
+
 ### [job-queue.service.ts](src/services/admin/job-queue.service.ts)
 * **Class**: `JobQueueService`
   * **Methods**:
     * `getQueueStats(): any`
+
+### [prometheus.service.ts](src/services/admin/prometheus.service.ts)
+* **Class**: `PrometheusService`
+  * **Methods**:
+    * `generateMetricsText(): Promise<string>`
 
 ### [role.service.ts](src/services/admin/role.service.ts)
 * **Class**: `RoleService`
@@ -40,6 +49,15 @@
     * `updateConfig(id: string, data: UpdateRevenueConfigInput): any`
     * `deleteConfig(id: string): any`
     * `getRevenueForSOD(rtomId: string, completedDate: Date): Promise<number>`
+
+### [system-monitoring.service.ts](src/services/admin/system-monitoring.service.ts)
+* **Class**: `SystemMonitoringService`
+  * **Methods**:
+    * `logError(input: LogErrorInput): any`
+    * `getErrorLogs(filter: ErrorLogsFilter): any`
+    * `markResolved(errorId: string, userId: string): any`
+    * `clearLogs(daysToKeep = 14): any`
+    * `getHealthStats(): any`
 
 ### [system.service.ts](src/services/admin/system.service.ts)
 * **Class**: `AdminSystemService`
@@ -1321,7 +1339,7 @@
         type?: NotificationType;
         priority?: NotificationPriority;
         link?: string;
-        metadata?: any;
+        metadata?: Record<string, unknown>;
     }): any`
     * `broadcast({
         userIds,
@@ -1338,7 +1356,7 @@
         type?: NotificationType;
         priority?: NotificationPriority;
         link?: string;
-        metadata?: any;
+        metadata?: Record<string, unknown>;
     }): any`
     * `notifyByRole({
         roles,
@@ -1356,7 +1374,7 @@
         type?: NotificationType;
         priority?: NotificationPriority;
         link?: string;
-        metadata?: any;
+        metadata?: Record<string, unknown>;
         opmcId?: string;
     }): any`
     * `getUserNotifications(userId: string, limit = 50): any`
@@ -2240,6 +2258,10 @@
 | `/api/admin/finance/vendors/import` | [route.ts](src/app/api/admin/finance/vendors/import/route.ts) | `POST` |
 | `/api/admin/inventory/ai-audit` | [route.ts](src/app/api/admin/inventory/ai-audit/route.ts) | `GET` |
 | `/api/admin/jobs` | [route.ts](src/app/api/admin/jobs/route.ts) | `GET` |
+| `/api/admin/monitoring/dashboard` | [route.ts](src/app/api/admin/monitoring/dashboard/route.ts) | `GET` |
+| `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `DELETE` |
+| `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
+| `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
 | `/api/admin/reports/dynamic` | [route.ts](src/app/api/admin/reports/dynamic/route.ts) | `POST` |
 | `/api/admin/sections` | [route.ts](src/app/api/admin/sections/route.ts) | `GET`, `POST` |
 | `/api/admin/sections/[id]/roles` | [route.ts](src/app/api/admin/sections/[id]/roles/route.ts) | `GET`, `POST` |
@@ -2385,6 +2407,7 @@
 | `/api/login` | [route.ts](src/app/api/login/route.ts) | `POST` |
 | `/api/logout` | [route.ts](src/app/api/logout/route.ts) | `POST` |
 | `/api/maintenance/fix-dates` | [route.ts](src/app/api/maintenance/fix-dates/route.ts) | `GET` |
+| `/api/metrics` | [route.ts](src/app/api/metrics/route.ts) | `GET` |
 | `/api/notifications/analytics` | [route.ts](src/app/api/notifications/analytics/route.ts) | `GET` |
 | `/api/notifications/cleanup` | [route.ts](src/app/api/notifications/cleanup/route.ts) | `POST`, `GET` |
 | `/api/notifications/preferences` | [route.ts](src/app/api/notifications/preferences/route.ts) | `GET`, `POST` |
@@ -5753,6 +5776,25 @@
   * `patRejected: Int` `[@default(0)]`
   * `sltsPatRejected: Int` `[@default(0)]`
   * `lastUpdated: DateTime` `[@updatedAt]`
+
+### [SystemErrorLog](prisma/schema/system.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `statusCode: Int` `[@default(500)]`
+  * `errorCode: String` `[@default("INTERNAL_ERROR")]`
+  * `message: String`
+  * `stackTrace: String?` `[@db.Text]`
+  * `path: String`
+  * `method: String` `[@default("GET")]`
+  * `userId: String?`
+  * `userRole: String?`
+  * `ipAddress: String?`
+  * `userAgent: String?`
+  * `resolved: Boolean` `[@default(false)]`
+  * `resolvedAt: DateTime?`
+  * `resolvedBy: String?`
+  * `metadata: Json?`
+  * `createdAt: DateTime` `[@default(now())]`
 
 ### [User](prisma/schema/user.prisma)
 * **Fields**:
@@ -9868,4 +9910,23 @@
   * `updatedAt: DateTime` `[@updatedAt]`
   * `serviceOrder: ServiceOrder` `[@relation("CollectedCPEs", fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
   * `contractor: Contractor` `[@relation("CollectedCPEs", fields: [contractorId], references: [id], onDelete: Cascade)]`
+
+### [SystemErrorLog](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `statusCode: Int` `[@default(500)]`
+  * `errorCode: String` `[@default("INTERNAL_ERROR")]`
+  * `message: String`
+  * `stackTrace: String?` `[@db.Text]`
+  * `path: String`
+  * `method: String` `[@default("GET")]`
+  * `userId: String?`
+  * `userRole: String?`
+  * `ipAddress: String?`
+  * `userAgent: String?`
+  * `resolved: Boolean` `[@default(false)]`
+  * `resolvedAt: DateTime?`
+  * `resolvedBy: String?`
+  * `metadata: Json?`
+  * `createdAt: DateTime` `[@default(now())]`
 

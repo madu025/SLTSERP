@@ -73,3 +73,7 @@ SCALABILITY_*.md
 
 # geopackage files
 *.gpkg
+
+# monitoring binaries
+monitoring/prometheus-bin/
+
