@@ -844,7 +844,15 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="relative border-r border-border/15 p-0">
                                             <select
                                                 value={order.sltsStatus}
-                                                onChange={(e) => handleSaveField(order.id, "sltsStatus", e.target.value)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === "COMPLETED") {
+                                                        e.target.value = order.sltsStatus;
+                                                        onOpenModal(order, "action");
+                                                        return;
+                                                    }
+                                                    handleSaveField(order.id, "sltsStatus", val);
+                                                }}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "sltsStatus")}
                                                 data-row-index={index}
                                                 data-field="sltsStatus"
@@ -922,7 +930,15 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="relative border-r border-border/15 p-0">
                                             <select
                                                 value={order.sltsStatus}
-                                                onChange={(e) => handleSaveField(order.id, "sltsStatus", e.target.value)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === "COMPLETED") {
+                                                        e.target.value = order.sltsStatus;
+                                                        onOpenModal(order, "action");
+                                                        return;
+                                                    }
+                                                    handleSaveField(order.id, "sltsStatus", val);
+                                                }}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "sltsStatus")}
                                                 data-row-index={index}
                                                 data-field="sltsStatus"

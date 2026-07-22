@@ -17,7 +17,11 @@ export function useOrderAction(
     const [customReason, setCustomReason] = useState("");
     const [ontType, setOntType] = useState<'NEW' | 'EXISTING'>('NEW');
     const [ontSerialNumber, setOntSerialNumber] = useState("");
+    const [stbType, setStbType] = useState<'NEW' | 'EXISTING'>('NEW');
+    const [stbTypes, setStbTypes] = useState<Array<'NEW' | 'EXISTING'>>([]);
     const [iptvSerials, setIptvSerials] = useState<string[]>([]);
+    const [phoneType, setPhoneType] = useState<'NEW' | 'EXISTING'>('NEW');
+    const [phoneSerialNumber, setPhoneSerialNumber] = useState("");
     const [dpDetails, setDpDetails] = useState("");
     const [erectedPoles, setErectedPoles] = useState<Array<{ poleType: string; poleNumber: string; }>>([]);
     const [materialStatus, setMaterialStatus] = useState<string>("PENDING");
@@ -117,7 +121,8 @@ export function useOrderAction(
         setExtendedMaterialRows(rows);
 
         const iptvCount = orderData.iptv ? parseInt(orderData.iptv) : 0;
-        setIptvSerials(orderData.iptvSerials?.map(s => s.serialNumber) || Array(iptvCount).fill(''));
+        const initialSerials = orderData.iptvSerials?.map(s => s.serialNumber);
+        setIptvSerials(initialSerials && initialSerials.length > 0 ? initialSerials : (iptvCount > 0 ? Array(iptvCount).fill('') : ['']));
 
         setCollectedCpes(orderData.collectedCpes || []);
 
@@ -192,7 +197,7 @@ export function useOrderAction(
         }
     }, [orderData, items]);
 
-    const applyPreset = (type: 'STANDARD' | 'CLEAR') => {
+    const applyPreset = (type: 'STANDARD' | 'CLEAR' | string) => {
         if (type === 'CLEAR') {
             setExtendedMaterialRows([]);
             return;
@@ -280,16 +285,30 @@ export function useOrderAction(
 
     return {
         state: {
-            date, comment, reason, customReason, ontType, ontSerialNumber, iptvSerials, dpDetails,
-            materialStatus, selectedContractorId, selectedTeamId, opmcPatStatus, sltsPatStatus,
-            hoPatStatus, completionMode, assignmentType, directTeamName, extendedMaterialRows,
-            activeTab, wiredOnly, stbShortage, ontShortage, delayReasons, collectedCpes, erectedPoles
+            date, comment, reason, customReason, ontType, ontSerialNumber, stbType, stbTypes, iptvSerials,
+            phoneType, phoneSerialNumber, dpDetails, materialStatus, selectedContractorId, selectedTeamId,
+            opmcPatStatus, sltsPatStatus, hoPatStatus, completionMode, assignmentType, directTeamName,
+            extendedMaterialRows, activeTab, wiredOnly, stbShortage, ontShortage, delayReasons,
+            collectedCpes, erectedPoles
         },
         controls: {
-            setDate, setComment, setReason, setCustomReason, setOntType, setOntSerialNumber,
+            setDate, setComment, setReason, setCustomReason, setOntType, setOntSerialNumber, setStbType,
+            setStbRowType: (idx: number, type: 'NEW' | 'EXISTING') => {
+                const t = [...stbTypes]; t[idx] = type; setStbTypes(t);
+            },
+            setPhoneType, setPhoneSerialNumber,
             setIptvSerial: (idx: number, val: string) => {
                 const s = [...iptvSerials]; s[idx] = val; setIptvSerials(s);
             },
+            addIptvSerial: () => {
+                setIptvSerials([...iptvSerials, ""]);
+                setStbTypes([...stbTypes, 'NEW']);
+            },
+            removeIptvSerial: (idx: number) => {
+                setIptvSerials(iptvSerials.filter((_, i) => i !== idx));
+                setStbTypes(stbTypes.filter((_, i) => i !== idx));
+            },
+
             setDpDetails, setMaterialStatus, setSelectedContractorId, setSelectedTeamId,
             setOpmcPatStatus, setSltsPatStatus, setHoPatStatus, setCompletionMode,
             setAssignmentType, setDirectTeamName, setActiveTab, setWiredOnly, setStbShortage, setOntShortage,

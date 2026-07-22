@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Users, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,58 +40,40 @@ export function OrderAssignmentSection({
     const availableTeams = selectedContractor?.teams || [];
 
     return (
-        <div className="space-y-5">
-            <div className="flex items-center gap-2 mb-1 text-slate-650 font-bold text-xs uppercase tracking-wider">
-                <Users className="w-4 h-4 text-blue-500" />
-                <span>Assignment Details</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+        <div className="space-y-2.5">
+            <div className="flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                 <button
                     type="button"
                     onClick={() => onAssignmentTypeChange('CONTRACTOR')}
                     className={cn(
-                        "flex flex-col items-start p-4 rounded-xl border text-left transition-all hover:bg-slate-50/50",
+                        "flex-1 h-7 text-xs font-bold rounded transition-all flex items-center justify-center gap-2",
                         assignmentType === 'CONTRACTOR' 
-                            ? "border-blue-600 bg-blue-50/30 ring-1 ring-blue-600" 
-                            : "border-slate-200 bg-white"
+                            ? "bg-blue-600 text-white shadow-sm" 
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                     )}
                 >
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", assignmentType === 'CONTRACTOR' ? "border-blue-600 text-blue-600" : "border-slate-300")}>
-                            {assignmentType === 'CONTRACTOR' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
-                        </div>
-                        <span className="text-xs font-bold text-slate-800">Assign Contractor</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium">Outsource the work to an external registered contractor team.</p>
+                    Assign Contractor
                 </button>
-
                 <button
                     type="button"
                     onClick={() => onAssignmentTypeChange('DIRECT_TEAM')}
                     className={cn(
-                        "flex flex-col items-start p-4 rounded-xl border text-left transition-all hover:bg-slate-50/50",
+                        "flex-1 h-7 text-xs font-bold rounded transition-all flex items-center justify-center gap-2",
                         assignmentType === 'DIRECT_TEAM' 
-                            ? "border-blue-600 bg-blue-50/30 ring-1 ring-blue-600" 
-                            : "border-slate-200 bg-white"
+                            ? "bg-blue-600 text-white shadow-sm" 
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                     )}
                 >
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", assignmentType === 'DIRECT_TEAM' ? "border-blue-600 text-blue-600" : "border-slate-300")}>
-                            {assignmentType === 'DIRECT_TEAM' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
-                        </div>
-                        <span className="text-xs font-bold text-slate-800">Assign Direct Team</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium">Assign to an internal SLT regional maintenance or OPMC team.</p>
+                    Assign Direct Team
                 </button>
             </div>
 
             {assignmentType === 'CONTRACTOR' ? (
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Contractor</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-0.5">
+                        <Label className="text-[9px] font-bold text-slate-500 uppercase">Contractor</Label>
                         <Select value={selectedContractorId} onValueChange={onContractorChange}>
-                            <SelectTrigger className="h-9 border-slate-200 text-xs">
+                            <SelectTrigger className="h-7 border-slate-200 dark:border-slate-700 text-xs bg-white dark:bg-slate-900">
                                 <SelectValue placeholder="Select Contractor" />
                             </SelectTrigger>
                             <SelectContent className="max-h-[200px]">
@@ -102,10 +84,10 @@ export function OrderAssignmentSection({
                         </Select>
                     </div>
 
-                    <div className="space-y-1">
-                        <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Team</Label>
+                    <div className="space-y-0.5">
+                        <Label className="text-[9px] font-bold text-slate-500 uppercase">Team</Label>
                         <Select value={selectedTeamId} onValueChange={onTeamChange} disabled={!selectedContractorId}>
-                            <SelectTrigger className="h-9 border-slate-200 text-xs">
+                            <SelectTrigger className="h-7 border-slate-200 dark:border-slate-700 text-xs bg-white dark:bg-slate-900">
                                 <SelectValue placeholder={availableTeams.length > 0 ? "Select Team" : "No Teams found"} />
                             </SelectTrigger>
                             <SelectContent className="max-h-[200px]">
@@ -125,13 +107,13 @@ export function OrderAssignmentSection({
                     </div>
                 </div>
             ) : (
-                <div className="space-y-1">
-                    <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Direct Team Name / Identifier</Label>
+                <div className="space-y-0.5">
+                    <Label className="text-[9px] font-bold text-slate-500 uppercase">Direct Team Name / Identifier</Label>
                     <Input 
                         placeholder="e.g. SLT Maintenance Team A" 
                         value={directTeamName}
                         onChange={(e) => onDirectTeamNameChange(e.target.value)}
-                        className="h-9 text-xs"
+                        className="h-7 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                     />
                 </div>
             )}
