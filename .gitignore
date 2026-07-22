@@ -77,3 +77,10 @@ SCALABILITY_*.md
 # monitoring binaries
 monitoring/prometheus-bin/
 
+# temporary test/check scripts and HAR dumps
+*.har
+check*.js
+scratch*.ts
+tsc_errors_*.txt
+
+
