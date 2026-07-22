@@ -50,6 +50,38 @@ export class NotificationRepository {
         return client.notification.count({ where });
     }
 
+    static async findCursorPaginated(params: {
+        userId: string;
+        tenantId?: string;
+        limit?: number;
+        cursor?: string;
+        tx?: any;
+    }) {
+        const { userId, tenantId, limit = 20, cursor, tx } = params;
+        const client = tx || prisma;
+        const items = await client.notification.findMany({
+            take: limit + 1,
+            cursor: cursor ? { id: cursor } : undefined,
+            skip: cursor ? 1 : 0,
+            where: {
+                userId,
+                ...(tenantId && { tenantId })
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        let nextCursor: string | undefined = undefined;
+        if (items.length > limit) {
+            const nextItem = items.pop();
+            nextCursor = nextItem?.id;
+        }
+
+        return {
+            items,
+            nextCursor
+        };
+    }
+
     // Preferences
     static async findPreference(userId: string, type: string, tx?: any) {
         const client = tx || prisma;

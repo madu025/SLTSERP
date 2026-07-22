@@ -289,13 +289,13 @@ export function SODSheetTable(props: SODSheetTableProps) {
 
     return (
         <div className="w-full h-full overflow-auto border-t border-border/20 custom-scrollbar">
-            <table className="w-full border-collapse text-left table-fixed">
+            <table className="min-w-[1380px] w-full border-collapse text-left table-fixed">
                 <thead className="bg-muted/80 border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
                     <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px]">
                         <th className="w-[36px] px-1 py-1.5 border-r border-border/20 text-center md:sticky md:left-0 bg-muted/90 z-50">
                             <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-slate-400 dark:border-slate-500 data-[state=checked]:border-primary data-[state=checked]:bg-primary" />
                         </th>
-                        <th className="w-[100px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
+                        <th className="w-[145px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
                                     <span>SO Number</span>
@@ -311,10 +311,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 />
                             </div>
                         </th>
-                                             {/* Dynamic columns based on filterType */}
+                        {/* Dynamic columns based on filterType */}
                         {filterType === "completed" ? (
                             <>
-                                <th className="w-[95px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
                                             <span>Completed Date</span>
@@ -330,7 +330,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[175px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[210px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
                                             <span>Customer Details</span>
@@ -346,7 +346,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[125px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice</span>
@@ -362,7 +362,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[115px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("ontSerialNumber")}>
                                             <span>ONT Serial</span>
@@ -378,7 +378,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[135px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[145px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("teamId")}>
                                             <span>Contractor Team</span>
@@ -409,7 +409,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("status")}>
                                             <span>Status</span>
@@ -425,7 +425,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[165px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -441,7 +441,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <span className="text-emerald-500 dark:text-emerald-400">Revenue</span>
                                         <span className="text-[7px] text-muted-foreground font-normal normal-case">Rs. Amount</span>
@@ -698,7 +698,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 </th>
                             </>
                         )}
-                        <th className="w-[85px] text-center md:sticky md:right-0 bg-muted/90 z-50">Actions</th>
+                        <th className="w-[115px] text-center md:sticky md:right-0 bg-muted/90 z-50">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-border/25">

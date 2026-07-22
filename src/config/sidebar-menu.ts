@@ -15,6 +15,7 @@ import {
     FileSignature,
     PackageMinus,
     Shield,
+    ShieldCheck,
     FolderKanban,
     Upload,
     History as HistoryIcon,
@@ -413,16 +414,22 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             // 5. Analytics & History
             {
+                title: 'Inventory Audit & Compliance',
+                path: '/inventory/audit',
+                icon: ShieldCheck,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
+            },
+            {
+                title: 'Inventory Cardex',
+                path: '/inventory/reports/cardex',
+                icon: HistoryIcon,      // was FileText — conflicted with Material Registration
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
+            },
+            {
                 title: 'Inventory Dashboard',
                 path: '/inventory/dashboard',   // was /inventory — same as parent, caused active-state conflict
                 icon: LayoutDashboard,
                 allowedRoles: ROLE_GROUPS.STORES
-            },
-            {
-                title: 'Transaction History',
-                path: '/inventory/reports/cardex',
-                icon: HistoryIcon,      // was FileText — conflicted with Material Registration
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             }
         ]
     },

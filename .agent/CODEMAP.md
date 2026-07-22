@@ -1162,6 +1162,17 @@
   * **Methods**:
     * `checkAndNotify(userId?: string): any`
 
+### [deduplication.service.ts](src/services/notification/deduplication.service.ts)
+* **Class**: `NotificationDeduplicationService`
+  * **Methods**:
+    * `isDuplicate(params: {
+        userId: string;
+        type: string;
+        entityId?: string;
+        message?: string;
+        ttlSeconds?: number;
+    }): Promise<boolean>`
+
 ### [domain-policies.service.ts](src/services/notification/domain-policies.service.ts)
 * **Class**: `DomainNotificationPolicies`
   * **Methods**:
@@ -1448,6 +1459,12 @@
     }): Promise<DeliveryResult[]>`
     * `enqueueBackground(task: RetryTask): void`
     * `getQueueStats(): { total: number; pending: number; failed: number }`
+
+### [template-engine.service.ts](src/services/notification/template-engine.service.ts)
+* **Class**: `NotificationTemplateEngineService`
+  * **Methods**:
+    * `renderTemplate(templateStr: string, variables: Record<string, string | number | boolean | undefined>): string`
+    * `renderByCode(code: string, variables: Record<string, string | number | boolean | undefined>): Promise<{ title: string; message: string; channels: string[] } | null>`
 
 ### [opmc.service.ts](src/services/opmc.service.ts)
 * **Class**: `OpmcService`
@@ -2412,6 +2429,7 @@
 | `/api/notifications/cleanup` | [route.ts](src/app/api/notifications/cleanup/route.ts) | `POST`, `GET` |
 | `/api/notifications/preferences` | [route.ts](src/app/api/notifications/preferences/route.ts) | `GET`, `POST` |
 | `/api/notifications/push` | [route.ts](src/app/api/notifications/push/route.ts) | `POST`, `DELETE` |
+| `/api/notifications/read-bulk` | [route.ts](src/app/api/notifications/read-bulk/route.ts) | `PATCH` |
 | `/api/notifications` | [route.ts](src/app/api/notifications/route.ts) | `GET`, `PATCH`, `DELETE` |
 | `/api/notifications/scheduler` | [route.ts](src/app/api/notifications/scheduler/route.ts) | `GET`, `POST` |
 | `/api/notifications/sidebar-counts` | [route.ts](src/app/api/notifications/sidebar-counts/route.ts) | `GET` |
@@ -5863,6 +5881,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `userId: String`
+  * `tenantId: String?`
   * `title: String`
   * `message: String`
   * `type: String` `[@default("SYSTEM")]`
@@ -5870,9 +5889,33 @@
   * `isRead: Boolean` `[@default(false)]`
   * `link: String?`
   * `metadata: Json?`
+  * `groupedCount: Int` `[@default(1)]`
+  * `dedupHash: String?`
+  * `expiresAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `user: User` `[@relation(fields: [userId], references: [id], onDelete: Cascade)]`
+
+### [NotificationTemplate](prisma/schema/user.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `code: String` `[@unique]`
+  * `title: String`
+  * `message: String`
+  * `channels: String[]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [NotificationEvent](prisma/schema/user.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `tenantId: String?`
+  * `eventType: String`
+  * `payload: Json`
+  * `status: String` `[@default("PENDING")]`
+  * `processedAt: DateTime?`
+  * `errorReason: String?`
+  * `createdAt: DateTime` `[@default(now())]`
 
 ### [AuditLog](prisma/schema/user.prisma)
 * **Fields**:
@@ -5914,8 +5957,14 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `userId: String`
+  * `tenantId: String?`
   * `type: String`
   * `enabled: Boolean` `[@default(true)]`
+  * `inApp: Boolean` `[@default(true)]`
+  * `browser: Boolean` `[@default(true)]`
+  * `push: Boolean` `[@default(false)]`
+  * `email: Boolean` `[@default(true)]`
+  * `sms: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `user: User` `[@relation(fields: [userId], references: [id], onDelete: Cascade)]`

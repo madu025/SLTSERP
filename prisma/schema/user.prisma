@@ -65,21 +65,55 @@ model User {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  message   String
-  type      String   @default("SYSTEM")
-  priority  String   @default("MEDIUM")
-  isRead    Boolean  @default(false)
-  link      String?
-  metadata  Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  userId       String
+  tenantId     String?
+  title        String
+  message      String
+  type         String    @default("SYSTEM")
+  priority     String    @default("MEDIUM")
+  isRead       Boolean   @default(false)
+  link         String?
+  metadata     Json?
+  groupedCount Int       @default(1)
+  dedupHash    String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([tenantId])
   @@index([isRead])
+  @@index([createdAt])
+  @@index([tenantId, userId, isRead])
+}
+
+model NotificationTemplate {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  title     String
+  message   String
+  channels  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+}
+
+model NotificationEvent {
+  id          String    @id @default(cuid())
+  tenantId    String?
+  eventType   String
+  payload     Json
+  status      String    @default("PENDING")
+  processedAt DateTime?
+  errorReason String?
+  createdAt   DateTime  @default(now())
+
+  @@index([eventType])
+  @@index([status])
+  @@index([tenantId])
   @@index([createdAt])
 }
 
@@ -130,14 +164,21 @@ model Staff {
 model NotificationPreference {
   id        String   @id @default(cuid())
   userId    String
+  tenantId  String?
   type      String
   enabled   Boolean  @default(true)
+  inApp     Boolean  @default(true)
+  browser   Boolean  @default(true)
+  push      Boolean  @default(false)
+  email     Boolean  @default(true)
+  sms       Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
   @@index([userId])
+  @@index([tenantId])
 }
 
 model PushSubscription {

@@ -59,13 +59,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         }, 400);
         return () => clearTimeout(handler);
     }, [searchTerm]);
-    const [showMetrics, setShowMetrics] = useState<boolean>(true);
-    useEffect(() => {
-        const storedShowMetrics = localStorage.getItem('sod_show_metrics');
-        if (storedShowMetrics === 'false') {
-            setShowMetrics(false);
+    const [showMetrics, setShowMetrics] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('sod_show_metrics') !== 'false';
         }
-    }, []);
+        return true;
+    });
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
@@ -241,8 +240,9 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
     useEffect(() => {
         if (!refetch) return;
-        const handleSync = (e: any) => {
-            console.log("Extension Sync Success detected for", e.detail?.soNum, ", refreshing orders...");
+        const handleSync = (e: Event) => {
+            const customEvt = e as CustomEvent<{ soNum?: string }>;
+            console.log("Extension Sync Success detected for", customEvt.detail?.soNum, ", refreshing orders...");
             refetch();
         };
         window.addEventListener('SLT_BRIDGE_SYNC_SUCCESS', handleSync);
@@ -347,81 +347,87 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                             </div>
                         )}
 
-                        <div className="bg-card px-2 py-1 rounded-md border border-border/40 shadow-sm flex flex-wrap gap-1.5 items-center">
-                             <div className="flex items-center gap-1 mr-2">
-                                 <Layers className="w-4 h-4 text-primary" />
-                                 <span className="text-sm font-bold text-foreground whitespace-nowrap tracking-tight">{pageTitle}</span>
-                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { const newVal = !showMetrics; setShowMetrics(newVal); localStorage.setItem('sod_show_metrics', String(newVal)); }} title={showMetrics ? "Hide Summary Metrics" : "Show Summary Metrics"}>
-                                     {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                 </Button>
-                             </div>
+                        <div className="bg-card px-3 py-1.5 rounded-xl border border-border/40 shadow-sm flex flex-wrap xl:flex-nowrap gap-2 items-center justify-between">
+                             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                                 <div className="flex items-center gap-1.5 shrink-0">
+                                     <Layers className="w-4 h-4 text-primary" />
+                                     <span className="text-sm font-bold text-foreground whitespace-nowrap tracking-tight">{pageTitle}</span>
+                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { const newVal = !showMetrics; setShowMetrics(newVal); localStorage.setItem('sod_show_metrics', String(newVal)); }} title={showMetrics ? "Hide Summary Metrics" : "Show Summary Metrics"}>
+                                         {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                     </Button>
+                                 </div>
 
-                             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-md border border-border/20">
-                                 <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-                                 <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
-                                     <SelectTrigger className="h-7 border-none bg-transparent w-[130px] focus:ring-0 shadow-none font-bold text-xs"><SelectValue placeholder="RTOM" /></SelectTrigger>
-                                     <SelectContent>
-                                         {safeOpmcs.length > 0 ? safeOpmcs.map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom}</SelectItem>) : <SelectItem value="error" disabled>No RTOMs Available</SelectItem>}
-                                     </SelectContent>
-                                 </Select>
-                             </div>
-
-                             {/* Date Range Picker for completed/return views */}
-                             {filterType !== 'pending' && (
-                                 <div className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded-md border border-border/20">
-                                     <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                                     <Select value={selectedMonth} onValueChange={(v) => { setSelectedMonth(v); setCurrentPage(1); }}>
-                                         <SelectTrigger className="h-7 border-none bg-transparent w-[75px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
+                                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-muted/60 rounded-lg border border-border/20 shrink-0">
+                                     <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                                     <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
+                                         <SelectTrigger className="h-7 border-none bg-transparent w-[110px] focus:ring-0 shadow-none font-bold text-xs"><SelectValue placeholder="RTOM" /></SelectTrigger>
                                          <SelectContent>
-                                             {['1','2','3','4','5','6','7','8','9','10','11','12'].map(m => <SelectItem key={m} value={m} className="text-xs">{new Date(2000, Number(m)-1).toLocaleString('default', { month: 'short' })}</SelectItem>)}
-                                         </SelectContent>
-                                     </Select>
-                                     <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setCurrentPage(1); }}>
-                                         <SelectTrigger className="h-7 border-none bg-transparent w-[60px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
-                                         <SelectContent>
-                                             {['2024','2025','2026'].map(y => <SelectItem key={y} value={y} className="text-xs">{y}</SelectItem>)}
+                                             {safeOpmcs.length > 0 ? safeOpmcs.map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom}</SelectItem>) : <SelectItem value="error" disabled>No RTOMs Available</SelectItem>}
                                          </SelectContent>
                                      </Select>
                                  </div>
-                             )}
 
-                             <div className="flex-1 relative flex items-center min-w-[180px]">
-                                 <Search className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                                 <Input placeholder="Search orders, customers, numbers..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="h-7 pl-8 bg-muted/30 border-border/40 text-xs" />
+                                 {/* Date Range Picker for completed/return views */}
+                                 {filterType !== 'pending' && (
+                                     <div className="flex items-center gap-1 px-2 py-0.5 bg-muted/60 rounded-lg border border-border/20 shrink-0">
+                                         <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                                         <Select value={selectedMonth} onValueChange={(v) => { setSelectedMonth(v); setCurrentPage(1); }}>
+                                             <SelectTrigger className="h-7 border-none bg-transparent w-[76px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
+                                             <SelectContent>
+                                                 {['1','2','3','4','5','6','7','8','9','10','11','12'].map(m => <SelectItem key={m} value={m} className="text-xs">{new Date(2000, Number(m)-1).toLocaleString('default', { month: 'short' })}</SelectItem>)}
+                                             </SelectContent>
+                                         </Select>
+                                         <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setCurrentPage(1); }}>
+                                             <SelectTrigger className="h-7 border-none bg-transparent w-[88px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
+                                             <SelectContent>
+                                                 {['2024','2025','2026'].map(y => <SelectItem key={y} value={y} className="text-xs">{y}</SelectItem>)}
+                                             </SelectContent>
+                                         </Select>
+                                     </div>
+                                 )}
+
+                                 <div className="relative flex items-center min-w-[200px] flex-1">
+                                     <Search className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                     <Input placeholder="Search orders, customers, numbers..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="h-7 pl-8 bg-muted/30 border-border/40 text-xs" />
+                                 </div>
                              </div>
 
-                             <div className="flex items-center gap-1.5">
-                                 {/* Status Filter */}
-                                 <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
-                                     <SelectTrigger className="h-7 w-[130px] border-border/40 bg-card text-xs font-semibold"><SelectValue /></SelectTrigger>
-                                     <SelectContent>
-                                         <SelectItem value="DEFAULT" className="text-xs">Filter by Status</SelectItem>
-                                         <SelectItem value="ALL" className="text-xs">Show All</SelectItem>
-                                         <SelectItem value="ASSIGNED" className="text-xs">Assigned</SelectItem>
-                                         <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
-                                         <SelectItem value="OFFLINE" className="text-xs text-slate-500 font-bold dark:text-slate-400">Offline</SelectItem>
-                                         <SelectItem value="PROV_CLOSED" className="text-xs">Prov Closed</SelectItem>
-                                         <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
-                                         <SelectItem value="RETURN" className="text-xs text-rose-500 font-bold dark:text-rose-400">Returned/Issues</SelectItem>
-                                     </SelectContent>
-                                 </Select>
+                             <div className="flex items-center gap-1.5 shrink-0">
+                                 {/* Status Filter (Only needed for Pending Dispatcher Grid) */}
+                                 {filterType === 'pending' && (
+                                     <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
+                                         <SelectTrigger className="h-7 w-[125px] border-border/40 bg-card text-xs font-semibold"><SelectValue /></SelectTrigger>
+                                         <SelectContent>
+                                             <SelectItem value="DEFAULT" className="text-xs">Filter by Status</SelectItem>
+                                             <SelectItem value="ALL" className="text-xs">Show All</SelectItem>
+                                             <SelectItem value="ASSIGNED" className="text-xs">Assigned</SelectItem>
+                                             <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
+                                             <SelectItem value="OFFLINE" className="text-xs text-slate-500 font-bold dark:text-slate-400">Offline</SelectItem>
+                                             <SelectItem value="PROV_CLOSED" className="text-xs">Prov Closed</SelectItem>
+                                             <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
+                                             <SelectItem value="RETURN" className="text-xs text-rose-500 font-bold dark:text-rose-400">Returned/Issues</SelectItem>
+                                         </SelectContent>
+                                     </Select>
+                                 )}
 
-                                 {/* PAT Filter */}
-                                 <Select value={patFilter} onValueChange={(v) => { setPatFilter(v); setCurrentPage(1); }}>
-                                     <SelectTrigger className="h-7 w-[100px] border-border/40 bg-card text-xs font-semibold"><SelectValue placeholder="PAT" /></SelectTrigger>
-                                     <SelectContent>
-                                         <SelectItem value="ALL" className="text-xs">All PAT</SelectItem>
-                                         <SelectItem value="READY" className="text-xs text-emerald-500 font-bold">Invoicable</SelectItem>
-                                         <SelectItem value="OPMC_REJECTED" className="text-xs text-rose-500">OPMC Rejected</SelectItem>
-                                         <SelectItem value="HO_REJECTED" className="text-xs text-rose-500">HO Rejected</SelectItem>
-                                         <SelectItem value="HO_PASS" className="text-xs text-emerald-500">HO Passed</SelectItem>
-                                         <SelectItem value="PENDING" className="text-xs text-amber-500">PAT Pending</SelectItem>
-                                     </SelectContent>
-                                 </Select>
+                                 {/* PAT Filter (Only shown on dedicated PAT Status Monitor or Invoicable SOD pages) */}
+                                 {(pageTitle?.includes('PAT') || pageTitle?.includes('Invoicable')) && (
+                                     <Select value={patFilter} onValueChange={(v) => { setPatFilter(v); setCurrentPage(1); }}>
+                                         <SelectTrigger className="h-7 w-[95px] border-border/40 bg-card text-xs font-semibold"><SelectValue placeholder="PAT" /></SelectTrigger>
+                                         <SelectContent>
+                                             <SelectItem value="ALL" className="text-xs">All PAT</SelectItem>
+                                             <SelectItem value="READY" className="text-xs text-emerald-500 font-bold">Invoicable</SelectItem>
+                                             <SelectItem value="OPMC_REJECTED" className="text-xs text-rose-500">OPMC Rejected</SelectItem>
+                                             <SelectItem value="HO_REJECTED" className="text-xs text-rose-500">HO Rejected</SelectItem>
+                                             <SelectItem value="HO_PASS" className="text-xs text-emerald-500">HO Passed</SelectItem>
+                                             <SelectItem value="PENDING" className="text-xs text-amber-500">PAT Pending</SelectItem>
+                                         </SelectContent>
+                                     </Select>
+                                 )}
 
                                  {/* Material Filter */}
                                  <Select value={matFilter} onValueChange={(v) => { setMatFilter(v); setCurrentPage(1); }}>
-                                     <SelectTrigger className="h-7 w-[100px] border-border/40 bg-card text-xs font-semibold"><SelectValue placeholder="Material" /></SelectTrigger>
+                                     <SelectTrigger className="h-7 w-[115px] border-border/40 bg-card text-xs font-semibold"><SelectValue placeholder="Material" /></SelectTrigger>
                                      <SelectContent>
                                          <SelectItem value="ALL" className="text-xs">All Material</SelectItem>
                                          <SelectItem value="PENDING" className="text-xs text-amber-500">Mat Pending</SelectItem>
@@ -585,7 +591,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     );
 }
 
-export default function ServiceOrdersPage(props: any) {
+interface ServiceOrdersPageProps {
+    filterType?: "pending" | "completed" | "return";
+    pageTitle?: string;
+}
+
+export default function ServiceOrdersPage(props: ServiceOrdersPageProps) {
     return (
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground text-xs font-medium">Loading Service Orders...</div>}>
             <ServiceOrdersContent {...props} />
