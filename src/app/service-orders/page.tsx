@@ -168,7 +168,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const actualData = (json?.success && json?.data ? json.data : json) as Record<string, unknown>;
             return (actualData?.contractors || []) as Contractor[];
         },
-        enabled: !!selectedRtomId
+        enabled: !!selectedRtomId,
+        staleTime: 5 * 60 * 1000
     });
 
     const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
@@ -177,7 +178,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
              const res = await fetch("/api/inventory/items?page=1&limit=1000");
              const data = (await res.json()) as { items: InventoryItem[] };
              return (data.items || []) as InventoryItem[];
-        }
+        },
+        staleTime: 10 * 60 * 1000
     });
 
     const { data: systemConfigs = {} } = useQuery<Record<string, string>>({
@@ -185,7 +187,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         queryFn: async () => {
             const res = await fetch("/api/admin/system-config");
             return await res.json() as Record<string, string>;
-        }
+        },
+        staleTime: 15 * 60 * 1000
     });
 
     const serviceOrders: ServiceOrder[] = Array.isArray(qData?.items) ? qData!.items : [];

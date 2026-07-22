@@ -12,11 +12,17 @@ const getSafeDatabaseUrl = (url: string, isWorker: boolean = false) => {
         if (!urlObj.searchParams.has('statement_timeout')) {
             urlObj.searchParams.set('statement_timeout', '30000'); // 30s timeout
         }
+        if (!urlObj.searchParams.has('connect_timeout')) {
+            urlObj.searchParams.set('connect_timeout', '10'); // 10s connection timeout
+        }
         if (isWorker) {
             const currentLimit = parseInt(urlObj.searchParams.get('connection_limit') || '0');
             if (currentLimit < 10) {
                 urlObj.searchParams.set('connection_limit', '50'); // Force increase for workers
-                console.log(`[PRISMA] Worker detected: Increasing connection_limit from ${currentLimit} to 50`);
+            }
+        } else if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+            if (!urlObj.searchParams.has('connection_limit')) {
+                urlObj.searchParams.set('connection_limit', '10'); // Optimize serverless connections per container
             }
         }
         return urlObj.toString();
@@ -30,7 +36,7 @@ const isWorker = process.env.IS_WORKER === 'true';
 // 1. Initialize Primary Connection (Write/Master)
 const primaryUrl = getSafeDatabaseUrl(process.env.DATABASE_URL || '', isWorker);
 
-// Use singleton pattern for Next.js to prevent connection exhaustion 
+// Use singleton pattern for Next.js and Vercel Serverless to prevent connection exhaustion 
 const globalForPrisma = globalThis as unknown as {
     primaryClient: PrismaClient | undefined;
     readClient: PrismaClient | undefined;
@@ -41,7 +47,7 @@ const primaryClient = globalForPrisma.primaryClient ?? new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.primaryClient = primaryClient;
+globalForPrisma.primaryClient = primaryClient;
 
 // 2. Initialize Read Replica Connection (Optional)
 // In local development, these usually point to the same DB.
@@ -61,7 +67,7 @@ const readClient = hasDistinctReplica
       }))
     : primaryClient;
 
-if (hasDistinctReplica && process.env.NODE_ENV !== 'production') {
+if (hasDistinctReplica) {
     globalForPrisma.readClient = readClient;
 }
 
