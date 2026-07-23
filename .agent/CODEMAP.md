@@ -264,6 +264,28 @@
     * `syncFieldTasks(projectId: string, tasks: SyncFieldTaskInput[], deviceId?: string, appVersion?: string): any`
     * `getSyncStatus(projectId: string): any`
 
+### [accounting-posting-registry.service.ts](src/services/finance/accounting-posting-registry.service.ts)
+* **Class**: `AccountingPostingRegistry`
+  * **Methods**:
+    * `postContractorInvoice(tx: TransactionClient, payload: ContractorInvoicePostingPayload): any`
+    * `postRetentionAndLd(tx: TransactionClient, payload: RetentionLdPostingPayload): any`
+    * `postVehicleExpense(tx: TransactionClient, payload: VehicleExpensePostingPayload): any`
+
+### [ar-ap.service.ts](src/services/finance/ar-ap.service.ts)
+* **Class**: `ArApService`
+  * **Methods**:
+    * `recordCustomerReceipt(tx: TransactionClient, payload: CustomerReceiptPayload): any`
+    * `getArAgingReport(): Promise<ArAgingReport>`
+    * `getApAgingReport(): Promise<ApAgingReport>`
+
+### [bank-cash.service.ts](src/services/finance/bank-cash.service.ts)
+* **Class**: `BankCashService`
+  * **Methods**:
+    * `getCashBook(glAccountCode: string = 'BANK-1000', fromDate?: Date, toDate?: Date): Promise<CashBookReport>`
+    * `importBankStatement(bankAccountId: string, lines: { statementDate: Date; description: string; referenceNumber?: string; debit: number; credit: number }[]): any`
+    * `reconcileStatementLine(statementLineId: string, journalLineId: string): any`
+    * `getBankReconciliationSummary(bankAccountId: string): Promise<BankReconciliationSummary>`
+
 ### [bom-invoice.service.ts](src/services/finance/bom-invoice.service.ts)
 * **Class**: `BOMInvoiceService`
   * **Methods**:
@@ -324,6 +346,14 @@
   * `getFiscalYear(date: Date): number`
   * `getQuarter(date: Date): number`
 
+### [chart-of-accounts.service.ts](src/services/finance/chart-of-accounts.service.ts)
+* **Class**: `ChartOfAccountsService`
+  * **Methods**:
+    * `getAllAccounts(): any`
+    * `getAccountByCode(code: string): any`
+    * `createAccount(input: CreateAccountInput): any`
+    * `updateAccount(id: string, input: UpdateAccountInput): any`
+
 ### [cost-allocation.service.ts](src/services/finance/cost-allocation.service.ts)
 * **Class**: `CostAllocationService`
   * **Methods**:
@@ -334,6 +364,20 @@
 * **Class**: `FinanceDashboardService`
   * **Methods**:
     * `getDashboardMetrics(): any`
+
+### [fiscal-period.service.ts](src/services/finance/fiscal-period.service.ts)
+* **Class**: `FiscalPeriodService`
+  * **Methods**:
+    * `assertPeriodOpen(tx: TransactionClient | typeof prisma, date: Date = new Date()): any`
+    * `getAllPeriods(): any`
+    * `setPeriodStatus(year: number, month: number, status: FiscalPeriodStatus, closedById?: string): any`
+
+### [fixed-asset.service.ts](src/services/finance/fixed-asset.service.ts)
+* **Class**: `FixedAssetService`
+  * **Methods**:
+    * `createAsset(data: CreateFixedAssetPayload): Promise<FixedAsset>`
+    * `getAssetRegister(): Promise<AssetRegisterSummary>`
+    * `runMonthlyDepreciation(tx: TransactionClient, year: number, month: number, createdById?: string): any`
 
 ### [ld-penalty.service.ts](src/services/finance/ld-penalty.service.ts)
 * **Class**: `LDPenaltyService`
@@ -346,9 +390,19 @@
     }): any`
     * `deletePenalty(id: string): any`
 
+### [ledger-report.service.ts](src/services/finance/ledger-report.service.ts)
+* **Class**: `LedgerReportService`
+  * **Methods**:
+    * `getAccountBalances(fromDate?: Date, toDate?: Date): Promise<TrialBalanceReportResult>`
+    * `getPnlReport(fromDate?: Date, toDate?: Date): Promise<PnlReportResult>`
+    * `getBalanceSheetReport(asOfDate?: Date): Promise<BalanceSheetReportResult>`
+    * `getCashFlowReport(fromDate?: Date, toDate?: Date): Promise<CashFlowReportResult>`
+
 ### [ledger.service.ts](src/services/finance/ledger.service.ts)
 * **Class**: `LedgerService`
   * **Methods**:
+    * `postTransaction(tx: TransactionClient, payload: PostTransactionInput): any`
+    * `reverseTransaction(tx: TransactionClient, originalEntryId: string, reversalReason: string, createdById?: string): any`
     * `logGrnReceipt(tx: TransactionClient, grnId: string, totalCost: number, description?: string): any`
     * `logSodConsumption(tx: TransactionClient, sodId: string, totalCost: number, description?: string): any`
     * `logSodRevenue(tx: TransactionClient, sodId: string, revenueAmount: number, description?: string): any`
@@ -383,6 +437,18 @@
     * `updateVoucherStatus(id: string, status: string, options: UpdateVoucherStatusOptions): any`
     * `deletePaymentVoucher(id: string): any`
     * `deleteVoucher(id: string): any`
+
+### [payroll-expense.service.ts](src/services/finance/payroll-expense.service.ts)
+* **Class**: `PayrollExpenseService`
+  * **Methods**:
+    * `recordPayrollAllocation(tx: TransactionClient, payload: PayrollAllocationPayload): any`
+    * `getPayrollExpenses(opmcId?: string, period?: string): any`
+
+### [period-close.service.ts](src/services/finance/period-close.service.ts)
+* **Class**: `PeriodCloseService`
+  * **Methods**:
+    * `executeYearEndClose(tx: TransactionClient, year: number, closedById?: string): any`
+    * `createCreditDebitNote(tx: TransactionClient, payload: CreditDebitNotePayload): any`
 
 ### [petty-cash.service.ts](src/services/finance/petty-cash.service.ts)
 * **Class**: `PettyCashService`
@@ -428,6 +494,13 @@
     retentionPercent?: number;
     retentionAmount: number;
   }): any`
+
+### [tax.service.ts](src/services/finance/tax.service.ts)
+* **Class**: `TaxService`
+  * **Methods**:
+    * `logInvoiceTaxPosting(tx: TransactionClient, payload: InvoiceTaxPostingPayload): any`
+    * `getVatReturn(fromDate?: Date, toDate?: Date): Promise<VatReturnReport>`
+    * `getWhtRegister(fromDate?: Date, toDate?: Date): Promise<WhtRegisterReport>`
 
 ### [gis-ai.service.ts](src/services/gis/gis-ai.service.ts)
 * **Class**: `GISAIService`
@@ -910,12 +983,12 @@
 ### [material-audit-report.service.ts](src/services/inventory/material-audit-report.service.ts)
 * **Class**: `MaterialAuditReportService`
   * **Methods**:
-    * `getExecutiveAuditSummary(opmcId: string): Promise<ExecutiveAuditSummary>`
+    * `getExecutiveAuditSummary(opmcId?: string | null): Promise<ExecutiveAuditSummary>`
 
 ### [material-excel-import.service.ts](src/services/inventory/material-excel-import.service.ts)
 * **Class**: `MaterialExcelImportService`
   * **Methods**:
-    * `importMaterialReport(filePath: string, opmcId: string, createdById: string): Promise<ImportResult>`
+    * `importMaterialReport(filePath: string, opmcId: string | null = null, createdById: string = 'system-import'): Promise<ImportResult>`
 
 ### [mrn.service.ts](src/services/inventory/mrn.service.ts)
 * **Class**: `MRNService`
@@ -938,6 +1011,7 @@
   * **Methods**:
     * `listBalances(params: BalanceFilterParams): any`
     * `upsertManualBalance(input: ManualBalanceInput): Promise<PreErpMaterialBalance>`
+    * `bulkUpsertMonthBalances(inputs: ManualBalanceInput[]): Promise<{ count: number }>`
     * `submitVarianceAdjustment(input: ReconcileAdjustmentInput): Promise<MaterialVarianceAdjustment>`
     * `approveAdjustment(adjustmentId: string, approvedById: string): Promise<{ adjustment: MaterialVarianceAdjustment; inventoryStockId: string }>`
     * `rejectAdjustment(adjustmentId: string, approvedById: string, rejectionReason: string): Promise<MaterialVarianceAdjustment>`
@@ -2509,23 +2583,41 @@
 | `/api/dashboard/stats` | [route.ts](src/app/api/dashboard/stats/route.ts) | `GET` |
 | `/api/drivers/[id]/trips` | [route.ts](src/app/api/drivers/[id]/trips/route.ts) | `GET` |
 | `/api/files/contractors/[filename]` | [route.ts](src/app/api/files/contractors/[filename]/route.ts) | `GET` |
+| `/api/finance/ap/aging` | [route.ts](src/app/api/finance/ap/aging/route.ts) | `GET` |
+| `/api/finance/ar/aging` | [route.ts](src/app/api/finance/ar/aging/route.ts) | `GET` |
+| `/api/finance/ar/receipts` | [route.ts](src/app/api/finance/ar/receipts/route.ts) | `GET`, `POST` |
+| `/api/finance/bank/cash-book` | [route.ts](src/app/api/finance/bank/cash-book/route.ts) | `GET` |
+| `/api/finance/bank/reconciliation` | [route.ts](src/app/api/finance/bank/reconciliation/route.ts) | `GET`, `POST` |
 | `/api/finance/budget` | [route.ts](src/app/api/finance/budget/route.ts) | `GET`, `POST` |
 | `/api/finance/budget/[id]` | [route.ts](src/app/api/finance/budget/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 | `/api/finance/capex-opex` | [route.ts](src/app/api/finance/capex-opex/route.ts) | `GET`, `POST` |
 | `/api/finance/capex-opex/summary` | [route.ts](src/app/api/finance/capex-opex/summary/route.ts) | `GET` |
 | `/api/finance/capex-opex/sync` | [route.ts](src/app/api/finance/capex-opex/sync/route.ts) | `POST` |
 | `/api/finance/capex-opex/trend` | [route.ts](src/app/api/finance/capex-opex/trend/route.ts) | `GET` |
+| `/api/finance/chart-of-accounts` | [route.ts](src/app/api/finance/chart-of-accounts/route.ts) | `GET`, `POST`, `PUT` |
+| `/api/finance/credit-notes` | [route.ts](src/app/api/finance/credit-notes/route.ts) | `GET`, `POST` |
+| `/api/finance/fixed-assets/depreciate` | [route.ts](src/app/api/finance/fixed-assets/depreciate/route.ts) | `POST` |
+| `/api/finance/fixed-assets` | [route.ts](src/app/api/finance/fixed-assets/route.ts) | `GET`, `POST` |
 | `/api/finance/ld-penalties` | [route.ts](src/app/api/finance/ld-penalties/route.ts) | `GET`, `POST`, `PATCH`, `DELETE` |
 | `/api/finance/ledger` | [route.ts](src/app/api/finance/ledger/route.ts) | `GET` |
 | `/api/finance/payment-vouchers` | [route.ts](src/app/api/finance/payment-vouchers/route.ts) | `GET`, `POST` |
 | `/api/finance/payment-vouchers/[id]` | [route.ts](src/app/api/finance/payment-vouchers/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 | `/api/finance/payment-vouchers/[id]/status` | [route.ts](src/app/api/finance/payment-vouchers/[id]/status/route.ts) | `PATCH` |
+| `/api/finance/payroll` | [route.ts](src/app/api/finance/payroll/route.ts) | `GET`, `POST` |
+| `/api/finance/period-close` | [route.ts](src/app/api/finance/period-close/route.ts) | `POST` |
 | `/api/finance/petty-cash/accounts` | [route.ts](src/app/api/finance/petty-cash/accounts/route.ts) | `GET`, `POST` |
 | `/api/finance/petty-cash/reimbursements` | [route.ts](src/app/api/finance/petty-cash/reimbursements/route.ts) | `GET`, `POST`, `PATCH` |
 | `/api/finance/petty-cash/vouchers` | [route.ts](src/app/api/finance/petty-cash/vouchers/route.ts) | `GET`, `POST`, `PATCH` |
+| `/api/finance/reports/balance-sheet` | [route.ts](src/app/api/finance/reports/balance-sheet/route.ts) | `GET` |
+| `/api/finance/reports/cashflow` | [route.ts](src/app/api/finance/reports/cashflow/route.ts) | `GET` |
+| `/api/finance/reports/gl-drilldown` | [route.ts](src/app/api/finance/reports/gl-drilldown/route.ts) | `GET` |
+| `/api/finance/reports/pnl` | [route.ts](src/app/api/finance/reports/pnl/route.ts) | `GET` |
+| `/api/finance/reports/trial-balance` | [route.ts](src/app/api/finance/reports/trial-balance/route.ts) | `GET` |
 | `/api/finance/retention` | [route.ts](src/app/api/finance/retention/route.ts) | `GET`, `POST` |
 | `/api/finance/sf-audit/mapping-config` | [route.ts](src/app/api/finance/sf-audit/mapping-config/route.ts) | `GET`, `POST`, `DELETE` |
 | `/api/finance/sf-audit/payment-split-config` | [route.ts](src/app/api/finance/sf-audit/payment-split-config/route.ts) | `GET`, `POST` |
+| `/api/finance/tax/vat-return` | [route.ts](src/app/api/finance/tax/vat-return/route.ts) | `GET` |
+| `/api/finance/tax/wht-register` | [route.ts](src/app/api/finance/tax/wht-register/route.ts) | `GET` |
 | `/api/gis/ai-training` | [route.ts](src/app/api/gis/ai-training/route.ts) | `GET` |
 | `/api/gis/auto-plan/ai-optimize` | [route.ts](src/app/api/gis/auto-plan/ai-optimize/route.ts) | `POST` |
 | `/api/gis/auto-plan/rebuild` | [route.ts](src/app/api/gis/auto-plan/rebuild/route.ts) | `GET` |
@@ -2771,6 +2863,166 @@
 | `/api/vendors/[id]` | [route.ts](src/app/api/vendors/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 
 ## 3. Database Models (prisma/schema)
+
+### [ChartOfAccount](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `code: String` `[@unique]`
+  * `name: String`
+  * `type: AccountType`
+  * `parentId: String?`
+  * `isPostable: Boolean` `[@default(true)]`
+  * `isActive: Boolean` `[@default(true)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `parent: ChartOfAccount?` `[@relation("CoAHierarchy", fields: [parentId], references: [id])]`
+  * `children: ChartOfAccount[]` `[@relation("CoAHierarchy")]`
+
+### [FiscalPeriod](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `year: Int`
+  * `month: Int`
+  * `status: FiscalPeriodStatus` `[@default(OPEN)]`
+  * `closedById: String?`
+  * `closedAt: DateTime?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [Customer](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `code: String` `[@unique]`
+  * `name: String`
+  * `contactPerson: String?`
+  * `email: String?`
+  * `phone: String?`
+  * `taxNumber: String?`
+  * `creditLimit: Float` `[@default(0)]`
+  * `isActive: Boolean` `[@default(true)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `receipts: CustomerReceipt[]`
+
+### [CustomerReceipt](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `receiptNumber: String` `[@unique]`
+  * `customerId: String?`
+  * `invoiceId: String?`
+  * `amount: Float` `[@default(0)]`
+  * `paymentMethod: String` `[@default("BANK_TRANSFER")]`
+  * `referenceNumber: String?`
+  * `receiptDate: DateTime` `[@default(now())]`
+  * `notes: String?`
+  * `createdById: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `customer: Customer?` `[@relation(fields: [customerId], references: [id])]`
+  * `invoice: ProjectInvoice?` `[@relation(fields: [invoiceId], references: [id])]`
+
+### [BankAccount](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `accountNumber: String` `[@unique]`
+  * `bankName: String`
+  * `branchName: String?`
+  * `glAccountCode: String` `[@default("BANK-1000")]`
+  * `currency: String` `[@default("LKR")]`
+  * `openingBalance: Float` `[@default(0)]`
+  * `currentBalance: Float` `[@default(0)]`
+  * `isActive: Boolean` `[@default(true)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `statementLines: BankStatementLine[]`
+
+### [BankStatementLine](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `bankAccountId: String`
+  * `statementDate: DateTime`
+  * `description: String`
+  * `referenceNumber: String?`
+  * `debit: Float` `[@default(0)]`
+  * `credit: Float` `[@default(0)]`
+  * `isReconciled: Boolean` `[@default(false)]`
+  * `reconciledJournalLineId: String?`
+  * `reconciledAt: DateTime?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `bankAccount: BankAccount` `[@relation(fields: [bankAccountId], references: [id], onDelete: Cascade)]`
+
+### [FixedAsset](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `assetNumber: String` `[@unique]`
+  * `name: String`
+  * `category: String` `[@default("EQUIPMENT")]`
+  * `acquisitionDate: DateTime` `[@default(now())]`
+  * `cost: Float` `[@default(0)]`
+  * `usefulLifeYears: Int` `[@default(5)]`
+  * `depreciationMethod: String` `[@default("STRAIGHT_LINE")]`
+  * `glAssetCode: String` `[@default("FA-1410")]`
+  * `glDepExpCode: String` `[@default("EXP-DEP-6010")]`
+  * `glAccumDepCode: String` `[@default("ACC-DEP-1510")]`
+  * `accumulatedDepreciation: Float` `[@default(0)]`
+  * `netBookValue: Float` `[@default(0)]`
+  * `status: String` `[@default("ACTIVE")]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `depreciationLogs: DepreciationLog[]`
+
+### [DepreciationLog](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `fixedAssetId: String`
+  * `year: Int`
+  * `month: Int`
+  * `depreciationAmount: Float`
+  * `accumulatedAfter: Float`
+  * `netBookValueAfter: Float`
+  * `postedJournalId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `fixedAsset: FixedAsset` `[@relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)]`
+
+### [PayrollExpense](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `period: String`
+  * `opmcId: String?`
+  * `amount: Float` `[@default(0)]`
+  * `referenceNumber: String?`
+  * `notes: String?`
+  * `status: String` `[@default("POSTED")]`
+  * `createdById: String?`
+  * `postedJournalId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [CreditDebitNote](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `noteNumber: String` `[@unique]`
+  * `type: String` `[@default("CREDIT_NOTE") // CREDIT_NOTE | DEBIT_NOTE]`
+  * `invoiceId: String?`
+  * `amount: Float` `[@default(0)]`
+  * `reason: String`
+  * `status: String` `[@default("POSTED")]`
+  * `createdById: String?`
+  * `postedJournalId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `invoice: ProjectInvoice?` `[@relation(fields: [invoiceId], references: [id])]`
+
+### [ApprovalMatrix](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `module: String` `[@default("INVOICE")]`
+  * `minAmount: Float` `[@default(0)]`
+  * `maxAmount: Float`
+  * `requiredRole: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [AssetSyncLog](prisma/schema/agent-sync.prisma)
 * **Fields**:
@@ -3524,7 +3776,7 @@
 ### [PreErpMaterialBalance](prisma/schema/inventory-reconciliation.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `opmcId: String`
+  * `opmcId: String?`
   * `storeId: String?`
   * `itemId: String`
   * `itemCode: String`
@@ -3546,7 +3798,7 @@
   * `createdById: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id])]`
+  * `opmc: OPMC?` `[@relation(fields: [opmcId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `adjustments: MaterialVarianceAdjustment[]`
 
@@ -3554,7 +3806,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `balanceId: String`
-  * `opmcId: String`
+  * `opmcId: String?`
   * `itemId: String`
   * `systemCalculatedQty: Float` `[// Quantity from monthly math]`
   * `physicalAuditedQty: Float` `[// Physical stock count]`
@@ -3569,7 +3821,7 @@
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `balance: PreErpMaterialBalance` `[@relation(fields: [balanceId], references: [id], onDelete: Cascade)]`
-  * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id])]`
+  * `opmc: OPMC?` `[@relation(fields: [opmcId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
 
 ### [InventoryStore](prisma/schema/inventory.prisma)
@@ -3781,6 +4033,11 @@
   * `referenceId: String?`
   * `referenceType: String?`
   * `description: String`
+  * `status: String` `[@default("POSTED") // DRAFT, POSTED, REVERSED]`
+  * `isLocked: Boolean` `[@default(true)]`
+  * `postedAt: DateTime?` `[@default(now())]`
+  * `createdById: String?`
+  * `reversalOfId: String?`
   * `date: DateTime` `[@default(now())]`
   * `createdAt: DateTime` `[@default(now())]`
   * `lines: JournalLine[]`
@@ -4579,6 +4836,12 @@
   * `amount: Float`
   * `status: String` `[@default("PENDING")]`
   * `description: String?`
+  * `vatAmount: Float` `[@default(0)]`
+  * `ssclAmount: Float` `[@default(0)]`
+  * `whtAmount: Float` `[@default(0)]`
+  * `vatPercent: Float` `[@default(18)]`
+  * `ssclPercent: Float` `[@default(2.5)]`
+  * `whtPercent: Float` `[@default(5)]`
   * `dueDate: DateTime?`
   * `date: DateTime` `[@default(now())]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4853,6 +5116,12 @@
   * `subtotal: Float` `[@default(0)]`
   * `taxAmount: Float` `[@default(0)]`
   * `discountAmount: Float` `[@default(0)]`
+  * `vatAmount: Float` `[@default(0)]`
+  * `ssclAmount: Float` `[@default(0)]`
+  * `whtAmount: Float` `[@default(0)]`
+  * `vatPercent: Float` `[@default(18)]`
+  * `ssclPercent: Float` `[@default(2.5)]`
+  * `whtPercent: Float` `[@default(5)]`
   * `totalAmount: Float` `[@default(0)]`
   * `paidAmount: Float` `[@default(0)]`
   * `balanceAmount: Float` `[@default(0)]`
@@ -4872,6 +5141,8 @@
   * `items: ProjectInvoiceItem[]`
   * `retentions: ProjectRetention[]`
   * `sods: ServiceOrder[]` `[@relation("ProjectInvoiceSODs")]`
+  * `customerReceipts: CustomerReceipt[]`
+  * `creditNotes: CreditDebitNote[]`
 
 ### [ProjectInvoiceItem](prisma/schema/project-finance.prisma)
 * **Fields**:

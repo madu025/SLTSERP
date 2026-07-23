@@ -152,7 +152,13 @@ export class ServiceOrderService {
             }
             // Save IPTV serials relationally
             if (data.iptvSerialNumbers !== undefined) {
-                const serials = data.iptvSerialNumbers || [];
+                const rawSerials = data.iptvSerialNumbers;
+                const serials: string[] = Array.isArray(rawSerials)
+                    ? rawSerials
+                    : typeof rawSerials === 'string' || typeof rawSerials === 'number'
+                        ? String(rawSerials).split(',').map(s => s.trim()).filter(Boolean)
+                        : [];
+
                 await tx.sODIptvSerial.deleteMany({
                     where: { serviceOrderId: id }
                 });
@@ -161,7 +167,8 @@ export class ServiceOrderService {
                         data: serials.map(sn => ({
                             serviceOrderId: id,
                             serialNumber: sn
-                        }))
+                        })),
+                        skipDuplicates: true
                     });
                 }
             }

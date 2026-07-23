@@ -41,7 +41,10 @@ import {
     TrendingUp,
     PieChart,
     Scale,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Layers,
+    Package,
+    Lock
 } from 'lucide-react';
 
 
@@ -555,6 +558,105 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/procurement/forecast',
                 icon: FileText,
                 allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES]
+            }
+        ]
+    },
+    {
+        title: 'Finance & Accounts',
+        path: '/admin/finance/chart-of-accounts',
+        icon: Landmark,
+        allowedRoles: ROLE_GROUPS.FINANCE,
+        permissionId: 'finance',
+        submenu: [
+            {
+                title: 'Chart of Accounts',
+                path: '/admin/finance/chart-of-accounts',
+                icon: List,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Trial Balance',
+                path: '/admin/finance/reports/trial-balance',
+                icon: Scale,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Profit & Loss Statement',
+                path: '/admin/finance/reports/pnl',
+                icon: TrendingUp,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Balance Sheet',
+                path: '/admin/finance/reports/balance-sheet',
+                icon: Landmark,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'GL Ledger Viewer',
+                path: '/admin/finance/reports/gl-viewer',
+                icon: Layers,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'VAT Return & Tax Register',
+                path: '/admin/finance/tax/vat-return',
+                icon: Receipt,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'WHT Certificates & Register',
+                path: '/admin/finance/tax/wht-register',
+                icon: FileCheck2,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'AR Aging & Collections',
+                path: '/admin/finance/ar/aging',
+                icon: Users,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'AP Aging & Payables',
+                path: '/admin/finance/ap/aging',
+                icon: Building2,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Cash Book & Bank Ledger',
+                path: '/admin/finance/bank/cash-book',
+                icon: Landmark,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Bank Statement Reconciliation',
+                path: '/admin/finance/bank/reconciliation',
+                icon: CheckCircle2,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Fixed Asset Register & Depreciation',
+                path: '/admin/finance/fixed-assets',
+                icon: Package,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'HO Payroll Expense Allocation',
+                path: '/admin/finance/payroll',
+                icon: Users,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Financial Period Close & Year-End',
+                path: '/admin/finance/period-close',
+                icon: Lock,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Credit & Debit Notes',
+                path: '/admin/finance/credit-notes',
+                icon: FileText,
+                allowedRoles: ROLE_GROUPS.FINANCE
             }
         ]
     },

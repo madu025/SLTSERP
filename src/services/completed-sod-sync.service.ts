@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { sltApiService } from './slt-api.service';
 import { ServiceOrderService } from './sod.service';
-import { SodStatus, SOD_COMPLETION_STATUSES } from '@/lib/constants/sod-constants';
+import { SodStatus } from '@/lib/constants/sod-constants';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 export class CompletedSODSyncService {
@@ -53,7 +53,7 @@ export class CompletedSODSyncService {
                     // Deduplicate results to prevent collisions in the loop
                     const uniqueCompletedMap = new Map();
                     completedResults.forEach(r => {
-                        if (r.CON_STATUS === 'INSTALL_CLOSED') {
+                        if (r.SO_NUM) {
                             uniqueCompletedMap.set(r.SO_NUM, r);
                         }
                     });
@@ -80,15 +80,24 @@ export class CompletedSODSyncService {
                         }
                     });
 
+                    const resolveSltsStatus = (conStatus: string): SodStatus => {
+                        const statusUpper = (conStatus || '').toUpperCase();
+                        if (statusUpper === 'INSTALL_CLOSED') return SodStatus.INSTALL_CLOSED;
+                        if (statusUpper === 'PROV_CLOSED') return SodStatus.PROV_CLOSED;
+                        if (statusUpper.includes('RETURN') || statusUpper.includes('REJECT') || statusUpper.includes('CANCEL')) {
+                            return SodStatus.RETURN;
+                        }
+                        return SodStatus.COMPLETED;
+                    };
+
                     // Process each unique completed SOD record in batches
                     const CHUNK_SIZE = 10;
                     for (let i = 0; i < uniqueResults.length; i += CHUNK_SIZE) {
                         const chunk = uniqueResults.slice(i, i + CHUNK_SIZE);
                         await Promise.all(chunk.map(async (sltData) => {
                             try {
-                                if (!SOD_COMPLETION_STATUSES.includes(sltData.CON_STATUS as SodStatus)) {
-                                    return;
-                                }
+                                const finalSltsStatus = resolveSltsStatus(sltData.CON_STATUS);
+                                const isWiredOnly = finalSltsStatus === SodStatus.PROV_CLOSED;
 
                                 // CHECK MAP: Look for ANY record with this SO_NUM
                                 const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
@@ -99,13 +108,9 @@ export class CompletedSODSyncService {
 
                                 if (localSODs.length > 0) {
                                     // CASE A: Exists
-                                    // Update if not already marked as COMPLETED in our system OR if specific details are missing (e.g. date)
+                                    // Update if status differs or completedDate missing
                                     for (const localSOD of localSODs) {
-                                        if (localSOD.sltsStatus !== SodStatus.COMPLETED || !localSOD.completedDate) {
-
-                                            const isProvClosed = sltData.CON_STATUS === SodStatus.PROV_CLOSED;
-                                            const finalSltsStatus = isProvClosed ? SodStatus.PROV_CLOSED : SodStatus.COMPLETED;
-                                            const isWiredOnly = isProvClosed;
+                                        if (localSOD.sltsStatus !== finalSltsStatus || !localSOD.completedDate) {
 
                                             console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ♻️ Updating SOD: ${sltData.SO_NUM} (${finalSltsStatus})`);
 
@@ -114,11 +119,11 @@ export class CompletedSODSyncService {
                                                 {
                                                     status: sltData.CON_STATUS,
                                                     sltsStatus: finalSltsStatus,
-                                                    completedDate: completedDate,
+                                                    completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : localSOD.completedDate,
                                                     wiredOnly: isWiredOnly,
                                                     dpDetails: sltData.DP,
                                                     ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
-                                                    iptvSerialNumbers: sltData.IPTV || undefined,
+                                                    iptvSerialNumbers: (sltData.IPTV && String(sltData.IPTV).trim().length > 5) ? [String(sltData.IPTV).trim()] : undefined,
                                                     dropWireDistance: dropWireDistance,
                                                     comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,
                                                 }
@@ -130,10 +135,6 @@ export class CompletedSODSyncService {
                                     // CASE B: DOES NOT EXIST (Missing History)
                                     // Create new record directly
                                     console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🆕 Creating MISSING Historical SOD: ${sltData.SO_NUM}`);
-
-                                    const isProvClosed = sltData.CON_STATUS === SodStatus.PROV_CLOSED;
-                                    const finalSltsStatus = isProvClosed ? SodStatus.PROV_CLOSED : SodStatus.COMPLETED;
-                                    const isWiredOnly = isProvClosed;
 
                                     await prisma.serviceOrder.create({
                                         data: {
@@ -165,7 +166,7 @@ export class CompletedSODSyncService {
                                             // Dates
                                             receivedDate: completedDate,
                                             statusDate: completedDate,
-                                            completedDate: completedDate,
+                                            completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : null,
 
                                             // Other
                                             comments: 'Auto-created from Missing History Sync',

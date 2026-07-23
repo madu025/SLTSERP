@@ -509,7 +509,7 @@ export default function CapexOpexDashboardPage() {
                                 ) : (
                                     <div className="space-y-3 overflow-y-auto max-h-64">
                                         {summary!.alerts.map((a, i) => (
-                                            <div key={i} className="rounded-lg bg-red-950/30 border border-red-900/50 p-3">
+                                            <div key={`alert-${a.category}-${a.expenditureType}-${i}`} className="rounded-lg bg-red-950/30 border border-red-900/50 p-3">
                                                 <div className="flex items-center justify-between mb-1.5">
                                                     <span className="text-xs font-semibold text-white">{CATEGORY_LABELS[a.category] ?? a.category}</span>
                                                     <Badge className={`text-[10px] ${a.expenditureType === 'CAPEX' ? 'bg-emerald-600' : 'bg-blue-600'}`}>
@@ -553,7 +553,7 @@ export default function CapexOpexDashboardPage() {
                                             <tr><td colSpan={6} className="px-5 py-8 text-center text-slate-500 text-xs">No budget data for FY {fiscalYear}. Create budget allocations to get started.</td></tr>
                                         ) : (
                                             summary!.breakdown.map((row, i) => (
-                                                <tr key={i} className={`hover:bg-slate-800/40 transition-colors ${row.isAlert ? 'bg-red-950/10' : ''}`}>
+                                                <tr key={`row-${row.category}-${row.expenditureType}-${i}`} className={`hover:bg-slate-800/40 transition-colors ${row.isAlert ? 'bg-red-950/10' : ''}`}>
                                                     <td className="px-5 py-3 font-medium text-white">{CATEGORY_LABELS[row.category] ?? row.category}</td>
                                                     <td className="px-5 py-3">
                                                         <Badge className={`text-[10px] ${row.expenditureType === 'CAPEX' ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700' : 'bg-blue-600/20 text-blue-300 border border-blue-700'}`}>

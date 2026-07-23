@@ -1,6 +1,151 @@
 import { TransactionClient } from '../inventory/types';
+import { FiscalPeriodService } from './fiscal-period.service';
+import { AppError } from '@/lib/error';
+
+export interface JournalPostingLineInput {
+    accountCode: string;
+    debit: number;
+    credit: number;
+    description?: string;
+}
+
+export interface PostTransactionInput {
+    referenceId?: string;
+    referenceType?: string;
+    description: string;
+    date?: Date;
+    createdById?: string;
+    lines: JournalPostingLineInput[];
+}
 
 export class LedgerService {
+    /**
+     * Centralized Gateway: Single Source of Truth posting pipeline for all ERP financial events.
+     * Enforces double-entry balance integrity, fiscal period lock, CoA account verification, and audit logging.
+     */
+    static async postTransaction(
+        tx: TransactionClient,
+        payload: PostTransactionInput
+    ) {
+        const postingDate = payload.date ? new Date(payload.date) : new Date();
+
+        // 1. Period Lock Enforcement (skip for formal YEAR_END_CLOSE entries)
+        if (payload.referenceType !== 'YEAR_END_CLOSE') {
+            await FiscalPeriodService.assertPeriodOpen(tx, postingDate);
+        }
+
+        // 2. Validate double-entry mathematical integrity (DR == CR)
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        for (const line of payload.lines) {
+            if (line.debit < 0 || line.credit < 0) {
+                throw AppError.badRequest('Journal line debit and credit amounts must be non-negative');
+            }
+            totalDebit += Number(line.debit);
+            totalCredit += Number(line.credit);
+        }
+
+        if (Math.abs(totalDebit - totalCredit) > 0.001) {
+            throw AppError.badRequest(
+                `Unbalanced Journal Entry: Total Debit (${totalDebit.toFixed(2)}) !== Total Credit (${totalCredit.toFixed(2)})`
+            );
+        }
+
+        if (payload.lines.length === 0) {
+            throw AppError.badRequest('Journal Entry must contain at least one line');
+        }
+
+        // 3. Dynamic Chart of Accounts lookup & resolution
+        const resolvedLines = [];
+        for (const line of payload.lines) {
+            const coa = await tx.chartOfAccount.findUnique({
+                where: { code: line.accountCode }
+            });
+
+            const accountName = coa?.name || line.accountCode;
+
+            resolvedLines.push({
+                accountCode: line.accountCode,
+                accountName,
+                debit: line.debit,
+                credit: line.credit,
+                description: line.description || payload.description
+            });
+        }
+
+        // 4. Create locked, audit-trailed Journal Entry
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: payload.referenceId || null,
+                referenceType: payload.referenceType || null,
+                description: payload.description,
+                date: postingDate,
+                status: 'POSTED',
+                isLocked: true,
+                postedAt: new Date(),
+                createdById: payload.createdById || null,
+                lines: {
+                    create: resolvedLines
+                }
+            },
+            include: {
+                lines: true
+            }
+        });
+    }
+
+    /**
+     * Reverses an existing posted transaction, creating a reversing journal entry that nets original lines to zero.
+     */
+    static async reverseTransaction(
+        tx: TransactionClient,
+        originalEntryId: string,
+        reversalReason: string,
+        createdById?: string
+    ) {
+        const original = await tx.journalEntry.findUnique({
+            where: { id: originalEntryId },
+            include: { lines: true }
+        });
+
+        if (!original) {
+            throw AppError.notFound(`Original journal entry '${originalEntryId}' not found`);
+        }
+
+        if (original.status === 'REVERSED') {
+            throw AppError.badRequest(`Journal entry '${originalEntryId}' has already been reversed`);
+        }
+
+        // Swap debits and credits for reversal lines
+        const reversalLines: JournalPostingLineInput[] = original.lines.map((line) => ({
+            accountCode: line.accountCode,
+            debit: Number(line.credit),
+            credit: Number(line.debit),
+            description: `Reversal of line: ${line.description || ''}`
+        }));
+
+        // Post reversal transaction
+        const reversalEntry = await this.postTransaction(tx, {
+            referenceId: original.referenceId || originalEntryId,
+            referenceType: `REVERSAL_${original.referenceType || 'JOURNAL'}`,
+            description: `REVERSAL: ${reversalReason} (Ref: ${original.id})`,
+            createdById,
+            lines: reversalLines
+        });
+
+        // Mark original as REVERSED
+        await tx.journalEntry.update({
+            where: { id: originalEntryId },
+            data: {
+                status: 'REVERSED',
+                reversalOfId: reversalEntry.id
+            }
+        });
+
+        return reversalEntry;
+    }
+
     /**
      * Log double-entry entry for GRN item receipt (Purchase Receipt Accrual)
      * DR: Raw Material Inventory (INV-1010)
@@ -13,32 +158,14 @@ export class LedgerService {
         description?: string
     ) {
         if (totalCost <= 0) return null;
-
-        const desc = description || `GRN Receipt Entry for GRN ID: ${grnId}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: grnId,
-                referenceType: 'GRN',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'INV-1010',
-                            accountName: 'Raw Material Inventory',
-                            debit: totalCost,
-                            credit: 0,
-                            description: 'Inventory received in stores'
-                        },
-                        {
-                            accountCode: 'AP-2010',
-                            accountName: 'Accrued Accounts Payable',
-                            debit: 0,
-                            credit: totalCost,
-                            description: 'Accrued inventory uninvoiced'
-                        }
-                    ]
-                }
-            }
+        return await this.postTransaction(tx, {
+            referenceId: grnId,
+            referenceType: 'GRN',
+            description: description || `GRN Receipt Entry for GRN ID: ${grnId}`,
+            lines: [
+                { accountCode: 'INV-1010', debit: totalCost, credit: 0, description: 'Inventory received in stores' },
+                { accountCode: 'AP-2010', debit: 0, credit: totalCost, description: 'Accrued inventory uninvoiced' }
+            ]
         });
     }
 

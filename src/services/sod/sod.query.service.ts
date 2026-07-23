@@ -122,13 +122,18 @@ export class SODQueryService {
                 OR: [
                     { sltsStatus: 'INSTALL_CLOSED' },
                     { status: 'INSTALL_CLOSED' }
-                ]
+                ],
+                sltsStatus: { notIn: ['COMPLETED', 'RETURN'] }
             });
         } else if (filter === 'completed') {
             andFilters.push({
                 OR: [
                     { sltsStatus: 'COMPLETED' },
-                    { status: 'COMPLETED' }
+                    { status: { in: ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } }
+                ],
+                AND: [
+                    { sltsStatus: { notIn: ['INSTALL_CLOSED', 'RETURN'] } },
+                    { status: { notIn: ['INSTALL_CLOSED', 'RETURN', 'PAT_OPMC_REJECTED'] } }
                 ]
             });
         } else if (filter === 'return') {

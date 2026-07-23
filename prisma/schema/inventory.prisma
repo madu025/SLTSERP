@@ -242,11 +242,17 @@ model JournalEntry {
   referenceId   String?
   referenceType String?
   description   String
+  status        String        @default("POSTED") // DRAFT, POSTED, REVERSED
+  isLocked      Boolean       @default(true)
+  postedAt      DateTime?     @default(now())
+  createdById   String?
+  reversalOfId  String?
   date          DateTime      @default(now())
   createdAt     DateTime      @default(now())
   lines         JournalLine[]
 
   @@index([referenceId, referenceType])
+  @@index([status])
 }
 
 model JournalLine {

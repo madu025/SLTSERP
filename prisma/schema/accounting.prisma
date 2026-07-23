@@ -1,0 +1,199 @@
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum FiscalPeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+model ChartOfAccount {
+  id         String           @id @default(cuid())
+  code       String           @unique
+  name       String
+  type       AccountType
+  parentId   String?
+  isPostable Boolean          @default(true)
+  isActive   Boolean          @default(true)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  parent     ChartOfAccount?  @relation("CoAHierarchy", fields: [parentId], references: [id])
+  children   ChartOfAccount[] @relation("CoAHierarchy")
+
+  @@index([type])
+  @@index([code])
+}
+
+model FiscalPeriod {
+  id         String             @id @default(cuid())
+  year       Int
+  month      Int
+  status     FiscalPeriodStatus @default(OPEN)
+  closedById String?
+  closedAt   DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@unique([year, month])
+  @@index([status])
+}
+
+model Customer {
+  id            String            @id @default(cuid())
+  code          String            @unique
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  taxNumber     String?
+  creditLimit   Float             @default(0)
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  receipts      CustomerReceipt[]
+}
+
+model CustomerReceipt {
+  id              String          @id @default(cuid())
+  receiptNumber   String          @unique
+  customerId      String?
+  invoiceId       String?
+  amount          Float           @default(0)
+  paymentMethod   String          @default("BANK_TRANSFER")
+  referenceNumber String?
+  receiptDate     DateTime        @default(now())
+  notes           String?
+  createdById     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  customer        Customer?       @relation(fields: [customerId], references: [id])
+  invoice         ProjectInvoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([customerId])
+  @@index([invoiceId])
+}
+
+model BankAccount {
+  id             String              @id @default(cuid())
+  accountNumber  String              @unique
+  bankName       String
+  branchName     String?
+  glAccountCode  String              @default("BANK-1000")
+  currency       String              @default("LKR")
+  openingBalance Float               @default(0)
+  currentBalance Float               @default(0)
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  statementLines BankStatementLine[]
+}
+
+model BankStatementLine {
+  id                     String       @id @default(cuid())
+  bankAccountId          String
+  statementDate          DateTime
+  description            String
+  referenceNumber        String?
+  debit                  Float        @default(0)
+  credit                 Float        @default(0)
+  isReconciled           Boolean      @default(false)
+  reconciledJournalLineId String?
+  reconciledAt           DateTime?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  bankAccount            BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  @@index([bankAccountId])
+  @@index([isReconciled])
+}
+
+model FixedAsset {
+  id                      String            @id @default(cuid())
+  assetNumber             String            @unique
+  name                    String
+  category                String            @default("EQUIPMENT")
+  acquisitionDate        DateTime          @default(now())
+  cost                    Float             @default(0)
+  usefulLifeYears         Int               @default(5)
+  depreciationMethod      String            @default("STRAIGHT_LINE")
+  glAssetCode             String            @default("FA-1410")
+  glDepExpCode            String            @default("EXP-DEP-6010")
+  glAccumDepCode          String            @default("ACC-DEP-1510")
+  accumulatedDepreciation Float             @default(0)
+  netBookValue            Float             @default(0)
+  status                  String            @default("ACTIVE")
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  depreciationLogs        DepreciationLog[]
+
+  @@index([category])
+  @@index([status])
+}
+
+model DepreciationLog {
+  id                 String     @id @default(cuid())
+  fixedAssetId       String
+  year               Int
+  month              Int
+  depreciationAmount Float
+  accumulatedAfter   Float
+  netBookValueAfter  Float
+  postedJournalId    String?
+  createdAt          DateTime   @default(now())
+  fixedAsset         FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([fixedAssetId, year, month])
+  @@index([year, month])
+}
+
+model PayrollExpense {
+  id              String   @id @default(cuid())
+  period          String
+  opmcId          String?
+  amount          Float    @default(0)
+  referenceNumber String?
+  notes           String?
+  status          String   @default("POSTED")
+  createdById     String?
+  postedJournalId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([period])
+  @@index([opmcId])
+}
+
+model CreditDebitNote {
+  id              String          @id @default(cuid())
+  noteNumber      String          @unique
+  type            String          @default("CREDIT_NOTE") // CREDIT_NOTE | DEBIT_NOTE
+  invoiceId       String?
+  amount          Float           @default(0)
+  reason          String
+  status          String          @default("POSTED")
+  createdById     String?
+  postedJournalId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  invoice         ProjectInvoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([type])
+  @@index([invoiceId])
+}
+
+model ApprovalMatrix {
+  id           String   @id @default(cuid())
+  module       String   @default("INVOICE")
+  minAmount    Float    @default(0)
+  maxAmount    Float
+  requiredRole String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([module])
+}

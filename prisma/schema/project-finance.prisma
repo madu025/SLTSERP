@@ -15,6 +15,12 @@ model Invoice {
   amount          Float
   status          String         @default("PENDING")
   description     String?
+  vatAmount       Float          @default(0)
+  ssclAmount      Float          @default(0)
+  whtAmount       Float          @default(0)
+  vatPercent      Float          @default(18)
+  ssclPercent     Float          @default(2.5)
+  whtPercent      Float          @default(5)
   dueDate         DateTime?
   date            DateTime       @default(now())
   createdAt       DateTime       @default(now())
@@ -331,6 +337,12 @@ model ProjectInvoice {
   subtotal        Float                @default(0)
   taxAmount       Float                @default(0)
   discountAmount  Float                @default(0)
+  vatAmount       Float                @default(0)
+  ssclAmount      Float                @default(0)
+  whtAmount       Float                @default(0)
+  vatPercent      Float                @default(18)
+  ssclPercent     Float                @default(2.5)
+  whtPercent      Float                @default(5)
   totalAmount     Float                @default(0)
   paidAmount      Float                @default(0)
   balanceAmount   Float                @default(0)
@@ -350,6 +362,8 @@ model ProjectInvoice {
   items           ProjectInvoiceItem[]
   retentions      ProjectRetention[]
   sods            ServiceOrder[]       @relation("ProjectInvoiceSODs")
+  customerReceipts CustomerReceipt[]
+  creditNotes     CreditDebitNote[]
 
   @@index([projectId])
   @@index([status])

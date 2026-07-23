@@ -1052,7 +1052,22 @@ export class SODSyncService {
 
         if (mapping.status === SodStatus.COMPLETED || mapping.status === SodStatus.INSTALL_CLOSED || mapping.status === SodStatus.PROV_CLOSED) {
             if (!mapping.sltsStatus) dataToUpdate.sltsStatus = SodStatus.COMPLETED;
-            const d = SodUtils.safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
+            let d = SodUtils.safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
+            
+            // Check if Extension pushed a commentsList log entry with "Service Order Completed" timestamp
+            if (Array.isArray(payload.commentsList)) {
+                const completionLog = payload.commentsList.find(c => {
+                    const commentText = String(c.comment || c.user || '').toLowerCase();
+                    return commentText.includes('service order completed') || commentText.includes('completed');
+                });
+                if (completionLog && completionLog.date) {
+                    const parsedLogDate = SodUtils.safeParseDate(completionLog.date);
+                    if (parsedLogDate) {
+                        d = parsedLogDate;
+                    }
+                }
+            }
+
             if (d) dataToUpdate.completedDate = d;
             if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = SodStatus.COMPLETED;
         } else if (SOD_RETURN_STATUSES.includes(currentStatus)) {
