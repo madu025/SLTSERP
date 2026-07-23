@@ -3,7 +3,6 @@
   "regions": ["sin1"],
   "functions": {
     "src/app/api/**/*": {
-      "memory": 1024,
       "maxDuration": 15
     }
   },
