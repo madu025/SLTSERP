@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import XLSX from 'xlsx';
+import * as XLSX from 'xlsx';
 import path from 'path';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,7 +132,6 @@ export class MaterialExcelImportService {
     // Group rows into Month Blocks
     let currentYear = 2024;
     let currentMonth = 'JULY';
-    let processedMonthsCount = 0;
     let totalRecordsProcessed = 0;
 
     interface MetricBlock {
@@ -154,7 +153,6 @@ export class MaterialExcelImportService {
     const flushBlock = () => {
       if (activeBlock) {
         blocksToUpsert.push(activeBlock);
-        processedMonthsCount++;
         activeBlock = null;
       }
     };
@@ -239,7 +237,7 @@ export class MaterialExcelImportService {
         const usageCost = block.usageRs[col.itemCode] ?? (totalUsage * col.unitRate);
         const unitCost = col.unitRate || (usage > 0 ? usageCost / usage : (received > 0 ? receivedCost / received : 0));
 
-        await prisma.preErpMaterialBalance.upsert({
+        await (prisma as unknown as Record<string, { upsert: (args: unknown) => Promise<unknown> }>).preErpMaterialBalance.upsert({
           where: {
             itemId_year_month: {
               itemId,
