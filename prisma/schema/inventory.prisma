@@ -82,6 +82,8 @@ model InventoryItem {
   stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
   requestItems          StockRequestItem[]
   cycleCountLines       CycleCountLine[]
+  preErpBalances        PreErpMaterialBalance[]
+  varianceAdjustments   MaterialVarianceAdjustment[]
 
   @@index([code])
   @@index([type])

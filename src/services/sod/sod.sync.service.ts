@@ -579,7 +579,7 @@ export class SODSyncService {
                     initialSltsStatus = 'COMPLETED';
                 } else if ((item.CON_STATUS || '').toUpperCase() === 'PROV_CLOSED') {
                     initialSltsStatus = 'PROV_CLOSED';
-                } else if (returnStatuses.includes((item.CON_STATUS || '').toUpperCase())) {
+                } else if (returnStatuses.includes((item.CON_STATUS || '').toUpperCase()) || (item.CON_STATUS || '').toUpperCase().includes('RETURN') || (item.CON_STATUS || '').toUpperCase().includes('REJECT') || (item.CON_STATUS || '').toUpperCase().includes('CANCEL')) {
                     initialSltsStatus = 'RETURN';
                 }
 
@@ -627,7 +627,7 @@ export class SODSyncService {
                     contractorId: contractorId || undefined,
                     teamId: teamId || undefined,
                     directTeam: portalTeamName || undefined,
-                    returnReason: initialSltsStatus === 'RETURN' ? (item.CON_STATUS || 'Returned in external portal') : undefined
+                    returnReason: initialSltsStatus === 'RETURN' ? (existing?.returnReason || (item.CON_STATUS ? `Portal Return: ${item.CON_STATUS}` : 'Returned in external portal')) : undefined
                 };
 
                 if (existing) {
@@ -738,7 +738,7 @@ export class SODSyncService {
                             nextSltsStatus = 'COMPLETED';
                         } else if (statusUpper === 'PROV_CLOSED') {
                             nextSltsStatus = 'PROV_CLOSED';
-                        } else if (returnStatuses.includes(statusUpper)) {
+                        } else if (returnStatuses.includes(statusUpper) || statusUpper.includes('RETURN') || statusUpper.includes('REJECT') || statusUpper.includes('CANCEL')) {
                             nextSltsStatus = 'RETURN';
                         }
 
@@ -749,7 +749,7 @@ export class SODSyncService {
                                     statusDate,
                                     sltsStatus: nextSltsStatus,
                                     completedDate: nextSltsStatus === 'COMPLETED' ? statusDate : undefined,
-                                    returnReason: nextSltsStatus === 'RETURN' ? (extStatus.status || 'Returned in external portal') : undefined
+                                    returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Return: ${extStatus.status}` : 'Returned in external portal')) : undefined
                                 };
 
                                 if (rawItemObj) {
@@ -951,21 +951,57 @@ export class SODSyncService {
             if (contractor) mapping.contractorId = contractor.id;
         }
 
+        const portalStatus = (mapping.status || masterData['CON_STATUS'] || '').toString().toUpperCase();
+
+        const hasHiddenReturnFields = 
+            (masterData['RETREASON_HIDDEN'] && masterData['RETREASON_HIDDEN'].trim().length > 0) ||
+            (masterData['RETCMT_HIDDEN'] && masterData['RETCMT_HIDDEN'].trim().length > 0);
+
         const isServiceReturn =
             masterData['SERVICE RETURN'] === 'on' ||
             masterData['IS_RETURN'] === 'on' ||
             masterData['CHKSODRTN_HIDDEN'] === 'on' ||
-            masterData['CHKSODRTN'] === 'on';
+            masterData['CHKSODRTN'] === 'on' ||
+            hasHiddenReturnFields ||
+            portalStatus.includes('RETURN') ||
+            portalStatus.includes('REJECT');
 
         if (isServiceReturn) {
             mapping.sltsStatus = 'RETURN';
-            const rawReason = masterData['RTRESONALL_HIDDEN'] || masterData['SOD RETURN'] || masterData['RETURN REASON'] || 'CUSTOMER NOT READY';
-            const classification = SODReturnClassifierService.classify(rawReason);
-            mapping.returnReason = classification.category;
+            if (!mapping.status || mapping.status === 'INPROGRESS') {
+                mapping.status = 'RETURN_PENDING';
+            }
+            const rawReason = masterData['RETREASON_HIDDEN'] || 
+                              masterData['RTRESONALL_HIDDEN'] || 
+                              masterData['SOD RETURN'] || 
+                              masterData['RETURN REASON'] || 
+                              masterData['RETURNED REASON'] || 
+                              masterData['REASON'] || 
+                              masterData['rtresonall'] || 
+                              masterData['rt_reason'] || 
+                              portalStatus || 
+                              'NO OSP NW/PRIMARY/SECONDARY';
+
+            const rawComment = masterData['RETCMT_HIDDEN'] || 
+                               masterData['RTCMTALL_HIDDEN'] || 
+                               masterData['RETURN COMMENT'] || 
+                               masterData['RETURNED COMMENT'] || 
+                               masterData['COMMENT'] || 
+                               masterData['rtcmtall'] || 
+                               masterData['rt_comment'] || 
+                               '';
+
+            const classification = SODReturnClassifierService.classify(String(rawReason) + ' ' + String(rawComment));
+            const formattedReason = String(rawReason).toUpperCase().trim();
+            mapping.returnReason = formattedReason && formattedReason !== 'RETURN_PENDING'
+                ? `${formattedReason} (${classification.category})`
+                : classification.category;
             
-            const rawComment = masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || '';
-            const combinedComment = `[AI_CLASSIFIED] Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
-            mapping.comments = serviceOrder?.comments ? `${serviceOrder.comments}\n${combinedComment}` : combinedComment;
+            const combinedComment = `[AUTO_CAPTURED] Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
+            mapping.comments = serviceOrder?.comments 
+                ? (serviceOrder.comments.includes(combinedComment) ? serviceOrder.comments : `${serviceOrder.comments}\n${combinedComment}`)
+                : combinedComment;
+
             if (!serviceOrder?.completedDate) mapping.completedDate = new Date();
         }
 

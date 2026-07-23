@@ -17,4 +17,8 @@ model OPMC {
   serviceOrders            ServiceOrder[]
   staff                    Staff[]
   users                    User[]                    @relation("UserOpmcs")
+  financeBudgetAllocations FinanceBudgetAllocation[]
+  capexOpexLedgerEntries   CapexOpexLedgerEntry[]
+  preErpMaterialBalances   PreErpMaterialBalance[]
+  materialVarianceAdjustments MaterialVarianceAdjustment[]
 }

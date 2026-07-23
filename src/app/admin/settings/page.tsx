@@ -6,21 +6,14 @@ import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import {
-    GripVertical,
-    Plus,
     Settings,
-    Database,
-    ChevronDown,
-    Layers,
     Table as TableIcon,
-    Sliders,
     Loader2,
     DollarSign,
     PackageCheck,
     Boxes,
     Wrench,
-    SlidersHorizontal,
-    FileText
+    Clock
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +24,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { MaterialAssignment } from './MaterialAssignment';
 import { cn } from "@/lib/utils";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
@@ -68,7 +60,7 @@ const AdminDashboard = () => {
                 if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
                     router.push('/dashboard');
                 }
-            } catch (e) {
+            } catch {
                 router.push('/login');
             }
         } else {
@@ -500,6 +492,56 @@ function SODOperationsSectionCard() {
                         <p className="text-[10px] text-slate-400">Target hours for Copper connection.</p>
                     </div>
 
+                    {/* 5-Tier Executive SLA Breakdown Rules Sub-Section */}
+                    <div className="sm:col-span-2 lg:col-span-4 p-4 bg-blue-50/50 rounded-xl border border-blue-200/60 space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">5-Tier Executive SLA Aging Breakdown Rules</h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="space-y-1">
+                                <Label className="text-[11px] font-bold text-emerald-700">Tier 1 Target (≤ Days)</Label>
+                                <Input
+                                    type="number"
+                                    defaultValue={configs['SOD_SLA_TIER1_DAYS'] || '2'}
+                                    onBlur={(e) => handleValidatedUpdate('SOD_SLA_TIER1_DAYS', e.target.value, 1)}
+                                    className="h-8 bg-white font-mono font-bold text-xs border-emerald-300 text-emerald-600"
+                                />
+                                <p className="text-[9.5px] text-slate-400">Excellent SLA badge (Default ≤2 days).</p>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[11px] font-bold text-teal-700">Tier 2 Target (≤ Days)</Label>
+                                <Input
+                                    type="number"
+                                    defaultValue={configs['SOD_SLA_TIER2_DAYS'] || '5'}
+                                    onBlur={(e) => handleValidatedUpdate('SOD_SLA_TIER2_DAYS', e.target.value, 2)}
+                                    className="h-8 bg-white font-mono font-bold text-xs border-teal-300 text-teal-600"
+                                />
+                                <p className="text-[9.5px] text-slate-400">Normal SLA badge (Default ≤5 days).</p>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[11px] font-bold text-amber-700">Tier 3 Target (≤ Days)</Label>
+                                <Input
+                                    type="number"
+                                    defaultValue={configs['SOD_SLA_TIER3_DAYS'] || '7'}
+                                    onBlur={(e) => handleValidatedUpdate('SOD_SLA_TIER3_DAYS', e.target.value, 3)}
+                                    className="h-8 bg-white font-mono font-bold text-xs border-amber-300 text-amber-600"
+                                />
+                                <p className="text-[9.5px] text-slate-400">Warning SLA badge (Default ≤7 days).</p>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[11px] font-bold text-orange-700">Tier 4 Target (≤ Days)</Label>
+                                <Input
+                                    type="number"
+                                    defaultValue={configs['SOD_SLA_TIER4_DAYS'] || '10'}
+                                    onBlur={(e) => handleValidatedUpdate('SOD_SLA_TIER4_DAYS', e.target.value, 4)}
+                                    className="h-8 bg-white font-mono font-bold text-xs border-orange-300 text-orange-600"
+                                />
+                                <p className="text-[9.5px] text-slate-400">High Warning SLA badge (Default ≤10 days).</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
                         <Label className="text-xs font-bold text-slate-800">QC Pass Score Threshold (%)</Label>
                         <Input
@@ -852,11 +894,12 @@ function TableConfigCard({ tableName, settings, onSave, isSaving }: { tableName:
     const availableCols = Array.isArray(settings?.availableColumns) ? settings.availableColumns : [];
     const [visible, setVisible] = useState<string[]>(initialVisible);
 
-    useEffect(() => {
-        if (Array.isArray(settings?.visibleColumns)) {
-            setVisible(settings.visibleColumns);
-        }
-    }, [settings?.visibleColumns]);
+    const [prevPropsSettings, setPrevPropsSettings] = useState<string[]>(initialVisible);
+
+    if (Array.isArray(settings?.visibleColumns) && settings.visibleColumns.join(',') !== prevPropsSettings.join(',')) {
+        setPrevPropsSettings(settings.visibleColumns);
+        setVisible(settings.visibleColumns);
+    }
 
     const toggleColumn = useCallback((key: string) => {
         setVisible(prev =>

@@ -270,6 +270,60 @@
     * `processBOMImport(rows: Record<string, unknown>[], userId: string, bomPath?: string): any`
     * `processBOMCSVImport(csvText: string, userId: string, bomPath?: string): any`
 
+### [budget-allocation.service.ts](src/services/finance/budget-allocation.service.ts)
+* **Class**: `BudgetAllocationService`
+  * **Methods**:
+    * `createBudget(input: CreateBudgetInput): Promise<FinanceBudgetAllocation>`
+    * `updateBudget(id: string, input: UpdateBudgetInput): Promise<FinanceBudgetAllocation>`
+    * `deleteBudget(id: string): Promise<void>`
+    * `listBudgets(params: BudgetListParams): Promise<BudgetDTO[]>`
+    * `getBudgetById(id: string): Promise<BudgetDTO | null>`
+    * `getBudgetVsActual(opmcId: string, fiscalYear: number, quarter?: number): Promise<BudgetVsActualItem[]>`
+    * `getCrossOpmcSummary(fiscalYear: number): Promise<{ opmcId: string; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }[]>`
+
+### [capex-opex-dashboard.service.ts](src/services/finance/capex-opex-dashboard.service.ts)
+* **Class**: `CapexOpexDashboardService`
+  * **Methods**:
+    * `getExecutiveSummary(opmcId: string, fiscalYear: number, quarter?: number): Promise<CapexOpexSummary>`
+    * `getMonthlyTrend(opmcId: string, fiscalYear: number): Promise<MonthlyTrendPoint[]>`
+    * `getCategoryBreakdown(opmcId: string, fiscalYear: number, expenditureType?: ExpenditureType): Promise<{ category: SpendCategory; amount: number; expenditureType: ExpenditureType }[]>`
+    * `getTopExpenses(opmcId: string, fiscalYear: number, limit = 10): Promise<{
+    id: string;
+    description: string;
+    amount: number;
+    category: SpendCategory;
+    expenditureType: ExpenditureType;
+    sourceType: string;
+    transactionDate: Date;
+    referenceNumber: string | null;
+  }[]>`
+    * `getVarianceAlerts(opmcId: string, fiscalYear: number, thresholdPct = 90): Promise<BudgetVsActualItem[]>`
+    * `getHqSummary(fiscalYear: number): any`
+    * `getKpiPanel(opmcId: string, fiscalYear: number): Promise<{
+    capexRatio: number;
+    opexRatio: number;
+    totalSpend: number;
+    avgMonthlyBurn: number;
+    currentQuarterSpend: number;
+  }>`
+
+### [capex-opex-ledger.service.ts](src/services/finance/capex-opex-ledger.service.ts)
+* **Class**: `CapexOpexLedgerService`
+  * **Methods**:
+    * `recordEntry(input: CreateLedgerEntryInput): Promise<CapexOpexLedgerEntry>`
+    * `getEntries(params: LedgerListParams): Promise<LedgerPage>`
+    * `getAggregatedSpend(opmcId: string, fiscalYear: number, quarter?: number): Promise<AggregatedSpend[]>`
+    * `getMonthlyTotals(opmcId: string, fiscalYear: number): Promise<{ month: number; quarter: number; capex: number; opex: number }[]>`
+    * `bulkSyncFromProjectExpenses(opmcId: string, projectIds: string[], createdById: string): Promise<{ synced: number; skipped: number }>`
+    * `isAlreadySynced(sourceType: string, sourceId: string): Promise<boolean>`
+    * `deleteEntry(id: string): Promise<void>`
+
+### [capex-opex-types.ts](src/services/finance/capex-opex-types.ts)
+* **Exported Functions**:
+  * `resolveClassification(sourceType: LedgerSourceType, subType?: string): { expenditureType: ExpenditureType; category: SpendCategory }`
+  * `getFiscalYear(date: Date): number`
+  * `getQuarter(date: Date): number`
+
 ### [cost-allocation.service.ts](src/services/finance/cost-allocation.service.ts)
 * **Class**: `CostAllocationService`
   * **Methods**:
@@ -853,6 +907,16 @@
     * `createLocator(data: CreateLocatorInput): any`
     * `deleteLocator(locatorId: string): any`
 
+### [material-audit-report.service.ts](src/services/inventory/material-audit-report.service.ts)
+* **Class**: `MaterialAuditReportService`
+  * **Methods**:
+    * `getExecutiveAuditSummary(opmcId: string): Promise<ExecutiveAuditSummary>`
+
+### [material-excel-import.service.ts](src/services/inventory/material-excel-import.service.ts)
+* **Class**: `MaterialExcelImportService`
+  * **Methods**:
+    * `importMaterialReport(filePath: string, opmcId: string, createdById: string): Promise<ImportResult>`
+
 ### [mrn.service.ts](src/services/inventory/mrn.service.ts)
 * **Class**: `MRNService`
   * **Methods**:
@@ -868,6 +932,15 @@
     }): Promise<MRN>`
     * `getMRNs(storeId?: string, status?: string): any`
     * `updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT', approvedById: string): Promise<MRN>`
+
+### [pre-erp-reconciliation.service.ts](src/services/inventory/pre-erp-reconciliation.service.ts)
+* **Class**: `PreErpReconciliationService`
+  * **Methods**:
+    * `listBalances(params: BalanceFilterParams): any`
+    * `upsertManualBalance(input: ManualBalanceInput): Promise<PreErpMaterialBalance>`
+    * `submitVarianceAdjustment(input: ReconcileAdjustmentInput): Promise<MaterialVarianceAdjustment>`
+    * `approveAdjustment(adjustmentId: string, approvedById: string): Promise<{ adjustment: MaterialVarianceAdjustment; inventoryStockId: string }>`
+    * `rejectAdjustment(adjustmentId: string, approvedById: string, rejectionReason: string): Promise<MaterialVarianceAdjustment>`
 
 ### [rop.service.ts](src/services/inventory/rop.service.ts)
 * **Class**: `ROPService`
@@ -2436,6 +2509,12 @@
 | `/api/dashboard/stats` | [route.ts](src/app/api/dashboard/stats/route.ts) | `GET` |
 | `/api/drivers/[id]/trips` | [route.ts](src/app/api/drivers/[id]/trips/route.ts) | `GET` |
 | `/api/files/contractors/[filename]` | [route.ts](src/app/api/files/contractors/[filename]/route.ts) | `GET` |
+| `/api/finance/budget` | [route.ts](src/app/api/finance/budget/route.ts) | `GET`, `POST` |
+| `/api/finance/budget/[id]` | [route.ts](src/app/api/finance/budget/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
+| `/api/finance/capex-opex` | [route.ts](src/app/api/finance/capex-opex/route.ts) | `GET`, `POST` |
+| `/api/finance/capex-opex/summary` | [route.ts](src/app/api/finance/capex-opex/summary/route.ts) | `GET` |
+| `/api/finance/capex-opex/sync` | [route.ts](src/app/api/finance/capex-opex/sync/route.ts) | `POST` |
+| `/api/finance/capex-opex/trend` | [route.ts](src/app/api/finance/capex-opex/trend/route.ts) | `GET` |
 | `/api/finance/ld-penalties` | [route.ts](src/app/api/finance/ld-penalties/route.ts) | `GET`, `POST`, `PATCH`, `DELETE` |
 | `/api/finance/ledger` | [route.ts](src/app/api/finance/ledger/route.ts) | `GET` |
 | `/api/finance/payment-vouchers` | [route.ts](src/app/api/finance/payment-vouchers/route.ts) | `GET`, `POST` |
@@ -2492,6 +2571,11 @@
 | `/api/inventory/items` | [route.ts](src/app/api/inventory/items/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `/api/inventory/locators` | [route.ts](src/app/api/inventory/locators/route.ts) | `GET`, `POST` |
 | `/api/inventory/mrn` | [route.ts](src/app/api/inventory/mrn/route.ts) | `POST`, `GET`, `PATCH` |
+| `/api/inventory/pre-erp-reconciliation/adjust` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/adjust/route.ts) | `POST` |
+| `/api/inventory/pre-erp-reconciliation/approve` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/approve/route.ts) | `POST` |
+| `/api/inventory/pre-erp-reconciliation/import` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/import/route.ts) | `POST` |
+| `/api/inventory/pre-erp-reconciliation` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/route.ts) | `GET`, `POST` |
+| `/api/inventory/pre-erp-reconciliation/summary` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/summary/route.ts) | `GET` |
 | `/api/inventory/reconciliation` | [route.ts](src/app/api/inventory/reconciliation/route.ts) | `GET`, `POST` |
 | `/api/inventory/reports/dynamic` | [route.ts](src/app/api/inventory/reports/dynamic/route.ts) | `POST` |
 | `/api/inventory/requests/action` | [route.ts](src/app/api/inventory/requests/action/route.ts) | `POST` |
@@ -2697,6 +2781,49 @@
   * `ipAddress: String?` `[@map("ip_address")]`
   * `syncedAt: DateTime` `[@default(now()) @map("synced_at")]`
   * `asset: ITAsset?` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
+
+### [FinanceBudgetAllocation](prisma/schema/capex-opex.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `opmcId: String`
+  * `fiscalYear: Int` `[// e.g., 2025]`
+  * `quarter: Int?` `[// 1-4, null = full year]`
+  * `expenditureType: String` `[// CAPEX | OPEX]`
+  * `category: String` `[// NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER]`
+  * `allocatedAmount: Float` `[@default(0)]`
+  * `description: String?`
+  * `approvedById: String?`
+  * `approvedAt: DateTime?`
+  * `status: String` `[@default("ACTIVE")   // ACTIVE | FROZEN | REVISED]`
+  * `createdById: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id])]`
+  * `ledgerEntries: CapexOpexLedgerEntry[]`
+
+### [CapexOpexLedgerEntry](prisma/schema/capex-opex.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `budgetId: String?`
+  * `opmcId: String`
+  * `expenditureType: String` `[// CAPEX | OPEX]`
+  * `category: String` `[// NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER]`
+  * `sourceType: String` `[// PROJECT_EXPENSE | INVOICE | PETTY_CASH | PURCHASE_ORDER | VEHICLE_TRIP | MANUAL]`
+  * `sourceId: String` `[// Polymorphic FK to the originating record]`
+  * `amount: Float` `[@default(0)]`
+  * `transactionDate: DateTime` `[@default(now())]`
+  * `fiscalYear: Int`
+  * `quarter: Int` `[// 1-4, computed from transactionDate]`
+  * `description: String`
+  * `referenceNumber: String?` `[// PO/Invoice/Voucher reference number]`
+  * `vendorId: String?`
+  * `projectId: String?`
+  * `approvedById: String?`
+  * `createdById: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `budget: FinanceBudgetAllocation?` `[@relation(fields: [budgetId], references: [id])]`
+  * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id])]`
 
 ### [Contractor](prisma/schema/contractor.prisma)
 * **Fields**:
@@ -3394,6 +3521,57 @@
   * `siteOfficeId: String?`
   * `isPersonal: Boolean` `[@default(false)]`
 
+### [PreErpMaterialBalance](prisma/schema/inventory-reconciliation.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `opmcId: String`
+  * `storeId: String?`
+  * `itemId: String`
+  * `itemCode: String`
+  * `itemName: String`
+  * `year: Int` `[// e.g., 2024, 2025, 2026]`
+  * `month: String` `[// e.g., "JULY", "AUG", "SEP"]`
+  * `carryForwardQuantity: Float` `[@default(0)              // Opening balance]`
+  * `receivedQuantity: Float` `[@default(0)              // Inward received]`
+  * `totalInHandQuantity: Float` `[@default(0)              // Available]`
+  * `usageQuantity: Float` `[@default(0)              // Consumed in field]`
+  * `wastageQuantity: Float` `[@default(0)              // Scrap / Wastage]`
+  * `faultyQuantity: Float` `[@default(0)              // Damaged]`
+  * `totalUsageQuantity: Float` `[@default(0)              // Usage + Wastage]`
+  * `closingBalanceQuantity: Float` `[@default(0)              // Computed remaining]`
+  * `receivedCostLkr: Float` `[@default(0)              // Financial value received]`
+  * `usageCostLkr: Float` `[@default(0)              // Financial value consumed]`
+  * `unitCostLkr: Float` `[@default(0)              // Unit price]`
+  * `status: String` `[@default("UNRECONCILED") // UNRECONCILED | RECONCILED | ADJUSTED]`
+  * `createdById: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id])]`
+  * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
+  * `adjustments: MaterialVarianceAdjustment[]`
+
+### [MaterialVarianceAdjustment](prisma/schema/inventory-reconciliation.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `balanceId: String`
+  * `opmcId: String`
+  * `itemId: String`
+  * `systemCalculatedQty: Float` `[// Quantity from monthly math]`
+  * `physicalAuditedQty: Float` `[// Physical stock count]`
+  * `varianceQuantity: Float` `[// Physical - System]`
+  * `varianceReason: String` `[// UNRECORDED_RECEIPT | BUFFER_STOCK | FIELD_SCRAP | OTHER]`
+  * `financialImpactLkr: Float` `[// Variance * UnitCost]`
+  * `status: String` `[@default("PENDING")            // PENDING | APPROVED | REJECTED]`
+  * `approvedById: String?`
+  * `approvedAt: DateTime?`
+  * `rejectionReason: String?`
+  * `createdById: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `balance: PreErpMaterialBalance` `[@relation(fields: [balanceId], references: [id], onDelete: Cascade)]`
+  * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id])]`
+  * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
+
 ### [InventoryStore](prisma/schema/inventory.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
@@ -3476,6 +3654,8 @@
   * `stockIssueItems: StockIssueItem[]` `[@relation("IssueItemsStock")]`
   * `requestItems: StockRequestItem[]`
   * `cycleCountLines: CycleCountLine[]`
+  * `preErpBalances: PreErpMaterialBalance[]`
+  * `varianceAdjustments: MaterialVarianceAdjustment[]`
 
 ### [InventoryStock](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -3707,6 +3887,10 @@
   * `serviceOrders: ServiceOrder[]`
   * `staff: Staff[]`
   * `users: User[]` `[@relation("UserOpmcs")]`
+  * `financeBudgetAllocations: FinanceBudgetAllocation[]`
+  * `capexOpexLedgerEntries: CapexOpexLedgerEntry[]`
+  * `preErpMaterialBalances: PreErpMaterialBalance[]`
+  * `materialVarianceAdjustments: MaterialVarianceAdjustment[]`
 
 ### [AuthorityEntity](prisma/schema/permits.prisma)
 * **Fields**:
@@ -4569,6 +4753,7 @@
   * `status: String` `[@default("DRAFT")]`
   * `priority: String` `[@default("MEDIUM")]`
   * `type: String` `[@default("MATERIAL")]`
+  * `expenditureType: String` `[@default("CAPEX")  // CAPEX | OPEX]`
   * `orderDate: DateTime` `[@default(now())]`
   * `expectedDelivery: DateTime?`
   * `deliveryLocation: String?`
@@ -4712,6 +4897,7 @@
   * `description: String?`
   * `status: String` `[@default("DRAFT")]`
   * `type: String` `[@default("CONTRACTOR")]`
+  * `expenditureType: String` `[@default("OPEX")         // CAPEX | OPEX]`
   * `payeeName: String`
   * `payeeId: String?`
   * `invoiceId: String?`

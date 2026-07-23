@@ -61,7 +61,19 @@ export class SODQueryService {
         // Build where clause using an array of AND filters to avoid OR collisions
         const andFilters: Prisma.ServiceOrderWhereInput[] = [];
         if (opmcId && opmcId !== 'ALL') {
-            andFilters.push({ opmcId });
+            // Resolve whether opmcId is a CUID or RTOM code string (e.g. 'R-KX' / 'r-kx')
+            const matchedOpmc = await prisma.oPMC.findFirst({
+                where: {
+                    OR: [
+                        { id: opmcId },
+                        { rtom: { equals: opmcId, mode: 'insensitive' } },
+                        { name: { contains: opmcId, mode: 'insensitive' } }
+                    ]
+                },
+                select: { id: true }
+            });
+            const targetOpmcId = matchedOpmc ? matchedOpmc.id : opmcId;
+            andFilters.push({ opmcId: targetOpmcId });
         }
 
         // Date Filtering
@@ -101,15 +113,22 @@ export class SODQueryService {
                 andFilters.push({ sltsStatus: 'RETURN' });
             } else {
                 andFilters.push({
-                    sltsStatus: { notIn: ['COMPLETED', 'RETURN'] },
+                    sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN'] },
                     status: { notIn: completionStatuses }
                 });
             }
+        } else if (filter === 'install_closed') {
+            andFilters.push({
+                OR: [
+                    { sltsStatus: 'INSTALL_CLOSED' },
+                    { status: 'INSTALL_CLOSED' }
+                ]
+            });
         } else if (filter === 'completed') {
             andFilters.push({
                 OR: [
                     { sltsStatus: 'COMPLETED' },
-                    { status: { in: completionStatuses } }
+                    { status: 'COMPLETED' }
                 ]
             });
         } else if (filter === 'return') {

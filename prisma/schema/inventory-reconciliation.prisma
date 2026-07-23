@@ -1,0 +1,68 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Pre-ERP Material Reconciliation & Opening Stock Schema
+// Models:
+//   1. PreErpMaterialBalance         — Monthly summary snapshot from legacy reports
+//   2. MaterialVarianceAdjustment     — Physical audit reconciliation adjustments
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PreErpMaterialBalance {
+  id                     String                       @id @default(cuid())
+  opmcId                 String?
+  storeId                String?
+  itemId                 String
+  itemCode               String
+  itemName               String
+  year                   Int                                                   // e.g., 2024, 2025, 2026
+  month                  String                                                // e.g., "JULY", "AUG", "SEP"
+  carryForwardQuantity   Float                        @default(0)              // Opening balance
+  receivedQuantity       Float                        @default(0)              // Inward received
+  totalInHandQuantity    Float                        @default(0)              // Available
+  usageQuantity          Float                        @default(0)              // Consumed in field
+  wastageQuantity        Float                        @default(0)              // Scrap / Wastage
+  faultyQuantity         Float                        @default(0)              // Damaged
+  totalUsageQuantity     Float                        @default(0)              // Usage + Wastage
+  closingBalanceQuantity Float                        @default(0)              // Computed remaining
+  receivedCostLkr        Float                        @default(0)              // Financial value received
+  usageCostLkr           Float                        @default(0)              // Financial value consumed
+  unitCostLkr            Float                        @default(0)              // Unit price
+  status                 String                       @default("UNRECONCILED") // UNRECONCILED | RECONCILED | ADJUSTED
+  createdById            String
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  opmc                   OPMC?                        @relation(fields: [opmcId], references: [id])
+  item                   InventoryItem                @relation(fields: [itemId], references: [id])
+  adjustments            MaterialVarianceAdjustment[]
+
+  @@unique([itemId, year, month])
+  @@index([opmcId])
+  @@index([itemId])
+  @@index([year, month])
+  @@index([status])
+}
+
+model MaterialVarianceAdjustment {
+  id                  String                @id @default(cuid())
+  balanceId           String
+  opmcId              String?
+  itemId              String
+  systemCalculatedQty Float                                                // Quantity from monthly math
+  physicalAuditedQty  Float                                                // Physical stock count
+  varianceQuantity    Float                                                // Physical - System
+  varianceReason      String                                               // UNRECORDED_RECEIPT | BUFFER_STOCK | FIELD_SCRAP | OTHER
+  financialImpactLkr  Float                                                // Variance * UnitCost
+  status              String                @default("PENDING")            // PENDING | APPROVED | REJECTED
+  approvedById        String?
+  approvedAt          DateTime?
+  rejectionReason     String?
+  createdById         String
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  balance             PreErpMaterialBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+  opmc                OPMC?                 @relation(fields: [opmcId], references: [id])
+  item                InventoryItem         @relation(fields: [itemId], references: [id])
+
+  @@index([balanceId])
+  @@index([opmcId])
+  @@index([itemId])
+  @@index([status])
+}

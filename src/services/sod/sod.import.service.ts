@@ -30,7 +30,10 @@ export class SODImportService {
                 const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
                 const excelStatusUpper = cleanStatus.toUpperCase();
                 const isCompleted = completionStatuses.includes(excelStatusUpper);
-                const isReturned = returnStatuses.includes(excelStatusUpper);
+                const isReturned = returnStatuses.includes(excelStatusUpper) || 
+                                   excelStatusUpper.includes('RETURN') || 
+                                   excelStatusUpper.includes('REJECT') || 
+                                   excelStatusUpper.includes('CANCEL');
                 const sltsStatusVal = isCompleted ? 'COMPLETED' : (isReturned ? 'RETURN' : 'INPROGRESS');
 
                 const voiceNumber = String(item['Voice Number'] || item['VOICENUMBER'] || item['CIRCUIT'] || '');

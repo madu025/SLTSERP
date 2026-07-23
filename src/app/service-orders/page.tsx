@@ -33,7 +33,7 @@ const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionMo
 const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportModal"), { ssr: false });
 
 
-function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'completed' | 'return'; pageTitle?: string; }) {
+function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'install_closed' | 'completed' | 'return'; pageTitle?: string; }) {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
     const urlSearch = searchParams.get('search');
@@ -600,7 +600,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 }
 
 interface ServiceOrdersPageProps {
-    filterType?: "pending" | "completed" | "return";
+    filterType?: "pending" | "install_closed" | "completed" | "return";
     pageTitle?: string;
 }
 

@@ -14,6 +14,7 @@ import {
     ShoppingCart,
     FileSignature,
     FileCheck2,
+    CheckCircle2,
     PackageMinus,
     Shield,
     ShieldCheck,
@@ -36,7 +37,11 @@ import {
     ShieldAlert,
     LifeBuoy,
     Laptop,
-    Calculator
+    Calculator,
+    TrendingUp,
+    PieChart,
+    Scale,
+    FileSpreadsheet
 } from 'lucide-react';
 
 
@@ -106,6 +111,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
+                title: 'Install Closed SOD',
+                path: '/service-orders/install-closed',
+                icon: CheckCircle2,
+                allowedRoles: ROLE_GROUPS.ALL_OPS
+            },
+            {
                 title: 'Return SOD',
                 path: '/service-orders/return',
                 icon: FileText,
@@ -114,7 +125,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 title: 'Completed SOD',
                 path: '/service-orders/completed',
-                icon: FileText,
+                icon: FileCheck2,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
@@ -266,6 +277,18 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
             },
             {
+                title: 'CAPEX / OPEX Dashboard',
+                path: '/admin/finance/capex-opex',
+                icon: TrendingUp,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'AREA_MANAGER']
+            },
+            {
+                title: 'Budget Allocations',
+                path: '/admin/finance/budget',
+                icon: PieChart,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+            },
+            {
                 title: 'Vendor Upload (HO)',
                 path: '/admin/finance/vendors/import',
                 icon: Upload,
@@ -383,6 +406,18 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/inventory/initial',
                 icon: Warehouse,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+            },
+            {
+                title: 'Pre-ERP Reconciliation',
+                path: '/admin/inventory/pre-erp-reconciliation',
+                icon: Scale,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER']
+            },
+            {
+                title: 'Material Audit Report',
+                path: '/admin/inventory/material-audit-report',
+                icon: FileSpreadsheet,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'FINANCE_MANAGER']
             },
             // 2. Stock Inflow
             {

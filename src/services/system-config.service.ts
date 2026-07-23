@@ -70,6 +70,10 @@ export class SystemConfigService {
                 SOD_SLA_COPPER_HOURS: map.SOD_SLA_COPPER_HOURS || '72',
                 SOD_SLA_LTE_HOURS: map.SOD_SLA_LTE_HOURS || '24',
                 SOD_SLA_FAULT_HOURS: map.SOD_SLA_FAULT_HOURS || '24',
+                SOD_SLA_TIER1_DAYS: map.SOD_SLA_TIER1_DAYS || '2',
+                SOD_SLA_TIER2_DAYS: map.SOD_SLA_TIER2_DAYS || '5',
+                SOD_SLA_TIER3_DAYS: map.SOD_SLA_TIER3_DAYS || '7',
+                SOD_SLA_TIER4_DAYS: map.SOD_SLA_TIER4_DAYS || '10',
                 SOD_CONTRACTOR_MAX_ACTIVE_SOD: map.SOD_CONTRACTOR_MAX_ACTIVE_SOD || '50',
                 SOD_QC_PASS_SCORE_PERCENT: map.SOD_QC_PASS_SCORE_PERCENT || '80',
                 SOD_FREE_CABLE_DISTANCE_METERS: map.SOD_FREE_CABLE_DISTANCE_METERS || '50',
@@ -231,7 +235,7 @@ export class SystemConfigService {
         description?: string;
         createdBy?: string;
     }) {
-        const p = prisma as any;
+        const p = prisma as unknown as Record<string, { create: (args: unknown) => Promise<unknown> }>;
         if (p.systemConfigVersion) {
             const created = await p.systemConfigVersion.create({
                 data: {

@@ -20,7 +20,7 @@ import {
 
 interface SODSheetTableProps {
     orders: ServiceOrder[];
-    filterType: "pending" | "completed" | "return";
+    filterType: "pending" | "install_closed" | "completed" | "return";
     contractors: Contractor[];
     selectedIds: Set<string>;
     toggleSelect: (id: string) => void;
@@ -30,6 +30,57 @@ interface SODSheetTableProps {
     sortConfig: { key: keyof ServiceOrder; direction: "asc" | "desc" } | null;
     onUpdateField: (id: string, data: Record<string, unknown>) => Promise<unknown>;
     onOpenModal: (order: ServiceOrder, type: "detail" | "schedule" | "comment" | "action") => void;
+}
+
+function getSlaAgingBadge(receivedDate?: Date | string | null) {
+    if (!receivedDate) return { text: 'N/A', days: 0, category: 'UNKNOWN', className: 'text-slate-500', rowClassName: '' };
+    const recDate = new Date(receivedDate);
+    const now = new Date();
+    const diffTime = Math.max(0, now.getTime() - recDate.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    // 5-Tier Executive SLA Aging Breakdown (Management Target Breakdown)
+    if (diffDays <= 2) {
+        return { 
+            text: `${diffDays}d`, 
+            days: diffDays, 
+            category: 'WITHIN_2D',
+            className: 'text-emerald-800 dark:text-emerald-300 font-extrabold',
+            rowClassName: 'bg-emerald-100/80 dark:bg-emerald-900/40' 
+        };
+    } else if (diffDays <= 5) {
+        return { 
+            text: `${diffDays}d`, 
+            days: diffDays, 
+            category: 'WITHIN_5D',
+            className: 'text-teal-800 dark:text-teal-300 font-extrabold',
+            rowClassName: 'bg-teal-100/80 dark:bg-teal-900/40' 
+        };
+    } else if (diffDays <= 7) {
+        return { 
+            text: `${diffDays}d`, 
+            days: diffDays, 
+            category: 'WITHIN_7D',
+            className: 'text-amber-800 dark:text-amber-300 font-extrabold',
+            rowClassName: 'bg-amber-100/80 dark:bg-amber-900/40' 
+        };
+    } else if (diffDays <= 10) {
+        return { 
+            text: `${diffDays}d`, 
+            days: diffDays, 
+            category: 'WITHIN_10D',
+            className: 'text-orange-800 dark:text-orange-300 font-extrabold',
+            rowClassName: 'bg-orange-100/80 dark:bg-orange-900/40' 
+        };
+    } else {
+        return { 
+            text: `${diffDays}d OVERDUE`, 
+            days: diffDays, 
+            category: 'OVER_10D',
+            className: 'text-rose-800 dark:text-rose-300 font-black animate-pulse',
+            rowClassName: 'bg-rose-100/90 dark:bg-rose-900/50 border-y-2 border-rose-500/40' 
+        };
+    }
 }
 
 export function SODSheetTable(props: SODSheetTableProps) {
@@ -65,7 +116,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                     return order.teamId === filterValue;
                 }
                 if (key === "sltsStatus") {
-                    return order.sltsStatus === filterValue;
+                    if (filterValue === "ASSIGNED") {
+                        return order.sltsStatus === "ASSIGNED" || order.status === "ASSIGNED" || order.status === "ASSIGN";
+                    }
+                    return order.sltsStatus === filterValue || order.status === filterValue;
                 }
                 if (key === "completedDate") {
                     const dateStr = order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "";
@@ -341,12 +395,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                             </div>
                         </th>
                         {/* Dynamic columns based on filterType */}
-                        {filterType === "completed" ? (
+                        {filterType === "completed" || filterType === "install_closed" ? (
                             <>
                                 <th className="w-[110px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
                                     <div className="flex flex-col gap-1">
-                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
-                                            <span>Completed Date</span>
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort(filterType === "completed" ? "completedDate" : "receivedDate")}>
+                                            <span>{filterType === "completed" ? "Completed Date" : "Received Date"}</span>
                                             {sortConfig?.key === "completedDate" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
@@ -693,7 +747,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                 <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                 <th className="w-[120px] min-w-[120px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("scheduledDate")}>
                                             <span>Appointment Date</span>
@@ -732,47 +786,73 @@ export function SODSheetTable(props: SODSheetTableProps) {
                 </thead>
                 <tbody className="divide-y divide-border/25">
                     {filteredAndSortedOrders.length > 0 ? (
-                        filteredAndSortedOrders.map((order, index) => (
+                        filteredAndSortedOrders.map((order, index) => {
+                            const sla = filterType === "pending" ? getSlaAgingBadge(order.receivedDate) : null;
+                            const rowBg = sla?.rowClassName || '';
+                            const stickyBg = sla?.rowClassName ? 'bg-inherit' : 'bg-card';
+                            
+                            return (
                             <tr
                                 key={order.id}
-                                className={`hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] border-b border-border/10 transition-colors ${
-                                    selectedIds.has(order.id) ? "bg-primary/5" : ""
-                                }`}
+                                className={`hover:bg-primary/[0.05] dark:hover:bg-primary/[0.08] border-b border-border/10 transition-colors ${
+                                    selectedIds.has(order.id) ? "bg-primary/10" : ""
+                                } ${rowBg}`}
                             >
                                 {/* Checkbox */}
-                                <td className="px-1 text-center border-r border-border/15 md:sticky md:left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
+                                <td className={`px-1 text-center border-r border-border/15 md:sticky md:left-0 z-20 ${stickyBg}`}>
                                     <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-slate-400 dark:border-slate-500 data-[state=checked]:border-primary data-[state=checked]:bg-primary" />
                                 </td>
                                 {/* SO Number (Read-only, clickable details) */}
-                                <td className="px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-[36px] bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
-                                    <div className="flex items-center gap-1.5">
-                                        {(order.completionMode?.toUpperCase() === 'OFFLINE' || order.status?.toUpperCase() === 'OFFLINE' || String(order.completionMode).toUpperCase().includes('OFFLINE')) && (
-                                            <span 
-                                                className="px-1.5 py-0.2 text-[9px] font-black uppercase rounded-full bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/40 shadow-xs shrink-0 cursor-help" 
-                                                title="Offline Connection"
+                                <td className={`px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-[36px] z-20 ${stickyBg}`}>
+                                    <div className="flex flex-col gap-0.5 py-0.5">
+                                        <div className="flex items-center gap-1.5">
+                                            {(order.completionMode?.toUpperCase() === 'OFFLINE' || order.status?.toUpperCase() === 'OFFLINE' || String(order.completionMode).toUpperCase().includes('OFFLINE')) && (
+                                                <span 
+                                                    className="px-1.5 py-0.2 text-[9px] font-black uppercase rounded-full bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/40 shadow-xs shrink-0 cursor-help" 
+                                                    title="Offline Connection"
+                                                >
+                                                    O
+                                                </span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="text-foreground hover:text-primary transition-colors text-left truncate font-bold"
+                                                onClick={() => onOpenModal(order, "detail")}
+                                                title="View Details"
                                             >
-                                                O
-                                            </span>
-                                        )}
-                                        <button
-                                            type="button"
-                                            className="text-foreground hover:text-primary transition-colors text-left truncate"
-                                            onClick={() => onOpenModal(order, "detail")}
-                                            title="View Details"
-                                        >
-                                            {order.soNum}
-                                        </button>
-                                        {order.hasBridgeLog && (
-                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shrink-0" title="BRIDGE Log Available" />
+                                                {order.soNum}
+                                            </button>
+                                            {order.hasBridgeLog && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shrink-0" title="BRIDGE Log Available" />
+                                            )}
+                                        </div>
+                                        {/* Received Date & Dynamic KPI Aging Indicator */}
+                                        {order.receivedDate && (
+                                            <div className="flex items-center gap-1.5 font-sans">
+                                                <span className="text-[8.5px] font-medium text-muted-foreground font-mono">
+                                                    {new Date(order.receivedDate).toLocaleDateString('en-GB')}
+                                                </span>
+                                                {(() => {
+                                                    const sla = getSlaAgingBadge(order.receivedDate);
+                                                    return (
+                                                        <span className={`px-1 py-0.1 text-[7.5px] font-extrabold uppercase rounded border ${sla.className}`} title={`Received ${sla.days} days ago`}>
+                                                            {sla.text}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
                                         )}
                                     </div>
                                 </td>
 
-                                {/* COMPLETED VIEW */}
-                                {filterType === "completed" && (
+                                {/* COMPLETED & INSTALL CLOSED VIEW */}
+                                {(filterType === "completed" || filterType === "install_closed") && (
                                     <>
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-emerald-500 font-mono">
-                                            {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "-"}
+                                            {filterType === "completed" 
+                                                ? (order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "-")
+                                                : (order.receivedDate ? new Date(order.receivedDate).toLocaleDateString("en-GB") : order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "-")
+                                            }
                                         </td>
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[175px] flex flex-col gap-0.5">
@@ -966,7 +1046,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         {/* SLTS Status Dropdown */}
                                         <td className="relative border-r border-border/15 p-0">
                                             <select
-                                                value={order.sltsStatus}
+                                                value={(order.status === "ASSIGNED" || order.status === "ASSIGN") ? "ASSIGNED" : order.sltsStatus}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     if (val === "COMPLETED") {
@@ -980,10 +1060,11 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 data-row-index={index}
                                                 data-field="sltsStatus"
                                                 className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-3 py-1 text-[10px] font-black ${
-                                                    order.sltsStatus === "COMPLETED" ? "text-emerald-400" :
-                                                    order.sltsStatus === "RETURN" ? "text-rose-400" : 
+                                                    (order.status === "ASSIGNED" || order.status === "ASSIGN" || order.sltsStatus === "ASSIGNED") ? "text-emerald-600 font-extrabold dark:text-emerald-400" :
+                                                    order.sltsStatus === "COMPLETED" ? "text-emerald-500" :
+                                                    order.sltsStatus === "RETURN" ? "text-rose-500" : 
                                                     order.sltsStatus === "OFFLINE" ? "text-slate-400" : 
-                                                    order.sltsStatus === "PROV_CLOSED" ? "text-blue-400" : "text-amber-400"
+                                                    order.sltsStatus === "PROV_CLOSED" ? "text-blue-500" : "text-amber-500"
                                                 }`}
                                             >
                                                 <option value="PENDING">PENDING</option>
@@ -998,16 +1079,23 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
 
                                         {/* Appointment Date Inline */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="date"
-                                                defaultValue={order.scheduledDate ? new Date(order.scheduledDate).toISOString().split("T")[0] : ""}
-                                                onChange={(e) => handleSaveField(order.id, "scheduledDate", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "scheduledDate")}
-                                                data-row-index={index}
-                                                data-field="scheduledDate"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-bold text-foreground font-mono"
-                                            />
+                                        <td className="relative border-r border-border/15 p-0 w-[120px] min-w-[120px]">
+                                            <div className="relative w-full h-8 flex items-center justify-center px-1">
+                                                <input
+                                                    type="date"
+                                                    value={order.scheduledDate ? new Date(order.scheduledDate).toISOString().split("T")[0] : ""}
+                                                    onChange={(e) => handleSaveField(order.id, "scheduledDate", e.target.value)}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                    title="Click to set appointment date"
+                                                />
+                                                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                                    order.scheduledDate 
+                                                        ? "text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 border border-indigo-500/30" 
+                                                        : "text-muted-foreground/40 font-normal hover:text-foreground"
+                                                }`}>
+                                                    {order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString('en-GB') : "-"}
+                                                </span>
+                                            </div>
                                             {renderCellStatus(order.id, "scheduledDate")}
                                         </td>
 
@@ -1039,7 +1127,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 )}
 
                                 {/* Sticky Actions column */}
-                                <td className="text-center border-l border-border/15 md:sticky md:right-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                <td className={`text-center border-l border-border/15 md:sticky md:right-0 z-30 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] ${stickyBg}`}>
                                     <div className="flex items-center gap-1 justify-center py-0.5">
                                         <Button
                                             size="icon"
@@ -1083,7 +1171,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                     </div>
                                 </td>
                             </tr>
-                        ))
+                        );
+                    })
                     ) : (
                         <tr>
                             <td colSpan={20} className="px-3 py-16 text-center">

@@ -215,6 +215,7 @@ model ProjectPurchaseOrder {
   status             String                     @default("DRAFT")
   priority           String                     @default("MEDIUM")
   type               String                     @default("MATERIAL")
+  expenditureType    String                     @default("CAPEX")  // CAPEX | OPEX
   orderDate          DateTime                   @default(now())
   expectedDelivery   DateTime?
   deliveryLocation   String?
@@ -381,6 +382,7 @@ model PaymentVoucher {
   description        String?
   status             String          @default("DRAFT")
   type               String          @default("CONTRACTOR")
+  expenditureType    String          @default("OPEX")         // CAPEX | OPEX
   payeeName          String
   payeeId            String?
   invoiceId          String?
