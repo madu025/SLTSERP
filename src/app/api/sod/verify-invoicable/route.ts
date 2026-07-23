@@ -20,7 +20,10 @@ export const POST = apiHandler(async (req: Request) => {
     const sods = await prisma.serviceOrder.findMany({
         where: {
             id: { in: sodIds },
-            status: 'COMPLETED'
+            OR: [
+                { sltsStatus: 'COMPLETED' },
+                { status: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED'] } }
+            ]
         }
     });
 

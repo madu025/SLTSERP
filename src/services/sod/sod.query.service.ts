@@ -58,12 +58,11 @@ export class SODQueryService {
         // Offset-based fallback for backward compatibility
         const skip = cursor ? 1 : (page - 1) * limit;
 
-        if (!opmcId) {
-            throw AppError.badRequest('RTOM_ID_REQUIRED');
-        }
-
         // Build where clause using an array of AND filters to avoid OR collisions
-        const andFilters: Prisma.ServiceOrderWhereInput[] = [{ opmcId }];
+        const andFilters: Prisma.ServiceOrderWhereInput[] = [];
+        if (opmcId && opmcId !== 'ALL') {
+            andFilters.push({ opmcId });
+        }
 
         // Date Filtering
         if (month && year) {

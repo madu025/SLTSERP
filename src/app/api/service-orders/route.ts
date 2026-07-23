@@ -22,9 +22,7 @@ export const GET = apiHandler(async (request) => {
         year: searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined,
     };
 
-    if (!params.rtomId) {
-        throw AppError.badRequest('RTOM selection is required');
-    }
+    // rtomId is optional (allows fetching cross-OPMC completed/invoicable SODs)
 
     const userId = request.headers.get('x-user-id') || 'SYSTEM';
     const result = await ServiceOrderService.getServiceOrders(userId, params);

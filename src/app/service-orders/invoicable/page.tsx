@@ -50,7 +50,7 @@ interface RawServiceOrderResponse {
 function InvoicableServiceOrdersContent() {
     const [sods, setSods] = useState<InvoicableSOD[]>([]);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
-    const [selectedContractorId, setSelectedContractorId] = useState<string>('');
+    const [selectedContractorId, setSelectedContractorId] = useState<string>('ALL');
     const [loading, setLoading] = useState<boolean>(true);
     const [generating, setGenerating] = useState<boolean>(false);
     const [verifying, setVerifying] = useState<boolean>(false);
@@ -59,23 +59,42 @@ function InvoicableServiceOrdersContent() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/service-orders?status=COMPLETED&limit=200');
-            if (res.ok) {
-                const json = await res.json();
-                const rawItems = (json.data || json.serviceOrders || []) as RawServiceOrderResponse[];
-                const list: InvoicableSOD[] = rawItems.map((s) => ({
-                    id: s.id,
-                    soNum: s.soNum,
-                    rtom: s.rtom,
-                    serviceType: s.serviceType || 'FTTH',
-                    voiceNumber: s.voiceNumber,
-                    completedDate: s.completedDate,
-                    contractorId: s.contractorId || s.contractor?.id,
-                    contractorName: s.contractor?.name || 'Assigned Contractor',
-                    isInvoicable: s.isInvoicable ?? true,
-                    invoiced: s.invoiced ?? false,
-                    dropWireLength: s.dropWireLength || 150
-                }));
+            const [sodRes, contractorRes] = await Promise.all([
+                fetch(`/api/service-orders?status=COMPLETED&limit=200&_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+                }),
+                fetch(`/api/contractors?limit=200&_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+                })
+            ]);
+
+            let allContractors: Array<{ id: string; name: string }> = [];
+            if (contractorRes.ok) {
+                const cJson = await contractorRes.json();
+                allContractors = (cJson.contractors || cJson.data || cJson.items || []) as Array<{ id: string; name: string }>;
+            }
+
+            if (sodRes.ok) {
+                const json = await sodRes.json();
+                const rawItems = (json.items || json.data || json.serviceOrders || []) as RawServiceOrderResponse[];
+                const list: InvoicableSOD[] = rawItems.map((s) => {
+                    const matchedC = allContractors.find(c => c.id === (s.contractorId || s.contractor?.id));
+                    return {
+                        id: s.id,
+                        soNum: s.soNum,
+                        rtom: s.rtom,
+                        serviceType: s.serviceType || 'FTTH',
+                        voiceNumber: s.voiceNumber,
+                        completedDate: s.completedDate,
+                        contractorId: s.contractorId || s.contractor?.id,
+                        contractorName: matchedC?.name || s.contractor?.name || 'Assigned Contractor',
+                        isInvoicable: s.isInvoicable ?? false,
+                        invoiced: s.invoiced ?? false,
+                        dropWireLength: s.dropWireLength || 150
+                    };
+                });
 
                 const uninvoiced = list.filter(s => !s.invoiced);
                 setSods(uninvoiced);
@@ -99,9 +118,6 @@ function InvoicableServiceOrdersContent() {
                 }));
 
                 setContractors(contractorList);
-                if (contractorList.length > 0 && !selectedContractorId) {
-                    setSelectedContractorId(contractorList[0].id);
-                }
             }
         } catch (err) {
             console.error(err);
@@ -109,14 +125,14 @@ function InvoicableServiceOrdersContent() {
         } finally {
             setLoading(false);
         }
-    }, [selectedContractorId]);
+    }, []);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
     const handleVerifyCompletedSODs = async () => {
-        const targetIds = sods.filter(s => !s.isInvoicable).map(s => s.id);
+        const targetIds = filteredSods.filter(s => !s.isInvoicable).map(s => s.id);
         if (targetIds.length === 0) {
             setNotice({ type: 'success', message: 'All displayed completed SODs are already verified and invoicable.' });
             return;
@@ -148,14 +164,18 @@ function InvoicableServiceOrdersContent() {
     };
 
     const handleGenerateInvoice = async () => {
-        if (!selectedContractorId) {
-            setNotice({ type: 'error', message: 'Please select a contractor to generate invoice.' });
+        const contractorSods = sods.filter(s => (selectedContractorId === 'ALL' || s.contractorId === selectedContractorId || selectedContractorId === 'c-default') && s.isInvoicable);
+        if (contractorSods.length === 0) {
+            setNotice({ type: 'error', message: 'No verified invoicable SODs found for billing batch.' });
             return;
         }
 
-        const contractorSods = sods.filter(s => (s.contractorId === selectedContractorId || selectedContractorId === 'c-default') && s.isInvoicable);
-        if (contractorSods.length === 0) {
-            setNotice({ type: 'error', message: 'No verified invoicable SODs found for the selected contractor.' });
+        const targetContractorId = (selectedContractorId === 'c-default' || selectedContractorId === 'ALL')
+            ? (contractorSods[0].contractorId || contractors[0]?.id)
+            : selectedContractorId;
+
+        if (!targetContractorId) {
+            setNotice({ type: 'error', message: 'Contractor assignment required for invoice generation.' });
             return;
         }
 
@@ -167,7 +187,7 @@ function InvoicableServiceOrdersContent() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contractorId: selectedContractorId === 'c-default' ? contractorSods[0].contractorId : selectedContractorId,
+                    contractorId: targetContractorId,
                     sodIds: contractorSods.map(s => s.id)
                 })
             });
@@ -191,7 +211,7 @@ function InvoicableServiceOrdersContent() {
         }
     };
 
-    const filteredSods = sods.filter(s => !selectedContractorId || s.contractorId === selectedContractorId || selectedContractorId === 'c-default');
+    const filteredSods = sods.filter(s => selectedContractorId === 'ALL' || !selectedContractorId || s.contractorId === selectedContractorId || selectedContractorId === 'c-default');
 
     return (
         <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'FINANCE_MANAGER', 'FIELD_ENGINEER', 'MANAGER']}>
@@ -252,11 +272,12 @@ function InvoicableServiceOrdersContent() {
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-3">
-                                            <Select value={selectedContractorId} onValueChange={setSelectedContractorId}>
+                                            <Select value={selectedContractorId || 'ALL'} onValueChange={setSelectedContractorId}>
                                                 <SelectTrigger className="w-64 bg-white font-medium text-xs">
                                                     <SelectValue placeholder="Choose Contractor..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
+                                                    <SelectItem value="ALL">All Contractors ({sods.length} SODs)</SelectItem>
                                                     {contractors.map(c => (
                                                         <SelectItem key={c.id} value={c.id}>
                                                             {c.name} ({c.invoicableCount} SODs)

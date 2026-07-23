@@ -25,9 +25,12 @@ export const POST = apiHandler(async (req: Request) => {
     const currentMonth = data.month ? Number(data.month) : now.getMonth() + 1;
 
     // 1. Fetch Invoicable SODs for this Contractor
-    let sodWhere: any = {
+    let sodWhere: Record<string, unknown> = {
         contractorId: data.contractorId,
-        status: 'COMPLETED',
+        OR: [
+            { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
+            { sltsStatus: 'COMPLETED' }
+        ],
         isInvoicable: true,
         invoiced: false
     };
@@ -36,7 +39,10 @@ export const POST = apiHandler(async (req: Request) => {
         sodWhere = {
             id: { in: data.sodIds },
             contractorId: data.contractorId,
-            status: 'COMPLETED',
+            OR: [
+                { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
+                { sltsStatus: 'COMPLETED' }
+            ],
             isInvoicable: true,
             invoiced: false
         };
