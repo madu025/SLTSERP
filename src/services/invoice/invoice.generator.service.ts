@@ -41,7 +41,8 @@ export class InvoiceGeneratorService {
     }
 
     /**
-     * Create actual invoice record and connect SODs in a transaction, including penalties
+     * Create actual invoice record and connect SODs in a transaction, including penalties.
+     * Initial Status: PENDING_SF_AUDIT
      */
     static async createRegionalInvoice(data: {
         invoiceNumber: string;
@@ -61,7 +62,6 @@ export class InvoiceGeneratorService {
         const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount, penaltyTotal);
 
         return await prisma.$transaction(async (tx) => {
-            // Find any associated project invoice to extract the BOM reference number, project ID, and metadata
             let bomNumber = other.bomNumber;
             let projectId = null;
             let projectNumber = null;
@@ -96,7 +96,6 @@ export class InvoiceGeneratorService {
                 }
             }
 
-            // Fallback: If no direct ProjectInvoice association is found, look up active projects
             if (!projectId) {
                 let project = await tx.project.findFirst({
                     where: { contractorId: other.contractorId },
@@ -128,12 +127,11 @@ export class InvoiceGeneratorService {
                     if (digits) {
                         projectNumber = parseInt(digits[0], 10);
                     } else {
-                        projectNumber = 260103; // standard fallback project number
+                        projectNumber = 260103;
                     }
                 }
             }
 
-            // Get the RTOM area name from the first SOD if not provided
             let rtomArea = other.rtomArea;
             if (!rtomArea) {
                 const firstSod = await tx.serviceOrder.findFirst({
@@ -143,9 +141,7 @@ export class InvoiceGeneratorService {
                 rtomArea = firstSod?.rtom || other.regionName;
             }
 
-            
             const invoice = await tx.invoice.create({
-                
                 data: {
                     invoiceNumber: other.invoiceNumber,
                     contractorId: other.contractorId,
@@ -155,10 +151,10 @@ export class InvoiceGeneratorService {
                     totalAmount: totalAmount,
                     amount: totalAmount,
                     amountA,
-                    statusA: 'PENDING',
+                    statusA: 'PENDING_SF_AUDIT',
                     amountB,
                     statusB: 'HOLD',
-                    status: 'PENDING',
+                    status: 'PENDING_SF_AUDIT',
                     description: other.description || `Monthly Invoice for ${other.regionName} - ${other.month}/${other.year}`,
                     bomNumber,
                     rtomArea,
@@ -190,7 +186,6 @@ export class InvoiceGeneratorService {
     /**
      * Recalculate splits (amountA / amountB) for an invoice based on its associated Penalty records
      */
-    
     static async recalculateInvoiceSplits(invoiceId: string, tx?: any) {
         const db = tx || prisma;
         const invoice = await db.invoice.findUnique({
@@ -199,7 +194,6 @@ export class InvoiceGeneratorService {
         });
         if (!invoice) throw AppError.badRequest('Invoice not found');
 
-        
         const penaltyTotal = invoice.penalties
             .filter((p: any) => p.status === 'APPROVED')
             .reduce((sum: number, p: any) => sum + p.amount, 0);

@@ -410,7 +410,7 @@ export class SODSyncService {
             console.log('[SYNC] Serverless/Vercel environment: running sync synchronously for all OPMCs with controlled concurrency...');
             let created = 0;
             let updated = 0;
-            const results: any[] = [];
+            const results: Array<{ rtom: string; success: boolean; created?: number; updated?: number; error?: string }> = [];
 
             // ── Optimization: Pre-load ALL INPROGRESS SODs across every OPMC in one query ──
             // This eliminates 44 per-OPMC findMany queries for disappeared SOD detection.
@@ -445,9 +445,9 @@ export class SODSyncService {
                     if (r.success) {
                         created += r.created || 0;
                         updated += r.updated || 0;
-                        results.push({ rtom: r.rtom, created: r.created, updated: r.updated });
+                        results.push({ rtom: r.rtom, success: true, created: r.created, updated: r.updated });
                     } else {
-                        results.push({ rtom: r.rtom, error: r.error });
+                        results.push({ rtom: r.rtom, success: false, error: r.error });
                     }
                 }
             }
@@ -583,6 +583,24 @@ export class SODSyncService {
                     initialSltsStatus = 'RETURN';
                 }
 
+                const itemObj = item as unknown as Record<string, unknown>;
+                const rawContractorOrTeam = item.CON_WORO_TASK_NAME || (itemObj.CONTRACTOR_NAME as string | undefined) || (itemObj.CONTRACTOR as string | undefined) || (itemObj.CON_CONTRACTOR as string | undefined);
+                const isGenericTask = (name?: string | null) => {
+                    if (!name) return true;
+                    const u = name.trim().toUpperCase();
+                    return u === 'CONSTRUCT_OSP' || u === 'CONSTRUCT' || u === 'OSP' || u.startsWith('CONSTRUCT_OSP/');
+                };
+                const portalTeamName = (!isGenericTask(rawContractorOrTeam)) ? (rawContractorOrTeam as string).trim() : null;
+                let contractorId: string | null = null;
+                let teamId: string | null = null;
+
+                if (portalTeamName) {
+                    const { ContractorLifecycleService } = await import('../contractor/contractor.lifecycle.service');
+                    const resolved = await ContractorLifecycleService.resolveTeamAndContractorByIShampTeamName(portalTeamName, opmcId);
+                    contractorId = resolved.contractorId;
+                    teamId = resolved.teamId;
+                }
+
                 const existing = existingMap.get(item.SO_NUM);
                 const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
                     status: item.CON_STATUS,
@@ -606,6 +624,9 @@ export class SODSyncService {
                     sales: item.CON_SALES,
                     completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined,
                     sltsStatus: initialSltsStatus,
+                    contractorId: contractorId || undefined,
+                    teamId: teamId || undefined,
+                    directTeam: portalTeamName || undefined,
                     returnReason: initialSltsStatus === 'RETURN' ? (item.CON_STATUS || 'Returned in external portal') : undefined
                 };
 
@@ -640,6 +661,7 @@ export class SODSyncService {
                         toCreate.push({
                             ...updatePayload,
                             opmcId,
+                            contractorId: contractorId || null,
                             rtom: item.RTOM || rtom,
                             soNum: item.SO_NUM,
                             receivedDate: statusDate,
@@ -686,7 +708,7 @@ export class SODSyncService {
                 sltApiService.fetchOpmcRejected(rtom)
             ]);
 
-            const externalStatusMap = new Map<string, { status: string; statusDate: string; rawItem?: any }>();
+            const externalStatusMap = new Map<string, { status: string; statusDate: string; rawItem?: unknown }>();
             
             completedResults.forEach(item => {
                 externalStatusMap.set(item.SO_NUM, { status: item.CON_STATUS, statusDate: item.CON_STATUS_DATE, rawItem: item });
@@ -698,39 +720,40 @@ export class SODSyncService {
 
             for (const disappearedSod of disappearedSods) {
                 try {
-                    const match = externalStatusMap.get(disappearedSod.soNum || '');
-                    if (match) {
-                        const statusDate = sltApiService.parseStatusDate(match.statusDate) || new Date();
+                    const extStatus = externalStatusMap.get(disappearedSod.soNum || '');
+                    if (extStatus) {
+                        const statusUpper = String(extStatus.status || '').toUpperCase();
+                        const statusDate = sltApiService.parseStatusDate(extStatus.statusDate) || new Date();
                         const completionStatuses = ['INSTALL_CLOSED'];
                         const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
                         
                         let nextSltsStatus = 'INPROGRESS';
-                        const isOfflineType = match.rawItem?.ORDER_TYPE 
-                            ? offlineOrderTypes.includes(match.rawItem.ORDER_TYPE.toUpperCase()) 
-                            : false;
+                        const rawItemObj = extStatus.rawItem as Record<string, unknown> | undefined;
+                        const rawOrderType = (rawItemObj?.ORDER_TYPE as string | undefined) || '';
+                        const isOfflineType = rawOrderType ? offlineOrderTypes.includes(rawOrderType.toUpperCase()) : false;
 
-                        if (isOfflineType || match.status.toUpperCase() === 'OFFLINE') {
+                        if (isOfflineType || statusUpper === 'OFFLINE') {
                             nextSltsStatus = 'OFFLINE';
-                        } else if (completionStatuses.includes(match.status)) {
+                        } else if (completionStatuses.includes(extStatus.status)) {
                             nextSltsStatus = 'COMPLETED';
-                        } else if (match.status.toUpperCase() === 'PROV_CLOSED') {
+                        } else if (statusUpper === 'PROV_CLOSED') {
                             nextSltsStatus = 'PROV_CLOSED';
-                        } else if (returnStatuses.includes(match.status.toUpperCase())) {
+                        } else if (returnStatuses.includes(statusUpper)) {
                             nextSltsStatus = 'RETURN';
                         }
 
                         if (nextSltsStatus !== 'INPROGRESS') {
                             await prisma.$transaction(async (tx) => {
                                 const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                                    status: match.status,
+                                    status: extStatus.status,
                                     statusDate,
                                     sltsStatus: nextSltsStatus,
                                     completedDate: nextSltsStatus === 'COMPLETED' ? statusDate : undefined,
-                                    returnReason: nextSltsStatus === 'RETURN' ? (match.status || 'Returned in external portal') : undefined
+                                    returnReason: nextSltsStatus === 'RETURN' ? (extStatus.status || 'Returned in external portal') : undefined
                                 };
 
-                                if (match.rawItem) {
-                                    const item = match.rawItem;
+                                if (rawItemObj) {
+                                    const item = rawItemObj;
                                     Object.assign(updatePayload, {
                                         lea: item.LEA || undefined,
                                         voiceNumber: item.VOICENUMBER || undefined,
@@ -970,8 +993,13 @@ export class SODSyncService {
             opmcId = firstOpmc?.id || '';
         }
 
+        const isOffline = (payload.url && payload.url.toLowerCase().includes('offline')) || 
+                          (typeof mapping.status === 'string' && mapping.status.toUpperCase() === 'OFFLINE') ||
+                          (masterData['COMPLETION_MODE'] && String(masterData['COMPLETION_MODE']).toUpperCase().includes('OFFLINE'));
+
         const dataToUpdate: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             ...mapping,
+            completionMode: isOffline ? 'OFFLINE' : (mapping.completionMode || serviceOrder?.completionMode || 'Standard'),
             rtom: (mapping.rtom as string) || serviceOrder?.rtom || 'UNKNOWN',
             opmcId,
             updatedAt: new Date(),
@@ -1003,6 +1031,7 @@ export class SODSyncService {
 
         const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;
         if (teamName) {
+            dataToUpdate.directTeam = teamName.trim();
             const teamCode = teamName.split('-')[0].trim();
             const team = await prisma.contractorTeam.findFirst({
                 where: {
@@ -1138,15 +1167,17 @@ export class SODSyncService {
         }
 
         // Sync comments list to ServiceOrderComment table if present in payload
-        const rawHistory = (payload as any).history || [];
-        const commentsList = payload.commentsList || rawHistory;
+        const payloadRecord = payload as Record<string, unknown>;
+        const rawHistory = (payloadRecord.history as Array<Record<string, unknown>> | undefined) || [];
+        const commentsList = (payload.commentsList as Array<Record<string, unknown>> | undefined) || rawHistory;
         if (syncedOrder && commentsList.length > 0) {
             try {
-                for (const c of commentsList) {
-                    const dateStr = c.date || c.DATE || c.TIME;
+                for (const cItem of commentsList) {
+                    const c = cItem as Record<string, unknown>;
+                    const dateStr = (c.date || c.DATE || c.TIME) as string | undefined;
                     const parsedDate = dateStr ? new Date(dateStr) : new Date();
-                    const userStr = c.user || c.USER || c.NAME || c['UPDATED BY'] || 'Unknown';
-                    const commentStr = c.comment || c.REMARKS || c.COMMENT || c.STATUS || '';
+                    const userStr = (c.user || c.USER || c.NAME || c['UPDATED BY'] || 'Unknown') as string;
+                    const commentStr = (c.comment || c.REMARKS || c.COMMENT || c.STATUS || '') as string;
                     if (!commentStr) continue;
                     const formattedComment = `[Portal Comment by ${userStr}]: ${commentStr}`;
 

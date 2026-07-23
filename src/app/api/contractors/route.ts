@@ -2,6 +2,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -67,19 +68,22 @@ export const PUT = apiHandler(
 );
 
 /**
- * DELETE: Delete a contractor
+ * DELETE: Delete a contractor (Soft-deactivates if related records exist)
  */
 export const DELETE = apiHandler(
     async (req) => {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
-        if (!id) throw new Error('ID_REQUIRED');
-        
-        await ContractorService.deleteContractor(id);
-        return { message: 'Deleted successfully' };
+        if (!id) throw AppError.badRequest('ID_REQUIRED');
+
+        const result = await ContractorService.deleteContractor(id);
+        return {
+            success: true,
+            ...result
+        };
     },
     {
-        roles: ['ADMIN', 'SUPER_ADMIN'],
+        roles: ['ADMIN', 'SUPER_ADMIN', 'OFFICE_ADMIN'],
         audit: {
             action: 'DELETE',
             entity: 'Contractor'

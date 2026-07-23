@@ -71,7 +71,7 @@ export class ContractorService {
         return ContractorRegistrationService.verifyUploadToken(token);
     }
 
-    static async submitPublicDocuments(token: string, documents: any) {
+    static async submitPublicDocuments(token: string, documents: Record<string, string | undefined>) {
         return ContractorRegistrationService.submitPublicDocuments(token, documents);
     }
 
@@ -93,12 +93,16 @@ export class ContractorService {
         return ContractorLifecycleService.getContractorTeams(contractorId);
     }
 
-    static async saveContractorTeams(contractorId: string, teams: any[]) {
+    static async saveContractorTeams(contractorId: string, teams: TeamInput[]) {
         return ContractorLifecycleService.saveContractorTeams(contractorId, teams);
     }
 
     static async getAllTeams() {
         return ContractorQueryService.getAllTeams();
+    }
+
+    static async deleteTeam(teamId: string) {
+        return ContractorLifecycleService.deleteTeam(teamId);
     }
 
     static async getTeamStores(teamId: string) {

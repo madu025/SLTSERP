@@ -33,7 +33,10 @@ const publicPaths = [
     '/api/auth/agent-login',
     '/api/assets/sync',
     '/api/assets/register',
-    '/api/agent/version'
+    '/api/agent/version',
+    '/api/contracts',
+    '/public/invoices',
+    '/api/public/invoices'
 ];
 
 export async function middleware(request: NextRequest) {
@@ -94,7 +97,10 @@ export async function middleware(request: NextRequest) {
     }
 
     // If authenticated
-    requestHeaders.set('x-user-id', verifiedToken.id as string);
+    const uid = (verifiedToken.userId || verifiedToken.id || verifiedToken.sub) as string;
+    if (uid) {
+        requestHeaders.set('x-user-id', uid);
+    }
     requestHeaders.set('x-user-role', verifiedToken.role as string);
 
     return NextResponse.next({

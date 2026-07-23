@@ -22,6 +22,8 @@ model User {
   ospApprovedContractors        Contractor[]                  @relation("ContractorOspApproval")
   rejectedContractors           Contractor[]                  @relation("ContractorRejection")
   generatedContractorLinks      Contractor[]                  @relation("ContractorLinkGenerator")
+  cycleCountsCounted            CycleCountHeader[]            @relation("CycleCounter")
+  cycleCountsApproved           CycleCountHeader[]            @relation("CycleApprover")
   receivedGRNs                  GRN[]
   assignedITAssets              ITAsset[]                     @relation("AssignedITAssetsToUser")
   managedStores                 InventoryStore[]
@@ -53,6 +55,8 @@ model User {
   assignedTickets               Ticket[]                      @relation("AssignedTickets")
   createdTickets                Ticket[]                      @relation("CreatedTickets")
   ticketUpdates                 TicketUpdate[]                @relation("UserTicketUpdates")
+  amendmentRequestsRequested   InvoiceAmendmentRequest[]     @relation("AmendmentRequestedBy")
+  amendmentRequestsApproved    InvoiceAmendmentRequest[]     @relation("AmendmentApprovedBy")
   assignedStore                 InventoryStore?               @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
   staff                         Staff?                        @relation(fields: [staffId], references: [id])
   supervisor                    User?                         @relation("UserSupervisor", fields: [supervisorId], references: [id])

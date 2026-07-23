@@ -21,6 +21,7 @@ export const serviceOrderPatchSchema = z.object({
     techContact: z.string().optional().nullable(),
     teamId: z.string().optional().nullable(),
     directTeamName: z.string().optional().nullable(),
+    directTeam: z.string().optional().nullable(),
     dropWireDistance: z.union([z.string(), z.number()]).optional().nullable(),
     sltsPatStatus: z.string().optional().nullable(),
     opmcPatStatus: z.string().optional().nullable(),
@@ -44,6 +45,11 @@ export const serviceOrderPatchSchema = z.object({
 
 export const serviceOrderUpdateSchema = z.object({
     id: z.string().min(1, "ID is required"),
+    contractorId: z.string().optional().nullable(),
+    teamId: z.string().optional().nullable(),
+    directTeamName: z.string().optional().nullable(),
+    directTeam: z.string().optional().nullable(),
+    completionMode: z.string().optional().nullable(),
     scheduledDate: z.string().optional().nullable(),
     scheduledTime: z.string().optional().nullable(),
     techContact: z.string().optional().nullable(),

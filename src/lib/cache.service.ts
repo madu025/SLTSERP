@@ -1,7 +1,12 @@
 import { redis } from './redis';
 
 export class CacheService {
+    private static isReady(): boolean {
+        return redis.status === 'ready';
+    }
+
     static async get<T>(key: string): Promise<T | null> {
+        if (!CacheService.isReady()) return null;
         try {
             const data = await redis.get(key);
             if (!data) return null;
@@ -13,6 +18,7 @@ export class CacheService {
     }
 
     static async set(key: string, value: unknown, ttlSeconds: number = 3600): Promise<void> {
+        if (!CacheService.isReady()) return;
         try {
             const data = JSON.stringify(value);
             await redis.set(key, data, 'EX', ttlSeconds);
@@ -22,6 +28,7 @@ export class CacheService {
     }
 
     static async del(key: string): Promise<void> {
+        if (!CacheService.isReady()) return;
         try {
             await redis.del(key);
         } catch (e) {
@@ -30,6 +37,7 @@ export class CacheService {
     }
 
     static async delPattern(pattern: string): Promise<void> {
+        if (!CacheService.isReady()) return;
         try {
             const keys = await redis.keys(pattern);
             if (keys.length > 0) {

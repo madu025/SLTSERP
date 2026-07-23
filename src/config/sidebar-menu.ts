@@ -13,6 +13,7 @@ import {
     ClipboardCheck,
     ShoppingCart,
     FileSignature,
+    FileCheck2,
     PackageMinus,
     Shield,
     ShieldCheck,
@@ -34,7 +35,8 @@ import {
     Landmark,
     ShieldAlert,
     LifeBuoy,
-    Laptop
+    Laptop,
+    Calculator
 } from 'lucide-react';
 
 
@@ -216,6 +218,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
         permissionId: 'invoices',
         submenu: [
             {
+                title: 'SLT SLA Agreements',
+                path: '/finance/slt-contracts',
+                icon: FileCheck2,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'MANAGER']
+            },
+            {
                 title: 'Vendor Registry',
                 path: '/admin/finance/vendors',
                 icon: Building,
@@ -252,10 +260,10 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
-                title: 'Contractor Pricing',
-                path: '/admin/contractor-payment',
-                icon: Receipt,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                title: 'Rate Matrix Config',
+                path: '/admin/finance/rate-matrix',
+                icon: Calculator,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
             },
             {
                 title: 'Vendor Upload (HO)',
@@ -268,6 +276,40 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/finance/banks/import',
                 icon: Upload,
                 allowedRoles: ROLE_GROUPS.ADMINS
+            }
+        ]
+    },
+
+    {
+        title: 'SF Audit Division',
+        path: '/sf-audit/governance',
+        icon: ShieldCheck,
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR'],
+        permissionId: 'sf-audit',
+        submenu: [
+            {
+                title: 'SF Audit Governance',
+                path: '/sf-audit/governance',
+                icon: ShieldCheck,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
+            },
+            {
+                title: 'Contractor Invoice Pricing Audit',
+                path: '/sf-audit/pricing-audit',
+                icon: Calculator,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
+            },
+            {
+                title: 'Header & Material Mapping Config',
+                path: '/sf-audit/header-mapping',
+                icon: Settings,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
+            },
+            {
+                title: 'Payment Split Rules Configurator',
+                path: '/sf-audit/payment-split-config',
+                icon: Calculator,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
             }
         ]
     },
@@ -688,12 +730,17 @@ export const hasAccess = (
         // Only allow public Guest items in sidebar/navigation
         return !!itemTitle && ['IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
     }
+
+    // Super Admin & Admin always have full visibility
+    if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true;
     
-    // If the user has dynamic permissions configured (even if empty []), prioritize them
-    if (userPermissions && permissionId) {
-        return userPermissions.includes(permissionId);
+    // Check if user role is explicitly allowed
+    if (allowedRoles.includes('ALL') || allowedRoles.includes(userRole)) return true;
+
+    // If dynamic permissions explicitly match, allow
+    if (userPermissions && permissionId && userPermissions.includes(permissionId)) {
+        return true;
     }
 
-    if (allowedRoles.includes('ALL')) return true;
-    return allowedRoles.includes(userRole);
+    return false;
 };

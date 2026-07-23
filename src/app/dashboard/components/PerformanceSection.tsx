@@ -36,13 +36,15 @@ function ChartCard({ title, subtitle, accent, className, children }: {
     children: ReactNode;
 }) {
     return (
-        <div className={`glass-panel p-5 md:p-6 rounded-2xl border border-border/40 shadow-sm flex flex-col hover:border-primary/10 transition-all duration-300 ${className || ''}`}>
-            <div className="mb-5">
-                <h3 className="font-bold text-foreground flex items-center gap-2">
-                    <span className={`w-1.5 h-4 rounded-full ${accent}`}></span>
-                    {title}
-                </h3>
-                {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5 ml-3.5">{subtitle}</p>}
+        <div className={`glass-panel p-6 rounded-3xl border border-border/50 shadow-sm flex flex-col hover:border-primary/20 hover:shadow-lg transition-all duration-300 ${className || ''}`}>
+            <div className="mb-5 flex items-center justify-between">
+                <div>
+                    <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm md:text-base">
+                        <span className={`w-2 h-4 rounded-full ${accent}`}></span>
+                        {title}
+                    </h3>
+                    {subtitle && <p className="text-[11px] font-semibold text-muted-foreground mt-0.5 ml-4">{subtitle}</p>}
+                </div>
             </div>
             {children}
         </div>

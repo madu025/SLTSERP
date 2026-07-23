@@ -75,7 +75,8 @@ export function apiHandler<T, B = any>(
                 }
 
                 // 3. Execute the actual Route Logic
-                const result = await handler(req, context?.params, body);
+                const params = context?.params ? await context.params : undefined;
+                const result = await handler(req, params, body);
 
                 // 4. Audit Logging (Optional)
                 if (options?.audit && userId) {

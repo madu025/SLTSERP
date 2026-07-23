@@ -61,6 +61,21 @@ model SystemConfig {
   updatedAt   DateTime @updatedAt
 }
 
+model SystemConfigVersion {
+  id            String    @id @default(cuid())
+  category      String    // FINANCE, SOD, INVENTORY
+  key           String    // e.g. FINANCE_VAT_PERCENT, INVENTORY_DROP_WIRE_RATE
+  value         String    // e.g. "18.0"
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime? // null means currently active without expiry
+  description   String?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+
+  @@index([key, effectiveFrom, effectiveTo])
+  @@index([category])
+}
+
 model SystemSetting {
   id        String   @id @default(cuid())
   key       String   @unique
@@ -107,4 +122,3 @@ model SystemErrorLog {
   @@index([path])
   @@index([resolved])
 }
-

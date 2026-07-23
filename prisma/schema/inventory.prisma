@@ -33,6 +33,8 @@ model InventoryStore {
   inRequests      StockRequest[]                   @relation("RequestTarget")
   teamAssignments TeamStoreAssignment[]
   assignedUsers   User[]                           @relation("UserAssignedStore")
+  locators        WarehouseLocator[]
+  cycleCounts     CycleCountHeader[]
 
   @@index([type])
   @@index([managerId])
@@ -79,6 +81,7 @@ model InventoryItem {
   sodUsage              SODMaterialUsage[]             @relation("SODUsage")
   stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
   requestItems          StockRequestItem[]
+  cycleCountLines       CycleCountLine[]
 
   @@index([code])
   @@index([type])
@@ -117,6 +120,7 @@ model InventoryBatch {
   storeStocks      InventoryBatchStock[]
   transactionItems InventoryTransactionItem[]
   usageItems       SODMaterialUsage[]
+  cycleCountLines  CycleCountLine[]
 
   @@index([itemId])
   @@index([createdAt])
@@ -256,3 +260,66 @@ model JournalLine {
   @@index([entryId])
   @@index([accountCode])
 }
+
+model WarehouseLocator {
+  id          String              @id @default(cuid())
+  storeId     String
+  code        String              
+  aisle       String?
+  rack        String?
+  shelf       String?
+  bin         String?
+  description String?
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  store       InventoryStore      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, code])
+  @@index([storeId])
+  @@index([code])
+}
+
+model CycleCountHeader {
+  id                  String           @id @default(cuid())
+  countNumber         String           @unique
+  storeId             String
+  status              String           @default("DRAFT") 
+  countType           String           @default("BLIND") 
+  plannedDate         DateTime         @default(now())
+  completedDate       DateTime?
+  countedById         String
+  approvedById        String?
+  remarks             String?
+  totalVarianceValue  Decimal          @default(0)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  store               InventoryStore   @relation(fields: [storeId], references: [id])
+  countedBy           User             @relation("CycleCounter", fields: [countedById], references: [id])
+  approvedBy          User?            @relation("CycleApprover", fields: [approvedById], references: [id])
+  lines               CycleCountLine[]
+
+  @@index([storeId])
+  @@index([status])
+  @@index([countNumber])
+}
+
+model CycleCountLine {
+  id              String           @id @default(cuid())
+  headerId        String
+  itemId          String
+  batchId         String?
+  systemQty       Decimal          @default(0)
+  countedQty      Decimal          @default(0)
+  varianceQty     Decimal          @default(0)
+  unitCost        Decimal          @default(0)
+  varianceValue   Decimal          @default(0)
+  notes           String?
+  header          CycleCountHeader @relation(fields: [headerId], references: [id], onDelete: Cascade)
+  item            InventoryItem    @relation(fields: [itemId], references: [id])
+  batch           InventoryBatch?  @relation(fields: [batchId], references: [id])
+
+  @@index([headerId])
+  @@index([itemId])
+}
+

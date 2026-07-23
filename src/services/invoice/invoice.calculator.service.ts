@@ -1,5 +1,21 @@
 import { InvoiceCalculationResult } from './invoice-types';
 
+export interface StatutoryInvoiceBreakdown {
+    subtotal: number;
+    vatPercent: number;
+    vatAmount: number;
+    ssclPercent: number;
+    ssclAmount: number;
+    retentionPercent: number;
+    retentionAmount: number;
+    whtPercent: number;
+    whtAmount: number;
+    penaltyTotal: number;
+    grossWithTaxes: number;
+    netPayableAmount: number;
+    requiredApprovalRole: 'AREA_MANAGER' | 'GENERAL_MANAGER' | 'DIRECTOR';
+}
+
 export class InvoiceCalculatorService {
     private static PART_A_PERCENTAGE = 0.90;
     private static PART_B_PERCENTAGE = 0.10;
@@ -27,6 +43,55 @@ export class InvoiceCalculatorService {
             totalAmount: total,
             amountA,
             amountB
+        };
+    }
+
+    /**
+     * Calculate 100% Statutorily Auditable Sri Lanka Enterprise Billing Invoice Breakdown
+     */
+    static calculateStatutoryInvoiceBreakdown(
+        subtotal: number,
+        penaltyTotal: number = 0,
+        config: {
+            vatPercent: number;
+            ssclPercent: number;
+            whtPercent: number;
+            retentionPercent: number;
+            approvalLimitManager: number;
+            approvalLimitGM: number;
+        }
+    ): StatutoryInvoiceBreakdown {
+        const round2 = (val: number) => Math.round(val * 100) / 100;
+
+        const vatAmount = round2(subtotal * (config.vatPercent / 100));
+        const ssclAmount = round2(subtotal * (config.ssclPercent / 100));
+        const retentionAmount = round2(subtotal * (config.retentionPercent / 100));
+        const whtAmount = round2(subtotal * (config.whtPercent / 100));
+
+        const grossWithTaxes = round2(subtotal + vatAmount + ssclAmount);
+        const netPayableAmount = round2(grossWithTaxes - retentionAmount - whtAmount - penaltyTotal);
+
+        let requiredApprovalRole: 'AREA_MANAGER' | 'GENERAL_MANAGER' | 'DIRECTOR' = 'AREA_MANAGER';
+        if (netPayableAmount > config.approvalLimitGM) {
+            requiredApprovalRole = 'DIRECTOR';
+        } else if (netPayableAmount > config.approvalLimitManager) {
+            requiredApprovalRole = 'GENERAL_MANAGER';
+        }
+
+        return {
+            subtotal,
+            vatPercent: config.vatPercent,
+            vatAmount,
+            ssclPercent: config.ssclPercent,
+            ssclAmount,
+            retentionPercent: config.retentionPercent,
+            retentionAmount,
+            whtPercent: config.whtPercent,
+            whtAmount,
+            penaltyTotal,
+            grossWithTaxes,
+            netPayableAmount,
+            requiredApprovalRole
         };
     }
 

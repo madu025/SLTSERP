@@ -96,7 +96,20 @@ export function MaterialUsageSection({
                     <tbody className="divide-y">
                         {rows.map((row, idx) => {
                             const currentItem = items.find(i => i.id === row.itemId);
-                            const isDW = currentItem?.code === 'OSPFTA003';
+                            const itemCodeLower = (currentItem?.code || '').toLowerCase();
+                            const itemNameLower = (currentItem?.name || '').toLowerCase();
+                            const itemCommonLower = (currentItem?.commonName || '').toLowerCase();
+
+                            const isDW = Boolean(currentItem && (
+                                currentItem.code === 'OSPFTA003' || 
+                                currentItem.code === 'OSP-HC-CBL-DW' || 
+                                (
+                                    (itemNameLower.includes('drop wire') || itemNameLower.includes('drop cable') || itemCommonLower.includes('drop wire')) &&
+                                    !itemNameLower.includes('retainer') &&
+                                    !itemNameLower.includes('clamp') &&
+                                    !itemCodeLower.includes('retner')
+                                )
+                            ));
                             return (
                                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-3 py-1.5 w-[360px]">

@@ -1,28 +1,39 @@
 'use client';
 
-/**
- * StatCard – single KPI tile used in the Monthly KPI grid.
- *
- * Extracted verbatim from `src/app/dashboard/page.tsx` (originally the
- * `StatCard` function + `TONE_STYLES` map) so the exact glass-panel
- * styling, hover lift, and tone-based colouring are preserved.
- */
-
 import type { ReactNode } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, ArrowUpRight } from 'lucide-react';
 
-const TONE_STYLES: Record<string, { bg: string; text: string }> = {
-    blue: { bg: 'bg-blue-500/10 border-blue-500/20', text: 'text-blue-500' },
-    indigo: { bg: 'bg-indigo-500/10 border-indigo-500/20', text: 'text-indigo-500' },
-    emerald: { bg: 'bg-emerald-500/10 border-emerald-500/20', text: 'text-emerald-500' },
-    rose: { bg: 'bg-rose-500/10 border-rose-500/20', text: 'text-rose-500' },
+const TONE_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
+    blue: {
+        bg: 'bg-blue-500/10 dark:bg-blue-500/15',
+        text: 'text-blue-500',
+        border: 'border-blue-500/20',
+        glow: 'from-blue-500/5 to-transparent'
+    },
+    indigo: {
+        bg: 'bg-indigo-500/10 dark:bg-indigo-500/15',
+        text: 'text-indigo-500',
+        border: 'border-indigo-500/20',
+        glow: 'from-indigo-500/5 to-transparent'
+    },
+    emerald: {
+        bg: 'bg-emerald-500/10 dark:bg-emerald-500/15',
+        text: 'text-emerald-500',
+        border: 'border-emerald-500/20',
+        glow: 'from-emerald-500/5 to-transparent'
+    },
+    rose: {
+        bg: 'bg-rose-500/10 dark:bg-rose-500/15',
+        text: 'text-rose-500',
+        border: 'border-rose-500/20',
+        glow: 'from-rose-500/5 to-transparent'
+    },
 };
 
 export interface StatCardProps {
     label: string;
     value: number;
     icon: ReactNode;
-    /** Tone key — must match a key in {@link TONE_STYLES}. */
     color: string;
     sub?: string;
 }
@@ -30,18 +41,24 @@ export interface StatCardProps {
 export function StatCard({ label, value, icon, color, sub }: StatCardProps) {
     const t = TONE_STYLES[color] ?? TONE_STYLES.blue;
     return (
-        <div className="glass-panel p-4 md:p-5 rounded-2xl border border-border/40 shadow-sm flex items-center gap-4 hover:-translate-y-1 hover:border-primary/20 hover:shadow-lg transition-all duration-300">
-            <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${t.bg} ${t.text}`}>
-                {icon}
+        <div className={`glass-panel p-5 rounded-3xl border ${t.border} bg-gradient-to-br ${t.glow} shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 relative overflow-hidden group`}>
+            <div className="flex items-start justify-between gap-3">
+                <div className={`w-12 h-12 rounded-2xl border ${t.border} flex items-center justify-center shrink-0 ${t.bg} ${t.text} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+                    {icon}
+                </div>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ArrowUpRight className={`w-4 h-4 ${t.text}`} />
+                </div>
             </div>
-            <div className="min-w-0 flex-1">
-                <p className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest truncate">{label}</p>
-                <p className="text-xl md:text-2xl font-black text-foreground mt-0.5">{value.toLocaleString()}</p>
+            
+            <div className="mt-4">
+                <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">{label}</p>
+                <p className="text-2xl md:text-3xl font-black tracking-tight text-foreground mt-1 font-mono">{value.toLocaleString()}</p>
                 {sub && (
-                    <p className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1 mt-0.5">
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-extrabold mt-2">
                         <TrendingUp className="w-3 h-3" />
                         {sub}
-                    </p>
+                    </div>
                 )}
             </div>
         </div>

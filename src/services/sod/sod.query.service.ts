@@ -225,6 +225,8 @@ export class SODQueryService {
                     techContact: true,
                     sales: true,
                     comments: true,
+                    completionMode: true,
+                    directTeam: true,
                     returnReason: true,
                     createdAt: true,
                     _count: {
@@ -232,12 +234,14 @@ export class SODQueryService {
                     },
                     materialUsage: {
                         select: {
+                            id: true,
+                            itemId: true,
                             quantity: true,
                             unitPrice: true,
                             usageType: true,
                             serialNumber: true,
                             comment: true,
-                            item: { select: { name: true, code: true, unit: true } }
+                            item: { select: { id: true, name: true, code: true, unit: true } }
                         }
                     },
                     forensicAudit: {
@@ -335,11 +339,13 @@ export class SODQueryService {
                 team: { select: { name: true, sltCode: true } },
                 materialUsage: {
                     select: {
+                        id: true,
+                        itemId: true,
                         quantity: true,
                         unitPrice: true,
                         usageType: true,
                         serialNumber: true,
-                        item: { select: { name: true, code: true, unit: true } }
+                        item: { select: { id: true, name: true, code: true, unit: true } }
                     }
                 },
                 forensicAudit: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData } from "./types";
 
@@ -44,11 +44,14 @@ export function useOrderAction(
     const [collectedCpes, setCollectedCpes] = useState<Array<{ deviceType: string; serialNumber: string; condition: string }>>([]);
 
     const [prevOrderId, setPrevOrderId] = useState<string | null>(null);
+    // Track which orderId has already had portal auto-fetch performed
+    const portalFetchedRef = useRef<string | null>(null);
 
-    // Reset and Initial Sync
+    // Reset and Initial Sync - only runs when orderId changes, NOT dependent on items
     useEffect(() => {
         if (!isOpen) {
             setPrevOrderId(null);
+            portalFetchedRef.current = null; // Reset portal fetch guard on modal close
             return;
         }
         if (!orderData || orderData.id === prevOrderId) return;
@@ -78,16 +81,21 @@ export function useOrderAction(
         const rows: MaterialUsageRow[] = [];
         if (orderData.materialUsage) {
             orderData.materialUsage.forEach(m => {
+                const targetItemId = m.itemId || (m as any).item?.id || "";
+                if (!targetItemId) return;
                 const qtyStr = String(m.quantity);
-                const existing = rows.find(r => r.itemId === m.itemId);
+                const existing = rows.find(r => r.itemId === targetItemId);
+                const isUsedType = ['USED', 'PORTAL_SYNC'].includes(m.usageType);
                 if (existing) {
-                    if (m.usageType === 'USED_F1') existing.f1Qty = qtyStr;
+                    if (isUsedType) existing.usedQty = qtyStr;
+                    else if (m.usageType === 'USED_F1') existing.f1Qty = qtyStr;
                     else if (m.usageType === 'USED_G1') existing.g1Qty = qtyStr;
                     else if (m.usageType === 'WASTAGE') { existing.wastageQty = qtyStr; existing.wastageReason = m.comment || ""; }
+                    if (m.serialNumber && !existing.serialNumber) existing.serialNumber = m.serialNumber;
                 } else {
                     rows.push({
-                        itemId: m.itemId,
-                        usedQty: m.usageType === 'USED' ? qtyStr : "",
+                        itemId: targetItemId,
+                        usedQty: isUsedType ? qtyStr : "",
                         f1Qty: m.usageType === 'USED_F1' ? qtyStr : "",
                         g1Qty: m.usageType === 'USED_G1' ? qtyStr : "",
                         wastageQty: m.usageType === 'WASTAGE' ? qtyStr : "",
@@ -98,18 +106,37 @@ export function useOrderAction(
             });
         }
 
-        // AUTO-ADD OSP_FTTH items for quick access if they are missing
+        // Group OSP_FTTH items by commonName (Category Group Name) for clean, non-duplicated representation
+        const groupedMap = new Map<string, InventoryItem>();
         items.forEach(item => {
-            if (item.isOspFtth && !rows.find(r => r.itemId === item.id)) {
+            if (!item.isOspFtth) return;
+            const groupName = item.commonName || item.name;
+            if (!groupedMap.has(groupName)) {
+                const groupItems = items.filter(i => (i.commonName || i.name) === groupName);
+                const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+                const bestItem = groupItems.find(i => i.type === activeSource) || groupItems[0];
+                groupedMap.set(groupName, bestItem);
+            }
+        });
+
+        // AUTO-ADD 1 row per Category Group if missing
+        groupedMap.forEach((bestItem, groupName) => {
+            const hasExistingForGroup = rows.some(r => {
+                const rowItem = items.find(i => i.id === r.itemId);
+                return (rowItem?.commonName || rowItem?.name) === groupName;
+            });
+
+            if (!hasExistingForGroup) {
                 let usedQty = "";
-                // Auto-prefill Drop Wire distance if synced from portal
-                if (item.code === 'OSPFTA003' && orderData.dropWireDistance) {
-                    usedQty = String(orderData.dropWireDistance);
+                let f1Qty = "";
+                const lowerGroup = groupName.toLowerCase();
+                if ((lowerGroup.includes("drop wire") || lowerGroup.includes("drop cable")) && orderData.dropWireDistance) {
+                    f1Qty = String(orderData.dropWireDistance);
                 }
                 rows.push({
-                    itemId: item.id,
+                    itemId: bestItem.id,
                     usedQty,
-                    f1Qty: "",
+                    f1Qty,
                     g1Qty: "",
                     wastageQty: "",
                     wastageReason: "",
@@ -118,6 +145,16 @@ export function useOrderAction(
             }
         });
         
+        // Sort rows strictly matching the configured items order (categoryOrder / itemSortOrder)
+        rows.sort((a, b) => {
+            const idxA = items.findIndex(i => i.id === a.itemId);
+            const idxB = items.findIndex(i => i.id === b.itemId);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return 0;
+        });
+
         setExtendedMaterialRows(rows);
 
         const iptvCount = orderData.iptv ? parseInt(orderData.iptv) : 0;
@@ -126,45 +163,224 @@ export function useOrderAction(
 
         setCollectedCpes(orderData.collectedCpes || []);
 
-    }, [isOpen, orderData, prevOrderId, items]);
+    }, [isOpen, orderData, prevOrderId]);
+
+    // --- SEPARATE EFFECT: Auto-portal-sync fires ONLY when items are ready ---
+    // This solves the race condition where items=[]) on first render
+    // causing the portal fetch to complete but find no inventory matches.
+    useEffect(() => {
+        if (!isOpen || !orderData || !orderData.soNum || items.length === 0) return;
+        if (orderData.materialUsage && orderData.materialUsage.length > 0) return;
+        // Guard: only fetch once per orderId even if items re-renders
+        if (portalFetchedRef.current === orderData.id) return;
+        portalFetchedRef.current = orderData.id;
+
+        fetch(`/api/service-orders/bridge-sync?soNum=${orderData.soNum}`)
+            .then(r => r.json())
+            .then(resJson => {
+                const payload = resJson.data || resJson;
+                const materialDetails = payload.materialDetails || [];
+                if (payload.success && materialDetails.length > 0) {
+                    const newRows: MaterialUsageRow[] = [];
+                    const hasSpecificPoleSpec = materialDetails.some((m: any) => {
+                        const str = String(m.ITEM || m.TYPE || m.NAME || "").toUpperCase();
+                        return str.includes("PL-C") || str.includes("6.7") || str.includes("5.6") || str.includes("8.0") || str.includes("L18") || str.includes("L22") || str.includes("L26");
+                    });
+
+                    const filteredMaterials = materialDetails.filter((m: any) => {
+                        const itemStr = String(m.ITEM || "").toUpperCase().trim();
+                        const typeStr = String(m.TYPE || "").toUpperCase().trim();
+                        const isGenericPoleHeader = itemStr === 'POLES' || itemStr === 'NUMBER OF POLES' || itemStr === 'GRID_MATERIAL' || typeStr === 'NUMBER OF POLES';
+                        if (hasSpecificPoleSpec && isGenericPoleHeader) return false;
+                        return true;
+                    });
+
+                    filteredMaterials.forEach((pm: any) => {
+                        const itemKey = (pm.ITEM || "").toUpperCase().trim();
+                        const typeKey = (pm.TYPE || "").toUpperCase().trim();
+                        const codeKey = (pm.CODE || "").toUpperCase().trim();
+                        const nameKey = (pm.NAME || "").toUpperCase().trim();
+                        const qty = String(pm.QTY || "0");
+                        const serial = pm.SERIAL || "";
+
+                        const searchKeys = [itemKey, typeKey, codeKey, nameKey].filter(Boolean);
+                        // 1. Exact match first
+                        let matchedItem = items.find(i => {
+                            const iCode = (i.code || "").toUpperCase();
+                            const iName = (i.name || "").toUpperCase();
+                            const iCommon = (i.commonName || "").toUpperCase();
+                            const aliases = (i.importAliases || []).map(a => a.toUpperCase());
+                            return searchKeys.some(sk => iCode === sk || iName === sk || iCommon === sk || aliases.includes(sk));
+                        });
+
+                        // 2. Strict Pole spec matching (prevents PL-C-6.7 matching 5.6m pole)
+                        if (!matchedItem && searchKeys.some(sk => sk.includes("POLE") || sk.includes("PL-C"))) {
+                            matchedItem = items.find(i => {
+                                const iCommon = (i.commonName || i.name || "").toLowerCase();
+                                if (!iCommon.includes("pole")) return false;
+                                if (searchKeys.some(sk => sk.includes("6.7") || sk.includes("L22"))) return iCommon.includes("6.7");
+                                if (searchKeys.some(sk => sk.includes("5.6") || sk.includes("L18"))) return iCommon.includes("5.6");
+                                if (searchKeys.some(sk => sk.includes("8") || sk.includes("L26"))) return iCommon.includes("8");
+                                return true;
+                            });
+                        }
+
+                        // 3. Substring fallback matching for non-pole items
+                        if (!matchedItem) {
+                            matchedItem = items.find(i => {
+                                const iCode = (i.code || "").toUpperCase();
+                                const iName = (i.name || "").toUpperCase();
+                                return searchKeys.some(sk => sk.length > 4 && (iCode.includes(sk) || (iName.length > 4 && sk.includes(iName))));
+                            });
+                        }
+
+                        if (matchedItem) {
+                            const groupName = matchedItem.commonName || matchedItem.name;
+                            const groupItems = items.filter(i => (i.commonName || i.name) === groupName);
+                            const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+                            const bestGroupItem = groupItems.find(i => i.type === activeSource) || matchedItem;
+                            const lowerName = groupName.toLowerCase();
+                            const isDropWire = lowerName.includes("drop wire") || lowerName.includes("drop cable");
+
+                            let finalQty = qty;
+                            if (lowerName.includes("pole") && materialDetails) {
+                                const totalPolesObj = materialDetails.find((d: any) => (d.ITEM === 'POLES' || d.TYPE === 'NUMBER OF POLES'));
+                                if (totalPolesObj && totalPolesObj.QTY) {
+                                    finalQty = String(totalPolesObj.QTY);
+                                }
+                            }
+
+                            newRows.push({
+                                itemId: bestGroupItem.id,
+                                usedQty: isDropWire ? "" : finalQty,
+                                f1Qty: isDropWire ? finalQty : "",
+                                g1Qty: "",
+                                wastageQty: "",
+                                serialNumber: serial
+                            });
+                        }
+                    });
+
+                    if (newRows.length > 0) {
+                        setExtendedMaterialRows(prev => {
+                            const combined = [...prev];
+                            newRows.forEach(nr => {
+                                const nrItem = items.find(i => i.id === nr.itemId);
+                                const existingIdx = combined.findIndex(r => {
+                                    if (r.itemId === nr.itemId) return true;
+                                    const rItem = items.find(i => i.id === r.itemId);
+                                    if (rItem && nrItem) {
+                                        return (rItem.commonName || rItem.name) === (nrItem.commonName || nrItem.name);
+                                    }
+                                    return false;
+                                });
+
+                                if (existingIdx >= 0) {
+                                    combined[existingIdx] = {
+                                        ...combined[existingIdx],
+                                        usedQty: nr.usedQty || combined[existingIdx].usedQty,
+                                        f1Qty: nr.f1Qty || combined[existingIdx].f1Qty,
+                                        serialNumber: nr.serialNumber || combined[existingIdx].serialNumber
+                                    };
+                                } else {
+                                    combined.push(nr);
+                                }
+                            });
+                            return combined;
+                        });
+                    }
+                }
+            }).catch(err => console.warn('[AUTO_PORTAL_SYNC_ERR]', err));
+
+    }, [isOpen, orderData, items, materialSource]);
 
     const handlePortalImport = useCallback(async () => {
         if (!orderData?.soNum || !items.length) return;
         const loadingToast = toast.loading("Connecting to Monitoring System...");
         try {
             const res = await fetch(`/api/service-orders/bridge-sync?soNum=${orderData.soNum}`);
-            const data = await res.json();
+            const resJson = await res.json();
+            const data = resJson.data || resJson;
+            const materialDetails = data.materialDetails || [];
             
-            if (data.success && data.materialDetails) {
-                const portalMaterials = data.materialDetails as Array<{ CODE?: string; TYPE?: string; NAME?: string; QTY?: string | number; SERIAL?: string }>;
+            if (data.success && materialDetails.length > 0) {
                 const newRows: MaterialUsageRow[] = [];
+                const hasSpecificPoleSpec = materialDetails.some((m: any) => {
+                    const str = String(m.ITEM || m.TYPE || m.NAME || "").toUpperCase();
+                    return str.includes("PL-C") || str.includes("6.7") || str.includes("5.6") || str.includes("8.0") || str.includes("L18") || str.includes("L22") || str.includes("L26");
+                });
 
-                portalMaterials.forEach(pm => {
-                    const code = pm.CODE || pm.TYPE;
-                    const name = pm.NAME;
+                const filteredMaterials = materialDetails.filter((m: any) => {
+                    const itemStr = String(m.ITEM || "").toUpperCase().trim();
+                    const typeStr = String(m.TYPE || "").toUpperCase().trim();
+                    const isGenericPoleHeader = itemStr === 'POLES' || itemStr === 'NUMBER OF POLES' || itemStr === 'GRID_MATERIAL' || typeStr === 'NUMBER OF POLES';
+                    if (hasSpecificPoleSpec && isGenericPoleHeader) return false;
+                    return true;
+                });
+
+                filteredMaterials.forEach((pm: any) => {
+                    const itemKey = (pm.ITEM || "").toUpperCase().trim();
+                    const typeKey = (pm.TYPE || "").toUpperCase().trim();
+                    const codeKey = (pm.CODE || "").toUpperCase().trim();
+                    const nameKey = (pm.NAME || "").toUpperCase().trim();
                     const qty = String(pm.QTY || "0");
                     const serial = pm.SERIAL || "";
 
-                    const searchKey = (code || name || "").toUpperCase();
-                    // Match item
-                    const matchedItem = items.find(i => {
+                    const searchKeys = [itemKey, typeKey, codeKey, nameKey].filter(Boolean);
+
+                    // 1. Exact match first
+                    let matchedItem = items.find(i => {
                         const iCode = (i.code || "").toUpperCase();
                         const iName = (i.name || "").toUpperCase();
+                        const iCommon = (i.commonName || "").toUpperCase();
                         const aliases = (i.importAliases || []).map(a => a.toUpperCase());
-                        
-                        return iCode === searchKey || 
-                               iName === searchKey || 
-                               aliases.includes(searchKey) ||
-                               searchKey.includes(iCode) ||
-                               (iName.length > 3 && searchKey.includes(iName));
+                        return searchKeys.some(sk => iCode === sk || iName === sk || iCommon === sk || aliases.includes(sk));
                     });
 
+                    // 2. Strict Pole spec matching (prevents PL-C-6.7 matching 5.6m pole)
+                    if (!matchedItem && searchKeys.some(sk => sk.includes("POLE") || sk.includes("PL-C"))) {
+                        matchedItem = items.find(i => {
+                            const iCommon = (i.commonName || i.name || "").toLowerCase();
+                            if (!iCommon.includes("pole")) return false;
+                            if (searchKeys.some(sk => sk.includes("6.7") || sk.includes("L22"))) return iCommon.includes("6.7");
+                            if (searchKeys.some(sk => sk.includes("5.6") || sk.includes("L18"))) return iCommon.includes("5.6");
+                            if (searchKeys.some(sk => sk.includes("8") || sk.includes("L26"))) return iCommon.includes("8");
+                            return true;
+                        });
+                    }
+
+                    // 3. Substring fallback matching for non-pole items
+                    if (!matchedItem) {
+                        matchedItem = items.find(i => {
+                            const iCode = (i.code || "").toUpperCase();
+                            const iName = (i.name || "").toUpperCase();
+                            return searchKeys.some(sk => sk.length > 4 && (iCode.includes(sk) || (iName.length > 4 && sk.includes(iName))));
+                        });
+                    }
+
+                    // If matched, find the target item for the active material source in that Common Group
                     if (matchedItem) {
-                        const isDropWire = matchedItem.code === 'OSPFTA003';
+                        const groupName = matchedItem.commonName || matchedItem.name;
+                        const groupItems = items.filter(i => (i.commonName || i.name) === groupName);
+                        const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+                        const bestGroupItem = groupItems.find(i => i.type === activeSource) || matchedItem;
+
+                        const lowerName = groupName.toLowerCase();
+                        const isDropWire = lowerName.includes("drop wire") || lowerName.includes("drop cable");
+
+                        // If portal sent total POLES quantity in raw details, use total POLES count for Pole item
+                        let finalQty = qty;
+                        if (lowerName.includes("pole") && data.materialDetails) {
+                            const totalPolesObj = data.materialDetails.find((d: any) => (d.ITEM === 'POLES' || d.TYPE === 'NUMBER OF POLES'));
+                            if (totalPolesObj && totalPolesObj.QTY) {
+                                finalQty = String(totalPolesObj.QTY);
+                            }
+                        }
+
                         newRows.push({
-                            itemId: matchedItem.id,
-                            usedQty: isDropWire ? "" : qty,
-                            f1Qty: isDropWire ? qty : "",
+                            itemId: bestGroupItem.id,
+                            usedQty: isDropWire ? "" : finalQty,
+                            f1Qty: isDropWire ? finalQty : "",
                             g1Qty: "",
                             wastageQty: "",
                             serialNumber: serial
@@ -176,15 +392,32 @@ export function useOrderAction(
                     setExtendedMaterialRows(prev => {
                         const combined = [...prev];
                         newRows.forEach(nr => {
-                            if (!combined.find(r => r.itemId === nr.itemId)) {
+                            const nrItem = items.find(i => i.id === nr.itemId);
+                            const existingIdx = combined.findIndex(r => {
+                                if (r.itemId === nr.itemId) return true;
+                                const rItem = items.find(i => i.id === r.itemId);
+                                if (rItem && nrItem) {
+                                    return (rItem.commonName || rItem.name) === (nrItem.commonName || nrItem.name);
+                                }
+                                return false;
+                            });
+
+                            if (existingIdx >= 0) {
+                                combined[existingIdx] = {
+                                    ...combined[existingIdx],
+                                    usedQty: nr.usedQty || combined[existingIdx].usedQty,
+                                    f1Qty: nr.f1Qty || combined[existingIdx].f1Qty,
+                                    serialNumber: nr.serialNumber || combined[existingIdx].serialNumber
+                                };
+                            } else {
                                 combined.push(nr);
                             }
                         });
                         return combined;
                     });
-                    toast.success(`Detected ${newRows.length} items from Portal`);
+                    toast.success(`Synced ${newRows.length} material categories from SLT Portal!`);
                 } else {
-                    toast.info("No matching items found in Portal records");
+                    toast.info("No matching material categories found in Portal records");
                 }
             } else {
                 toast.error(data.message || "Could not retrieve portal sync data");
@@ -202,8 +435,36 @@ export function useOrderAction(
             setExtendedMaterialRows([]);
             return;
         }
-        // Apply standard FTTH logic
-        toast.info("Standard FTTH preset applied");
+        if (type === 'STANDARD') {
+            const presetRows: MaterialUsageRow[] = [];
+            items.forEach(item => {
+                if (item.isOspFtth) {
+                    let usedQty = "";
+                    let f1Qty = "";
+                    const lowerName = (item.commonName || item.name || "").toLowerCase();
+                    if (lowerName.includes("drop wire") || lowerName.includes("drop cable")) {
+                        f1Qty = "50";
+                    } else if (lowerName.includes("ont") || lowerName.includes("router")) {
+                        usedQty = "1";
+                    } else if (lowerName.includes("rosette") || lowerName.includes("atb")) {
+                        usedQty = "1";
+                    } else if (lowerName.includes("fast connector")) {
+                        usedQty = "2";
+                    }
+                    presetRows.push({
+                        itemId: item.id,
+                        usedQty,
+                        f1Qty,
+                        g1Qty: "",
+                        wastageQty: "",
+                        wastageReason: "",
+                        serialNumber: ""
+                    });
+                }
+            });
+            setExtendedMaterialRows(presetRows);
+            toast.success("Applied Standard FTTH Material Preset!");
+        }
     };
 
     const confirm = () => {

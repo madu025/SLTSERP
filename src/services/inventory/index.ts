@@ -12,6 +12,8 @@ import { AssetCustodyService } from './asset-custody.service';
 import { ForecastService } from './forecast.service';
 import { ROPService } from './rop.service';
 import { AbcService } from './abc.service';
+import { LocatorService } from './locator.service';
+import { CycleCountService } from './cycle-count.service';
 
 /**
  * InventoryService Facade
@@ -41,6 +43,18 @@ export class InventoryService {
     static deleteStore = StoreService.deleteStore;
     static checkLowStock = StoreService.checkLowStock;
     static checkAllLowStock = StoreService.checkAllLowStock;
+
+    // --- WAREHOUSE LOCATOR MANAGEMENT ---
+    static getLocatorsByStore = LocatorService.getLocatorsByStore;
+    static createLocator = LocatorService.createLocator;
+    static deleteLocator = LocatorService.deleteLocator;
+
+    // --- CYCLE COUNT & AUDIT MANAGEMENT ---
+    static createCycleCount = CycleCountService.createCycleCount;
+    static getCycleCounts = CycleCountService.getCycleCounts;
+    static getCycleCountById = CycleCountService.getCycleCountById;
+    static submitCountResults = CycleCountService.submitCountResults;
+    static approveCycleCount = CycleCountService.approveCycleCount;
 
     // --- STOCK MANAGEMENT ---
     static getStock = StockService.getStock;

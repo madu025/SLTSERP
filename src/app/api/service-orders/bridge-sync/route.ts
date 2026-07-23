@@ -31,9 +31,32 @@ export const GET = apiHandler(async (request: Request) => {
     }
 
     const scraped = rawData.scrapedData as Record<string, unknown>;
+    const details = (scraped?.details || {}) as Record<string, any>;
+    const poleSerials: string[] = [];
+    Object.keys(details).forEach(key => {
+        if ((key.includes('SRLNO') || key.includes('SERIAL')) && details[key] && typeof details[key] === 'string' && /^\d+$/.test(details[key].trim())) {
+            const val = details[key].trim();
+            if (!poleSerials.includes(val)) {
+                poleSerials.push(val);
+            }
+        }
+    });
+
+    const rawMaterials = (scraped?.materialDetails || []) as Array<any>;
+    const processedMaterials = rawMaterials.map(m => {
+        const itemStr = String(m.ITEM || m.TYPE || '').toUpperCase();
+        if (itemStr.includes('POLE') || itemStr.includes('PL-C')) {
+            return {
+                ...m,
+                SERIAL: m.SERIAL || poleSerials.join(', ')
+            };
+        }
+        return m;
+    });
+
     return {
         success: true,
-        materialDetails: scraped?.materialDetails || [],
+        materialDetails: processedMaterials,
         forensicAudit: scraped?.forensicAudit || [],
         lastSynced: rawData.updatedAt
     };

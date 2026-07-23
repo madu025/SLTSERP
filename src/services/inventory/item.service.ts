@@ -11,7 +11,6 @@ export class ItemService {
      * Fetch all items with optional filtering (Context-based)
      */
     static async getItems(context?: string): Promise<InventoryItem[]> {
-        // Use repository to fetch all items
         let items: InventoryItem[] = await InventoryRepository.findItemsRaw();
 
         if (context === 'OSP_FTTH') {
@@ -89,12 +88,25 @@ export class ItemService {
         return updated;
     }
 
-    static async patchBulkItems(updates: { id: string; data: Partial<CreateItemData> }[]): Promise<boolean> {
+    static async patchBulkItems(updates: any[]): Promise<boolean> {
         if (!Array.isArray(updates)) throw AppError.badRequest('UPDATES_MUST_BE_ARRAY');
 
         await prisma.$transaction(async (tx: TransactionClient) => {
             for (const u of updates) {
-                await InventoryRepository.updateItem(u.id, u.data as Prisma.InventoryItemUpdateInput, tx);
+                const itemId = u.id;
+                const updateData = u.data ? u.data : {
+                    isOspFtth: u.isOspFtth,
+                    type: u.type,
+                    commonName: u.commonName,
+                    commonFor: u.tags || u.commonFor
+                };
+
+                if (itemId) {
+                    await (tx as any).inventoryItem.update({
+                        where: { id: itemId },
+                        data: updateData
+                    });
+                }
             }
         });
 
@@ -111,26 +123,22 @@ export class ItemService {
         if (!source || !target) throw AppError.badRequest('ITEM_NOT_FOUND');
 
         await prisma.$transaction(async (tx: TransactionClient) => {
-            // 2. Transfer ContractorStock
             const sourceContractorStock = await (tx as any).contractorStock.findMany({ where: { itemId: sourceId } });
             for (const stock of sourceContractorStock) {
                 await ContractorRepository.upsertStock(stock.contractorId, targetId, stock.quantity, tx);
             }
             await (tx as any).contractorStock.deleteMany({ where: { itemId: sourceId } });
 
-            // 3. Transfer InventoryStock
             const sourceInventoryStock = await (tx as any).inventoryStock.findMany({ where: { itemId: sourceId } });
             for (const stock of sourceInventoryStock) {
                 await InventoryRepository.upsertStock(stock.storeId, targetId, stock.quantity, tx);
             }
             await (tx as any).inventoryStock.deleteMany({ where: { itemId: sourceId } });
 
-            // 4. Transfer Batches and Batch Stocks
             await (tx as any).inventoryBatch.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
             await (tx as any).inventoryBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
             await (tx as any).contractorBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
 
-            // 5. Transfer History/Usage (ID UPDATE)
             await (tx as any).sODMaterialUsage.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
             await (tx as any).stockRequestItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
             await (tx as any).stockIssueItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
@@ -143,7 +151,6 @@ export class ItemService {
             await (tx as any).contractorWastageItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
             await (tx as any).projectBOQItem.updateMany({ where: { materialId: sourceId }, data: { materialId: targetId } });
 
-            // 6. Update Aliases on Target
             const mergedAliases = Array.from(new Set([
                 ...(target.importAliases || []),
                 source.code,
@@ -157,7 +164,6 @@ export class ItemService {
                 sltCode: target.sltCode || source.sltCode
             }, tx);
 
-            // 7. Delete Source Item
             await InventoryRepository.deleteItem(sourceId, tx);
         });
 

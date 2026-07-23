@@ -175,9 +175,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
         queryKey: ["inventory-items"],
         queryFn: async () => {
-             const res = await fetch("/api/inventory/items?page=1&limit=1000");
-             const data = (await res.json()) as { items: InventoryItem[] };
-             return (data.items || []) as InventoryItem[];
+             const res = await fetch("/api/inventory/items");
+             const data = await res.json();
+             if (Array.isArray(data)) return data as InventoryItem[];
+             if (Array.isArray(data?.items)) return data.items as InventoryItem[];
+             if (Array.isArray(data?.data)) return data.data as InventoryItem[];
+             return [] as InventoryItem[];
         },
         staleTime: 10 * 60 * 1000
     });
@@ -573,6 +576,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                     contractors={contractors}
                     items={inventoryItems}
                     materialSource={systemConfigs['OSP_MATERIAL_SOURCE'] || 'SLT'}
+                    categoryOrder={systemConfigs['OSP_CATEGORY_ORDER'] ? JSON.parse(systemConfigs['OSP_CATEGORY_ORDER']) : []}
+                    itemSortOrder={systemConfigs['OSP_ITEM_ORDER'] ? JSON.parse(systemConfigs['OSP_ITEM_ORDER']) : []}
                     onConfirm={(data: OrderCompletionData) => { 
                         if (selectedOrder?.id) {
                             const mutationData = { 

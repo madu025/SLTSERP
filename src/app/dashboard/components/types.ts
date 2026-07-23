@@ -39,6 +39,7 @@ export interface Stats {
         pending: number;
         returned: number;
         total: number;
+        revenue?: number;
         patPassed?: number;
         patRejected?: number;
         sltsPatRejected?: number;
@@ -51,6 +52,31 @@ export interface Stats {
         range: string;
         count: number;
     }>;
+    financials?: {
+        totalRevenue: number;
+        totalContractorCost: number;
+        netMargin: number;
+        marginPercentage: number;
+    };
+    financeSummary?: {
+        invoicedTotal: number;
+        pendingInvoices: number;
+        pendingInvoiceAmount: number;
+        uninvoicedCompletedAmount: number;
+    };
+    vehicleSummary?: {
+        activeVehicles: number;
+        monthlyTrips: number;
+        pendingVehiclePayments: number;
+    };
+    procurementSummary?: {
+        pendingApprovals: number;
+        totalVendors: number;
+    };
+    sla?: {
+        slaBreachedCount: number;
+        targetSlaPercentage: number;
+    };
     availableRegions?: string[];
     rtomRegionMap?: Record<string, string>;
     userRole?: string;

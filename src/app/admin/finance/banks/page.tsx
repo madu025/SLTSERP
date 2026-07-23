@@ -43,13 +43,27 @@ export default function BankBranchManagementPage() {
     const [bankForm, setBankForm] = useState({ code: '', name: '' });
     const [branchForm, setBranchForm] = useState({ code: '', name: '' });
 
+    const parseErrorMessage = (errData: any, fallback: string): string => {
+        if (!errData) return fallback;
+        if (typeof errData === 'string') return errData;
+        if (typeof errData.error === 'string') return errData.error;
+        if (typeof errData.error?.message === 'string') return errData.error.message;
+        if (typeof errData.message === 'string') return errData.message;
+        return fallback;
+    };
+
     // --- QUERIES ---
     const { data: banks = [], isLoading: banksLoading } = useQuery<Bank[]>({
         queryKey: ["banks"],
         queryFn: async () => {
-            const res = await fetch("/api/banks");
+            const res = await fetch(`/api/banks?_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+            });
             if (!res.ok) return [];
-            return res.json();
+            const json = await res.json();
+            const result = Array.isArray(json) ? json : (json.data || []);
+            return Array.isArray(result) ? result : [];
         }
     });
 
@@ -57,9 +71,14 @@ export default function BankBranchManagementPage() {
         queryKey: ["branches", expandedBankId],
         queryFn: async () => {
             if (!expandedBankId) return [];
-            const res = await fetch(`/api/banks/${expandedBankId}/branches`);
+            const res = await fetch(`/api/banks/${expandedBankId}/branches?_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+            });
             if (!res.ok) return [];
-            return res.json();
+            const json = await res.json();
+            const result = Array.isArray(json) ? json : (json.data || []);
+            return Array.isArray(result) ? result : [];
         },
         enabled: !!expandedBankId
     });
@@ -74,7 +93,7 @@ export default function BankBranchManagementPage() {
             });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to create bank');
+                throw new Error(parseErrorMessage(err, 'Failed to create bank'));
             }
             return res.json();
         },
@@ -97,7 +116,7 @@ export default function BankBranchManagementPage() {
             });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to update bank');
+                throw new Error(parseErrorMessage(err, 'Failed to update bank'));
             }
             return res.json();
         },
@@ -114,7 +133,10 @@ export default function BankBranchManagementPage() {
     const deleteBankMutation = useMutation({
         mutationFn: async (id: string) => {
             const res = await fetch(`/api/banks/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed to delete bank');
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(parseErrorMessage(err, 'Failed to delete bank'));
+            }
             return res.json();
         },
         onSuccess: () => {
@@ -122,8 +144,8 @@ export default function BankBranchManagementPage() {
             queryClient.invalidateQueries({ queryKey: ["banks"] });
             setDeleteBankTarget(null);
         },
-        onError: () => {
-            toast.error('Failed to delete bank');
+        onError: (err: Error) => {
+            toast.error(err.message || 'Failed to delete bank');
         }
     });
 
@@ -136,7 +158,7 @@ export default function BankBranchManagementPage() {
             });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to create branch');
+                throw new Error(parseErrorMessage(err, 'Failed to create branch'));
             }
             return res.json();
         },
@@ -159,7 +181,7 @@ export default function BankBranchManagementPage() {
             });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to update branch');
+                throw new Error(parseErrorMessage(err, 'Failed to update branch'));
             }
             return res.json();
         },
@@ -176,7 +198,10 @@ export default function BankBranchManagementPage() {
     const deleteBranchMutation = useMutation({
         mutationFn: async ({ bankId, branchId }: { bankId: string, branchId: string }) => {
             const res = await fetch(`/api/banks/${bankId}/branches/${branchId}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed to delete branch');
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(parseErrorMessage(err, 'Failed to delete branch'));
+            }
             return res.json();
         },
         onSuccess: () => {
@@ -184,8 +209,8 @@ export default function BankBranchManagementPage() {
             queryClient.invalidateQueries({ queryKey: ["branches", expandedBankId] });
             setDeleteBranchTarget(null);
         },
-        onError: () => {
-            toast.error('Failed to delete branch');
+        onError: (err: Error) => {
+            toast.error(err.message || 'Failed to delete branch');
         }
     });
 

@@ -27,6 +27,7 @@ interface RtomStat {
     pending: number;
     returned: number;
     total: number;
+    revenue: number;
     patPassed?: number;
     patRejected?: number;
     sltsPatRejected?: number;
@@ -66,7 +67,7 @@ export class ServiceOrderDashboardService {
 
         let accessibleOpmcIds: string[] = [];
         if (!canFilterGlobally) {
-            accessibleOpmcIds = user.accessibleOpmcs.map((o: any) => o.id);
+            accessibleOpmcIds = user.accessibleOpmcs.map((o: { id: string; rtom: string }) => o.id);
         }
 
         let filteredOpmcIds: string[] | null = null;
@@ -93,7 +94,7 @@ export class ServiceOrderDashboardService {
         } else if (filterRegion !== 'ALL') {
             filteredRtoms = allOpmcs.filter(o => o.region === filterRegion).map(o => o.rtom);
         } else if (!canFilterGlobally) {
-            filteredRtoms = user.accessibleOpmcs.map((o: any) => o.rtom);
+            filteredRtoms = user.accessibleOpmcs.map((o: { id: string; rtom: string }) => o.rtom);
         }
 
         const now = new Date();
@@ -119,15 +120,40 @@ export class ServiceOrderDashboardService {
             receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth }
         };
 
-        const allCachedRtomStats = await (prisma as any).dashboardStat.findMany() as {
-            rtom: string,
-            pending: number,
-            completed: number,
-            returned: number
-        }[];
-        const cachedRtomStats = filteredRtoms
-            ? allCachedRtomStats.filter((r: { rtom: string }) => filteredRtoms!.includes(r.rtom))
-            : allCachedRtomStats;
+        const realTimeRtomGrouped = await prisma.serviceOrder.groupBy({
+            by: ['opmcId', 'sltsStatus'],
+            where: { ...whereClause },
+            _count: { _all: true },
+            _sum: { revenueAmount: true }
+        });
+
+        const rtomOpmcMap = new Map(allOpmcs.map(o => [o.id, o.rtom]));
+        const rtomStatsMap: Record<string, { rtom: string; pending: number; completed: number; returned: number; revenue: number }> = {};
+
+        allOpmcs.forEach(o => {
+            if (!filteredRtoms || filteredRtoms.includes(o.rtom)) {
+                if (!rtomStatsMap[o.rtom]) {
+                    rtomStatsMap[o.rtom] = { rtom: o.rtom, pending: 0, completed: 0, returned: 0, revenue: 0 };
+                }
+            }
+        });
+
+        realTimeRtomGrouped.forEach(g => {
+            const rtom = rtomOpmcMap.get(g.opmcId || '');
+            if (rtom && rtomStatsMap[rtom]) {
+                if (g.sltsStatus === 'COMPLETED' || g.sltsStatus === 'PROV_CLOSED' || g.sltsStatus === 'INSTALL_CLOSED') {
+                    rtomStatsMap[rtom].completed += g._count._all;
+                    const revVal = Number(g._sum?.revenueAmount || 0);
+                    rtomStatsMap[rtom].revenue += revVal > 0 ? revVal : (g._count._all * 6500); // 6,500 LKR standard revenue rate per completed SOD
+                } else if (g.sltsStatus === 'RETURN') {
+                    rtomStatsMap[rtom].returned += g._count._all;
+                } else {
+                    rtomStatsMap[rtom].pending += g._count._all;
+                }
+            }
+        });
+
+        const cachedRtomStats = Object.values(rtomStatsMap);
 
         const [
             monthlyStatsRaw,
@@ -184,6 +210,43 @@ export class ServiceOrderDashboardService {
             total: acc.total + (curr.pending + curr.completed + curr.returned)
         }), { pending: 0, completed: 0, returned: 0, total: 0 });
 
+        const [
+            financialAggregates,
+            slaBreachedCount,
+            invoicedAggregates,
+            pendingInvoiceAggregates,
+            uninvoicedSodAggregates,
+            activeVehiclesCount,
+            monthlyTripsCount,
+            pendingVehiclePaymentAggregates,
+            pendingSurveyRequestsCount,
+            totalVendorsCount
+        ] = await Promise.all([
+            prisma.serviceOrder.aggregate({
+                where: { ...monthlyWhere, sltsStatus: 'COMPLETED' },
+                _sum: {
+                    revenueAmount: true,
+                    contractorAmount: true
+                }
+            }),
+            prisma.serviceOrder.count({
+                where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 2) } }
+            }),
+            prisma.invoice.aggregate({ _sum: { totalAmount: true } }).catch(() => ({ _sum: { totalAmount: 0 } })),
+            prisma.invoice.aggregate({ where: { status: 'PENDING' }, _count: { _all: true }, _sum: { totalAmount: true } }).catch(() => ({ _count: { _all: 0 }, _sum: { totalAmount: 0 } })),
+            prisma.serviceOrder.aggregate({ where: { ...whereClause, sltsStatus: 'COMPLETED', isInvoicable: true, invoiceId: null }, _sum: { revenueAmount: true } }).catch(() => ({ _sum: { revenueAmount: 0 } })),
+            (prisma as any).vMVehicle?.count({ where: { status: 'AVAILABLE' } }).catch(() => 0) ?? Promise.resolve(0),
+            (prisma as any).vMTrip?.count({ where: { createdAt: { gte: firstDayOfMonth } } }).catch(() => 0) ?? Promise.resolve(0),
+            (prisma as any).vMPayment?.aggregate({ where: { status: 'PENDING' }, _sum: { total_amount: true } }).catch(() => ({ _sum: { total_amount: 0 } })) ?? Promise.resolve({ _sum: { total_amount: 0 } }),
+            (prisma as any).surveyRequest?.count({ where: { status: 'PENDING' } }).catch(() => 0) ?? Promise.resolve(0),
+            (prisma as any).vendor?.count().catch(() => 0) ?? Promise.resolve(0)
+        ]);
+
+        const totalRevenue = Number(financialAggregates._sum.revenueAmount || 0);
+        const totalContractorCost = Number(financialAggregates._sum.contractorAmount || 0);
+        const netMargin = totalRevenue - totalContractorCost;
+        const marginPercentage = totalRevenue > 0 ? Math.round((netMargin / totalRevenue) * 100) : 0;
+
         const stats = {
             monthly: {
                 total: monthlyStats.find(s => s.sltsStatus === 'TOTAL')?._count?._all || 0,
@@ -199,6 +262,31 @@ export class ServiceOrderDashboardService {
                 pending: allTimeSummary.pending,
                 invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, isInvoicable: true } }),
                 broughtForward: broughtForward
+            },
+            financials: {
+                totalRevenue,
+                totalContractorCost,
+                netMargin,
+                marginPercentage
+            },
+            financeSummary: {
+                invoicedTotal: Number(invoicedAggregates._sum.totalAmount || 0),
+                pendingInvoices: Number(pendingInvoiceAggregates._count._all || 0),
+                pendingInvoiceAmount: Number(pendingInvoiceAggregates._sum.totalAmount || 0),
+                uninvoicedCompletedAmount: Number(uninvoicedSodAggregates._sum.revenueAmount || 0)
+            },
+            vehicleSummary: {
+                activeVehicles: Number(activeVehiclesCount || 0),
+                monthlyTrips: Number(monthlyTripsCount || 0),
+                pendingVehiclePayments: Number(pendingVehiclePaymentAggregates._sum?.total_amount || 0)
+            },
+            procurementSummary: {
+                pendingApprovals: Number(pendingSurveyRequestsCount || 0),
+                totalVendors: Number(totalVendorsCount || 0)
+            },
+            sla: {
+                slaBreachedCount,
+                targetSlaPercentage: 95
             },
             statusBreakdown: [] as { status: string; count: number }[],
             pat: {
@@ -253,6 +341,7 @@ export class ServiceOrderDashboardService {
                 pending: r.pending,
                 returned: r.returned,
                 total: r.completed + r.pending + r.returned,
+                revenue: r.revenue,
                 patPassed: sltPatResults.filter((s) => s.rtom === r.rtom && s.status === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 patRejected: sltPatResults.filter((s) => s.rtom === r.rtom && (s.status === 'OPMC_REJECTED' || s.status === 'REJECTED' || s.status === 'PAT_OPMC_REJECTED') && (s.source === 'OPMC_REJECTED' || s.source === 'SYNC')).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 sltsPatRejected: sltPatResults.filter((s) => s.rtom === r.rtom && (s.status === 'PAT_REJECTED' || s.status === 'REJECTED') && s.source === 'HO_REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),

@@ -27,7 +27,7 @@ export interface TeamInput {
     sltCode?: string;
     status?: string;
     storeAssignments?: { storeId: string; isPrimary?: boolean }[];
-    members: TeamMemberInput[];
+    members?: TeamMemberInput[];
 }
 
 export interface ContractorUpdateData {

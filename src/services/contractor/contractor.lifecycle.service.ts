@@ -68,7 +68,7 @@ export class ContractorLifecycleService {
                             }))
                         } : undefined,
                         members: {
-                            create: team.members.map((m: TeamMemberInput) => ({
+                            create: (team.members || []).map((m: TeamMemberInput) => ({
                                 name: m.name,
                                 nic: m.nic || m.idCopyNumber || '',
                                 idCopyNumber: m.idCopyNumber || '',
@@ -256,7 +256,7 @@ export class ContractorLifecycleService {
                         }))
                     },
                     members: {
-                        create: team.members.map((m: TeamMemberInput) => ({
+                        create: (team.members || []).map((m: TeamMemberInput) => ({
                             name: m.name,
                             nic: m.nic || m.idCopyNumber || '',
                             designation: m.designation || '',
@@ -279,26 +279,62 @@ export class ContractorLifecycleService {
     }
 
     /**
-     * Delete a contractor
+     * Delete a contractor (or soft-deactivate if contractor has historical Service Orders, Invoices, or Projects)
      */
     static async deleteContractor(id: string) {
         if (!id) throw AppError.badRequest('ID_REQUIRED');
-        const counts = await prisma.contractor.findUnique({
+        
+        const contractor = await prisma.contractor.findUnique({
             where: { id },
             select: {
+                id: true,
+                name: true,
                 _count: {
-                    select: { serviceOrders: true, projects: true, stock: true }
+                    select: { serviceOrders: true, projects: true, stock: true, invoices: true, teams: true }
                 }
             }
         });
 
-        if (counts && (counts._count.serviceOrders > 0 || counts._count.projects > 0 || counts._count.stock > 0)) {
-            throw AppError.badRequest('HAS_RELATED_DATA');
+        if (!contractor) {
+            throw AppError.notFound('Contractor not found');
         }
 
-        const result = await ContractorRepository.delete(id);
-        emitSystemEvent('CONTRACTOR_UPDATE');
-        return result;
+        const { serviceOrders, projects, stock, invoices } = contractor._count;
+        const totalRelated = serviceOrders + projects + stock + invoices;
+
+        if (totalRelated > 0) {
+            // Soft Delete / Inactivate to preserve audit trail and service records
+            const updated = await prisma.contractor.update({
+                where: { id },
+                data: { status: 'INACTIVE' }
+            });
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return {
+                softDeleted: true,
+                message: `Contractor '${contractor.name}' has ${serviceOrders} Service Order(s) and ${invoices} Invoice(s). Status updated to INACTIVE to preserve audit records.`,
+                contractor: updated
+            };
+        }
+
+        // Hard Delete for fresh/empty contractors
+        return await prisma.$transaction(async (tx) => {
+            // Delete child teams and team members first
+            const teams = await tx.contractorTeam.findMany({ where: { contractorId: id }, select: { id: true } });
+            const teamIds = teams.map(t => t.id);
+            if (teamIds.length > 0) {
+                await tx.teamMember.deleteMany({ where: { teamId: { in: teamIds } } });
+                await tx.teamStoreAssignment.deleteMany({ where: { teamId: { in: teamIds } } });
+                await tx.contractorTeam.deleteMany({ where: { contractorId: id } });
+            }
+            await tx.teamMember.deleteMany({ where: { contractorId: id } });
+            const result = await tx.contractor.delete({ where: { id } });
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return {
+                softDeleted: false,
+                message: `Contractor '${contractor.name}' deleted successfully.`,
+                result
+            };
+        });
     }
 
     /**
@@ -355,8 +391,18 @@ export class ContractorLifecycleService {
         const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
 
         await prisma.$transaction(async (tx) => {
-            // 1. Delete removed teams
+            // 1. Delete removed teams (Clean child relations and service orders first to prevent Foreign Key errors)
             if (idsToDelete.length > 0) {
+                await tx.teamMember.deleteMany({
+                    where: { teamId: { in: idsToDelete } }
+                });
+                await tx.teamStoreAssignment.deleteMany({
+                    where: { teamId: { in: idsToDelete } }
+                });
+                await tx.serviceOrder.updateMany({
+                    where: { teamId: { in: idsToDelete } },
+                    data: { teamId: null }
+                });
                 await tx.contractorTeam.deleteMany({
                     where: { id: { in: idsToDelete } }
                 });
@@ -446,6 +492,22 @@ export class ContractorLifecycleService {
     }
 
     /**
+     * Delete a single contractor team safely
+     */
+    static async deleteTeam(teamId: string) {
+        if (!teamId) throw AppError.badRequest('TEAM_ID_REQUIRED');
+
+        return await prisma.$transaction(async (tx) => {
+            await tx.teamMember.deleteMany({ where: { teamId } });
+            await tx.teamStoreAssignment.deleteMany({ where: { teamId } });
+            await tx.serviceOrder.updateMany({ where: { teamId }, data: { teamId: null } });
+            const result = await tx.contractorTeam.delete({ where: { id: teamId } });
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return result;
+        });
+    }
+
+    /**
      * Assign a store to a contractor team or update its primary status
      */
     static async assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean) {
@@ -483,5 +545,103 @@ export class ContractorLifecycleService {
         return await prisma.teamStoreAssignment.deleteMany({
             where: { teamId, storeId }
         });
+    }
+
+    /**
+     * Resolve Contractor and Team IDs from I-Shamp Mobile Team Name (sltCode) during Portal Sync / SOD Import
+     */
+    static async resolveTeamAndContractorByIShampTeamName(
+        iShampTeamName: string,
+        opmcId?: string,
+        tx?: TransactionClient
+    ): Promise<{ contractorId: string | null; teamId: string | null }> {
+        if (!iShampTeamName || !iShampTeamName.trim()) {
+            return { contractorId: null, teamId: null };
+        }
+
+        const cleanTeamName = iShampTeamName.trim();
+        const client = tx || prisma;
+
+        // 1. Try finding ContractorTeam by sltCode or name
+        const teamMatch = await client.contractorTeam.findFirst({
+            where: {
+                OR: [
+                    { sltCode: { equals: cleanTeamName, mode: 'insensitive' } },
+                    { name: { equals: cleanTeamName, mode: 'insensitive' } }
+                ]
+            },
+            select: { id: true, contractorId: true }
+        });
+
+        if (teamMatch) {
+            return { contractorId: teamMatch.contractorId, teamId: teamMatch.id };
+        }
+
+        // 2. Fallback to resolving contractor by name if opmcId is present
+        if (opmcId) {
+            const contractorId = await this.resolveOrCreateContractorForOpmc(cleanTeamName, opmcId, client);
+            return { contractorId, teamId: null };
+        }
+
+        return { contractorId: null, teamId: null };
+    }
+
+    /**
+     * Resolve or Auto-Register Contractor for an RTOM/OPMC during Portal Sync / SOD Import
+     */
+    static async resolveOrCreateContractorForOpmc(contractorName: string, opmcId: string, tx?: TransactionClient): Promise<string | null> {
+        if (!contractorName || !contractorName.trim() || !opmcId) return null;
+        const cleanName = contractorName.trim();
+        const client = tx || prisma;
+
+        // 1. Check if contractor exists for this OPMC
+        const existingForOpmc = await client.contractor.findFirst({
+            where: {
+                opmcId,
+                name: { equals: cleanName, mode: 'insensitive' }
+            },
+            select: { id: true }
+        });
+        if (existingForOpmc) return existingForOpmc.id;
+
+        // 2. Check if contractor exists globally
+        const globalMatch = await client.contractor.findFirst({
+            where: {
+                name: { equals: cleanName, mode: 'insensitive' }
+            },
+            select: { id: true, opmcId: true }
+        });
+
+        if (globalMatch) {
+            if (!globalMatch.opmcId) {
+                await client.contractor.update({
+                    where: { id: globalMatch.id },
+                    data: { opmcId }
+                });
+            }
+            return globalMatch.id;
+        }
+
+        // 3. Auto-create contractor registered for this RTOM/OPMC
+        try {
+            const regNo = `AUTO-${opmcId.substring(0, 4)}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            const newContractor = await client.contractor.create({
+                data: {
+                    name: cleanName,
+                    registrationNumber: regNo,
+                    status: 'ACTIVE',
+                    type: 'SOD',
+                    address: `Auto-registered via Portal Data Sync`,
+                    opmcId: opmcId
+                },
+                select: { id: true }
+            });
+            console.log(`[PORTAL_AUTO_CONTRACTOR] Registered '${cleanName}' for OPMC '${opmcId}'`);
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return newContractor.id;
+        } catch (err) {
+            console.error(`[PORTAL_AUTO_CONTRACTOR_ERR] Failed to auto-create contractor '${cleanName}':`, err);
+            return null;
+        }
     }
 }

@@ -664,8 +664,9 @@ export function OrderSheetMode({
                                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 text-[9px] uppercase font-bold tracking-wider">
                                     <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-8 text-center">#</th>
                                     <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Material Item</th>
-                                    <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-20 text-right">Used Qty</th>
-                                    <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-24 text-right">Drop Wire (m)</th>
+                                    <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-16 text-right">Used Qty</th>
+                                    <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-24 text-right bg-blue-50/50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">Drop Wire F1 (m)</th>
+                                    <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-24 text-right bg-amber-50/50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">Drop Wire G1 (m)</th>
                                     <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-20 text-right">Wastage Qty</th>
                                     <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Serial Number</th>
                                     <th className="p-1.5 w-8 text-center">Del</th>
@@ -674,14 +675,60 @@ export function OrderSheetMode({
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-mono text-xs">
                                 {state.extendedMaterialRows.map((row, rIdx) => {
                                     const baseRowIndex = 10 + rIdx;
+                                    const selectedItem = filteredItems.find(i => i.id === row.itemId);
+                                    const itemCodeLower = (selectedItem?.code || '').toLowerCase();
+                                    const itemNameLower = (selectedItem?.name || '').toLowerCase();
+                                    const itemCommonLower = (selectedItem?.commonName || '').toLowerCase();
+
+                                    const isDW = Boolean(selectedItem && (
+                                        selectedItem.code === 'OSPFTA003' || 
+                                        selectedItem.code === 'OSP-HC-CBL-DW' || 
+                                        (
+                                            (itemNameLower.includes('drop wire') || itemNameLower.includes('drop cable') || itemCommonLower.includes('drop wire')) &&
+                                            !itemNameLower.includes('retainer') &&
+                                            !itemNameLower.includes('clamp') &&
+                                            !itemCodeLower.includes('retner')
+                                        )
+                                    ));
+
+                                    const isRowPopulated = Boolean(
+                                        (row.usedQty && parseFloat(row.usedQty) > 0) ||
+                                        (row.f1Qty && parseFloat(row.f1Qty) > 0) ||
+                                        (row.g1Qty && parseFloat(row.g1Qty) > 0) ||
+                                        (row.wastageQty && parseFloat(row.wastageQty) > 0) ||
+                                        (row.serialNumber && row.serialNumber.trim() !== '')
+                                    );
+
                                     return (
-                                        <tr key={rIdx} className="hover:bg-blue-50/30 dark:hover:bg-blue-950/20">
-                                            <td className="p-1 text-center text-slate-400 font-bold">{rIdx + 1}</td>
+                                        <tr 
+                                            key={rIdx} 
+                                            className={cn(
+                                                "transition-colors duration-150",
+                                                isRowPopulated 
+                                                    ? "bg-emerald-50/80 dark:bg-emerald-950/40 border-l-4 border-l-emerald-500" 
+                                                    : "hover:bg-blue-50/30 dark:hover:bg-blue-950/20"
+                                            )}
+                                        >
+                                            <td className="p-1 text-center font-bold">
+                                                <span className={cn(
+                                                    "inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded text-[11px] font-bold font-mono transition-all",
+                                                    isRowPopulated
+                                                        ? "bg-emerald-600 text-white shadow-sm"
+                                                        : "text-slate-400"
+                                                )}>
+                                                    {isRowPopulated ? `✓ ${rIdx + 1}` : rIdx + 1}
+                                                </span>
+                                            </td>
                                             <td className="p-1 border-r border-slate-200 dark:border-slate-800">
                                                 <select
                                                     value={row.itemId}
                                                     onChange={e => controls.updateExtendedRow(rIdx, 'itemId', e.target.value)}
-                                                    className="w-full h-7 px-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded font-sans text-xs focus:ring-1 focus:ring-blue-500 font-medium"
+                                                    className={cn(
+                                                        "w-full h-7 px-1.5 border rounded font-sans text-xs focus:ring-1 focus:ring-blue-500 font-medium transition-colors",
+                                                        isRowPopulated 
+                                                            ? "bg-emerald-50/90 border-emerald-300 dark:bg-emerald-950/60 dark:border-emerald-800 font-semibold text-emerald-950 dark:text-emerald-100" 
+                                                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                                                    )}
                                                     data-sheet-row={baseRowIndex}
                                                     data-sheet-col={1}
                                                     onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 1)}
@@ -694,51 +741,104 @@ export function OrderSheetMode({
                                                     ))}
                                                 </select>
                                             </td>
+                                            {/* Used Qty: Editable for normal items, Auto-Calculated/Disabled for Drop Wire */}
                                             <td className="p-1 border-r border-slate-200 dark:border-slate-800">
                                                 <Input
                                                     type="number"
-                                                    value={row.usedQty}
-                                                    onChange={e => controls.updateExtendedRow(rIdx, 'usedQty', e.target.value)}
-                                                    placeholder="0"
-                                                    className="h-7 text-xs text-right font-mono bg-white dark:bg-slate-900"
+                                                    disabled={isDW}
+                                                    value={isDW ? ((parseFloat(row.f1Qty || '0') + parseFloat(row.g1Qty || '0')) || '') : row.usedQty}
+                                                    onChange={e => !isDW && controls.updateExtendedRow(rIdx, 'usedQty', e.target.value)}
+                                                    placeholder={isDW ? "N/A" : "0"}
+                                                    className={cn(
+                                                        "h-7 text-xs text-right font-mono transition-colors",
+                                                        isDW
+                                                            ? "bg-slate-100 dark:bg-slate-950 text-slate-400 opacity-60 cursor-not-allowed font-bold"
+                                                            : (isRowPopulated && row.usedQty && parseFloat(row.usedQty) > 0
+                                                                ? "bg-emerald-100/80 border-emerald-400 dark:bg-emerald-900/60 dark:border-emerald-700 text-emerald-900 dark:text-emerald-100 font-bold shadow-xs"
+                                                                : "bg-white dark:bg-slate-900")
+                                                    )}
                                                     data-sheet-row={baseRowIndex}
                                                     data-sheet-col={2}
                                                     onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 2)}
                                                 />
                                             </td>
-                                            <td className="p-1 border-r border-slate-200 dark:border-slate-800">
-                                                <Input
-                                                    type="number"
-                                                    value={row.f1Qty}
-                                                    onChange={e => controls.updateExtendedRow(rIdx, 'f1Qty', e.target.value)}
-                                                    placeholder="0"
-                                                    className="h-7 text-xs text-right font-mono bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 font-bold"
-                                                    data-sheet-row={baseRowIndex}
-                                                    data-sheet-col={3}
-                                                    onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 3)}
-                                                />
+                                            {/* Drop Wire F1 (Auto Sync): ONLY enabled for Drop Wire items */}
+                                            <td className="p-1 border-r border-slate-200 dark:border-slate-800 bg-blue-50/30 dark:bg-blue-950/20">
+                                                {isDW ? (
+                                                    <Input
+                                                        type="number"
+                                                        value={row.f1Qty}
+                                                        onChange={e => controls.updateExtendedRow(rIdx, 'f1Qty', e.target.value)}
+                                                        placeholder="0"
+                                                        className={cn(
+                                                            "h-7 text-xs text-right font-mono transition-colors",
+                                                            row.f1Qty && parseFloat(row.f1Qty) > 0
+                                                                ? "bg-blue-100/80 border-blue-400 dark:bg-blue-900/60 dark:border-blue-700 text-blue-900 dark:text-blue-100 font-bold shadow-xs"
+                                                                : "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 font-bold"
+                                                        )}
+                                                        data-sheet-row={baseRowIndex}
+                                                        data-sheet-col={3}
+                                                        onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 3)}
+                                                    />
+                                                ) : (
+                                                    <div className="h-7 flex items-center justify-center text-slate-300 text-[10px] font-mono select-none">-</div>
+                                                )}
                                             </td>
+                                            {/* Drop Wire G1 (Manual Contractor): ONLY enabled for Drop Wire items */}
+                                            <td className="p-1 border-r border-slate-200 dark:border-slate-800 bg-amber-50/30 dark:bg-amber-950/20">
+                                                {isDW ? (
+                                                    <Input
+                                                        type="number"
+                                                        value={row.g1Qty}
+                                                        onChange={e => controls.updateExtendedRow(rIdx, 'g1Qty', e.target.value)}
+                                                        placeholder="0"
+                                                        className={cn(
+                                                            "h-7 text-xs text-right font-mono transition-colors",
+                                                            row.g1Qty && parseFloat(row.g1Qty) > 0
+                                                                ? "bg-amber-100/80 border-amber-400 dark:bg-amber-900/60 dark:border-amber-700 text-amber-900 dark:text-amber-100 font-bold shadow-xs"
+                                                                : "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 font-bold"
+                                                        )}
+                                                        data-sheet-row={baseRowIndex}
+                                                        data-sheet-col={4}
+                                                        onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 4)}
+                                                    />
+                                                ) : (
+                                                    <div className="h-7 flex items-center justify-center text-slate-300 text-[10px] font-mono select-none">-</div>
+                                                )}
+                                            </td>
+                                            {/* Wastage Qty */}
                                             <td className="p-1 border-r border-slate-200 dark:border-slate-800">
                                                 <Input
                                                     type="number"
                                                     value={row.wastageQty}
                                                     onChange={e => controls.updateExtendedRow(rIdx, 'wastageQty', e.target.value)}
                                                     placeholder="0"
-                                                    className="h-7 text-xs text-right font-mono bg-white dark:bg-slate-900 text-amber-600"
+                                                    className={cn(
+                                                        "h-7 text-xs text-right font-mono transition-colors",
+                                                        isRowPopulated && row.wastageQty && parseFloat(row.wastageQty) > 0
+                                                            ? "bg-amber-100/80 border-amber-400 text-amber-900 font-bold shadow-xs"
+                                                            : "bg-white dark:bg-slate-900 text-amber-600"
+                                                    )}
                                                     data-sheet-row={baseRowIndex}
-                                                    data-sheet-col={4}
-                                                    onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 4)}
+                                                    data-sheet-col={5}
+                                                    onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 5)}
                                                 />
                                             </td>
+                                            {/* Serial Number */}
                                             <td className="p-1 border-r border-slate-200 dark:border-slate-800">
                                                 <Input
                                                     value={row.serialNumber}
                                                     onChange={e => controls.updateExtendedRow(rIdx, 'serialNumber', e.target.value.toUpperCase())}
                                                     placeholder="Serial No..."
-                                                    className="h-7 text-xs font-mono uppercase bg-white dark:bg-slate-900"
+                                                    className={cn(
+                                                        "h-7 text-xs font-mono uppercase transition-colors",
+                                                        isRowPopulated && row.serialNumber && row.serialNumber.trim() !== ''
+                                                            ? "bg-emerald-100/80 border-emerald-400 dark:bg-emerald-900/60 dark:border-emerald-700 text-emerald-900 dark:text-emerald-100 font-bold shadow-xs"
+                                                            : "bg-white dark:bg-slate-900"
+                                                    )}
                                                     data-sheet-row={baseRowIndex}
-                                                    data-sheet-col={5}
-                                                    onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 5)}
+                                                    data-sheet-col={6}
+                                                    onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 6)}
                                                 />
                                             </td>
                                             <td className="p-1 text-center">

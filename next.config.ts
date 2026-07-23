@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  // pdf-parse (v2) bundles pdfjs + worker/native deps that break Next's server
+  // webpack bundling. Keep it external so it is required from node_modules at runtime.
+  serverExternalPackages: ['pdf-parse'],
   compiler: {
     removeConsole: false,
   },

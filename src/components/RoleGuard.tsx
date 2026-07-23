@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { hasAccess } from '@/config/sidebar-menu';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface RoleGuardProps {
@@ -19,54 +19,56 @@ interface GuardUser {
 
 export default function RoleGuard({ children, allowedRoles, permissionId }: RoleGuardProps) {
     const router = useRouter();
-    const [user] = useState<GuardUser | null>(() => {
-        if (typeof window !== 'undefined') {
-            const storedUser = localStorage.getItem('user');
-            try { return storedUser ? JSON.parse(storedUser) : null; } catch { return null; }
-        }
-        return null;
-    });
-
-    const isAuthorized = user ? hasAccess(user.role, allowedRoles, true, undefined, permissionId, user.permissions) : null;
+    const [mounted, setMounted] = useState(false);
+    const [user, setUser] = useState<GuardUser | null>(null);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && !localStorage.getItem('user')) {
-            router.push('/login');
-        }
+        const timer = setTimeout(() => {
+            if (typeof window !== 'undefined') {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try {
+                        setUser(JSON.parse(storedUser));
+                    } catch {
+                        setUser(null);
+                    }
+                } else {
+                    router.push('/login');
+                }
+            }
+            setMounted(true);
+        }, 0);
+        return () => clearTimeout(timer);
     }, [router]);
 
-    if (isAuthorized === null) {
-        return (
-            <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-                <div className="text-center">
-                    <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-slate-500 font-medium">Verifying access rights...</p>
-                </div>
-            </div>
-        );
+    // During SSR and initial client hydration, render children to ensure 100% matching DOM tree (prevents hydration mismatch)
+    if (!mounted) {
+        return <>{children}</>;
     }
 
-    if (isAuthorized === false) {
+    const isAuthorized = user ? hasAccess(user.role, allowedRoles, true, undefined, permissionId, user.permissions) : false;
+
+    if (!isAuthorized) {
         return (
-            <div className="h-screen w-full flex items-center justify-center bg-slate-50 p-6">
-                <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-red-100 p-10 text-center">
-                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="h-screen w-full flex items-center justify-center bg-slate-900/5 dark:bg-background text-foreground p-6">
+                <div className="max-w-md w-full bg-white dark:bg-card rounded-3xl shadow-xl border border-red-100 dark:border-red-900/40 p-10 text-center">
+                    <div className="w-20 h-20 bg-red-50 dark:bg-red-950/60 rounded-full flex items-center justify-center mx-auto mb-6">
                         <ShieldAlert className="w-10 h-10 text-red-500" />
                     </div>
-                    <h1 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h1>
-                    <p className="text-slate-500 mb-8">
+                    <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
+                    <p className="text-muted-foreground text-xs mb-8">
                         You do not have permission to view this page. This incident may be logged for security purposes.
                     </p>
                     <div className="space-y-3">
                         <Button
-                            className="w-full bg-slate-900"
+                            className="w-full bg-primary text-primary-foreground font-bold"
                             onClick={() => router.push('/dashboard')}
                         >
                             Back to Dashboard
                         </Button>
                         <Button
                             variant="ghost"
-                            className="text-slate-400 text-xs"
+                            className="text-muted-foreground text-xs"
                             onClick={() => router.back()}
                         >
                             Return to Previous Page

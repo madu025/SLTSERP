@@ -28,9 +28,35 @@ model Invoice {
   project         Project?       @relation(fields: [projectId], references: [id])
   penalties       Penalty[]
   sods            ServiceOrder[]
+  amendmentRequests InvoiceAmendmentRequest[]
 
   @@index([projectId])
   @@index([contractorId])
+}
+
+model InvoiceAmendmentRequest {
+  id               String    @id @default(cuid())
+  invoiceId        String
+  originalAmount   Float
+  requestedAmount  Float
+  originalAmountA  Float
+  requestedAmountA Float
+  originalAmountB  Float
+  requestedAmountB Float
+  reason           String
+  status           String    @default("PENDING_SF_APPROVAL")
+  requestedById    String
+  approvedById     String?
+  approvedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  invoice          Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  requestedBy      User      @relation("AmendmentRequestedBy", fields: [requestedById], references: [id])
+  approvedBy       User?     @relation("AmendmentApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([invoiceId])
+  @@index([status])
 }
 
 model Bank {

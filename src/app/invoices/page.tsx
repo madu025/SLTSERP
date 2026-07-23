@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, ShieldAlert, Download, Settings } from 'lucide-react';
+import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, ShieldAlert, Download, Settings, Share2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { downloadExcelInvoice } from '@/lib/excel-invoice';
 import RoleGuard from '@/components/RoleGuard';
@@ -888,6 +888,19 @@ export default function InvoicesPage() {
                                                     </td>
                                                     <td className="text-right pr-6">
                                                         <div className="inline-flex items-center gap-1.5">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => {
+                                                                    const publicUrl = `${window.location.origin}/public/invoices/${inv.id}`;
+                                                                    const text = `Hello *${inv.contractor?.name || 'Contractor'}*,\n\nHere is your official Monthly Invoice *${inv.invoiceNumber}* for LKR *${inv.totalAmount.toLocaleString()}*.\n\nView Invoice & Material Balance Sheet:\n${publicUrl}`;
+                                                                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                                                                }}
+                                                                className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                                                                title="Share Invoice & Balance Sheet via WhatsApp"
+                                                            >
+                                                                <Share2 className="w-3.5 h-3.5" />
+                                                            </Button>
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"

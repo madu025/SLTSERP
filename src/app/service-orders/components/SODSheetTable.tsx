@@ -143,6 +143,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                 if (!valStr) {
                     payload.contractorId = null;
                     payload.teamId = null;
+                    payload.directTeamName = null;
+                } else if (valStr.startsWith('CUSTOM:')) {
+                    const customName = valStr.replace('CUSTOM:', '').trim();
+                    payload.contractorId = null;
+                    payload.teamId = null;
+                    payload.directTeamName = customName || null;
                 } else {
                     const [cId, tId] = valStr.split('|');
                     payload.contractorId = cId || null;
@@ -228,19 +234,31 @@ export function SODSheetTable(props: SODSheetTableProps) {
         const selectedTeam = selectedContractor?.teams?.find(t => t.id === order.teamId);
         
         let label = "Select Team";
+        let isSyncedTeam = false;
+
+        const isGenericTaskName = (name?: string | null) => {
+            if (!name) return true;
+            const u = name.trim().toUpperCase();
+            return u === 'CONSTRUCT_OSP' || u === 'CONSTRUCT' || u === 'OSP' || u.startsWith('CONSTRUCT_OSP/');
+        };
+
         if (selectedContractor) {
             label = selectedContractor.name;
             if (selectedTeam) {
                 label = `${selectedContractor.name} - ${selectedTeam.name}`;
             }
+        } else if (order.directTeam && !isGenericTaskName(order.directTeam)) {
+            const raw = order.directTeam;
+            label = raw.split('/')[0].trim();
+            isSyncedTeam = true;
         }
 
         return (
             <div className="w-full h-full relative" data-row-index={index} data-field="contractorId">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <button className="w-full h-full flex items-center justify-between bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-primary/5 pl-1.5 pr-2 py-1 text-[10px] font-bold text-blue-500 text-left hover:bg-primary/5 transition-colors">
-                            <span className="truncate">{label}</span>
+                        <button className={`w-full h-full flex items-center justify-between bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-primary/5 pl-1.5 pr-2 py-1 text-[10px] font-bold text-left hover:bg-primary/5 transition-colors ${isSyncedTeam ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-blue-500'}`}>
+                            <span className="truncate" title={label}>{isSyncedTeam ? `⚡ ${label}` : label}</span>
                             <ChevronDown className="w-3 h-3 opacity-50 ml-1 shrink-0" />
                         </button>
                     </DropdownMenuTrigger>
@@ -249,6 +267,17 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         <DropdownMenuSeparator className="my-1" />
                         <DropdownMenuItem onClick={() => handleSaveField(order.id, "teamAssignment", "")} className="text-[11px] py-1 px-2 h-auto min-h-0">
                             <span className="text-muted-foreground italic">Clear Assignment</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                            onClick={() => {
+                                const customName = prompt("Enter Custom Team Name:");
+                                if (customName !== null && customName.trim()) {
+                                    handleSaveField(order.id, "teamAssignment", `CUSTOM:${customName.trim()}`);
+                                }
+                            }} 
+                            className="text-[11px] py-1 px-2 h-auto min-h-0 text-indigo-600 font-bold dark:text-indigo-400"
+                        >
+                            + Enter Custom Team Name...
                         </DropdownMenuItem>
                         {contractors.map((c) => {
                             if (c.teams && c.teams.length > 0) {
@@ -295,7 +324,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         <th className="w-[36px] px-1 py-1.5 border-r border-border/20 text-center md:sticky md:left-0 bg-muted/90 z-50">
                             <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-slate-400 dark:border-slate-500 data-[state=checked]:border-primary data-[state=checked]:bg-primary" />
                         </th>
-                        <th className="w-[145px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
+                        <th className="w-[165px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
                                     <span>SO Number</span>
@@ -716,7 +745,15 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 </td>
                                 {/* SO Number (Read-only, clickable details) */}
                                 <td className="px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-[36px] bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5">
+                                        {(order.completionMode?.toUpperCase() === 'OFFLINE' || order.status?.toUpperCase() === 'OFFLINE' || String(order.completionMode).toUpperCase().includes('OFFLINE')) && (
+                                            <span 
+                                                className="px-1.5 py-0.2 text-[9px] font-black uppercase rounded-full bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/40 shadow-xs shrink-0 cursor-help" 
+                                                title="Offline Connection"
+                                            >
+                                                O
+                                            </span>
+                                        )}
                                         <button
                                             type="button"
                                             className="text-foreground hover:text-primary transition-colors text-left truncate"
@@ -726,7 +763,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             {order.soNum}
                                         </button>
                                         {order.hasBridgeLog && (
-                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" title="BRIDGE Log Available" />
+                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shrink-0" title="BRIDGE Log Available" />
                                         )}
                                     </div>
                                 </td>

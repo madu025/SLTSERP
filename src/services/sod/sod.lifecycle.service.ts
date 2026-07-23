@@ -74,7 +74,8 @@ export class SODLifecycleService {
         if (otherData.scheduledTime !== undefined) updateData.scheduledTime = otherData.scheduledTime;
         if (otherData.techContact !== undefined) updateData.techContact = otherData.techContact;
         if (otherData.teamId !== undefined) updateData.teamId = otherData.teamId || null;
-        if (otherData.directTeamName) updateData.directTeam = otherData.directTeamName;
+        if (otherData.directTeamName !== undefined) updateData.directTeam = otherData.directTeamName || null;
+        if ((otherData as any).directTeam !== undefined) updateData.directTeam = (otherData as any).directTeam || null;
 
         if (otherData.dropWireDistance !== undefined) {
             updateData.dropWireDistance = parseFloat(String(otherData.dropWireDistance || '0'));

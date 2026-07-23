@@ -179,8 +179,11 @@
     * `deleteContractor(id: string): any`
     * `getContractorTeams(contractorId: string): any`
     * `saveContractorTeams(contractorId: string, teams: TeamInput[]): any`
+    * `deleteTeam(teamId: string): any`
     * `assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean): any`
     * `removeTeamStore(teamId: string, storeId: string): any`
+    * `resolveTeamAndContractorByIShampTeamName(iShampTeamName: string, opmcId?: string, tx?: TransactionClient): Promise<{ contractorId: string | null; teamId: string | null }>`
+    * `resolveOrCreateContractorForOpmc(contractorName: string, opmcId: string, tx?: TransactionClient): Promise<string | null>`
 
 ### [contractor.query.service.ts](src/services/contractor/contractor.query.service.ts)
 * **Class**: `ContractorQueryService`
@@ -222,13 +225,14 @@
     * `saveRegistrationDraft(token: string, draftData: ContractorUpdateData): any`
     * `submitPublicRegistration(token: string, data: ContractorUpdateData): any`
     * `verifyUploadToken(token: string): any`
-    * `submitPublicDocuments(token: string, documents: any): any`
+    * `submitPublicDocuments(token: string, documents: Record<string, string | undefined>): any`
     * `createContractor(data: ContractorUpdateData): any`
     * `updateContractor(id: string, data: ContractorUpdateData): any`
     * `deleteContractor(id: string): any`
     * `getContractorTeams(contractorId: string): any`
-    * `saveContractorTeams(contractorId: string, teams: any[]): any`
+    * `saveContractorTeams(contractorId: string, teams: TeamInput[]): any`
     * `getAllTeams(): any`
+    * `deleteTeam(teamId: string): any`
     * `getTeamStores(teamId: string): any`
     * `assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean): any`
     * `removeTeamStore(teamId: string, storeId: string): any`
@@ -768,6 +772,15 @@
     * `handoverAsset(serialNumber: string, fromStaffId: string, toStaffId: string, userId: string, tx?: TransactionClient): any`
     * `retireAsset(serialNumber: string, status: 'IN_STORE' | 'FAULTY', storeId: string | null, userId: string, tx?: TransactionClient): any`
 
+### [cycle-count.service.ts](src/services/inventory/cycle-count.service.ts)
+* **Class**: `CycleCountService`
+  * **Methods**:
+    * `createCycleCount(data: CreateCycleCountInput): any`
+    * `getCycleCounts(storeId?: string, status?: string): any`
+    * `getCycleCountById(id: string): any`
+    * `submitCountResults(headerId: string, lines: SubmitCycleCountLineInput[]): any`
+    * `approveCycleCount(headerId: string, approvedById: string): any`
+
 ### [dynamic-report.service.ts](src/services/inventory/dynamic-report.service.ts)
 * **Class**: `DynamicReportService`
   * **Methods**:
@@ -829,9 +842,16 @@
     * `getItems(context?: string): Promise<InventoryItem[]>`
     * `createItem(data: CreateItemData): Promise<InventoryItem>`
     * `updateItem(id: string, data: Partial<CreateItemData>): Promise<InventoryItem>`
-    * `patchBulkItems(updates: { id: string; data: Partial<CreateItemData> }[]): Promise<boolean>`
+    * `patchBulkItems(updates: any[]): Promise<boolean>`
     * `mergeItems(sourceId: string, targetId: string): Promise<boolean>`
     * `deleteItem(id: string): Promise<boolean>`
+
+### [locator.service.ts](src/services/inventory/locator.service.ts)
+* **Class**: `LocatorService`
+  * **Methods**:
+    * `getLocatorsByStore(storeId: string): any`
+    * `createLocator(data: CreateLocatorInput): any`
+    * `deleteLocator(locatorId: string): any`
 
 ### [mrn.service.ts](src/services/inventory/mrn.service.ts)
 * **Class**: `MRNService`
@@ -980,6 +1000,14 @@
 * **Class**: `InvoiceCalculatorService`
   * **Methods**:
     * `calculateSplit(total: number, penaltyTotal: number = 0): InvoiceCalculationResult`
+    * `calculateStatutoryInvoiceBreakdown(subtotal: number, penaltyTotal: number = 0, config: {
+            vatPercent: number;
+            ssclPercent: number;
+            whtPercent: number;
+            retentionPercent: number;
+            approvalLimitManager: number;
+            approvalLimitGM: number;
+        }): StatutoryInvoiceBreakdown`
     * `getContractorPrefix(name: string): string`
 
 ### [invoice.generator.service.ts](src/services/invoice/invoice.generator.service.ts)
@@ -1936,6 +1964,22 @@
     * `updateSection(id: string, data: { name?: string, code?: string, description?: string, icon?: string, color?: string, isActive?: boolean }, userId: string): any`
     * `deleteSection(id: string, userId: string): any`
 
+### [header-mapping.service.ts](src/services/sf-audit/header-mapping.service.ts)
+* **Class**: `HeaderMappingService`
+  * **Methods**:
+    * `getMappingConfig(): Promise<{ columns: MappingColumnDTO[]; isCustom: boolean }>`
+    * `saveMappingConfig(columns: MappingColumnDTO[]): Promise<{ columns: MappingColumnDTO[] }>`
+    * `resetToDefault(): Promise<{ columns: MappingColumnDTO[] }>`
+
+### [pricing-audit.service.ts](src/services/sf-audit/pricing-audit.service.ts)
+* **Class**: `PricingAuditService`
+  * **Methods**:
+    * `getRateRules(): Promise<{ count: number; rules: RateRuleDTO[] }>`
+    * `updateRateRule(id: string, rateAmount: number): Promise<RateRuleDTO>`
+    * `getPendingAmendmentRequests(): Promise<{ count: number; requests: AmendmentRequestDTO[] }>`
+    * `createAmendmentRequest(invoiceId: string, requestedAmount: number, reason: string, userId: string): any`
+    * `processAmendmentRequest(requestId: string, status: 'APPROVED' | 'REJECTED', userId: string, rejectionReason?: string): any`
+
 ### [slt-api.service.ts](src/services/slt-api.service.ts)
 * **Class**: `SLTApiService`
   * **Methods**:
@@ -1947,6 +1991,28 @@
     * `fetchOpmcRejected(rtom: string): Promise<SLTPATData[]>`
     * `fetchHORejected(dateStr?: string): Promise<SLTPATData[]>`
     * `parseStatusDate(dateStr: string | null): Date | null`
+
+### [slt-contract-pdf-parser.ts](src/services/slt-contract-pdf-parser.ts)
+* **Exported Functions**:
+  * `extractContractDataFromPdfText(rawText: string, pages = 1): ExtractedContract`
+
+### [slt-contract.service.ts](src/services/slt-contract.service.ts)
+* **Class**: `SLTContractService`
+  * **Methods**:
+    * `calculateSODRevenue(order: {
+        baseRate: number;
+        polesPlanted?: number;
+        poleRate?: number;
+        distanceMeters?: number;
+        distanceThresholdMeters?: number;
+        perMeterRate?: number;
+        customSurcharges?: Record<string, number>;
+    }): number`
+    * `getContracts(): any`
+    * `createContract(input: CreateContractInput, performedBy: string = 'System Admin'): any`
+    * `deleteContract(id: string): any`
+    * `createAmendment(input: CreateAmendmentInput, performedBy: string = 'Commercial Manager'): any`
+    * `getAnnual12MonthPerformance(year: number): Promise<Annual12MonthPerformanceSummary[]>`
 
 ### [slt-portal-auth.service.ts](src/services/slt-portal-auth.service.ts)
 * **Class**: `SLTPortalAuthService`
@@ -2011,7 +2077,17 @@
 ### [sod.invoicing.service.ts](src/services/sod/sod.invoicing.service.ts)
 * **Class**: `SODInvoicingService`
   * **Methods**:
-    * `calculateAmounts(opmcId: string, distance: number): any`
+    * `capDropWireDistance(distance: number): number`
+    * `calculatePoleAdminFee(poleCount: number, materialSource?: string | null): number`
+    * `calculateSlaDelayPenalty(receivedDate: Date | null | undefined, completedDate: Date | null | undefined, hasPoles: boolean): number`
+    * `resolveAreaGroup(rtomOrName?: string | null): 'CEN' | 'HK' | 'OTHER'`
+    * `calculateAmounts(opmcIdOrRtom: string, rawDistance: number, options?: {
+            materialSource?: string | null;
+            poleCount?: number;
+            serviceType?: string | null;
+            poleType?: string | null;
+            poleMethod?: string | null;
+        }): any`
     * `determineInvoicableStatus(sltsPatStatus: string | null | undefined, opmcPatStatus: string | null | undefined, hoPatStatus: string | null | undefined): boolean`
 
 ### [sod.lifecycle.service.ts](src/services/sod/sod.lifecycle.service.ts)
@@ -2150,6 +2226,20 @@
 * **Class**: `SystemConfigService`
   * **Methods**:
     * `getConfigs(): Promise<Record<string, string>>`
+    * `getOspMaterialSourceAsOfDate(targetDate: Date = new Date()): Promise<'SLT' | 'COMPANY'>`
+    * `getFinanceConfigAsOfDate(targetDate: Date = new Date()): Promise<FinanceSystemConfig>`
+    * `getFinanceConfig(): Promise<FinanceSystemConfig>`
+    * `getSODConfig(): Promise<SODSystemConfig>`
+    * `getInventoryConfig(): Promise<InventorySystemConfig>`
+    * `createConfigVersion(input: {
+        category: string;
+        key: string;
+        value: string;
+        effectiveFrom: Date;
+        effectiveTo?: Date;
+        description?: string;
+        createdBy?: string;
+    }): any`
     * `updateConfig(key: string, value: string, description: string | undefined, userId: string): any`
 
 ### [system.service.ts](src/services/system.service.ts)
@@ -2279,6 +2369,7 @@
 | `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `DELETE` |
 | `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
+| `/api/admin/rate-matrix` | [route.ts](src/app/api/admin/rate-matrix/route.ts) | `GET`, `PUT` |
 | `/api/admin/reports/dynamic` | [route.ts](src/app/api/admin/reports/dynamic/route.ts) | `POST` |
 | `/api/admin/sections` | [route.ts](src/app/api/admin/sections/route.ts) | `GET`, `POST` |
 | `/api/admin/sections/[id]/roles` | [route.ts](src/app/api/admin/sections/[id]/roles/route.ts) | `GET`, `POST` |
@@ -2324,9 +2415,15 @@
 | `/api/contractors/renew-link` | [route.ts](src/app/api/contractors/renew-link/route.ts) | `POST` |
 | `/api/contractors` | [route.ts](src/app/api/contractors/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
 | `/api/contractors/teams` | [route.ts](src/app/api/contractors/teams/route.ts) | `GET` |
+| `/api/contractors/teams/[teamId]` | [route.ts](src/app/api/contractors/teams/[teamId]/route.ts) | `DELETE` |
 | `/api/contractors/teams/[teamId]/stores` | [route.ts](src/app/api/contractors/teams/[teamId]/stores/route.ts) | `GET`, `POST`, `DELETE` |
 | `/api/contractors/[id]/resend-link` | [route.ts](src/app/api/contractors/[id]/resend-link/route.ts) | `POST` |
 | `/api/contractors/[id]/teams` | [route.ts](src/app/api/contractors/[id]/teams/route.ts) | `GET`, `POST` |
+| `/api/contracts/slt/ai-parse` | [route.ts](src/app/api/contracts/slt/ai-parse/route.ts) | `POST` |
+| `/api/contracts/slt/amendments` | [route.ts](src/app/api/contracts/slt/amendments/route.ts) | `POST` |
+| `/api/contracts/slt/performance` | [route.ts](src/app/api/contracts/slt/performance/route.ts) | `GET` |
+| `/api/contracts/slt` | [route.ts](src/app/api/contracts/slt/route.ts) | `GET`, `POST` |
+| `/api/contracts/slt/[id]` | [route.ts](src/app/api/contracts/slt/[id]/route.ts) | `DELETE` |
 | `/api/cron/appointment-reminders` | [route.ts](src/app/api/cron/appointment-reminders/route.ts) | `GET` |
 | `/api/cron/drift-correction` | [route.ts](src/app/api/cron/drift-correction/route.ts) | `GET` |
 | `/api/cron/sync-all` | [route.ts](src/app/api/cron/sync-all/route.ts) | `GET` |
@@ -2348,6 +2445,8 @@
 | `/api/finance/petty-cash/reimbursements` | [route.ts](src/app/api/finance/petty-cash/reimbursements/route.ts) | `GET`, `POST`, `PATCH` |
 | `/api/finance/petty-cash/vouchers` | [route.ts](src/app/api/finance/petty-cash/vouchers/route.ts) | `GET`, `POST`, `PATCH` |
 | `/api/finance/retention` | [route.ts](src/app/api/finance/retention/route.ts) | `GET`, `POST` |
+| `/api/finance/sf-audit/mapping-config` | [route.ts](src/app/api/finance/sf-audit/mapping-config/route.ts) | `GET`, `POST`, `DELETE` |
+| `/api/finance/sf-audit/payment-split-config` | [route.ts](src/app/api/finance/sf-audit/payment-split-config/route.ts) | `GET`, `POST` |
 | `/api/gis/ai-training` | [route.ts](src/app/api/gis/ai-training/route.ts) | `GET` |
 | `/api/gis/auto-plan/ai-optimize` | [route.ts](src/app/api/gis/auto-plan/ai-optimize/route.ts) | `POST` |
 | `/api/gis/auto-plan/rebuild` | [route.ts](src/app/api/gis/auto-plan/rebuild/route.ts) | `GET` |
@@ -2383,11 +2482,15 @@
 | `/api/inventory/balance-sheet/generate` | [route.ts](src/app/api/inventory/balance-sheet/generate/route.ts) | `POST` |
 | `/api/inventory/balance-sheet` | [route.ts](src/app/api/inventory/balance-sheet/route.ts) | `POST` |
 | `/api/inventory/batches` | [route.ts](src/app/api/inventory/batches/route.ts) | `GET` |
+| `/api/inventory/cycle-counts` | [route.ts](src/app/api/inventory/cycle-counts/route.ts) | `GET`, `POST` |
+| `/api/inventory/cycle-counts/[id]/approve` | [route.ts](src/app/api/inventory/cycle-counts/[id]/approve/route.ts) | `POST` |
+| `/api/inventory/cycle-counts/[id]` | [route.ts](src/app/api/inventory/cycle-counts/[id]/route.ts) | `GET`, `PUT` |
 | `/api/inventory/grn` | [route.ts](src/app/api/inventory/grn/route.ts) | `POST`, `GET` |
 | `/api/inventory/in-hand-stock` | [route.ts](src/app/api/inventory/in-hand-stock/route.ts) | `GET` |
 | `/api/inventory/issue` | [route.ts](src/app/api/inventory/issue/route.ts) | `POST`, `GET` |
 | `/api/inventory/issues` | [route.ts](src/app/api/inventory/issues/route.ts) | `POST`, `GET` |
 | `/api/inventory/items` | [route.ts](src/app/api/inventory/items/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
+| `/api/inventory/locators` | [route.ts](src/app/api/inventory/locators/route.ts) | `GET`, `POST` |
 | `/api/inventory/mrn` | [route.ts](src/app/api/inventory/mrn/route.ts) | `POST`, `GET`, `PATCH` |
 | `/api/inventory/reconciliation` | [route.ts](src/app/api/inventory/reconciliation/route.ts) | `GET`, `POST` |
 | `/api/inventory/reports/dynamic` | [route.ts](src/app/api/inventory/reports/dynamic/route.ts) | `POST` |
@@ -2409,6 +2512,8 @@
 | `/api/inventory/wastage/approve` | [route.ts](src/app/api/inventory/wastage/approve/route.ts) | `POST` |
 | `/api/inventory/wastage/history` | [route.ts](src/app/api/inventory/wastage/history/route.ts) | `GET` |
 | `/api/inventory/wastage` | [route.ts](src/app/api/inventory/wastage/route.ts) | `POST` |
+| `/api/invoices/amendments/pending` | [route.ts](src/app/api/invoices/amendments/pending/route.ts) | `GET` |
+| `/api/invoices/amendments/[id]/approve` | [route.ts](src/app/api/invoices/amendments/[id]/approve/route.ts) | `POST` |
 | `/api/invoices/delay-sheets` | [route.ts](src/app/api/invoices/delay-sheets/route.ts) | `GET` |
 | `/api/invoices/generate` | [route.ts](src/app/api/invoices/generate/route.ts) | `POST` |
 | `/api/invoices/import-bom/csv` | [route.ts](src/app/api/invoices/import-bom/csv/route.ts) | `OPTIONS`, `POST` |
@@ -2417,8 +2522,10 @@
 | `/api/invoices` | [route.ts](src/app/api/invoices/route.ts) | `GET`, `POST`, `PATCH`, `DELETE` |
 | `/api/invoices/slt-registry/download-sync` | [route.ts](src/app/api/invoices/slt-registry/download-sync/route.ts) | `POST` |
 | `/api/invoices/slt-registry` | [route.ts](src/app/api/invoices/slt-registry/route.ts) | `GET`, `OPTIONS`, `POST` |
+| `/api/invoices/[id]/amend-request` | [route.ts](src/app/api/invoices/[id]/amend-request/route.ts) | `POST` |
 | `/api/invoices/[id]/details` | [route.ts](src/app/api/invoices/[id]/details/route.ts) | `GET` |
 | `/api/invoices/[id]/penalties` | [route.ts](src/app/api/invoices/[id]/penalties/route.ts) | `POST`, `PATCH`, `DELETE` |
+| `/api/invoices/[id]/sf-audit-approve` | [route.ts](src/app/api/invoices/[id]/sf-audit-approve/route.ts) | `POST` |
 | `/api/jobs` | [route.ts](src/app/api/jobs/route.ts) | `GET`, `POST` |
 | `/api/jobs/[id]` | [route.ts](src/app/api/jobs/[id]/route.ts) | `GET`, `PATCH`, `DELETE`, `POST` |
 | `/api/login` | [route.ts](src/app/api/login/route.ts) | `POST` |
@@ -2537,6 +2644,7 @@
 | `/api/projects/[id]/workflow` | [route.ts](src/app/api/projects/[id]/workflow/route.ts) | `GET`, `POST` |
 | `/api/projects/[id]/workflow/stages` | [route.ts](src/app/api/projects/[id]/workflow/stages/route.ts) | `POST` |
 | `/api/projects/[id]/workflow/tasks` | [route.ts](src/app/api/projects/[id]/workflow/tasks/route.ts) | `POST` |
+| `/api/public/invoices/[id]` | [route.ts](src/app/api/public/invoices/[id]/route.ts) | `GET` |
 | `/api/public/site-offices` | [route.ts](src/app/api/public/site-offices/route.ts) | `GET` |
 | `/api/public/staff` | [route.ts](src/app/api/public/staff/route.ts) | `GET` |
 | `/api/reports/analytics` | [route.ts](src/app/api/reports/analytics/route.ts) | `GET` |
@@ -2553,6 +2661,7 @@
 | `/api/service-orders` | [route.ts](src/app/api/service-orders/route.ts) | `GET`, `POST`, `PUT`, `PATCH` |
 | `/api/service-orders/sync` | [route.ts](src/app/api/service-orders/sync/route.ts) | `POST` |
 | `/api/sod/scrape-details` | [route.ts](src/app/api/sod/scrape-details/route.ts) | `GET` |
+| `/api/sod/verify-invoicable` | [route.ts](src/app/api/sod/verify-invoicable/route.ts) | `POST` |
 | `/api/staff` | [route.ts](src/app/api/staff/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
 | `/api/stores` | [route.ts](src/app/api/stores/route.ts) | `GET`, `POST` |
 | `/api/stores/[storeId]` | [route.ts](src/app/api/stores/[storeId]/route.ts) | `GET`, `PUT`, `DELETE` |
@@ -2788,6 +2897,21 @@
   * `updatedAt: DateTime` `[@updatedAt]`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id], onDelete: Cascade)]`
   * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
+
+### [ContractorRateRule](prisma/schema/contractor.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `workType: String`
+  * `workDescription: String`
+  * `minDistance: Float` `[@default(0)]`
+  * `maxDistance: Float` `[@default(9999)]`
+  * `areaGroup: String`
+  * `rateAmount: Float` `[@default(0)]`
+  * `poleType: String?`
+  * `poleMethod: String?`
+  * `isActive: Boolean` `[@default(true)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [GISRoute](prisma/schema/gis.prisma)
 * **Fields**:
@@ -3306,6 +3430,8 @@
   * `inRequests: StockRequest[]` `[@relation("RequestTarget")]`
   * `teamAssignments: TeamStoreAssignment[]`
   * `assignedUsers: User[]` `[@relation("UserAssignedStore")]`
+  * `locators: WarehouseLocator[]`
+  * `cycleCounts: CycleCountHeader[]`
 
 ### [InventoryItem](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -3349,6 +3475,7 @@
   * `sodUsage: SODMaterialUsage[]` `[@relation("SODUsage")]`
   * `stockIssueItems: StockIssueItem[]` `[@relation("IssueItemsStock")]`
   * `requestItems: StockRequestItem[]`
+  * `cycleCountLines: CycleCountLine[]`
 
 ### [InventoryStock](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -3380,6 +3507,7 @@
   * `storeStocks: InventoryBatchStock[]`
   * `transactionItems: InventoryTransactionItem[]`
   * `usageItems: SODMaterialUsage[]`
+  * `cycleCountLines: CycleCountLine[]`
 
 ### [InventoryBatchStock](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -3487,6 +3615,57 @@
   * `credit: Decimal` `[@default(0)]`
   * `description: String?`
   * `entry: JournalEntry` `[@relation(fields: [entryId], references: [id], onDelete: Cascade)]`
+
+### [WarehouseLocator](prisma/schema/inventory.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `storeId: String`
+  * `code: String`
+  * `aisle: String?`
+  * `rack: String?`
+  * `shelf: String?`
+  * `bin: String?`
+  * `description: String?`
+  * `isActive: Boolean` `[@default(true)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `store: InventoryStore` `[@relation(fields: [storeId], references: [id], onDelete: Cascade)]`
+
+### [CycleCountHeader](prisma/schema/inventory.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `countNumber: String` `[@unique]`
+  * `storeId: String`
+  * `status: String` `[@default("DRAFT")]`
+  * `countType: String` `[@default("BLIND")]`
+  * `plannedDate: DateTime` `[@default(now())]`
+  * `completedDate: DateTime?`
+  * `countedById: String`
+  * `approvedById: String?`
+  * `remarks: String?`
+  * `totalVarianceValue: Decimal` `[@default(0)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
+  * `countedBy: User` `[@relation("CycleCounter", fields: [countedById], references: [id])]`
+  * `approvedBy: User?` `[@relation("CycleApprover", fields: [approvedById], references: [id])]`
+  * `lines: CycleCountLine[]`
+
+### [CycleCountLine](prisma/schema/inventory.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `headerId: String`
+  * `itemId: String`
+  * `batchId: String?`
+  * `systemQty: Decimal` `[@default(0)]`
+  * `countedQty: Decimal` `[@default(0)]`
+  * `varianceQty: Decimal` `[@default(0)]`
+  * `unitCost: Decimal` `[@default(0)]`
+  * `varianceValue: Decimal` `[@default(0)]`
+  * `notes: String?`
+  * `header: CycleCountHeader` `[@relation(fields: [headerId], references: [id], onDelete: Cascade)]`
+  * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
+  * `batch: InventoryBatch?` `[@relation(fields: [batchId], references: [id])]`
 
 ### [NexusConversation](prisma/schema/nexus.prisma)
 * **Fields**:
@@ -4229,6 +4408,29 @@
   * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
   * `penalties: Penalty[]`
   * `sods: ServiceOrder[]`
+  * `amendmentRequests: InvoiceAmendmentRequest[]`
+
+### [InvoiceAmendmentRequest](prisma/schema/project-finance.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `invoiceId: String`
+  * `originalAmount: Float`
+  * `requestedAmount: Float`
+  * `originalAmountA: Float`
+  * `requestedAmountA: Float`
+  * `originalAmountB: Float`
+  * `requestedAmountB: Float`
+  * `reason: String`
+  * `status: String` `[@default("PENDING_SF_APPROVAL")]`
+  * `requestedById: String`
+  * `approvedById: String?`
+  * `approvedAt: DateTime?`
+  * `rejectionReason: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `invoice: Invoice` `[@relation(fields: [invoiceId], references: [id], onDelete: Cascade)]`
+  * `requestedBy: User` `[@relation("AmendmentRequestedBy", fields: [requestedById], references: [id])]`
+  * `approvedBy: User?` `[@relation("AmendmentApprovedBy", fields: [approvedById], references: [id])]`
 
 ### [Bank](prisma/schema/project-finance.prisma)
 * **Fields**:
@@ -5158,6 +5360,86 @@
   * `updatedAt: DateTime` `[@updatedAt]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
+### [SLTContract](prisma/schema/slt-contract.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `contractNumber: String` `[@unique // e.g. AGR-2026-0101]`
+  * `title: String` `[// e.g. SLT OSP Fiber Connection Agreement 2026]`
+  * `startDate: DateTime`
+  * `endDate: DateTime`
+  * `status: SLTContractStatus` `[@default(ACTIVE)]`
+  * `notes: String?`
+  * `documentUrl: String?` `[// Signed Master Commercial Agreement PDF URL]`
+  * `tenderNo: String?` `[// Tender / Project reference e.g. L/0076/2024]`
+  * `ceilingValue: Float?` `[// Maximum financial ceiling value (Rs.)]`
+  * `model1AQty: Int?` `[// Model 1A connection quantity]`
+  * `model1BQty: Int?` `[// Model 1B connection quantity]`
+  * `poleRate56: Float?` `[// Concrete pole supply rate 5.6m]`
+  * `poleRate67: Float?` `[// Concrete pole supply rate 6.7m]`
+  * `poleRate80: Float?` `[// Concrete pole supply rate 8.0m]`
+  * `poleErectRate: Float?` `[// Additional pole erecting service cost (beyond 15%)]`
+  * `poleAdminFee: Float?` `[// Concrete pole administrative fee (per pole)]`
+  * `peoTvRate: Float?` `[// PEO TV provisioning rate]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `targets: SLTContractTarget[]`
+  * `amendments: SLTContractAmendment[]`
+  * `audits: SLTContractAudit[]`
+
+### [SLTContractTarget](prisma/schema/slt-contract.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `contractId: String`
+  * `year: Int` `[// e.g. 2026]`
+  * `month: Int` `[// 1-12 (1 = Jan, 2 = Feb)]`
+  * `targetVolume: Int` `[// e.g. 6000 for Jan, 8000 for Feb]`
+  * `baseUnitRate: Float` `[// Base LKR rate per connection e.g. 10000.00]`
+  * `poleRate: Float?` `[@default(4500) // LKR surcharge per pole planted]`
+  * `perMeterRate: Float?` `[@default(250)  // LKR surcharge per extra meter beyond threshold]`
+  * `distanceThresholdMeters: Float?` `[@default(50)   // Free span threshold (e.g. 50 meters)]`
+  * `customSurcharges: Json?` `[// Flexible JSON store for arbitrary custom SLT rate variables]`
+  * `penaltyPerShortfall: Float` `[@default(0) // Optional LKR penalty per missing order below target]`
+  * `bonusPerOverachieve: Float` `[@default(0) // Optional LKR bonus per extra order above target]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `contract: SLTContract` `[@relation(fields: [contractId], references: [id], onDelete: Cascade)]`
+
+### [SLTContractAmendment](prisma/schema/slt-contract.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `contractId: String`
+  * `amendmentNumber: String` `[// e.g. AMD-2026-01]`
+  * `effectiveDate: DateTime`
+  * `reason: String` `[// e.g. Crisis Fuel Surcharge Adjustment, Monsoon Rate Increase]`
+  * `revisedUnitRate: Float?` `[// Revised LKR rate per connection (if rate amended)]`
+  * `revisedTargetVolume: Int?` `[// Revised target SOD volume (if volume amended)]`
+  * `revisedPoleRate: Float?` `[// Revised pole planting rate]`
+  * `revisedPerMeterRate: Float?` `[// Revised per-meter distance rate]`
+  * `revisedDistanceThreshold: Float?` `[// Revised free distance threshold]`
+  * `revisedEndDate: DateTime?` `[// For period-extension amendments]`
+  * `ceilingValue: Float?` `[// Revised total financial ceiling limit (Rs.)]`
+  * `ceilingIncrease: Float?` `[// Ceiling increase amount for this amendment (Rs.)]`
+  * `parentAmendmentId: String?` `[// Lineage: prior amendment this one references/supersedes]`
+  * `customSurcharges: Json?` `[// Revised dynamic custom rate rules]`
+  * `status: AmendmentStatus` `[@default(ACTIVE)]`
+  * `approvedBy: String?`
+  * `documentUrl: String?` `[// Signed Rate Amendment Addendum PDF URL]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `contract: SLTContract` `[@relation(fields: [contractId], references: [id], onDelete: Cascade)]`
+  * `parentAmendment: SLTContractAmendment?` `[@relation("AmendmentLineage", fields: [parentAmendmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)]`
+  * `childAmendments: SLTContractAmendment[]` `[@relation("AmendmentLineage")]`
+
+### [SLTContractAudit](prisma/schema/slt-contract.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `contractId: String`
+  * `action: String` `[// CONTRACT_CREATED, TARGET_SET, AMENDMENT_FILED, RATE_REVISED]`
+  * `details: String`
+  * `performedBy: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `contract: SLTContract` `[@relation(fields: [contractId], references: [id], onDelete: Cascade)]`
+
 ### [ContractorBatchStock](prisma/schema/stock-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
@@ -5775,6 +6057,18 @@
   * `description: String?`
   * `updatedAt: DateTime` `[@updatedAt]`
 
+### [SystemConfigVersion](prisma/schema/system.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `category: String` `[// FINANCE, SOD, INVENTORY]`
+  * `key: String` `[// e.g. FINANCE_VAT_PERCENT, INVENTORY_DROP_WIRE_RATE]`
+  * `value: String` `[// e.g. "18.0"]`
+  * `effectiveFrom: DateTime` `[@default(now())]`
+  * `effectiveTo: DateTime?` `[// null means currently active without expiry]`
+  * `description: String?`
+  * `createdBy: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+
 ### [SystemSetting](prisma/schema/system.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
@@ -5839,6 +6133,8 @@
   * `ospApprovedContractors: Contractor[]` `[@relation("ContractorOspApproval")]`
   * `rejectedContractors: Contractor[]` `[@relation("ContractorRejection")]`
   * `generatedContractorLinks: Contractor[]` `[@relation("ContractorLinkGenerator")]`
+  * `cycleCountsCounted: CycleCountHeader[]` `[@relation("CycleCounter")]`
+  * `cycleCountsApproved: CycleCountHeader[]` `[@relation("CycleApprover")]`
   * `receivedGRNs: GRN[]`
   * `assignedITAssets: ITAsset[]` `[@relation("AssignedITAssetsToUser")]`
   * `managedStores: InventoryStore[]`
@@ -5870,6 +6166,8 @@
   * `assignedTickets: Ticket[]` `[@relation("AssignedTickets")]`
   * `createdTickets: Ticket[]` `[@relation("CreatedTickets")]`
   * `ticketUpdates: TicketUpdate[]` `[@relation("UserTicketUpdates")]`
+  * `amendmentRequestsRequested: InvoiceAmendmentRequest[]` `[@relation("AmendmentRequestedBy")]`
+  * `amendmentRequestsApproved: InvoiceAmendmentRequest[]` `[@relation("AmendmentApprovedBy")]`
   * `assignedStore: InventoryStore?` `[@relation("UserAssignedStore", fields: [assignedStoreId], references: [id])]`
   * `staff: Staff?` `[@relation(fields: [staffId], references: [id])]`
   * `supervisor: User?` `[@relation("UserSupervisor", fields: [supervisorId], references: [id])]`

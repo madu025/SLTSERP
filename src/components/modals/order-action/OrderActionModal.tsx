@@ -31,6 +31,7 @@ interface OrderActionModalProps {
     requiresIPTV?: boolean;
     materialSource?: string;
     itemSortOrder?: string[];
+    categoryOrder?: string[];
 }
 
 export default function OrderActionModal({
@@ -45,7 +46,8 @@ export default function OrderActionModal({
     items = [],
     showExtendedFields = false,
     materialSource = 'SLT',
-    itemSortOrder = []
+    itemSortOrder = [],
+    categoryOrder = []
 }: OrderActionModalProps) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [completedData, setCompletedData] = useState<OrderCompletionData | null>(null);
@@ -55,7 +57,36 @@ export default function OrderActionModal({
         setShowSuccess(true);
     };
 
-    const { state, controls } = useOrderAction(isOpen, orderData, items || [], materialSource, handleHookConfirm);
+    // Filter & Sort Items Logic based on Admin Settings Category Order
+    const filteredItems = useMemo(() => {
+        if (!items) return [];
+        const result = [...items];
+        
+        if (categoryOrder && categoryOrder.length > 0) {
+            result.sort((a, b) => {
+                const catA = a.commonName || a.name;
+                const catB = b.commonName || b.name;
+                const indexA = categoryOrder.indexOf(catA);
+                const indexB = categoryOrder.indexOf(catB);
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                return 0;
+            });
+        } else if (itemSortOrder && itemSortOrder.length > 0) {
+            result.sort((a, b) => {
+                const indexA = itemSortOrder.indexOf(a.id);
+                const indexB = itemSortOrder.indexOf(b.id);
+                if (indexA === -1 && indexB === -1) return 0;
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+        }
+        return result;
+    }, [items, itemSortOrder, categoryOrder]);
+
+    const { state, controls } = useOrderAction(isOpen, orderData, filteredItems, materialSource, handleHookConfirm);
 
     // Reset local success state on reopen
     React.useEffect(() => {
@@ -68,24 +99,6 @@ export default function OrderActionModal({
     const useExtendedView = showExtendedFields || (isComplete && !isReturn);
     const iptvCount = orderData?.iptv ? parseInt(orderData.iptv) : 0;
     const requiresIPTV = useExtendedView && iptvCount > 0;
-
-    // Filter & Sort Items Logic
-    const filteredItems = useMemo(() => {
-        if (!items) return [];
-        const result = [...items];
-        
-        if (itemSortOrder && itemSortOrder.length > 0) {
-            result.sort((a, b) => {
-                const indexA = itemSortOrder.indexOf(a.id);
-                const indexB = itemSortOrder.indexOf(b.id);
-                if (indexA === -1 && indexB === -1) return 0;
-                if (indexA === -1) return 1;
-                if (indexB === -1) return -1;
-                return indexA - indexB;
-            });
-        }
-        return result;
-    }, [items, itemSortOrder]);
 
     const quickItems = useMemo(() => {
         if (!items) return [];

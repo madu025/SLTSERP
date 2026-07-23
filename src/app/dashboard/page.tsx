@@ -94,9 +94,19 @@ export default function DashboardPage() {
         return rtoms;
     }, [rtomRegionMap, selectedRegion, canFilterGlobally, userAccessibleRtoms]);
 
-    // Sort RTOM tables ascending
+    // Sort RTOM tables by Highest Performance First (Completion Rate % desc, Completed Volume desc)
     const sortedRtoms = useMemo(() => {
-        return [...(stats?.rtoms || [])].sort((a, b) => a.name.localeCompare(b.name));
+        return [...(stats?.rtoms || [])].sort((a, b) => {
+            const totalA = a.completed + a.pending + a.returned;
+            const totalB = b.completed + b.pending + b.returned;
+            const rateA = totalA > 0 ? (a.completed / totalA) * 100 : 0;
+            const rateB = totalB > 0 ? (b.completed / totalB) * 100 : 0;
+
+            if (rateB !== rateA) return rateB - rateA; // Primary: Highest Completion Rate %
+            if (b.completed !== a.completed) return b.completed - a.completed; // Secondary: Highest Completed Volume
+            if (totalB !== totalA) return totalB - totalA; // Tertiary: Total Received Volume
+            return a.name.localeCompare(b.name); // Quaternary: A-Z Name
+        });
     }, [stats?.rtoms]);
 
     // Pie-chart datasets (filtered to non-zero slices)

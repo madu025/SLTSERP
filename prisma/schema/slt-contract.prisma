@@ -1,0 +1,117 @@
+// Prisma schema for SLT Commercial Contracts & Dynamic Rate Amendments
+
+enum SLTContractStatus {
+  ACTIVE
+  EXPIRED
+  AMENDED
+  SUSPENDED
+}
+
+enum AmendmentStatus {
+  ACTIVE
+  SUPERSEDED
+  EXPIRED
+}
+
+model SLTContract {
+  id               String                 @id @default(cuid())
+  contractNumber   String                 @unique // e.g. AGR-2026-0101
+  title            String                 // e.g. SLT OSP Fiber Connection Agreement 2026
+  startDate        DateTime
+  endDate          DateTime
+  status           SLTContractStatus      @default(ACTIVE)
+  notes            String?
+  documentUrl      String?                // Signed Master Commercial Agreement PDF URL
+
+  // Commercial / financial governance (extracted from Principal Contract PDF)
+  tenderNo         String?                // Tender / Project reference e.g. L/0076/2024
+  ceilingValue     Float?                 // Maximum financial ceiling value (Rs.)
+  model1AQty       Int?                   // Model 1A connection quantity
+  model1BQty       Int?                   // Model 1B connection quantity
+
+  // Dedicated master rate structure (contract-wide defaults, LKR)
+  poleRate56       Float?                 // Concrete pole supply rate 5.6m
+  poleRate67       Float?                 // Concrete pole supply rate 6.7m
+  poleRate80       Float?                 // Concrete pole supply rate 8.0m
+  poleErectRate    Float?                 // Additional pole erecting service cost (beyond 15%)
+  poleAdminFee     Float?                 // Concrete pole administrative fee (per pole)
+  peoTvRate        Float?                 // PEO TV provisioning rate
+
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  targets          SLTContractTarget[]
+  amendments       SLTContractAmendment[]
+  audits           SLTContractAudit[]
+
+  @@index([contractNumber])
+  @@index([status])
+}
+
+model SLTContractTarget {
+  id                      String      @id @default(cuid())
+  contractId              String
+  year                    Int         // e.g. 2026
+  month                   Int         // 1-12 (1 = Jan, 2 = Feb)
+  targetVolume            Int         // e.g. 6000 for Jan, 8000 for Feb
+  baseUnitRate            Float       // Base LKR rate per connection e.g. 10000.00
+  poleRate                Float?      @default(4500) // LKR surcharge per pole planted
+  perMeterRate            Float?      @default(250)  // LKR surcharge per extra meter beyond threshold
+  distanceThresholdMeters Float?      @default(50)   // Free span threshold (e.g. 50 meters)
+  customSurcharges        Json?       // Flexible JSON store for arbitrary custom SLT rate variables
+  penaltyPerShortfall     Float       @default(0) // Optional LKR penalty per missing order below target
+  bonusPerOverachieve     Float       @default(0) // Optional LKR bonus per extra order above target
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  contract                SLTContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, year, month])
+  @@index([contractId])
+  @@index([year, month])
+}
+
+model SLTContractAmendment {
+  id                       String          @id @default(cuid())
+  contractId               String
+  amendmentNumber          String          // e.g. AMD-2026-01
+  effectiveDate            DateTime
+  reason                   String          // e.g. Crisis Fuel Surcharge Adjustment, Monsoon Rate Increase
+  revisedUnitRate          Float?          // Revised LKR rate per connection (if rate amended)
+  revisedTargetVolume      Int?            // Revised target SOD volume (if volume amended)
+  revisedPoleRate          Float?          // Revised pole planting rate
+  revisedPerMeterRate      Float?          // Revised per-meter distance rate
+  revisedDistanceThreshold Float?          // Revised free distance threshold
+  revisedEndDate           DateTime?       // For period-extension amendments
+  ceilingValue             Float?          // Revised total financial ceiling limit (Rs.)
+  ceilingIncrease          Float?          // Ceiling increase amount for this amendment (Rs.)
+  parentAmendmentId        String?         // Lineage: prior amendment this one references/supersedes
+  customSurcharges         Json?           // Revised dynamic custom rate rules
+  status                   AmendmentStatus @default(ACTIVE)
+  approvedBy               String?
+  documentUrl              String?         // Signed Rate Amendment Addendum PDF URL
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  contract                 SLTContract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  parentAmendment          SLTContractAmendment?  @relation("AmendmentLineage", fields: [parentAmendmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  childAmendments          SLTContractAmendment[] @relation("AmendmentLineage")
+
+  @@index([contractId])
+  @@index([effectiveDate])
+  @@index([status])
+  @@index([parentAmendmentId])
+}
+
+model SLTContractAudit {
+  id         String      @id @default(cuid())
+  contractId String
+  action     String      // CONTRACT_CREATED, TARGET_SET, AMENDMENT_FILED, RATE_REVISED
+  details    String
+  performedBy String
+  createdAt  DateTime    @default(now())
+
+  contract   SLTContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+}

@@ -2,6 +2,8 @@ import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/bank.service';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic';
+
 const importBankSchema = z.array(z.object({
     bankCode: z.string(),
     bankName: z.string(),
@@ -14,11 +16,12 @@ export const POST = apiHandler(async (_req, _params, body) => {
 
     const result = await BankService.importBulk(banksData);
 
-    return Response.json({
+    return {
         message: 'Import complete',
         ...result
-    });
+    };
 }, {
     roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'],
-    audit: { action: 'IMPORT_BANKS_BULK', entity: 'Finance' }
+    audit: { action: 'IMPORT_BANKS_BULK', entity: 'Finance' },
+    rawResponse: true
 });

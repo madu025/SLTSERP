@@ -131,4 +131,43 @@ To keep context windows clean and save tokens, agents must use the codebase stru
 * Ensure this command runs successfully and commits any updates to `.agent/CODEMAP.md` along with your code changes.
 
 
+## ⚛️ React Hydration Mismatch & Suspense Safety Standards
+
+To prevent Next.js hydration errors (`Text content does not match server-rendered HTML` / `- Client vs + Server mismatch`):
+
+### 1. Client-Side Auth & Storage Guards (`RoleGuard`)
+* Components that check `localStorage` or `typeof window !== 'undefined'` MUST render `<>{children}</>` during SSR and initial client hydration (`!mounted`).
+* Never render completely different top-level layout wrappers (e.g. `<div className="bg-slate-50">` vs `<div className="flex h-screen">`) before `mounted` becomes `true`.
+
+### 2. Isolated `useSearchParams` Suspense Boundaries
+* Never invoke `useSearchParams()` directly inside top-level layout components (like `Sidebar` or `Header`).
+* Always isolate `useSearchParams()` calls inside dedicated child watcher components wrapped in `<Suspense fallback={null}>`, ensuring the parent layout component never suspends or unmounts during SSR or route transitions.
+
+
+## 🖼️ Standard Page Layout & Sidebar Navigation Standards
+
+To ensure every newly created dashboard page includes the global navigation Sidebar, top Header bar, and Role Security Guard:
+
+1. **Mandatory Page Layout Wrapping**:
+   * Every page (`page.tsx`) under `src/app/` (except public endpoints like `/login` or `/public/invoices/...`) MUST wrap its main content inside `<RoleGuard>`, `<Sidebar />`, and `<Header />`:
+   ```tsx
+   <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']}>
+       <div className="flex h-screen bg-slate-50 overflow-hidden">
+           <Sidebar />
+           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+               <Header />
+               <main className="flex-1 overflow-y-auto">
+                   {/* Page Content */}
+               </main>
+           </div>
+       </div>
+   </RoleGuard>
+   ```
+
+2. **Mandatory Sidebar Menu Registration**:
+   * Whenever a new route page is created (e.g., `/sf-audit/payment-split-config`), its path, title, icon, and `allowedRoles` MUST be explicitly added to the `SIDEBAR_MENU` array in `src/config/sidebar-menu.ts` so users can navigate to it directly.
+
+
+
+
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { hasAccess } from '@/config/sidebar-menu';
@@ -35,14 +35,28 @@ const ROLE_LABELS: Record<string, string> = {
     MANAGER: 'Manager',
 };
 
+function SidebarSearchParamsWatcher({ onRtomChange }: { onRtomChange: (rtom: string | null) => void }) {
+    const searchParams = useSearchParams();
+    const currentRtom = searchParams ? searchParams.get('rtom') : null;
+
+    useEffect(() => {
+        onRtomChange(currentRtom);
+    }, [currentRtom, onRtomChange]);
+
+    return null;
+}
+
 function SidebarContent() {
     const [user, setUser] = useState<User | null>(null);
     const [mounted, setMounted] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showDrawer, setShowDrawer] = useState(false);
+    const [currentRtom, setCurrentRtom] = useState<string | null>(null);
     const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const currentRtom = searchParams.get('rtom');
+
+    const handleRtomChange = useCallback((rtom: string | null) => {
+        setCurrentRtom(rtom);
+    }, []);
 
     const { isSupported, isSubscribed, permission, subscribe, unsubscribe } = usePushNotifications();
 
@@ -85,8 +99,20 @@ function SidebarContent() {
         window.location.href = '/login';
     };
 
+    if (!mounted) {
+        return (
+            <aside 
+                className="w-[220px] flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 z-40 transition-all duration-300 ease-in-out" 
+                style={{ background: '#0D1B2A', borderRight: '1px solid rgba(0, 114, 187, 0.12)' }}
+            />
+        );
+    }
+
     return (
         <>
+            <Suspense fallback={null}>
+                <SidebarSearchParamsWatcher onRtomChange={handleRtomChange} />
+            </Suspense>
             <aside
                 className={`${isCollapsed ? 'w-[56px]' : 'w-[220px]'} flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 z-40 transition-all duration-300 ease-in-out`}
                 style={{
@@ -375,14 +401,5 @@ function SidebarContent() {
 }
 
 export default function Sidebar() {
-    return (
-        <Suspense fallback={
-            <aside 
-                className="w-[56px] flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 z-40 transition-all duration-300 ease-in-out" 
-                style={{ background: '#0D1B2A', borderRight: '1px solid rgba(0, 114, 187, 0.12)' }}
-            />
-        }>
-            <SidebarContent />
-        </Suspense>
-    );
+    return <SidebarContent />;
 }

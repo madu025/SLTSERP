@@ -219,3 +219,22 @@ model ContractorPerformanceScore {
   @@index([evaluationMonth])
   @@index([score])
 }
+
+model ContractorRateRule {
+  id              String   @id @default(cuid())
+  workType        String
+  workDescription String
+  minDistance     Float    @default(0)
+  maxDistance     Float    @default(9999)
+  areaGroup       String
+  rateAmount      Float    @default(0)
+  poleType        String?
+  poleMethod      String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([workType])
+  @@index([areaGroup])
+  @@index([isActive])
+}
