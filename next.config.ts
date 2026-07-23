@@ -3,7 +3,7 @@ process.env.TZ = process.env.NEXT_PUBLIC_TIMEZONE || 'Asia/Colombo';
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  output: process.env.VERCEL ? undefined : 'standalone',
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,

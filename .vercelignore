@@ -1,0 +1,37 @@
+# Heavy Binary Files, Executables & Large Datasets
+*.gpkg
+*.exe
+*.dll
+*.so
+*.dylib
+*.xlsx
+*.xlsm
+*.csv
+*.pem
+*.bat
+*.ps1
+
+# Local Non-Production Directories
+uploads/
+scratch/
+database/
+tests/
+playwright-report/
+test-results/
+monitoring/
+nginx/
+postgres-init/
+ai-tasks/
+analyser/
+Agreement/
+Contractor_invoice/
+KL-SVK-0567/
+"QGIS Project Template"/
+SM-HJJ-0508-AB/
+
+# Development & System Directories
+.git
+.vscode
+.agent
+.auth
+.qoder
