@@ -11,7 +11,7 @@ export const GET = apiHandler(async (req) => {
     const fromDate = fromStr ? new Date(fromStr) : undefined;
     const toDate = toStr ? new Date(toStr) : undefined;
 
-    const report = await TaxService.getVatReturn(fromDate, toDate);
+    const report = await TaxService.getVatReturnReport(fromDate, toDate);
     return report;
 }, {
     roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT']

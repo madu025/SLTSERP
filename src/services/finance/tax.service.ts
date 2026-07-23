@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
+import { ACCOUNTS } from './account-codes';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '../inventory/types';
 
@@ -61,61 +62,57 @@ export class TaxService {
      * CR: SSCL Payable (SSCL-PAY-2115) -> SSCL Amount
      */
     static async logInvoiceTaxPosting(tx: TransactionClient, payload: InvoiceTaxPostingPayload) {
-        const { netAmount, vatAmount, ssclAmount, invoiceId, invoiceNumber, createdById, postingDate } = payload;
-        const grossAmount = netAmount + vatAmount + ssclAmount;
+        const { invoiceId, invoiceNumber, netAmount, vatAmount, ssclAmount, description, postingDate, createdById } = payload;
+        const totalAr = netAmount + vatAmount + ssclAmount;
 
-        if (grossAmount <= 0) {
-            throw AppError.badRequest('Invoice posting total amount must be positive');
-        }
-
-        const lines = [
+        const lines: { accountCode: string; debit: number; credit: number; description: string }[] = [
             {
-                accountCode: 'AR-1110',
-                debit: grossAmount,
+                accountCode: ACCOUNTS.AR_CLIENT,
+                debit: totalAr,
                 credit: 0,
-                description: `Client AR for Invoice #${invoiceNumber}`
+                description: `Accounts Receivable for Invoice ${invoiceNumber} (incl. Tax)`
             },
             {
-                accountCode: 'REV-4010',
+                accountCode: ACCOUNTS.REVENUE,
                 debit: 0,
                 credit: netAmount,
-                description: `Recognized Revenue for Invoice #${invoiceNumber}`
+                description: `Net Revenue for Invoice ${invoiceNumber}`
             }
         ];
 
         if (vatAmount > 0) {
             lines.push({
-                accountCode: 'VAT-PAY-2110',
+                accountCode: ACCOUNTS.VAT_PAYABLE,
                 debit: 0,
                 credit: vatAmount,
-                description: `Output VAT (18%) for Invoice #${invoiceNumber}`
+                description: `Output VAT 18% for Invoice ${invoiceNumber}`
             });
         }
 
         if (ssclAmount > 0) {
             lines.push({
-                accountCode: 'SSCL-PAY-2115',
+                accountCode: ACCOUNTS.SSCL_PAYABLE,
                 debit: 0,
                 credit: ssclAmount,
-                description: `SSCL Payable (2.5%) for Invoice #${invoiceNumber}`
+                description: `SSCL 2.5% for Invoice ${invoiceNumber}`
             });
         }
 
         return await LedgerService.postTransaction(tx, {
             referenceId: invoiceId,
-            referenceType: 'INVOICE_TAX_ISSUANCE',
-            description: payload.description || `Statutory Tax Entry for Issued Invoice #${invoiceNumber}`,
-            date: postingDate,
+            referenceType: 'INVOICE_TAX_POSTING',
+            description: description || `Tax Breakdown Posting for Invoice ${invoiceNumber}`,
+            date: postingDate || new Date(),
             createdById,
             lines
         });
     }
 
     /**
-     * Compute VAT Return (Output VAT vs Input VAT) for a given tax period.
+     * Calculate output VAT, input VAT, and net VAT payable for a target date period.
      */
-    static async getVatReturn(fromDate?: Date, toDate?: Date): Promise<VatReturnReport> {
-        const dateFilter: any = {};
+    static async getVatReturnReport(fromDate?: Date, toDate?: Date): Promise<VatReturnReport> {
+        const dateFilter: Record<string, unknown> = {};
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;
 
@@ -124,10 +121,9 @@ export class TaxService {
             ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
         };
 
-        // Query Output VAT payable account (VAT-PAY-2110)
         const vatLines = await prisma.journalLine.findMany({
             where: {
-                accountCode: 'VAT-PAY-2110',
+                accountCode: ACCOUNTS.VAT_PAYABLE,
                 entry: entryWhere
             },
             include: {
@@ -143,11 +139,11 @@ export class TaxService {
         const lineItems: VatReturnItem[] = [];
 
         for (const line of vatLines) {
-            const outputVat = Number(line.credit);
-            const inputVat = Number(line.debit);
+            const outputVal = Number(line.credit);
+            const inputVal = Number(line.debit);
 
-            outputVatTotal += outputVat;
-            inputVatTotal += inputVat;
+            outputVatTotal += outputVal;
+            inputVatTotal += inputVal;
 
             lineItems.push({
                 id: line.id,
@@ -155,8 +151,8 @@ export class TaxService {
                 referenceType: line.entry.referenceType,
                 referenceId: line.entry.referenceId,
                 description: line.description || line.entry.description,
-                outputVat,
-                inputVat
+                outputVat: outputVal,
+                inputVat: inputVal
             });
         }
 
@@ -173,12 +169,22 @@ export class TaxService {
     }
 
     /**
-     * Get Withholding Tax (WHT) withholding register.
+     * Retrieve WHT Certificate Register for tax compliance and IRD reporting.
+     * Dynamically reads FINANCE_WHT_PERCENT from SystemConfig.
      */
     static async getWhtRegister(fromDate?: Date, toDate?: Date): Promise<WhtRegisterReport> {
-        const dateFilter: any = {};
+        const dateFilter: Record<string, unknown> = {};
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;
+
+        // Dynamically load WHT percent from SystemConfig (defaults to 5% if unconfigured)
+        let whtRatePct = 5;
+        const whtConfig = await prisma.systemConfig.findUnique({ where: { key: 'FINANCE_WHT_PERCENT' } });
+        if (whtConfig && whtConfig.value) {
+            const parsed = parseFloat(whtConfig.value);
+            if (!isNaN(parsed) && parsed > 0) whtRatePct = parsed;
+        }
+        const whtFraction = whtRatePct / 100;
 
         const entryWhere = {
             status: { not: 'REVERSED' },
@@ -187,7 +193,7 @@ export class TaxService {
 
         const whtLines = await prisma.journalLine.findMany({
             where: {
-                accountCode: { in: ['WHT-PAY-2120', 'WHT-REC-1300'] },
+                accountCode: { in: [ACCOUNTS.WHT_PAYABLE, ACCOUNTS.WHT_RECEIVABLE] },
                 entry: entryWhere
             },
             include: {
@@ -211,8 +217,8 @@ export class TaxService {
                 referenceType: line.entry.referenceType,
                 referenceId: line.entry.referenceId,
                 vendorOrCustomer: line.description || 'Vendor / Contractor',
-                grossAmount: amount / 0.05, // 5% standard WHT rate gross derivation
-                whtRatePct: 5,
+                grossAmount: whtFraction > 0 ? amount / whtFraction : amount,
+                whtRatePct,
                 whtAmount: amount
             });
         }

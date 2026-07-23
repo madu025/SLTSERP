@@ -17,7 +17,7 @@ export const GET = apiHandler(async (req) => {
 
 export const POST = apiHandler(async (req) => {
     const body = await req.json();
-    const userId = (req as Request & { user?: { id?: string } }).user?.id;
+    const userId = req.headers.get('x-user-id') || (req as Request & { user?: { id?: string } }).user?.id || undefined;
 
     const record = await prisma.$transaction(async (tx) => {
         return await PayrollExpenseService.recordPayrollAllocation(tx, {

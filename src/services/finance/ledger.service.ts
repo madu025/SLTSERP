@@ -1,6 +1,7 @@
 import { TransactionClient } from '../inventory/types';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { AppError } from '@/lib/error';
+import { ACCOUNTS } from './account-codes';
 
 export interface JournalPostingLineInput {
     accountCode: string;
@@ -56,18 +57,34 @@ export class LedgerService {
             throw AppError.badRequest('Journal Entry must contain at least one line');
         }
 
-        // 3. Dynamic Chart of Accounts lookup & resolution
+        // 3. Dynamic Chart of Accounts lookup, resolution & validation.
+        //    Reject unknown or non-postable codes so transactions can never vanish
+        //    from the Trial Balance / P&L / Balance Sheet due to a phantom account.
         const resolvedLines = [];
         for (const line of payload.lines) {
             const coa = await tx.chartOfAccount.findUnique({
                 where: { code: line.accountCode }
             });
 
-            const accountName = coa?.name || line.accountCode;
+            if (!coa) {
+                throw AppError.badRequest(
+                    `Unknown account code '${line.accountCode}'. It is not defined in the Chart of Accounts.`
+                );
+            }
+            if (!coa.isPostable) {
+                throw AppError.badRequest(
+                    `Account '${line.accountCode}' is a non-postable (header) account and cannot be posted to directly.`
+                );
+            }
+            if (!coa.isActive) {
+                throw AppError.badRequest(
+                    `Account '${line.accountCode}' is inactive and cannot accept new postings.`
+                );
+            }
 
             resolvedLines.push({
                 accountCode: line.accountCode,
-                accountName,
+                accountName: coa.name,
                 debit: line.debit,
                 credit: line.credit,
                 description: line.description || payload.description
@@ -183,30 +200,24 @@ export class LedgerService {
         if (totalCost <= 0) return null;
 
         const desc = description || `Material Consumption for SOD ID: ${sodId}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: sodId,
-                referenceType: 'SOD_CONSUMPTION',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'COGS-5010',
-                            accountName: 'Cost of Goods Sold',
-                            debit: totalCost,
-                            credit: 0,
-                            description: 'Cost of materials installed on service order'
-                        },
-                        {
-                            accountCode: 'INV-1010',
-                            accountName: 'Raw Material Inventory',
-                            debit: 0,
-                            credit: totalCost,
-                            description: 'Deduction of materials consumed'
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: sodId,
+            referenceType: 'SOD_CONSUMPTION',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.COGS,
+                    debit: totalCost,
+                    credit: 0,
+                    description: 'Cost of materials installed on service order'
+                },
+                {
+                    accountCode: ACCOUNTS.INVENTORY,
+                    debit: 0,
+                    credit: totalCost,
+                    description: 'Deduction of materials consumed'
                 }
-            }
+            ]
         });
     }
 
@@ -224,36 +235,30 @@ export class LedgerService {
         if (revenueAmount <= 0) return null;
 
         const desc = description || `Accrued Revenue for Completed SOD: ${sodId}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: sodId,
-                referenceType: 'SOD_REVENUE',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'AR-1110',
-                            accountName: 'Accrued Invoicing Revenue',
-                            debit: revenueAmount,
-                            credit: 0,
-                            description: 'Accrued billing revenue for completed service connection'
-                        },
-                        {
-                            accountCode: 'REV-4010',
-                            accountName: 'Accrued Services Revenue',
-                            debit: 0,
-                            credit: revenueAmount,
-                            description: 'Recognized service revenue'
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: sodId,
+            referenceType: 'SOD_REVENUE',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.AR_CLIENT,
+                    debit: revenueAmount,
+                    credit: 0,
+                    description: 'Accrued billing revenue for completed service connection'
+                },
+                {
+                    accountCode: ACCOUNTS.REVENUE,
+                    debit: 0,
+                    credit: revenueAmount,
+                    description: 'Recognized service revenue'
                 }
-            }
+            ]
         });
     }
 
     /**
      * Log double-entry for Wastage / Scrap Write-Offs
-     * DR: Material Wastage Loss / Inventory Write-Offs (EXP-5210)
+     * DR: Material Wastage & Scrap Expense (EXP-WASTAGE-5030)
      * CR: Raw Material Inventory (INV-1010)
      */
     static async logWastage(
@@ -265,36 +270,32 @@ export class LedgerService {
         if (totalCost <= 0) return null;
 
         const desc = description || `Material Wastage Write-Off for ID: ${wastageId}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: wastageId,
-                referenceType: 'WASTAGE',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'EXP-5210',
-                            accountName: 'Material Wastage Loss',
-                            debit: totalCost,
-                            credit: 0,
-                            description: 'Inventory write-off due to scrap/damage'
-                        },
-                        {
-                            accountCode: 'INV-1010',
-                            accountName: 'Raw Material Inventory',
-                            debit: 0,
-                            credit: totalCost,
-                            description: 'Deduction of scrap/damaged materials'
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: wastageId,
+            referenceType: 'WASTAGE',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.WASTAGE_EXPENSE,
+                    debit: totalCost,
+                    credit: 0,
+                    description: 'Inventory write-off due to scrap/damage'
+                },
+                {
+                    accountCode: ACCOUNTS.INVENTORY,
+                    debit: 0,
+                    credit: totalCost,
+                    description: 'Deduction of scrap/damaged materials'
                 }
-            }
+            ]
         });
     }
 
     /**
-     * Rollback/Reverse Ledger Entries for returned or cancelled SOD
-     * This deletes previous logs or posts Reversing entries (DR REV-4010, CR AR-1110)
+     * Rollback/Reverse Ledger Entries for a returned or cancelled SOD.
+     * Posts a balanced reversing entry (through the gateway) for each original entry,
+     * and marks each original as REVERSED. Entries that are themselves reversals or
+     * already reversed are skipped so a repeated sync can never double-reverse.
      */
     static async rollbackSodTransaction(
         tx: TransactionClient,
@@ -302,33 +303,28 @@ export class LedgerService {
         description?: string
     ) {
         const desc = description || `Reversal Entry for Cancelled/Returned SOD ID: ${sodId}`;
-        
-        // Find existing journal entries for this SOD
+
+        // Find existing (non-reversed, non-reversal) journal entries for this SOD
         const entries = await tx.journalEntry.findMany({
-            where: { referenceId: sodId },
+            where: {
+                referenceId: sodId,
+                status: { not: 'REVERSED' }
+            },
             include: { lines: true }
         });
 
         for (const entry of entries) {
-            const reversingLines = entry.lines.map(line => ({
-                accountCode: line.accountCode,
-                accountName: line.accountName,
-                // Reverse Debits and Credits
-                debit: line.credit,
-                credit: line.debit,
-                description: `Reversal: ${line.description || ''}`
-            }));
+            // Never reverse an entry that is itself a reversal.
+            if (entry.referenceType && entry.referenceType.includes('REVERSAL')) {
+                continue;
+            }
 
-            await tx.journalEntry.create({
-                data: {
-                    referenceId: sodId,
-                    referenceType: `${entry.referenceType}_REVERSAL`,
-                    description: `${desc} (Original: ${entry.description})`,
-                    lines: {
-                        create: reversingLines
-                    }
-                }
-            });
+            await this.reverseTransaction(
+                tx,
+                entry.id,
+                `${desc} (Original: ${entry.description})`,
+                entry.createdById || undefined
+            );
         }
     }
 
@@ -342,30 +338,24 @@ export class LedgerService {
         if (totalCost <= 0) return null;
 
         const desc = description || `Cost Allocation via Memo for ${allocationTarget}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: memoId,
-                referenceType: 'COST_ALLOCATION_MEMO',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'EXP-OSP-8010',
-                            accountName: `OSP Section Expense - ${allocationTarget}`,
-                            debit: totalCost,
-                            credit: 0,
-                            description: `Cost allocated to ${allocationTarget}`
-                        },
-                        {
-                            accountCode: 'CLR-HO-9010',
-                            accountName: 'Head Office Asset Clearing',
-                            debit: 0,
-                            credit: totalCost,
-                            description: `Clearing entry for asset purchase`
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: memoId,
+            referenceType: 'COST_ALLOCATION_MEMO',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.OSP_EXPENSE,
+                    debit: totalCost,
+                    credit: 0,
+                    description: `Cost allocated to ${allocationTarget}`
+                },
+                {
+                    accountCode: ACCOUNTS.HO_CLEARING_LEGACY,
+                    debit: 0,
+                    credit: totalCost,
+                    description: `Clearing entry for asset purchase`
                 }
-            }
+            ]
         });
     }
 
@@ -383,30 +373,24 @@ export class LedgerService {
         if (totalCost <= 0) return null;
 
         const desc = description || `MRN Return Entry for MRN ID: ${mrnId}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: mrnId,
-                referenceType: 'MRN',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'AP-2010',
-                            accountName: 'Accrued Accounts Payable',
-                            debit: totalCost,
-                            credit: 0,
-                            description: 'Accrued liability reduced due to return'
-                        },
-                        {
-                            accountCode: 'INV-1010',
-                            accountName: 'Raw Material Inventory',
-                            debit: 0,
-                            credit: totalCost,
-                            description: 'Inventory returned to supplier'
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: mrnId,
+            referenceType: 'MRN',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.AP_ACCRUED,
+                    debit: totalCost,
+                    credit: 0,
+                    description: 'Accrued liability reduced due to return'
+                },
+                {
+                    accountCode: ACCOUNTS.INVENTORY,
+                    debit: 0,
+                    credit: totalCost,
+                    description: 'Inventory returned to supplier'
                 }
-            }
+            ]
         });
     }
 
@@ -424,55 +408,28 @@ export class LedgerService {
     ) {
         if (amount <= 0) return null;
 
-        let expenseAccountCode = 'EXP-MISC-5990';
-        let expenseAccountName = 'Miscellaneous Expenses';
-
-        switch (category.toUpperCase()) {
-            case 'TRANSPORT':
-                expenseAccountCode = 'EXP-TRAV-5100';
-                expenseAccountName = 'Travel & Transport Expenses';
-                break;
-            case 'REFRESHMENTS':
-                expenseAccountCode = 'EXP-REFR-5200';
-                expenseAccountName = 'Refreshment Expenses';
-                break;
-            case 'UTILITIES':
-                expenseAccountCode = 'EXP-UTIL-5300';
-                expenseAccountName = 'Utility Expenses';
-                break;
-            case 'STATIONERY':
-                expenseAccountCode = 'EXP-STAT-5400';
-                expenseAccountName = 'Printing & Stationery Expenses';
-                break;
-            default:
-                break;
-        }
-
+        // All operational petty-cash categories map to the single G&A petty cash
+        // expense account defined in the Chart of Accounts; the specific category is
+        // preserved in the line description for reporting/drill-down.
         const desc = description || `Petty Cash Expense for Category ${category}, Voucher ID: ${voucherId}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: voucherId,
-                referenceType: 'PETTY_CASH_EXPENSE',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: expenseAccountCode,
-                            accountName: expenseAccountName,
-                            debit: amount,
-                            credit: 0,
-                            description: 'Petty cash local site expense'
-                        },
-                        {
-                            accountCode: 'PETTY-1020',
-                            accountName: 'Petty Cash Imprest',
-                            debit: 0,
-                            credit: amount,
-                            description: 'Cash spent from site petty cash'
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: voucherId,
+            referenceType: 'PETTY_CASH_EXPENSE',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.PETTY_CASH_EXPENSE,
+                    debit: amount,
+                    credit: 0,
+                    description: `Petty cash local site expense (${category})`
+                },
+                {
+                    accountCode: ACCOUNTS.PETTY_CASH,
+                    debit: 0,
+                    credit: amount,
+                    description: 'Cash spent from site petty cash'
                 }
-            }
+            ]
         });
     }
 
@@ -490,30 +447,24 @@ export class LedgerService {
         if (amount <= 0) return null;
 
         const desc = description || `Replenishment of Petty Cash Imprest, ID: ${reimbursementId}`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: reimbursementId,
-                referenceType: 'PETTY_CASH_REIMBURSEMENT',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'PETTY-1020',
-                            accountName: 'Petty Cash Imprest',
-                            debit: amount,
-                            credit: 0,
-                            description: 'Funds replenished to site petty cash'
-                        },
-                        {
-                            accountCode: 'BANK-1000',
-                            accountName: 'Main Corporate Bank Account',
-                            debit: 0,
-                            credit: amount,
-                            description: 'Funds transferred from bank to site cash'
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: reimbursementId,
+            referenceType: 'PETTY_CASH_REIMBURSEMENT',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.PETTY_CASH,
+                    debit: amount,
+                    credit: 0,
+                    description: 'Funds replenished to site petty cash'
+                },
+                {
+                    accountCode: ACCOUNTS.BANK,
+                    debit: 0,
+                    credit: amount,
+                    description: 'Funds transferred from bank to site cash'
                 }
-            }
+            ]
         });
     }
 
@@ -532,41 +483,35 @@ export class LedgerService {
         if (amount <= 0) return null;
 
         const desc = description || `Accrued Contractor Cost for Completed SOD: ${sodId} (Contractor: ${contractorName})`;
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: sodId,
-                referenceType: 'CONTRACTOR_ACCRUAL',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: 'EXP-CON-4020',
-                            accountName: 'Contractor Direct OSP Expense',
-                            debit: amount,
-                            credit: 0,
-                            description: 'Accrued contractor service cost'
-                        },
-                        {
-                            accountCode: 'AP-CON-2020',
-                            accountName: 'Accrued Contractor Payables',
-                            debit: 0,
-                            credit: amount,
-                            description: 'Outstanding liability to contractor'
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: sodId,
+            referenceType: 'CONTRACTOR_ACCRUAL',
+            description: desc,
+            lines: [
+                {
+                    accountCode: ACCOUNTS.CONTRACTOR_EXPENSE,
+                    debit: amount,
+                    credit: 0,
+                    description: 'Accrued contractor service cost'
+                },
+                {
+                    accountCode: ACCOUNTS.AP_CONTRACTOR,
+                    debit: 0,
+                    credit: amount,
+                    description: 'Outstanding liability to contractor'
                 }
-            }
+            ]
         });
     }
 
     /**
      * Log double-entry for Project Invoice finalization (issued)
      * For Client Invoice:
-     *   DR: Client Accounts Receivable (AR-CLIENT-1200)
-     *   CR: Project Revenue (REV-PROJ-3010)
+     *   DR: Accounts Receivable - Client (AR-1110)
+     *   CR: Accrued Project & Service Revenue (REV-4010)
      * For Contractor Invoice:
-     *   DR: Accrued Contractor Payables (AP-CON-2020)
-     *   CR: Accounts Payable - Contractors/Vendors (AP-VEND-2010)
+     *   DR: Accrued Contractor Payable (AP-CON-2020)
+     *   CR: Trade Accounts Payable - Vendors (AP-VEND-2010)
      */
     static async logInvoiceIssuance(
         tx: TransactionClient,
@@ -579,59 +524,47 @@ export class LedgerService {
         if (amount <= 0) return null;
 
         const desc = description || `Invoice Finalization: ${invoiceNumber} (${type})`;
-        
-        let debitAccountCode = '';
-        let debitAccountName = '';
-        let creditAccountCode = '';
-        let creditAccountName = '';
-        
+
+        let debitAccountCode: string;
+        let creditAccountCode: string;
+
         if (type.toUpperCase() === 'CLIENT') {
-            debitAccountCode = 'AR-CLIENT-1200';
-            debitAccountName = 'Client Accounts Receivable';
-            creditAccountCode = 'REV-PROJ-3010';
-            creditAccountName = 'Project Revenue';
+            debitAccountCode = ACCOUNTS.AR_CLIENT;
+            creditAccountCode = ACCOUNTS.REVENUE;
         } else { // CONTRACTOR or VENDOR
-            debitAccountCode = 'AP-CON-2020';
-            debitAccountName = 'Accrued Contractor Payables';
-            creditAccountCode = 'AP-VEND-2010';
-            creditAccountName = 'Accounts Payable - Contractors/Vendors';
+            debitAccountCode = ACCOUNTS.AP_CONTRACTOR;
+            creditAccountCode = ACCOUNTS.AP_VENDOR;
         }
 
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: invoiceId,
-                referenceType: 'INVOICE_ISSUANCE',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: debitAccountCode,
-                            accountName: debitAccountName,
-                            debit: amount,
-                            credit: 0,
-                            description: `Invoice ${invoiceNumber} issued`
-                        },
-                        {
-                            accountCode: creditAccountCode,
-                            accountName: creditAccountName,
-                            debit: 0,
-                            credit: amount,
-                            description: `Revenue/Liability recorded for ${invoiceNumber}`
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: invoiceId,
+            referenceType: 'INVOICE_ISSUANCE',
+            description: desc,
+            lines: [
+                {
+                    accountCode: debitAccountCode,
+                    debit: amount,
+                    credit: 0,
+                    description: `Invoice ${invoiceNumber} issued`
+                },
+                {
+                    accountCode: creditAccountCode,
+                    debit: 0,
+                    credit: amount,
+                    description: `Revenue/Liability recorded for ${invoiceNumber}`
                 }
-            }
+            ]
         });
     }
 
     /**
      * Log double-entry for Payment Voucher payout (status: PAID)
      * For Contractor PV:
-     *   DR: Accounts Payable - Contractors/Vendors (AP-VEND-2010)
-     *   CR: Main Corporate Bank Account (BANK-1000)
+     *   DR: Trade Accounts Payable - Vendors (AP-VEND-2010)
+     *   CR: Main Bank Account (BANK-1000)
      * For Other PV (Expense/Materials):
-     *   DR: Miscellaneous Expenses (EXP-MISC-5990)
-     *   CR: Main Corporate Bank Account (BANK-1000)
+     *   DR: G&A Petty Cash Expenses (EXP-PETTY-6040)
+     *   CR: Main Bank Account (BANK-1000)
      */
     static async logPaymentVoucherPayment(
         tx: TransactionClient,
@@ -646,38 +579,29 @@ export class LedgerService {
 
         const desc = description || `Payment Voucher Paid: ${pvNumber} (Payee: ${payeeName})`;
 
-        let debitAccountCode = 'EXP-MISC-5990';
-        let debitAccountName = 'Miscellaneous Expenses';
-        
-        if (type.toUpperCase() === 'CONTRACTOR') {
-            debitAccountCode = 'AP-VEND-2010';
-            debitAccountName = 'Accounts Payable - Contractors/Vendors';
-        }
+        // Contractor PVs settle the vendor payable; other PVs hit G&A expense.
+        const debitAccountCode = type.toUpperCase() === 'CONTRACTOR'
+            ? ACCOUNTS.AP_VENDOR
+            : ACCOUNTS.PETTY_CASH_EXPENSE;
 
-        return await tx.journalEntry.create({
-            data: {
-                referenceId: pvId,
-                referenceType: 'PV_PAYMENT',
-                description: desc,
-                lines: {
-                    create: [
-                        {
-                            accountCode: debitAccountCode,
-                            accountName: debitAccountName,
-                            debit: amount,
-                            credit: 0,
-                            description: `Payment release to ${payeeName}`
-                        },
-                        {
-                            accountCode: 'BANK-1000',
-                            accountName: 'Main Corporate Bank Account',
-                            debit: 0,
-                            credit: amount,
-                            description: `Disbursement for PV ${pvNumber}`
-                        }
-                    ]
+        return await this.postTransaction(tx, {
+            referenceId: pvId,
+            referenceType: 'PV_PAYMENT',
+            description: desc,
+            lines: [
+                {
+                    accountCode: debitAccountCode,
+                    debit: amount,
+                    credit: 0,
+                    description: `Payment release to ${payeeName}`
+                },
+                {
+                    accountCode: ACCOUNTS.BANK,
+                    debit: 0,
+                    credit: amount,
+                    description: `Disbursement for PV ${pvNumber}`
                 }
-            }
+            ]
         });
     }
 

@@ -499,7 +499,7 @@
 * **Class**: `TaxService`
   * **Methods**:
     * `logInvoiceTaxPosting(tx: TransactionClient, payload: InvoiceTaxPostingPayload): any`
-    * `getVatReturn(fromDate?: Date, toDate?: Date): Promise<VatReturnReport>`
+    * `getVatReturnReport(fromDate?: Date, toDate?: Date): Promise<VatReturnReport>`
     * `getWhtRegister(fromDate?: Date, toDate?: Date): Promise<WhtRegisterReport>`
 
 ### [gis-ai.service.ts](src/services/gis/gis-ai.service.ts)

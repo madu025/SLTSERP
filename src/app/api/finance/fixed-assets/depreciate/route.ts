@@ -13,7 +13,7 @@ export const POST = apiHandler(async (req) => {
         throw AppError.badRequest('year and month are required for depreciation run');
     }
 
-    const userId = (req as Request & { user?: { id?: string } }).user?.id;
+    const userId = req.headers.get('x-user-id') || (req as Request & { user?: { id?: string } }).user?.id || undefined;
 
     const result = await prisma.$transaction(async (tx) => {
         return await FixedAssetService.runMonthlyDepreciation(
