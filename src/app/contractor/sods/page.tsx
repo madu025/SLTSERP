@@ -21,6 +21,17 @@ interface MaterialUsageItem {
     };
 }
 
+interface QCNotification {
+    id: string;
+    title: string;
+    message: string;
+    severity: 'CRITICAL' | 'WARNING' | 'INFO';
+    isRead: boolean;
+    createdAt: string;
+    soNum?: string;
+    teamName?: string;
+}
+
 interface SOD {
     id: string;
     soNum: string;
@@ -34,7 +45,7 @@ interface SOD {
     returnReason?: string | null;
     comments?: string | null;
     qcStatus?: string | null;
-    qcDefects?: any;
+    qcDefects?: string[];
     qcComment?: string | null;
     team?: { id: string; name: string; sltCode?: string | null } | null;
     iptvSerials?: { serialNumber: string }[];
@@ -196,8 +207,17 @@ export default function ContractorSODsPage() {
         }
     });
 
+    const [dropWireError, setDropWireError] = useState('');
+
     const handleSaveMaterials = () => {
         if (!selectedSOD) return;
+
+        // Validate drop wire distance
+        if (!dropWireMeters || dropWireMeters <= 0) {
+            setDropWireError('Drop wire distance must be greater than 0 meters.');
+            return;
+        }
+        setDropWireError('');
 
         // Resolve drop wire and ONT item IDs dynamically from van stock catalog
         const stockItems = stockData?.stockItems || [];
@@ -809,9 +829,19 @@ export default function ContractorSODsPage() {
                                     type="number"
                                     placeholder="Enter distance in meters (e.g. 45)"
                                     value={dropWireMeters || ''}
-                                    onChange={(e) => setDropWireMeters(Number(e.target.value))}
-                                    className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-blue-500 text-xs font-mono"
+                                    onChange={(e) => {
+                                        setDropWireMeters(Number(e.target.value));
+                                        if (Number(e.target.value) > 0) setDropWireError('');
+                                    }}
+                                    className={`w-full h-10 px-3 bg-slate-950 border rounded-xl text-slate-200 focus:outline-none text-xs font-mono transition-colors ${
+                                        dropWireError ? 'border-red-500 focus:border-red-400' : 'border-slate-800 focus:border-blue-500'
+                                    }`}
                                 />
+                                {dropWireError && (
+                                    <p className="text-[10px] text-red-400 mt-1 font-bold flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" /> {dropWireError}
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -896,7 +926,7 @@ export default function ContractorSODsPage() {
 
                     <div className="max-h-80 overflow-y-auto space-y-2.5 pr-1">
                         {notificationData?.notifications && notificationData.notifications.length > 0 ? (
-                            notificationData.notifications.map((notif: any) => (
+                            notificationData.notifications.map((notif: QCNotification) => (
                                 <div 
                                     key={notif.id} 
                                     className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${

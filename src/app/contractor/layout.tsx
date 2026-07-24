@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import RoleGuard from '@/components/RoleGuard';
@@ -11,7 +11,8 @@ import {
     Banknote, 
     LogOut,
     Truck,
-    Wifi
+    Wifi,
+    Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -26,6 +27,29 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
     const router = useRouter();
     const [user, setUser] = useState<{ name?: string; role?: string } | null>(null);
     const [contractorDetails, setContractorDetails] = useState<{ name?: string; registrationNumber?: string } | null>(null);
+    const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+    const buildHeaders = useCallback((): Record<string, string> => {
+        const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
+        const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
+
+        const headers: Record<string, string> = {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        };
+        if (contractorToken) {
+            headers['Authorization'] = `Bearer ${contractorToken}`;
+        }
+        if (contractorUser) {
+            try {
+                const u = JSON.parse(contractorUser) as { id?: string; role?: string; contractorId?: string };
+                if (u.id) headers['x-user-id'] = u.id;
+                if (u.role) headers['x-user-role'] = u.role;
+                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
+            } catch {}
+        }
+        return headers;
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -39,24 +63,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             }
         }, 0);
 
-        const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
-        const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
-
-        const headers: Record<string, string> = {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-        };
-        if (contractorToken) {
-            headers['Authorization'] = `Bearer ${contractorToken}`;
-        }
-        if (contractorUser) {
-            try {
-                const u = JSON.parse(contractorUser);
-                if (u.id) headers['x-user-id'] = u.id;
-                if (u.role) headers['x-user-role'] = u.role;
-                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
-            } catch {}
-        }
+        const headers = buildHeaders();
 
         fetch(`/api/contractor-portal/dashboard?_t=${Date.now()}`, { headers })
             .then(res => res.json())
@@ -67,8 +74,25 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             })
             .catch(() => {});
 
-        return () => clearTimeout(timer);
-    }, []);
+        // Poll unread notification count every 20s
+        const pollNotif = () => {
+            fetch(`/api/contractor-portal/notifications?unreadOnly=true&_t=${Date.now()}`, { headers })
+                .then(res => res.ok ? res.json() : null)
+                .then(json => {
+                    if (json?.data?.unreadCount !== undefined) {
+                        setUnreadNotifCount(json.data.unreadCount);
+                    }
+                })
+                .catch(() => {});
+        };
+        pollNotif();
+        const notifInterval = setInterval(pollNotif, 20000);
+
+        return () => {
+            clearTimeout(timer);
+            clearInterval(notifInterval);
+        };
+    }, [buildHeaders]);
 
     const handleLogout = () => {
         localStorage.removeItem('contractor_user');
@@ -76,8 +100,8 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             try {
-                const parsed = JSON.parse(storedUser);
-                if (['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(parsed.role)) {
+                const parsed = JSON.parse(storedUser) as { role?: string };
+                if (parsed.role && ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(parsed.role)) {
                     localStorage.removeItem('user');
                     localStorage.removeItem('token');
                 }
@@ -87,9 +111,9 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
         router.push('/contractor/login');
     };
 
-    const displayName = contractorDetails?.name || 
-        (user?.role?.includes('CONTRACTOR') ? user.name : null) || 
-        'MAS Rukshan';
+    const displayName = contractorDetails?.name ||
+        (user?.role?.includes('CONTRACTOR') ? user?.name : null) ||
+        'Contractor';
 
     const navItems = [
         {
@@ -124,7 +148,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
     }
 
     return (
-        <RoleGuard 
+        <RoleGuard
             allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER']}
             fallbackLoginPath="/contractor/login"
         >
@@ -146,22 +170,36 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                                 </span>
                             </div>
                             <p className="text-[10px] text-amber-400 font-mono font-bold leading-tight mt-0.5">
-                                {contractorDetails?.registrationNumber || 'SLTS/OSP/2025/2026-045'}
+                                {contractorDetails?.registrationNumber || 'SLTS/OSP/CONTRACTOR'}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-[10px] font-bold text-slate-300">
+                    <div className="flex items-center gap-2.5">
+                        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-[10px] font-bold text-slate-300">
                             <Wifi className="w-3 h-3 text-emerald-400" />
-                            <span className="hidden sm:inline">PWA ONLINE</span>
+                            <span>PWA ONLINE</span>
                         </div>
+
+                        {/* Global Notification Bell */}
+                        <Link
+                            href="/contractor/sods"
+                            className="relative p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all cursor-pointer"
+                            title="QC Defect Notifications"
+                        >
+                            <Bell className="w-4 h-4" />
+                            {unreadNotifCount > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                                </span>
+                            )}
+                        </Link>
 
                         <div className="h-7 w-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-[11px] font-black uppercase">
                             {displayName.charAt(0)}
                         </div>
 
-                        <button 
+                        <button
                             onClick={handleLogout}
                             className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
                             title="Sign Out"
@@ -176,7 +214,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                     {children}
                 </main>
 
-                {/* Native Bottom Navigation Bar */}
+                {/* Native Bottom Navigation Bar with animated active indicator */}
                 <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/80 z-50 flex items-center justify-around h-16 px-2 shadow-2xl safe-area-bottom">
                     {navItems.map((item) => {
                         const Icon = item.icon;
@@ -186,14 +224,18 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                                 key={item.path}
                                 href={item.path}
                                 className={cn(
-                                    "flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 gap-1 min-w-[64px] active:scale-95 cursor-pointer",
-                                    isActive 
-                                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 font-black shadow-inner" 
+                                    "flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all duration-200 gap-0.5 min-w-[60px] active:scale-95 cursor-pointer relative",
+                                    isActive
+                                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 font-black shadow-inner"
                                         : "text-slate-400 hover:text-slate-200"
                                 )}
                             >
-                                <Icon className={cn("w-4 h-4 transition-transform", isActive ? "scale-110 text-amber-400" : "text-slate-400")} />
-                                <span className="text-[10px] font-bold tracking-tight">{item.title}</span>
+                                <Icon className={cn("w-4 h-4 transition-transform duration-200", isActive ? "scale-110 text-amber-400" : "text-slate-400")} />
+                                <span className="text-[9px] font-bold tracking-tight leading-tight text-center">{item.title}</span>
+                                {/* Active tab animated dot indicator */}
+                                {isActive && (
+                                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-amber-400" />
+                                )}
                             </Link>
                         );
                     })}

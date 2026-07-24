@@ -30,10 +30,10 @@ export const GET = apiHandler(async (req) => {
         }
     }
 
-    // Fallback: If no contractorId from token, find Rukshan contractor for testing
+    // Fallback: If no contractorId from token, find first ACTIVE contractor
     if (!contractorId) {
         const defaultContractor = await prisma.contractor.findFirst({
-            where: { name: { contains: 'Rukshan', mode: 'insensitive' } }
+            where: { status: 'ACTIVE' }
         });
         contractorId = defaultContractor?.id;
     }

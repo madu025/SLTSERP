@@ -159,15 +159,8 @@ export default function ContractorInventoryPage() {
         refetchInterval: 5000,
     });
 
-    // Filter Stock Items for 30-40+ Catalog Items
-    const rawStockItems = stockData?.stockItems || [
-        { id: '1', quantity: 305, item: { code: 'OSP-NC-ACC-DWRETNER', name: 'Drop Wire 2-Core (Meters)', unit: 'Meters', category: 'CONSUMABLE' } },
-        { id: '2', quantity: 7, item: { code: 'OSP-CPE-ONT', name: 'ZTE FTTH ONT Router', unit: 'Pcs', category: 'EQUIPMENT' } },
-        { id: '3', quantity: 35, item: { code: 'OSP-CON-FAC', name: 'Fiber Fast Connectors', unit: 'Pcs', category: 'CONSUMABLE' } },
-        { id: '4', quantity: 120, item: { code: 'OSP-ACC-RET', name: 'Drop Wire Tension Clamps', unit: 'Pcs', category: 'ACCESSORIES' } },
-        { id: '5', quantity: 50, item: { code: 'OSP-ACC-ANCH', name: 'Pole Anchors & Straps', unit: 'Pcs', category: 'ACCESSORIES' } },
-        { id: '6', quantity: 15, item: { code: 'OSP-CPE-ROSET', name: 'FTTH Rosette Outlet Boxes', unit: 'Pcs', category: 'EQUIPMENT' } },
-    ];
+    // Real stock items from API only — no hardcoded fallbacks
+    const rawStockItems: StockItemRecord[] = stockData?.stockItems || [];
 
     const filteredStockItems = rawStockItems.filter((s: StockItemRecord) => {
         const matchesSearch = (s.item.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -345,7 +338,13 @@ export default function ContractorInventoryPage() {
 
                     {/* Scrollable Container for 30-40 Items */}
                     <div className="max-h-[420px] overflow-y-auto pr-1">
-                        {filteredStockItems.length === 0 ? (
+                        {rawStockItems.length === 0 ? (
+                            <div className="py-12 text-center space-y-2">
+                                <Package className="w-10 h-10 mx-auto text-slate-700 opacity-60" />
+                                <p className="text-xs font-bold text-slate-300">No Stock Dispatched Yet</p>
+                                <p className="text-[11px] text-slate-500">Stock will appear once the store issues materials to your team.</p>
+                            </div>
+                        ) : filteredStockItems.length === 0 ? (
                             <div className="py-12 text-center text-xs text-slate-500">No material items match &quot;{searchTerm}&quot;</div>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

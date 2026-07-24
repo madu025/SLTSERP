@@ -19,7 +19,7 @@ export const GET = apiHandler(async (req: Request) => {
 
     if (!contractorId) {
         const activeContractor = await prisma.contractor.findFirst({
-            where: { name: { contains: 'Rukshan', mode: 'insensitive' } },
+            where: { status: 'ACTIVE' },
             select: { id: true }
         });
         contractorId = activeContractor?.id || null;

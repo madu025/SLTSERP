@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Truck, Lock, User, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Truck, Lock, User, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ContractorLoginPage() {
@@ -11,6 +11,7 @@ export default function ContractorLoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -103,12 +104,20 @@ export default function ContractorLoginPage() {
                         <div className="relative">
                             <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
-                                type="password"
+                                type={showPassword ? 'text' : 'password'}
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full h-11 pl-10 pr-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500 font-mono transition-colors"
+                                className="w-full h-11 pl-10 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500 font-mono transition-colors"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(p => !p)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-amber-400 transition-colors cursor-pointer"
+                                tabIndex={-1}
+                            >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
                     </div>
 

@@ -910,6 +910,11 @@
   * **Methods**:
     * `auditContractorConsumableLeakage(contractorId: string): Promise<ConsumableLeakageSummary>`
 
+### [contractor-inventory.service.ts](src/services/inventory/contractor-inventory.service.ts)
+* **Class**: `ContractorInventoryService`
+  * **Methods**:
+    * `getTeamWiseMaterialBalance(params: TeamMaterialBalanceParams): any`
+
 ### [cycle-count.service.ts](src/services/inventory/cycle-count.service.ts)
 * **Class**: `CycleCountService`
   * **Methods**:
@@ -2092,6 +2097,19 @@
     * `getProjectTypes(): any`
     * `createProjectType(name: string, description?: string): any`
 
+### [qc-inspection.service.ts](src/services/qc/qc-inspection.service.ts)
+* **Class**: `QCInspectionService`
+  * **Methods**:
+    * `submitQCInspection(data: QCInspectionInput): any`
+    * `getQCNotifications(params: {
+        contractorId?: string;
+        teamId?: string;
+        unreadOnly?: boolean;
+        page?: number;
+        limit?: number;
+    }): any`
+    * `markNotificationAsRead(id: string): any`
+
 ### [qfieldcloud-sync.service.ts](src/services/qfieldcloud-sync.service.ts)
 * **Class**: `QFieldCloudSyncService`
   * **Methods**:
@@ -2197,6 +2215,7 @@
         contractorId: string;
         search?: string;
         sltsStatus?: string;
+        teamId?: string;
         page?: number;
         limit?: number;
     }): any`
@@ -2306,6 +2325,7 @@
         contractorId: string;
         search?: string;
         sltsStatus?: string;
+        teamId?: string;
         page?: number;
         limit?: number;
     }): any`
@@ -2561,6 +2581,7 @@
 | `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `DELETE` |
 | `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
+| `/api/admin/qc/inspect` | [route.ts](src/app/api/admin/qc/inspect/route.ts) | `POST` |
 | `/api/admin/rate-matrix` | [route.ts](src/app/api/admin/rate-matrix/route.ts) | `GET`, `PUT` |
 | `/api/admin/reports/dynamic` | [route.ts](src/app/api/admin/reports/dynamic/route.ts) | `POST` |
 | `/api/admin/sections` | [route.ts](src/app/api/admin/sections/route.ts) | `GET`, `POST` |
@@ -2598,13 +2619,15 @@
 | `/api/banks/[bankId]/branches/[branchId]` | [route.ts](src/app/api/banks/[bankId]/branches/[branchId]/route.ts) | `PUT`, `DELETE` |
 | `/api/banks/[bankId]` | [route.ts](src/app/api/banks/[bankId]/route.ts) | `PUT`, `DELETE` |
 | `/api/branches` | [route.ts](src/app/api/branches/route.ts) | `GET` |
+| `/api/contractor-portal/auth/login` | [route.ts](src/app/api/contractor-portal/auth/login/route.ts) | `POST` |
 | `/api/contractor-portal/dashboard` | [route.ts](src/app/api/contractor-portal/dashboard/route.ts) | `GET` |
 | `/api/contractor-portal/finance` | [route.ts](src/app/api/contractor-portal/finance/route.ts) | `GET` |
 | `/api/contractor-portal/issues` | [route.ts](src/app/api/contractor-portal/issues/route.ts) | `GET` |
 | `/api/contractor-portal/issues/[id]/accept` | [route.ts](src/app/api/contractor-portal/issues/[id]/accept/route.ts) | `POST` |
+| `/api/contractor-portal/notifications` | [route.ts](src/app/api/contractor-portal/notifications/route.ts) | `GET`, `PATCH` |
 | `/api/contractor-portal/returns` | [route.ts](src/app/api/contractor-portal/returns/route.ts) | `GET`, `POST` |
 | `/api/contractor-portal/returns/[id]/accept` | [route.ts](src/app/api/contractor-portal/returns/[id]/accept/route.ts) | `POST` |
-| `/api/contractor-portal/sods` | [route.ts](src/app/api/contractor-portal/sods/route.ts) | `GET` |
+| `/api/contractor-portal/sods` | [route.ts](src/app/api/contractor-portal/sods/route.ts) | `GET`, `PATCH` |
 | `/api/contractor-portal/stock` | [route.ts](src/app/api/contractor-portal/stock/route.ts) | `GET` |
 | `/api/contractors/balance-sheet/generate` | [route.ts](src/app/api/contractors/balance-sheet/generate/route.ts) | `POST` |
 | `/api/contractors/balance-sheet/preview` | [route.ts](src/app/api/contractors/balance-sheet/preview/route.ts) | `GET` |
@@ -5698,6 +5721,10 @@
   * `teamId: String?`
   * `isManualEntry: Boolean` `[@default(false)]`
   * `isLegacyImport: Boolean` `[@default(false)]`
+  * `qcStatus: String?` `[@default("PENDING_QC")]`
+  * `qcDefects: Json?`
+  * `qcComment: String?`
+  * `qcInspectedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `projectInvoiceId: String?`
@@ -6659,6 +6686,18 @@
   * `resolvedAt: DateTime?`
   * `resolvedBy: String?`
   * `metadata: Json?`
+  * `createdAt: DateTime` `[@default(now())]`
+
+### [QCNotification](prisma/schema/system.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `soNum: String`
+  * `contractorId: String?`
+  * `teamId: String?`
+  * `title: String`
+  * `message: String`
+  * `severity: String` `[@default("WARNING") // WARNING, CRITICAL, INFO]`
+  * `isRead: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
 
 ### [User](prisma/schema/user.prisma)

@@ -84,80 +84,91 @@ export default function ContractorDashboardPage() {
 
     const teams: ContractorTeam[] = dashboardPayload?.teams || [];
     const stats = dashboardPayload?.stats || {};
+    const contractorDetails = dashboardPayload?.contractor || {};
 
     return (
         <div className="space-y-5 pb-6">
-            {/* Quick Action Top Bar */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 md:p-5 rounded-2xl border border-slate-800 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold shrink-0">
-                        <Truck className="w-5 h-5" />
-                    </div>
+            {/* Personalized Greeting Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 md:p-5 rounded-2xl border border-slate-800 shadow-xl">
+                <div className="flex items-center justify-between">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-sm font-black text-white uppercase tracking-wider">Field Operations Center</h2>
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
-                                SYSTEM ONLINE
-                            </Badge>
+                        <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-0.5">
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Dual-custody van stock, material issue notes & field SODs</p>
+                        <h2 className="text-lg font-black text-white">
+                            {new Date().getHours() < 12 ? '☀️' : new Date().getHours() < 17 ? '🌤️' : '🌙'} Hello, {(contractorDetails?.name || 'Contractor').split(' ')[0]}!
+                        </h2>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Dual-custody van stock, material issue notes &amp; field SODs</p>
                     </div>
-                </div>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Link href="/contractor/inventory" className="flex-1 sm:flex-none">
-                        <Button className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold h-9 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-amber-950/40">
-                            <Package className="w-3.5 h-3.5" />
-                            Accept Dispatches
-                        </Button>
-                    </Link>
-                    <Link href="/contractor/sods" className="flex-1 sm:flex-none">
-                        <Button variant="outline" className="w-full bg-slate-800/80 hover:bg-slate-800 text-slate-200 border-slate-700 text-xs font-bold h-9 px-4 rounded-xl flex items-center justify-center gap-1.5">
-                            <ClipboardList className="w-3.5 h-3.5 text-blue-400" />
-                            Log Field SOD
-                        </Button>
-                    </Link>
+                    <div className="flex flex-col items-end gap-2">
+                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
+                            SYSTEM ONLINE
+                        </Badge>
+                        <div className="flex items-center gap-2">
+                            <Link href="/contractor/inventory">
+                                <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold h-8 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-amber-950/40">
+                                    <Package className="w-3 h-3" />
+                                    Stock
+                                </Button>
+                            </Link>
+                            <Link href="/contractor/sods">
+                                <Button variant="outline" className="bg-slate-800/80 hover:bg-slate-800 text-slate-200 border-slate-700 text-xs font-bold h-8 px-3 rounded-xl flex items-center justify-center gap-1.5">
+                                    <ClipboardList className="w-3 h-3 text-blue-400" />
+                                    SODs
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* 4 Performance Metrics Grid */}
+            {/* 4 Performance Metrics Grid with micro-progress bars */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card className="bg-slate-900/90 border-slate-800/90 shadow-lg">
                     <CardHeader className="p-3 pb-1">
                         <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                            <span>Drop Wire Stock</span>
+                            <span>Drop Wire</span>
                             <Layers className="w-3.5 h-3.5 text-amber-400" />
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-3 pt-0">
-                        <div className="text-xl font-black text-white font-mono">{isLoading ? '...' : (stats.dropWireMeters ?? 450)} m</div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Available in Van</p>
+                        <div className="text-xl font-black text-white font-mono">{isLoading ? '—' : (stats.dropWireMeters ?? 0)} m</div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 mb-1.5">Available in Van</p>
+                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((stats.dropWireMeters ?? 0) / 500) * 100)}%` }} />
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-slate-900/90 border-slate-800/90 shadow-lg">
                     <CardHeader className="p-3 pb-1">
                         <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                            <span>ONTs Available</span>
+                            <span>ONTs</span>
                             <Package className="w-3.5 h-3.5 text-blue-400" />
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-3 pt-0">
-                        <div className="text-xl font-black text-blue-400 font-mono">{isLoading ? '...' : (stats.ontCount ?? 12)} pcs</div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Serial Registered</p>
+                        <div className="text-xl font-black text-blue-400 font-mono">{isLoading ? '—' : (stats.ontCount ?? 0)} pcs</div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 mb-1.5">Serial Registered</p>
+                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((stats.ontCount ?? 0) / 20) * 100)}%` }} />
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-slate-900/90 border-slate-800/90 shadow-lg">
                     <CardHeader className="p-3 pb-1">
                         <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                            <span>FAC Connectors</span>
+                            <span>FAC Stock</span>
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-3 pt-0">
-                        <div className="text-xl font-black text-emerald-400 font-mono">{isLoading ? '...' : (stats.facCount ?? 35)} pcs</div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Fast Connectors</p>
+                        <div className="text-xl font-black text-emerald-400 font-mono">{isLoading ? '—' : (stats.facCount ?? 0)} pcs</div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 mb-1.5">Fast Connectors</p>
+                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((stats.facCount ?? 0) / 50) * 100)}%` }} />
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -169,8 +180,11 @@ export default function ContractorDashboardPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-3 pt-0">
-                        <div className="text-xl font-black text-rose-400 font-mono">{isLoading ? '...' : (stats.pendingAcceptances ?? 0)}</div>
-                        <p className="text-[10px] text-rose-400/90 font-bold mt-0.5">Requires Sign-off</p>
+                        <div className="text-xl font-black text-rose-400 font-mono">{isLoading ? '—' : (stats.pendingAcceptances ?? 0)}</div>
+                        <p className="text-[10px] text-rose-400/90 font-bold mt-0.5 mb-1.5">Requires Sign-off</p>
+                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-rose-500 rounded-full" style={{ width: (stats.pendingAcceptances ?? 0) > 0 ? '100%' : '0%' }} />
+                        </div>
                     </CardContent>
                 </Card>
             </div>
