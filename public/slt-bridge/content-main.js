@@ -1,14 +1,14 @@
 /**
- * SLT-ERP PHOENIX ELITE v4.4.0
+ * SLT-ERP PHOENIX ELITE v4.5.0
  * World: MAIN
  * Role: ERP Smart Injector
  */
 
-console.log('%c[i-SHAMP-INJECTOR] Engaged', 'color: #3b82f6; font-weight: bold;');
+console.log('%c[i-SHAMP-INJECTOR] v4.5.0 Engaged', 'color: #3b82f6; font-weight: bold;');
 
-// 1. Identity Verification (v4.4.3)
+// 1. Identity Verification (v4.5.0)
 (function () {
-    const version = "4.4.3";
+    const version = "4.5.0";
 
     // Set identity attributes for ERP UI
     document.documentElement.setAttribute('data-ishamp-bridge', 'active');

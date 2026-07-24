@@ -1,11 +1,11 @@
 /**
- * SLT-ERP i-SHAMP BRIDGE v4.4.0
+ * SLT-ERP i-SHAMP BRIDGE v4.5.0
  * World: ISOLATED
  * Role: ERP Identity & Bridge
  */
 
 (function () {
-    const version = "4.4.2";
+    const version = "4.5.0";
 
     // Set identity for ERP website to detect the extension
     document.documentElement.setAttribute('data-ishamp-bridge', 'active');
