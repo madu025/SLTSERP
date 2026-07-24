@@ -4,8 +4,8 @@ self.addEventListener('push', function (event) {
             const data = event.data.json();
             const options = {
                 body: data.body,
-                icon: data.icon || '/logo5.png',
-                badge: data.badge || '/logo5.png',
+                icon: data.icon || '/logo-icon.png',
+                badge: data.badge || '/logo-icon.png',
                 vibrate: data.vibrate || [200, 100, 200],
                 data: data.data || {},
                 requireInteraction: data.requireInteraction || false,
@@ -20,7 +20,7 @@ self.addEventListener('push', function (event) {
             event.waitUntil(
                 self.registration.showNotification('SLTSERP Notification', {
                     body: event.data.text(),
-                    icon: '/logo5.png'
+                    icon: '/logo-icon.png'
                 })
             );
         }
