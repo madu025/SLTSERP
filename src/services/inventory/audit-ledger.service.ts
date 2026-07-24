@@ -33,9 +33,66 @@ export class AuditLedgerService {
     }
 
     /**
-     * Record an immutable transaction entry in the Inventory Ledger
+     * Generate Atomic MIN (Material Issue Note) Number: MIN-YYYY-MM-XXXX
      */
-    static async recordEntry(input: CreateLedgerEntryInput) {
+    static async generateMINNumber(tx?: any): Promise<string> {
+        const client = tx || prisma;
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const prefix = `MIN-${year}-${month}-`;
+
+        const lastIssue = await client.contractorMaterialIssue.findFirst({
+            where: { issueNumber: { startsWith: prefix } },
+            orderBy: { issueNumber: 'desc' },
+            select: { issueNumber: true }
+        });
+
+        let nextSeq = 1;
+        if (lastIssue?.issueNumber) {
+            const parts = lastIssue.issueNumber.split('-');
+            const lastSeq = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(lastSeq)) {
+                nextSeq = lastSeq + 1;
+            }
+        }
+
+        return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+    }
+
+    /**
+     * Generate Atomic MRN (Material Return Note) Number: MRN-YYYY-MM-XXXX
+     */
+    static async generateMRNNumber(tx?: any): Promise<string> {
+        const client = tx || prisma;
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const prefix = `MRN-${year}-${month}-`;
+
+        const lastReturn = await client.contractorMaterialReturn.findFirst({
+            where: { returnNumber: { startsWith: prefix } },
+            orderBy: { returnNumber: 'desc' },
+            select: { returnNumber: true }
+        });
+
+        let nextSeq = 1;
+        if (lastReturn?.returnNumber) {
+            const parts = lastReturn.returnNumber.split('-');
+            const lastSeq = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(lastSeq)) {
+                nextSeq = lastSeq + 1;
+            }
+        }
+
+        return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+    }
+
+    /**
+     * Record an immutable transaction entry in the Inventory Ledger (supports $transaction)
+     */
+    static async recordEntry(input: CreateLedgerEntryInput, tx?: any) {
+        const client = tx || prisma;
         const qtyBefore = new Prisma.Decimal(String(input.quantityBefore));
         const qtyChange = new Prisma.Decimal(String(input.quantityChange));
         const qtyAfter = new Prisma.Decimal(String(input.quantityAfter));
@@ -51,7 +108,7 @@ export class AuditLedgerService {
             nowIso
         );
 
-        return prisma.inventoryLedger.create({
+        return client.inventoryLedger.create({
             data: {
                 storeId: input.storeId,
                 itemId: input.itemId,

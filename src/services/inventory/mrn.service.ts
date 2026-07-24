@@ -4,6 +4,7 @@ import { MRN, Prisma } from '@prisma/client';
 import { NotificationService } from '../notification.service';
 import { emitSystemEvent } from '@/lib/events';
 import { StockService } from './stock.service';
+import { AuditLedgerService } from './audit-ledger.service';
 import { TransactionClient } from './types';
 import { LedgerService } from '../finance/ledger.service';
 
@@ -19,10 +20,11 @@ export class MRNService {
         items: { itemId: string; quantity: string | number; reason?: string }[];
     }): Promise<MRN> {
         const { storeId, returnType, returnTo, supplier, reason, grnId, returnedById, items } = data;
+        const mrnNumber = await AuditLedgerService.generateMRNNumber();
 
         const mrn = await prisma.mRN.create({
             data: {
-                mrnNumber: `MRN-${Date.now()}`,
+                mrnNumber,
                 storeId,
                 returnType,
                 returnTo: returnTo || null,
@@ -142,11 +144,25 @@ export class MRNService {
                     }
 
                     
-                    await (tx as any).inventoryStock.upsert({
+                    const updatedStoreStock = await (tx as any).inventoryStock.upsert({
                         where: { storeId_itemId: { storeId: mrn.storeId, itemId: item.itemId } },
                         update: { quantity: { decrement: item.quantity } },
                         create: { storeId: mrn.storeId, itemId: item.itemId, quantity: -item.quantity }
                     });
+
+                    // Write Immutable Inventory Ledger Entry
+                    const currentQtyAfter = updatedStoreStock?.quantity ? Number(updatedStoreStock.quantity) : 0;
+                    await AuditLedgerService.recordEntry({
+                        storeId: mrn.storeId,
+                        itemId: item.itemId,
+                        transactionType: 'CONTRACTOR_RETURN',
+                        referenceType: 'MRN',
+                        referenceId: mrn.id,
+                        quantityBefore: currentQtyAfter + item.quantity,
+                        quantityChange: -item.quantity,
+                        quantityAfter: currentQtyAfter,
+                        performedById: approvedById
+                    }, tx);
 
                     transactionItems.push({
                         itemId: item.itemId,

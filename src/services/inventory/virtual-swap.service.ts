@@ -147,7 +147,7 @@ export class VirtualSwapService {
             });
 
             const sltsItems = await tx.inventoryItem.findMany({
-                where: { type: 'SLTS', commonName: { in: sltItems.map(i => i.commonName!) } }
+                where: { type: 'SLTS', commonName: { in: sltItems.map((i: { commonName: string | null }) => i.commonName!) } }
             });
 
             const results = {
@@ -168,7 +168,7 @@ export class VirtualSwapService {
             });
 
             for (const cbs of currentBatches) {
-                const targetSltsItem = sltsItems.find(i => i.commonName === cbs.item.commonName);
+                const targetSltsItem = sltsItems.find((i: { commonName: string | null }) => i.commonName === cbs.item.commonName);
                 if (!targetSltsItem) continue;
 
                 const qty = cbs.quantity;

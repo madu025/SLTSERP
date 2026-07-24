@@ -204,7 +204,7 @@ export class ServiceOrderService {
                     include: { materialUsage: true }
                 });
                 const usages = updatedWithUsages?.materialUsage || [];
-                const totalSodMaterialCost = usages.reduce((sum, u) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
+                const totalSodMaterialCost = usages.reduce((sum: number, u: { costPrice: number | Prisma.Decimal; quantity: number | Prisma.Decimal }) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
                 
                 // DR COGS, CR Inventory
                 await LedgerService.logSodConsumption(tx, id, totalSodMaterialCost);

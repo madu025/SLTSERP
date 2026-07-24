@@ -135,7 +135,7 @@ export class LedgerService {
         }
 
         // Swap debits and credits for reversal lines
-        const reversalLines: JournalPostingLineInput[] = original.lines.map((line) => ({
+        const reversalLines: JournalPostingLineInput[] = original.lines.map((line: { accountCode: string; debit: number | string; credit: number | string; description?: string | null }) => ({
             accountCode: line.accountCode,
             debit: Number(line.credit),
             credit: Number(line.debit),

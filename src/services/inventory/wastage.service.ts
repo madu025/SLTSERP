@@ -1,8 +1,8 @@
 import { AppError } from '@/lib/error';
-
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
 import { AuditService } from '../audit.service';
+import { AuditLedgerService } from './audit-ledger.service';
 import { TransactionClient } from './types';
 import { LedgerService } from '../finance/ledger.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
@@ -266,7 +266,7 @@ export class WastageService {
                     where: { id: { in: itemIds } },
                     select: { id: true, costPrice: true, unitPrice: true }
                 });
-                const metaMap = new Map(itemMetas.map(m => [m.id, m]));
+                const metaMap = new Map(itemMetas.map((m: any) => [m.id, m]));
 
                 const availableBatches = await ContractorRepository.findAvailableBatchesBulk(wastage.contractorId, itemIds, tx);
 
@@ -276,7 +276,7 @@ export class WastageService {
                     const qty = StockService.round(item.quantity);
                     if (qty <= 0) continue;
 
-                    const itemMeta = metaMap.get(item.itemId);
+                    const itemMeta: any = metaMap.get(item.itemId);
                     const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
                     totalWastageValue += qty * price;
 
@@ -331,7 +331,7 @@ export class WastageService {
                     where: { id: { in: itemIds } },
                     select: { id: true, costPrice: true, unitPrice: true }
                 });
-                const metaMap = new Map(itemMetas.map(m => [m.id, m]));
+                const metaMap = new Map(itemMetas.map((m: any) => [m.id, m]));
 
                 const availableBatches = await InventoryRepository.findAvailableBatchesBulk(txRecord.storeId, itemIds, tx);
 
@@ -341,7 +341,7 @@ export class WastageService {
                     const qty = StockService.round(Math.abs(item.quantity));
                     if (qty <= 0) continue;
 
-                    const itemMeta = metaMap.get(item.itemId);
+                    const itemMeta: any = metaMap.get(item.itemId);
                     const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
                     totalWastageValue += qty * price;
 

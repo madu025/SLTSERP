@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
 import { StoreService } from './store.service';
+import { AuditLedgerService } from './audit-ledger.service';
 import { emitSystemEvent } from '@/lib/events';
 import { TransactionClient } from './types';
 
@@ -35,17 +36,19 @@ export class IssueService {
         const { contractorId, storeId, month, items, userId } = data;
 
         const execute = async (transaction: TransactionClient) => {
+            // Generate MIN issue number atomically
+            const issueNumber = await AuditLedgerService.generateMINNumber(transaction);
+
             // 1. Create Material Issue
-            
             const materialIssue = await (transaction as any).contractorMaterialIssue.create({
                 data: {
+                    issueNumber,
                     contractorId,
                     storeId,
                     month,
                     issueDate: new Date(),
                     issuedBy: userId || 'SYSTEM',
                     items: {
-                        
                         create: items.map((i: any) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity.toString()),
@@ -96,11 +99,24 @@ export class IssueService {
                 }
 
                 // D. Update Global Store Stock
-                
-                await (transaction as any).inventoryStock.update({
+                const updatedStoreStock = await (transaction as any).inventoryStock.update({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     data: { quantity: { decrement: qty } }
                 });
+
+                // Write Immutable Inventory Ledger Entry
+                const currentQtyAfter = updatedStoreStock?.quantity ? Number(updatedStoreStock.quantity) : 0;
+                await AuditLedgerService.recordEntry({
+                    storeId,
+                    itemId: item.itemId,
+                    transactionType: 'CONTRACTOR_ISSUE',
+                    referenceType: 'ContractorMaterialIssue',
+                    referenceId: materialIssue.id,
+                    quantityBefore: currentQtyAfter + qty,
+                    quantityChange: -qty,
+                    quantityAfter: currentQtyAfter,
+                    performedById: userId || 'SYSTEM'
+                }, transaction);
 
                 // E. Update Contractor Total Stock
                 

@@ -902,7 +902,9 @@
 ### [audit-ledger.service.ts](src/services/inventory/audit-ledger.service.ts)
 * **Class**: `AuditLedgerService`
   * **Methods**:
-    * `recordEntry(input: CreateLedgerEntryInput): any`
+    * `generateMINNumber(tx?: any): Promise<string>`
+    * `generateMRNNumber(tx?: any): Promise<string>`
+    * `recordEntry(input: CreateLedgerEntryInput, tx?: any): any`
     * `verifyLedgerIntegrity(storeId?: string, itemId?: string): any`
 
 ### [consumable-audit.service.ts](src/services/inventory/consumable-audit.service.ts)
@@ -2727,6 +2729,7 @@
 | `/api/helpdesk/tickets/[id]` | [route.ts](src/app/api/helpdesk/tickets/[id]/route.ts) | `GET`, `PUT` |
 | `/api/helpdesk/tickets/[id]/updates` | [route.ts](src/app/api/helpdesk/tickets/[id]/updates/route.ts) | `GET`, `POST` |
 | `/api/inventory/abc` | [route.ts](src/app/api/inventory/abc/route.ts) | `GET` |
+| `/api/inventory/audit-verification` | [route.ts](src/app/api/inventory/audit-verification/route.ts) | `GET` |
 | `/api/inventory/balance-sheet/generate` | [route.ts](src/app/api/inventory/balance-sheet/generate/route.ts) | `POST` |
 | `/api/inventory/balance-sheet` | [route.ts](src/app/api/inventory/balance-sheet/route.ts) | `POST` |
 | `/api/inventory/batches` | [route.ts](src/app/api/inventory/batches/route.ts) | `GET` |

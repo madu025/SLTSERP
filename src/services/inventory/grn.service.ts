@@ -5,6 +5,7 @@ import { NotificationService } from '../notification.service';
 import { emitSystemEvent } from '@/lib/events';
 import { CreateGRNData, TransactionClient } from './types';
 import { StockService } from './stock.service';
+import { AuditLedgerService } from './audit-ledger.service';
 import { LedgerService } from '../finance/ledger.service';
 
 export class GRNService {
@@ -139,7 +140,7 @@ export class GRNService {
 
                 // D. Update Store Stock Total
                 
-                await (tx as any).inventoryStock.upsert({
+                const updatedStoreStock = await (tx as any).inventoryStock.upsert({
                     where: {
                         storeId_itemId: {
                             storeId,
@@ -156,6 +157,22 @@ export class GRNService {
                     }
                 });
 
+                // Write Immutable Inventory Ledger Entry
+                const currentQtyAfter = updatedStoreStock?.quantity ? Number(updatedStoreStock.quantity) : 0;
+                await AuditLedgerService.recordEntry({
+                    storeId,
+                    itemId: item.itemId,
+                    batchId: batch.id,
+                    transactionType: 'GRN_RECEIPT',
+                    referenceType: 'GRN',
+                    referenceId: grn.id,
+                    quantityBefore: currentQtyAfter - qty,
+                    quantityChange: qty,
+                    quantityAfter: currentQtyAfter,
+                    unitPrice: Number(unitPrice),
+                    performedById: receivedById
+                }, tx);
+
                 transactionItems.push({
                     itemId: item.itemId,
                     quantity: qty,
@@ -169,7 +186,7 @@ export class GRNService {
                         const existingSerials = await tx.inventoryItemSerial.findMany({
                             where: { serialNumber: { in: snList } }
                         });
-                        const existingMap = new Map(existingSerials.map(s => [s.serialNumber, s]));
+                        const existingMap = new Map(existingSerials.map((s: any) => [s.serialNumber, s]));
 
                         const toUpdateIds: string[] = [];
                         const toCreateData: Prisma.InventoryItemSerialUncheckedCreateInput[] = [];
@@ -177,7 +194,7 @@ export class GRNService {
                         for (const sn of snList) {
                             const existing = existingMap.get(sn);
                             if (existing) {
-                                toUpdateIds.push(existing.id);
+                                toUpdateIds.push((existing as any).id);
                             } else {
                                 toCreateData.push({
                                     itemId: item.itemId,
