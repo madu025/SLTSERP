@@ -2583,6 +2583,8 @@
 | `/api/contractors/my-finance` | [route.ts](src/app/api/contractors/my-finance/route.ts) | `GET` |
 | `/api/contractors/my-issues` | [route.ts](src/app/api/contractors/my-issues/route.ts) | `GET` |
 | `/api/contractors/my-issues/[id]/accept` | [route.ts](src/app/api/contractors/my-issues/[id]/accept/route.ts) | `POST` |
+| `/api/contractors/my-returns` | [route.ts](src/app/api/contractors/my-returns/route.ts) | `GET`, `POST` |
+| `/api/contractors/my-returns/[id]/accept` | [route.ts](src/app/api/contractors/my-returns/[id]/accept/route.ts) | `POST` |
 | `/api/contractors/my-sods` | [route.ts](src/app/api/contractors/my-sods/route.ts) | `GET` |
 | `/api/contractors/my-stock` | [route.ts](src/app/api/contractors/my-stock/route.ts) | `GET` |
 | `/api/contractors/public` | [route.ts](src/app/api/contractors/public/route.ts) | `GET`, `POST` |
@@ -6129,6 +6131,7 @@
 ### [ContractorMaterialReturn](prisma/schema/stock-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
+  * `returnNumber: String?`
   * `contractorId: String`
   * `storeId: String`
   * `serviceOrderId: String?`
@@ -6150,6 +6153,7 @@
   * `returnId: String`
   * `itemId: String`
   * `quantity: Float`
+  * `acceptedQuantity: Float?`
   * `unit: String`
   * `condition: String` `[@default("GOOD")]`
   * `item: InventoryItem` `[@relation("ReturnItems", fields: [itemId], references: [id])]`

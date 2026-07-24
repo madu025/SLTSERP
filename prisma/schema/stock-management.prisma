@@ -211,6 +211,7 @@ model ContractorMaterialIssueItem {
 
 model ContractorMaterialReturn {
   id             String                         @id @default(cuid())
+  returnNumber   String?
   contractorId   String
   storeId        String
   serviceOrderId String?
@@ -232,14 +233,15 @@ model ContractorMaterialReturn {
 }
 
 model ContractorMaterialReturnItem {
-  id        String                   @id @default(cuid())
-  returnId  String
-  itemId    String
-  quantity  Float
-  unit      String
-  condition String                   @default("GOOD")
-  item      InventoryItem            @relation("ReturnItems", fields: [itemId], references: [id])
-  return    ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  id               String                   @id @default(cuid())
+  returnId         String
+  itemId           String
+  quantity         Float
+  acceptedQuantity Float?
+  unit             String
+  condition        String                   @default("GOOD")
+  item             InventoryItem            @relation("ReturnItems", fields: [itemId], references: [id])
+  return           ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
   @@index([returnId])
   @@index([itemId])

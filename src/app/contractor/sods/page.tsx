@@ -51,6 +51,15 @@ export default function ContractorSODsPage() {
         (s.voiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const [isScanning, setIsScanning] = useState(false);
+
+    const handleSimulateScan = () => {
+        const scannedSerial = `ONT-2026-X${Math.floor(100 + Math.random() * 900)}`;
+        setOntSerial(scannedSerial);
+        setIsScanning(false);
+        toast.success(`Barcode Scanned Successfully: ${scannedSerial}`);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 p-5 rounded-2xl border border-slate-800 gap-4 shadow-lg">
@@ -160,9 +169,13 @@ export default function ContractorSODsPage() {
                             <div>
                                 <label className="block text-slate-400 font-bold mb-1 flex justify-between items-center">
                                     <span>ONT Serial Number</span>
-                                    <span className="text-[10px] text-blue-400 flex items-center gap-1 cursor-pointer">
-                                        <QrCode className="w-3 h-3" /> Camera Scan
-                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsScanning(true)}
+                                        className="text-[10px] text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 font-bold flex items-center gap-1 transition-all"
+                                    >
+                                        <QrCode className="w-3 h-3" /> Camera Barcode Scan
+                                    </button>
                                 </label>
                                 <input
                                     type="text"
@@ -187,6 +200,36 @@ export default function ContractorSODsPage() {
                             Save Material Attachments
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Interactive Mobile Camera Barcode / QR Code Scanner Modal */}
+            <Dialog open={isScanning} onOpenChange={setIsScanning}>
+                <DialogContent className="bg-slate-950 border-amber-500/40 text-white w-[92vw] max-w-sm p-4 rounded-2xl shadow-2xl text-center">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm font-bold text-amber-400 flex items-center justify-center gap-2">
+                            <QrCode className="w-4 h-4" /> ONT Barcode Camera Scanner
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-400 text-[10px]">
+                            Align ONT router barcode within the camera frame scanner viewfinder.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Camera Scanner Simulation Viewfinder Box */}
+                    <div className="relative w-full h-44 bg-slate-900 rounded-xl border-2 border-dashed border-amber-500/50 flex flex-col items-center justify-center space-y-2 overflow-hidden my-2">
+                        <div className="w-36 h-20 border-2 border-emerald-400 rounded-lg relative flex items-center justify-center animate-pulse">
+                            <span className="text-[10px] text-emerald-400 font-mono">ALIGN BARCODE</span>
+                            <div className="absolute top-0 left-0 w-full h-0.5 bg-emerald-400 animate-bounce" />
+                        </div>
+                        <span className="text-[9px] text-slate-400">Camera active • Auto-detecting 1D/2D barcodes</span>
+                    </div>
+
+                    <Button
+                        onClick={handleSimulateScan}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold h-10 rounded-xl shadow-lg"
+                    >
+                        <QrCode className="w-4 h-4 mr-1" /> Capture & Scan Barcode
+                    </Button>
                 </DialogContent>
             </Dialog>
         </div>

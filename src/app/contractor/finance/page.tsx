@@ -1,14 +1,18 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Banknote, ShieldCheck, FileCheck2, Clock, ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Banknote, ShieldCheck, FileCheck2, Clock, Printer } from "lucide-react";
 import { cn } from '@/lib/utils';
 
 export default function ContractorFinancePage() {
+    const [selectedClaim, setSelectedClaim] = useState<any | null>(null);
+
     // Fetch contractor invoice & payment claims summary
-    const { data: claimsData, isLoading } = useQuery({
+    const { data: claimsData } = useQuery({
         queryKey: ['contractor-finance-claims'],
         queryFn: async () => {
             const res = await fetch(`/api/contractors/my-finance?_t=${Date.now()}`);
@@ -18,9 +22,9 @@ export default function ContractorFinancePage() {
                 retentionHeldLkr: 72500,
                 pendingVouchersCount: 2,
                 claims: [
-                    { id: '1', month: 'July 2026', claimNumber: 'CLM-2026-07', sodCount: 28, amountLkr: 450000, status: 'AUDITED' },
-                    { id: '2', month: 'June 2026', claimNumber: 'CLM-2026-06', sodCount: 35, amountLkr: 520000, status: 'PAID' },
-                    { id: '3', month: 'May 2026', claimNumber: 'CLM-2026-05', sodCount: 30, amountLkr: 480000, status: 'PAID' },
+                    { id: '1', month: 'July 2026', claimNumber: 'CLM-2026-07', sodCount: 28, amountLkr: 450000, status: 'AUDITED', grossLkr: 450000, retentionLkr: 22500, netLkr: 427500 },
+                    { id: '2', month: 'June 2026', claimNumber: 'CLM-2026-06', sodCount: 35, amountLkr: 520000, status: 'PAID', grossLkr: 520000, retentionLkr: 26000, netLkr: 494000 },
+                    { id: '3', month: 'May 2026', claimNumber: 'CLM-2026-05', sodCount: 30, amountLkr: 480000, status: 'PAID', grossLkr: 480000, retentionLkr: 24000, netLkr: 456000 },
                 ]
             };
             const json = await res.json();
@@ -30,14 +34,11 @@ export default function ContractorFinancePage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 p-5 rounded-2xl border border-slate-800 gap-4 shadow-lg">
-                <div>
-                    <h1 className="text-xl font-black text-white flex items-center gap-2">
-                        <Banknote className="w-5 h-5 text-emerald-400" />
-                        Invoice Claims, Payments & Retention Status
-                    </h1>
-                    <p className="text-xs text-slate-400 mt-1">Track monthly work claims, payment vouchers, 5% retention guarantee funds, and penalty deductions.</p>
-                </div>
+            <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md">
+                <h1 className="text-base font-bold text-white flex items-center gap-2">
+                    <Banknote className="w-4 h-4 text-emerald-400" />
+                    Invoice Claims & Payment Vouchers
+                </h1>
             </div>
 
             {/* Financial Summary Cards */}
@@ -97,22 +98,29 @@ export default function ContractorFinancePage() {
 
             {/* Claims Table */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-lg space-y-3 p-4">
-                <h2 className="text-sm font-black text-white uppercase tracking-wider">Monthly Invoice Claim History</h2>
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Monthly Invoice Claim History</h2>
+                    <span className="text-[10px] text-slate-500 font-mono">Tap any claim to view voucher</span>
+                </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs font-sans">
                         <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase text-[10px] font-black tracking-wider">
                             <tr>
                                 <th className="p-3">Claim Ref</th>
                                 <th className="p-3">Month</th>
-                                <th className="p-3 text-right">Completed SODs</th>
+                                <th className="p-3 text-right">SODs</th>
                                 <th className="p-3 text-right">Claim Amount</th>
                                 <th className="p-3 text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
                             {(claimsData?.claims || []).map((claim: any) => (
-                                <tr key={claim.id} className="hover:bg-slate-900/50 transition-colors">
-                                    <td className="p-3 font-mono font-bold text-emerald-400">{claim.claimNumber}</td>
+                                <tr 
+                                    key={claim.id} 
+                                    onClick={() => setSelectedClaim(claim)}
+                                    className="hover:bg-slate-900/80 transition-colors cursor-pointer group"
+                                >
+                                    <td className="p-3 font-mono font-bold text-emerald-400 group-hover:underline">{claim.claimNumber}</td>
                                     <td className="p-3 font-semibold text-slate-200">{claim.month}</td>
                                     <td className="p-3 text-right font-mono font-bold text-blue-400">{claim.sodCount}</td>
                                     <td className="p-3 text-right font-mono font-black text-white">Rs. {Number(claim.amountLkr).toLocaleString()}</td>
@@ -132,6 +140,74 @@ export default function ContractorFinancePage() {
                     </table>
                 </div>
             </div>
+
+            {/* Contractor Invoice Claim Voucher Modal */}
+            <Dialog open={!!selectedClaim} onOpenChange={() => setSelectedClaim(null)}>
+                <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-slate-800 text-white w-full max-w-[94vw] sm:max-w-md p-4 sm:p-5 rounded-2xl shadow-2xl">
+                    <div className="w-12 h-1 bg-slate-700/60 rounded-full mx-auto mb-1 sm:hidden" />
+                    <DialogHeader className="space-y-1">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                                {selectedClaim?.status || 'AUDITED'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">Invoice Claim Voucher</span>
+                        </div>
+                        <DialogTitle className="text-base font-bold text-amber-400 font-mono tracking-tight pt-1">
+                            {selectedClaim?.claimNumber}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {selectedClaim && (
+                        <div className="space-y-3.5 text-xs">
+                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 font-mono text-[11px]">
+                                <div className="flex justify-between text-slate-400">
+                                    <span>Billing Period:</span>
+                                    <span className="text-white font-bold">{selectedClaim.month}</span>
+                                </div>
+                                <div className="flex justify-between text-slate-400">
+                                    <span>Completed SODs:</span>
+                                    <span className="text-blue-400 font-bold">{selectedClaim.sodCount} Installations</span>
+                                </div>
+                                <hr className="border-slate-800 my-1" />
+                                <div className="flex justify-between text-slate-300">
+                                    <span>Gross Work Value:</span>
+                                    <span className="text-white font-bold">Rs. {Number(selectedClaim.grossLkr || selectedClaim.amountLkr).toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-amber-400">
+                                    <span>Less 5% Retention:</span>
+                                    <span>- Rs. {Number(selectedClaim.retentionLkr || (Number(selectedClaim.amountLkr) * 0.05)).toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-emerald-400 font-bold text-xs pt-1 border-t border-slate-800">
+                                    <span>Net Payable:</span>
+                                    <span>Rs. {Number(selectedClaim.netLkr || (Number(selectedClaim.amountLkr) * 0.95)).toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30 flex items-center justify-between text-[10px] text-emerald-400 font-bold">
+                                <span>🛡️ Audited & Certified for Disbursement</span>
+                                <span className="font-mono text-[9px] text-emerald-500 uppercase">SLTS FINANCIAL APPROVED</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter className="pt-2 flex justify-between gap-2">
+                        <Button
+                            type="button"
+                            onClick={() => window.print()}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold h-10 rounded-xl px-4 flex items-center gap-1.5 shadow-md"
+                        >
+                            <Printer className="w-4 h-4" />
+                            Print / PDF Voucher
+                        </Button>
+                        <Button 
+                            onClick={() => setSelectedClaim(null)} 
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold h-10 rounded-xl border border-slate-700 active:scale-98 transition-all"
+                        >
+                            Close Voucher
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
