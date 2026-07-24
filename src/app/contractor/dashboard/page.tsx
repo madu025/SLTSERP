@@ -26,8 +26,10 @@ export default function ContractorDashboardPage() {
         queryFn: async () => {
             const res = await fetch(`/api/contractors/my-stock?_t=${Date.now()}`);
             if (!res.ok) return { dropWireMeters: 450, ontCount: 12, facCount: 35, pendingAcceptances: 1 };
-            return res.json();
-        }
+            const json = await res.json();
+            return json.data || json;
+        },
+        refetchInterval: 5000,
     });
 
     return (

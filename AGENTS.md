@@ -215,6 +215,11 @@ Think of it like a human reviewing their journal and updating their mental model
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
 
+## 🧾 Store Material Issue Note Numbers & Auditable Ledger Rules
+1. **Mandatory Store Issue Note Display**: Every material issue, dispatch, transfer, or return MUST feature an explicit Issue Note Number (`issueNumber` / MIN / MRN Ref e.g. `MIN-2026-07-0012`) prominently displayed on both Main Store interfaces and Contractor Mobile App screens.
+2. **Immutable Audit Ledger**: All custody transfers and stock movements must write an immutable ledger entry into `InventoryLedger` with SHA-256 checksum tracking (`id + storeId + itemId + quantityAfter + createdAt`).
+3. **Preflight Identification**: Before building any new feature, identify whether the process requires auditable signatures, issue note references, or role isolation, and enforce them at the schema and API layer automatically.
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.

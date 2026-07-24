@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { Download, AlertCircle, CheckCircle2, RefreshCw, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +18,7 @@ interface BridgeInfo {
 }
 
 export default function ExtensionStatus() {
+    const pathname = usePathname();
     const [status, setStatus] = useState<'checking' | 'installed' | 'missing'>('checking');
     const [mounted, setMounted] = useState(false);
     const [bridgeInfo, setBridgeInfo] = useState<BridgeInfo>({
@@ -176,6 +178,11 @@ export default function ExtensionStatus() {
         checkCount.current = 0;
         setTimeout(() => checkExtension(), 500);
     };
+
+    const isContractorUser = pathname?.startsWith('/contractor') || userDetail?.role?.startsWith('CONTRACTOR_');
+    if (isContractorUser) {
+        return null;
+    }
 
     const isAdmin = userDetail?.role === 'SUPER_ADMIN' || userDetail?.role === 'ADMIN';
 

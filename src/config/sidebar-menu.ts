@@ -93,10 +93,48 @@ export interface MenuItem {
 
 export const SIDEBAR_MENU: MenuItem[] = [
     {
+        title: 'Contractor Field Portal',
+        path: '/contractor/dashboard',
+        icon: Truck,
+        allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'],
+        permissionId: 'contractor-portal',
+        submenu: [
+            {
+                title: 'Overview',
+                path: '/contractor/dashboard',
+                icon: LayoutDashboard,
+                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
+            },
+            {
+                title: 'My Van Stock',
+                path: '/contractor/inventory',
+                icon: Package,
+                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
+            },
+            {
+                title: 'Field SODs',
+                path: '/contractor/sods',
+                icon: ClipboardList,
+                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
+            },
+            {
+                title: 'Claims & Payments',
+                path: '/contractor/finance',
+                icon: Banknote,
+                allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
+            }
+        ]
+    },
+    {
         title: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
-        allowedRoles: ['ALL'], // Special keyword for public/all access
+        allowedRoles: [
+            'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
+            'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 
+            'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT',
+            'PROCUREMENT_OFFICER', 'OFFICE_ADMIN', 'SITE_OFFICE_STAFF', 'SA_MANAGER', 'SA_ASSISTANT'
+        ],
         permissionId: 'dashboard'
     },
     {
@@ -514,39 +552,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
         ]
     },
     {
-        title: 'Contractor Field Portal',
-        path: '/contractor/dashboard',
-        icon: Truck,
-        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER'],
-        permissionId: 'contractor_portal',
-        submenu: [
-            {
-                title: 'Contractor Dashboard',
-                path: '/contractor/dashboard',
-                icon: LayoutDashboard,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER']
-            },
-            {
-                title: 'Van Stock & Dispatches',
-                path: '/contractor/inventory',
-                icon: Package,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'STORES_MANAGER']
-            },
-            {
-                title: 'Field SOD Material Logging',
-                path: '/contractor/sods',
-                icon: ClipboardList,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN']
-            },
-            {
-                title: 'Claims & Payments',
-                path: '/contractor/finance',
-                icon: Banknote,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_FINANCE']
-            }
-        ]
-    },
-    {
         title: 'Approvals',
         path: '/procurement/approvals',
         icon: FileSignature,
@@ -904,6 +909,11 @@ export const hasAccess = (
     // Super Admin & Admin always have full visibility
     if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true;
     
+    // Strict isolation for Contractor Roles: ONLY allow items where role is explicitly listed
+    if (userRole.startsWith('CONTRACTOR_')) {
+        return allowedRoles.includes(userRole);
+    }
+
     // Check if user role is explicitly allowed
     if (allowedRoles.includes('ALL') || allowedRoles.includes(userRole)) return true;
 

@@ -1,20 +1,20 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import RoleGuard from '@/components/RoleGuard';
-import Header from '@/components/Header';
 import { 
     LayoutDashboard, 
     Package, 
     ClipboardList, 
     Banknote, 
-    RefreshCw, 
-    ShieldCheck, 
-    Truck 
+    LogOut,
+    Truck,
+    Wifi
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ContractorLayoutProps {
     children: React.ReactNode;
@@ -22,15 +22,38 @@ interface ContractorLayoutProps {
 
 export default function ContractorLayout({ children }: ContractorLayoutProps) {
     const pathname = usePathname();
+    const router = useRouter();
+    const [user, setUser] = useState<{ name?: string; role?: string } | null>(null);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const stored = localStorage.getItem('user');
+            if (stored) {
+                try {
+                    setUser(JSON.parse(stored));
+                } catch (e) {
+                    console.error('Failed to parse user', e);
+                }
+            }
+        }, 0);
+        return () => clearTimeout(timer);
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        toast.success('Signed out of Contractor Portal');
+        router.push('/contractor/login');
+    };
 
     const navItems = [
         {
-            title: 'Overview',
+            title: 'Dashboard',
             path: '/contractor/dashboard',
             icon: LayoutDashboard,
         },
         {
-            title: 'My Van Stock',
+            title: 'Van Stock',
             path: '/contractor/inventory',
             icon: Package,
         },
@@ -40,14 +63,9 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             icon: ClipboardList,
         },
         {
-            title: 'Claims & Payments',
+            title: 'Claims',
             path: '/contractor/finance',
             icon: Banknote,
-        },
-        {
-            title: 'MRN Returns',
-            path: '/contractor/mrns',
-            icon: RefreshCw,
         },
     ];
 
@@ -60,30 +78,52 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER']}
             fallbackLoginPath="/contractor/login"
         >
-            <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans pb-16 md:pb-0">
-                <Header />
-                
-                {/* Mobile Top Sub-Header */}
-                <div className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between shadow-md">
-                    <div className="flex items-center gap-2">
-                        <Truck className="w-5 h-5 text-amber-400" />
+            <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans pb-20 md:pb-6 selection:bg-amber-500/30">
+                {/* Standalone Native Mobile Header */}
+                <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 h-14 flex items-center justify-between shadow-xl">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 shadow-md">
+                            <Truck className="w-4 h-4 font-black" />
+                        </div>
                         <div>
-                            <h2 className="text-xs font-black text-white uppercase tracking-wider">Contractor Field Portal</h2>
-                            <p className="text-[10px] text-slate-400 font-mono">Live Inventory & Field Operations</p>
+                            <div className="flex items-center gap-1.5">
+                                <h1 className="text-xs font-black text-white tracking-wider uppercase leading-none">SLTS Contractor</h1>
+                                <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">Field Mobile App</p>
                         </div>
                     </div>
-                    <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        ONLINE PWA
-                    </span>
-                </div>
 
-                {/* Main Content Area */}
-                <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-[10px] font-bold text-slate-300">
+                            <Wifi className="w-3 h-3 text-emerald-400" />
+                            <span className="hidden sm:inline">PWA ONLINE</span>
+                        </div>
+
+                        <div className="h-7 w-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-[11px] font-black uppercase">
+                            {user?.name?.charAt(0) || 'C'}
+                        </div>
+
+                        <button 
+                            onClick={handleLogout}
+                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                            title="Sign Out"
+                        >
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                    </div>
+                </header>
+
+                {/* Main Mobile App Content Area */}
+                <main className="flex-1 p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-4">
                     {children}
                 </main>
 
-                {/* Mobile Bottom Fixed Navigation Bar */}
-                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur border-t border-slate-800 z-50 flex items-center justify-around h-14 px-2 shadow-2xl">
+                {/* Native Bottom Navigation Bar */}
+                <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/80 z-50 flex items-center justify-around h-16 px-2 shadow-2xl safe-area-bottom">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
@@ -92,14 +132,14 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                                 key={item.path}
                                 href={item.path}
                                 className={cn(
-                                    "flex flex-col items-center justify-center w-full h-full text-[10px] font-bold transition-all gap-0.5",
+                                    "flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 gap-1 min-w-[64px] active:scale-95 cursor-pointer",
                                     isActive 
-                                        ? "text-amber-400 font-black scale-105" 
+                                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 font-black shadow-inner" 
                                         : "text-slate-400 hover:text-slate-200"
                                 )}
                             >
-                                <Icon className={cn("w-4 h-4", isActive ? "text-amber-400" : "text-slate-400")} />
-                                <span>{item.title}</span>
+                                <Icon className={cn("w-4 h-4 transition-transform", isActive ? "scale-110 text-amber-400" : "text-slate-400")} />
+                                <span className="text-[10px] font-bold tracking-tight">{item.title}</span>
                             </Link>
                         );
                     })}

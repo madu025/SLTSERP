@@ -101,13 +101,17 @@ export default function MobileNav() {
             >
                 <div className="p-6 border-b border-white/5 bg-sidebar-dark">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <Link 
+                            href={userRole.startsWith('CONTRACTOR_') ? '/contractor/dashboard' : '/dashboard'} 
+                            onClick={() => setIsOpen(false)}
+                            className="flex items-center gap-3"
+                        >
                             <NexusLogoIcon size={32} />
                             <div>
                                 <h2 className="text-lg font-bold text-white tracking-wider leading-none">SLTS Nexus</h2>
                                 <p className="text-[10px] text-sky-400 mt-1 uppercase tracking-widest font-medium">Workflow Management</p>
                             </div>
-                        </div>
+                        </Link>
                         <button
                             onClick={() => setIsOpen(false)}
                             className="p-2 rounded-lg hover:bg-slate-800 transition-colors"

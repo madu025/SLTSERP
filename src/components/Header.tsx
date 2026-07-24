@@ -51,7 +51,12 @@ export default function Header() {
 
     const handleLogout = () => {
         localStorage.removeItem('user');
-        router.push('/login');
+        localStorage.removeItem('token');
+        if (user?.role?.startsWith('CONTRACTOR_')) {
+            router.push('/contractor/login');
+        } else {
+            router.push('/login');
+        }
     };
 
     if (!mounted) {

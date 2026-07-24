@@ -174,12 +174,14 @@ model MRNItem {
 
 model ContractorMaterialIssue {
   id           String                        @id @default(cuid())
+  issueNumber  String?                       @unique
   contractorId String
   storeId      String
   issueDate    DateTime                      @default(now())
   month        String
   issuedBy     String?
-  status       String                        @default("ACCEPTED") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED
+  notes        String?
+  status       String                        @default("PENDING_ACCEPTANCE") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED
   signatureUrl String?
   acceptedAt   DateTime?
   acceptedBy   String?
@@ -188,6 +190,7 @@ model ContractorMaterialIssue {
   store        InventoryStore                @relation("MaterialIssues", fields: [storeId], references: [id])
   items        ContractorMaterialIssueItem[]
 
+  @@index([issueNumber])
   @@index([contractorId, storeId, month])
   @@index([month])
   @@index([status])

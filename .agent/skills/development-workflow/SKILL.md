@@ -17,6 +17,7 @@ When writing or modifying code in this workspace, all agents must adhere to the 
 6. **Codebase Structural Map Integration**: Always consult the codebase map file `.agent/CODEMAP.md` to locate services, functions, database models, and API routes before performing broad searches or loading entire files. To conserve tokens, do not read the entire map file directly; instead, use `grep_search` to pinpoint the matching line numbers and load only the required slice. Run `npm run codemap:update` after making any structural changes to keep the map in sync.
 7. **Zero `any` Type Tolerance**: Never use `any` or `any[]` types. All variables, API payloads, error catches, and return types must be strictly typed using interfaces, `Record<string, unknown>`, `unknown`, or Zod validation schemas. Using `any` is strictly prohibited and violates code quality standards.
 8. **Algorithmic Efficiency (Big-O)**: Avoid $O(N^2)$ loops (e.g., nested `find` or database queries inside a loop). Utilize $O(1)$ Hash Maps, Sets, and Prisma `$transaction` batch operations to optimize time and space complexity.
+9. **Store Issue Note Numbers & Auditable Ledger Standards**: Every material issue, dispatch, transfer, or return MUST feature an explicit Store Material Issue Note Number (`issueNumber` / MIN / MRN Ref) displayed on both store and mobile views, writing an immutable SHA-256 checksum ledger entry in `InventoryLedger`.
 
 
 ## Project Overview

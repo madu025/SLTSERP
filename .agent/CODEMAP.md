@@ -6100,12 +6100,14 @@
 ### [ContractorMaterialIssue](prisma/schema/stock-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
+  * `issueNumber: String?` `[@unique]`
   * `contractorId: String`
   * `storeId: String`
   * `issueDate: DateTime` `[@default(now())]`
   * `month: String`
   * `issuedBy: String?`
-  * `status: String` `[@default("ACCEPTED") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED]`
+  * `notes: String?`
+  * `status: String` `[@default("PENDING_ACCEPTANCE") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED]`
   * `signatureUrl: String?`
   * `acceptedAt: DateTime?`
   * `acceptedBy: String?`

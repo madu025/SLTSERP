@@ -31,7 +31,8 @@ export default function ContractorSODsPage() {
         queryFn: async () => {
             const res = await fetch(`/api/contractors/my-sods?_t=${Date.now()}`);
             if (!res.ok) return [];
-            return res.json();
+            const json = await res.json();
+            return Array.isArray(json) ? json : json.data || [];
         }
     });
 
@@ -41,9 +42,11 @@ export default function ContractorSODsPage() {
         setSelectedSOD(null);
     };
 
-    const filteredSODs = sods.filter(s => 
+    const sodList = Array.isArray(sods) ? sods : [];
+
+    const filteredSODs = sodList.filter(s => 
         !searchTerm || 
-        s.soNum.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (s.soNum || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
         (s.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (s.voiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
     );

@@ -23,7 +23,8 @@ export default function ContractorFinancePage() {
                     { id: '3', month: 'May 2026', claimNumber: 'CLM-2026-05', sodCount: 30, amountLkr: 480000, status: 'PAID' },
                 ]
             };
-            return res.json();
+            const json = await res.json();
+            return json.data || json;
         }
     });
 

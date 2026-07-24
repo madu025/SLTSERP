@@ -4,10 +4,10 @@ import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (req, { params, user }) => {
+export const POST = apiHandler(async (req: Request, params: any, body: any) => {
     const issueId = params?.id as string;
-    const body = await req.json();
-    const { signatureName } = body;
+    const { signatureName } = body || {};
+    const userId = req.headers.get('x-user-id');
 
     if (!issueId) {
         throw AppError.badRequest('Issue ID is required.');
@@ -31,9 +31,9 @@ export const POST = apiHandler(async (req, { params, user }) => {
         where: { id: issueId },
         data: {
             status: 'ACCEPTED',
-            signatureUrl: signatureName || user.name || 'Contractor Digital Sign',
+            signatureUrl: signatureName || 'Contractor Digital Sign',
             acceptedAt: new Date(),
-            acceptedBy: user.id,
+            acceptedBy: userId || null,
         }
     });
 
