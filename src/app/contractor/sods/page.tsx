@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search } from "lucide-react";
+import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from 'sonner';
 
 interface SOD {
@@ -19,30 +19,66 @@ interface SOD {
     ontSerialNumber?: string;
 }
 
+interface SODsResponse {
+    sods: SOD[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
+interface StockItem {
+    id: string;
+    quantity: number;
+    item: {
+        id: string;
+        code: string;
+        name: string;
+        unit: string;
+        category?: string;
+    };
+}
+
+interface StockResponse {
+    stockItems: StockItem[];
+}
+
 export default function ContractorSODsPage() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [activeStatus, setActiveStatus] = useState<string>('INPROGRESS'); // Default to INPROGRESS for task execution focus
     const [selectedSOD, setSelectedSOD] = useState<SOD | null>(null);
     const [dropWireMeters, setDropWireMeters] = useState<number>(0);
     const [ontSerial, setOntSerial] = useState('');
 
-    // Fetch Contractor Assigned SODs
-    const { data: sods = [], isLoading } = useQuery<SOD[]>({
-        queryKey: ['contractor-assigned-sods'],
+    // Debounce search input to avoid spamming backend on every keystroke
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1); // Reset to first page on search
+        }, 350);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
+
+    // Fetch Contractor Assigned SODs with server-side filters & pagination
+    const { data: responseData, isLoading } = useQuery<SODsResponse>({
+        queryKey: ['contractor-assigned-sods', debouncedSearch, activeStatus, currentPage],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors/my-sods?_t=${Date.now()}`);
-            if (!res.ok) return [];
-            const json = await res.json();
-            return Array.isArray(json) ? json : json.data || [];
+            const statusParam = activeStatus === 'ALL' ? '' : `&status=${activeStatus}`;
+            const res = await fetch(`/api/contractors/my-sods?page=${currentPage}&search=${encodeURIComponent(debouncedSearch)}${statusParam}&_t=${Date.now()}`);
+            if (!res.ok) return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
+            return res.json();
         }
     });
 
     // Fetch Live Contractor van stock to resolve Drop Wire and ONT Item IDs dynamically
-    const { data: stockData } = useQuery({
+    const { data: stockData } = useQuery<StockResponse>({
         queryKey: ['contractor-van-stock-sod-complete'],
         queryFn: async () => {
             const res = await fetch(`/api/contractors/my-stock?_t=${Date.now()}`);
-            if (!res.ok) return null;
+            if (!res.ok) return { stockItems: [] };
             const json = await res.json();
             return json.data || json;
         }
@@ -56,7 +92,7 @@ export default function ContractorSODsPage() {
             completedDate: string;
             dropWireDistance: number;
             ontSerialNumber?: string;
-            materialUsage: any[];
+            materialUsage: { itemId: string; quantity: string; usageType: string; serialNumber?: string }[];
         }) => {
             const res = await fetch('/api/service-orders', {
                 method: 'PATCH',
@@ -85,14 +121,14 @@ export default function ContractorSODsPage() {
     const handleSaveMaterials = () => {
         if (!selectedSOD) return;
 
-        // Resolve drop wire and ONT item IDs dynamically from van stock
+        // Resolve drop wire and ONT item IDs dynamically from van stock catalog
         const stockItems = stockData?.stockItems || [];
-        const dropWireItem = stockItems.find((s: any) => 
+        const dropWireItem = stockItems.find((s) => 
             (s.item.code || '').toUpperCase().includes('DW') || 
             (s.item.code || '').toUpperCase().includes('CBL-2F') ||
             (s.item.name || '').toUpperCase().includes('DROP WIRE')
         );
-        const ontItem = stockItems.find((s: any) => 
+        const ontItem = stockItems.find((s) => 
             (s.item.code || '').toUpperCase().includes('ONT') || 
             (s.item.code || '').toUpperCase().includes('ONU') ||
             (s.item.name || '').toUpperCase().includes('ONT') ||
@@ -104,7 +140,7 @@ export default function ContractorSODsPage() {
             return;
         }
 
-        const materialUsage: any[] = [
+        const materialUsage: { itemId: string; quantity: string; usageType: string; serialNumber?: string }[] = [
             {
                 itemId: dropWireItem.item.id,
                 quantity: String(dropWireMeters),
@@ -135,14 +171,8 @@ export default function ContractorSODsPage() {
         });
     };
 
-    const sodList = Array.isArray(sods) ? sods : [];
-
-    const filteredSODs = sodList.filter(s => 
-        !searchTerm || 
-        (s.soNum || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (s.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (s.voiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const sodList = responseData?.sods || [];
+    const totalPages = responseData?.totalPages || 0;
 
     const [isScanning, setIsScanning] = useState(false);
 
@@ -175,53 +205,111 @@ export default function ContractorSODsPage() {
                 </div>
             </div>
 
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                {[
+                    { id: 'ALL', label: 'All Orders' },
+                    { id: 'INPROGRESS', label: 'In Progress' },
+                    { id: 'COMPLETED', label: 'Completed' },
+                    { id: 'RETURN', label: 'Returned' }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => {
+                            setActiveStatus(tab.id);
+                            setCurrentPage(1);
+                        }}
+                        className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all ${
+                            activeStatus === tab.id
+                                ? 'bg-blue-600 text-white shadow-lg'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                        }`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
             {/* SOD Cards Grid */}
             {isLoading ? (
                 <div className="py-12 text-center text-xs text-slate-400">Loading assigned SODs...</div>
-            ) : filteredSODs.length === 0 ? (
+            ) : sodList.length === 0 ? (
                 <div className="p-8 text-center bg-slate-900/60 rounded-2xl border border-slate-800 text-slate-400 space-y-2">
                     <ClipboardList className="w-10 h-10 mx-auto text-slate-600 opacity-50" />
                     <h4 className="text-sm font-bold text-slate-200">No Service Orders Found</h4>
                     <p className="text-xs text-slate-400">There are no active field SODs assigned to your contractor team.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredSODs.map((sod) => (
-                        <Card key={sod.id} className="bg-slate-900/80 border-slate-800 shadow-md">
-                            <CardHeader className="p-4 pb-2 border-b border-slate-800 flex flex-row items-center justify-between space-y-0">
-                                <div>
-                                    <CardTitle className="text-sm font-bold text-blue-400 font-mono">{sod.soNum}</CardTitle>
-                                    <p className="text-xs text-slate-300 font-bold truncate">{sod.customerName || 'N/A'}</p>
-                                </div>
-                                <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/40">
-                                    {sod.sltsStatus}
-                                </span>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-3">
-                                <div className="text-xs space-y-1">
-                                    <div className="flex items-center gap-1.5 text-slate-400">
-                                        <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                        <span className="truncate">{sod.address || 'Address N/A'}</span>
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {sodList.map((sod) => (
+                            <Card key={sod.id} className="bg-slate-900/80 border-slate-800 shadow-md">
+                                <CardHeader className="p-4 pb-2 border-b border-slate-800 flex flex-row items-center justify-between space-y-0">
+                                    <div>
+                                        <CardTitle className="text-sm font-bold text-blue-400 font-mono">{sod.soNum}</CardTitle>
+                                        <p className="text-xs text-slate-300 font-bold truncate">{sod.customerName || 'N/A'}</p>
                                     </div>
-                                    <div className="flex justify-between font-mono text-[11px] pt-1">
-                                        <span className="text-slate-400">TP / Voice: <span className="text-slate-200 font-bold">{sod.voiceNumber || '-'}</span></span>
-                                        <span className="text-slate-400">DW: <span className="text-amber-400 font-bold">{sod.dropWireDistance || 0} m</span></span>
+                                    <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/40">
+                                        {sod.sltsStatus}
+                                    </span>
+                                </CardHeader>
+                                <CardContent className="p-4 space-y-3">
+                                    <div className="text-xs space-y-1">
+                                        <div className="flex items-center gap-1.5 text-slate-400">
+                                            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                            <span className="truncate">{sod.address || 'Address N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between font-mono text-[11px] pt-1">
+                                            <span className="text-slate-400">TP / Voice: <span className="text-slate-200 font-bold">{sod.voiceNumber || '-'}</span></span>
+                                            <span className="text-slate-400">DW: <span className="text-amber-400 font-bold">{sod.dropWireDistance || 0} m</span></span>
+                                        </div>
                                     </div>
-                                </div>
+                                    {sod.sltsStatus === 'INPROGRESS' && (
+                                        <Button
+                                            onClick={() => {
+                                                setSelectedSOD(sod);
+                                                setDropWireMeters(sod.dropWireDistance || 0);
+                                                setOntSerial(sod.ontSerialNumber || '');
+                                            }}
+                                            className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold h-9 rounded-xl flex items-center justify-center gap-2 shadow-md"
+                                        >
+                                            <Layers className="w-4 h-4" />
+                                            Log Installation Materials
+                                        </Button>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-md">
+                            <span className="text-xs text-slate-400 font-mono">
+                                Page <span className="text-white font-bold">{currentPage}</span> of <span className="text-white font-bold">{totalPages}</span>
+                            </span>
+                            <div className="flex gap-2">
                                 <Button
-                                    onClick={() => {
-                                        setSelectedSOD(sod);
-                                        setDropWireMeters(sod.dropWireDistance || 0);
-                                        setOntSerial(sod.ontSerialNumber || '');
-                                    }}
-                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold h-9 rounded-xl flex items-center justify-center gap-2 shadow-md"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    className="bg-slate-950 border-slate-850 text-slate-200 text-xs h-8 rounded-lg px-3 flex items-center gap-1"
                                 >
-                                    <Layers className="w-4 h-4" />
-                                    Log Installation Materials
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
                                 </Button>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    className="bg-slate-950 border-slate-850 text-slate-200 text-xs h-8 rounded-lg px-3 flex items-center gap-1"
+                                >
+                                    Next <ChevronRight className="w-3.5 h-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

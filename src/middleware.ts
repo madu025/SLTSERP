@@ -5,6 +5,7 @@ import { verifyJWT } from '@/lib/auth';
 // Define paths that do NOT require authentication
 const publicPaths = [
     '/login',
+    '/contractor/login',
     '/api/login',
     '/api/metrics',
     '/public',
@@ -92,7 +93,8 @@ export async function middleware(request: NextRequest) {
             );
         }
 
-        const loginUrl = new URL('/login', request.url);
+        const targetRedirect = pathname.startsWith('/contractor') ? '/contractor/login' : '/login';
+        const loginUrl = new URL(targetRedirect, request.url);
         return NextResponse.redirect(loginUrl);
     }
 

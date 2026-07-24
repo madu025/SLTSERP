@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
+import { ServiceOrderService } from '@/services/sod.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,38 +24,22 @@ export const GET = apiHandler(async (req: Request) => {
         contractorId = activeContractor?.id || null;
     }
 
-    if (!contractorId) return [];
+    if (!contractorId) {
+        return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
+    }
 
-    const contractorTeams = await prisma.contractorTeam.findMany({
-        where: { contractorId },
-        select: { id: true, name: true }
-    });
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search') || undefined;
+    const sltsStatus = searchParams.get('status') || undefined;
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
 
-    const teamIds = contractorTeams.map(t => t.id);
-    const teamCodes = contractorTeams.map(t => t.name);
-
-    return prisma.serviceOrder.findMany({
-        where: {
-            OR: [
-                { contractorId },
-                { teamId: { in: teamIds } },
-                { directTeam: { in: teamCodes } },
-                { woroTaskName: { in: teamCodes } }
-            ]
-        },
-        select: {
-            id: true,
-            soNum: true,
-            customerName: true,
-            address: true,
-            voiceNumber: true,
-            sltsStatus: true,
-            dropWireDistance: true,
-            ontSerialNumber: true,
-            receivedDate: true,
-        },
-        orderBy: { receivedDate: 'desc' },
-        take: 50,
+    return ServiceOrderService.getContractorAssignedSODs({
+        contractorId,
+        search,
+        sltsStatus,
+        page,
+        limit
     });
 }, {
     roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],

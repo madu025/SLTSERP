@@ -2193,6 +2193,13 @@
 * **Class**: `ServiceOrderService`
   * **Methods**:
     * `getServiceOrders(_userId: string, params: GetServiceOrdersParams): any`
+    * `getContractorAssignedSODs(params: {
+        contractorId: string;
+        search?: string;
+        sltsStatus?: string;
+        page?: number;
+        limit?: number;
+    }): any`
     * `getServiceOrderBySoNum(soNum: string): any`
     * `bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string): any`
     * `patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder>`
@@ -2218,7 +2225,12 @@
     * `bridgeSync(payload: Parameters<typeof SODSyncService.bridgeSync>[0]): any`
     * `fixDates(execute: boolean): any`
     * `debugSync(soNum: string): any`
-    * `saveExtensionRawData(soNum: string | null, body: any): any`
+    * `saveExtensionRawData(soNum: string | null, body: {
+            currentUser?: string | null;
+            activeTab?: string | null;
+            url?: string | null;
+            [key: string]: unknown;
+        }): any`
     * `getExtensionLogs(): any`
     * `clearExtensionLogs(): any`
 
@@ -2290,6 +2302,13 @@
         endDate?: string;
     }): any`
     * `getOspFtthItems(): any`
+    * `getContractorAssignedSODs(params: {
+        contractorId: string;
+        search?: string;
+        sltsStatus?: string;
+        page?: number;
+        limit?: number;
+    }): any`
 
 ### [sod.sync.service.ts](src/services/sod/sod.sync.service.ts)
 * **Class**: `SODSyncService`

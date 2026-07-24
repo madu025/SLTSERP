@@ -93,6 +93,8 @@ model ServiceOrder {
   @@index([receivedDate])
   @@index([statusDate])
   @@index([isInvoicable])
+  @@index([directTeam])
+  @@index([woroTaskName])
 }
 
 model SODForensicAudit {

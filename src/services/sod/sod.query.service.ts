@@ -1,4 +1,3 @@
-import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { GetServiceOrdersParams } from './sod-types';
@@ -614,5 +613,85 @@ export class SODQueryService {
                 name: 'asc'
             }
         });
+    }
+
+    /**
+     * Get assigned service orders for a contractor with search, filter, and pagination
+     */
+    static async getContractorAssignedSODs(params: {
+        contractorId: string;
+        search?: string;
+        sltsStatus?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        const { contractorId, search, sltsStatus, page = 1, limit = 50 } = params;
+        const skip = (page - 1) * limit;
+
+        const contractorTeams = await prisma.contractorTeam.findMany({
+            where: { contractorId },
+            select: { id: true, name: true }
+        });
+
+        const teamIds = contractorTeams.map(t => t.id);
+        const teamCodes = contractorTeams.map(t => t.name);
+
+        const baseWhere: Prisma.ServiceOrderWhereInput = {
+            OR: [
+                { contractorId },
+                { teamId: { in: teamIds } },
+                { directTeam: { in: teamCodes } },
+                { woroTaskName: { in: teamCodes } }
+            ]
+        };
+
+        const andConditions: Prisma.ServiceOrderWhereInput[] = [baseWhere];
+
+        if (sltsStatus && sltsStatus !== 'ALL') {
+            andConditions.push({ sltsStatus: sltsStatus });
+        }
+
+        if (search) {
+            const searchTrimmed = search.trim();
+            andConditions.push({
+                OR: [
+                    { soNum: { contains: searchTrimmed, mode: 'insensitive' } },
+                    { customerName: { contains: searchTrimmed, mode: 'insensitive' } },
+                    { voiceNumber: { contains: searchTrimmed, mode: 'insensitive' } },
+                    { address: { contains: searchTrimmed, mode: 'insensitive' } }
+                ]
+            });
+        }
+
+        const where: Prisma.ServiceOrderWhereInput = { AND: andConditions };
+
+        const [total, sods] = await Promise.all([
+            prisma.serviceOrder.count({ where }),
+            prisma.serviceOrder.findMany({
+                where,
+                select: {
+                    id: true,
+                    soNum: true,
+                    customerName: true,
+                    address: true,
+                    voiceNumber: true,
+                    sltsStatus: true,
+                    dropWireDistance: true,
+                    ontSerialNumber: true,
+                    receivedDate: true,
+                },
+                orderBy: { receivedDate: 'desc' },
+                skip,
+                take: limit,
+            })
+        ]);
+
+        return {
+            sods,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
     }
 }

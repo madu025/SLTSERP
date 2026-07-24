@@ -1,5 +1,5 @@
 import { AppError } from '@/lib/error';
-import { ServiceOrder } from '@prisma/client';
+import { ServiceOrder, Prisma } from '@prisma/client';
 import { TransactionClient } from '../inventory/types';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { SODMaterialService } from './sod.material.service';
@@ -24,6 +24,19 @@ export class ServiceOrderService {
      */
     static async getServiceOrders(_userId: string, params: GetServiceOrdersParams) {
         return SODQueryService.getServiceOrders(params);
+    }
+
+    /**
+     * Get assigned service orders for a contractor with search, filter, and pagination
+     */
+    static async getContractorAssignedSODs(params: {
+        contractorId: string;
+        search?: string;
+        sltsStatus?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        return SODQueryService.getContractorAssignedSODs(params);
     }
 
     /**
@@ -94,7 +107,6 @@ export class ServiceOrderService {
             }
 
             // Material usage processing (only on COMPLETED, not on RETURN)
-            const isCompletedState = (data.status === 'COMPLETED' || updateData.sltsStatus === 'COMPLETED' || oldOrder.sltsStatus === 'COMPLETED');
             const hasMaterialUpdate = (data.materialUsage && Array.isArray(data.materialUsage));
 
             if (hasMaterialUpdate && !isTransitioningToReturn) {
@@ -360,7 +372,7 @@ export class ServiceOrderService {
         });
         if (!raw) throw AppError.notFound('No raw data');
 
-        await this.bridgeSync(raw.scrapedData as any);
+        await this.bridgeSync(raw.scrapedData as unknown as Parameters<typeof SODSyncService.bridgeSync>[0]);
         
         const so = await prisma.serviceOrder.findUnique({
             where: { soNum },
@@ -373,7 +385,16 @@ export class ServiceOrderService {
     /**
      * Store Extension Raw Data
      */
-    static async saveExtensionRawData(soNum: string | null, body: any) {
+    static async saveExtensionRawData(
+        soNum: string | null,
+        body: {
+            currentUser?: string | null;
+            activeTab?: string | null;
+            url?: string | null;
+            [key: string]: unknown;
+        }
+    ) {
+        const scrapedJson = body as unknown as Prisma.InputJsonValue;
         if (soNum) {
             const existing = await prisma.extensionRawData.findFirst({
                 where: { soNum: soNum }
@@ -386,7 +407,7 @@ export class ServiceOrderService {
                         sltUser: body.currentUser || null,
                         activeTab: body.activeTab || null,
                         url: body.url || null,
-                        scrapedData: body,
+                        scrapedData: scrapedJson,
                     }
                 });
             } else {
@@ -396,7 +417,7 @@ export class ServiceOrderService {
                         sltUser: body.currentUser || null,
                         activeTab: body.activeTab || null,
                         url: body.url || null,
-                        scrapedData: body,
+                        scrapedData: scrapedJson,
                     }
                 });
             }
@@ -407,7 +428,7 @@ export class ServiceOrderService {
                     sltUser: body.currentUser || null,
                     activeTab: body.activeTab || null,
                     url: body.url || null,
-                    scrapedData: body,
+                    scrapedData: scrapedJson,
                 }
             });
         }
