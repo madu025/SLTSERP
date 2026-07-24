@@ -21,7 +21,7 @@ export default function ContractorLoginPage() {
 
         setLoading(true);
         try {
-            const res = await fetch('/api/login', {
+            const res = await fetch('/api/contractor-portal/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })

@@ -15,7 +15,9 @@ interface ServiceOrderItemWithIptv {
     sltsStatus: string;
     completedDate: Date | null;
     contractorId: string | null;
-    contractor: { name: string } | null;
+    contractor: { id: string; name: string } | null;
+    teamId: string | null;
+    team: { id: string; name: string; sltCode: string | null } | null;
     opmcPatStatus: string | null;
     opmcPatDate: Date | null;
     sltsPatStatus: string | null;
@@ -222,7 +224,9 @@ export class SODQueryService {
                     sltsStatus: true,
                     completedDate: true,
                     contractorId: true,
-                    contractor: { select: { name: true } },
+                    contractor: { select: { id: true, name: true } },
+                    teamId: true,
+                    team: { select: { id: true, name: true, sltCode: true } },
                     opmcPatStatus: true,
                     opmcPatDate: true,
                     sltsPatStatus: true,
@@ -622,15 +626,16 @@ export class SODQueryService {
         contractorId: string;
         search?: string;
         sltsStatus?: string;
+        teamId?: string;
         page?: number;
         limit?: number;
     }) {
-        const { contractorId, search, sltsStatus, page = 1, limit = 50 } = params;
+        const { contractorId, search, sltsStatus, teamId, page = 1, limit = 50 } = params;
         const skip = (page - 1) * limit;
 
         const contractorTeams = await prisma.contractorTeam.findMany({
             where: { contractorId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, sltCode: true }
         });
 
         const teamIds = contractorTeams.map(t => t.id);
@@ -647,17 +652,52 @@ export class SODQueryService {
 
         const andConditions: Prisma.ServiceOrderWhereInput[] = [baseWhere];
 
+        if (teamId && teamId !== 'ALL') {
+            andConditions.push({
+                OR: [
+                    { teamId: teamId },
+                    { team: { id: teamId } },
+                    { directTeam: { in: contractorTeams.filter(t => t.id === teamId).map(t => t.name) } }
+                ]
+            });
+        }
+
         if (sltsStatus && sltsStatus !== 'ALL') {
-            andConditions.push({ sltsStatus: sltsStatus });
+            if (sltsStatus === 'INSTALL_CLOSED') {
+                andConditions.push({
+                    OR: [
+                        { sltsStatus: 'INSTALL_CLOSED' },
+                        { status: 'INSTALL_CLOSED' }
+                    ]
+                });
+            } else if (sltsStatus === 'COMPLETED') {
+                andConditions.push({
+                    OR: [
+                        { sltsStatus: 'COMPLETED' },
+                        { status: { in: ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } }
+                    ]
+                });
+            } else {
+                andConditions.push({ sltsStatus: sltsStatus });
+            }
         }
 
         if (search) {
             const searchTrimmed = search.trim();
+            const digitsOnly = searchTrimmed.replace(/\D/g, '');
+
+            const phoneSearchConditions: Prisma.ServiceOrderWhereInput[] = [
+                { voiceNumber: { contains: searchTrimmed, mode: 'insensitive' } }
+            ];
+            if (digitsOnly && digitsOnly.length >= 7) {
+                phoneSearchConditions.push({ voiceNumber: { contains: digitsOnly.slice(-7), mode: 'insensitive' } });
+            }
+
             andConditions.push({
                 OR: [
                     { soNum: { contains: searchTrimmed, mode: 'insensitive' } },
                     { customerName: { contains: searchTrimmed, mode: 'insensitive' } },
-                    { voiceNumber: { contains: searchTrimmed, mode: 'insensitive' } },
+                    ...phoneSearchConditions,
                     { address: { contains: searchTrimmed, mode: 'insensitive' } }
                 ]
             });
@@ -675,10 +715,40 @@ export class SODQueryService {
                     customerName: true,
                     address: true,
                     voiceNumber: true,
+                    status: true,
                     sltsStatus: true,
                     dropWireDistance: true,
                     ontSerialNumber: true,
                     receivedDate: true,
+                    completedDate: true,
+                    statusDate: true,
+                    directTeam: true,
+                    contractorId: true,
+                    contractor: { select: { id: true, name: true } },
+                    teamId: true,
+                    team: { select: { id: true, name: true, sltCode: true } },
+                    iptvSerials: { select: { serialNumber: true } },
+                    returnReason: true,
+                    comments: true,
+                    qcStatus: true,
+                    qcDefects: true,
+                    qcComment: true,
+                    materialUsage: {
+                        select: {
+                            id: true,
+                            quantity: true,
+                            usageType: true,
+                            serialNumber: true,
+                            item: {
+                                select: {
+                                    id: true,
+                                    code: true,
+                                    name: true,
+                                    unit: true
+                                }
+                            }
+                        }
+                    }
                 },
                 orderBy: { receivedDate: 'desc' },
                 skip,
@@ -686,8 +756,23 @@ export class SODQueryService {
             })
         ]);
 
+        const formattedSods = sods.map((sod) => {
+            const isInstallClosed = sod.status === 'INSTALL_CLOSED' || sod.sltsStatus === 'INSTALL_CLOSED';
+            const isCompleted = sod.status === 'COMPLETED' || sod.sltsStatus === 'COMPLETED';
+            
+            const effectiveStatus = isInstallClosed 
+                ? 'INSTALL_CLOSED' 
+                : (isCompleted ? 'COMPLETED' : sod.sltsStatus);
+
+            return {
+                ...sod,
+                sltsStatus: effectiveStatus
+            };
+        });
+
         return {
-            sods,
+            sods: formattedSods,
+            teams: contractorTeams,
             total,
             page,
             limit,

@@ -96,8 +96,20 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
             }
             toast.error("Failed to update status");
         },
-        onSuccess: () => {
-            toast.success("Status updated successfully");
+        onSuccess: (updatedItem) => {
+            if (updatedItem && (updatedItem as ServiceOrder).id) {
+                const uItem = updatedItem as ServiceOrder;
+                queryClient.setQueriesData<ServiceOrdersResponse>({ queryKey: ["service-orders"] }, (old) => {
+                    if (!old || !Array.isArray(old.items)) return old;
+                    return {
+                        ...old,
+                        items: old.items.map((item) => 
+                            item.id === uItem.id ? { ...item, ...uItem } : item
+                        )
+                    };
+                });
+            }
+            toast.success("Updated successfully");
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ["service-orders"] });

@@ -88,7 +88,7 @@ function ContractorApprovals() {
     const { data: contractors = [], isLoading } = useQuery({
         queryKey: ['contractor-approvals'],
         queryFn: async () => {
-            const res = await fetch('/api/contractors?page=1&limit=1000');
+            const res = await fetch('/api/admin/contractors?page=1&limit=1000');
             if (!res.ok) throw new Error('Failed to fetch contractors');
             const data = await res.json();
             const actualData = data.success && data.data ? data.data : data;
@@ -719,7 +719,7 @@ function ContractorApprovals() {
                         <Button variant="ghost" className="font-bold text-xs text-slate-400 h-9 px-4 rounded-lg" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
                         <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase px-6 rounded-lg h-9 shadow-sm" onClick={async () => {
                             try {
-                                const res = await fetch('/api/contractors', {
+                                const res = await fetch('/api/admin/contractors', {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify(editData)

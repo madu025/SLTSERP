@@ -162,13 +162,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const { data: contractors = [] } = useQuery<Contractor[]>({
         queryKey: ["contractors", selectedRtomId],
         queryFn: async () => {
-            if (!selectedRtomId) return [];
-            const res = await fetch(`/api/contractors?rtomId=${selectedRtomId}`);
+            const rtomParam = selectedRtomId && selectedRtomId !== 'ALL' ? `?rtomId=${selectedRtomId}&limit=1000` : `?limit=1000`;
+            const res = await fetch(`/api/admin/contractors${rtomParam}`);
             const json = (await res.json()) as Record<string, unknown>;
             const actualData = (json?.success && json?.data ? json.data : json) as Record<string, unknown>;
             return (actualData?.contractors || []) as Contractor[];
         },
-        enabled: !!selectedRtomId,
         staleTime: 5 * 60 * 1000
     });
 

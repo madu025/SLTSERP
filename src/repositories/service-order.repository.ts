@@ -47,7 +47,11 @@ export class ServiceOrderRepository {
         const db = tx || prisma;
         return db.serviceOrder.update({
             where: { id },
-            data
+            data,
+            include: {
+                contractor: { select: { id: true, name: true } },
+                team: { select: { id: true, name: true, sltCode: true } }
+            }
         });
     }
 

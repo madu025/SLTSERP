@@ -24,7 +24,8 @@ export interface ServiceOrder {
     createdAt: string;
     contractorId?: string | null;
     teamId?: string | null;
-    contractor?: { name: string };
+    contractor?: { id?: string; name: string } | null;
+    team?: { id?: string; name: string; sltCode?: string | null } | null;
     completedDate?: string | null;
     receivedDate?: string | null;
     updatedAt?: string | null;

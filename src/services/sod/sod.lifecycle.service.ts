@@ -77,6 +77,21 @@ export class SODLifecycleService {
         if (otherData.directTeamName !== undefined) updateData.directTeam = otherData.directTeamName || null;
         if ((otherData as any).directTeam !== undefined) updateData.directTeam = (otherData as any).directTeam || null;
 
+        // Auto-resolve teamId if contractorId is assigned without teamId
+        const cIdStr = typeof updateData.contractorId === 'string' ? updateData.contractorId : null;
+        if (cIdStr && !updateData.teamId) {
+            const firstTeam = await prisma.contractorTeam.findFirst({
+                where: { contractorId: cIdStr },
+                select: { id: true, name: true }
+            });
+            if (firstTeam) {
+                updateData.teamId = firstTeam.id;
+                if (!updateData.directTeam) {
+                    updateData.directTeam = firstTeam.name;
+                }
+            }
+        }
+
         if (otherData.dropWireDistance !== undefined) {
             updateData.dropWireDistance = parseFloat(String(otherData.dropWireDistance || '0'));
         }

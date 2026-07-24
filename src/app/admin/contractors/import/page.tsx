@@ -172,7 +172,7 @@ export default function ContractorBulkImportPage() {
                         throw new Error(`Row ${rowNum}: Invalid email format.`);
                     }
 
-                    const res = await fetch('/api/contractors', {
+                    const res = await fetch('/api/admin/contractors', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)

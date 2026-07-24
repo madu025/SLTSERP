@@ -76,7 +76,7 @@ export default function ReconciliationPage() {
     // Fetch Contractors
     const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ['contractors-all'],
-        queryFn: async () => (await fetch('/api/contractors?limit=1000')).json()
+        queryFn: async () => (await fetch('/api/admin/contractors?limit=1000')).json()
     });
     const contractors: ContractorItem[] = contractorsData?.success && Array.isArray(contractorsData.data?.contractors)
         ? contractorsData.data.contractors

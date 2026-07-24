@@ -7,6 +7,7 @@ const publicPaths = [
     '/login',
     '/contractor/login',
     '/api/login',
+    '/api/contractor-portal/auth',
     '/api/metrics',
     '/public',
     '/contractor-upload',

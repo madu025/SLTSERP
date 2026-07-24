@@ -33,7 +33,7 @@ export default function MaterialIssuePage() {
     // --- FETCH DATA ---
     const { data: contractorsData } = useQuery({
         queryKey: ['contractors'],
-        queryFn: async () => (await fetch('/api/contractors?page=1&limit=1000')).json()
+        queryFn: async () => (await fetch('/api/admin/contractors?page=1&limit=1000')).json()
     });
     const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
 

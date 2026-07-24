@@ -118,7 +118,7 @@ export default function WastageReportPage() {
     // --- FETCH DATA ---
     const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ['contractors'],
-        queryFn: async () => (await fetch('/api/contractors?page=1&limit=1000')).json()
+        queryFn: async () => (await fetch('/api/admin/contractors?page=1&limit=1000')).json()
     });
     const contractors: ContractorItem[] = contractorsData?.success && Array.isArray(contractorsData.data?.contractors)
         ? contractorsData.data.contractors

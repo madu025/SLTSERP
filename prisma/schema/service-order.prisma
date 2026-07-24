@@ -57,6 +57,10 @@ model ServiceOrder {
   teamId           String?
   isManualEntry    Boolean                     @default(false)
   isLegacyImport   Boolean                     @default(false)
+  qcStatus         String?                     @default("PENDING_QC")
+  qcDefects        Json?
+  qcComment        String?
+  qcInspectedAt    DateTime?
   createdAt        DateTime                    @default(now())
   updatedAt        DateTime                    @updatedAt
   projectInvoiceId String?

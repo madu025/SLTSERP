@@ -33,6 +33,7 @@ export class ServiceOrderService {
         contractorId: string;
         search?: string;
         sltsStatus?: string;
+        teamId?: string;
         page?: number;
         limit?: number;
     }) {

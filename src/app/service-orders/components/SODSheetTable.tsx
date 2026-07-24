@@ -285,7 +285,9 @@ export function SODSheetTable(props: SODSheetTableProps) {
 
     const renderContractorTeamDropdown = (order: ServiceOrder, index: number) => {
         const selectedContractor = contractors.find(c => c.id === order.contractorId);
-        const selectedTeam = selectedContractor?.teams?.find(t => t.id === order.teamId);
+        const selectedTeam = selectedContractor?.teams?.find(t => t.id === order.teamId) || (order.team ? { id: order.team.id, name: order.team.name } : null);
+        const contractorName = selectedContractor?.name || order.contractor?.name;
+        const teamName = selectedTeam?.name || order.team?.name;
         
         let label = "Select Team";
         let isSyncedTeam = false;
@@ -296,11 +298,14 @@ export function SODSheetTable(props: SODSheetTableProps) {
             return u === 'CONSTRUCT_OSP' || u === 'CONSTRUCT' || u === 'OSP' || u.startsWith('CONSTRUCT_OSP/');
         };
 
-        if (selectedContractor) {
-            label = selectedContractor.name;
-            if (selectedTeam) {
-                label = `${selectedContractor.name} - ${selectedTeam.name}`;
+        if (contractorName) {
+            if (teamName) {
+                label = `${contractorName} - ${teamName}`;
+            } else {
+                label = `${contractorName}`;
             }
+        } else if (teamName) {
+            label = teamName;
         } else if (order.directTeam && !isGenericTaskName(order.directTeam)) {
             const raw = order.directTeam;
             label = raw.split('/')[0].trim();
@@ -337,15 +342,20 @@ export function SODSheetTable(props: SODSheetTableProps) {
                             if (c.teams && c.teams.length > 0) {
                                 return (
                                     <DropdownMenuSub key={c.id}>
-                                        <DropdownMenuSubTrigger className="text-[11px] py-1 px-2 h-auto min-h-0">{c.name}</DropdownMenuSubTrigger>
+                                        <DropdownMenuSubTrigger 
+                                            onClick={() => handleSaveField(order.id, "teamAssignment", `${c.id}|${c.teams?.[0]?.id || ''}`)}
+                                            className="text-[11px] py-1 px-2 h-auto min-h-0 flex justify-between items-center"
+                                        >
+                                            <span>{c.name}</span>
+                                        </DropdownMenuSubTrigger>
                                         <DropdownMenuSubContent className="p-1">
                                             {c.teams.map((t) => (
                                                 <DropdownMenuItem
                                                     key={t.id}
                                                     onClick={() => handleSaveField(order.id, "teamAssignment", `${c.id}|${t.id}`)}
-                                                    className="text-[11px] py-1 px-2 h-auto min-h-0"
+                                                    className="text-[11px] py-1 px-2 h-auto min-h-0 font-medium"
                                                 >
-                                                    {t.name}
+                                                    {c.name} - <span className="font-bold text-amber-500 ml-1">{t.name}</span>
                                                 </DropdownMenuItem>
                                             ))}
                                         </DropdownMenuSubContent>

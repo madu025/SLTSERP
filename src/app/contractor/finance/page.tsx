@@ -8,14 +8,50 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Banknote, ShieldCheck, FileCheck2, Clock, Printer } from "lucide-react";
 import { cn } from '@/lib/utils';
 
+interface ContractorClaim {
+    id: string;
+    month: string;
+    claimNumber: string;
+    sodCount: number;
+    amountLkr: number;
+    status: string;
+    grossLkr?: number;
+    retentionLkr?: number;
+    netLkr?: number;
+}
+
 export default function ContractorFinancePage() {
-    const [selectedClaim, setSelectedClaim] = useState<any | null>(null);
+    const [selectedClaim, setSelectedClaim] = useState<ContractorClaim | null>(null);
+
+    const getAuthHeaders = () => {
+        const contractorUser = typeof window !== 'undefined' ? localStorage.getItem('contractor_user') : null;
+        const contractorToken = typeof window !== 'undefined' ? localStorage.getItem('contractor_token') : null;
+
+        const headers: Record<string, string> = {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        };
+        if (contractorToken) {
+            headers['Authorization'] = `Bearer ${contractorToken}`;
+        }
+        if (contractorUser) {
+            try {
+                const u = JSON.parse(contractorUser);
+                if (u.id) headers['x-user-id'] = u.id;
+                if (u.role) headers['x-user-role'] = u.role;
+                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
+            } catch {}
+        }
+        return headers;
+    };
 
     // Fetch contractor invoice & payment claims summary
     const { data: claimsData } = useQuery({
         queryKey: ['contractor-finance-claims'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractor-portal/finance?_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/finance?_t=${Date.now()}`, {
+                headers: getAuthHeaders()
+            });
             if (!res.ok) return {
                 totalClaimedLkr: 1450000,
                 totalPaidLkr: 1200000,
@@ -114,7 +150,7 @@ export default function ContractorFinancePage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
-                            {(claimsData?.claims || []).map((claim: any) => (
+                            {(claimsData?.claims || []).map((claim: ContractorClaim) => (
                                 <tr 
                                     key={claim.id} 
                                     onClick={() => setSelectedClaim(claim)}

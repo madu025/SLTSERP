@@ -19,20 +19,61 @@ import {
     Store,
     UserCheck,
     Truck,
-    Sparkles,
     CheckCircle2
 } from 'lucide-react';
 
+interface TeamMember {
+    id?: string;
+    name: string;
+    contactNumber?: string | null;
+}
+
+interface TeamStoreAssignment {
+    store?: {
+        name?: string;
+    };
+}
+
+interface ContractorTeam {
+    id: string;
+    name: string;
+    sltCode?: string | null;
+    opmc?: {
+        name?: string;
+    } | null;
+    storeAssignments?: TeamStoreAssignment[];
+    members?: TeamMember[];
+}
+
 export default function ContractorDashboardPage() {
+    const getAuthHeaders = () => {
+        const contractorUser = typeof window !== 'undefined' ? localStorage.getItem('contractor_user') : null;
+        const contractorToken = typeof window !== 'undefined' ? localStorage.getItem('contractor_token') : null;
+
+        const headers: Record<string, string> = {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        };
+        if (contractorToken) {
+            headers['Authorization'] = `Bearer ${contractorToken}`;
+        }
+        if (contractorUser) {
+            try {
+                const u = JSON.parse(contractorUser);
+                if (u.id) headers['x-user-id'] = u.id;
+                if (u.role) headers['x-user-role'] = u.role;
+                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
+            } catch {}
+        }
+        return headers;
+    };
+
     // Fetch contractor profile, teams, and dynamic summary metrics
     const { data: dashboardPayload, isLoading } = useQuery({
         queryKey: ['contractor-my-dashboard'],
         queryFn: async () => {
             const res = await fetch(`/api/contractor-portal/dashboard?_t=${Date.now()}`, {
-                headers: {
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
-                }
+                headers: getAuthHeaders()
             });
             if (!res.ok) throw new Error('Failed to load contractor dashboard');
             const json = await res.json();
@@ -41,8 +82,7 @@ export default function ContractorDashboardPage() {
         refetchInterval: 5000,
     });
 
-    const contractor = dashboardPayload?.contractor;
-    const teams = dashboardPayload?.teams || [];
+    const teams: ContractorTeam[] = dashboardPayload?.teams || [];
     const stats = dashboardPayload?.stats || {};
 
     return (
@@ -148,7 +188,7 @@ export default function ContractorDashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {teams.map((t: any) => (
+                    {teams.map((t: ContractorTeam) => (
                         <Card key={t.id} className="bg-slate-900/80 border-slate-800/80 hover:border-amber-500/40 transition-all shadow-md">
                             <CardHeader className="p-3.5 pb-2 border-b border-slate-800/60">
                                 <div className="flex justify-between items-center">
@@ -183,9 +223,12 @@ export default function ContractorDashboardPage() {
                                     </span>
                                     <div className="flex flex-wrap gap-1">
                                         {t.members && t.members.length > 0 ? (
-                                            t.members.map((m: any, mIdx: number) => (
-                                                <span key={mIdx} className="text-[11px] font-medium text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                                                    {m.name}
+                                            t.members.map((m: TeamMember, mIdx: number) => (
+                                                <span key={mIdx} className="text-[11px] font-medium text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 inline-flex items-center gap-1">
+                                                    <span>{m.name}</span>
+                                                    {m.contactNumber && (
+                                                        <span className="text-[10px] text-amber-400 font-mono">({m.contactNumber})</span>
+                                                    )}
                                                 </span>
                                             ))
                                         ) : (

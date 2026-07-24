@@ -85,7 +85,7 @@ export default function VirtualSwapPage() {
     const { data: contractors = [] } = useQuery<ContractorItem[]>({
         queryKey: ['contractors-list'],
         queryFn: async () => {
-            const res = await fetch('/api/contractors?limit=1000');
+            const res = await fetch('/api/admin/contractors?limit=1000');
             const json = await res.json();
             const actualData = json?.success && json?.data ? json.data : json;
             return (actualData?.contractors || []) as ContractorItem[];

@@ -122,3 +122,20 @@ model SystemErrorLog {
   @@index([path])
   @@index([resolved])
 }
+
+model QCNotification {
+  id           String   @id @default(cuid())
+  soNum        String
+  contractorId String?
+  teamId       String?
+  title        String
+  message      String
+  severity     String   @default("WARNING") // WARNING, CRITICAL, INFO
+  isRead       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([contractorId])
+  @@index([teamId])
+  @@index([soNum])
+  @@index([isRead])
+}

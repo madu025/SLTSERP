@@ -67,7 +67,7 @@ export default function MaterialReturnPage() {
     // --- FETCH DATA ---
     const { data: contractorsData } = useQuery<ContractorsApiResponse>({
         queryKey: ['contractors'],
-        queryFn: async () => (await fetch('/api/contractors?page=1&limit=1000')).json()
+        queryFn: async () => (await fetch('/api/admin/contractors?page=1&limit=1000')).json()
     });
     
     const contractors: ContractorItem[] = Array.isArray(contractorsData?.contractors) 

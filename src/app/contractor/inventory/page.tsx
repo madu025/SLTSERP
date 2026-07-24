@@ -67,11 +67,35 @@ export default function ContractorInventoryPage() {
     const [returnCondition, setReturnCondition] = useState('GOOD');
     const [returnReason, setReturnReason] = useState('');
 
+    const getAuthHeaders = () => {
+        const contractorUser = typeof window !== 'undefined' ? localStorage.getItem('contractor_user') : null;
+        const contractorToken = typeof window !== 'undefined' ? localStorage.getItem('contractor_token') : null;
+
+        const headers: Record<string, string> = {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        };
+        if (contractorToken) {
+            headers['Authorization'] = `Bearer ${contractorToken}`;
+        }
+        if (contractorUser) {
+            try {
+                const u = JSON.parse(contractorUser);
+                if (u.id) headers['x-user-id'] = u.id;
+                if (u.role) headers['x-user-role'] = u.role;
+                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
+            } catch {}
+        }
+        return headers;
+    };
+
     // Fetch Contractor Material Returns (MRN Requests)
     const { data: myReturns = [] } = useQuery({
         queryKey: ['contractor-my-returns'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractor-portal/returns?_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/returns?_t=${Date.now()}`, {
+                headers: getAuthHeaders()
+            });
             if (!res.ok) return [];
             const json = await res.json();
             return Array.isArray(json) ? json : json.data || [];
@@ -84,7 +108,10 @@ export default function ContractorInventoryPage() {
         mutationFn: async () => {
             const res = await fetch('/api/contractor-portal/returns', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({
                     itemId: returnItemId,
                     quantity: returnQty,
@@ -119,7 +146,9 @@ export default function ContractorInventoryPage() {
     const { data: stockData } = useQuery({
         queryKey: ['contractor-van-stock', selectedMonth, selectedYear],
         queryFn: async () => {
-            const res = await fetch(`/api/contractor-portal/stock?month=${selectedMonth}&year=${selectedYear}&_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/stock?month=${selectedMonth}&year=${selectedYear}&_t=${Date.now()}`, {
+                headers: getAuthHeaders()
+            });
             if (!res.ok) return null;
             const json = await res.json();
             return json.data || json;
@@ -154,7 +183,9 @@ export default function ContractorInventoryPage() {
     const { data: issues = [], isLoading } = useQuery<MaterialIssue[]>({
         queryKey: ['contractor-material-issues'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractor-portal/issues?_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/issues?_t=${Date.now()}`, {
+                headers: getAuthHeaders()
+            });
             if (!res.ok) return [];
             const json = await res.json();
             return Array.isArray(json) ? json : json.data || [];
@@ -491,7 +522,7 @@ export default function ContractorInventoryPage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {myReturns.map((ret: any) => (
+                            {myReturns.map((ret: { id: string; returnNumber?: string; status: string; returnDate: string; reason?: string; items?: { id: string; quantity: number; unit?: string; acceptedQuantity?: number | null; item?: { name?: string } }[] }) => (
                                 <div key={ret.id} className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2 font-mono text-xs">
                                     <div className="flex justify-between items-center">
                                         <span className="text-amber-400 font-bold">{ret.returnNumber || `MRN-2026-${ret.id.slice(-6)}`}</span>
@@ -508,7 +539,7 @@ export default function ContractorInventoryPage() {
                                             <span>Return Date: {new Date(ret.returnDate).toLocaleDateString()}</span>
                                             <span className="text-amber-400 font-bold">{ret.reason}</span>
                                         </div>
-                                        {ret.items?.map((it: any) => (
+                                        {ret.items?.map((it: { id: string; quantity: number; unit?: string; acceptedQuantity?: number | null; item?: { name?: string } }) => (
                                             <div key={it.id} className="bg-slate-900 p-2 rounded-lg border border-slate-800 font-mono text-[11px] flex justify-between items-center">
                                                 <span>{it.item?.name || 'Material Item'}</span>
                                                 <div className="text-right">
