@@ -63,6 +63,7 @@ model User {
   subordinates                  User[]                        @relation("UserSupervisor")
   sectionAssignments            UserSectionAssignment[]
   accessibleOpmcs               OPMC[]                        @relation("UserOpmcs")
+  inventoryLedgers              InventoryLedger[]
 
   @@index([role])
   @@index([supervisorId])

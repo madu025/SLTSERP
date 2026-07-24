@@ -497,7 +497,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Inventory Audit & Compliance',
                 path: '/inventory/audit',
                 icon: ShieldCheck,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']
             },
             {
                 title: 'Inventory Cardex',
@@ -510,6 +510,39 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/inventory/dashboard',   // was /inventory — same as parent, caused active-state conflict
                 icon: LayoutDashboard,
                 allowedRoles: ROLE_GROUPS.STORES
+            }
+        ]
+    },
+    {
+        title: 'Contractor Field Portal',
+        path: '/contractor/dashboard',
+        icon: Truck,
+        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER'],
+        permissionId: 'contractor_portal',
+        submenu: [
+            {
+                title: 'Contractor Dashboard',
+                path: '/contractor/dashboard',
+                icon: LayoutDashboard,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER']
+            },
+            {
+                title: 'Van Stock & Dispatches',
+                path: '/contractor/inventory',
+                icon: Package,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'STORES_MANAGER']
+            },
+            {
+                title: 'Field SOD Material Logging',
+                path: '/contractor/sods',
+                icon: ClipboardList,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN']
+            },
+            {
+                title: 'Claims & Payments',
+                path: '/contractor/finance',
+                icon: Banknote,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_FINANCE']
             }
         ]
     },

@@ -22,6 +22,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SLTS Nexus - Workflow management system",
   description: "Next-Gen Workflow & OSP Management System",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SLTSERP Mobile",
+  },
   formatDetection: {
     telephone: false,
   },

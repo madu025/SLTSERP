@@ -64,7 +64,7 @@ interface CycleCountHeader {
 
 export default function InventoryAuditPage() {
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'SYSTEM_AUDIT' | 'CYCLE_COUNTS'>('SYSTEM_AUDIT');
+    const [activeTab, setActiveTab] = useState<'SYSTEM_AUDIT' | 'CYCLE_COUNTS' | 'STORE_VARIANCE' | 'CONSUMABLE_LEAKAGE'>('SYSTEM_AUDIT');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterSeverity, setFilterSeverity] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
 
@@ -72,6 +72,10 @@ export default function InventoryAuditPage() {
     const [showNewCountModal, setShowNewCountModal] = useState(false);
     const [selectedStoreId, setSelectedStoreId] = useState('');
     const [countType, setCountType] = useState<'BLIND' | 'REGULAR'>('BLIND');
+
+    // Auditable Layer state
+    const [selectedVarianceStoreId, setSelectedVarianceStoreId] = useState('');
+    const [selectedLeakageContractorId, setSelectedLeakageContractorId] = useState('');
 
     // Fetch System Audit Report
     const { data: auditData, isLoading, refetch, isRefetching } = useQuery<{ success: boolean; data: AuditReportData }>({
@@ -86,7 +90,7 @@ export default function InventoryAuditPage() {
         }
     });
 
-    // Fetch Stores for Cycle Count
+    // Fetch Stores for Cycle Count & Variance
     const { data: stores = [] } = useQuery<Store[]>({
         queryKey: ['accessible-stores'],
         queryFn: async () => {
@@ -94,6 +98,44 @@ export default function InventoryAuditPage() {
             if (!res.ok) return [];
             return res.json();
         }
+    });
+
+    // Fetch Contractors for Consumable Leakage Audit
+    const { data: contractors = [] } = useQuery<{ id: string; name: string }[]>({
+        queryKey: ['contractors-list-audit'],
+        queryFn: async () => {
+            const res = await fetch(`/api/contractors?_t=${Date.now()}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : data.data || [];
+        },
+        enabled: activeTab === 'CONSUMABLE_LEAKAGE'
+    });
+
+    // Fetch 3-Way Store Variance Reconciliation Report
+    const { data: storeVarianceReport, isLoading: varianceLoading } = useQuery<{ success: boolean; data: any[] }>({
+        queryKey: ['store-variance-report', selectedVarianceStoreId],
+        queryFn: async () => {
+            const res = await fetch(`/api/inventory/reconciliation/variance?storeId=${selectedVarianceStoreId}&_t=${Date.now()}`, {
+                cache: 'no-store'
+            });
+            if (!res.ok) return { success: false, data: [] };
+            return res.json();
+        },
+        enabled: activeTab === 'STORE_VARIANCE' && !!selectedVarianceStoreId
+    });
+
+    // Fetch Consumable Material Leakage Audit Report
+    const { data: consumableLeakageReport, isLoading: leakageLoading } = useQuery<{ success: boolean; data: any }>({
+        queryKey: ['consumable-leakage-report', selectedLeakageContractorId],
+        queryFn: async () => {
+            const res = await fetch(`/api/inventory/reconciliation/consumables?contractorId=${selectedLeakageContractorId}&_t=${Date.now()}`, {
+                cache: 'no-store'
+            });
+            if (!res.ok) return { success: false, data: null };
+            return res.json();
+        },
+        enabled: activeTab === 'CONSUMABLE_LEAKAGE' && !!selectedLeakageContractorId
     });
 
     // Fetch Cycle Counts
@@ -203,7 +245,7 @@ export default function InventoryAuditPage() {
                     </div>
 
                     {/* Navigation Tabs */}
-                    <div className="flex gap-2 border-b border-slate-800 pb-2">
+                    <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-2">
                         <button
                             onClick={() => setActiveTab('SYSTEM_AUDIT')}
                             className={cn(
@@ -226,7 +268,31 @@ export default function InventoryAuditPage() {
                             )}
                         >
                             <ClipboardCheck className="w-4 h-4" />
-                            Physical Cycle Counting & Stock Take
+                            Physical Cycle Counting
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('STORE_VARIANCE')}
+                            className={cn(
+                                "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
+                                activeTab === 'STORE_VARIANCE' 
+                                    ? "bg-emerald-600 text-white shadow-md" 
+                                    : "bg-slate-950/60 text-slate-400 hover:text-white border border-slate-800"
+                            )}
+                        >
+                            <Warehouse className="w-4 h-4" />
+                            3-Way Store Variance Audit
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('CONSUMABLE_LEAKAGE')}
+                            className={cn(
+                                "px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2",
+                                activeTab === 'CONSUMABLE_LEAKAGE' 
+                                    ? "bg-amber-600 text-white shadow-md" 
+                                    : "bg-slate-950/60 text-slate-400 hover:text-white border border-slate-800"
+                            )}
+                        >
+                            <Layers className="w-4 h-4" />
+                            Drop Wire & FAC Leakage Audit
                         </button>
                     </div>
 
@@ -396,7 +462,7 @@ export default function InventoryAuditPage() {
                                 )}
                             </div>
                         </>
-                    ) : (
+                    ) : activeTab === 'CYCLE_COUNTS' ? (
                         /* Physical Cycle Count Tab */
                         <div className="space-y-6">
                             <div className="flex justify-between items-center bg-slate-950/80 p-5 rounded-2xl border border-slate-800">
@@ -478,6 +544,222 @@ export default function InventoryAuditPage() {
                                     </table>
                                 </div>
                             )}
+                        </div>
+                    ) : activeTab === 'STORE_VARIANCE' ? (
+                        /* 3-Way Store Variance Audit Tab */
+                        <div className="space-y-6">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-950/80 p-5 rounded-2xl border border-slate-800 gap-4">
+                                <div>
+                                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                        <Warehouse className="w-5 h-5 text-emerald-400" />
+                                        3-Way Store Material Variance Audit
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-1">Reconcile Physical Audited Stock against Calculated Stock (GRNs Received - Dispatches + Returns) for any store.</p>
+                                </div>
+                                <div className="flex items-center gap-3 w-full md:w-auto">
+                                    <select
+                                        value={selectedVarianceStoreId}
+                                        onChange={(e) => setSelectedVarianceStoreId(e.target.value)}
+                                        className="h-10 px-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-emerald-500 w-full md:w-64"
+                                    >
+                                        <option value="">-- Select Store to Audit --</option>
+                                        {stores.map((s) => (
+                                            <option key={s.id} value={s.id}>{s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {!selectedVarianceStoreId ? (
+                                <div className="p-12 text-center bg-slate-950/80 rounded-2xl border border-slate-800 text-slate-400 space-y-2">
+                                    <Warehouse className="w-12 h-12 mx-auto text-slate-600 opacity-50" />
+                                    <h4 className="text-sm font-bold text-slate-200">Select a Store Warehouse</h4>
+                                    <p className="text-xs text-slate-400">Choose a store from the dropdown above to load real-time 3-way variance audit reports.</p>
+                                </div>
+                            ) : varianceLoading ? (
+                                <div className="py-12 text-center text-slate-400 text-xs">Loading 3-way variance audit report...</div>
+                            ) : (
+                                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                                    <table className="w-full text-left text-xs font-sans">
+                                        <thead className="bg-slate-900 text-slate-400 border-b border-slate-800 uppercase text-[10px] font-black tracking-wider">
+                                            <tr>
+                                                <th className="p-3">Item Code</th>
+                                                <th className="p-3">Item Name</th>
+                                                <th className="p-3 text-right">GRN Received</th>
+                                                <th className="p-3 text-right">Dispatched</th>
+                                                <th className="p-3 text-right">Returned</th>
+                                                <th className="p-3 text-right">Calculated Stock</th>
+                                                <th className="p-3 text-right">Physical Stock</th>
+                                                <th className="p-3 text-right">Variance Qty</th>
+                                                <th className="p-3 text-right">Variance Value</th>
+                                                <th className="p-3 text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
+                                            {(storeVarianceReport?.data || []).length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={10} className="p-6 text-center text-slate-500">No stock records found for this store.</td>
+                                                </tr>
+                                            ) : (
+                                                (storeVarianceReport?.data || []).map((row: any, idx: number) => (
+                                                    <tr key={idx} className="hover:bg-slate-900/50 transition-colors">
+                                                        <td className="p-3 font-mono font-bold text-emerald-400">{row.itemCode}</td>
+                                                        <td className="p-3 font-semibold text-slate-200">{row.itemName}</td>
+                                                        <td className="p-3 text-right font-mono text-slate-400">{row.grnReceivedTotal}</td>
+                                                        <td className="p-3 text-right font-mono text-slate-400">{row.dispatchesTotal}</td>
+                                                        <td className="p-3 text-right font-mono text-slate-400">{row.returnsTotal}</td>
+                                                        <td className="p-3 text-right font-mono font-bold text-slate-200">{row.calculatedStock}</td>
+                                                        <td className="p-3 text-right font-mono font-bold text-blue-400">{row.physicalAuditedStock}</td>
+                                                        <td className={cn("p-3 text-right font-mono font-black", row.varianceQuantity < 0 ? "text-rose-400" : row.varianceQuantity > 0 ? "text-emerald-400" : "text-slate-400")}>
+                                                            {row.varianceQuantity > 0 ? `+${row.varianceQuantity}` : row.varianceQuantity}
+                                                        </td>
+                                                        <td className={cn("p-3 text-right font-mono font-black", row.varianceValueLkr < 0 ? "text-rose-400" : "text-slate-300")}>
+                                                            Rs. {Number(row.varianceValueLkr).toLocaleString()}
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <span className={cn(
+                                                                "px-2 py-0.5 text-[9px] font-black uppercase rounded border",
+                                                                row.discrepancyStatus === 'DEFICIT' ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                                                                row.discrepancyStatus === 'SURPLUS' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                                                "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                                            )}>
+                                                                {row.discrepancyStatus}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        /* Consumable Material Leakage Audit Tab */
+                        <div className="space-y-6">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-950/80 p-5 rounded-2xl border border-slate-800 gap-4">
+                                <div>
+                                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                        <Layers className="w-5 h-5 text-amber-400" />
+                                        Drop Wire & Fast Connector (FAC) Material Leakage Audit
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-1">Audit field consumption ratio against completed FTTH SODs to detect unaccounted material loss.</p>
+                                </div>
+                                <div className="flex items-center gap-3 w-full md:w-auto">
+                                    <select
+                                        value={selectedLeakageContractorId}
+                                        onChange={(e) => setSelectedLeakageContractorId(e.target.value)}
+                                        className="h-10 px-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-amber-500 w-full md:w-64"
+                                    >
+                                        <option value="">-- Select Contractor to Audit --</option>
+                                        {contractors.map((c) => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {!selectedLeakageContractorId ? (
+                                <div className="p-12 text-center bg-slate-950/80 rounded-2xl border border-slate-800 text-slate-400 space-y-2">
+                                    <Layers className="w-12 h-12 mx-auto text-slate-600 opacity-50" />
+                                    <h4 className="text-sm font-bold text-slate-200">Select a Contractor Team</h4>
+                                    <p className="text-xs text-slate-400">Choose a contractor from the dropdown above to run formulaic consumable material audit analysis.</p>
+                                </div>
+                            ) : leakageLoading ? (
+                                <div className="py-12 text-center text-slate-400 text-xs">Auditing contractor consumable material usage...</div>
+                            ) : consumableLeakageReport?.data ? (
+                                <div className="space-y-6">
+                                    {/* Risk Badge Header */}
+                                    <div className="bg-slate-950/80 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+                                        <div>
+                                            <span className="text-xs text-slate-400 uppercase font-bold tracking-widest">Audited Contractor</span>
+                                            <h2 className="text-xl font-black text-white">{consumableLeakageReport.data.contractorName}</h2>
+                                            <p className="text-xs text-slate-400 font-mono mt-0.5">Completed FTTH SODs: {consumableLeakageReport.data.completedFtthSodsCount}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-xs text-slate-400 uppercase font-bold tracking-widest block">Total Financial Leakage</span>
+                                            <span className="text-2xl font-black text-rose-500 font-mono">Rs. {Number(consumableLeakageReport.data.totalLeakageLkr || 0).toLocaleString()}</span>
+                                            <div className="mt-1">
+                                                <span className={cn(
+                                                    "px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full border",
+                                                    consumableLeakageReport.data.riskStatus === 'CRITICAL_LEAKAGE' ? "bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse" :
+                                                    consumableLeakageReport.data.riskStatus === 'ELEVATED' ? "bg-amber-500/20 text-amber-400 border-amber-500/40" :
+                                                    "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                                                )}>
+                                                    Risk Level: {consumableLeakageReport.data.riskStatus}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Material Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Drop Wire Audit Card */}
+                                        <Card className="bg-slate-950/80 border-slate-800">
+                                            <CardHeader className="p-4 pb-2 border-b border-slate-800/60">
+                                                <CardTitle className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center justify-between">
+                                                    <span>Drop Wire (Meters)</span>
+                                                    <span className="font-mono text-xs text-slate-400">Allowed Wastage: 5%</span>
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-4 space-y-3 text-xs">
+                                                <div className="flex justify-between py-1 border-b border-slate-900">
+                                                    <span className="text-slate-400">Total Issued to Contractor:</span>
+                                                    <span className="font-mono font-bold text-white">{consumableLeakageReport.data.dropWireIssuedMeters} m</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-900">
+                                                    <span className="text-slate-400">SOD Field Measured Distance:</span>
+                                                    <span className="font-mono font-bold text-blue-400">{consumableLeakageReport.data.dropWireFieldUsedMeters} m</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-900">
+                                                    <span className="text-slate-400">Approved 5% Scrap Allowance:</span>
+                                                    <span className="font-mono font-bold text-slate-400">{consumableLeakageReport.data.dropWireApprovedWastageMeters} m</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-900 bg-rose-500/5 p-2 rounded-lg">
+                                                    <span className="text-rose-400 font-bold">Unaccounted Material Loss:</span>
+                                                    <span className="font-mono font-black text-rose-400">{consumableLeakageReport.data.dropWireUnaccountedMeters} m</span>
+                                                </div>
+                                                <div className="flex justify-between pt-1 font-bold">
+                                                    <span className="text-slate-300">Financial Impact (Valuation):</span>
+                                                    <span className="font-mono text-rose-500 font-black">Rs. {Number(consumableLeakageReport.data.dropWireLeakageLkr || 0).toLocaleString()}</span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Fast Connector Card */}
+                                        <Card className="bg-slate-950/80 border-slate-800">
+                                            <CardHeader className="p-4 pb-2 border-b border-slate-800/60">
+                                                <CardTitle className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center justify-between">
+                                                    <span>Fast Connectors (FAC Pcs)</span>
+                                                    <span className="font-mono text-xs text-slate-400">Formula: 2 per FTTH SOD</span>
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-4 space-y-3 text-xs">
+                                                <div className="flex justify-between py-1 border-b border-slate-900">
+                                                    <span className="text-slate-400">Total Issued to Contractor:</span>
+                                                    <span className="font-mono font-bold text-white">{consumableLeakageReport.data.facIssuedPcs} pcs</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-900">
+                                                    <span className="text-slate-400">Expected Usage (2 × Completed SODs):</span>
+                                                    <span className="font-mono font-bold text-blue-400">{consumableLeakageReport.data.facExpectedPcs} pcs</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-900">
+                                                    <span className="text-slate-400">Approved 5% Scrap Allowance:</span>
+                                                    <span className="font-mono font-bold text-slate-400">{consumableLeakageReport.data.facApprovedWastagePcs} pcs</span>
+                                                </div>
+                                                <div className="flex justify-between py-1 border-b border-slate-900 bg-rose-500/5 p-2 rounded-lg">
+                                                    <span className="text-rose-400 font-bold">Unaccounted Material Loss:</span>
+                                                    <span className="font-mono font-black text-rose-400">{consumableLeakageReport.data.facUnaccountedPcs} pcs</span>
+                                                </div>
+                                                <div className="flex justify-between pt-1 font-bold">
+                                                    <span className="text-slate-300">Financial Impact (Valuation):</span>
+                                                    <span className="font-mono text-rose-500 font-black">Rs. {Number(consumableLeakageReport.data.facLeakageLkr || 0).toLocaleString()}</span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </div>
+                            ) : null}
                         </div>
                     )}
 

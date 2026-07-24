@@ -17,6 +17,7 @@ import { CycleCountService } from './cycle-count.service';
 import { SerialTrackingService } from './serial-tracking.service';
 import { StoreVarianceReconciliationService } from './store-variance-reconciliation.service';
 import { ConsumableAuditService } from './consumable-audit.service';
+import { AuditLedgerService } from './audit-ledger.service';
 
 /**
  * InventoryService Facade
@@ -122,11 +123,15 @@ export class InventoryService {
     static generateAbcReport = AbcService.generateAbcReport;
 
     // --- SERIAL TRACKING & STORE VARIANCE AUDIT ---
-    static registerSerials = SerialTrackingService.registerSerials;
-    static dispatchSerialsToContractor = SerialTrackingService.dispatchSerialsToContractor;
+    static validateSerialForSOD = SerialTrackingService.validateSerialForSOD;
+    static issueSerialToContractor = SerialTrackingService.issueSerialToContractor;
     static markSerialInstalled = SerialTrackingService.markSerialInstalled;
-    static auditStoreVariance = StoreVarianceReconciliationService.auditStoreVariance;
+    static generateStoreVarianceReport = StoreVarianceReconciliationService.generateStoreVarianceReport;
 
     // --- CONSUMABLE & NON-SERIALIZED MATERIAL AUDIT ---
-    static auditConsumables = ConsumableAuditService.auditConsumables;
+    static auditContractorConsumableLeakage = ConsumableAuditService.auditContractorConsumableLeakage;
+
+    // --- IMMUTABLE AUDIT LEDGER ---
+    static recordLedgerEntry = AuditLedgerService.recordEntry;
+    static verifyLedgerIntegrity = AuditLedgerService.verifyLedgerIntegrity;
 }

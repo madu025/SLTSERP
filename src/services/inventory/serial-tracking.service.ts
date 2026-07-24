@@ -1,134 +1,85 @@
-import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { TransactionClient } from './types';
+import { AppError } from '@/lib/error';
+
+export type SerialStatus = 'IN_STORE' | 'ISSUED' | 'INSTALLED' | 'FAULTY' | 'RETURNED' | 'DISPOSED';
 
 export class SerialTrackingService {
-  /**
-   * Register new serial numbers during GRN / Store receipt
-   */
-  static async registerSerials(
-    data: {
-      itemId: string;
-      storeId: string;
-      serials: string[];
-    },
-    tx?: TransactionClient
-  ) {
-    const client = tx || prisma;
-    const { itemId, storeId, serials } = data;
+    /**
+     * Verify if a CPE Serial Number is valid for installation on a SOD
+     */
+    static async validateSerialForSOD(serialNumber: string, contractorId?: string | null) {
+        const serialRecord = await prisma.inventoryItemSerial.findUnique({
+            where: { serialNumber },
+            include: { item: true, store: true }
+        });
 
-    if (!serials || serials.length === 0) return [];
-
-    const existingSerials = await client.inventoryItemSerial.findMany({
-      where: { serialNumber: { in: serials } },
-      select: { serialNumber: true }
-    });
-
-    if (existingSerials.length > 0) {
-      const existingList = existingSerials.map((s) => s.serialNumber).join(', ');
-      throw AppError.badRequest(`DUPLICATE_SERIAL_NUMBERS: ${existingList}`);
-    }
-
-    const records = serials.map((sn) => ({
-      itemId,
-      serialNumber: sn.trim().toUpperCase(),
-      storeId,
-      status: 'IN_STORE'
-    }));
-
-    return await client.inventoryItemSerial.createMany({
-      data: records
-    });
-  }
-
-  /**
-   * Dispatch serial numbers from central store to contractor store
-   */
-  static async dispatchSerialsToContractor(
-    data: {
-      contractorId: string;
-      storeId: string;
-      serials: string[];
-    },
-    tx?: TransactionClient
-  ) {
-    const client = tx || prisma;
-    const { contractorId, serials } = data;
-
-    if (!serials || serials.length === 0) return;
-
-    // Verify all serials are currently IN_STORE
-    const found = await client.inventoryItemSerial.findMany({
-      where: {
-        serialNumber: { in: serials.map((s) => s.trim().toUpperCase()) }
-      }
-    });
-
-    const unassigned = serials.filter(
-      (sn) => !found.some((f) => f.serialNumber === sn.trim().toUpperCase() && f.status === 'IN_STORE')
-    );
-
-    if (unassigned.length > 0) {
-      throw AppError.badRequest(
-        `SERIALS_NOT_AVAILABLE_IN_STORE: ${unassigned.join(', ')}`
-      );
-    }
-
-    await client.inventoryItemSerial.updateMany({
-      where: { serialNumber: { in: serials.map((s) => s.trim().toUpperCase()) } },
-      data: {
-        contractorId,
-        status: 'ISSUED'
-      }
-    });
-  }
-
-  /**
-   * Complete SOD installation - transition serial number from ISSUED to INSTALLED
-   */
-  static async markSerialInstalled(
-    data: {
-      serialNumber: string;
-      serviceOrderId: string;
-      contractorId?: string;
-    },
-    tx?: TransactionClient
-  ) {
-    const client = tx || prisma;
-    const cleanSerial = data.serialNumber.trim().toUpperCase();
-
-    const existing = await client.inventoryItemSerial.findUnique({
-      where: { serialNumber: cleanSerial }
-    });
-
-    if (!existing) {
-      // Create auto-provisioned serial record if legacy/unregistered item, marked as INSTALLED
-      const firstItem = await client.inventoryItem.findFirst({ select: { id: true } });
-      if (!firstItem) return null;
-
-      return await client.inventoryItemSerial.create({
-        data: {
-          itemId: firstItem.id,
-          serialNumber: cleanSerial,
-          contractorId: data.contractorId,
-          sodId: data.serviceOrderId,
-          status: 'INSTALLED'
+        if (!serialRecord) {
+            throw AppError.notFound(`CPE Serial Number '${serialNumber}' is not registered in the system inventory.`);
         }
-      });
+
+        if (serialRecord.status === 'INSTALLED') {
+            throw AppError.badRequest(
+                `CPE Serial Number '${serialNumber}' is already registered as INSTALLED on another completed SOD.`
+            );
+        }
+
+        if (contractorId && serialRecord.contractorId && serialRecord.contractorId !== contractorId) {
+            throw AppError.badRequest(
+                `CPE Serial Number '${serialNumber}' is issued to another contractor team and cannot be used by this contractor.`
+            );
+        }
+
+        return {
+            isValid: true,
+            serialRecord,
+        };
     }
 
-    if (existing.status === 'INSTALLED') {
-      throw AppError.badRequest(
-        `SERIAL_ALREADY_INSTALLED: Serial ${cleanSerial} was previously installed on SOD ${existing.sodId}`
-      );
+    /**
+     * Mark CPE Serial as INSTALLED atomically upon SOD Completion
+     */
+    static async markSerialInstalled(serialNumber: string, sodId: string, performedById: string) {
+        const serialRecord = await prisma.inventoryItemSerial.findUnique({
+            where: { serialNumber }
+        });
+
+        if (!serialRecord) return null;
+
+        return prisma.inventoryItemSerial.update({
+            where: { id: serialRecord.id },
+            data: {
+                status: 'INSTALLED',
+                sodId,
+                updatedAt: new Date()
+            }
+        });
     }
 
-    return await client.inventoryItemSerial.update({
-      where: { serialNumber: cleanSerial },
-      data: {
-        status: 'INSTALLED',
-        sodId: data.serviceOrderId
-      }
-    });
-  }
+    /**
+     * Issue Serialized CPE Asset to Contractor Team
+     */
+    static async issueSerialToContractor(serialNumber: string, contractorId: string, performedById: string) {
+        const serialRecord = await prisma.inventoryItemSerial.findUnique({
+            where: { serialNumber }
+        });
+
+        if (!serialRecord) {
+            throw AppError.notFound(`CPE Serial Number '${serialNumber}' not found in store.`);
+        }
+
+        if (serialRecord.status !== 'IN_STORE') {
+            throw AppError.badRequest(
+                `Cannot issue serial '${serialNumber}'. Current status is '${serialRecord.status}' (Must be IN_STORE).`
+            );
+        }
+
+        return prisma.inventoryItemSerial.update({
+            where: { id: serialRecord.id },
+            data: {
+                status: 'ISSUED',
+                contractorId,
+                updatedAt: new Date()
+            }
+        });
+    }
 }

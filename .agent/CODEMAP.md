@@ -899,15 +899,16 @@
     * `handoverAsset(serialNumber: string, fromStaffId: string, toStaffId: string, userId: string, tx?: TransactionClient): any`
     * `retireAsset(serialNumber: string, status: 'IN_STORE' | 'FAULTY', storeId: string | null, userId: string, tx?: TransactionClient): any`
 
+### [audit-ledger.service.ts](src/services/inventory/audit-ledger.service.ts)
+* **Class**: `AuditLedgerService`
+  * **Methods**:
+    * `recordEntry(input: CreateLedgerEntryInput): any`
+    * `verifyLedgerIntegrity(storeId?: string, itemId?: string): any`
+
 ### [consumable-audit.service.ts](src/services/inventory/consumable-audit.service.ts)
 * **Class**: `ConsumableAuditService`
   * **Methods**:
-    * `classifyConsumable(code: string, name: string): ConsumableItemAuditSummary['category']`
-    * `auditConsumables(params: {
-    storeId?: string;
-    contractorId?: string;
-    month?: string;
-  }): Promise<ConsumableStoreAuditReport>`
+    * `auditContractorConsumableLeakage(contractorId: string): Promise<ConsumableLeakageSummary>`
 
 ### [cycle-count.service.ts](src/services/inventory/cycle-count.service.ts)
 * **Class**: `CycleCountService`
@@ -1034,21 +1035,9 @@
 ### [serial-tracking.service.ts](src/services/inventory/serial-tracking.service.ts)
 * **Class**: `SerialTrackingService`
   * **Methods**:
-    * `registerSerials(data: {
-      itemId: string;
-      storeId: string;
-      serials: string[];
-    }, tx?: TransactionClient): any`
-    * `dispatchSerialsToContractor(data: {
-      contractorId: string;
-      storeId: string;
-      serials: string[];
-    }, tx?: TransactionClient): any`
-    * `markSerialInstalled(data: {
-      serialNumber: string;
-      serviceOrderId: string;
-      contractorId?: string;
-    }, tx?: TransactionClient): any`
+    * `validateSerialForSOD(serialNumber: string, contractorId?: string | null): any`
+    * `markSerialInstalled(serialNumber: string, sodId: string, performedById: string): any`
+    * `issueSerialToContractor(serialNumber: string, contractorId: string, performedById: string): any`
 
 ### [stock-request.service.ts](src/services/inventory/stock-request.service.ts)
 * **Class**: `StockRequestService`
@@ -1108,7 +1097,7 @@
 ### [store-variance-reconciliation.service.ts](src/services/inventory/store-variance-reconciliation.service.ts)
 * **Class**: `StoreVarianceReconciliationService`
   * **Methods**:
-    * `auditStoreVariance(storeId: string): Promise<StoreVarianceAuditReport>`
+    * `generateStoreVarianceReport(storeId: string): Promise<StoreVarianceItemReport[]>`
 
 ### [store.service.ts](src/services/inventory/store.service.ts)
 * **Class**: `StoreService`
@@ -3898,6 +3887,7 @@
   * `assignedUsers: User[]` `[@relation("UserAssignedStore")]`
   * `locators: WarehouseLocator[]`
   * `cycleCounts: CycleCountHeader[]`
+  * `ledgers: InventoryLedger[]`
 
 ### [InventoryItem](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -3944,6 +3934,7 @@
   * `cycleCountLines: CycleCountLine[]`
   * `preErpBalances: PreErpMaterialBalance[]`
   * `varianceAdjustments: MaterialVarianceAdjustment[]`
+  * `ledgers: InventoryLedger[]`
 
 ### [InventoryStock](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -4140,6 +4131,27 @@
   * `header: CycleCountHeader` `[@relation(fields: [headerId], references: [id], onDelete: Cascade)]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `batch: InventoryBatch?` `[@relation(fields: [batchId], references: [id])]`
+
+### [InventoryLedger](prisma/schema/inventory.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `storeId: String`
+  * `itemId: String`
+  * `batchId: String?`
+  * `transactionType: String` `[// GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION]`
+  * `referenceType: String` `[// GRN, ContractorMaterialIssue, SOD, MRN, CycleCount]`
+  * `referenceId: String`
+  * `quantityBefore: Decimal` `[@default(0) @db.Decimal(12, 4)]`
+  * `quantityChange: Decimal` `[@default(0) @db.Decimal(12, 4)]`
+  * `quantityAfter: Decimal` `[@default(0) @db.Decimal(12, 4)]`
+  * `unitPrice: Decimal` `[@default(0) @db.Decimal(12, 2)]`
+  * `totalValue: Decimal` `[@default(0) @db.Decimal(14, 2)]`
+  * `performedById: String`
+  * `checksum: String` `[// SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
+  * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
+  * `performedBy: User` `[@relation(fields: [performedById], references: [id])]`
 
 ### [NexusConversation](prisma/schema/nexus.prisma)
 * **Fields**:
@@ -6673,6 +6685,7 @@
   * `subordinates: User[]` `[@relation("UserSupervisor")]`
   * `sectionAssignments: UserSectionAssignment[]`
   * `accessibleOpmcs: OPMC[]` `[@relation("UserOpmcs")]`
+  * `inventoryLedgers: InventoryLedger[]`
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:

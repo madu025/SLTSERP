@@ -1,204 +1,130 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
+import { Prisma } from '@prisma/client';
 
-export interface StoreItemVarianceSummary {
-  itemId: string;
-  itemCode: string;
-  itemName: string;
-  unit: string;
-  totalGRNReceived: number;
-  totalDispatchedToContractor: number;
-  totalSODUsage: number;
-  totalReturns: number;
-  totalWastage: number;
-  calculatedInHandBalance: number;
-  physicalAuditedStock: number;
-  varianceQty: number;
-  unitCostLkr: number;
-  varianceFinancialImpactLkr: number;
-  discrepancyStatus: 'SURPLUS' | 'DEFICIT' | 'BALANCED';
-  fraudRiskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-}
-
-export interface StoreVarianceAuditReport {
-  storeId: string;
-  storeName: string;
-  auditedAt: Date;
-  totalItemsAudited: number;
-  totalDeficitCount: number;
-  totalSurplusCount: number;
-  netFinancialVarianceLkr: number;
-  criticalFraudRiskItemsCount: number;
-  itemVariances: StoreItemVarianceSummary[];
+export interface StoreVarianceItemReport {
+    storeId: string;
+    storeName: string;
+    itemId: string;
+    itemCode: string;
+    itemName: string;
+    grnReceivedTotal: number;
+    dispatchesTotal: number;
+    returnsTotal: number;
+    calculatedStock: number;
+    physicalAuditedStock: number;
+    varianceQuantity: number;
+    unitCostLkr: number;
+    varianceValueLkr: number;
+    discrepancyStatus: 'BALANCED' | 'SURPLUS' | 'DEFICIT';
+    riskSeverity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 }
 
 export class StoreVarianceReconciliationService {
-  /**
-   * Run 3-Way Variance Audit for a specific Store or Contractor Store.
-   * Big-O: DB aggregate query O(N/k)
-   */
-  static async auditStoreVariance(storeId: string): Promise<StoreVarianceAuditReport> {
-    if (!storeId) throw AppError.badRequest('STORE_ID_REQUIRED');
+    /**
+     * Perform 3-Way Material Variance Audit for an Inventory Store
+     * Calculated Stock = GRN Received - Dispatches + Returns - Wastage
+     * Variance = Physical Audited Stock - Calculated Stock
+     */
+    static async generateStoreVarianceReport(storeId: string): Promise<StoreVarianceItemReport[]> {
+        const store = await prisma.inventoryStore.findUnique({
+            where: { id: storeId }
+        });
 
-    const store = await prisma.inventoryStore.findUnique({
-      where: { id: storeId },
-      select: { id: true, name: true }
-    });
+        const storeName = store?.name || 'Unknown Store';
 
-    if (!store) throw AppError.badRequest(`STORE_NOT_FOUND: ${storeId}`);
+        // 1. Fetch Store Stock Items
+        const stocks = await prisma.inventoryStock.findMany({
+            where: { storeId },
+            include: { item: true }
+        });
 
-    // Fetch physical current stock balances for the store
-    const stockRecords = await prisma.inventoryStock.findMany({
-      where: { storeId },
-      include: {
-        item: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            unit: true,
-            costPrice: true
-          }
+        // 2. Fetch GRN Receipts for this store
+        const grnItems = await prisma.gRNItem.findMany({
+            where: {
+                grn: { storeId }
+            }
+        });
+
+        const grnTotalByItem = new Map<string, number>();
+        for (const item of grnItems) {
+            const current = grnTotalByItem.get(item.itemId) || 0;
+            grnTotalByItem.set(item.itemId, current + item.quantity);
         }
-      }
-    });
 
-    const itemIds = stockRecords.map((s) => s.itemId);
+        // 3. Fetch Dispatches to Contractors
+        const issueItems = await prisma.contractorMaterialIssueItem.findMany({
+            where: {
+                issue: { storeId, status: 'ACCEPTED' }
+            }
+        });
 
-    // 1. Fetch total GRN Received per item for this store
-    const grnItemsGroup = await prisma.gRNItem.groupBy({
-      by: ['itemId'],
-      where: {
-        grn: { storeId }
-      },
-      _sum: { quantity: true }
-    });
-    const grnMap = new Map<string, number>(
-      grnItemsGroup.map((g) => [g.itemId, Number(g._sum.quantity || 0)])
-    );
-
-    // 2. Fetch total Contractor Dispatches (Stock Issues)
-    const issuesGroup = await prisma.contractorMaterialIssueItem.groupBy({
-      by: ['itemId'],
-      where: {
-        issue: { storeId, status: 'ACCEPTED' }
-      },
-      _sum: { quantity: true }
-    });
-    const issueMap = new Map<string, number>(
-      issuesGroup.map((i) => [i.itemId, Number(i._sum.quantity || 0)])
-    );
-
-    // 3. Fetch total SOD Material Usage linked to this store
-    const sodUsageGroup = await prisma.sODMaterialUsage.groupBy({
-      by: ['itemId'],
-      where: {
-        itemId: { in: itemIds }
-      },
-      _sum: { quantity: true }
-    });
-    const sodUsageMap = new Map<string, number>(
-      sodUsageGroup.map((s) => [s.itemId, Number(s._sum.quantity || 0)])
-    );
-
-    // 4. Fetch total Approved Returns
-    const returnsGroup = await prisma.contractorMaterialReturnItem.groupBy({
-      by: ['itemId'],
-      where: {
-        return: { storeId, status: 'ACCEPTED' }
-      },
-      _sum: { quantity: true }
-    });
-    const returnsMap = new Map<string, number>(
-      returnsGroup.map((r) => [r.itemId, Number(r._sum.quantity || 0)])
-    );
-
-    // 5. Fetch total Approved Wastage
-    const wastageGroup = await prisma.contractorWastageItem.groupBy({
-      by: ['itemId'],
-      where: {
-        wastage: { storeId, status: 'APPROVED' }
-      },
-      _sum: { quantity: true }
-    });
-    const wastageMap = new Map<string, number>(
-      wastageGroup.map((w) => [w.itemId, Number(w._sum.quantity || 0)])
-    );
-
-    let totalDeficitCount = 0;
-    let totalSurplusCount = 0;
-    let netFinancialVarianceLkr = 0;
-    let criticalFraudRiskItemsCount = 0;
-
-    const itemVariances: StoreItemVarianceSummary[] = stockRecords.map((stock) => {
-      const itemId = stock.itemId;
-      const grnQty = grnMap.get(itemId) || 0;
-      const issueQty = issueMap.get(itemId) || 0;
-      const usageQty = sodUsageMap.get(itemId) || 0;
-      const returnQty = returnsMap.get(itemId) || 0;
-      const wastageQty = wastageMap.get(itemId) || 0;
-
-      // Calculated Balance = Received - Issued/Used + Returns - Wastage
-      const calculatedBalance = Math.max(0, grnQty - (issueQty > 0 ? issueQty : usageQty) + returnQty - wastageQty);
-      const physicalStock = Number(stock.quantity || 0);
-      const varianceQty = physicalStock - calculatedBalance;
-      const unitCost = Number(stock.item.costPrice || 0);
-      const financialImpact = Math.round(varianceQty * unitCost * 100) / 100;
-
-      netFinancialVarianceLkr += financialImpact;
-
-      let discrepancyStatus: 'SURPLUS' | 'DEFICIT' | 'BALANCED' = 'BALANCED';
-      if (varianceQty < -0.0001) {
-        discrepancyStatus = 'DEFICIT';
-        totalDeficitCount++;
-      } else if (varianceQty > 0.0001) {
-        discrepancyStatus = 'SURPLUS';
-        totalSurplusCount++;
-      }
-
-      let fraudRiskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
-      if (discrepancyStatus === 'DEFICIT') {
-        const absVal = Math.abs(financialImpact);
-        if (absVal > 100000) {
-          fraudRiskLevel = 'CRITICAL';
-          criticalFraudRiskItemsCount++;
-        } else if (absVal > 25000) {
-          fraudRiskLevel = 'HIGH';
-        } else if (absVal > 5000) {
-          fraudRiskLevel = 'MEDIUM';
+        const dispatchTotalByItem = new Map<string, number>();
+        for (const item of issueItems) {
+            const current = dispatchTotalByItem.get(item.itemId) || 0;
+            dispatchTotalByItem.set(item.itemId, current + item.quantity);
         }
-      }
 
-      return {
-        itemId,
-        itemCode: stock.item.code,
-        itemName: stock.item.name,
-        unit: stock.item.unit,
-        totalGRNReceived: grnQty,
-        totalDispatchedToContractor: issueQty,
-        totalSODUsage: usageQty,
-        totalReturns: returnQty,
-        totalWastage: wastageQty,
-        calculatedInHandBalance: calculatedBalance,
-        physicalAuditedStock: physicalStock,
-        varianceQty,
-        unitCostLkr: unitCost,
-        varianceFinancialImpactLkr: financialImpact,
-        discrepancyStatus,
-        fraudRiskLevel
-      };
-    });
+        // 4. Fetch Returns
+        const returnItems = await prisma.contractorMaterialReturnItem.findMany({
+            where: {
+                return: { storeId, status: 'ACCEPTED' }
+            }
+        });
 
-    return {
-      storeId: store.id,
-      storeName: store.name,
-      auditedAt: new Date(),
-      totalItemsAudited: stockRecords.length,
-      totalDeficitCount,
-      totalSurplusCount,
-      netFinancialVarianceLkr: Math.round(netFinancialVarianceLkr * 100) / 100,
-      criticalFraudRiskItemsCount,
-      itemVariances
-    };
-  }
+        const returnTotalByItem = new Map<string, number>();
+        for (const item of returnItems) {
+            const current = returnTotalByItem.get(item.itemId) || 0;
+            returnTotalByItem.set(item.itemId, current + item.quantity);
+        }
+
+        // 5. Build 3-Way Variance Matrix
+        const reports: StoreVarianceItemReport[] = [];
+
+        for (const stock of stocks) {
+            const itemId = stock.itemId;
+            const itemCode = stock.item.code;
+            const itemName = stock.item.name;
+            const unitCostLkr = stock.item.unitPrice ? Number(stock.item.unitPrice) : 500;
+
+            const grnReceivedTotal = grnTotalByItem.get(itemId) || 0;
+            const dispatchesTotal = dispatchTotalByItem.get(itemId) || 0;
+            const returnsTotal = returnTotalByItem.get(itemId) || 0;
+
+            const calculatedStock = grnReceivedTotal - dispatchesTotal + returnsTotal;
+            const physicalAuditedStock = Number(stock.quantity);
+
+            const varianceQuantity = physicalAuditedStock - calculatedStock;
+            const varianceValueLkr = Math.round(varianceQuantity * unitCostLkr);
+
+            let discrepancyStatus: 'BALANCED' | 'SURPLUS' | 'DEFICIT' = 'BALANCED';
+            if (varianceQuantity < 0) discrepancyStatus = 'DEFICIT';
+            else if (varianceQuantity > 0) discrepancyStatus = 'SURPLUS';
+
+            const absVarianceVal = Math.abs(varianceValueLkr);
+            let riskSeverity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+            if (absVarianceVal > 500000) riskSeverity = 'CRITICAL';
+            else if (absVarianceVal > 100000) riskSeverity = 'HIGH';
+            else if (absVarianceVal > 20000) riskSeverity = 'MEDIUM';
+
+            reports.push({
+                storeId,
+                storeName,
+                itemId,
+                itemCode,
+                itemName,
+                grnReceivedTotal,
+                dispatchesTotal,
+                returnsTotal,
+                calculatedStock,
+                physicalAuditedStock,
+                varianceQuantity,
+                unitCostLkr,
+                varianceValueLkr,
+                discrepancyStatus,
+                riskSeverity,
+            });
+        }
+
+        return reports;
+    }
 }

@@ -1,21 +1,25 @@
 import { apiHandler } from '@/lib/api-handler';
-import { InventoryService } from '@/services/inventory.service';
+import { ConsumableAuditService } from '@/services/inventory/consumable-audit.service';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
-// GET: Fetch Non-Serialized Consumable Materials Audit (Drop Wire, Fast Connectors, Splitters, Clamps, Rosettes)
 export const GET = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
-    const storeId = searchParams.get('storeId') || undefined;
-    const contractorId = searchParams.get('contractorId') || undefined;
-    const month = searchParams.get('month') || undefined;
+    const contractorId = searchParams.get('contractorId');
 
-    return await InventoryService.auditConsumables({
-        storeId,
-        contractorId,
-        month
-    });
+    if (!contractorId) {
+        throw AppError.badRequest('contractorId parameter is required for consumable leakage audit.');
+    }
+
+    const auditSummary = await ConsumableAuditService.auditContractorConsumableLeakage(contractorId);
+
+    return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        data: auditSummary,
+    };
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER'],
-    audit: { action: 'AUDIT', entity: 'CONSUMABLE_VARIANCE' }
+    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'STORES_MANAGER'],
+    audit: { action: 'AUDIT_CONSUMABLE_LEAKAGE', entity: 'Contractor' }
 });
