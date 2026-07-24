@@ -95,8 +95,10 @@ function SidebarContent() {
     const roleLabel = ROLE_LABELS[userRole] || userRole?.replace(/_/g, ' ') || 'User';
 
     const handleLogout = () => {
+        const isContractor = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(userRole);
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        localStorage.removeItem('token');
+        window.location.href = isContractor ? '/contractor/login' : '/login';
     };
 
     if (!mounted) {

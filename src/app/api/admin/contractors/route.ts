@@ -25,7 +25,7 @@ const ALLOWED_READ_ROLES = [
 ];
 
 /**
- * GET: List all contractors
+ * GET: List all contractors for Admin ERP
  */
 export const GET = apiHandler(
     async (req) => {

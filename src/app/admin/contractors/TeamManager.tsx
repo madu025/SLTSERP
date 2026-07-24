@@ -87,7 +87,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         setLoading(true);
         try {
             const [data, storesData, opmcsData] = await Promise.all([
-                fetch(`/api/contractors/${contractorId}/teams?_t=${Date.now()}`).then(res => res.json()),
+                fetch(`/api/admin/contractors/${contractorId}/teams?_t=${Date.now()}`).then(res => res.json()),
                 fetch(`/api/inventory/stores?_t=${Date.now()}`).then(res => res.json()),
                 fetch(`/api/opmcs?_t=${Date.now()}`).then(res => res.json())
             ]);
@@ -145,7 +145,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
 
             console.log("[DEBUG] TeamManager handleSave teams:", JSON.stringify(teams, null, 2));
             setLoading(true);
-            const res = await fetch(`/api/contractors/${contractorId}/teams`, {
+            const res = await fetch(`/api/admin/contractors/${contractorId}/teams`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ teams })

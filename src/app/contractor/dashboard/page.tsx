@@ -28,7 +28,7 @@ export default function ContractorDashboardPage() {
     const { data: dashboardPayload, isLoading } = useQuery({
         queryKey: ['contractor-my-dashboard'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors/my-dashboard?_t=${Date.now()}`, {
+            const res = await fetch(`/api/contractor-portal/dashboard?_t=${Date.now()}`, {
                 headers: {
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache'

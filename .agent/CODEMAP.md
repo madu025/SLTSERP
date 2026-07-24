@@ -2548,6 +2548,9 @@
 | `/api/admin/audit-logs` | [route.ts](src/app/api/admin/audit-logs/route.ts) | `GET` |
 | `/api/admin/clear-service-orders` | [route.ts](src/app/api/admin/clear-service-orders/route.ts) | `POST` |
 | `/api/admin/contractor-payment` | [route.ts](src/app/api/admin/contractor-payment/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
+| `/api/admin/contractors` | [route.ts](src/app/api/admin/contractors/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
+| `/api/admin/contractors/teams` | [route.ts](src/app/api/admin/contractors/teams/route.ts) | `GET` |
+| `/api/admin/contractors/[id]/teams` | [route.ts](src/app/api/admin/contractors/[id]/teams/route.ts) | `GET`, `POST` |
 | `/api/admin/finance/banks/import` | [route.ts](src/app/api/admin/finance/banks/import/route.ts) | `POST` |
 | `/api/admin/finance/cost-allocation` | [route.ts](src/app/api/admin/finance/cost-allocation/route.ts) | `GET`, `POST` |
 | `/api/admin/finance/dashboard` | [route.ts](src/app/api/admin/finance/dashboard/route.ts) | `GET` |
@@ -2595,6 +2598,14 @@
 | `/api/banks/[bankId]/branches/[branchId]` | [route.ts](src/app/api/banks/[bankId]/branches/[branchId]/route.ts) | `PUT`, `DELETE` |
 | `/api/banks/[bankId]` | [route.ts](src/app/api/banks/[bankId]/route.ts) | `PUT`, `DELETE` |
 | `/api/branches` | [route.ts](src/app/api/branches/route.ts) | `GET` |
+| `/api/contractor-portal/dashboard` | [route.ts](src/app/api/contractor-portal/dashboard/route.ts) | `GET` |
+| `/api/contractor-portal/finance` | [route.ts](src/app/api/contractor-portal/finance/route.ts) | `GET` |
+| `/api/contractor-portal/issues` | [route.ts](src/app/api/contractor-portal/issues/route.ts) | `GET` |
+| `/api/contractor-portal/issues/[id]/accept` | [route.ts](src/app/api/contractor-portal/issues/[id]/accept/route.ts) | `POST` |
+| `/api/contractor-portal/returns` | [route.ts](src/app/api/contractor-portal/returns/route.ts) | `GET`, `POST` |
+| `/api/contractor-portal/returns/[id]/accept` | [route.ts](src/app/api/contractor-portal/returns/[id]/accept/route.ts) | `POST` |
+| `/api/contractor-portal/sods` | [route.ts](src/app/api/contractor-portal/sods/route.ts) | `GET` |
+| `/api/contractor-portal/stock` | [route.ts](src/app/api/contractor-portal/stock/route.ts) | `GET` |
 | `/api/contractors/balance-sheet/generate` | [route.ts](src/app/api/contractors/balance-sheet/generate/route.ts) | `POST` |
 | `/api/contractors/balance-sheet/preview` | [route.ts](src/app/api/contractors/balance-sheet/preview/route.ts) | `GET` |
 | `/api/contractors/balance-sheet` | [route.ts](src/app/api/contractors/balance-sheet/route.ts) | `GET` |

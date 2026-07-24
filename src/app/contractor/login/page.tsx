@@ -38,10 +38,16 @@ export default function ContractorLoginPage() {
                 throw new Error(data.message || data.error || 'Contractor login failed');
             }
 
-            // Store user session in localStorage
-            localStorage.setItem('user', JSON.stringify(data.user));
+            // Store contractor user session in localStorage
+            localStorage.setItem('contractor_user', JSON.stringify(data.user));
             if (data.token) {
-                localStorage.setItem('token', data.token);
+                localStorage.setItem('contractor_token', data.token);
+            }
+
+            // Fallback for general session if no admin user is currently logged in
+            if (!localStorage.getItem('user')) {
+                localStorage.setItem('user', JSON.stringify(data.user));
+                if (data.token) localStorage.setItem('token', data.token);
             }
 
             toast.success(`Welcome back, ${data.user.name || 'Contractor'}!`);

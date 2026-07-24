@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Download, X, Share2, PlusSquare, Smartphone, Check } from 'lucide-react';
+import { Download, X, Share2, PlusSquare, Smartphone } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -27,7 +27,6 @@ export default function PWAInstallPrompt() {
             (window.navigator as unknown as { standalone?: boolean }).standalone === true;
 
         if (isStandalone) {
-            setInstalled(true);
             return;
         }
 
@@ -44,12 +43,12 @@ export default function PWAInstallPrompt() {
         // 3. Detect iOS
         const userAgent = window.navigator.userAgent.toLowerCase();
         const isIpadOrIphone = /iphone|ipad|ipod/.test(userAgent);
-        setIsIOS(isIpadOrIphone);
 
         // 4. Android / Chrome: Listen to beforeinstallprompt event
         const handleBeforeInstallPrompt = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e as BeforeInstallPromptEvent);
+            setIsIOS(false);
             setShowPrompt(true);
         };
 
@@ -58,6 +57,7 @@ export default function PWAInstallPrompt() {
         // 5. iOS: If iOS and not standalone, show prompt after a 3s delay for better UX
         if (isIpadOrIphone && !isStandalone) {
             const timer = setTimeout(() => {
+                setIsIOS(true);
                 setShowPrompt(true);
             }, 3000);
             return () => clearTimeout(timer);

@@ -29,7 +29,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            const stored = localStorage.getItem('user');
+            const stored = localStorage.getItem('contractor_user') || localStorage.getItem('user');
             if (stored) {
                 try {
                     setUser(JSON.parse(stored));
@@ -39,7 +39,26 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             }
         }, 0);
 
-        fetch(`/api/contractors/my-dashboard?_t=${Date.now()}`)
+        const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
+        const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
+
+        const headers: Record<string, string> = {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        };
+        if (contractorToken) {
+            headers['Authorization'] = `Bearer ${contractorToken}`;
+        }
+        if (contractorUser) {
+            try {
+                const u = JSON.parse(contractorUser);
+                if (u.id) headers['x-user-id'] = u.id;
+                if (u.role) headers['x-user-role'] = u.role;
+                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
+            } catch {}
+        }
+
+        fetch(`/api/contractor-portal/dashboard?_t=${Date.now()}`, { headers })
             .then(res => res.json())
             .then(json => {
                 if (json.data?.contractor) {
@@ -52,11 +71,25 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        localStorage.removeItem('contractor_user');
+        localStorage.removeItem('contractor_token');
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                const parsed = JSON.parse(storedUser);
+                if (['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(parsed.role)) {
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('token');
+                }
+            } catch {}
+        }
         toast.success('Signed out of Contractor Portal');
         router.push('/contractor/login');
     };
+
+    const displayName = contractorDetails?.name || 
+        (user?.role?.includes('CONTRACTOR') ? user.name : null) || 
+        'MAS Rukshan';
 
     const navItems = [
         {
@@ -105,7 +138,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                         <div>
                             <div className="flex items-center gap-1.5">
                                 <h1 className="text-xs font-black text-white tracking-wider uppercase leading-none">
-                                    {contractorDetails?.name || user?.name || 'MAS Rukshan'}
+                                    {displayName}
                                 </h1>
                                 <span className="flex h-2 w-2 relative">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -125,7 +158,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                         </div>
 
                         <div className="h-7 w-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-[11px] font-black uppercase">
-                            {user?.name?.charAt(0) || 'C'}
+                            {displayName.charAt(0)}
                         </div>
 
                         <button 

@@ -26,7 +26,10 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
     useEffect(() => {
         const timer = setTimeout(() => {
             if (typeof window !== 'undefined') {
-                const storedUser = localStorage.getItem('user');
+                const isContractorPath = window.location.pathname.startsWith('/contractor');
+                const storedUser = isContractorPath
+                    ? (localStorage.getItem('contractor_user') || localStorage.getItem('user'))
+                    : localStorage.getItem('user');
                 if (storedUser) {
                     try {
                         setUser(JSON.parse(storedUser));
@@ -50,6 +53,9 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
     const isAuthorized = user ? hasAccess(user.role, allowedRoles, true, undefined, permissionId, user.permissions) : false;
 
     if (!isAuthorized) {
+        const isContractorRole = user ? ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(user.role) : false;
+        const dashboardPath = isContractorRole ? '/contractor/dashboard' : '/dashboard';
+
         return (
             <div className="h-screen w-full flex items-center justify-center bg-slate-900/5 dark:bg-background text-foreground p-6">
                 <div className="max-w-md w-full bg-white dark:bg-card rounded-3xl shadow-xl border border-red-100 dark:border-red-900/40 p-10 text-center">
@@ -63,7 +69,7 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
                     <div className="space-y-3">
                         <Button
                             className="w-full bg-primary text-primary-foreground font-bold"
-                            onClick={() => router.push('/dashboard')}
+                            onClick={() => router.push(dashboardPath)}
                         >
                             Back to Dashboard
                         </Button>

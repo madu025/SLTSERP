@@ -15,7 +15,7 @@ export default function ContractorFinancePage() {
     const { data: claimsData } = useQuery({
         queryKey: ['contractor-finance-claims'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors/my-finance?_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/finance?_t=${Date.now()}`);
             if (!res.ok) return {
                 totalClaimedLkr: 1450000,
                 totalPaidLkr: 1200000,

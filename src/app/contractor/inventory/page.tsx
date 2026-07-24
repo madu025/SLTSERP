@@ -71,7 +71,7 @@ export default function ContractorInventoryPage() {
     const { data: myReturns = [] } = useQuery({
         queryKey: ['contractor-my-returns'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors/my-returns?_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/returns?_t=${Date.now()}`);
             if (!res.ok) return [];
             const json = await res.json();
             return Array.isArray(json) ? json : json.data || [];
@@ -82,7 +82,7 @@ export default function ContractorInventoryPage() {
     // Material Return Mutation
     const submitReturnMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch('/api/contractors/my-returns', {
+            const res = await fetch('/api/contractor-portal/returns', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -119,7 +119,7 @@ export default function ContractorInventoryPage() {
     const { data: stockData } = useQuery({
         queryKey: ['contractor-van-stock', selectedMonth, selectedYear],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors/my-stock?month=${selectedMonth}&year=${selectedYear}&_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/stock?month=${selectedMonth}&year=${selectedYear}&_t=${Date.now()}`);
             if (!res.ok) return null;
             const json = await res.json();
             return json.data || json;
@@ -154,7 +154,7 @@ export default function ContractorInventoryPage() {
     const { data: issues = [], isLoading } = useQuery<MaterialIssue[]>({
         queryKey: ['contractor-material-issues'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors/my-issues?_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/issues?_t=${Date.now()}`);
             if (!res.ok) return [];
             const json = await res.json();
             return Array.isArray(json) ? json : json.data || [];
@@ -165,7 +165,7 @@ export default function ContractorInventoryPage() {
     // Dual Custody Acceptance Mutation
     const acceptIssueMutation = useMutation({
         mutationFn: async (issueId: string) => {
-            const res = await fetch(`/api/contractors/my-issues/${issueId}/accept`, {
+            const res = await fetch(`/api/contractor-portal/issues/${issueId}/accept`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ signatureName })

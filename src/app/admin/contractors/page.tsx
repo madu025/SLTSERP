@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import RoleGuard from '@/components/RoleGuard';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,7 +67,7 @@ export default function ContractorsPage() {
     const { data: contractorsData, isLoading: loadingContractors } = useQuery({
         queryKey: ["contractors"],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors?page=1&limit=1000&t=${Date.now()}`);
+            const res = await fetch(`/api/admin/contractors?page=1&limit=1000&t=${Date.now()}`);
             if (!res.ok) throw new Error("Failed to fetch contractors");
             return res.json();
         }
@@ -213,31 +214,49 @@ export default function ContractorsPage() {
         }
     };
 
-    return (
-        <div className="erp-page-wrapper flex-row overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-                    <div className="max-w-7xl mx-auto space-y-4">
-                        
-                        {/* Page Header */}
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                            <div className="space-y-0.5">
-                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Contractor Directory</h1>
-                                <p className="text-xs text-slate-500">Manage registered partner contractors, profiles, and technician teams.</p>
-                            </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <Button onClick={() => setInviteModalOpen(true)} variant="outline" className="flex-1 sm:flex-none h-8 px-4 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all font-bold text-xs">
-                                    <UserPlus className="w-4 h-4 mr-1.5" /> Quick Invite
-                                </Button>
-                                <Button onClick={handleAdd} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
-                                    <Plus className="w-4 h-4 mr-1.5" /> Add Contractor
-                                </Button>
-                            </div>
-                        </div>
+    const ALLOWED_ROLES = [
+        'SUPER_ADMIN',
+        'ADMIN',
+        'OFFICE_ADMIN',
+        'OFFICE_ADMIN_ASSISTANT',
+        'OSP_MANAGER',
+        'AREA_MANAGER',
+        'FINANCE_MANAGER',
+        'FINANCE_ASSISTANT',
+        'SITE_OFFICE_STAFF',
+        'ENGINEER',
+        'ASSISTANT_ENGINEER',
+        'AREA_COORDINATOR',
+        'MANAGER',
+        'QC_OFFICER'
+    ];
 
-                        {/* Top Stats Cards */}
+    return (
+        <RoleGuard allowedRoles={ALLOWED_ROLES}>
+            <div className="erp-page-wrapper flex-row overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                    <Header />
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                        <div className="max-w-7xl mx-auto space-y-4">
+                            
+                            {/* Page Header */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                <div className="space-y-0.5">
+                                    <h1 className="text-xl font-black text-slate-900 tracking-tight">Contractor Directory</h1>
+                                    <p className="text-xs text-slate-500">Manage registered partner contractors, profiles, and technician teams.</p>
+                                </div>
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <Button onClick={() => setInviteModalOpen(true)} variant="outline" className="flex-1 sm:flex-none h-8 px-4 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all font-bold text-xs">
+                                        <UserPlus className="w-4 h-4 mr-1.5" /> Quick Invite
+                                    </Button>
+                                    <Button onClick={handleAdd} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                        <Plus className="w-4 h-4 mr-1.5" /> Add Contractor
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Top Stats Cards */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                             <Card className="rounded-xl border border-slate-200 bg-white">
                                 <CardContent className="p-3 flex items-center justify-between">
@@ -591,5 +610,6 @@ export default function ContractorsPage() {
 
             </main>
         </div>
+        </RoleGuard>
     );
 }

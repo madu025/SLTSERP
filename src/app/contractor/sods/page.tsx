@@ -67,7 +67,7 @@ export default function ContractorSODsPage() {
         queryKey: ['contractor-assigned-sods', debouncedSearch, activeStatus, currentPage],
         queryFn: async () => {
             const statusParam = activeStatus === 'ALL' ? '' : `&status=${activeStatus}`;
-            const res = await fetch(`/api/contractors/my-sods?page=${currentPage}&search=${encodeURIComponent(debouncedSearch)}${statusParam}&_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/sods?page=${currentPage}&search=${encodeURIComponent(debouncedSearch)}${statusParam}&_t=${Date.now()}`);
             if (!res.ok) return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
             return res.json();
         }
@@ -77,7 +77,7 @@ export default function ContractorSODsPage() {
     const { data: stockData } = useQuery<StockResponse>({
         queryKey: ['contractor-van-stock-sod-complete'],
         queryFn: async () => {
-            const res = await fetch(`/api/contractors/my-stock?_t=${Date.now()}`);
+            const res = await fetch(`/api/contractor-portal/stock?_t=${Date.now()}`);
             if (!res.ok) return { stockItems: [] };
             const json = await res.json();
             return json.data || json;

@@ -9,6 +9,11 @@ export class ContractorQueryService {
      */
     static async getAllContractors(params: ContractorQueryParams) {
         const { opmcIds: initialOpmcIds, page = 1, limit = 50, userId, userRole } = params;
+
+        if (userRole && (userRole.startsWith('CONTRACTOR') || userRole === 'CONTRACTOR')) {
+            throw AppError.forbidden('Contractor users are not authorized to view the contractor directory');
+        }
+
         const where: Prisma.ContractorWhereInput = {};
         
         let opmcIds = initialOpmcIds;

@@ -9,7 +9,7 @@ export function useContractorOperations() {
 
     const createMutation = useMutation({
         mutationFn: async (data: ContractorSchema) => {
-            const res = await fetch("/api/contractors", {
+            const res = await fetch("/api/admin/contractors", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
@@ -26,7 +26,7 @@ export function useContractorOperations() {
 
     const updateMutation = useMutation({
         mutationFn: async ({ id, data }: { id: string, data: Partial<ContractorSchema> }) => {
-            const res = await fetch("/api/contractors", {
+            const res = await fetch("/api/admin/contractors", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ...data, id })
@@ -43,7 +43,7 @@ export function useContractorOperations() {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`/api/contractors?id=${id}`, {
+            const res = await fetch(`/api/admin/contractors?id=${id}`, {
                 method: "DELETE"
             });
             if (!res.ok) throw new Error("Deletion failed");
@@ -58,7 +58,7 @@ export function useContractorOperations() {
 
     const approveMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch("/api/contractors", {
+            const res = await fetch("/api/admin/contractors", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id, status: "ACTIVE", documentStatus: "APPROVED" })
@@ -75,7 +75,7 @@ export function useContractorOperations() {
 
     const rejectMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch("/api/contractors", {
+            const res = await fetch("/api/admin/contractors", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id, status: "REJECTED", documentStatus: "REJECTED" })

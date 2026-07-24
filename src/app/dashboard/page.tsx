@@ -55,6 +55,12 @@ export default function DashboardPage() {
         Promise.resolve().then(() => setMounted(true));
         if (!user) {
             router.push("/login");
+            return;
+        }
+
+        const isContractorRole = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(user.role);
+        if (isContractorRole) {
+            router.push("/contractor/dashboard");
         }
     }, [user, router]);
 

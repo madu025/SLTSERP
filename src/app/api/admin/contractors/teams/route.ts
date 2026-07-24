@@ -22,7 +22,7 @@ const ALLOWED_READ_ROLES = [
 ];
 
 /**
- * GET: List all contractor teams with contractor name
+ * GET: List all contractor teams with contractor name for Admin ERP
  */
 export const GET = apiHandler(
     async () => {
