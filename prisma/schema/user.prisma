@@ -11,6 +11,7 @@ model User {
   employeeId                    String?                       @unique
   supervisorId                  String?
   assignedStoreId               String?
+  contractorId                  String?
   mustChangePassword            Boolean                       @default(false)
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt

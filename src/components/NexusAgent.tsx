@@ -92,7 +92,7 @@ export default function NexusAgent() {
     // Hide NexusAgent on public/unauthenticated pages
     const isPublicPath = pathname === '/login' || 
                          pathname === '/' ||
-                         pathname.startsWith('/contractor-') || 
+                         pathname.startsWith('/contractor') || 
                          pathname.startsWith('/team-upload') || 
                          pathname.startsWith('/presentation');
 
@@ -385,6 +385,8 @@ export default function NexusAgent() {
             default: return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
         }
     };
+
+    if (isPublicPath) return null;
 
     return (
         <div className="fixed bottom-6 right-6 z-50 font-sans">

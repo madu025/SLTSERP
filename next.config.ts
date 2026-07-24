@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts']
   },
+  async redirects() {
+    return [
+      {
+        source: '/contartor/:path*',
+        destination: '/contractor/:path*',
+        permanent: true,
+      },
+    ];
+  },
   productionBrowserSourceMaps: false,
 };
 

@@ -2580,6 +2580,11 @@
 | `/api/contractors/balance-sheet/preview` | [route.ts](src/app/api/contractors/balance-sheet/preview/route.ts) | `GET` |
 | `/api/contractors/balance-sheet` | [route.ts](src/app/api/contractors/balance-sheet/route.ts) | `GET` |
 | `/api/contractors/generate-link` | [route.ts](src/app/api/contractors/generate-link/route.ts) | `POST` |
+| `/api/contractors/my-finance` | [route.ts](src/app/api/contractors/my-finance/route.ts) | `GET` |
+| `/api/contractors/my-issues` | [route.ts](src/app/api/contractors/my-issues/route.ts) | `GET` |
+| `/api/contractors/my-issues/[id]/accept` | [route.ts](src/app/api/contractors/my-issues/[id]/accept/route.ts) | `POST` |
+| `/api/contractors/my-sods` | [route.ts](src/app/api/contractors/my-sods/route.ts) | `GET` |
+| `/api/contractors/my-stock` | [route.ts](src/app/api/contractors/my-stock/route.ts) | `GET` |
 | `/api/contractors/public` | [route.ts](src/app/api/contractors/public/route.ts) | `GET`, `POST` |
 | `/api/contractors/public-register/[token]` | [route.ts](src/app/api/contractors/public-register/[token]/route.ts) | `GET`, `POST`, `PATCH` |
 | `/api/contractors/renew-link` | [route.ts](src/app/api/contractors/renew-link/route.ts) | `POST` |
@@ -6633,6 +6638,7 @@
   * `employeeId: String?` `[@unique]`
   * `supervisorId: String?`
   * `assignedStoreId: String?`
+  * `contractorId: String?`
   * `mustChangePassword: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`

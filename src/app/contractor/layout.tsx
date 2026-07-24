@@ -51,8 +51,15 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
         },
     ];
 
+    if (pathname === '/contractor/login') {
+        return <>{children}</>;
+    }
+
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER']}>
+        <RoleGuard 
+            allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER']}
+            fallbackLoginPath="/contractor/login"
+        >
             <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans pb-16 md:pb-0">
                 <Header />
                 

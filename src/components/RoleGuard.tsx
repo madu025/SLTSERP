@@ -10,6 +10,7 @@ interface RoleGuardProps {
     children: React.ReactNode;
     allowedRoles: string[];
     permissionId?: string;
+    fallbackLoginPath?: string;
 }
 
 interface GuardUser {
@@ -17,7 +18,7 @@ interface GuardUser {
     permissions?: string[];
 }
 
-export default function RoleGuard({ children, allowedRoles, permissionId }: RoleGuardProps) {
+export default function RoleGuard({ children, allowedRoles, permissionId, fallbackLoginPath = '/login' }: RoleGuardProps) {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [user, setUser] = useState<GuardUser | null>(null);
@@ -33,13 +34,13 @@ export default function RoleGuard({ children, allowedRoles, permissionId }: Role
                         setUser(null);
                     }
                 } else {
-                    router.push('/login');
+                    router.push(fallbackLoginPath);
                 }
             }
             setMounted(true);
         }, 0);
         return () => clearTimeout(timer);
-    }, [router]);
+    }, [router, fallbackLoginPath]);
 
     // During SSR and initial client hydration, render children to ensure 100% matching DOM tree (prevents hydration mismatch)
     if (!mounted) {

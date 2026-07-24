@@ -36,14 +36,12 @@ const isWorker = process.env.IS_WORKER === 'true';
 // 1. Initialize Primary Connection (Write/Master)
 const primaryUrl = getSafeDatabaseUrl(process.env.DATABASE_URL || '', isWorker);
 
-// Use singleton pattern for Next.js and Vercel Serverless to prevent connection exhaustion 
 const globalForPrisma = globalThis as unknown as {
     primaryClient: PrismaClient | undefined;
     readClient: PrismaClient | undefined;
 }
 
 const primaryClient = globalForPrisma.primaryClient ?? new PrismaClient({
-    datasourceUrl: primaryUrl,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 
@@ -51,10 +49,6 @@ globalForPrisma.primaryClient = primaryClient;
 
 // 2. Initialize Read Replica Connection (Optional)
 // In local development, these usually point to the same DB.
-const readReplicaUrl = process.env.READ_REPLICA_URL
-    ? getSafeDatabaseUrl(process.env.READ_REPLICA_URL, isWorker)
-    : primaryUrl;
-
 const hasDistinctReplica = !!(
     process.env.READ_REPLICA_URL &&
     process.env.READ_REPLICA_URL !== process.env.DATABASE_URL
@@ -62,7 +56,6 @@ const hasDistinctReplica = !!(
 
 const readClient = hasDistinctReplica
     ? (globalForPrisma.readClient ?? new PrismaClient({
-        datasourceUrl: readReplicaUrl,
         log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
       }))
     : primaryClient;
@@ -122,3 +115,5 @@ export const prisma = primaryClient.$extends({
 });
 
 export { primaryClient, readClient };
+// Turbopack Cache Reload Timestamp: 2026-07-24
+

@@ -124,6 +124,7 @@ export class UserService {
             id: user.id,
             username: user.username,
             role: user.role,
+            contractorId: user.contractorId || undefined,
         });
 
         const TEST_USERS = ['admin', 'testadmin', 'ospmanager', 'areamanager', 'storesmanager', 'coordinator', 'qcofficer', 'finance', 'stores', 'engineer'];
@@ -162,6 +163,7 @@ export class UserService {
                 username: user.username,
                 name: user.name,
                 role: user.role,
+                contractorId: user.contractorId,
                 accessibleOpmcs: user.accessibleOpmcs,
                 mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword,
                 permissions
