@@ -70,7 +70,9 @@ export function SODTable({ orders, filterType, isColumnVisible, onSort, sortConf
                             {/* ... more columns ... */}
                             <td className="px-3 py-1.5 text-right flex justify-end gap-1">
                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onAction(order, 'detail')}><Info className="w-3 h-3" /></Button>
-                                {filterType === 'pending' && <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onAction(order, 'schedule')}><Calendar className="w-3 h-3" /></Button>}
+                                {filterType === 'pending' && !['INSTALL_CLOSED', 'CLOSED', 'COMPLETED', 'RETURNED', 'RETIN'].includes(order.sltsStatus || order.status || '') && (
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onAction(order, 'schedule')}><Calendar className="w-3 h-3" /></Button>
+                                )}
                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onAction(order, 'comment')}><MessageSquare className="w-3 h-3" /></Button>
                             </td>
                         </tr>

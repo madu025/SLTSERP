@@ -1050,26 +1050,58 @@ export class SODSyncService {
         const statusStr = typeof mapping.status === 'string' ? mapping.status : '';
         const currentStatus = statusStr.toUpperCase();
 
-        if (mapping.status === SodStatus.COMPLETED || mapping.status === SodStatus.INSTALL_CLOSED || mapping.status === SodStatus.PROV_CLOSED) {
-            if (!mapping.sltsStatus) dataToUpdate.sltsStatus = SodStatus.COMPLETED;
-            let d = SodUtils.safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
+        const isCompletedStatus = 
+            [SodStatus.COMPLETED, SodStatus.INSTALL_CLOSED, SodStatus.PROV_CLOSED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus) ||
+            [SodStatus.COMPLETED, SodStatus.INSTALL_CLOSED, SodStatus.PROV_CLOSED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(String(mapping.status).toUpperCase());
+
+        if (isCompletedStatus) {
+            dataToUpdate.sltsStatus = SodStatus.COMPLETED;
+
+            // 1. Work Done Date (INSTALL_CLOSED Date - Physical Field Work Completion)
+            let installDate = serviceOrder?.completedDate;
+            if (!installDate) {
+                installDate = SodUtils.safeParseDate(masterData['INSTALL_CLOSED_DATE'] || masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
+            }
             
-            // Check if Extension pushed a commentsList log entry with "Service Order Completed" timestamp
-            if (Array.isArray(payload.commentsList)) {
+            if (!installDate && Array.isArray(payload.commentsList)) {
                 const completionLog = payload.commentsList.find(c => {
                     const commentText = String(c.comment || c.user || '').toLowerCase();
-                    return commentText.includes('service order completed') || commentText.includes('completed');
+                    return commentText.includes('install closed') || commentText.includes('service order completed') || commentText.includes('completed');
                 });
                 if (completionLog && completionLog.date) {
                     const parsedLogDate = SodUtils.safeParseDate(completionLog.date);
                     if (parsedLogDate) {
-                        d = parsedLogDate;
+                        installDate = parsedLogDate;
                     }
                 }
             }
 
-            if (d) dataToUpdate.completedDate = d;
-            if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = SodStatus.COMPLETED;
+            dataToUpdate.completedDate = installDate || new Date();
+
+            // 2. PAT Approval / OPMC System Completion Date (Caught by Extension)
+            let patDate = SodUtils.safeParseDate(masterData['PAT_APPROVED_DATE'] || masterData['OPMC_PASSED_DATE'] || masterData['STATUS DATE'] || masterData['STATUS_DATE']);
+            if (!patDate && Array.isArray(payload.commentsList)) {
+                const patLog = payload.commentsList.find(c => {
+                    const commentText = String(c.comment || c.user || '').toLowerCase();
+                    return commentText.includes('pat') || commentText.includes('opmc') || commentText.includes('passed') || commentText.includes('approved');
+                });
+                if (patLog && patLog.date) {
+                    const parsedPatDate = SodUtils.safeParseDate(patLog.date);
+                    if (parsedPatDate) {
+                        patDate = parsedPatDate;
+                    }
+                }
+            }
+            if (!patDate) patDate = new Date();
+
+            // Store PAT System Completion Date explicitly
+            if (['PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus) || ['PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(String(mapping.status).toUpperCase())) {
+                dataToUpdate.opmcPatDate = patDate;
+                dataToUpdate.sltsPatDate = patDate;
+                dataToUpdate.opmcPatStatus = 'PASSED';
+                dataToUpdate.sltsPatStatus = 'PASSED';
+                dataToUpdate.patStatus = 'PAT_OPMC_PASSED';
+            }
         } else if (SOD_RETURN_STATUSES.includes(currentStatus)) {
             dataToUpdate.sltsStatus = SodStatus.RETURN;
             const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';

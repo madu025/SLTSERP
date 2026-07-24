@@ -1150,15 +1150,18 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
                                             )}
                                         </Button>
-                                        <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-6 w-6 hover:bg-indigo-500/10"
-                                            title="Schedule Appointment"
-                                            onClick={() => onOpenModal(order, "schedule")}
-                                        >
-                                            <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                                        </Button>
+                                        {filterType === "pending" && 
+                                          !["INSTALL_CLOSED", "CLOSED", "COMPLETED", "RETURNED", "RETIN"].includes(order.sltsStatus || order.status || "") && (
+                                             <Button
+                                                 size="icon"
+                                                 variant="ghost"
+                                                 className="h-6 w-6 hover:bg-indigo-500/10"
+                                                 title="Schedule Appointment"
+                                                 onClick={() => onOpenModal(order, "schedule")}
+                                             >
+                                                 <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                                             </Button>
+                                         )}
                                         <Button
                                             size="icon"
                                             variant="ghost"
