@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLeft, ChevronRight, Filter, Package, Zap, ChevronDown, ChevronUp, Cpu, RefreshCw, Bell, AlertTriangle, MessageSquare } from "lucide-react";
+import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLeft, ChevronRight, Filter, Package, Zap, ChevronDown, ChevronUp, Cpu, RefreshCw, Bell, AlertTriangle } from "lucide-react";
 import { toast } from 'sonner';
 
 interface MaterialUsageItem {
@@ -139,7 +138,7 @@ export default function ContractorSODsPage() {
             const json = await res.json();
             return json.data || json;
         },
-        refetchInterval: 15000 // Poll every 15s for real-time mobile notifications
+        refetchInterval: 5000 // Real-time 5s live polling for instant notifications
     });
 
     // Fetch Contractor Assigned SODs with server-side filters & pagination
@@ -154,7 +153,8 @@ export default function ContractorSODsPage() {
             if (!res.ok) return { sods: [], teams: [], total: 0, page: 1, limit: 50, totalPages: 0 };
             const json = await res.json();
             return json.data || json;
-        }
+        },
+        refetchInterval: 5000 // Real-time 5s live sync for field SOD execution
     });
 
     // Fetch Live Contractor van stock to resolve Drop Wire and ONT Item IDs dynamically
@@ -167,7 +167,8 @@ export default function ContractorSODsPage() {
             if (!res.ok) return { stockItems: [] };
             const json = await res.json();
             return json.data || json;
-        }
+        },
+        refetchInterval: 5000
     });
 
     // Complete SOD Mutation
@@ -200,10 +201,78 @@ export default function ContractorSODsPage() {
             queryClient.invalidateQueries({ queryKey: ['contractor-van-stock'] });
             queryClient.invalidateQueries({ queryKey: ['contractor-van-stock-sod-complete'] });
             queryClient.invalidateQueries({ queryKey: ['contractor-my-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['contractor-qc-notifications'] });
             setSelectedSOD(null);
         },
         onError: (err: Error) => {
             toast.error(err.message);
+        }
+    });
+
+    // Mark Notification as Read Mutation (Optimistic Update)
+    const markNotifReadMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetch('/api/contractor-portal/notifications', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify({ id })
+            });
+            if (!res.ok) throw new Error('Failed to mark notification as read');
+            return res.json();
+        },
+        onMutate: async (id: string) => {
+            await queryClient.cancelQueries({ queryKey: ['contractor-qc-notifications', selectedTeamId] });
+            const previousNotifs = queryClient.getQueryData(['contractor-qc-notifications', selectedTeamId]);
+            queryClient.setQueryData(['contractor-qc-notifications', selectedTeamId], (old: any) => {
+                if (!old) return old;
+                const notifs = (old.notifications || []).map((n: QCNotification) =>
+                    n.id === id ? { ...n, isRead: true } : n
+                );
+                const unreadCount = Math.max(0, (old.unreadCount || 0) - 1);
+                return { ...old, notifications: notifs, unreadCount };
+            });
+            return { previousNotifs };
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['contractor-qc-notifications'] });
+        }
+    });
+
+    // Mark All Notifications as Read Mutation (Optimistic Update)
+    const markAllNotifReadMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch('/api/contractor-portal/notifications', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify({
+                    markAll: true,
+                    teamId: selectedTeamId === 'ALL' ? undefined : selectedTeamId
+                })
+            });
+            if (!res.ok) throw new Error('Failed to mark all notifications as read');
+            return res.json();
+        },
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: ['contractor-qc-notifications', selectedTeamId] });
+            const previousNotifs = queryClient.getQueryData(['contractor-qc-notifications', selectedTeamId]);
+            queryClient.setQueryData(['contractor-qc-notifications', selectedTeamId], (old: any) => {
+                if (!old) return old;
+                const notifs = (old.notifications || []).map((n: QCNotification) => ({ ...n, isRead: true }));
+                return { ...old, notifications: notifs, unreadCount: 0 };
+            });
+            return { previousNotifs };
+        },
+        onSuccess: () => {
+            toast.success('All notifications marked as read');
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['contractor-qc-notifications'] });
         }
     });
 
@@ -915,10 +984,22 @@ export default function ContractorSODsPage() {
             <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
                 <DialogContent className="bg-slate-900 border-slate-800 text-white w-[92vw] max-w-md p-5 rounded-2xl shadow-2xl space-y-4">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-bold text-amber-400 flex items-center gap-2">
-                            <Bell className="w-5 h-5 text-amber-400" />
-                            QC Defect Alerts & Notifications
-                        </DialogTitle>
+                        <div className="flex items-center justify-between">
+                            <DialogTitle className="text-base font-bold text-amber-400 flex items-center gap-2">
+                                <Bell className="w-5 h-5 text-amber-400" />
+                                QC Defect Alerts
+                            </DialogTitle>
+                            {(notificationData?.unreadCount || 0) > 0 && (
+                                <button
+                                    onClick={() => markAllNotifReadMutation.mutate()}
+                                    disabled={markAllNotifReadMutation.isPending}
+                                    className="text-[10px] font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30 transition-all cursor-pointer flex items-center gap-1"
+                                >
+                                    <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                                    Mark All Read
+                                </button>
+                            )}
+                        </div>
                         <DialogDescription className="text-slate-400 text-xs">
                             QC Officers audit records and notify missing photos or quality issues.
                         </DialogDescription>
@@ -929,22 +1010,48 @@ export default function ContractorSODsPage() {
                             notificationData.notifications.map((notif: QCNotification) => (
                                 <div 
                                     key={notif.id} 
-                                    className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
-                                        notif.severity === 'CRITICAL' ? 'bg-red-950/70 border-red-500/50' : 'bg-amber-950/40 border-amber-500/40'
+                                    className={`p-3.5 rounded-xl border text-xs space-y-2 transition-all ${
+                                        notif.isRead
+                                            ? 'bg-slate-950/60 border-slate-800/80 opacity-60'
+                                            : notif.severity === 'CRITICAL' 
+                                                ? 'bg-red-950/70 border-red-500/50 shadow-md' 
+                                                : 'bg-amber-950/40 border-amber-500/40 shadow-md'
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className="font-mono font-bold text-amber-300 text-xs flex items-center gap-1.5">
-                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                                            {notif.title}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            {!notif.isRead && (
+                                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Unread" />
+                                            )}
+                                            <span className="font-mono font-bold text-amber-300 text-xs flex items-center gap-1.5">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                                                {notif.title}
+                                            </span>
+                                        </div>
                                         <span className="text-[9px] font-mono text-slate-400">
                                             {new Date(notif.createdAt).toLocaleDateString()}
                                         </span>
                                     </div>
+
                                     <p className="text-[11px] text-slate-200 font-sans leading-relaxed">
                                         {notif.message}
                                     </p>
+
+                                    <div className="flex justify-end pt-1">
+                                        {!notif.isRead ? (
+                                            <button
+                                                onClick={() => markNotifReadMutation.mutate(notif.id)}
+                                                disabled={markNotifReadMutation.isPending}
+                                                className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-0.5 rounded-md border border-emerald-500/30 flex items-center gap-1 transition-all cursor-pointer"
+                                            >
+                                                <CheckCircle2 className="w-3 h-3" /> Mark as Read
+                                            </button>
+                                        ) : (
+                                            <span className="text-[9px] font-mono text-slate-500 flex items-center gap-1">
+                                                ✓ Read
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         ) : (

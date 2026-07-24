@@ -52,7 +52,9 @@ export default function Header() {
     const handleLogout = () => {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
-        if (user?.role?.startsWith('CONTRACTOR_')) {
+        localStorage.removeItem('contractor_user');
+        localStorage.removeItem('contractor_token');
+        if (user?.role?.startsWith('CONTRACTOR_') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/contractor'))) {
             router.push('/contractor/login');
         } else {
             router.push('/login');

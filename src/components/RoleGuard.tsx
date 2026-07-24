@@ -27,6 +27,7 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
         const timer = setTimeout(() => {
             if (typeof window !== 'undefined') {
                 const isContractorPath = window.location.pathname.startsWith('/contractor');
+                const targetFallback = isContractorPath ? '/contractor/login' : fallbackLoginPath;
                 const storedUser = isContractorPath
                     ? (localStorage.getItem('contractor_user') || localStorage.getItem('user'))
                     : localStorage.getItem('user');
@@ -35,9 +36,10 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
                         setUser(JSON.parse(storedUser));
                     } catch {
                         setUser(null);
+                        router.push(targetFallback);
                     }
                 } else {
-                    router.push(fallbackLoginPath);
+                    router.push(targetFallback);
                 }
             }
             setMounted(true);

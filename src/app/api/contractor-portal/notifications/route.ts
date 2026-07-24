@@ -22,11 +22,20 @@ export const GET = apiHandler(async (req) => {
 });
 
 export const PATCH = apiHandler(async (req) => {
+    const contractorId = req.headers.get('x-contractor-id') || undefined;
     const body = await req.json();
-    const { id } = body;
+    const { id, markAll, teamId } = body;
+
+    if (markAll) {
+        const result = await QCInspectionService.markAllNotificationsAsRead({
+            contractorId,
+            teamId: teamId || undefined
+        });
+        return { success: true, count: result.count };
+    }
 
     if (!id) {
-        return NextResponse.json({ error: 'Notification ID is required' }, { status: 400 });
+        return NextResponse.json({ error: 'Notification ID or markAll flag is required' }, { status: 400 });
     }
 
     const updated = await QCInspectionService.markNotificationAsRead(id);

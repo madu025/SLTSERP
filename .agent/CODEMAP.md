@@ -2109,6 +2109,7 @@
         limit?: number;
     }): any`
     * `markNotificationAsRead(id: string): any`
+    * `markAllNotificationsAsRead(params: { contractorId?: string; teamId?: string }): any`
 
 ### [qfieldcloud-sync.service.ts](src/services/qfieldcloud-sync.service.ts)
 * **Class**: `QFieldCloudSyncService`
@@ -10875,5 +10876,17 @@
   * `resolvedAt: DateTime?`
   * `resolvedBy: String?`
   * `metadata: Json?`
+  * `createdAt: DateTime` `[@default(now())]`
+
+### [QCNotification](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `soNum: String`
+  * `contractorId: String?`
+  * `teamId: String?`
+  * `title: String`
+  * `message: String`
+  * `severity: String` `[@default("WARNING") // WARNING, CRITICAL, INFO]`
+  * `isRead: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
 

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export interface QCInspectionInput {
     soNum: string;
@@ -13,7 +14,7 @@ export class QCInspectionService {
      * Submit QC Inspection result and send automated notifications to Contractor & Team
      */
     static async submitQCInspection(data: QCInspectionInput) {
-        const { soNum, qcStatus, qcDefects = [], qcComment = '', inspectedBy } = data;
+        const { soNum, qcStatus, qcDefects = [], qcComment = '' } = data;
 
         const sod = await prisma.serviceOrder.findUnique({
             where: { soNum },
@@ -74,11 +75,11 @@ export class QCInspectionService {
         const { contractorId, teamId, unreadOnly = false, page = 1, limit = 20 } = params;
         const skip = (page - 1) * limit;
 
-        const orConditions = [];
+        const orConditions: Prisma.QCNotificationWhereInput[] = [];
         if (contractorId) orConditions.push({ contractorId });
         if (teamId) orConditions.push({ teamId });
 
-        const where: any = {};
+        const where: Prisma.QCNotificationWhereInput = {};
         if (orConditions.length > 0) {
             where.OR = orConditions;
         }
@@ -114,6 +115,26 @@ export class QCInspectionService {
     static async markNotificationAsRead(id: string) {
         return await prisma.qCNotification.update({
             where: { id },
+            data: { isRead: true }
+        });
+    }
+
+    /**
+     * Mark all unread notifications as read for contractor / team
+     */
+    static async markAllNotificationsAsRead(params: { contractorId?: string; teamId?: string }) {
+        const { contractorId, teamId } = params;
+        const orConditions: Prisma.QCNotificationWhereInput[] = [];
+        if (contractorId) orConditions.push({ contractorId });
+        if (teamId) orConditions.push({ teamId });
+
+        const where: Prisma.QCNotificationWhereInput = { isRead: false };
+        if (orConditions.length > 0) {
+            where.OR = orConditions;
+        }
+
+        return await prisma.qCNotification.updateMany({
+            where,
             data: { isRead: true }
         });
     }

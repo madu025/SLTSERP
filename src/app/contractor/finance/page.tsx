@@ -97,7 +97,8 @@ export default function ContractorFinancePage() {
             if (!res.ok) throw new Error('Failed to load finance data');
             const json = await res.json();
             return json.data || json;
-        }
+        },
+        refetchInterval: 5000 // Real-time 5s live sync for financial claims & vouchers
     });
 
     const claims = claimsData?.claims || [];

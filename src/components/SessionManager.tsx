@@ -12,27 +12,35 @@ export default function SessionManager() {
 
     const handleLogout = useCallback(async () => {
         try {
+            const isContractor = pathname.startsWith('/contractor');
+            const targetLogin = isContractor ? '/contractor/login' : '/login';
+
             // 1. Call Logout API to clear cookies
             await fetch('/api/logout', { method: 'POST' });
 
             // 2. Clear local storage
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            if (isContractor) {
+                localStorage.removeItem('contractor_user');
+                localStorage.removeItem('contractor_token');
+            }
 
-            // 3. Redirect to login
-            router.push('/login');
+            // 3. Redirect to appropriate login page
+            router.push(targetLogin);
             router.refresh();
         } catch (error) {
             console.error('[SESSION-MANAGER] Logout failed:', error);
-            // Fallback redirect
-            router.push('/login');
+            const isContractor = pathname.startsWith('/contractor');
+            router.push(isContractor ? '/contractor/login' : '/login');
         }
-    }, [router]);
+    }, [pathname, router]);
 
     const resetTimer = useCallback(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
 
-        // Don't set timer if we are already on the login page
-        if (pathname === '/login') return;
+        // Don't set timer if we are already on a login page
+        if (pathname === '/login' || pathname === '/contractor/login') return;
 
         timerRef.current = setTimeout(() => {
             console.log('[SESSION-MANAGER] User inactive for 30 minutes. Logging out...');
