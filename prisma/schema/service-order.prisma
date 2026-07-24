@@ -168,29 +168,31 @@ model RestoreRequest {
 }
 
 model SODMaterialUsage {
-  id             String          @id @default(cuid())
+  id             String                @id @default(cuid())
   serviceOrderId String
   itemId         String
   quantity       Float
   unit           String
   usageType      String
   batchId        String?
-  unitPrice      Float?          @default(0)
-  costPrice      Float?          @default(0)
+  unitPrice      Float?                @default(0)
+  costPrice      Float?                @default(0)
   wastagePercent Float?
-  exceedsLimit   Boolean         @default(false)
+  exceedsLimit   Boolean               @default(false)
   comment        String?
   serialNumber   String?
   approvedBy     String?
   approvedAt     DateTime?
-  createdAt      DateTime        @default(now())
-  batch          InventoryBatch? @relation(fields: [batchId], references: [id])
-  item           InventoryItem   @relation("SODUsage", fields: [itemId], references: [id])
-  serviceOrder   ServiceOrder    @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime              @default(now())
+  batch          InventoryBatch?       @relation(fields: [batchId], references: [id])
+  item           InventoryItem         @relation("SODUsage", fields: [itemId], references: [id])
+  serviceOrder   ServiceOrder          @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  serialItem     InventoryItemSerial?  @relation(fields: [serialNumber], references: [serialNumber], onDelete: SetNull)
 
   @@index([serviceOrderId])
   @@index([itemId])
   @@index([usageType])
+  @@index([serialNumber])
 }
 
 model SODRevenueConfig {

@@ -1145,6 +1145,10 @@ model ContractorMaterialIssue {
   issueDate    DateTime                      @default(now())
   month        String
   issuedBy     String?
+  status       String                        @default("ACCEPTED") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED
+  signatureUrl String?
+  acceptedAt   DateTime?
+  acceptedBy   String?
   createdAt    DateTime                      @default(now())
   contractor   Contractor                    @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
   store        InventoryStore                @relation("MaterialIssues", fields: [storeId], references: [id])
@@ -1152,6 +1156,7 @@ model ContractorMaterialIssue {
 
   @@index([contractorId, storeId, month])
   @@index([month])
+  @@index([status])
 }
 
 model ContractorMaterialIssueItem {
@@ -1168,29 +1173,31 @@ model ContractorMaterialIssueItem {
 }
 
 model SODMaterialUsage {
-  id             String          @id @default(cuid())
+  id             String                @id @default(cuid())
   serviceOrderId String
   itemId         String
   quantity       Float
   unit           String
   usageType      String
   batchId        String?
-  unitPrice      Float?          @default(0)
-  costPrice      Float?          @default(0)
+  unitPrice      Float?                @default(0)
+  costPrice      Float?                @default(0)
   wastagePercent Float?
-  exceedsLimit   Boolean         @default(false)
+  exceedsLimit   Boolean               @default(false)
   comment        String?
   serialNumber   String?
   approvedBy     String?
   approvedAt     DateTime?
-  createdAt      DateTime        @default(now())
-  batch          InventoryBatch? @relation(fields: [batchId], references: [id])
-  item           InventoryItem   @relation("SODUsage", fields: [itemId], references: [id])
-  serviceOrder   ServiceOrder    @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime              @default(now())
+  batch          InventoryBatch?       @relation(fields: [batchId], references: [id])
+  item           InventoryItem         @relation("SODUsage", fields: [itemId], references: [id])
+  serviceOrder   ServiceOrder          @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  serialItem     InventoryItemSerial?  @relation(fields: [serialNumber], references: [serialNumber], onDelete: SetNull)
 
   @@index([serviceOrderId])
   @@index([itemId])
   @@index([usageType])
+  @@index([serialNumber])
 }
 
 model ContractorMaterialReturn {
@@ -1626,19 +1633,20 @@ enum ContractorType {
 }
 
 model InventoryItemSerial {
-  id           String          @id @default(cuid())
+  id           String             @id @default(cuid())
   itemId       String
-  serialNumber String          @unique
-  status       String          @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY
+  serialNumber String             @unique
+  status       String             @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY
   storeId      String?
   contractorId String?
   sodId        String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   
-  item         InventoryItem   @relation(fields: [itemId], references: [id])
-  store        InventoryStore? @relation(fields: [storeId], references: [id])
-  contractor   Contractor?     @relation(fields: [contractorId], references: [id])
+  item         InventoryItem      @relation(fields: [itemId], references: [id])
+  store        InventoryStore?    @relation(fields: [storeId], references: [id])
+  contractor   Contractor?        @relation(fields: [contractorId], references: [id])
+  sodUsages    SODMaterialUsage[]
 
   @@index([itemId])
   @@index([storeId])

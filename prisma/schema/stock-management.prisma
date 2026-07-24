@@ -179,6 +179,10 @@ model ContractorMaterialIssue {
   issueDate    DateTime                      @default(now())
   month        String
   issuedBy     String?
+  status       String                        @default("ACCEPTED") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED
+  signatureUrl String?
+  acceptedAt   DateTime?
+  acceptedBy   String?
   createdAt    DateTime                      @default(now())
   contractor   Contractor                    @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
   store        InventoryStore                @relation("MaterialIssues", fields: [storeId], references: [id])
@@ -186,6 +190,7 @@ model ContractorMaterialIssue {
 
   @@index([contractorId, storeId, month])
   @@index([month])
+  @@index([status])
 }
 
 model ContractorMaterialIssueItem {

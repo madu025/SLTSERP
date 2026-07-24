@@ -13,7 +13,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import {
-    FileText, RefreshCw, AlertTriangle, TrendingUp, TrendingDown, DollarSign, PackageCheck
+    FileText, RefreshCw, TrendingUp, TrendingDown, DollarSign, PackageCheck
 } from 'lucide-react';
 
 interface OPMC {
@@ -188,9 +188,9 @@ export default function MaterialAuditReportPage() {
                         </div>
 
                         {/* Chart */}
-                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm w-full min-w-0">
                             <h2 className="text-sm font-bold text-slate-900 mb-4">Financial Value Comparison: Received vs Consumed (LKR)</h2>
-                            <ResponsiveContainer width="100%" height={260}>
+                            <ResponsiveContainer width="100%" height={260} minWidth={0}>
                                 <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                     <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 10 }} angle={-35} textAnchor="end" interval={0} />

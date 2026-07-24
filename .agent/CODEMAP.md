@@ -899,6 +899,16 @@
     * `handoverAsset(serialNumber: string, fromStaffId: string, toStaffId: string, userId: string, tx?: TransactionClient): any`
     * `retireAsset(serialNumber: string, status: 'IN_STORE' | 'FAULTY', storeId: string | null, userId: string, tx?: TransactionClient): any`
 
+### [consumable-audit.service.ts](src/services/inventory/consumable-audit.service.ts)
+* **Class**: `ConsumableAuditService`
+  * **Methods**:
+    * `classifyConsumable(code: string, name: string): ConsumableItemAuditSummary['category']`
+    * `auditConsumables(params: {
+    storeId?: string;
+    contractorId?: string;
+    month?: string;
+  }): Promise<ConsumableStoreAuditReport>`
+
 ### [cycle-count.service.ts](src/services/inventory/cycle-count.service.ts)
 * **Class**: `CycleCountService`
   * **Methods**:
@@ -1021,6 +1031,25 @@
   * **Methods**:
     * `updateDynamicSafetyLevels(): any`
 
+### [serial-tracking.service.ts](src/services/inventory/serial-tracking.service.ts)
+* **Class**: `SerialTrackingService`
+  * **Methods**:
+    * `registerSerials(data: {
+      itemId: string;
+      storeId: string;
+      serials: string[];
+    }, tx?: TransactionClient): any`
+    * `dispatchSerialsToContractor(data: {
+      contractorId: string;
+      storeId: string;
+      serials: string[];
+    }, tx?: TransactionClient): any`
+    * `markSerialInstalled(data: {
+      serialNumber: string;
+      serviceOrderId: string;
+      contractorId?: string;
+    }, tx?: TransactionClient): any`
+
 ### [stock-request.service.ts](src/services/inventory/stock-request.service.ts)
 * **Class**: `StockRequestService`
   * **Methods**:
@@ -1075,6 +1104,11 @@
     }): Promise<StockIssue[]>`
     * `getItemSerials(storeId: string, itemId: string): any`
     * `getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }): any`
+
+### [store-variance-reconciliation.service.ts](src/services/inventory/store-variance-reconciliation.service.ts)
+* **Class**: `StoreVarianceReconciliationService`
+  * **Methods**:
+    * `auditStoreVariance(storeId: string): Promise<StoreVarianceAuditReport>`
 
 ### [store.service.ts](src/services/inventory/store.service.ts)
 * **Class**: `StoreService`
@@ -2668,7 +2702,9 @@
 | `/api/inventory/pre-erp-reconciliation/import` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/import/route.ts) | `POST` |
 | `/api/inventory/pre-erp-reconciliation` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/route.ts) | `GET`, `POST` |
 | `/api/inventory/pre-erp-reconciliation/summary` | [route.ts](src/app/api/inventory/pre-erp-reconciliation/summary/route.ts) | `GET` |
+| `/api/inventory/reconciliation/consumables` | [route.ts](src/app/api/inventory/reconciliation/consumables/route.ts) | `GET` |
 | `/api/inventory/reconciliation` | [route.ts](src/app/api/inventory/reconciliation/route.ts) | `GET`, `POST` |
+| `/api/inventory/reconciliation/variance` | [route.ts](src/app/api/inventory/reconciliation/variance/route.ts) | `GET` |
 | `/api/inventory/reports/dynamic` | [route.ts](src/app/api/inventory/reports/dynamic/route.ts) | `POST` |
 | `/api/inventory/requests/action` | [route.ts](src/app/api/inventory/requests/action/route.ts) | `POST` |
 | `/api/inventory/requests` | [route.ts](src/app/api/inventory/requests/route.ts) | `GET`, `POST`, `PATCH` |
@@ -4026,6 +4062,7 @@
   * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `store: InventoryStore?` `[@relation(fields: [storeId], references: [id])]`
+  * `sodUsages: SODMaterialUsage[]`
 
 ### [JournalEntry](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -5707,6 +5744,7 @@
   * `batch: InventoryBatch?` `[@relation(fields: [batchId], references: [id])]`
   * `item: InventoryItem` `[@relation("SODUsage", fields: [itemId], references: [id])]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
+  * `serialItem: InventoryItemSerial?` `[@relation(fields: [serialNumber], references: [serialNumber], onDelete: SetNull)]`
 
 ### [SODRevenueConfig](prisma/schema/service-order.prisma)
 * **Fields**:
@@ -6050,6 +6088,10 @@
   * `issueDate: DateTime` `[@default(now())]`
   * `month: String`
   * `issuedBy: String?`
+  * `status: String` `[@default("ACCEPTED") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED]`
+  * `signatureUrl: String?`
+  * `acceptedAt: DateTime?`
+  * `acceptedBy: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `contractor: Contractor` `[@relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)]`
   * `store: InventoryStore` `[@relation("MaterialIssues", fields: [storeId], references: [id])]`
@@ -8220,6 +8262,10 @@
   * `issueDate: DateTime` `[@default(now())]`
   * `month: String`
   * `issuedBy: String?`
+  * `status: String` `[@default("ACCEPTED") // PENDING_ACCEPTANCE, ACCEPTED, REJECTED]`
+  * `signatureUrl: String?`
+  * `acceptedAt: DateTime?`
+  * `acceptedBy: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `contractor: Contractor` `[@relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)]`
   * `store: InventoryStore` `[@relation("MaterialIssues", fields: [storeId], references: [id])]`
@@ -8256,6 +8302,7 @@
   * `batch: InventoryBatch?` `[@relation(fields: [batchId], references: [id])]`
   * `item: InventoryItem` `[@relation("SODUsage", fields: [itemId], references: [id])]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
+  * `serialItem: InventoryItemSerial?` `[@relation(fields: [serialNumber], references: [serialNumber], onDelete: SetNull)]`
 
 ### [ContractorMaterialReturn](prisma/schema.prisma)
 * **Fields**:
@@ -8594,6 +8641,7 @@
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `store: InventoryStore?` `[@relation(fields: [storeId], references: [id])]`
   * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
+  * `sodUsages: SODMaterialUsage[]`
 
 ### [Penalty](prisma/schema.prisma)
 * **Fields**:

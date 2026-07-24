@@ -71,8 +71,6 @@ export default function MobileNav() {
 
     const userRole = user?.role || '';
 
-    if (!mounted) return null;
-
     return (
         <>
             {/* Mobile Menu Button */}
@@ -127,16 +125,16 @@ export default function MobileNav() {
                         Menu
                     </div>
 
-                    {SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions)).map((item) => {
+                    {mounted && SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions)).map((item) => {
                         const Icon = item.icon;
-                        const hasSubmenu = item.submenu && item.submenu.length > 0;
+                        const hasSubmenu = Array.isArray(item.submenu) && item.submenu.length > 0;
                         const isExpanded = expandedMenus.includes(item.title);
                         const isParentActive = pathname === item.path || item.submenu?.some(sub => sub.path === pathname);
                         const isActive = pathname === item.path;
 
                         if (hasSubmenu) {
                             return (
-                                <div key={`mobile-menu-${item.title}`} className="space-y-1">
+                                <div key={`mobile-menu-${item.path || item.title}`} className="space-y-1">
                                     <button
                                         onClick={() => toggleMenu(item.title)}
                                         className={`w-full flex items-center justify-between px-3 py-3 text-sm font-medium rounded-lg transition-colors ${isParentActive
@@ -145,7 +143,7 @@ export default function MobileNav() {
                                             }`}
                                     >
                                         <div className="flex items-center">
-                                            <Icon className="w-5 h-5 mr-3" />
+                                            {Icon ? <Icon className="w-5 h-5 mr-3" /> : <div className="w-5 h-5 mr-3" />}
                                             <span>{item.title}</span>
                                         </div>
                                         <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,6 +155,7 @@ export default function MobileNav() {
                                         <div className="pl-4 space-y-1">
                                             {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles, !!user, sub.title, sub.permissionId || item.permissionId, user?.permissions)).map((sub) => {
                                                 const isSubActive = pathname === sub.path;
+                                                const SubIcon = sub.icon;
                                                 return (
                                                     <Link
                                                         key={`mobile-sub-${sub.path}`}
@@ -167,7 +166,7 @@ export default function MobileNav() {
                                                             : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                                                             }`}
                                                     >
-                                                        <span className="w-5 mr-3 flex justify-center text-[10px]">•</span>
+                                                        {SubIcon ? <SubIcon className="w-4 h-4 mr-2" /> : <span className="w-5 mr-3 flex justify-center text-[10px]">•</span>}
                                                         <span>{sub.title}</span>
                                                     </Link>
                                                 );
@@ -180,7 +179,7 @@ export default function MobileNav() {
 
                         return (
                             <Link
-                                key={`mobile-menu-${item.title}-${item.path}`}
+                                key={`mobile-menu-${item.path || item.title}`}
                                 href={item.path}
                                 onClick={() => setIsOpen(false)}
                                 className={`flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors ${isActive
@@ -188,7 +187,7 @@ export default function MobileNav() {
                                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                                     }`}
                             >
-                                <Icon className="w-5 h-5 mr-3" />
+                                {Icon ? <Icon className="w-5 h-5 mr-3" /> : <div className="w-5 h-5 mr-3" />}
                                 <span>{item.title}</span>
                             </Link>
                         );
@@ -205,7 +204,7 @@ export default function MobileNav() {
                             {user?.name?.substring(0, 2).toUpperCase() || '??'}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{user?.name || 'Loading...'}</p>
+                            <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
                             <p className="text-xs text-slate-400 truncate">{user?.role || 'Role'}</p>
                         </div>
                     </div>

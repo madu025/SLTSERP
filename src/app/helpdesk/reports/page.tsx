@@ -170,11 +170,11 @@ export default function HelpdeskReportsPage() {
                   <CardHeader className="p-4 pb-2 border-b border-border/30">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">Incident Volume by Department</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 flex items-center justify-center h-72">
+                  <CardContent className="p-4 flex items-center justify-center h-72 w-full min-w-0">
                     {ticketsByDept.length === 0 ? (
                       <span className="text-muted-foreground italic">No data logged.</span>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <PieChart>
                           <Pie
                             data={ticketsByDept}
@@ -202,11 +202,11 @@ export default function HelpdeskReportsPage() {
                   <CardHeader className="p-4 pb-2 border-b border-border/30">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">Top Failing Hardware Models</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 h-72">
+                  <CardContent className="p-4 h-72 w-full min-w-0">
                     {failureFrequency.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-muted-foreground italic">No hardware failures logged.</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={failureFrequency}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                           <XAxis dataKey="model" tick={{ fontSize: 9 }} />
@@ -228,11 +228,11 @@ export default function HelpdeskReportsPage() {
                   <CardHeader className="p-4 pb-2 border-b border-border/30">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">Engineer Caseload Workload</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 h-72">
+                  <CardContent className="p-4 h-72 w-full min-w-0">
                     {engineerWorkload.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-muted-foreground italic">No active support agents assigned.</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={engineerWorkload} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                           <XAxis type="number" tick={{ fontSize: 9 }} allowDecimals={false} />
@@ -250,11 +250,11 @@ export default function HelpdeskReportsPage() {
                   <CardHeader className="p-4 pb-2 border-b border-border/30">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-foreground">Incidents Category Breakdown</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 h-72">
+                  <CardContent className="p-4 h-72 w-full min-w-0">
                     {commonIssues.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-muted-foreground italic">No category metrics available.</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={commonIssues}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                           <XAxis dataKey="category" tick={{ fontSize: 8 }} />

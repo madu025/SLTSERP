@@ -70,7 +70,6 @@ interface OPMC {
 
 const CAPEX_COLOR = '#10b981'; // emerald-500
 const OPEX_COLOR  = '#3b82f6'; // blue-500
-const ALERT_COLOR = '#ef4444'; // red-500
 
 const CATEGORY_LABELS: Record<string, string> = {
     NETWORK_INFRA:       'Network Infrastructure',
@@ -399,7 +398,7 @@ export default function CapexOpexDashboardPage() {
                         {/* ── Charts Section ────────────────────────────────────── */}
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                             {/* Chart Toggle + Main Chart */}
-                            <div className="xl:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-5">
+                            <div className="xl:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-5 min-w-0">
                                 <div className="flex items-center justify-between mb-5">
                                     <h2 className="text-sm font-bold text-white">
                                         {activeChart === 'bar' && 'Budget vs Actual — by Category'}
@@ -439,7 +438,7 @@ export default function CapexOpexDashboardPage() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <ResponsiveContainer width="100%" height={280}>
+                                    <ResponsiveContainer width="100%" height={280} minWidth={0}>
                                         {activeChart === 'bar' ? (
                                             <BarChart data={barData} margin={{ top: 5, right: 10, left: 10, bottom: 60 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />

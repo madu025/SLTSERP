@@ -11,7 +11,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     AreaChart, Area
 } from 'recharts';
-import { Landmark, FileText, Receipt, ShieldAlert, TrendingUp, Users, AlertTriangle, Coins } from "lucide-react";
+import { Landmark, Receipt, ShieldAlert, TrendingUp, Users, AlertTriangle, Coins } from "lucide-react";
 
 interface DashboardData {
     metrics: {
@@ -175,8 +175,8 @@ export default function FinanceDashboardPage() {
                                 </CardTitle>
                                 <CardDescription>Monthly totals of settled (paid) Payment Vouchers (LKR)</CardDescription>
                             </CardHeader>
-                            <CardContent className="h-72">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <CardContent className="h-72 w-full min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                     <AreaChart data={data.monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
@@ -187,7 +187,7 @@ export default function FinanceDashboardPage() {
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-800" />
                                         <XAxis dataKey="month" tickLine={false} axisLine={false} style={{ fontSize: '11px', fill: '#64748b' }} />
                                         <YAxis tickLine={false} axisLine={false} tickFormatter={v => `LKR ${v/1000}k`} style={{ fontSize: '11px', fill: '#64748b' }} />
-                                        <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), 'Paid Amount']} />
+                                        <Tooltip formatter={(value: unknown) => [formatCurrency(Number(value)), 'Paid Amount']} />
                                         <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTotal)" />
                                     </AreaChart>
                                 </ResponsiveContainer>

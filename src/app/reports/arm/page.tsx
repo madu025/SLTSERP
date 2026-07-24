@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell, LineChart, Line
+    LineChart, Line
 } from 'recharts';
 import {
     Users,
@@ -15,13 +15,24 @@ import {
     CheckCircle2,
     Clock,
     Calendar as CalendarIcon,
-    Filter,
     Download
 } from "lucide-react";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+interface PerformanceItem {
+    name: string;
+    completed: number;
+    pending: number;
+    returned: number;
+}
 
-const StatCard = ({ title, value, icon: Icon, colorClass }: any) => (
+interface StatCardProps {
+    title: string;
+    value: React.ReactNode;
+    icon: React.ComponentType<{ className?: string }>;
+    colorClass: string;
+}
+
+const StatCard = ({ title, value, icon: Icon, colorClass }: StatCardProps) => (
     <Card className="border-l-4" style={{ borderLeftColor: colorClass }}>
         <CardContent className="p-6 flex items-center justify-between">
             <div>
@@ -36,15 +47,15 @@ const StatCard = ({ title, value, icon: Icon, colorClass }: any) => (
 );
 
 export default function AreaManagerReportsPage() {
-    const [data, setData] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<Record<string, unknown> | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [period, setPeriod] = useState('6M');
     const [customDateRange, setCustomDateRange] = useState<{ from?: Date, to?: Date }>({});
     const [groupBy, setGroupBy] = useState('RTOM'); // REGION, ARM, RTOM, AREA_COORDINATOR
 
     React.useEffect(() => {
         const fetchData = async () => {
-            setLoading(true);
+            setIsLoading(true);
             try {
                 let url = '/api/reports/analytics?view=area';
 
@@ -61,18 +72,18 @@ export default function AreaManagerReportsPage() {
                     const json = await res.json();
                     setData(json);
                 }
-            } catch (error) {
+            } catch {
                 console.error("Failed to fetch area report data");
             } finally {
-                setLoading(false);
+                setIsLoading(false);
             }
         };
         fetchData();
     }, [period, customDateRange, groupBy]);
 
-    const performanceData = data?.performanceData || [];
-    const trendData = data?.trendData || [];
-    const summary = data?.summary || { total: 0, completed: 0, pending: 0, returned: 0 };
+    const performanceData = (data?.performanceData as PerformanceItem[]) || [];
+    const trendData = (data?.trendData as Record<string, unknown>[]) || [];
+    const summary = (data?.summary as { total: number; completed: number; pending: number; returned: number }) || { total: 0, completed: 0, pending: 0, returned: 0 };
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -174,8 +185,8 @@ export default function AreaManagerReportsPage() {
                             <h3 className="text-lg font-bold text-slate-800 mb-4">
                                 Performance by {groupBy === 'COORDINATOR' ? 'Area Coordinator' : groupBy}
                             </h3>
-                            <div className="h-[350px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-[350px] w-full min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                     <BarChart data={performanceData} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                         <XAxis type="number" />
@@ -193,8 +204,8 @@ export default function AreaManagerReportsPage() {
                         {/* Trend Over Time */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <h3 className="text-lg font-bold text-slate-800 mb-4">Completion Trend</h3>
-                            <div className="h-[350px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-[350px] w-full min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                     <LineChart data={trendData}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="month" />
@@ -227,7 +238,7 @@ export default function AreaManagerReportsPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {performanceData.map((item: any, idx: number) => {
+                                    {performanceData.map((item: PerformanceItem, idx: number) => {
                                         const total = item.completed + item.pending + item.returned;
                                         const completionRate = total > 0 ? Math.round((item.completed / total) * 100) : 0;
                                         return (

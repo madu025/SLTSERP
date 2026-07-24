@@ -3,16 +3,36 @@
 import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    LineChart, Line, AreaChart, Area, ComposedChart
+    Area, ComposedChart, Line
 } from 'recharts';
 import { Download, Filter, Calendar as CalendarIcon, ArrowUpRight, ArrowDownRight, Users, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const StatCard = ({ title, value, subtext, trend, trendValue, icon: Icon, colorClass }: any) => (
+interface StatCardProps {
+    title: string;
+    value: React.ReactNode;
+    subtext?: string;
+    trend?: 'up' | 'down';
+    trendValue?: string;
+    icon: React.ComponentType<{ className?: string }>;
+    colorClass: string;
+}
+
+interface ManagerAnalyticsData {
+    summary?: {
+        totalCompletion?: number | string;
+        activeContractors?: number;
+    };
+    pendingApprovals?: number;
+    monthlyTrend?: Record<string, unknown>[];
+    rtomPerformance?: Record<string, unknown>[];
+    contractorPerformance?: Record<string, unknown>[];
+}
+
+const StatCard = ({ title, value, subtext, trend, trendValue, icon: Icon, colorClass }: StatCardProps) => (
     <Card className="border-l-4" style={{ borderLeftColor: colorClass }}>
         <CardContent className="p-6">
             <div className="flex justify-between items-start">
@@ -41,14 +61,14 @@ const StatCard = ({ title, value, subtext, trend, trendValue, icon: Icon, colorC
 
 export default function ManagerReportsPage() {
     // Data States - Moved inside component
-    const [data, setData] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<ManagerAnalyticsData | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [period, setPeriod] = useState('6M'); // 1M, 3M, 6M, 1Y, CUSTOM
     const [customDateRange, setCustomDateRange] = useState<{ from?: Date, to?: Date }>({});
 
     React.useEffect(() => {
         const fetchData = async () => {
-            setLoading(true);
+            setIsLoading(true);
             try {
                 let url = '/api/reports/analytics?view=manager';
 
@@ -64,10 +84,10 @@ export default function ManagerReportsPage() {
                     const json = await res.json();
                     setData(json);
                 }
-            } catch (error) {
+            } catch {
                 console.error("Failed to fetch report data");
             } finally {
-                setLoading(false);
+                setIsLoading(false);
             }
         };
         fetchData();
@@ -193,8 +213,8 @@ export default function ManagerReportsPage() {
                                 <h3 className="text-lg font-bold text-slate-800">Monthly Completion Trend</h3>
                                 <p className="text-sm text-slate-500">Actual completion vs Monthly Targets</p>
                             </div>
-                            <div className="h-[350px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-[350px] w-full min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                     <ComposedChart data={monthlyTrend}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748B' }} dy={10} />
@@ -223,14 +243,14 @@ export default function ManagerReportsPage() {
                                 <h3 className="text-lg font-bold text-slate-800">Regional Performance</h3>
                                 <p className="text-sm text-slate-500">Top performing RTOM areas</p>
                             </div>
-                            <div className="h-[350px]">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-[350px] w-full min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                     <BarChart layout="vertical" data={rtomPerformance} barSize={20}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
                                         <XAxis type="number" hide />
                                         <YAxis dataKey="name" type="category" width={50} axisLine={false} tickLine={false} />
                                         <Tooltip cursor={{ fill: 'transparent' }} />
-                                        <Bar dataKey="completion" fill="#10B981" radius={[0, 4, 4, 0] as any} name="Completion Rate %" background={{ fill: '#F1F5F9', radius: [0, 4, 4, 0] as any }} />
+                                        <Bar dataKey="completion" fill="#10B981" radius={[0, 4, 4, 0]} name="Completion Rate %" background={{ fill: '#F1F5F9' }} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -246,17 +266,17 @@ export default function ManagerReportsPage() {
                             </div>
                             <Button variant="ghost" className="text-blue-600 text-sm">View Full Report</Button>
                         </div>
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-[300px] w-full min-w-0">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                 <BarChart data={contractorPerformance} barSize={40}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} />
                                     <YAxis axisLine={false} tickLine={false} />
                                     <Tooltip cursor={{ fill: '#F8FAFC' }} />
                                     <Legend />
-                                    <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completed" radius={[0, 0, 4, 4] as any} />
+                                    <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completed" radius={[0, 0, 4, 4]} />
                                     <Bar dataKey="pending" stackId="a" fill="#F59E0B" name="Pending" />
-                                    <Bar dataKey="returned" stackId="a" fill="#EF4444" name="Returned" radius={[4, 4, 0, 0] as any} />
+                                    <Bar dataKey="returned" stackId="a" fill="#EF4444" name="Returned" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>

@@ -78,13 +78,13 @@ export function PerformanceSection({ isLoading, contractors, aging }: Performanc
                 accent="bg-amber-500"
                 className="lg:col-span-2"
             >
-                <div className="h-64 sm:h-72">
+                <div className="h-64 sm:h-72 w-full min-w-0">
                     {isLoading ? (
                         <div className="h-full flex items-center justify-center"><Skeleton className="w-full h-full rounded-xl" /></div>
                     ) : !hasAging ? (
                         <NoDataPlaceholder height="h-64 sm:h-72" />
                     ) : (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <BarChart data={aging || []} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #e2e8f0)" opacity={0.3} />
                                 <XAxis

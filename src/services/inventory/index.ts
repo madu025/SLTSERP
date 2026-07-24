@@ -14,6 +14,9 @@ import { ROPService } from './rop.service';
 import { AbcService } from './abc.service';
 import { LocatorService } from './locator.service';
 import { CycleCountService } from './cycle-count.service';
+import { SerialTrackingService } from './serial-tracking.service';
+import { StoreVarianceReconciliationService } from './store-variance-reconciliation.service';
+import { ConsumableAuditService } from './consumable-audit.service';
 
 /**
  * InventoryService Facade
@@ -117,4 +120,13 @@ export class InventoryService {
     // --- REORDER POINT & ABC ANALYSIS ---
     static updateDynamicSafetyLevels = ROPService.updateDynamicSafetyLevels;
     static generateAbcReport = AbcService.generateAbcReport;
+
+    // --- SERIAL TRACKING & STORE VARIANCE AUDIT ---
+    static registerSerials = SerialTrackingService.registerSerials;
+    static dispatchSerialsToContractor = SerialTrackingService.dispatchSerialsToContractor;
+    static markSerialInstalled = SerialTrackingService.markSerialInstalled;
+    static auditStoreVariance = StoreVarianceReconciliationService.auditStoreVariance;
+
+    // --- CONSUMABLE & NON-SERIALIZED MATERIAL AUDIT ---
+    static auditConsumables = ConsumableAuditService.auditConsumables;
 }

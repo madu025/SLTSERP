@@ -2,12 +2,24 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Activity, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Bell, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#a855f7", "#ef4444"];
+
+interface TypeItem {
+    type: string;
+    total: number;
+    read: number;
+}
+
+interface PriorityItem {
+    priority: string;
+    total: number;
+    read?: number;
+}
 
 export default function NotificationAnalyticsPage() {
     const [period, setPeriod] = useState<"24h" | "7d" | "30d" | "all">("30d");
@@ -22,13 +34,13 @@ export default function NotificationAnalyticsPage() {
         },
     });
 
-    const typeData = analytics?.byType.map((t: any) => ({
+    const typeData = analytics?.byType.map((t: TypeItem) => ({
         name: t.type,
         value: t.total,
         read: t.read
     })) || [];
 
-    const priorityData = analytics?.byPriority.map((p: any) => ({
+    const priorityData = analytics?.byPriority.map((p: PriorityItem) => ({
         name: p.priority,
         value: p.total
     })) || [];
@@ -48,10 +60,10 @@ export default function NotificationAnalyticsPage() {
                                 <p className="text-white/60 text-sm mt-1">Track system engagement and alert effectiveness.</p>
                             </div>
                             <div className="bg-white/5 border border-white/10 rounded-lg p-1 flex">
-                                {["24h", "7d", "30d", "all"].map((p) => (
+                                {(["24h", "7d", "30d", "all"] as const).map((p) => (
                                     <button
                                         key={p}
-                                        onClick={() => setPeriod(p as any)}
+                                        onClick={() => setPeriod(p)}
                                         className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${period === p ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20" : "text-white/60 hover:text-white hover:bg-white/5"}`}
                                     >
                                         {p.toUpperCase()}
@@ -92,7 +104,7 @@ export default function NotificationAnalyticsPage() {
                                             <AlertTriangle className="w-5 h-5" />
                                             <h3 className="text-sm font-semibold">Critical Ignored</h3>
                                         </div>
-                                        <p className="text-3xl font-black">{analytics?.byPriority.find((p: any) => p.priority === 'CRITICAL')?.total - (analytics?.byPriority.find((p: any) => p.priority === 'CRITICAL')?.read || 0) || 0}</p>
+                                        <p className="text-3xl font-black">{analytics?.byPriority.find((p: PriorityItem) => p.priority === 'CRITICAL')?.total - (analytics?.byPriority.find((p: PriorityItem) => p.priority === 'CRITICAL')?.read || 0) || 0}</p>
                                     </div>
                                 </div>
 
@@ -100,8 +112,8 @@ export default function NotificationAnalyticsPage() {
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                                     <div className="bg-[#0D1B2A] border border-white/5 rounded-xl p-6">
                                         <h3 className="text-sm font-semibold text-white/80 mb-6">Notifications by Type</h3>
-                                        <div className="h-64">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                        <div className="h-64 w-full min-w-0">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                 <BarChart data={typeData}>
                                                     <XAxis dataKey="name" stroke="rgba(255,255,255,0.2)" fontSize={12} />
                                                     <YAxis stroke="rgba(255,255,255,0.2)" fontSize={12} />
@@ -115,8 +127,8 @@ export default function NotificationAnalyticsPage() {
 
                                     <div className="bg-[#0D1B2A] border border-white/5 rounded-xl p-6">
                                         <h3 className="text-sm font-semibold text-white/80 mb-6">Distribution by Priority</h3>
-                                        <div className="h-64">
-                                            <ResponsiveContainer width="100%" height="100%">
+                                        <div className="h-64 w-full min-w-0">
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                                 <PieChart>
                                                     <Pie
                                                         data={priorityData}
@@ -127,7 +139,7 @@ export default function NotificationAnalyticsPage() {
                                                         paddingAngle={5}
                                                         dataKey="value"
                                                     >
-                                                        {priorityData.map((entry: any, index: number) => (
+                                                        {priorityData.map((entry: PriorityItem, index: number) => (
                                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                         ))}
                                                     </Pie>
