@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 interface ContractorLayoutProps {
     children: React.ReactNode;
@@ -81,7 +82,12 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
     ];
 
     if (pathname === '/contractor/login') {
-        return <>{children}</>;
+        return (
+            <>
+                {children}
+                <PWAInstallPrompt />
+            </>
+        );
     }
 
     return (
@@ -159,6 +165,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                         );
                     })}
                 </nav>
+                <PWAInstallPrompt />
             </div>
         </RoleGuard>
     );
