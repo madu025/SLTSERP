@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
+import { NexusLogoMaster } from "@/components/ui/NexusLogo";
 import "./login.css";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -110,11 +110,8 @@ export default function LoginPage() {
           <div className="slt-noise" />
 
           {/* Branding */}
-          <div className="slt-brand">
-            <div className="slt-logo-wrap">
-              <Image src="/logo.png" alt="SLTS Nexus" width={36} height={36} className="slt-logo-img" />
-            </div>
-            <span className="slt-brand-name">SLTS Nexus</span>
+          <div className="slt-brand mb-8">
+            <NexusLogoMaster iconSize={60} subtitle="WORKFLOW MANAGEMENT SYSTEM" />
           </div>
 
           {/* Hero text */}
@@ -160,12 +157,8 @@ export default function LoginPage() {
         {/* ── RIGHT PANEL (Login form) ── */}
         <div className="slt-right-panel">
           {/* Mobile-only top branding */}
-          <div className="slt-mobile-brand">
-            <div className="slt-mobile-logo-wrap">
-              <Image src="/logo.png" alt="Logo" width={44} height={44} priority className="slt-logo-img" />
-            </div>
-            <h1 className="slt-mobile-title">SLTS Nexus</h1>
-            <p className="slt-mobile-sub">Sri Lanka Telecom Enterprise System</p>
+          <div className="slt-mobile-brand flex justify-center mb-6">
+            <NexusLogoMaster iconSize={52} subtitle="WORKFLOW MANAGEMENT SYSTEM" />
           </div>
 
           {/* Desktop heading */}

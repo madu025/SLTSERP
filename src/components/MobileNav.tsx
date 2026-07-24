@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, Menu } from 'lucide-react';
-import Image from 'next/image';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
+import { NexusLogoIcon } from '@/components/ui/NexusLogo';
 
 interface User {
     name: string;
@@ -102,9 +102,7 @@ export default function MobileNav() {
                 <div className="p-6 border-b border-white/5 bg-sidebar-dark">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="bg-white/10 p-1.5 rounded-lg border border-white/10">
-                                <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
-                            </div>
+                            <NexusLogoIcon size={32} />
                             <div>
                                 <h2 className="text-lg font-bold text-white tracking-wider leading-none">SLTS Nexus</h2>
                                 <p className="text-[10px] text-sky-400 mt-1 uppercase tracking-widest font-medium">Workflow Management</p>

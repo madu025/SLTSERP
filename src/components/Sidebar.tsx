@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { hasAccess } from '@/config/sidebar-menu';
 import SyncStatus from './SyncStatus';
-import Image from 'next/image';
 import { ChevronLeft, ChevronRight, LogOut, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useSidebarNotifications } from '@/hooks/useSidebarNotifications';
 import { SidebarMenu } from './sidebar/SidebarMenu';
 import { NotificationDrawer } from './sidebar/NotificationDrawer';
+import { NexusLogoIcon } from '@/components/ui/NexusLogo';
 
 interface User {
     id: string;
@@ -127,23 +127,7 @@ function SidebarContent() {
                 >
                     {!isCollapsed && (
                         <div className="flex items-center gap-2 overflow-hidden">
-                            <div className="relative flex-shrink-0">
-                                <div
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #004A80, #0072BB)',
-                                    }}
-                                >
-                                    <Image
-                                        src="/logo.png"
-                                        alt="SLTS"
-                                        width={18}
-                                        height={18}
-                                        className="object-contain"
-                                        style={{ filter: 'brightness(0) invert(1)' }}
-                                    />
-                                </div>
-                            </div>
+                            <NexusLogoIcon size={30} />
                             <div className="flex flex-col min-w-0">
                                 <span className="text-[13px] font-bold text-white leading-tight tracking-wide">SLTS Nexus</span>
                                 <span className="text-[7px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#00AEEF' }}>
@@ -154,20 +138,8 @@ function SidebarContent() {
                     )}
 
                     {isCollapsed && (
-                        <div
-                            className="w-7 h-7 rounded-lg flex items-center justify-center"
-                            style={{
-                                background: 'linear-gradient(135deg, #004A80, #0072BB)',
-                            }}
-                        >
-                            <Image
-                                src="/logo.png"
-                                alt="SLTS"
-                                width={18}
-                                height={18}
-                                className="object-contain"
-                                style={{ filter: 'brightness(0) invert(1)' }}
-                            />
+                        <div className="flex items-center justify-center">
+                            <NexusLogoIcon size={28} />
                         </div>
                     )}
 
