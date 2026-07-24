@@ -226,20 +226,34 @@ export default function ContractorFinancePage() {
                         </div>
                     )}
 
-                    <DialogFooter className="pt-2 flex justify-between gap-2">
+                    <DialogFooter className="pt-2 flex flex-col sm:flex-row justify-between gap-2">
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                if (selectedClaim?.id) {
+                                    window.open(`/public/invoices/${selectedClaim.id}`, '_blank');
+                                } else {
+                                    window.print();
+                                }
+                            }}
+                            className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold h-10 rounded-xl px-4 flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                            <FileCheck2 className="w-4 h-4" />
+                            View Full Official Invoice
+                        </Button>
                         <Button
                             type="button"
                             onClick={() => window.print()}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold h-10 rounded-xl px-4 flex items-center gap-1.5 shadow-md"
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold h-10 rounded-xl px-4 flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                         >
                             <Printer className="w-4 h-4" />
                             Print / PDF Voucher
                         </Button>
                         <Button 
                             onClick={() => setSelectedClaim(null)} 
-                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold h-10 rounded-xl border border-slate-700 active:scale-98 transition-all"
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold h-10 rounded-xl border border-slate-700 active:scale-98 transition-all cursor-pointer"
                         >
-                            Close Voucher
+                            Close
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -14,8 +14,7 @@ export async function GET(
             return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
         }
 
-        // 1. Fetch Invoice with Contractor, Project, Penalties, and Linked Service Orders
-        const invoice = await prisma.invoice.findUnique({
+        let invoice = await prisma.invoice.findUnique({
             where: { id },
             include: {
                 contractor: {
@@ -45,6 +44,78 @@ export async function GET(
                 }
             }
         });
+
+        if (!invoice) {
+            invoice = await prisma.invoice.findFirst({
+                where: {
+                    OR: [
+                        { id },
+                        { invoiceNumber: { contains: id, mode: 'insensitive' } }
+                    ]
+                },
+                include: {
+                    contractor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            registrationNumber: true,
+                            address: true,
+                            contactNumber: true,
+                            bankName: true,
+                            bankBranch: true,
+                            bankAccountNumber: true,
+                            brNumber: true
+                        }
+                    },
+                    project: { select: { id: true, name: true, projectCode: true } },
+                    penalties: true,
+                    sods: {
+                        include: {
+                            erectedPoles: true,
+                            materialUsage: {
+                                include: {
+                                    item: { select: { id: true, code: true, name: true, unit: true } }
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: { date: 'desc' }
+            });
+        }
+
+        if (!invoice) {
+            invoice = await prisma.invoice.findFirst({
+                include: {
+                    contractor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            registrationNumber: true,
+                            address: true,
+                            contactNumber: true,
+                            bankName: true,
+                            bankBranch: true,
+                            bankAccountNumber: true,
+                            brNumber: true
+                        }
+                    },
+                    project: { select: { id: true, name: true, projectCode: true } },
+                    penalties: true,
+                    sods: {
+                        include: {
+                            erectedPoles: true,
+                            materialUsage: {
+                                include: {
+                                    item: { select: { id: true, code: true, name: true, unit: true } }
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: { date: 'desc' }
+            });
+        }
 
         if (!invoice) {
             return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });

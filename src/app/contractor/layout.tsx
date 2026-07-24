@@ -98,7 +98,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             icon: LayoutDashboard,
         },
         {
-            title: 'Van Stock',
+            title: 'Stock & Balance',
             path: '/contractor/inventory',
             icon: Package,
         },
@@ -108,7 +108,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             icon: ClipboardList,
         },
         {
-            title: 'Claims',
+            title: 'Invoices & Claims',
             path: '/contractor/finance',
             icon: Banknote,
         },

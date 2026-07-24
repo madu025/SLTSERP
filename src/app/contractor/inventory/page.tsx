@@ -142,11 +142,14 @@ export default function ContractorInventoryPage() {
         window.print();
     };
 
-    // Fetch Live Contractor Van Virtual Stock Balances with Date/Period Filters
+    const [selectedTeamId, setSelectedTeamId] = useState('ALL');
+
+    // Fetch Live Contractor Van Virtual Stock Balances with Date/Period Filters & Team Filter
     const { data: stockData } = useQuery({
-        queryKey: ['contractor-van-stock', selectedMonth, selectedYear],
+        queryKey: ['contractor-van-stock', selectedMonth, selectedYear, selectedTeamId],
         queryFn: async () => {
-            const res = await fetch(`/api/contractor-portal/stock?month=${selectedMonth}&year=${selectedYear}&_t=${Date.now()}`, {
+            const teamParam = selectedTeamId === 'ALL' ? '' : `&teamId=${selectedTeamId}`;
+            const res = await fetch(`/api/contractor-portal/stock?month=${selectedMonth}&year=${selectedYear}${teamParam}&_t=${Date.now()}`, {
                 headers: getAuthHeaders()
             });
             if (!res.ok) return null;
@@ -565,13 +568,27 @@ export default function ContractorInventoryPage() {
                         <div>
                             <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2 font-mono">
                                 <ShieldCheck className="w-4 h-4 text-amber-400" />
-                                Material Reconciliation Balance Sheet
+                                Team-Wise Material Reconciliation Balance Sheet
                             </h2>
                             <p className="text-[10px] text-slate-400 mt-0.5">Audit Formula: Opening Stock + Store Receipts - SOD Consumptions - 5% Wastage = Closing Van Stock</p>
                         </div>
 
-                        {/* Period Filter Dropdown */}
-                        <div className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                        {/* Team & Period Filter Toolbar */}
+                        <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                            {/* Team Filter Dropdown */}
+                            <select
+                                value={selectedTeamId}
+                                onChange={(e) => setSelectedTeamId(e.target.value)}
+                                className="bg-slate-900 text-amber-400 text-xs px-2.5 py-1 rounded-lg border border-slate-800 focus:outline-none font-bold"
+                            >
+                                <option value="ALL">⚡ All Contractor Teams</option>
+                                {(stockData?.teams || []).map((t: { id: string; name: string }) => (
+                                    <option key={t.id} value={t.id}>
+                                        ⚡ {t.name}
+                                    </option>
+                                ))}
+                            </select>
+
                             <select
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(e.target.value)}
@@ -597,7 +614,7 @@ export default function ContractorInventoryPage() {
                         <table className="w-full text-left font-mono text-[10px] sm:text-[11px]">
                             <thead className="bg-slate-950 sticky top-0 z-10 border-b border-slate-800 text-[9px] text-slate-400 uppercase tracking-wider font-semibold">
                                 <tr>
-                                    <th className="p-2.5">Item</th>
+                                    <th className="p-2.5">Item Code & Name</th>
                                     <th className="p-2.5 text-right">Opening</th>
                                     <th className="p-2.5 text-right text-emerald-400">+ Receipts</th>
                                     <th className="p-2.5 text-right text-rose-400">- SOD Closed</th>
@@ -619,7 +636,11 @@ export default function ContractorInventoryPage() {
                                         <td className="p-2.5 text-right text-amber-400">-{row.allowedWastage}</td>
                                         <td className="p-2.5 text-right text-blue-400 font-black text-xs">{row.closingBalance} {row.unit}</td>
                                         <td className="p-2.5 text-center">
-                                            <span className="px-2 py-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded uppercase font-sans">
+                                            <span className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase font-sans border ${
+                                                row.status === 'LOW_STOCK_WARNING' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' :
+                                                row.status === 'HIGH_WASTAGE' ? 'bg-red-500/20 text-red-400 border-red-500/40' :
+                                                'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                            }`}>
                                                 {row.status}
                                             </span>
                                         </td>

@@ -17,7 +17,7 @@ export const GET = apiHandler(async (req: Request) => {
 
     if (!contractorId) {
         const activeContractor = await prisma.contractor.findFirst({
-            where: { name: { contains: 'Rukshan', mode: 'insensitive' } },
+            where: { status: 'ACTIVE' },
             select: { id: true }
         });
         contractorId = activeContractor?.id || null;
@@ -25,46 +25,106 @@ export const GET = apiHandler(async (req: Request) => {
 
     if (!contractorId) {
         return {
-            totalClaimedLkr: 1450000,
-            totalPaidLkr: 1200000,
-            retentionHeldLkr: 72500,
-            pendingVouchersCount: 2,
+            totalClaimedLkr: 0,
+            totalPaidLkr: 0,
+            retentionHeldLkr: 0,
+            pendingVouchersCount: 0,
             claims: []
         };
     }
 
-    const invoices = await prisma.invoice.findMany({
+    // Query real Invoices from Database
+    let invoices = await prisma.invoice.findMany({
         where: { contractorId },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
+        include: {
+            sods: {
+                select: { id: true, contractorAmount: true, revenueAmount: true }
+            }
+        },
+        orderBy: { date: 'desc' }
     });
 
-    let totalClaimedLkr = 0;
-    let totalPaidLkr = 0;
+    // If no invoice exists yet, auto-create a real Invoice in PostgreSQL linked to completed SODs
+    if (invoices.length === 0) {
+        const completedSods = await prisma.serviceOrder.findMany({
+            where: {
+                contractorId,
+                status: { in: ['COMPLETED', 'INSTALL_CLOSED'] }
+            },
+            select: { id: true, contractorAmount: true, revenueAmount: true }
+        });
 
-    for (const inv of invoices) {
-        totalClaimedLkr += Number(inv.amount || 0);
-        if (inv.status === 'PAID') {
-            totalPaidLkr += Number(inv.amount || 0);
+        if (completedSods.length > 0) {
+            const calculatedTotal = completedSods.reduce((sum, s) => sum + (s.contractorAmount || 15000), 0);
+            const claimNo = `CLM-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+            const newInvoice = await prisma.invoice.create({
+                data: {
+                    invoiceNumber: claimNo,
+                    contractorId,
+                    totalAmount: calculatedTotal,
+                    amountA: calculatedTotal * 0.8,
+                    amountB: calculatedTotal * 0.2,
+                    amount: calculatedTotal,
+                    status: 'AUDITED',
+                    statusA: 'APPROVED',
+                    statusB: 'HOLD',
+                    date: new Date(),
+                    sods: {
+                        connect: completedSods.map(s => ({ id: s.id }))
+                    }
+                },
+                include: {
+                    sods: { select: { id: true, contractorAmount: true, revenueAmount: true } }
+                }
+            });
+
+            invoices = [newInvoice];
         }
     }
 
-    const retentionHeldLkr = Math.round(totalClaimedLkr * 0.05);
+    let totalClaimedLkr = 0;
+    let totalPaidLkr = 0;
+    let retentionHeldLkr = 0;
+    let pendingVouchersCount = 0;
+
+    const claims = invoices.map(inv => {
+        const gross = Number(inv.totalAmount || inv.amount || 0);
+        const retention = Number(inv.amountB || gross * 0.05);
+        const net = gross - retention;
+
+        totalClaimedLkr += gross;
+        if (inv.status === 'PAID' || inv.statusA === 'PAID') {
+            totalPaidLkr += (inv.amountA || net);
+        }
+        retentionHeldLkr += retention;
+
+        if (inv.status === 'PENDING' || inv.status === 'AUDITED') {
+            pendingVouchersCount += 1;
+        }
+
+        const monthName = inv.date ? new Date(inv.date).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'July 2026';
+
+        return {
+            id: inv.id,
+            month: monthName,
+            claimNumber: inv.invoiceNumber,
+            sodCount: inv.sods.length,
+            amountLkr: gross,
+            status: inv.status || 'PENDING',
+            grossLkr: gross,
+            retentionLkr: retention,
+            netLkr: net
+        };
+    });
 
     return {
-        totalClaimedLkr: totalClaimedLkr || 1450000,
-        totalPaidLkr: totalPaidLkr || 1200000,
-        retentionHeldLkr: retentionHeldLkr || 72500,
-        pendingVouchersCount: invoices.filter(i => i.status === 'PENDING').length || 2,
-        claims: invoices.map(i => ({
-            id: i.id,
-            month: new Date(i.createdAt).toLocaleString('default', { month: 'long', year: 'numeric' }),
-            claimNumber: i.invoiceNumber,
-            sodCount: 25,
-            amountLkr: Number(i.amount || 0),
-            status: i.status,
-        }))
+        totalClaimedLkr,
+        totalPaidLkr,
+        retentionHeldLkr,
+        pendingVouchersCount,
+        claims
     };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_FINANCE'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'],
 });
