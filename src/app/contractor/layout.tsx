@@ -24,6 +24,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
     const pathname = usePathname();
     const router = useRouter();
     const [user, setUser] = useState<{ name?: string; role?: string } | null>(null);
+    const [contractorDetails, setContractorDetails] = useState<{ name?: string; registrationNumber?: string } | null>(null);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -36,6 +37,16 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                 }
             }
         }, 0);
+
+        fetch(`/api/contractors/my-dashboard?_t=${Date.now()}`)
+            .then(res => res.json())
+            .then(json => {
+                if (json.data?.contractor) {
+                    setContractorDetails(json.data.contractor);
+                }
+            })
+            .catch(() => {});
+
         return () => clearTimeout(timer);
     }, []);
 
@@ -87,13 +98,17 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                         </div>
                         <div>
                             <div className="flex items-center gap-1.5">
-                                <h1 className="text-xs font-black text-white tracking-wider uppercase leading-none">SLTS Contractor</h1>
+                                <h1 className="text-xs font-black text-white tracking-wider uppercase leading-none">
+                                    {contractorDetails?.name || user?.name || 'MAS Rukshan'}
+                                </h1>
                                 <span className="flex h-2 w-2 relative">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                 </span>
                             </div>
-                            <p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">Field Mobile App</p>
+                            <p className="text-[10px] text-amber-400 font-mono font-bold leading-tight mt-0.5">
+                                {contractorDetails?.registrationNumber || 'SLTS/OSP/2025/2026-045'}
+                            </p>
                         </div>
                     </div>
 

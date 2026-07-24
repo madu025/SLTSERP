@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic';
 // GET /api/contractors/my-returns - List contractor material return notes
 export const GET = apiHandler(async (req: Request) => {
     const userId = req.headers.get('x-user-id');
-    let contractorId: string | null = null;
+    let contractorId: string | null = req.headers.get('x-contractor-id');
 
-    if (userId) {
+    if (!contractorId && userId) {
         const currentUser = await prisma.user.findUnique({
             where: { id: userId },
             select: { contractorId: true }
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req: Request) => {
 
     if (!contractorId) {
         const activeContractor = await prisma.contractor.findFirst({
-            where: { status: 'ACTIVE' },
+            where: { name: { contains: 'Rukshan', mode: 'insensitive' } },
             select: { id: true }
         });
         contractorId = activeContractor?.id || null;
@@ -50,8 +50,8 @@ export const POST = apiHandler(async (req: Request) => {
     const body = await req.json();
     const { itemId, quantity, condition, reason } = body;
 
-    let contractorId: string | null = null;
-    if (userId) {
+    let contractorId: string | null = req.headers.get('x-contractor-id');
+    if (!contractorId && userId) {
         const currentUser = await prisma.user.findUnique({
             where: { id: userId },
             select: { contractorId: true }
@@ -61,7 +61,7 @@ export const POST = apiHandler(async (req: Request) => {
 
     if (!contractorId) {
         const activeContractor = await prisma.contractor.findFirst({
-            where: { status: 'ACTIVE' },
+            where: { name: { contains: 'Rukshan', mode: 'insensitive' } },
             select: { id: true }
         });
         contractorId = activeContractor?.id || null;

@@ -63,13 +63,14 @@ export class ContractorQueryService {
                     ospApprovedAt: true,
                     createdAt: true,
                     updatedAt: true,
-                    opmc: { select: { id: true, name: true } },
+                    opmc: { select: { id: true, name: true, rtom: true, region: true, province: true } },
                     siteOfficeStaff: { select: { id: true, name: true } },
                     _count: {
                         select: { teams: true }
                     },
                     teams: {
                         include: {
+                            opmc: { select: { id: true, name: true, rtom: true, region: true, province: true } },
                             members: true,
                             storeAssignments: {
                                 include: { store: true }

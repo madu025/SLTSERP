@@ -1,0 +1,617 @@
+[
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-090",
+    "invoiceName": "Tech Com",
+    "contractorName": "Alakanka Peiris",
+    "contactPhone": "199815801369",
+    "nic": "701859400",
+    "teams": [
+      {
+        "rtom": "R-RM",
+        "isampTeamCode": "SLTSRM_T45",
+        "members": [
+          {
+            "name": "Akalanka Peiris",
+            "nic": "199815801369",
+            "phone": "701859400"
+          }
+        ]
+      },
+      {
+        "rtom": "R-RM",
+        "isampTeamCode": "SLTSHO_T37",
+        "members": [
+          {
+            "name": "Tharanga Kumara",
+            "nic": "197673301977",
+            "phone": "774228182"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "tech.com",
+    "suggestedPassword": "SLTS#tech.com2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-102",
+    "invoiceName": "A.JOSEPH",
+    "contractorName": "A.JOSEPH",
+    "contactPhone": "769189546",
+    "nic": "195519502045",
+    "teams": [
+      {
+        "rtom": "R-KG",
+        "isampTeamCode": "SLTS_KGT13",
+        "members": [
+          {
+            "name": "Nipuna",
+            "nic": "N/A",
+            "phone": "913050665V"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "a.joseph",
+    "suggestedPassword": "SLTS#a.joseph2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-083",
+    "invoiceName": "A.A.S.N.Darmasena",
+    "contractorName": "A.A.S.N.Darmasena",
+    "contactPhone": "710158578",
+    "nic": "196104400584",
+    "teams": [
+      {
+        "rtom": "R-GQ",
+        "isampTeamCode": "SLTSGQ_T30",
+        "members": [
+          {
+            "name": "A.A.S.N.Darmasena",
+            "nic": "196104400584",
+            "phone": "710158578"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "aasn.darmasena",
+    "suggestedPassword": "SLTS#aasn.darmasena2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-398",
+    "invoiceName": "Y D Balapitiya",
+    "contractorName": "Yashan Balapitiya",
+    "contactPhone": "0781148142",
+    "nic": "940920795V",
+    "teams": [
+      {
+        "rtom": "R-KX",
+        "isampTeamCode": "SLTSHO_T46",
+        "members": [
+          {
+            "name": "Yashan Balapitiya",
+            "nic": "940920795V",
+            "phone": "0781148142"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "yd.balapitiya",
+    "suggestedPassword": "SLTS#Balapitiya2026"
+  },
+  {
+    "registrationNumber": "SLTS-OSP-2025/2026-263",
+    "invoiceName": "CROUWN TECHNOLOGIES",
+    "contractorName": "M.G.A Kariyawasam",
+    "contactPhone": "715342094",
+    "nic": "196600202392",
+    "teams": [
+      {
+        "rtom": "R-KT",
+        "isampTeamCode": "SLTSHR_T40",
+        "members": [
+          {
+            "name": "D.P.KASUN CHAMARA",
+            "nic": "973020242V",
+            "phone": "787834972"
+          }
+        ]
+      },
+      {
+        "rtom": "R-KT",
+        "isampTeamCode": "SLTSKT_T4",
+        "members": [
+          {
+            "name": "K.V.MEGA DHANJAYA",
+            "nic": "961942411V",
+            "phone": "702802091"
+          }
+        ]
+      },
+      {
+        "rtom": "R-PH",
+        "isampTeamCode": "SLTSPH-T3",
+        "members": [
+          {
+            "name": "Dasun udayanga ranasigha",
+            "nic": "963123256v",
+            "phone": "705980107"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "crouwn.technologies",
+    "suggestedPassword": "SLTS#crouwn.technologies2026"
+  },
+  {
+    "registrationNumber": "SLTS-OSP-2025/2026-024",
+    "invoiceName": "M.R.P.KUMARA",
+    "contractorName": "M.R.P.KUMARA",
+    "contactPhone": "704310170",
+    "nic": "197234303517",
+    "teams": [
+      {
+        "rtom": "R-KT",
+        "isampTeamCode": "SLTSND_T21",
+        "members": [
+          {
+            "name": "W.M.JANITH CHAMRA",
+            "nic": "199918210410",
+            "phone": "755777890"
+          }
+        ]
+      },
+      {
+        "rtom": "R-KT",
+        "isampTeamCode": "SLTSHR_T47",
+        "members": [
+          {
+            "name": "P.D.M.NUWAN SARANGA",
+            "nic": "200236003174",
+            "phone": "741417889"
+          }
+        ]
+      },
+      {
+        "rtom": "R-PH",
+        "isampTeamCode": "SLTSHR_T19",
+        "members": [
+          {
+            "name": "Sadaru Nethum Meegahagoda",
+            "nic": "200203102870",
+            "phone": "751144834"
+          }
+        ]
+      },
+      {
+        "rtom": "R-PH",
+        "isampTeamCode": "SLTSHR_T25",
+        "members": [
+          {
+            "name": "Akila Saranga Gunathunga",
+            "nic": "200314410139",
+            "phone": "760309068"
+          }
+        ]
+      },
+      {
+        "rtom": "R-HR",
+        "isampTeamCode": "SLTSHR_T32",
+        "members": [
+          {
+            "name": "Tharanga Preamarathna",
+            "nic": "200333912280",
+            "phone": "706720662"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "mrp.kumara",
+    "suggestedPassword": "SLTS#mrp.kumara2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-240",
+    "invoiceName": "S.A.A Kumara",
+    "contractorName": "S.A.A Kumara",
+    "contactPhone": "077-4107078",
+    "nic": "197303200663",
+    "teams": [
+      {
+        "rtom": "R-CW",
+        "isampTeamCode": "SLTSCW_T16",
+        "members": [
+          {
+            "name": "G A Nadun Akalanka",
+            "nic": "900961111v",
+            "phone": "760012637"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "saa.kumara",
+    "suggestedPassword": "SLTS#saa.kumara2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-409",
+    "invoiceName": "W.A.P.L Jayasinghe",
+    "contractorName": "W.A.P.L Jayasinghe",
+    "contactPhone": "778118528",
+    "nic": "197328100188",
+    "teams": [
+      {
+        "rtom": "R-GP",
+        "isampTeamCode": "SLTSGP_T33",
+        "members": [
+          {
+            "name": "P.G.D.R Weerasinghe",
+            "nic": "200618100280",
+            "phone": "750439130"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "wapl.jayasinghe",
+    "suggestedPassword": "SLTS#wapl.jayasinghe2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026/-021",
+    "invoiceName": "B M U I  BALASURIYA",
+    "contractorName": "Balasuriya",
+    "contactPhone": "718334930",
+    "nic": "197414203197",
+    "teams": [
+      {
+        "rtom": "R-KI",
+        "isampTeamCode": "SLTSKI_T13 Balasooriya",
+        "members": [
+          {
+            "name": "S.S Amarasiri",
+            "nic": "817535698V",
+            "phone": "718334930"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "bmui.balasuriya",
+    "suggestedPassword": "SLTS#bmui.balasuriya2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-187",
+    "invoiceName": "D.M.A. DHARMARATHNA",
+    "contractorName": "D.M.A. DHARMARATHNA",
+    "contactPhone": "766286058",
+    "nic": "197505801544",
+    "teams": [
+      {
+        "rtom": "R-KE",
+        "isampTeamCode": "SLTSKE_T21",
+        "members": [
+          {
+            "name": "H. Chandra pushpakumara",
+            "nic": "830293590 V",
+            "phone": "740530075"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "dma.dharmarathna",
+    "suggestedPassword": "SLTS#dma.dharmarathna2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-039",
+    "invoiceName": "Rusiru Tec",
+    "contractorName": "Chaminda Kumara",
+    "contactPhone": "717095001",
+    "nic": "197520103365",
+    "teams": [
+      {
+        "rtom": "R-MD",
+        "isampTeamCode": "SLTSMD_T4",
+        "members": [
+          {
+            "name": "Chaminda Kumara",
+            "nic": "197520103365",
+            "phone": "717095001"
+          },
+          {
+            "name": "G.M.Lakshitha",
+            "nic": "99240030V",
+            "phone": "717095001"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "rusiru.tec",
+    "suggestedPassword": "SLTS#rusiru.tec2026"
+  },
+  {
+    "registrationNumber": "SLTS-OSP-2025-2026-330",
+    "invoiceName": "M R K Ferreira",
+    "contractorName": "M R K Ferreira",
+    "contactPhone": "778354241",
+    "nic": "197611800380",
+    "teams": [
+      {
+        "rtom": "R-KY",
+        "isampTeamCode": "SLTSKY_T11",
+        "members": [
+          {
+            "name": "Pamuditha Gabadage",
+            "nic": "960211707V",
+            "phone": "766522738"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "mrk.ferreira",
+    "suggestedPassword": "SLTS#mrk.ferreira2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-080",
+    "invoiceName": "H.D.N.PERERA",
+    "contractorName": "H.D.N.PERERA",
+    "contactPhone": "771812988",
+    "nic": "197617700390",
+    "teams": [
+      {
+        "rtom": "R-WT",
+        "isampTeamCode": "SLTSWT_T3",
+        "members": [
+          {
+            "name": "H.D.N.PERERA",
+            "nic": "197617700390",
+            "phone": "771812988"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "hdn.perera",
+    "suggestedPassword": "SLTS#hdn.perera2026"
+  },
+  {
+    "registrationNumber": "SLTS-OSP-2025/2026-260",
+    "invoiceName": "A.U.S Basnayaka",
+    "contractorName": "Anuja Basnayaka",
+    "contactPhone": "772170315",
+    "nic": "197807900539",
+    "teams": [
+      {
+        "rtom": "R-HR",
+        "isampTeamCode": "SLTSHR_T7",
+        "members": [
+          {
+            "name": "Anuja Basnayaka",
+            "nic": "197807900539",
+            "phone": "772170315"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "aus.basnayaka",
+    "suggestedPassword": "SLTS#aus.basnayaka2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025 /2026 /376",
+    "invoiceName": "Rajapaksha Waththe Vidanelage Anura Udayakumara",
+    "contractorName": "Anura Udayakumara",
+    "contactPhone": "769345898",
+    "nic": "197907505898",
+    "teams": [
+      {
+        "rtom": "R-BD",
+        "isampTeamCode": "SLTSBD_T9",
+        "members": [
+          {
+            "name": "Thilak Priyankara",
+            "nic": "199004301171",
+            "phone": null
+          }
+        ]
+      }
+    ],
+    "systemUsername": "rajapaksha.waththe.vidanelage.anura.udayakumara",
+    "suggestedPassword": "SLTS#rajapaksha.waththe.vidanelage.anura.udayakumara2026"
+  },
+  {
+    "registrationNumber": "SLTS-OSP-2025-2026-316",
+    "invoiceName": "R M U Ranathunga",
+    "contractorName": "R M U Ranathunga",
+    "contactPhone": "776281259",
+    "nic": "197916802142",
+    "teams": [
+      {
+        "rtom": "R-KY",
+        "isampTeamCode": "SLTSGP_T10",
+        "members": [
+          {
+            "name": "Gamini",
+            "nic": "771822320V",
+            "phone": "766318071"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "rmu.ranathunga",
+    "suggestedPassword": "SLTS#rmu.ranathunga2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-093",
+    "invoiceName": "S A D SHANAKA KUMARA",
+    "contractorName": "S A D SHANAKA KUMARA",
+    "contactPhone": "784388452",
+    "nic": "198230300991",
+    "teams": [
+      {
+        "rtom": "R-NG",
+        "isampTeamCode": "SLTSNG_T57",
+        "members": [
+          {
+            "name": "S.A.D.Shanaka Kumara",
+            "nic": "198230300991",
+            "phone": "784388452"
+          }
+        ]
+      },
+      {
+        "rtom": "R-NG",
+        "isampTeamCode": "SLTSNG_T53",
+        "members": [
+          {
+            "name": "R.K.S.T.Kumara",
+            "nic": "198904903920",
+            "phone": "716681881"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "sad.shanaka.kumara",
+    "suggestedPassword": "SLTS#sad.shanaka.kumara2026"
+  },
+  {
+    "registrationNumber": "SLTS-OSP-2025/2026-025",
+    "invoiceName": "New C Tech",
+    "contractorName": "R.A.R.J Ranasinghe",
+    "contactPhone": "716864616",
+    "nic": "198273603090",
+    "teams": [
+      {
+        "rtom": "R-HR",
+        "isampTeamCode": "SLTSHK_T25",
+        "members": [
+          {
+            "name": "Chathuranga",
+            "nic": "200015700108",
+            "phone": "754943619"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "new.c.tech",
+    "suggestedPassword": "SLTS#new.c.tech2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-025",
+    "invoiceName": "NEW C-TEC",
+    "contractorName": "R A R J Ranasinghe",
+    "contactPhone": "716864616",
+    "nic": "198273603090",
+    "teams": [
+      {
+        "rtom": "R-RN",
+        "isampTeamCode": "SLTSRN_T5",
+        "members": [
+          {
+            "name": "A.D.C.J. Prasad",
+            "nic": "771080827v",
+            "phone": "724748408"
+          }
+        ]
+      },
+      {
+        "rtom": "R-RN",
+        "isampTeamCode": "SLTSRN_T7",
+        "members": []
+      }
+    ],
+    "systemUsername": "new.c.tec",
+    "suggestedPassword": "SLTS#new.c.tec2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-117",
+    "invoiceName": "DAS Engineering",
+    "contractorName": "D A S De Silva",
+    "contactPhone": "715933151",
+    "nic": "198308700849",
+    "teams": [
+      {
+        "rtom": "R-KX",
+        "isampTeamCode": "SLTSKON_T28",
+        "members": [
+          {
+            "name": "Asantha Sajith",
+            "nic": "199435402341",
+            "phone": "720871763"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "das.engineering",
+    "suggestedPassword": "SLTS#das.engineering2026"
+  },
+  {
+    "registrationNumber": "SLTS-OSP-2025/2026-257",
+    "invoiceName": "K.D.CHATHURA",
+    "contractorName": "K.D.CHATHURA",
+    "contactPhone": "773367279",
+    "nic": "198326800303",
+    "teams": [
+      {
+        "rtom": "R-KT",
+        "isampTeamCode": "SLTSHR_T13",
+        "members": [
+          {
+            "name": "P.W.DILSHAN SILVA",
+            "nic": "198214501310",
+            "phone": "776227783"
+          }
+        ]
+      },
+      {
+        "rtom": "R-KT",
+        "isampTeamCode": "SLTSHR_T44",
+        "members": [
+          {
+            "name": "Jeewan Chathuranga",
+            "nic": "863590159V",
+            "phone": "756540014"
+          }
+        ]
+      },
+      {
+        "rtom": "R-KT",
+        "isampTeamCode": "SLTSHR_T28",
+        "members": [
+          {
+            "name": "Nipun Chandula",
+            "nic": "972800716V",
+            "phone": "779052719"
+          }
+        ]
+      },
+      {
+        "rtom": "R-PH",
+        "isampTeamCode": "SLTSKT-T12",
+        "members": [
+          {
+            "name": "Manjula priyankara jayasooriya",
+            "nic": "943202745V",
+            "phone": "776797889"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "kd.chathura",
+    "suggestedPassword": "SLTS#kd.chathura2026"
+  },
+  {
+    "registrationNumber": "SLTS/OSP/2025/2026-033",
+    "invoiceName": "Nimesh Construction",
+    "contractorName": "M.N.M.Samaranayake",
+    "contactPhone": "071-6281711",
+    "nic": "980512673V",
+    "teams": [
+      {
+        "rtom": "R-AD",
+        "isampTeamCode": "SLTSAD_T6",
+        "members": [
+          {
+            "name": "M.N.M.Samaranayake",
+            "nic": "980512673V",
+            "phone": "071-6281711"
+          }
+        ]
+      }
+    ],
+    "systemUsername": "mnm.samaranayake",
+    "suggestedPassword": "SLTS#mnm.samaranayake2026"
+  }
+]

@@ -102,6 +102,9 @@ export async function middleware(request: NextRequest) {
         requestHeaders.set('x-user-id', uid);
     }
     requestHeaders.set('x-user-role', verifiedToken.role as string);
+    if (verifiedToken.contractorId) {
+        requestHeaders.set('x-contractor-id', verifiedToken.contractorId as string);
+    }
 
     return NextResponse.next({
         request: {

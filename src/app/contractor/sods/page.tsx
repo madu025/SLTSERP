@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -20,6 +20,7 @@ interface SOD {
 }
 
 export default function ContractorSODsPage() {
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSOD, setSelectedSOD] = useState<SOD | null>(null);
     const [dropWireMeters, setDropWireMeters] = useState<number>(0);
@@ -36,10 +37,102 @@ export default function ContractorSODsPage() {
         }
     });
 
+    // Fetch Live Contractor van stock to resolve Drop Wire and ONT Item IDs dynamically
+    const { data: stockData } = useQuery({
+        queryKey: ['contractor-van-stock-sod-complete'],
+        queryFn: async () => {
+            const res = await fetch(`/api/contractors/my-stock?_t=${Date.now()}`);
+            if (!res.ok) return null;
+            const json = await res.json();
+            return json.data || json;
+        }
+    });
+
+    // Complete SOD Mutation
+    const completeSodMutation = useMutation({
+        mutationFn: async (payload: {
+            id: string;
+            sltsStatus: string;
+            completedDate: string;
+            dropWireDistance: number;
+            ontSerialNumber?: string;
+            materialUsage: any[];
+        }) => {
+            const res = await fetch('/api/service-orders', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || 'Failed to complete Service Order');
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast.success(`Successfully completed Service Order & deducted materials from Van Stock!`);
+            queryClient.invalidateQueries({ queryKey: ['contractor-assigned-sods'] });
+            queryClient.invalidateQueries({ queryKey: ['contractor-van-stock'] });
+            queryClient.invalidateQueries({ queryKey: ['contractor-van-stock-sod-complete'] });
+            queryClient.invalidateQueries({ queryKey: ['contractor-my-dashboard'] });
+            setSelectedSOD(null);
+        },
+        onError: (err: Error) => {
+            toast.error(err.message);
+        }
+    });
+
     const handleSaveMaterials = () => {
         if (!selectedSOD) return;
-        toast.success(`Materials logged for SO ${selectedSOD.soNum}: ${dropWireMeters}m Drop Wire, ONT: ${ontSerial || 'N/A'}`);
-        setSelectedSOD(null);
+
+        // Resolve drop wire and ONT item IDs dynamically from van stock
+        const stockItems = stockData?.stockItems || [];
+        const dropWireItem = stockItems.find((s: any) => 
+            (s.item.code || '').toUpperCase().includes('DW') || 
+            (s.item.code || '').toUpperCase().includes('CBL-2F') ||
+            (s.item.name || '').toUpperCase().includes('DROP WIRE')
+        );
+        const ontItem = stockItems.find((s: any) => 
+            (s.item.code || '').toUpperCase().includes('ONT') || 
+            (s.item.code || '').toUpperCase().includes('ONU') ||
+            (s.item.name || '').toUpperCase().includes('ONT') ||
+            (s.item.name || '').toUpperCase().includes('ROUTER')
+        );
+
+        if (!dropWireItem) {
+            toast.error("Drop wire item not found in your van stock catalog!");
+            return;
+        }
+
+        const materialUsage: any[] = [
+            {
+                itemId: dropWireItem.item.id,
+                quantity: String(dropWireMeters),
+                usageType: 'USED'
+            }
+        ];
+
+        if (ontSerial) {
+            if (!ontItem) {
+                toast.error("ONT device item not found in your van stock catalog!");
+                return;
+            }
+            materialUsage.push({
+                itemId: ontItem.item.id,
+                quantity: '1',
+                usageType: 'USED',
+                serialNumber: ontSerial
+            });
+        }
+
+        completeSodMutation.mutate({
+            id: selectedSOD.id,
+            sltsStatus: 'COMPLETED',
+            completedDate: new Date().toISOString(),
+            dropWireDistance: Number(dropWireMeters),
+            ontSerialNumber: ontSerial || undefined,
+            materialUsage
+        });
     };
 
     const sodList = Array.isArray(sods) ? sods : [];

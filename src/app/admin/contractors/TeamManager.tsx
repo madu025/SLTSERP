@@ -87,20 +87,26 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         setLoading(true);
         try {
             const [data, storesData, opmcsData] = await Promise.all([
-                fetch(`/api/contractors/${contractorId}/teams`).then(res => res.json()),
-                fetch('/api/inventory/stores').then(res => res.json()),
-                fetch('/api/opmcs').then(res => res.json())
+                fetch(`/api/contractors/${contractorId}/teams?_t=${Date.now()}`).then(res => res.json()),
+                fetch(`/api/inventory/stores?_t=${Date.now()}`).then(res => res.json()),
+                fetch(`/api/opmcs?_t=${Date.now()}`).then(res => res.json())
             ]);
 
-            // Handle new response structure { teams, contractor }
-            const loadedTeams = data.teams && Array.isArray(data.teams) ? data.teams : (Array.isArray(data) ? data : []);
+            // Handle apiHandler response structure { success: true, data: { teams, contractor } }
+            const payload = data?.data || data;
+            const loadedTeams = payload?.teams && Array.isArray(payload.teams) 
+                ? payload.teams 
+                : (Array.isArray(payload) ? payload : []);
             setTeams(loadedTeams);
-            if (data.contractor) {
-                setContractorDetails(data.contractor);
+            if (payload?.contractor) {
+                setContractorDetails(payload.contractor);
             }
 
-            setStores(Array.isArray(storesData) ? storesData : []);
-            setOpmcs(Array.isArray(opmcsData) ? opmcsData : []);
+            const rawStores = storesData?.data || storesData;
+            setStores(Array.isArray(rawStores) ? rawStores : []);
+
+            const rawOpmcs = opmcsData?.data || opmcsData;
+            setOpmcs(Array.isArray(rawOpmcs) ? rawOpmcs : []);
 
             // Auto-select first team if available
             if (loadedTeams.length > 0) setSelectedTeamIndex(0);
@@ -551,12 +557,12 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
 
                                                         {/* Compact Fields Grid */}
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
-                                                            <div className="sm:col-span-2 space-y-0.5"><Label className="text-[10px] text-slate-400">Name</Label><Input value={member.name} onChange={(e) => updateMember(mIdx, 'name', e.target.value)} className="h-7 text-xs" /></div>
+                                                            <div className="sm:col-span-2 space-y-0.5"><Label className="text-[10px] text-slate-400">Name</Label><Input value={member.name || ''} onChange={(e) => updateMember(mIdx, 'name', e.target.value)} className="h-7 text-xs" /></div>
                                                             <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">NIC / ID Card</Label><Input value={member.nic || member.idCopyNumber || ''} onChange={(e) => { updateMember(mIdx, 'nic', e.target.value); updateMember(mIdx, 'idCopyNumber', e.target.value); }} className="h-7 text-xs" /></div>
-                                                            <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Contact</Label><Input value={member.contactNumber} onChange={(e) => updateMember(mIdx, 'contactNumber', e.target.value)} className="h-7 text-xs" /></div>
-                                                            <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Shoe</Label><Input value={member.shoeSize} onChange={(e) => updateMember(mIdx, 'shoeSize', e.target.value)} className="h-7 text-xs" placeholder="Size" /></div>
+                                                            <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Contact</Label><Input value={member.contactNumber || ''} onChange={(e) => updateMember(mIdx, 'contactNumber', e.target.value)} className="h-7 text-xs" /></div>
+                                                            <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Shoe</Label><Input value={member.shoeSize || ''} onChange={(e) => updateMember(mIdx, 'shoeSize', e.target.value)} className="h-7 text-xs" placeholder="Size" /></div>
                                                             <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Shirt</Label>
-                                                                <Select value={member.tshirtSize} onValueChange={(v) => updateMember(mIdx, 'tshirtSize', v)}>
+                                                                <Select value={member.tshirtSize || ''} onValueChange={(v) => updateMember(mIdx, 'tshirtSize', v)}>
                                                                     <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="-" /></SelectTrigger>
                                                                     <SelectContent>
                                                                         {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -565,7 +571,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                                             </div>
                                                             <div className="col-span-1 sm:col-span-2 lg:col-span-6 space-y-0.5">
                                                                 <Label className="text-[10px] text-slate-400">Address</Label>
-                                                                <Input value={member.address} onChange={(e) => updateMember(mIdx, 'address', e.target.value)} className="h-7 text-xs" />
+                                                                <Input value={member.address || ''} onChange={(e) => updateMember(mIdx, 'address', e.target.value)} className="h-7 text-xs" />
                                                             </div>
                                                         </div>
 

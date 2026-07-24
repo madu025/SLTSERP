@@ -363,7 +363,20 @@ export default function ContractorsPage() {
                                                         </Badge>
                                                     </td>
                                                     <td className="text-slate-600 font-medium">
-                                                        {contractor.opmc?.name || 'Central Office'}
+                                                        {(() => {
+                                                            const activeOpmc = contractor.opmc || (contractor as any).teams?.[0]?.opmc;
+                                                            if (!activeOpmc) return <span className="text-slate-400">Central Office</span>;
+                                                            return (
+                                                                <div className="flex flex-col items-start gap-0.5">
+                                                                    <span className="font-semibold text-slate-800 text-[13px]">{activeOpmc.name}</span>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                                                                            {activeOpmc.province || activeOpmc.region || 'SLT REGION'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="text-center">
                                                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">

@@ -16,6 +16,7 @@ interface MaterialIssue {
     status: string;
     acceptedAt?: string;
     signatureUrl?: string;
+    notes?: string | null;
     store: { name: string };
     items: {
         id: string;
@@ -371,16 +372,22 @@ export default function ContractorInventoryPage() {
                                                 </CardTitle>
                                             </CardHeader>
                                             <CardContent className="p-3.5 pt-0 space-y-3">
-                                                <div className="text-slate-300 text-xs font-mono space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-500">Store:</span>
-                                                        <span className="text-slate-200 font-bold">{issue.store?.name}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-slate-500">Date:</span>
-                                                        <span>{new Date(issue.issueDate).toLocaleDateString()}</span>
-                                                    </div>
-                                                </div>
+                                                 <div className="text-slate-300 text-xs font-mono space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                                                     <div className="flex justify-between">
+                                                         <span className="text-slate-500">Store:</span>
+                                                         <span className="text-slate-200 font-bold">{issue.store?.name}</span>
+                                                     </div>
+                                                     <div className="flex justify-between">
+                                                         <span className="text-slate-500">Date:</span>
+                                                         <span>{new Date(issue.issueDate).toLocaleDateString()}</span>
+                                                     </div>
+                                                     {issue.notes && (
+                                                         <div className="flex flex-col pt-1 border-t border-slate-800/80 mt-1">
+                                                             <span className="text-slate-500 font-sans">Team / Notes:</span>
+                                                             <span className="text-amber-400 font-sans text-[10px] mt-0.5">{issue.notes}</span>
+                                                         </div>
+                                                     )}
+                                                 </div>
 
                                                 <div className="space-y-1.5">
                                                     <span className="text-slate-400 text-[10px] font-bold uppercase">Items ({issue.items.length})</span>
@@ -431,11 +438,16 @@ export default function ContractorInventoryPage() {
                                                     ACCEPTED
                                                 </span>
                                             </div>
-                                            <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2">
-                                                <span>From: {issue.store?.name}</span>
-                                                <span>•</span>
-                                                <span>Signed by: {issue.signatureUrl || 'Supervisor'}</span>
-                                            </div>
+                                             <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2">
+                                                 <span>From: {issue.store?.name}</span>
+                                                 <span>•</span>
+                                                 <span>Signed by: {issue.signatureUrl || 'Supervisor'}</span>
+                                             </div>
+                                             {issue.notes && (
+                                                 <div className="text-[9px] text-amber-500/80 font-sans mt-0.5">
+                                                     📌 {issue.notes}
+                                                 </div>
+                                             )}
                                         </div>
 
                                         <div className="text-right space-y-1">
@@ -676,6 +688,12 @@ export default function ContractorInventoryPage() {
                                     <span className="text-slate-500 block text-[9px] uppercase font-sans">Transfer Time</span>
                                     <span className="text-slate-200">{viewVoucherIssue.acceptedAt ? new Date(viewVoucherIssue.acceptedAt).toLocaleTimeString() : 'N/A'}</span>
                                 </div>
+                                {viewVoucherIssue.notes && (
+                                    <div className="col-span-2 pt-1.5 border-t border-slate-800/80 mt-1 font-sans">
+                                        <span className="text-slate-500 text-[9px] uppercase">Notes / Target Team</span>
+                                        <span className="text-amber-400 block text-[10px] mt-0.5">{viewVoucherIssue.notes}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-1">

@@ -341,8 +341,46 @@ export class ContractorLifecycleService {
      * Get teams and minimal contractor information
      */
     static async getContractorTeams(contractorId: string) {
-        const [teams, contractor] = await prisma.$transaction([
-            prisma.contractorTeam.findMany({
+        let teams = await prisma.contractorTeam.findMany({
+            where: { contractorId },
+            include: {
+                members: true,
+                storeAssignments: {
+                    include: {
+                        store: { select: { id: true, name: true, type: true } }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const contractor = await prisma.contractor.findUnique({
+            where: { id: contractorId },
+            select: {
+                name: true,
+                contactNumber: true,
+                address: true,
+                nic: true,
+                photoUrl: true,
+                nicFrontUrl: true,
+                policeReportUrl: true,
+                gramaCertUrl: true
+            }
+        });
+
+        // Find any unassigned team members for this contractor
+        const unassignedMembers = await prisma.teamMember.findMany({
+            where: { contractorId, teamId: null }
+        });
+
+        // If unassigned members exist and contractor has teams, assign them to first team
+        if (teams.length > 0 && unassignedMembers.length > 0 && teams[0]) {
+            await prisma.teamMember.updateMany({
+                where: { contractorId, teamId: null },
+                data: { teamId: teams[0].id }
+            });
+
+            teams = await prisma.contractorTeam.findMany({
                 where: { contractorId },
                 include: {
                     members: true,
@@ -353,21 +391,8 @@ export class ContractorLifecycleService {
                     }
                 },
                 orderBy: { createdAt: 'desc' }
-            }),
-            prisma.contractor.findUnique({
-                where: { id: contractorId },
-                select: {
-                    name: true,
-                    contactNumber: true,
-                    address: true,
-                    nic: true,
-                    photoUrl: true,
-                    nicFrontUrl: true,
-                    policeReportUrl: true,
-                    gramaCertUrl: true
-                }
-            })
-        ]);
+            });
+        }
 
         return { teams, contractor };
     }

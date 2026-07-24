@@ -97,8 +97,10 @@ export class UserService {
             throw new Error('USERNAME_PASSWORD_REQUIRED');
         }
 
-        const user = await prisma.user.findUnique({
-            where: { username: username.toLowerCase() },
+        const user = await prisma.user.findFirst({
+            where: {
+                username: { equals: username.trim(), mode: 'insensitive' }
+            },
             include: {
                 accessibleOpmcs: { select: { id: true, name: true } },
                 sectionAssignments: {

@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req: Request) => {
     const userId = req.headers.get('x-user-id');
-    let contractorId: string | null = null;
+    let contractorId: string | null = req.headers.get('x-contractor-id');
 
-    if (userId) {
+    if (!contractorId && userId) {
         const currentUser = await prisma.user.findUnique({
             where: { id: userId },
             select: { contractorId: true }
