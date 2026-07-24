@@ -6,6 +6,16 @@
       "maxDuration": 15
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/sync-all",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-pat",
+      "schedule": "0 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

@@ -399,8 +399,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                             <>
                                 <th className="w-[110px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
                                     <div className="flex flex-col gap-1">
-                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort(filterType === "completed" ? "completedDate" : "receivedDate")}>
-                                            <span>{filterType === "completed" ? "Completed Date" : "Received Date"}</span>
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
+                                            <span>{filterType === "completed" ? "Completed Date" : "Install Closed Date"}</span>
                                             {sortConfig?.key === "completedDate" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
@@ -849,9 +849,11 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 {(filterType === "completed" || filterType === "install_closed") && (
                                     <>
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-emerald-500 font-mono">
-                                            {filterType === "completed" 
-                                                ? (order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "-")
-                                                : (order.receivedDate ? new Date(order.receivedDate).toLocaleDateString("en-GB") : order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "-")
+                                            {order.completedDate 
+                                                ? new Date(order.completedDate).toLocaleDateString("en-GB") 
+                                                : order.statusDate 
+                                                    ? new Date(order.statusDate).toLocaleDateString("en-GB") 
+                                                    : "-"
                                             }
                                         </td>
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
