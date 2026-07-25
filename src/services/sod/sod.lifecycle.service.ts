@@ -166,4 +166,40 @@ export class SODLifecycleService {
             });
         }
     }
+
+    /**
+     * Toggle / Mark an existing Work Order (CREATE, CREATE-UPGRD, SAME_NO, etc.) as Offline.
+     * IMPORTANT: Never changes serviceType (FTTH, LTE, PSTN) or orderType.
+     */
+    static async toggleOfflineWorkOrder(id: string, isOffline: boolean, offlineReference?: string, reason?: string) {
+        const existing = await ServiceOrderRepository.findById(id);
+        if (!existing) throw AppError.notFound('Service order not found');
+
+        const updated = await ServiceOrderRepository.update(id, {
+            isOfflineWorkOrder: isOffline,
+            offlineReference: offlineReference || (isOffline ? `OFFLINE-WO-${Date.now()}` : null),
+            comments: reason ? `${existing.comments || ''}\n[OFFLINE FLAG]: ${reason}` : existing.comments
+        });
+
+        return updated;
+    }
+    /**
+     * Centralized mapper for External Status (ISHAMP/Excel) to Internal SLTS Status
+     */
+    static mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN' {
+        const conStatusUpper = (externalStatus || '').toUpperCase();
+        const completionStatuses = ['INSTALL_CLOSED', 'COMPLETED', 'FINISHED'];
+        const returnStatuses = ['RETURN', 'RETURNED', 'FIELD_RETURN', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+        
+        const isPatRejection = conStatusUpper.includes('PAT') || conStatusUpper.includes('OPMC_REJECT') || conStatusUpper.includes('HO_REJECT');
+        
+        if (completionStatuses.includes(conStatusUpper)) {
+            return 'COMPLETED';
+        } else if (conStatusUpper === 'PROV_CLOSED') {
+            return 'PROV_CLOSED';
+        } else if (!isPatRejection && (returnStatuses.includes(conStatusUpper) || conStatusUpper.includes('RETURN') || conStatusUpper.includes('CANCEL'))) {
+            return 'RETURN';
+        }
+        return 'INPROGRESS';
+    }
 }

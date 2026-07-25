@@ -61,6 +61,8 @@ export class SODQueryService {
 
         // Build where clause using an array of AND filters to avoid OR collisions
         const andFilters: Prisma.ServiceOrderWhereInput[] = [];
+        
+        let targetOpmcId: string | undefined = undefined;
         if (opmcId && opmcId !== 'ALL') {
             // Resolve whether opmcId is a CUID or RTOM code string (e.g. 'R-KX' / 'r-kx')
             const matchedOpmc = await prisma.oPMC.findFirst({
@@ -73,7 +75,24 @@ export class SODQueryService {
                 },
                 select: { id: true }
             });
-            const targetOpmcId = matchedOpmc ? matchedOpmc.id : opmcId;
+            targetOpmcId = matchedOpmc ? matchedOpmc.id : opmcId;
+        }
+
+        // Apply accessibleOpmcs boundary if provided (User is not global admin)
+        if (params.accessibleOpmcs && params.accessibleOpmcs.length > 0) {
+            if (targetOpmcId) {
+                // If filtering by specific RTOM, ensure it's in their accessible list
+                if (!params.accessibleOpmcs.includes(targetOpmcId)) {
+                    // Force an empty result if trying to access unauthorized OPMC
+                    andFilters.push({ opmcId: 'unauthorized_access_blocked' });
+                } else {
+                    andFilters.push({ opmcId: targetOpmcId });
+                }
+            } else {
+                // Limit ALL view to only accessible OPMCs
+                andFilters.push({ opmcId: { in: params.accessibleOpmcs } });
+            }
+        } else if (targetOpmcId) {
             andFilters.push({ opmcId: targetOpmcId });
         }
 
@@ -101,6 +120,13 @@ export class SODQueryService {
                         }
                     ]
                 });
+            } else if (filter === 'install_closed') {
+                andFilters.push({
+                    OR: [
+                        { completedDate: { gte: startDate, lt: nextMonth } },
+                        { statusDate: { gte: startDate, lt: nextMonth } }
+                    ]
+                });
             } else {
                 andFilters.push({ createdAt: { gte: startDate, lt: nextMonth } });
             }
@@ -120,11 +146,8 @@ export class SODQueryService {
             }
         } else if (filter === 'install_closed') {
             andFilters.push({
-                OR: [
-                    { sltsStatus: 'INSTALL_CLOSED' },
-                    { status: 'INSTALL_CLOSED' }
-                ],
-                sltsStatus: { notIn: ['COMPLETED', 'RETURN'] }
+                status: 'INSTALL_CLOSED',
+                sltsStatus: { notIn: ['RETURN'] }
             });
         } else if (filter === 'completed') {
             andFilters.push({
@@ -138,7 +161,14 @@ export class SODQueryService {
                 ]
             });
         } else if (filter === 'return') {
-            andFilters.push({ sltsStatus: 'RETURN' });
+            andFilters.push({
+                sltsStatus: 'RETURN',
+                NOT: [
+                    { opmcPatStatus: 'REJECTED' },
+                    { hoPatStatus: 'REJECTED' },
+                    { sltsPatStatus: 'REJECTED' }
+                ]
+            });
         }
 
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
@@ -207,7 +237,7 @@ export class SODQueryService {
         const orderBy: Prisma.ServiceOrderOrderByWithRelationInput[] = [primaryOrderBy, { id: 'desc' }];
 
         // Run queries (using optimized summaryWhereClause for metrics queries)
-        const [total, items, statusGroups, contractorCount, appointmentCount, opmcGroups, hoGroups, sltGroups, returnCount] = await Promise.all([
+        const [total, items, statusGroups, contractorCount, appointmentCount, opmcGroups, hoGroups, sltGroups, returnCount, missingCount] = await Promise.all([
             prisma.serviceOrder.count({ where: whereClause }),
             (prisma.serviceOrder as unknown as { findMany: (args: unknown) => Promise<ServiceOrderItemWithIptv[]> }).findMany({
                 where: whereClause,
@@ -248,6 +278,7 @@ export class SODQueryService {
                     receivedDate: true,
                     woroTaskName: true,
                     scheduledDate: true,
+                    scheduledTime: true,
                     techContact: true,
                     sales: true,
                     comments: true,
@@ -283,7 +314,7 @@ export class SODQueryService {
                 cursor: cursor ? { id: cursor } : undefined,
             }),
             prisma.serviceOrder.groupBy({
-                by: ['status'],
+                by: ['sltsStatus'],
                 where: summaryWhereClause,
                 _count: true
             }),
@@ -304,6 +335,12 @@ export class SODQueryService {
             prisma.serviceOrder.groupBy({ by: ['sltsPatStatus'], where: summaryWhereClause, _count: true }),
             prisma.serviceOrder.count({
                 where: { opmcId, sltsStatus: 'RETURN' }
+            }),
+            prisma.serviceOrder.count({
+                where: {
+                    ...summaryWhereClause,
+                    comments: { contains: '[MISSING FROM SYNC' }
+                }
             })
         ]);
 
@@ -331,8 +368,9 @@ export class SODQueryService {
                 totalSod: total,
                 contractorAssigned: contractorCount,
                 appointments: appointmentCount,
+                missingCount,
                 statusBreakdown: statusGroups.reduce((acc, curr) => {
-                    acc[curr.status] = curr._count;
+                    acc[curr.sltsStatus] = curr._count;
                     return acc;
                 }, {} as Record<string, number>),
                 totalReturns: returnCount as number,

@@ -13,28 +13,48 @@ export class SODImportService {
         const errors: string[] = [];
 
         console.log(`[BULK-IMPORT] Processing ${data.length} records for RTOM: ${rtom}`);
+        if (data.length === 0) return { rtom, created: 0, failed: 0, errors: [] };
+
+        // 1. Pre-fetch existing SODs to avoid N+1 findUnique
+        const soNums = data
+            .map(item => String(item['SO Number'] || item['SO_NUM'] || item['SOD'] || '').trim())
+            .filter(Boolean);
+            
+        const existingSods = await prisma.serviceOrder.findMany({
+            where: { soNum: { in: soNums } },
+            select: { id: true, soNum: true, sltsStatus: true, comments: true }
+        });
+        const existingMap = new Map<string, typeof existingSods[0]>();
+        existingSods.forEach(sod => existingMap.set(sod.soNum, sod));
+
+        // 2. Pre-fetch contractors to avoid N+1 resolveOrCreate
+        const allContractors = await prisma.contractor.findMany({
+            where: { opmcId },
+            select: { id: true, name: true }
+        });
+        const contractorMap = new Map<string, string>();
+        allContractors.forEach(c => contractorMap.set(c.name.toUpperCase().trim(), c.id));
+        
+        const { ContractorLifecycleService } = await import('../contractor/contractor.lifecycle.service');
+        const { SODLifecycleService } = await import('./sod.lifecycle.service');
+
+        const toCreate: Prisma.ServiceOrderCreateManyInput[] = [];
+        const toUpdate: { existing: typeof existingSods[0], updateData: any }[] = [];
 
         for (const item of data) {
             try {
                 const soNum = String(item['SO Number'] || item['SO_NUM'] || item['SOD'] || '').trim();
                 if (!soNum) continue;
 
-                const existing = await prisma.serviceOrder.findUnique({
-                    where: { soNum },
-                    select: { id: true, sltsStatus: true, comments: true }
-                });
+                const existing = existingMap.get(soNum);
 
                 const excelStatus = String(item['Status'] || item['CON_STATUS'] || '').trim();
                 const cleanStatus = excelStatus.toUpperCase() === 'ASSIGN' ? 'ASSIGNED' : excelStatus;
-                const completionStatuses = ['INSTALL_CLOSED', 'COMPLETED', 'FINISHED'];
-                const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
-                const excelStatusUpper = cleanStatus.toUpperCase();
-                const isCompleted = completionStatuses.includes(excelStatusUpper);
-                const isReturned = returnStatuses.includes(excelStatusUpper) || 
-                                   excelStatusUpper.includes('RETURN') || 
-                                   excelStatusUpper.includes('REJECT') || 
-                                   excelStatusUpper.includes('CANCEL');
-                const sltsStatusVal = isCompleted ? 'COMPLETED' : (isReturned ? 'RETURN' : 'INPROGRESS');
+                
+                // Use Central Mapper
+                const sltsStatusVal = SODLifecycleService.mapExternalStatusToSltsStatus(cleanStatus);
+                const isCompleted = sltsStatusVal === 'COMPLETED';
+                const isReturned = sltsStatusVal === 'RETURN';
 
                 const voiceNumber = String(item['Voice Number'] || item['VOICENUMBER'] || item['CIRCUIT'] || '');
                 const orderType = String(item['Order Type'] || item['ORDER_TYPE'] || item['TASK_TYPE'] || '');
@@ -48,80 +68,82 @@ export class SODImportService {
                 const techContact = String(item['Tech Contact'] || item['TECH_NO'] || '');
                 const sales = String(item['Sales'] || item['SALES_PERSON'] || '');
                 const rawContractor = String(item['Contractor'] || item['CONTRACTOR'] || item['Contractor Name'] || item['CONTRACTOR_NAME'] || '').trim();
-                let contractorId: string | null = null;
+                
+                let contractorId: string | undefined = undefined;
                 if (rawContractor) {
-                    const { ContractorLifecycleService } = await import('../contractor/contractor.lifecycle.service');
-                    contractorId = await ContractorLifecycleService.resolveOrCreateContractorForOpmc(rawContractor, opmcId);
+                    const cKey = rawContractor.toUpperCase();
+                    if (contractorMap.has(cKey)) {
+                        contractorId = contractorMap.get(cKey);
+                    } else {
+                        contractorId = (await ContractorLifecycleService.resolveOrCreateContractorForOpmc(rawContractor, opmcId)) || undefined;
+                        contractorMap.set(cKey, contractorId!);
+                    }
                 }
-
-                const createData = {
-                    soNum,
-                    rtom: rtom,
-                    opmcId: opmcId,
-                    contractorId: contractorId || undefined,
-                    status: cleanStatus,
-                    sltsStatus: sltsStatusVal,
-                    voiceNumber,
-                    orderType,
-                    serviceType,
-                    customerName,
-                    address,
-                    dp,
-                    package: pkg,
-                    lea,
-                    woroTaskName,
-                    techContact,
-                    sales,
-                    receivedDate: new Date(),
-                    completedDate: isCompleted ? new Date() : null,
-                    returnReason: isReturned ? SODReturnClassifierService.classify(cleanStatus || 'Returned in Excel Import').category : null,
-                    comments: isReturned ? `[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}` : null
-                };
-
-                const updateData = {
-                    status: cleanStatus,
-                    sltsStatus: sltsStatusVal,
-                    contractorId: contractorId || undefined,
-                    completedDate: isCompleted ? new Date() : (isReturned ? null : undefined),
-                    returnReason: isReturned ? SODReturnClassifierService.classify(cleanStatus || 'Returned in Excel Import').category : (isCompleted ? null : undefined),
-                    comments: isReturned ? (existing?.comments ? `${existing.comments}\n[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}` : `[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}`) : undefined,
-                    voiceNumber,
-                    orderType,
-                    serviceType,
-                    customerName,
-                    address,
-                    dp,
-                    package: pkg,
-                    lea,
-                    woroTaskName,
-                    techContact,
-                    sales,
-                };
 
                 if (existing) {
-                    const isReturning = (sltsStatusVal === 'RETURN' && existing.sltsStatus !== 'RETURN');
-                    await prisma.$transaction(async (tx) => {
-                        await tx.serviceOrder.update({
-                            where: { id: existing.id },
-                            data: updateData
-                        });
-                        if (isReturning) {
-                            const { SODMaterialService } = await import('./sod.material.service');
-                            await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'EXCEL_IMPORT');
-                            const { LedgerService } = await import('../finance/ledger.service');
-                            await LedgerService.rollbackSodTransaction(tx, existing.id);
-                        }
-                    });
+                    const updateData = {
+                        status: cleanStatus,
+                        sltsStatus: sltsStatusVal,
+                        contractorId: contractorId,
+                        completedDate: isCompleted ? new Date() : (isReturned ? null : undefined),
+                        returnReason: isReturned ? SODReturnClassifierService.classify(cleanStatus || 'Returned in Excel Import').category : (isCompleted ? null : undefined),
+                        comments: isReturned ? (existing?.comments ? `${existing.comments}\n[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}` : `[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}`) : undefined,
+                        voiceNumber, orderType, serviceType, customerName, address, dp, package: pkg, lea, woroTaskName, techContact, sales,
+                    };
+                    toUpdate.push({ existing, updateData });
                 } else {
-                    await prisma.serviceOrder.create({
-                        data: createData
+                    toCreate.push({
+                        soNum, rtom, opmcId, contractorId, status: cleanStatus, sltsStatus: sltsStatusVal,
+                        voiceNumber, orderType, serviceType, customerName, address, dp, package: pkg, lea, woroTaskName, techContact, sales,
+                        receivedDate: new Date(),
+                        completedDate: isCompleted ? new Date() : null,
+                        returnReason: isReturned ? SODReturnClassifierService.classify(cleanStatus || 'Returned in Excel Import').category : null,
+                        comments: isReturned ? `[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}` : null
                     });
                 }
-                created++;
             } catch (err) {
                 failed++;
                 errors.push(err instanceof Error ? err.message : String(err));
             }
+        }
+
+        // Batch Insert
+        if (toCreate.length > 0) {
+            try {
+                const res = await prisma.serviceOrder.createMany({ data: toCreate, skipDuplicates: true });
+                created += res.count;
+            } catch (err) {
+                failed += toCreate.length;
+                errors.push(`Failed to batch create: ${String(err)}`);
+            }
+        }
+
+        // Sequential Updates (Chunked)
+        const updateChunks = [];
+        for (let i = 0; i < toUpdate.length; i += 20) {
+            updateChunks.push(toUpdate.slice(i, i + 20));
+        }
+
+        const { SODMaterialService } = await import('./sod.material.service');
+        const { LedgerService } = await import('../finance/ledger.service');
+
+        for (const chunk of updateChunks) {
+            await Promise.all(chunk.map(async ({ existing, updateData }) => {
+                try {
+                    const isReturning = (updateData.sltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
+                    await prisma.$transaction(async (tx) => {
+                        await tx.serviceOrder.update({ where: { id: existing.id }, data: updateData });
+                        if (isReturning) {
+                            await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'EXCEL_IMPORT');
+                            await LedgerService.rollbackSodTransaction(tx, existing.id);
+                        }
+                    });
+                    created++;
+                } catch (err) {
+                    failed++;
+                    errors.push(err instanceof Error ? err.message : String(err));
+                }
+            }));
         }
 
         if (created > 0) {

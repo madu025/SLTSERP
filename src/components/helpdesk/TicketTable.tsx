@@ -16,11 +16,16 @@ export interface TicketSummary {
   createdAt: string | Date;
   firstResponseAt?: string | Date | null;
   resolvedAt?: string | Date | null;
+  slaResponseDeadline?: string | Date | null;
+  slaResolutionDeadline?: string | Date | null;
+  slaResponseBreached?: boolean | null;
+  slaResolutionBreached?: boolean | null;
   user: {
     id: string;
     name: string | null;
     username: string;
   };
+  assignedToId?: string | null;
   assignedTo?: {
     id: string;
     name: string | null;
@@ -41,7 +46,9 @@ interface TicketTableProps {
 }
 
 export default function TicketTable({ tickets, onViewDetails, isStaff = false }: TicketTableProps) {
-  const checkSLA = (ticket: any) => {
+  const [now] = React.useState(() => Date.now());
+
+  const checkSLA = (ticket: TicketSummary) => {
     const created = new Date(ticket.createdAt).getTime();
     
     let responseDeadlineTime = ticket.slaResponseDeadline ? new Date(ticket.slaResponseDeadline).getTime() : null;
@@ -68,11 +75,11 @@ export default function TicketTable({ tickets, onViewDetails, isStaff = false }:
 
     const responseBreached = ticket.slaResponseBreached !== undefined && ticket.slaResponseBreached !== null
       ? ticket.slaResponseBreached
-      : (firstResponseTime ? firstResponseTime > responseDeadlineTime : Date.now() > responseDeadlineTime) && (!ticket.firstResponseAt && !['CLOSED', 'RESOLVED'].includes(ticket.status));
+      : (firstResponseTime ? firstResponseTime > responseDeadlineTime : now > responseDeadlineTime) && (!ticket.firstResponseAt && !['CLOSED', 'RESOLVED'].includes(ticket.status));
 
     const resolutionBreached = ticket.slaResolutionBreached !== undefined && ticket.slaResolutionBreached !== null
       ? ticket.slaResolutionBreached
-      : (resolvedTime ? resolvedTime > resolutionDeadlineTime : Date.now() > resolutionDeadlineTime) && (!ticket.resolvedAt && !['CLOSED'].includes(ticket.status));
+      : (resolvedTime ? resolvedTime > resolutionDeadlineTime : now > resolutionDeadlineTime) && (!ticket.resolvedAt && !['CLOSED'].includes(ticket.status));
 
     return { responseBreached, resolutionBreached };
   };

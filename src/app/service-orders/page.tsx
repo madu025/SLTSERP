@@ -348,7 +348,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                     <div className="flex-none px-5 py-1 space-y-1">
                         {showMetrics && (
                             <div className="pt-1">
-                                <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
+                                <SODSummary filterType={filterType} summary={summary} missingCount={(summary as any).missingCount || serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
                             </div>
                         )}
 

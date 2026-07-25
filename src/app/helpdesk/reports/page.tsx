@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import RoleGuard from "@/components/RoleGuard";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Tooltip, Legend, ResponsiveContainer,
@@ -84,11 +86,12 @@ export default function HelpdeskReportsPage() {
   const counts = reportData?.counts || { open: 0, inProgress: 0, waiting: 0, resolved: 0, critical: 0, total: 0 };
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground animate-fade-in">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-        <main className="flex-grow p-4 md:p-6 overflow-y-auto max-w-[1600px] mx-auto w-full space-y-6">
+    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'OFFICE_ADMIN']}>
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header />
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-[1600px] mx-auto w-full space-y-6">
           {/* Header */}
           <div className="bg-card/70 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-sm flex items-center gap-3">
             <div className="bg-primary/10 text-primary p-2.5 rounded-lg">
@@ -273,5 +276,6 @@ export default function HelpdeskReportsPage() {
         </main>
       </div>
     </div>
-  );
+  </RoleGuard>
+);
 }

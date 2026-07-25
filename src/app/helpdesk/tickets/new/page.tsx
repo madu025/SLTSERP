@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import RoleGuard from "@/components/RoleGuard";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -151,11 +153,12 @@ export default function CreateTicketPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground animate-fade-in">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-        <main className="flex-grow p-4 md:p-6 overflow-y-auto max-w-[900px] mx-auto w-full space-y-6">
+    <RoleGuard allowedRoles={['ALL']}>
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header />
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-[900px] mx-auto w-full space-y-6">
           {/* Header Section */}
           <div className="bg-card/70 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -348,5 +351,6 @@ export default function CreateTicketPage() {
         </main>
       </div>
     </div>
-  );
+  </RoleGuard>
+);
 }

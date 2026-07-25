@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
-import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar, ChevronDown } from "lucide-react";
+import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar, ChevronDown, Tag, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -295,7 +295,14 @@ export function SODSheetTable(props: SODSheetTableProps) {
         const isGenericTaskName = (name?: string | null) => {
             if (!name) return true;
             const u = name.trim().toUpperCase();
-            return u === 'CONSTRUCT_OSP' || u === 'CONSTRUCT' || u === 'OSP' || u.startsWith('CONSTRUCT_OSP/');
+            if (u.includes('/')) return false;
+            const genericPatterns = [
+                'CONSTRUCT_OSP', 'RECONSTRUCT_OSP', 'MODIFY-LOCATION', 'MODIFY_LOCATION',
+                'SERVICE_MODIFY', 'SERVICE-MODIFY', 'MAINTAIN_OSP', 'MAINTAIN-OSP',
+                'FAULT_REPAIR', 'CONSTRUCT', 'RECONSTRUCT', 'OSP', 'REPAIR',
+                'INSTALL', 'NEW_CONNECTION', 'UPGRADE', 'CHANGE_LOCATION', 'LOCATION_CHANGE'
+            ];
+            return genericPatterns.some(pattern => u === pattern || u.startsWith(pattern));
         };
 
         if (contractorName) {
@@ -382,13 +389,13 @@ export function SODSheetTable(props: SODSheetTableProps) {
 
     return (
         <div className="w-full h-full overflow-auto border-t border-border/20 custom-scrollbar">
-            <table className="min-w-[1380px] w-full border-collapse text-left table-fixed">
+            <table className="min-w-[1100px] w-full border-collapse text-left table-fixed">
                 <thead className="bg-muted/80 border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
                     <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px]">
                         <th className="w-[36px] px-1 py-1.5 border-r border-border/20 text-center md:sticky md:left-0 bg-muted/90 z-50">
                             <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-slate-400 dark:border-slate-500 data-[state=checked]:border-primary data-[state=checked]:bg-primary" />
                         </th>
-                        <th className="w-[165px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
+                        <th className="w-[135px] min-w-[135px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
                                     <span>SO Number</span>
@@ -667,7 +674,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         ) : (
                             // PENDING (Dispatcher Grid)
                             <>
-                                <th className="w-[185px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[170px] min-w-[170px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
                                             <span>Customer Details</span>
@@ -683,7 +690,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[95px] min-w-[95px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice</span>
@@ -699,7 +706,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                 <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
+                                 <th className="w-[110px] min-w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dp")}>
                                             <span>DP</span>
@@ -715,7 +722,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[125px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[115px] min-w-[115px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -736,7 +743,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[95px] min-w-[95px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
                                             <span>Status</span>
@@ -757,10 +764,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                 <th className="w-[120px] min-w-[120px] px-2 py-1.5 border-r border-border/20">
+                                 <th className="w-[105px] min-w-[105px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("scheduledDate")}>
-                                            <span>Appointment Date</span>
+                                            <span>Appointment</span>
                                             {sortConfig?.key === "scheduledDate" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
@@ -773,7 +780,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[125px] min-w-[125px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -781,7 +788,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </div>
                                         <input
                                             type="text"
-                                            placeholder="Filter comments..."
+                                            placeholder="Filter..."
                                             value={columnFilters.comments || ""}
                                             onChange={(e) => setColumnFilters(prev => ({ ...prev, comments: e.target.value }))}
                                             onClick={(e) => e.stopPropagation()}
@@ -791,7 +798,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 </th>
                             </>
                         )}
-                        <th className="w-[115px] text-center md:sticky md:right-0 bg-muted/90 z-50">Actions</th>
+                        <th className="w-[100px] min-w-[100px] text-center md:sticky md:right-0 bg-muted/90 z-50">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-border/25">
@@ -816,12 +823,13 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 <td className={`px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-[36px] z-20 ${stickyBg}`}>
                                     <div className="flex flex-col gap-0.5 py-0.5">
                                         <div className="flex items-center gap-1.5">
-                                            {(order.completionMode?.toUpperCase() === 'OFFLINE' || order.status?.toUpperCase() === 'OFFLINE' || String(order.completionMode).toUpperCase().includes('OFFLINE')) && (
+                                            {(order.isOfflineWorkOrder || order.completionMode?.toUpperCase() === 'OFFLINE' || order.status?.toUpperCase() === 'OFFLINE' || String(order.completionMode).toUpperCase().includes('OFFLINE')) && (
                                                 <span 
-                                                    className="px-1.5 py-0.2 text-[9px] font-black uppercase rounded-full bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/40 shadow-xs shrink-0 cursor-help" 
-                                                    title="Offline Connection"
+                                                    className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-rose-600 text-white shadow-xs shrink-0 inline-flex items-center gap-1 cursor-help" 
+                                                    title={`Offline Work Order Connection (${order.offlineReference || 'Contractor Entry'})`}
                                                 >
-                                                    O
+                                                    <WifiOff className="w-2.5 h-2.5 text-white" />
+                                                    OFFLINE
                                                 </span>
                                             )}
                                             <button
@@ -1090,23 +1098,32 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             {renderCellStatus(order.id, "sltsStatus")}
                                         </td>
 
-                                        {/* Appointment Date Inline */}
-                                        <td className="relative border-r border-border/15 p-0 w-[120px] min-w-[120px]">
-                                            <div className="relative w-full h-8 flex items-center justify-center px-1">
+                                        {/* Appointment Inline */}
+                                        <td className="relative border-r border-border/15 p-0 w-[105px] min-w-[105px]">
+                                            <div className="relative w-full min-h-[32px] flex items-center justify-center px-1 py-0.5">
                                                 <input
                                                     type="date"
                                                     value={order.scheduledDate ? new Date(order.scheduledDate).toISOString().split("T")[0] : ""}
                                                     onChange={(e) => handleSaveField(order.id, "scheduledDate", e.target.value)}
                                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                    title="Click to set appointment date"
+                                                    title={order.scheduledTime ? `Appointment: ${new Date(order.scheduledDate!).toLocaleDateString('en-GB')} at ${order.scheduledTime}` : "Click to set appointment date"}
                                                 />
-                                                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                                <div className={`text-[9.5px] font-mono font-bold px-1 py-0.5 rounded transition-colors text-center flex flex-col items-center leading-tight w-full ${
                                                     order.scheduledDate 
                                                         ? "text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 border border-indigo-500/30" 
                                                         : "text-muted-foreground/40 font-normal hover:text-foreground"
                                                 }`}>
-                                                    {order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString('en-GB') : "-"}
-                                                </span>
+                                                    {order.scheduledDate ? (
+                                                        <>
+                                                            <span>{new Date(order.scheduledDate).toLocaleDateString('en-GB')}</span>
+                                                            {order.scheduledTime && (
+                                                                <span className="text-[8.5px] font-extrabold text-indigo-700 dark:text-indigo-300 truncate max-w-full">
+                                                                    {order.scheduledTime}
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : "-"}
+                                                </div>
                                             </div>
                                             {renderCellStatus(order.id, "scheduledDate")}
                                         </td>

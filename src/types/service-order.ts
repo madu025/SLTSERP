@@ -51,6 +51,8 @@ export interface ServiceOrder {
     }> | null;
     directTeam?: string | null;
     completionMode?: 'ONLINE' | 'OFFLINE';
+    isOfflineWorkOrder?: boolean;
+    offlineReference?: string | null;
     isManualEntry?: boolean;
     isLegacyImport?: boolean;
     hasBridgeLog?: boolean;

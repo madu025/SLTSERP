@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardFilters, StatsCardGrid, DashboardError } from './components';
 import type { Stats } from './components';
+import RoleGuard from '@/components/RoleGuard';
 
 /* ── Chart-heavy sections are dynamically imported (client-only) ── */
 const ChartSection = dynamic(() => import('./components/ChartSection'), {
@@ -155,14 +156,15 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="min-h-screen flex bg-background text-foreground">
-            <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
-                <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
-                    <div className="max-w-7xl mx-auto w-full">
-                        <DashboardFilters
-                            user={user}
+        <RoleGuard allowedRoles={['ALL']}>
+            <div className="min-h-screen flex bg-background text-foreground">
+                <Sidebar />
+                <main className="flex-1 flex flex-col min-w-0 h-full">
+                    <Header />
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
+                        <div className="max-w-7xl mx-auto w-full">
+                            <DashboardFilters
+                                user={user}
                             selectedRegion={selectedRegion}
                             selectedRtom={selectedRtom}
                             onRegionChange={(val) => { setSelectedRegion(val); setSelectedRtom('ALL'); }}
@@ -194,5 +196,6 @@ export default function DashboardPage() {
                 </div>
             </main>
         </div>
+        </RoleGuard>
     );
 }

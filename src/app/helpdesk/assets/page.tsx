@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import RoleGuard from "@/components/RoleGuard";
+
 export default function HelpdeskAssetManagementPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -269,157 +271,143 @@ export default function HelpdeskAssetManagementPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground animate-fade-in">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-        <main className="flex-grow p-4 md:p-6 overflow-y-auto max-w-[1600px] mx-auto w-full space-y-6">
-          {/* Header Title */}
-          <div className="bg-card/70 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-primary/10 text-primary p-2.5 rounded-lg">
-                <Laptop className="h-5 w-5" />
+    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']}>
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header />
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-[1600px] mx-auto w-full space-y-6">
+            {/* Header Title */}
+            <div className="bg-card/70 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 text-primary p-2.5 rounded-lg">
+                  <Laptop className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="text-base font-extrabold text-foreground">IT Asset Management</h1>
+                  <p className="text-[10px] text-muted-foreground">Register company laptops, desktops, and mobile devices.</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-base font-extrabold text-foreground">IT Asset Management</h1>
-                <p className="text-[10px] text-muted-foreground">Register company laptops, desktops, and mobile devices.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link href="/helpdesk/assets/audits">
-                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs bg-card">
-                  <ClipboardList className="h-3.5 w-3.5 text-slate-500" />
-                  Review Audits
+
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs bg-card" onClick={fetchAssets}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Refresh
                 </Button>
-              </Link>
-              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs bg-card" onClick={fetchAssets}>
-                <RefreshCw className="h-3.5 w-3.5" />
-                Refresh list
-              </Button>
-            </div>
-          </div>
-
-          {/* Stats Cards Section */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {/* Card 1: Total Assets */}
-            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total IT Assets</span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl font-black text-foreground">{stats.total}</span>
-                <span className="text-[10px] text-muted-foreground">registered</span>
+                <Link href="/helpdesk/assets/audits">
+                  <Button size="sm" className="h-8 gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    Physical Audits Review
+                  </Button>
+                </Link>
               </div>
             </div>
 
-            {/* Card 2: Active */}
-            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-emerald-500">
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active Devices</span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.ACTIVE}</span>
-                <span className="text-[10px] text-muted-foreground">in-use</span>
+            {/* Top Stat Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5">
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase block">Total</span>
+                <span className="text-lg font-black text-foreground">{stats.total}</span>
+              </div>
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase block">Active</span>
+                <span className="text-lg font-black text-emerald-600">{stats.ACTIVE}</span>
+              </div>
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-indigo-500 uppercase block">Spare</span>
+                <span className="text-lg font-black text-indigo-500">{stats.SPARE}</span>
+              </div>
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-amber-500 uppercase block">In Repair</span>
+                <span className="text-lg font-black text-amber-500">{stats.UNDER_REPAIR}</span>
+              </div>
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-red-500 uppercase block">Faulty</span>
+                <span className="text-lg font-black text-red-500">{stats.FAULTY}</span>
+              </div>
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">Retired</span>
+                <span className="text-lg font-black text-slate-500">{stats.DECOMMISSIONED}</span>
+              </div>
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-stone-500 uppercase block">Disposed</span>
+                <span className="text-lg font-black text-stone-500">{stats.DISPOSED}</span>
+              </div>
+              <div className="bg-card/70 border border-border/40 p-3 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-bold text-purple-500 uppercase block">Transferred</span>
+                <span className="text-lg font-black text-purple-500">{stats.TRANSFERRED}</span>
               </div>
             </div>
 
-            {/* Card 3: Spare / Stores */}
-            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-blue-500">
-              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Spare in Stores</span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{stats.SPARE}</span>
-                <span className="text-[10px] text-muted-foreground">ready to issue</span>
+            {/* Asset Table Container */}
+            {initialLoading ? (
+              <div className="bg-card border border-border/50 rounded-xl p-8 flex flex-col items-center justify-center space-y-3 min-h-[300px]">
+                <RefreshCw className="h-7 w-7 text-primary animate-spin" />
+                <p className="text-xs font-semibold text-muted-foreground">Loading IT Device Records...</p>
               </div>
-            </div>
-
-            {/* Card 4: Under Repair / Faulty */}
-            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-amber-500">
-              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Repair & Faulty</span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{stats.UNDER_REPAIR + stats.FAULTY}</span>
-                <span className="text-[10px] text-muted-foreground">inactive</span>
-              </div>
-            </div>
-
-            {/* Card 5: Disposed & Decommissioned */}
-            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-slate-400">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Disposed / Retired</span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl font-black text-slate-500">{stats.DISPOSED + stats.DECOMMISSIONED + stats.TRANSFERRED}</span>
-                <span className="text-[10px] text-muted-foreground">decommissioned</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Asset List Render */}
-          {initialLoading ? (
-            <div className="space-y-2.5">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-11 bg-card/60 rounded-lg animate-pulse border border-border/30" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="relative">
-                {loading && (
-                  <div className="absolute inset-0 bg-background/25 backdrop-blur-[0.5px] z-10 flex items-center justify-center rounded-lg">
-                    <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+            ) : (
+              <>
+                <div className="bg-card border border-border/50 rounded-xl p-4 shadow-sm">
+                  <AssetList
+                    assets={assets}
+                    loading={loading}
+                    onAddAsset={handleAddAsset}
+                    onEditAsset={handleEditAsset}
+                    onDeleteAsset={handleDeleteAsset}
+                    usersList={usersList}
+                    siteOfficesList={siteOfficesList}
+                    isStaff={isITStaff}
+                    search={search}
+                    onSearchChange={handleSearchChange}
+                    typeFilter={typeFilter}
+                    onTypeFilterChange={handleTypeFilterChange}
+                    statusFilter={statusFilter}
+                    onStatusFilterChange={handleStatusFilterChange}
+                    onRefresh={fetchAssets}
+                  />
+                </div>
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="bg-card/70 border border-border/40 p-3.5 rounded-xl flex items-center justify-between shadow-sm text-xs">
+                    <span className="text-muted-foreground font-medium">
+                      Showing <span className="font-bold text-foreground">{(page - 1) * 25 + 1}</span> to{" "}
+                      <span className="font-bold text-foreground">
+                        {Math.min(page * 25, totalAssets)}
+                      </span>{" "}
+                      of <span className="font-bold text-foreground">{totalAssets}</span> registered devices
+                    </span>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-semibold"
+                        disabled={page === 1}
+                        onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-muted-foreground font-medium px-2">
+                        Page <span className="font-bold text-foreground">{page}</span> of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs font-semibold"
+                        disabled={page === totalPages}
+                        onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
                 )}
-                <AssetList
-                  assets={assets}
-                  onAddAsset={handleAddAsset}
-                  onEditAsset={handleEditAsset}
-                  onDeleteAsset={handleDeleteAsset}
-                  usersList={usersList}
-                  siteOfficesList={siteOfficesList}
-                  isStaff={isITStaff}
-                  search={search}
-                  onSearchChange={handleSearchChange}
-                  typeFilter={typeFilter}
-                  onTypeFilterChange={handleTypeFilterChange}
-                  statusFilter={statusFilter}
-                  onStatusFilterChange={handleStatusFilterChange}
-                  onRefresh={fetchAssets}
-                />
-              </div>
-              
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="bg-card/70 border border-border/40 p-3.5 rounded-xl flex items-center justify-between shadow-sm text-xs">
-                  <span className="text-muted-foreground font-medium">
-                    Showing <span className="font-bold text-foreground">{(page - 1) * 25 + 1}</span> to{" "}
-                    <span className="font-bold text-foreground">
-                      {Math.min(page * 25, totalAssets)}
-                    </span>{" "}
-                    of <span className="font-bold text-foreground">{totalAssets}</span> registered devices
-                  </span>
-                  
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs font-semibold"
-                      disabled={page === 1}
-                      onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                    >
-                      Previous
-                    </Button>
-                    <span className="text-muted-foreground font-medium px-2">
-                      Page <span className="font-bold text-foreground">{page}</span> of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs font-semibold"
-                      disabled={page === totalPages}
-                      onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </main>
+              </>
+            )}
+          </main>
+        </div>
       </div>
-    </div>
+    </RoleGuard>
   );
 }

@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import RoleGuard from "@/components/RoleGuard";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,11 +31,10 @@ import {
   TrendingUp,
   Tag,
   Clipboard,
-  X,
-  Pencil,
   FileSpreadsheet,
-  Download,
-  RefreshCw
+  RefreshCw,
+  X,
+  Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -50,6 +51,7 @@ interface UserRecord {
 interface ITAsset {
   id: string;
   assetNumber: string;
+  serialNumber?: string | null;
   brand: string;
   model: string;
 }
@@ -140,7 +142,7 @@ export default function SoftwareLicensesDashboard() {
       if (!res.ok) throw new Error("Failed to fetch licenses");
       const json = await res.json();
       if (json.success && Array.isArray(json.data.licenses)) {
-        const rows = json.data.licenses.map((lic: any) => ({
+        const rows = json.data.licenses.map((lic: SoftwareLicense) => ({
           "Software Name": lic.name,
           "License Key": lic.key || "—",
           "Vendor": lic.vendor || "Direct Purchase",
@@ -172,7 +174,7 @@ export default function SoftwareLicensesDashboard() {
     if (!selectedLicense || !selectedLicense.assignments || selectedLicense.assignments.length === 0) return;
     setExportingAllocations(true);
     try {
-      const rows = selectedLicense.assignments.map((as: any) => ({
+      const rows = selectedLicense.assignments.map((as: SoftwareLicenseAssignment) => ({
         "Allocation Target": as.assignedUser ? "User" : "Hardware Asset",
         "Assigned Name": as.assignedUser ? (as.assignedUser.name || as.assignedUser.username) : `Asset: ${as.assignedAsset?.assetNumber}`,
         "Employee ID": as.assignedUser ? (as.assignedUser.employeeId || "—") : "—",
@@ -272,10 +274,11 @@ export default function SoftwareLicensesDashboard() {
     }
   }, [search, statusFilter]);
 
-  const fetchUsers = async (role: string) => {
+  const fetchUsers = useCallback(async () => {
+    if (!user?.role) return;
     try {
       const res = await fetch("/api/users?limit=1000", {
-        headers: { "x-user-role": role }
+        headers: { "x-user-role": user.role }
       });
       if (res.ok) {
         const json = await res.json();
@@ -288,7 +291,7 @@ export default function SoftwareLicensesDashboard() {
     } catch (err) {
       console.error("Failed to load users list", err);
     }
-  };
+  }, [user?.role]);
 
   const fetchAssets = async () => {
     try {
@@ -308,8 +311,9 @@ export default function SoftwareLicensesDashboard() {
     if (mounted && user) {
       fetchLicenses();
       fetchAssets();
+      fetchUsers();
     }
-  }, [mounted, user, fetchLicenses]);
+  }, [mounted, user, fetchLicenses, fetchUsers]);
 
   // Load single license details including assignments
   const handleViewDetails = async (id: string) => {
@@ -546,12 +550,12 @@ export default function SoftwareLicensesDashboard() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-        
-        <main className="flex-grow p-4 md:p-6 overflow-y-auto max-w-[1400px] mx-auto w-full space-y-6">
+    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'OFFICE_ADMIN']}>
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header />
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-[1400px] mx-auto w-full space-y-6">
           
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-slate-900 via-sky-900 to-indigo-950 rounded-xl p-5 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1368,6 +1372,7 @@ export default function SoftwareLicensesDashboard() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+      </div>
+    </RoleGuard>
   );
 }

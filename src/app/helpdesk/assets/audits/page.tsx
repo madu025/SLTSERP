@@ -21,6 +21,8 @@ import {
   DialogDescription
 } from "@/components/ui/dialog";
 
+import RoleGuard from "@/components/RoleGuard";
+
 interface AuditRecord {
   id: string;
   serialNumber: string;
@@ -120,6 +122,28 @@ export default function AdminAuditReviewPage() {
     }
   }, []);
 
+  // Audit Gap Analysis State
+  const [gaps, setGaps] = useState<{
+    missingAudits: Array<{ assetId: string; assetNumber: string; serialNumber: string; brand: string; model: string; deviceType: string; assignedStaffName: string; assignedStaffId: string; department?: string | null; location?: string | null }>;
+    unregisteredDevices: Array<{ auditId: string; serialNumber: string; brand: string; model: string; deviceType: string; custodianName: string; employeeNo: string; department?: string | null; location?: string | null }>;
+    mismatchedData: Array<{ auditId: string; serialNumber: string; auditDetails: { brand: string; model: string; custodianName: string; employeeNo: string }; systemDetails: { brand: string; model: string; custodianName?: string | null } | null }>;
+    summary: { totalMissing: number; totalUnregistered: number; totalMismatched: number };
+  } | null>(null);
+
+  const fetchGapAnalysis = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/helpdesk/assets/audits/gaps?_t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setGaps(json.data);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load audit gaps:", err);
+    }
+  }, []);
+
   const fetchAudits = useCallback(async () => {
     setLoading(true);
     try {
@@ -142,8 +166,9 @@ export default function AdminAuditReviewPage() {
     if (mounted && user) {
       fetchAudits();
       fetchSiteOffices();
+      fetchGapAnalysis();
     }
-  }, [mounted, user, fetchAudits, fetchSiteOffices]);
+  }, [mounted, user, fetchAudits, fetchSiteOffices, fetchGapAnalysis]);
 
   const handleOpenReconcile = (audit: AuditRecord) => {
     setSelectedAudit(audit);
@@ -277,11 +302,12 @@ export default function AdminAuditReviewPage() {
   const discrepancies = audits.filter(a => !a.isSynced && !a.isMatched).length;
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground animate-fade-in">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-        <main className="flex-grow p-4 md:p-6 overflow-y-auto max-w-[1600px] mx-auto w-full space-y-6">
+    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']}>
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header />
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-[1600px] mx-auto w-full space-y-6">
           
           {/* Header Controls */}
           <div className="bg-card/70 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-sm flex items-center justify-between">
@@ -325,6 +351,56 @@ export default function AdminAuditReviewPage() {
               <div className="text-2xl font-black text-emerald-500 mt-1">{synced}</div>
             </div>
           </div>
+
+          {/* Audit Gap Analysis Breakdown */}
+          {gaps && (
+            <div className="bg-card border border-border/50 rounded-xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    Physical Reconciliation Gap Analysis
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground">Automated gap checks between physical employee audit submissions and system inventory.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                {/* Missing Audits */}
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-amber-800 dark:text-amber-300 text-[11px]">Missing Physical Scans</span>
+                    <Badge className="bg-amber-500 text-white font-extrabold text-[10px]">{gaps.summary.totalMissing}</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Assigned IT assets in system without employee physical audit submission.
+                  </p>
+                </div>
+
+                {/* Unregistered Devices */}
+                <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-rose-800 dark:text-rose-300 text-[11px]">Unregistered Devices</span>
+                    <Badge className="bg-rose-500 text-white font-extrabold text-[10px]">{gaps.summary.totalUnregistered}</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Audited serial numbers that do not exist in system database.
+                  </p>
+                </div>
+
+                {/* Custodian / Location Mismatches */}
+                <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-purple-800 dark:text-purple-300 text-[11px]">Details Mismatch</span>
+                    <Badge className="bg-purple-500 text-white font-extrabold text-[10px]">{gaps.summary.totalMismatched}</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Matched serial numbers with custodian, brand, or location differences.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Submissions Table List */}
           <div className="rounded-lg border border-border/50 bg-card/85 backdrop-blur-lg shadow-xl overflow-hidden">
@@ -821,6 +897,7 @@ export default function AdminAuditReviewPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </RoleGuard>
   );
 }

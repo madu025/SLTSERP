@@ -5,6 +5,7 @@ import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
+import { SODLifecycleService } from './sod.lifecycle.service';
 import { SodUtils } from './sod.utils';
 import { SystemConfigService } from '../system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
@@ -563,34 +564,43 @@ export class SODSyncService {
         // ── Optimization: Collect new records in a batch, flush with createMany ──
         // Reduces O(N) individual DB round-trips to O(1) per OPMC
         const toCreate: Prisma.ServiceOrderUncheckedCreateInput[] = [];
+        const toUpdate: { existing: any, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
 
         for (const item of syncableData) {
             try {
                 const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
-                const completionStatuses = ['INSTALL_CLOSED'];
-                const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
-                
-                let initialSltsStatus = 'INPROGRESS';
-                const isOfflineType = offlineOrderTypes.includes((item.ORDER_TYPE || '').toUpperCase());
+                const cleanStatus = (item.CON_STATUS || '').toUpperCase().trim();
+                const initialSltsStatus = SODLifecycleService.mapExternalStatusToSltsStatus(cleanStatus);
 
-                if (isOfflineType || (item.CON_STATUS || '').toUpperCase() === 'OFFLINE') {
-                    initialSltsStatus = 'OFFLINE';
-                } else if (completionStatuses.includes(item.CON_STATUS)) {
-                    initialSltsStatus = 'COMPLETED';
-                } else if ((item.CON_STATUS || '').toUpperCase() === 'PROV_CLOSED') {
-                    initialSltsStatus = 'PROV_CLOSED';
-                } else if (returnStatuses.includes((item.CON_STATUS || '').toUpperCase()) || (item.CON_STATUS || '').toUpperCase().includes('RETURN') || (item.CON_STATUS || '').toUpperCase().includes('REJECT') || (item.CON_STATUS || '').toUpperCase().includes('CANCEL')) {
-                    initialSltsStatus = 'RETURN';
-                }
+                const isOfflineType = offlineOrderTypes.includes((item.ORDER_TYPE || '').toUpperCase());
+                const isOfflineFlag = isOfflineType || cleanStatus === 'OFFLINE';
 
                 const itemObj = item as unknown as Record<string, unknown>;
-                const rawContractorOrTeam = item.CON_WORO_TASK_NAME || (itemObj.CONTRACTOR_NAME as string | undefined) || (itemObj.CONTRACTOR as string | undefined) || (itemObj.CON_CONTRACTOR as string | undefined);
-                const isGenericTask = (name?: string | null) => {
+                const explicitContractor = (itemObj.CONTRACTOR_NAME as string | undefined) || (itemObj.CONTRACTOR as string | undefined) || (itemObj.CON_CONTRACTOR as string | undefined);
+                const woroTaskName = item.CON_WORO_TASK_NAME ? String(item.CON_WORO_TASK_NAME).trim() : null;
+
+                const isGenericTaskName = (name?: string | null) => {
                     if (!name) return true;
                     const u = name.trim().toUpperCase();
-                    return u === 'CONSTRUCT_OSP' || u === 'CONSTRUCT' || u === 'OSP' || u.startsWith('CONSTRUCT_OSP/');
+                    if (u.includes('/')) return false;
+                    const genericPatterns = [
+                        'CONSTRUCT_OSP', 'RECONSTRUCT_OSP', 'MODIFY-LOCATION', 'MODIFY_LOCATION',
+                        'SERVICE_MODIFY', 'SERVICE-MODIFY', 'MAINTAIN_OSP', 'MAINTAIN-OSP',
+                        'FAULT_REPAIR', 'CONSTRUCT', 'RECONSTRUCT', 'OSP', 'REPAIR',
+                        'INSTALL', 'NEW_CONNECTION', 'UPGRADE', 'CHANGE_LOCATION', 'LOCATION_CHANGE'
+                    ];
+                    return genericPatterns.some(pattern => u === pattern || u.startsWith(pattern));
                 };
-                const portalTeamName = (!isGenericTask(rawContractorOrTeam)) ? (rawContractorOrTeam as string).trim() : null;
+
+                let portalTeamName: string | null = null;
+                if (woroTaskName && woroTaskName.includes('/')) {
+                    portalTeamName = woroTaskName;
+                } else if (explicitContractor && explicitContractor.trim()) {
+                    portalTeamName = explicitContractor.trim();
+                } else if (woroTaskName && !isGenericTaskName(woroTaskName)) {
+                    portalTeamName = woroTaskName;
+                }
+
                 let contractorId: string | null = null;
                 let teamId: string | null = null;
 
@@ -624,6 +634,7 @@ export class SODSyncService {
                     sales: item.CON_SALES,
                     completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined,
                     sltsStatus: initialSltsStatus,
+                    isOfflineWorkOrder: isOfflineFlag ? true : undefined,
                     contractorId: contractorId || undefined,
                     teamId: teamId || undefined,
                     directTeam: portalTeamName || undefined,
@@ -631,6 +642,37 @@ export class SODSyncService {
                 };
 
                 if (existing) {
+                    toUpdate.push({ existing, updatePayload, initialSltsStatus });
+                } else {
+                    const isFinished = initialSltsStatus === 'COMPLETED';
+                    const isRecent = statusDate.getFullYear() >= 2026;
+                    if (!isFinished || isRecent) {
+                        toCreate.push({
+                            ...updatePayload,
+                            opmcId,
+                            contractorId: contractorId || null,
+                            rtom: item.RTOM || rtom,
+                            soNum: item.SO_NUM,
+                            receivedDate: statusDate,
+                            completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : null,
+                            sltsStatus: initialSltsStatus
+                        } as Prisma.ServiceOrderUncheckedCreateInput);
+                    }
+                }
+            } catch (err) {
+                console.error(`[SYNC] Failed to sync ${item.SO_NUM}:`, err);
+            }
+        }
+
+        // Sequential Updates (Chunked)
+        const updateChunks: (typeof toUpdate)[] = [];
+        for (let i = 0; i < toUpdate.length; i += 20) {
+            updateChunks.push(toUpdate.slice(i, i + 20));
+        }
+
+        for (const chunk of updateChunks) {
+            await Promise.all(chunk.map(async ({ existing, updatePayload, initialSltsStatus }) => {
+                try {
                     const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
                     const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
                     
@@ -654,25 +696,10 @@ export class SODSyncService {
                         }
                     });
                     updated++;
-                } else {
-                    const isFinished = initialSltsStatus === 'COMPLETED';
-                    const isRecent = statusDate.getFullYear() >= 2026;
-                    if (!isFinished || isRecent) {
-                        toCreate.push({
-                            ...updatePayload,
-                            opmcId,
-                            contractorId: contractorId || null,
-                            rtom: item.RTOM || rtom,
-                            soNum: item.SO_NUM,
-                            receivedDate: statusDate,
-                            completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : null,
-                            sltsStatus: initialSltsStatus
-                        } as Prisma.ServiceOrderUncheckedCreateInput);
-                    }
+                } catch (err) {
+                    console.error(`[SYNC] Failed to update existing SOD ${existing.soNum}:`, err);
                 }
-            } catch (err) {
-                console.error(`[SYNC] Failed to sync ${item.SO_NUM}:`, err);
-            }
+            }));
         }
 
         // Flush all new SODs in a single createMany call — O(1) round-trip vs O(N)
@@ -725,20 +752,19 @@ export class SODSyncService {
                         const statusUpper = String(extStatus.status || '').toUpperCase();
                         const statusDate = sltApiService.parseStatusDate(extStatus.statusDate) || new Date();
                         const completionStatuses = ['INSTALL_CLOSED'];
-                        const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+                        const returnStatuses = ['RETURN', 'RETURNED', 'FIELD_RETURN', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+                        const isPatRejection = statusUpper.includes('PAT') || statusUpper.includes('OPMC_REJECT') || statusUpper.includes('HO_REJECT');
                         
                         let nextSltsStatus = 'INPROGRESS';
                         const rawItemObj = extStatus.rawItem as Record<string, unknown> | undefined;
                         const rawOrderType = (rawItemObj?.ORDER_TYPE as string | undefined) || '';
                         const isOfflineType = rawOrderType ? offlineOrderTypes.includes(rawOrderType.toUpperCase()) : false;
 
-                        if (isOfflineType || statusUpper === 'OFFLINE') {
-                            nextSltsStatus = 'OFFLINE';
-                        } else if (completionStatuses.includes(extStatus.status)) {
+                        if (completionStatuses.includes(extStatus.status)) {
                             nextSltsStatus = 'COMPLETED';
                         } else if (statusUpper === 'PROV_CLOSED') {
                             nextSltsStatus = 'PROV_CLOSED';
-                        } else if (returnStatuses.includes(statusUpper) || statusUpper.includes('RETURN') || statusUpper.includes('REJECT') || statusUpper.includes('CANCEL')) {
+                        } else if (!isPatRejection && (returnStatuses.includes(statusUpper) || statusUpper.includes('RETURN') || statusUpper.includes('CANCEL'))) {
                             nextSltsStatus = 'RETURN';
                         }
 

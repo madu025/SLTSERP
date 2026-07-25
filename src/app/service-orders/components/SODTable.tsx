@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ServiceOrder } from "@/types/service-order";
-import { ArrowUpDown, Activity, Pencil, Trash, FileText, Calendar, MessageSquare, Info } from "lucide-react";
+import { ArrowUpDown, Activity, Pencil, Trash, FileText, Calendar, MessageSquare, Info, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -61,6 +61,12 @@ export function SODTable({ orders, filterType, isColumnVisible, onSort, sortConf
                             {isColumnVisible('soNum') && (
                                 <td className="px-3 py-1.5 font-mono font-medium text-primary whitespace-nowrap">
                                     <div className="flex items-center gap-1">
+                                        {(order.isOfflineWorkOrder || order.completionMode?.toUpperCase() === 'OFFLINE' || order.status?.toUpperCase() === 'OFFLINE') && (
+                                            <span className="text-[7.5px] bg-rose-600 text-white px-1 py-0.5 rounded font-black uppercase inline-flex items-center gap-0.5 shadow-xs shrink-0 cursor-help" title={`Offline Work Order Connection (${order.offlineReference || 'Contractor Entry'})`}>
+                                                <WifiOff className="w-2.5 h-2.5 text-white" />
+                                                OFFLINE
+                                            </span>
+                                        )}
                                         <button onClick={() => onAction(order, 'detail')}>{order.soNum}</button>
                                         {order.isManualEntry && <span className="text-[7px] bg-slate-100 text-slate-500 px-1 border border-slate-200 rounded font-bold uppercase">Manual</span>}
                                         {order.hasBridgeLog && <span className="text-[7px] bg-indigo-500 text-white px-1 rounded font-bold uppercase flex items-center gap-0.5 border border-indigo-400"><Activity className="w-2 h-2" /> BRIDGE</span>}

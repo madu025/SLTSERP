@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store, FileSpreadsheet, Download, History, MoreHorizontal } from "lucide-react";
+import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store, FileSpreadsheet, History, MoreHorizontal } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateAssetSchema, UpdateAssetSchema, CreateAssetHandoverSchema } from "@/lib/validations/helpdesk.schema";
@@ -66,6 +66,7 @@ export interface StaffSummary {
 
 interface AssetListProps {
   assets: ITAsset[];
+  loading?: boolean;
   onAddAsset: (data: z.infer<typeof CreateAssetSchema>) => Promise<boolean>;
   onEditAsset?: (id: string, data: z.infer<typeof UpdateAssetSchema>) => Promise<boolean>;
   onDeleteAsset?: (id: string) => Promise<void>;
@@ -113,7 +114,7 @@ export default function AssetList({
       if (!res.ok) throw new Error("Failed to fetch assets for export");
       const json = await res.json();
       if (json.success && Array.isArray(json.data.assets)) {
-        const rows = json.data.assets.map((asset: any) => ({
+        const rows = json.data.assets.map((asset: ITAsset) => ({
           "Asset Number": asset.assetNumber || "—",
           "Serial Number": asset.serialNumber || "—",
           "Device Type": asset.deviceType || "—",
@@ -189,9 +190,35 @@ export default function AssetList({
     }
   };
 
+interface ProfileHandoverLog {
+  id?: string;
+  transactionType: string;
+  date: string | Date;
+  condition?: string | null;
+  remarks?: string | null;
+  asset: {
+    brand: string;
+    model: string;
+    assetNumber: string;
+    serialNumber: string;
+  };
+}
+
+interface StaffProfileData {
+  staff?: {
+    id: string;
+    name: string;
+    employeeId: string;
+    designation?: string | null;
+    area?: string | null;
+  } | null;
+  activeAssets: ITAsset[];
+  handovers: ProfileHandoverLog[];
+}
+
   // Staff Custody Profile States
-  const [profileStaff, setProfileStaff] = useState<any>(null);
-  const [profileData, setProfileData] = useState<any>(null);
+  const [profileStaff, setProfileStaff] = useState<StaffSummary | null>(null);
+  const [profileData, setProfileData] = useState<StaffProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState<boolean>(false);
 
   const fetchStaffProfile = async (staffId: string) => {
@@ -212,7 +239,7 @@ export default function AssetList({
     }
   };
 
-  const openStaffProfile = (staff: any) => {
+  const openStaffProfile = (staff: StaffSummary) => {
     setProfileStaff(staff);
     fetchStaffProfile(staff.id);
   };
@@ -1106,7 +1133,7 @@ export default function AssetList({
                     {asset.assignedStaff ? (
                       <button
                         type="button"
-                        onClick={() => openStaffProfile(asset.assignedStaff)}
+                        onClick={() => asset.assignedStaff && openStaffProfile(asset.assignedStaff)}
                         className="flex items-center gap-1 hover:underline text-primary text-left font-semibold transition-colors"
                       >
                         <User className="h-3.5 w-3.5" />
@@ -2044,7 +2071,7 @@ export default function AssetList({
                           {event.meta && (event.meta.remarks || event.meta.condition) && (
                             <div className="mt-1 text-[9.5px] bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-900/50 font-mono text-muted-foreground leading-normal">
                               {event.meta.condition && <div>Condition: <span className="font-semibold text-foreground">{event.meta.condition}</span></div>}
-                              {event.meta.remarks && <div className="mt-0.5">Remarks: <span className="italic text-foreground/90">"{event.meta.remarks}"</span></div>}
+                              {event.meta.remarks && <div className="mt-0.5">Remarks: <span className="italic text-foreground/90">&quot;{event.meta.remarks}&quot;</span></div>}
                             </div>
                           )}
 
@@ -2109,27 +2136,29 @@ export default function AssetList({
               ) : (
                 <div className="space-y-6 text-xs">
                   {/* Staff Info Card */}
-                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 space-y-2">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400">Employee Details</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-slate-500 block text-[10px]">Name</span>
-                        <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.name}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block text-[10px]">Employee EPF No</span>
-                        <span className="font-bold text-slate-850 dark:text-slate-200 font-mono">{profileData.staff.employeeId}</span>
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-slate-500 block text-[10px]">Designation</span>
-                        <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.designation}</span>
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-slate-500 block text-[10px]">OPMC / Area</span>
-                        <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.area || "—"}</span>
+                  {profileData.staff && (
+                    <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 space-y-2">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400">Employee Details</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Name</span>
+                          <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Employee EPF No</span>
+                          <span className="font-bold text-slate-850 dark:text-slate-200 font-mono">{profileData.staff.employeeId}</span>
+                        </div>
+                        <div className="mt-2">
+                          <span className="text-slate-500 block text-[10px]">Designation</span>
+                          <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.designation || "—"}</span>
+                        </div>
+                        <div className="mt-2">
+                          <span className="text-slate-500 block text-[10px]">OPMC / Area</span>
+                          <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.area || "—"}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Active Assets Assigned */}
                   <div className="space-y-2.5">
@@ -2138,7 +2167,7 @@ export default function AssetList({
                       <p className="text-xs text-muted-foreground italic pl-1">No devices currently assigned to this user.</p>
                     ) : (
                       <div className="space-y-2">
-                        {profileData.activeAssets.map((asset: any) => (
+                        {profileData.activeAssets.map((asset: ITAsset) => (
                           <div key={asset.id} className="p-3 bg-card border border-border/50 rounded-lg flex justify-between items-center">
                             <div className="space-y-0.5">
                               <p className="font-bold text-slate-850 dark:text-slate-200">{asset.brand} {asset.model}</p>
@@ -2160,7 +2189,7 @@ export default function AssetList({
                       <p className="text-xs text-muted-foreground italic pl-1">No handover log history found for this user.</p>
                     ) : (
                       <div className="relative pl-4 border-l border-slate-200 dark:border-slate-800 space-y-4 ml-1">
-                        {profileData.handovers.map((log: any, idx: number) => {
+                        {profileData.handovers.map((log: ProfileHandoverLog, idx: number) => {
                           const isIssue = log.transactionType === "ISSUED_TO_USER";
                           const isExchange = log.transactionType === "EXCHANGED";
                           const title = isIssue ? "Received Device" : isExchange ? "Exchanged Device" : "Returned Device";
@@ -2187,7 +2216,7 @@ export default function AssetList({
                                   {log.asset.brand} {log.asset.model} ({log.asset.assetNumber})
                                 </p>
                                 {log.condition && <p className="text-[10px] text-slate-500">Condition: {log.condition}</p>}
-                                {log.remarks && <p className="text-[10px] text-slate-500 italic">"{log.remarks}"</p>}
+                                {log.remarks && <p className="text-[10px] text-slate-500 italic">&quot;{log.remarks}&quot;</p>}
                               </div>
                             </div>
                           );

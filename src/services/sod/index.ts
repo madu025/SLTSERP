@@ -23,6 +23,15 @@ export class ServiceOrderService {
      * Get all service orders with filtering and sorting
      */
     static async getServiceOrders(_userId: string, params: GetServiceOrdersParams) {
+        if (_userId) {
+            const user = await prisma.user.findUnique({
+                where: { id: _userId },
+                include: { accessibleOpmcs: { select: { id: true } } }
+            });
+            if (user && user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
+                params.accessibleOpmcs = user.accessibleOpmcs.map(o => o.id);
+            }
+        }
         return SODQueryService.getServiceOrders(params);
     }
 

@@ -1,5 +1,6 @@
-import { LedgerService } from './ledger.service';
+import { LedgerService, JournalPostingLineInput } from './ledger.service';
 import { TransactionClient } from '../inventory/types';
+import { ACCOUNTS } from './account-codes';
 
 export interface ContractorInvoicePostingPayload {
     invoiceId: string;
@@ -42,15 +43,15 @@ export class AccountingPostingRegistry {
     static async postContractorInvoice(tx: TransactionClient, payload: ContractorInvoicePostingPayload) {
         const vat = payload.vatAmount || 0;
         const sscl = payload.ssclAmount || 0;
-        const lines = [
+        const lines: JournalPostingLineInput[] = [
             {
-                accountCode: 'AR-1110',
+                accountCode: ACCOUNTS.AR_CLIENT,
                 debit: payload.totalAmount,
                 credit: 0,
                 description: `Receivable for Contractor Invoice ${payload.invoiceNumber}`
             },
             {
-                accountCode: 'REV-4010',
+                accountCode: ACCOUNTS.REVENUE,
                 debit: 0,
                 credit: payload.netAmount,
                 description: `Net Project Revenue for Invoice ${payload.invoiceNumber}`
@@ -59,7 +60,7 @@ export class AccountingPostingRegistry {
 
         if (vat > 0) {
             lines.push({
-                accountCode: 'VAT-PAY-2110',
+                accountCode: ACCOUNTS.VAT_PAYABLE,
                 debit: 0,
                 credit: vat,
                 description: `Output VAT for Invoice ${payload.invoiceNumber}`
@@ -68,7 +69,7 @@ export class AccountingPostingRegistry {
 
         if (sscl > 0) {
             lines.push({
-                accountCode: 'SSCL-PAY-2115',
+                accountCode: ACCOUNTS.SSCL_PAYABLE,
                 debit: 0,
                 credit: sscl,
                 description: `SSCL Payable for Invoice ${payload.invoiceNumber}`
@@ -89,7 +90,7 @@ export class AccountingPostingRegistry {
      */
     static async postRetentionAndLd(tx: TransactionClient, payload: RetentionLdPostingPayload) {
         if (payload.type === 'RETENTION_RELEASE') {
-            // DR: Retention Payable (RET-PAY-2120) / CR: Bank Account (BANK-1000)
+            // DR: Retention Payable (RET-PAY-2130) / CR: Bank Account (BANK-1000)
             return await LedgerService.postTransaction(tx, {
                 referenceId: payload.referenceId,
                 referenceType: 'RETENTION_RELEASE',
@@ -97,13 +98,13 @@ export class AccountingPostingRegistry {
                 createdById: payload.createdById,
                 lines: [
                     {
-                        accountCode: 'RET-PAY-2120',
+                        accountCode: ACCOUNTS.RETENTION_PAYABLE,
                         debit: payload.amount,
                         credit: 0,
                         description: 'Retention liability release'
                     },
                     {
-                        accountCode: 'BANK-1000',
+                        accountCode: ACCOUNTS.BANK,
                         debit: 0,
                         credit: payload.amount,
                         description: 'Bank disbursement for retention payout'
@@ -111,7 +112,7 @@ export class AccountingPostingRegistry {
                 ]
             });
         } else {
-            // LD Penalty: DR Accounts Payable (AP-2010) / CR Liquidated Damages Income (REV-LD-4090)
+            // LD Penalty: DR Accounts Payable (AP-2010) / CR Liquidated Damages Income (LD-INC-4200)
             return await LedgerService.postTransaction(tx, {
                 referenceId: payload.referenceId,
                 referenceType: 'LD_PENALTY',
@@ -119,13 +120,13 @@ export class AccountingPostingRegistry {
                 createdById: payload.createdById,
                 lines: [
                     {
-                        accountCode: 'AP-2010',
+                        accountCode: ACCOUNTS.AP_ACCRUED,
                         debit: payload.amount,
                         credit: 0,
                         description: 'AP reduction for LD penalty'
                     },
                     {
-                        accountCode: 'REV-LD-4090',
+                        accountCode: ACCOUNTS.LD_INCOME,
                         debit: 0,
                         credit: payload.amount,
                         description: 'Liquidated damages penalty income'
@@ -137,11 +138,11 @@ export class AccountingPostingRegistry {
 
     /**
      * Post Vehicle Expenses (Fuel, Maintenance, Repairs) via Central Gateway.
-     * DR: Vehicle Running Expense (EXP-VEH-6030)
+     * DR: Vehicle Running Expense (EXP-VEHICLE-6020)
      * CR: Bank (BANK-1000) or Petty Cash (PETTY-1020)
      */
     static async postVehicleExpense(tx: TransactionClient, payload: VehicleExpensePostingPayload) {
-        const creditAccount = payload.paymentSource === 'PETTY_CASH' ? 'PETTY-1020' : 'BANK-1000';
+        const creditAccount = payload.paymentSource === 'PETTY_CASH' ? ACCOUNTS.PETTY_CASH : ACCOUNTS.BANK;
 
         return await LedgerService.postTransaction(tx, {
             referenceId: payload.vehicleId,
@@ -150,7 +151,7 @@ export class AccountingPostingRegistry {
             createdById: payload.createdById,
             lines: [
                 {
-                    accountCode: 'EXP-VEH-6030',
+                    accountCode: ACCOUNTS.VEHICLE_EXPENSE,
                     debit: payload.amount,
                     credit: 0,
                     description: `Vehicle ${payload.expenseType} cost for ${payload.vehicleRegNo}`

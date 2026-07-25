@@ -495,6 +495,12 @@
     retentionAmount: number;
   }): any`
 
+### [sod-wip-revenue.service.ts](src/services/finance/sod-wip-revenue.service.ts)
+* **Class**: `SODWipRevenueService`
+  * **Methods**:
+    * `getWipSummary(opmcId?: string): Promise<{ metrics: WipSummaryMetrics; items: WipSodItem[] }>`
+    * `postWipAccrualJournal(createdById?: string): any`
+
 ### [tax.service.ts](src/services/finance/tax.service.ts)
 * **Class**: `TaxService`
   * **Methods**:
@@ -2291,6 +2297,7 @@
             serviceType?: string | null;
             poleType?: string | null;
             poleMethod?: string | null;
+            completedDate?: Date | null;
         }): any`
     * `determineInvoicableStatus(sltsPatStatus: string | null | undefined, opmcPatStatus: string | null | undefined, hoPatStatus: string | null | undefined): boolean`
 
@@ -2300,6 +2307,8 @@
     * `validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string): any`
     * `prepareStatusTransition(oldOrder: { sltsStatus: string; status: string | null; statusDate: Date | null; comments: string | null; returnReason: string | null; sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isInvoicable?: boolean }, data: ServiceOrderUpdateData): Promise<Prisma.ServiceOrderUncheckedUpdateInput>`
     * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
+    * `toggleOfflineWorkOrder(id: string, isOffline: boolean, offlineReference?: string, reason?: string): any`
+    * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN'`
 
 ### [sod.material.service.ts](src/services/sod/sod.material.service.ts)
 * **Class**: `SODMaterialService`
@@ -2697,6 +2706,7 @@
 | `/api/finance/sf-audit/payment-split-config` | [route.ts](src/app/api/finance/sf-audit/payment-split-config/route.ts) | `GET`, `POST` |
 | `/api/finance/tax/vat-return` | [route.ts](src/app/api/finance/tax/vat-return/route.ts) | `GET` |
 | `/api/finance/tax/wht-register` | [route.ts](src/app/api/finance/tax/wht-register/route.ts) | `GET` |
+| `/api/finance/wip-revenue` | [route.ts](src/app/api/finance/wip-revenue/route.ts) | `GET`, `POST` |
 | `/api/gis/ai-training` | [route.ts](src/app/api/gis/ai-training/route.ts) | `GET` |
 | `/api/gis/auto-plan/ai-optimize` | [route.ts](src/app/api/gis/auto-plan/ai-optimize/route.ts) | `POST` |
 | `/api/gis/auto-plan/rebuild` | [route.ts](src/app/api/gis/auto-plan/rebuild/route.ts) | `GET` |
@@ -2915,6 +2925,7 @@
 | `/api/service-orders/cpe` | [route.ts](src/app/api/service-orders/cpe/route.ts) | `GET`, `POST` |
 | `/api/service-orders/import/enqueue` | [route.ts](src/app/api/service-orders/import/enqueue/route.ts) | `POST`, `GET` |
 | `/api/service-orders/import` | [route.ts](src/app/api/service-orders/import/route.ts) | `GET`, `POST` |
+| `/api/service-orders/offline` | [route.ts](src/app/api/service-orders/offline/route.ts) | `GET`, `PATCH`, `POST` |
 | `/api/service-orders/pat` | [route.ts](src/app/api/service-orders/pat/route.ts) | `GET` |
 | `/api/service-orders` | [route.ts](src/app/api/service-orders/route.ts) | `GET`, `POST`, `PUT`, `PATCH` |
 | `/api/service-orders/sync` | [route.ts](src/app/api/service-orders/sync/route.ts) | `POST` |
@@ -5717,6 +5728,8 @@
   * `teamId: String?`
   * `isManualEntry: Boolean` `[@default(false)]`
   * `isLegacyImport: Boolean` `[@default(false)]`
+  * `isOfflineWorkOrder: Boolean` `[@default(false)]`
+  * `offlineReference: String?`
   * `qcStatus: String?` `[@default("PENDING_QC")]`
   * `qcDefects: Json?`
   * `qcComment: String?`
@@ -7463,6 +7476,8 @@
   * `teamId: String?`
   * `isManualEntry: Boolean` `[@default(false)]`
   * `isLegacyImport: Boolean` `[@default(false)]`
+  * `isOfflineWorkOrder: Boolean` `[@default(false)]`
+  * `offlineReference: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `restoreRequests: RestoreRequest[]`

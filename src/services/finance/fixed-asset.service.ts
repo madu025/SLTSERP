@@ -4,6 +4,7 @@ import { LedgerService } from './ledger.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '../inventory/types';
+import { ACCOUNTS } from './account-codes';
 
 export interface CreateFixedAssetPayload {
     assetNumber?: string;
@@ -46,9 +47,9 @@ export class FixedAssetService {
                 cost: data.cost,
                 usefulLifeYears: data.usefulLifeYears || 5,
                 depreciationMethod: data.depreciationMethod || 'STRAIGHT_LINE',
-                glAssetCode: data.glAssetCode || 'FA-1410',
-                glDepExpCode: data.glDepExpCode || 'EXP-DEP-6010',
-                glAccumDepCode: data.glAccumDepCode || 'ACC-DEP-1510',
+                glAssetCode: data.glAssetCode || ACCOUNTS.FIXED_ASSETS,
+                glDepExpCode: data.glDepExpCode || ACCOUNTS.DEPRECIATION_EXPENSE,
+                glAccumDepCode: data.glAccumDepCode || ACCOUNTS.ACCUM_DEPRECIATION,
                 accumulatedDepreciation: 0,
                 netBookValue: data.cost,
                 status: 'ACTIVE'
@@ -180,13 +181,13 @@ export class FixedAssetService {
                 createdById,
                 lines: [
                     {
-                        accountCode: 'EXP-DEP-6010',
+                        accountCode: ACCOUNTS.DEPRECIATION_EXPENSE,
                         debit: batchDepreciationTotal,
                         credit: 0,
                         description: `Depreciation Expense for ${year}-${month}`
                     },
                     {
-                        accountCode: 'ACC-DEP-1510',
+                        accountCode: ACCOUNTS.ACCUM_DEPRECIATION,
                         debit: 0,
                         credit: batchDepreciationTotal,
                         description: `Accumulated Depreciation for ${year}-${month}`

@@ -57,6 +57,8 @@ model ServiceOrder {
   teamId           String?
   isManualEntry    Boolean                     @default(false)
   isLegacyImport   Boolean                     @default(false)
+  isOfflineWorkOrder Boolean                   @default(false)
+  offlineReference String?                     
   qcStatus         String?                     @default("PENDING_QC")
   qcDefects        Json?
   qcComment        String?
@@ -99,6 +101,8 @@ model ServiceOrder {
   @@index([isInvoicable])
   @@index([directTeam])
   @@index([woroTaskName])
+  @@index([isOfflineWorkOrder])
+  @@index([opmcId, isOfflineWorkOrder])
 }
 
 model SODForensicAudit {

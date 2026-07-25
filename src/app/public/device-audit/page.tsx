@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, HelpCircle, Check, ArrowRight, ArrowLeft, ExternalLink } from "lucide-react";
+import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, HelpCircle, Check, ArrowRight, ArrowLeft, ExternalLink, Printer, Copy, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
 const LAPTOP_BRANDS = ["HP", "Lenovo", "Dell", "Asus", "Acer", "MSI", "Apple"];
@@ -80,6 +80,14 @@ interface DBAsset {
   const [mobileUseDifferent, setMobileUseDifferent] = useState(false);
   const [mobileConditions, setMobileConditions] = useState<string[]>(["perfect"]);
   const [mobileRemarks, setMobileRemarks] = useState("");
+
+  // Shared Office Equipment (Printers/Scanners/Photocopiers) State
+  const [hasSharedEquipment, setHasSharedEquipment] = useState(false);
+  const [sharedEquipmentType, setSharedEquipmentType] = useState<"PRINTER" | "SCANNER" | "PHOTOCOPIER" | "OTHER">("PRINTER");
+  const [sharedEquipmentSerial, setSharedEquipmentSerial] = useState("");
+  const [sharedEquipmentBrand, setSharedEquipmentBrand] = useState("");
+  const [sharedEquipmentModel, setSharedEquipmentModel] = useState("");
+  const [sharedEquipmentRemarks, setSharedEquipmentRemarks] = useState("");
 
   // Load site offices
   useEffect(() => {
@@ -271,8 +279,8 @@ interface DBAsset {
       }
     }
 
-    if (laptopMode === "NONE" && mobileMode === "NONE") {
-      toast.error("Please configure at least one device or mark it as personal");
+    if (laptopMode === "NONE" && mobileMode === "NONE" && !hasSharedEquipment) {
+      toast.error("Please configure at least one device, shared office equipment, or mark as personal");
       return;
     }
 
@@ -366,6 +374,46 @@ interface DBAsset {
         );
       }
 
+      // 3. Submit Shared Office Equipment (Printer / Scanner / Photocopier) Audit
+      if (hasSharedEquipment) {
+        if (!sharedEquipmentSerial.trim()) {
+          toast.error("Please enter Serial Number / Tag for Shared Office Equipment");
+          setSubmitting(false);
+          return;
+        }
+        if (!sharedEquipmentBrand.trim()) {
+          toast.error("Please enter Brand for Shared Office Equipment");
+          setSubmitting(false);
+          return;
+        }
+
+        const deviceType = sharedEquipmentType === "PRINTER" ? "PRINTER" : "OTHER";
+        const equipmentRemarks = `[Office Shared ${sharedEquipmentType}] ${sharedEquipmentRemarks.trim()}`.trim();
+
+        promises.push(
+          fetch("/api/helpdesk/assets/audits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              serialNumber: sharedEquipmentSerial.trim(),
+              assetNumber: null,
+              deviceType,
+              brand: sharedEquipmentBrand.trim(),
+              model: sharedEquipmentModel.trim() || sharedEquipmentType,
+              employeeNo,
+              custodianName: `${custodianName} (Office Admin)`,
+              department,
+              siteOfficeId: siteOfficeId || null,
+              location,
+              status: "ACTIVE",
+              remarks: equipmentRemarks,
+              isConfirmed: false,
+              isPersonal: false
+            })
+          })
+        );
+      }
+
       const responses = await Promise.all(promises);
       let successCount = 0;
       for (const res of responses) {
@@ -439,6 +487,19 @@ interface DBAsset {
               </div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Devices & Condition</span>
             </div>
+          </div>
+        )}
+
+        {/* 📢 Office Admin & Section Shared Equipment Notice Banner */}
+        {step !== "SUCCESS" && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
+            <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
+              <Printer className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>Office Admins & Section In-Charge Notice (කාර්යාල නිලධාරීන් සඳහා විශේෂ උපදෙස්)</span>
+            </div>
+            <p className="leading-relaxed text-[11.5px] text-amber-900/90 dark:text-amber-200/90">
+              ඔබ <strong>Office Admin</strong> කෙනෙකු හෝ <strong>Section In-Charge</strong> කෙනෙකු නම්, ඔබේ කාර්යාලය / Section එක තුළ භාවිතයේ පවතින <strong>Photocopy Machines, Printers, Scanners, සහ Network Switches</strong> ද මෙම Audit Form එක හරහා ඇතුළත් කිරීමට කාරුණික වන්න.
+            </p>
           </div>
         )}
 
@@ -1125,6 +1186,100 @@ interface DBAsset {
                 <div className="bg-slate-100 dark:bg-slate-900/60 p-3.5 rounded-lg text-xs text-slate-650 flex gap-2">
                   <AlertTriangle className="h-5 w-5 text-slate-400 shrink-0" />
                   <span>You have reported that you do <strong>not use</strong> a mobile phone for company work.</span>
+                </div>
+              )}
+            </div>
+
+            {/* 🖨️ SHARED OFFICE EQUIPMENT CARD SECTION (FOR OFFICE ADMINS & SECTION HEADS) */}
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 pb-2">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Printer className="w-4.5 h-4.5 text-amber-500" />
+                  Office Shared Equipment (Printers / Scanners / Photocopiers)
+                </h3>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHasSharedEquipment(!hasSharedEquipment)}
+                  className={`h-8 text-xs font-semibold ${
+                    hasSharedEquipment 
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                      : "bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
+                  }`}
+                >
+                  {hasSharedEquipment ? "Remove Shared Equipment" : "+ Add Office Printer/Scanner"}
+                </Button>
+              </div>
+
+              {!hasSharedEquipment ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                  Office Admins & Section In-Charge officers can click <strong>&quot;+ Add Office Printer/Scanner&quot;</strong> above to record Photocopiers, Printers, or Scanners located in their section.
+                </p>
+              ) : (
+                <div className="space-y-4 pt-1 animate-fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Equipment Type</label>
+                      <Select
+                        value={sharedEquipmentType}
+                        onValueChange={(val: "PRINTER" | "SCANNER" | "PHOTOCOPIER" | "OTHER") => setSharedEquipmentType(val)}
+                      >
+                        <SelectTrigger className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
+                          <SelectItem value="PRINTER">Printer (මුද්‍රණ යන්ත්‍රය)</SelectItem>
+                          <SelectItem value="SCANNER">Scanner (ස්කෑනරය)</SelectItem>
+                          <SelectItem value="PHOTOCOPIER">Photocopier (ඡායාපිටපත් යන්ත්‍රය)</SelectItem>
+                          <SelectItem value="OTHER">Other Network Device</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Serial Number / Asset Tag</label>
+                      <Input
+                        placeholder="e.g. S/N or Asset Tag"
+                        value={sharedEquipmentSerial}
+                        onChange={(e) => setSharedEquipmentSerial(e.target.value)}
+                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Make / Brand</label>
+                      <Input
+                        placeholder="e.g. HP, Canon, Ricoh, Epson"
+                        value={sharedEquipmentBrand}
+                        onChange={(e) => setSharedEquipmentBrand(e.target.value)}
+                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Model Name</label>
+                      <Input
+                        placeholder="e.g. LaserJet Pro MFP M428fdw"
+                        value={sharedEquipmentModel}
+                        onChange={(e) => setSharedEquipmentModel(e.target.value)}
+                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Location / Condition Remarks</label>
+                    <Input
+                      placeholder="e.g. Printing Bay - Working fine / Cartridge low"
+                      value={sharedEquipmentRemarks}
+                      onChange={(e) => setSharedEquipmentRemarks(e.target.value)}
+                      className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                    />
+                  </div>
                 </div>
               )}
             </div>

@@ -44,7 +44,8 @@ import {
     FileSpreadsheet,
     Layers,
     Package,
-    Lock
+    Lock,
+    Tag
 } from 'lucide-react';
 
 
@@ -179,6 +180,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'PAT Status Monitor',
                 path: '/service-orders/pat',
                 icon: ClipboardCheck,
+                allowedRoles: ROLE_GROUPS.ALL_OPS
+            },
+            {
+                title: 'Offline Work Orders',
+                path: '/service-orders/offline-work-orders',
+                icon: Tag,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             }
         ]
@@ -322,6 +329,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/finance/capex-opex',
                 icon: TrendingUp,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'AREA_MANAGER']
+            },
+            {
+                title: 'WIP Revenue & Billing Pipeline',
+                path: '/admin/finance/wip-revenue',
+                icon: TrendingUp,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
             },
             {
                 title: 'Budget Allocations',
@@ -887,6 +900,56 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/test-extension',
                 icon: Terminal,
                 allowedRoles: ROLE_GROUPS.ADMINS
+            }
+        ]
+    },
+    {
+        title: 'IT Help Desk & Assets',
+        path: '/helpdesk',
+        icon: LifeBuoy,
+        allowedRoles: ['ALL'],
+        submenu: [
+            {
+                title: 'User Portal',
+                path: '/helpdesk',
+                icon: LifeBuoy,
+                allowedRoles: ['ALL']
+            },
+            {
+                title: 'New Support Ticket',
+                path: '/helpdesk/tickets/new',
+                icon: FileText,
+                allowedRoles: ['ALL']
+            },
+            {
+                title: 'IT Admin Queue',
+                path: '/helpdesk/admin',
+                icon: ClipboardList,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+            },
+            {
+                title: 'IT Asset Management',
+                path: '/helpdesk/assets',
+                icon: Laptop,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+            },
+            {
+                title: 'Physical Asset Audits',
+                path: '/helpdesk/assets/audits',
+                icon: ClipboardCheck,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+            },
+            {
+                title: 'Software Licenses (SAM)',
+                path: '/helpdesk/software-licenses',
+                icon: Tag,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+            },
+            {
+                title: 'ITSM Reports & Analytics',
+                path: '/helpdesk/reports',
+                icon: BarChart3,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
             }
         ]
     }

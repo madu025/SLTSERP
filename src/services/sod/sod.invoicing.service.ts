@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { SodRevenueService } from '../admin/sod-revenue.service';
 
 export class SODInvoicingService {
     /**
@@ -56,7 +57,7 @@ export class SODInvoicingService {
     }
 
     /**
-     * Calculate Revenue and Contractor Payment dynamically for a completed SOD based on Rate Matrix
+     * Calculate Revenue and Contractor Payment dynamically for a completed SOD based on Rate Matrix & SODRevenueConfig
      */
     static async calculateAmounts(
         opmcIdOrRtom: string,
@@ -67,23 +68,31 @@ export class SODInvoicingService {
             serviceType?: string | null;
             poleType?: string | null;
             poleMethod?: string | null;
+            completedDate?: Date | null;
         }
     ) {
-        let revenueAmount = 11000;
         let contractorAmount = 0;
 
         // Use actual drop wire distance for rate matrix bracket matching
         const distance = rawDistance && rawDistance > 0 ? rawDistance : 0;
 
-        // 1. Resolve OPMC / RTOM region
+        // 1. Resolve OPMC / RTOM region and Dynamic Revenue Rate from SODRevenueConfig table
         let rtomCode = opmcIdOrRtom;
+        let rtomId = opmcIdOrRtom;
         const opmcModel = (prisma as any).oPMC || (prisma as any).OPMC;
         if (opmcModel) {
             const opmc = await opmcModel.findFirst({
                 where: { OR: [{ id: opmcIdOrRtom }, { rtom: opmcIdOrRtom }] }
             });
-            if (opmc) rtomCode = opmc.rtom;
+            if (opmc) {
+                rtomCode = opmc.rtom;
+                rtomId = opmc.id;
+            }
         }
+
+        // Fetch dynamic revenue rate per SOD from database
+        const refDate = options?.completedDate || new Date();
+        const revenueAmount = await SodRevenueService.getRevenueForSOD(rtomId, refDate);
 
         const areaGroup = SODInvoicingService.resolveAreaGroup(rtomCode);
         const serviceTypeStr = (options?.serviceType || 'FTTH').toUpperCase();
@@ -115,7 +124,18 @@ export class SODInvoicingService {
                         isActive: true
                     }
                 });
-                contractorAmount = fallbackRule ? fallbackRule.rateAmount : (areaGroup === 'OTHER' ? 6650 : 6750);
+
+                if (fallbackRule) {
+                    contractorAmount = fallbackRule.rateAmount;
+                } else {
+                    // Base rate for 0-50m
+                    const baseRate = areaGroup === 'OTHER' ? 6650 : 6750;
+                    // Additional wire fee beyond 50m: LKR 35/m up to 180m cap
+                    const cappedDist = SODInvoicingService.capDropWireDistance(distance);
+                    const excessDistance = Math.max(0, cappedDist - 50);
+                    const excessWireFee = excessDistance * 35; // LKR 35 per excess meter
+                    contractorAmount = baseRate + excessWireFee;
+                }
             }
         } else {
             contractorAmount = areaGroup === 'OTHER' ? 6650 : 6750;

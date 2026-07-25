@@ -33,12 +33,23 @@ interface RtomStat {
     sltsPatRejected?: number;
 }
 
+const STATS_CACHE = new Map<string, { promise: Promise<any>, expiresAt: number }>();
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
 export class ServiceOrderDashboardService {
     static async getServiceOrderStats(params: { userId: string, filterRegion: string, filterRtom: string }) {
         const { userId, filterRegion, filterRtom } = params;
+        const cacheKey = `${userId}_${filterRegion}_${filterRtom}`;
 
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const cached = STATS_CACHE.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.promise;
+        }
+
+        // Create the promise and store it immediately so other concurrent requests wait on this exact promise
+        const fetchPromise = (async () => {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
             include: {
                 accessibleOpmcs: true
             }
@@ -348,12 +359,23 @@ export class ServiceOrderDashboardService {
             });
         });
 
-        return {
+        const resultData = {
             ...stats,
             availableRegions,
             rtomRegionMap,
             userRole: user.role,
             userAccessibleRtoms: user.accessibleOpmcs.map((o: any) => o.rtom)
         };
+        
+        return resultData;
+        })(); // Execute the async closure immediately
+
+        STATS_CACHE.set(cacheKey, { promise: fetchPromise, expiresAt: Date.now() + CACHE_TTL_MS });
+
+        fetchPromise.catch(() => {
+            STATS_CACHE.delete(cacheKey); // Remove failed promises so next request retries
+        });
+
+        return fetchPromise;
     }
 }

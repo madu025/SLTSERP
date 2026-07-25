@@ -9,8 +9,65 @@ import { formatDistanceToNow } from "date-fns";
 import { Send, User, Monitor, CheckCircle, RotateCcw, Image as ImageIcon, Star, Clipboard, X, Settings2, ShieldCheck, MapPin, Hash, Package, Clock } from "lucide-react";
 import { toast } from "sonner";
 
+export interface TicketUpdateItem {
+  id: string;
+  message: string;
+  statusFrom: string;
+  statusTo: string;
+  photoUrls?: string[];
+  createdAt: string | Date;
+  user: {
+    id: string;
+    name: string | null;
+    username: string;
+  };
+}
+
+export interface TicketDetail {
+  id: string;
+  ticketNumber: string;
+  category: string;
+  description: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  status: "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "WAITING_FOR_USER" | "WAITING_FOR_PARTS" | "RESOLVED" | "CLOSED";
+  anydeskId?: string | null;
+  anydeskSession?: string | null;
+  photoUrls?: string[];
+  createdAt: string | Date;
+  firstResponseAt?: string | Date | null;
+  resolvedAt?: string | Date | null;
+  slaResponseDeadline?: string | Date | null;
+  slaResolutionDeadline?: string | Date | null;
+  slaResponseBreached?: boolean | null;
+  slaResolutionBreached?: boolean | null;
+  satisfactionRating?: number | null;
+  satisfactionNote?: string | null;
+  user: {
+    id: string;
+    name: string | null;
+    username: string;
+  };
+  assignedToId?: string | null;
+  assignedTo?: {
+    id: string;
+    name: string | null;
+    username: string;
+  } | null;
+  asset?: {
+    id: string;
+    assetNumber: string;
+    brand: string;
+    model: string;
+    serialNumber?: string;
+    deviceType?: string;
+    department?: string | null;
+    location?: string | null;
+  } | null;
+  updates?: TicketUpdateItem[];
+}
+
 interface TicketDetailsDialogProps {
-  ticket: any;
+  ticket: TicketDetail | null;
   onClose: () => void;
   onUpdateStatus: (status: string) => Promise<void>;
   onAssignToMe?: () => Promise<void>;
@@ -30,7 +87,7 @@ export default function TicketDetailsDialog({
   onSaveAnydesk,
   onUpdateFields,
   isStaff = false,
-  currentUserId
+  currentUserId: _currentUserId
 }: TicketDetailsDialogProps) {
   const [commentText, setCommentText] = useState("");
   const [anydeskInput, setAnydeskInput] = useState(ticket?.anydeskId || "");
@@ -57,7 +114,7 @@ export default function TicketDetailsDialog({
       await onAddComment(commentText);
       setCommentText("");
       toast.success("Comment posted successfully");
-    } catch (err) {
+    } catch {
       toast.error("Failed to post comment");
     } finally {
       setSubmittingComment(false);
@@ -69,7 +126,7 @@ export default function TicketDetailsDialog({
     try {
       await onUpdateStatus(val);
       toast.success(`Ticket status updated to ${val}`);
-    } catch (err) {
+    } catch {
       toast.error("Failed to update ticket status");
     } finally {
       setChangingStatus(false);
@@ -82,7 +139,7 @@ export default function TicketDetailsDialog({
     try {
       await onSaveAnydesk(anydeskInput);
       toast.success("AnyDesk address registered!");
-    } catch (err) {
+    } catch {
       toast.error("Failed to save AnyDesk address");
     } finally {
       setSavingAnydesk(false);
@@ -95,7 +152,7 @@ export default function TicketDetailsDialog({
     try {
       await onUpdateFields({ anydeskSession: anydeskSessionInput });
       toast.success("Session notes updated successfully!");
-    } catch (err) {
+    } catch {
       toast.error("Failed to save session notes");
     } finally {
       setSavingSessionNotes(false);
@@ -113,7 +170,7 @@ export default function TicketDetailsDialog({
       });
       toast.success("Feedback submitted and ticket closed.");
       setShowFeedback(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to submit feedback");
     } finally {
       setSubmittingFeedback(false);
@@ -241,7 +298,7 @@ export default function TicketDetailsDialog({
                 <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 p-3 rounded-xl text-emerald-800 dark:text-emerald-400 mt-2 flex items-start gap-3 inline-flex">
                   <div className="flex bg-white dark:bg-emerald-950/50 p-1.5 rounded-lg shadow-sm border border-emerald-100 dark:border-emerald-900/50">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`h-3.5 w-3.5 ${i < ticket.satisfactionRating ? "fill-amber-400 text-amber-400" : "text-slate-200 dark:text-slate-700"}`} />
+                      <Star key={i} className={`h-3.5 w-3.5 ${i < (ticket.satisfactionRating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200 dark:text-slate-700"}`} />
                     ))}
                   </div>
                   <div className="text-[11px] pt-0.5">
@@ -343,7 +400,7 @@ export default function TicketDetailsDialog({
                 <div className="mt-3 text-xs font-bold">
                   {sla.hasResponded ? (
                     <p className="text-emerald-600 dark:text-emerald-400">
-                      Responded {formatDistanceToNow(new Date(ticket.firstResponseAt), { addSuffix: true })}
+                      Responded {ticket.firstResponseAt ? formatDistanceToNow(new Date(ticket.firstResponseAt), { addSuffix: true }) : "recently"}
                     </p>
                   ) : sla.responseBreached ? (
                     <p className="text-rose-600 dark:text-rose-400">
@@ -383,7 +440,7 @@ export default function TicketDetailsDialog({
                 <div className="mt-3 text-xs font-bold">
                   {sla.hasResolved ? (
                     <p className="text-emerald-600 dark:text-emerald-400">
-                      Resolved {formatDistanceToNow(new Date(ticket.resolvedAt), { addSuffix: true })}
+                      Resolved {ticket.resolvedAt ? formatDistanceToNow(new Date(ticket.resolvedAt), { addSuffix: true }) : "recently"}
                     </p>
                   ) : sla.resolutionBreached ? (
                     <p className="text-rose-600 dark:text-rose-400">
@@ -397,6 +454,30 @@ export default function TicketDetailsDialog({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* AnyDesk Connection Box */}
+          <div className="p-4 rounded-xl border border-sky-200 dark:border-sky-500/20 bg-sky-50/50 dark:bg-sky-500/5 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-black text-sky-600 dark:text-sky-400 uppercase tracking-widest block mb-0.5">AnyDesk Direct Connect</span>
+              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200 font-mono">
+                {ticket.anydeskId || "No AnyDesk ID provided"}
+              </p>
+            </div>
+            {isStaff && (
+              <Button
+                size="sm"
+                className="h-8 text-[11px] bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md rounded-lg px-4 transition-transform active:scale-95"
+                onClick={() => {
+                  if (ticket.anydeskId) {
+                    navigator.clipboard.writeText(ticket.anydeskId);
+                    toast.success("AnyDesk address copied!");
+                  }
+                }}
+              >
+                Copy ID
+              </Button>
+            )}
           </div>
 
           {/* AnyDesk Support Section */}
@@ -422,8 +503,10 @@ export default function TicketDetailsDialog({
                       size="sm"
                       className="h-8 text-[11px] bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md rounded-lg px-4 transition-transform active:scale-95"
                       onClick={() => {
-                        navigator.clipboard.writeText(ticket.anydeskId);
-                        toast.success("AnyDesk address copied!");
+                        if (ticket.anydeskId) {
+                          navigator.clipboard.writeText(ticket.anydeskId);
+                          toast.success("AnyDesk address copied!");
+                        }
                       }}
                     >
                       Copy ID
@@ -534,7 +617,7 @@ export default function TicketDetailsDialog({
               <Clock className="w-3.5 h-3.5" /> Activity Timeline
             </h3>
             <div className="space-y-5 relative pl-5 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800">
-              {ticket.updates?.map((up: any) => (
+              {ticket.updates?.map((up: TicketUpdateItem) => (
                 <div key={up.id} className="relative space-y-1.5 group">
                   {/* Timeline bullet */}
                   <div className="absolute -left-[20px] top-1 h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600 border-[3px] border-slate-50 dark:border-slate-950 group-hover:bg-sky-500 group-hover:border-sky-100 dark:group-hover:border-sky-900 transition-colors" />

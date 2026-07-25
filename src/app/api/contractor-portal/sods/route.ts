@@ -18,15 +18,13 @@ export const GET = apiHandler(async (req: Request) => {
     }
 
     if (!contractorId) {
-        const activeContractor = await prisma.contractor.findFirst({
-            where: { status: 'ACTIVE' },
-            select: { id: true }
-        });
-        contractorId = activeContractor?.id || null;
-    }
-
-    if (!contractorId) {
-        return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
+        // Only SUPER_ADMIN can query without a contractorId (but they must provide it via query param or headers if they want specific data)
+        const currentUser = await prisma.user.findUnique({ where: { id: userId || '' } });
+        if (currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN')) {
+             // Let them proceed, but without a contractorId, getContractorAssignedSODs will return empty or throw
+             return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
+        }
+        throw AppError.forbidden('User does not have an assigned Contractor profile.');
     }
 
     const { searchParams } = new URL(req.url);

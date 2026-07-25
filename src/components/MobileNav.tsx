@@ -136,7 +136,7 @@ export default function MobileNav() {
 
                         if (hasSubmenu) {
                             return (
-                                <div key={`mobile-menu-${item.path || item.title}`} className="space-y-1">
+                                <div key={`mobile-menu-${item.title}-${item.path}`} className="space-y-1">
                                     <button
                                         onClick={() => toggleMenu(item.title)}
                                         className={`w-full flex items-center justify-between px-3 py-3 text-sm font-medium rounded-lg transition-colors ${isParentActive
@@ -160,7 +160,7 @@ export default function MobileNav() {
                                                 const SubIcon = sub.icon;
                                                 return (
                                                     <Link
-                                                        key={`mobile-sub-${sub.path}`}
+                                                        key={`mobile-sub-${sub.title}-${sub.path}`}
                                                         href={sub.path}
                                                         onClick={() => setIsOpen(false)}
                                                         className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isSubActive
@@ -181,7 +181,7 @@ export default function MobileNav() {
 
                         return (
                             <Link
-                                key={`mobile-menu-${item.path || item.title}`}
+                                key={`mobile-menu-${item.title}-${item.path}`}
                                 href={item.path}
                                 onClick={() => setIsOpen(false)}
                                 className={`flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors ${isActive

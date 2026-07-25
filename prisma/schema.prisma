@@ -90,6 +90,8 @@ model ServiceOrder {
   teamId            String?
   isManualEntry    Boolean            @default(false)
   isLegacyImport    Boolean            @default(false)
+  isOfflineWorkOrder Boolean           @default(false)
+  offlineReference String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   restoreRequests   RestoreRequest[]

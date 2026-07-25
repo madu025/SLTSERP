@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '../inventory/types';
+import { ACCOUNTS } from './account-codes';
 
 export interface PayrollAllocationPayload {
     period: string; // e.g. "2026-01"
@@ -39,8 +40,8 @@ export class PayrollExpenseService {
         });
 
         // 2. Post Double-Entry Journal via Central Gateway:
-        // DR: Staff Cost Expense (OPEX) (EXP-STAFF-6020)
-        // CR: Head Office Clearing (HO-CLR-9010)
+        // DR: Staff Cost Expense (OPEX) (EXP-STAFF-6010)
+        // CR: Head Office Clearing (HO-CLEARING-2500)
         const journal = await LedgerService.postTransaction(tx, {
             referenceId: record.id,
             referenceType: 'PAYROLL_ALLOCATION',
@@ -49,13 +50,13 @@ export class PayrollExpenseService {
             createdById,
             lines: [
                 {
-                    accountCode: 'EXP-STAFF-6020',
+                    accountCode: ACCOUNTS.STAFF_EXPENSE,
                     debit: amount,
                     credit: 0,
                     description: `Staff Cost Expense Allocation for ${period}`
                 },
                 {
-                    accountCode: 'HO-CLR-9010',
+                    accountCode: ACCOUNTS.HO_CLEARING,
                     debit: 0,
                     credit: amount,
                     description: `Head Office Clearing for ${period} Payroll`

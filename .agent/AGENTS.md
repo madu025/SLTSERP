@@ -168,6 +168,56 @@ To ensure every newly created dashboard page includes the global navigation Side
    * Whenever a new route page is created (e.g., `/sf-audit/payment-split-config`), its path, title, icon, and `allowedRoles` MUST be explicitly added to the `SIDEBAR_MENU` array in `src/config/sidebar-menu.ts` so users can navigate to it directly.
 
 
+## 🤖 Automatic 5-Perspective Enterprise Multi-Role Grill-Me Standard
+
+To ensure maximum production quality and eliminate single-perspective gaps, whenever `/grill-me` or major design planning is executed, the agent MUST evaluate the architecture from a **5-Perspective Enterprise Expert Panel**:
+
+1. **👨‍💻 Lead Architect & Senior Full-Stack Developer**:
+   - Algorithmic efficiency ($O(1)$ HashMaps, $O(N)$ batch transactions).
+   - Zero `any` types & strict Prisma foreign key relationships.
+   - Decoupled API routes (`src/services/` logic) & dynamic caching guards (`export const dynamic = 'force-dynamic'`).
+
+2. **🧪 QA Lead & Security Auditor**:
+   - Edge cases, failure recovery, boundary limits, and input validation schemas (Zod).
+   - RBAC (`RoleGuard`) role permissions and immutable audit logging (`InventoryLedger` SHA-256 checksums).
+
+3. **👔 OSP & Enterprise Domain SME (Subject Matter Expert)**:
+   - Field operations accuracy (MIN/MRN Store Issue Notes, OSP drop wire calculations, PAT acceptance).
+   - Contractor payment splits (`SPLIT_AB` 90/10, `SPLIT_ABC` 70/20/10), 5% retention, and financial GL ledger posting consistency.
+
+4. **📊 Chief Financial Officer (CFO) & Financial Controller**:
+   - Revenue recognition compliance (GAAP/IFRS unbilled WIP receivables vs deferred revenue).
+   - Full job costing matching (Revenue - Contractor Payout - Material COGS - Vehicle Logistics - Site Office Expenses - Payroll).
+
+5. **⚡ Performance & DevOps Engineer**:
+   - Zero database egress regress (selective Prisma `select` blocks without `include *`).
+   - Dynamic map auto-resizing (`ResizeObserver` for OpenLayers GIS) and Next.js client-side cache busting.
+
+* **Automated Recommended Defaults**: Adopt AI-recommended options validated by the 5-Perspective Panel without redundant interactive single-question prompts, unless the user explicitly requests an interactive Q&A.
+* **Consolidated Multi-Role Review Table**: Present all adopted decisions categorized across all 5 Expert viewpoints in a single structured table for instant 1-click user review.
 
 
+## 🚀 Autonomous Goal & Long-Running Task Standard (`/goal`)
 
+To ensure maximum agent autonomy and thoroughness during long-running background or overnight goal tasks:
+
+1. **Unstoppable Autonomous Execution**:
+   - The agent MUST continue executing continuously, resolving obstacles, writing code, fixing lints, and running tests until the user's objective is 100% achieved.
+   - Never stop midway or pause for trivial user confirmation when an obvious technical path exists.
+
+2. **Strict Empirical Verification Mandate**:
+   - Never declare a goal complete without running concrete verification commands (`npx tsc --noEmit`, dev server builds, or browser subagent checks).
+   - If a type error or runtime failure occurs, inspect logs immediately, fix the root cause, and re-run verification until 0 errors are achieved.
+
+3. **Multi-Role Quality Enforcement**:
+   - Apply the **Multi-Role Expert Panel** checks (Lead Architect, QA Lead, Domain SME) to every feature created or modified during the goal execution.
+
+4. **Codemap & Audit Trail Synchronization**:
+   - Whenever code changes modify method signatures or API routes, run `npm run codemap:update` and ensure `.agent/CODEMAP.md` is updated.
+
+5. **Consolidated Executive Completion Summary**:
+   - Upon completing the goal, provide a single, comprehensive markdown summary detailing:
+     - 🎯 Goal Accomplishments
+     - 📁 Files Modified / Created
+     - 🧪 Verification Command Outputs (`npx tsc --noEmit` exit code 0)
+     - 📊 Updated Business & Technical State
