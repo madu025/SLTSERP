@@ -1858,6 +1858,11 @@
     * `enqueueBackground(task: RetryTask): void`
     * `getQueueStats(): { total: number; pending: number; failed: number }`
 
+### [sms.service.ts](src/services/notification/sms.service.ts)
+* **Class**: `SMSService`
+  * **Methods**:
+    * `send(options: SMSOptions): Promise<{ success: boolean; messageId: string }>`
+
 ### [template-engine.service.ts](src/services/notification/template-engine.service.ts)
 * **Class**: `NotificationTemplateEngineService`
   * **Methods**:

@@ -3,6 +3,8 @@ import { NotificationRepository } from '@/repositories/notification.repository';
 import { emitNotification } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
 import { Role } from '@prisma/client';
+import { redis } from '@/lib/redis';
+import { notificationsQueue } from '@/lib/queue';
 
 export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type NotificationType = 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE' | 'HELPDESK';
@@ -37,19 +39,11 @@ export class NotificationService {
             }
 
             // Anti-spam: skip if identical notification (same user+title+link) exists within last 5 minutes
-            const dedupeWindowMs = 5 * 60 * 1000;
-            const recentDuplicate = await NotificationRepository.findMany({
-                where: {
-                    userId,
-                    title,
-                    ...(link ? { link } : {}),
-                    createdAt: { gt: new Date(Date.now() - dedupeWindowMs) }
-                },
-                take: 1,
-                select: { id: true }
-            });
-            if (recentDuplicate.length > 0) {
-                return null; // Deduplicated
+            const dedupeKey = `notif_dedupe:${userId}:${title}:${link || 'nolink'}`;
+            // SETNX returns 1 if set (meaning it didn't exist), or null/0 if it already existed
+            const isNew = await redis.set(dedupeKey, '1', 'EX', 300, 'NX'); // 300s = 5m
+            if (!isNew) {
+                return null; // Deduplicated by Redis O(1) cache
             }
 
             // Limit to 50 notifications per user (FIFO)
@@ -82,6 +76,21 @@ export class NotificationService {
 
             if (notification) {
                 emitNotification(userId, notification);
+                
+                // Offload heavy processing (Push/Email) to BullMQ Background Worker
+                await notificationsQueue.add('process-notification', {
+                    notificationId: notification.id,
+                    userId,
+                    title,
+                    message,
+                    type,
+                    link
+                }, {
+                    removeOnComplete: true,
+                    removeOnFail: 10 // keep last 10 failed jobs
+                }).catch(err => {
+                    console.error('[BULLMQ-ERROR] Failed to enqueue notification job:', err);
+                });
             }
 
             return notification;
@@ -172,8 +181,18 @@ export class NotificationService {
             const createdNotifications = await NotificationRepository.createManyAndReturn(data);
 
             // Emit events for each user with the full database object (including id)
-            createdNotifications.forEach((notification: { userId: string; [key: string]: unknown }) => {
+            createdNotifications.forEach((notification: { id: string; userId: string; [key: string]: unknown }) => {
                 emitNotification(notification.userId, notification);
+                
+                // Add to BullMQ for async push/email distribution
+                notificationsQueue.add('process-notification', {
+                    notificationId: notification.id,
+                    userId: notification.userId,
+                    title,
+                    message,
+                    type,
+                    link
+                }, { removeOnComplete: true, removeOnFail: 10 }).catch(() => {});
             });
 
             return { count: createdNotifications.length };

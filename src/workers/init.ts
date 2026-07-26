@@ -19,7 +19,8 @@ export async function initializeBackgroundWorkers() {
         await import('./sod-sync.worker');
         await import('./stats-update.worker');
         await import('./system.worker');
-        console.log('[WORKERS] ✅ All BullMQ Workers (Import, Sync, Stats, System) initialized');
+        await import('./notification.worker');
+        console.log('[WORKERS] ✅ All BullMQ Workers (Import, Sync, Stats, System, Notifications) initialized');
     } catch (err) {
         console.error('[WORKERS] ❌ Worker initialization failed:', err);
     }

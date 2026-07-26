@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
     Popover,
@@ -81,12 +80,25 @@ export default function NotificationBell() {
                     setAnimateBell(true);
                     setTimeout(() => setAnimateBell(false), 600);
 
-                    // Play Notification Sound
+                    // Play Notification Sound via Web Audio API (Offline & Firewall proof)
                     try {
-                        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-                        audio.play().catch(() => console.log("Audio play blocked by browser policy"));
+                        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                        if (AudioCtx) {
+                            const ctx = new AudioCtx();
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+                            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.35);
+                        }
                     } catch {
-                        console.error("Audio error");
+                        console.log("Audio chime playback suppressed");
                     }
 
                     // Show a real-time Toast for instant feedback

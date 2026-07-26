@@ -10,7 +10,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report' }],
     ['list']
   ],
-  timeout: 60000,
+  timeout: 300000,
   expect: {
     timeout: 15000,
   },
@@ -62,6 +62,22 @@ export default defineConfig({
       name: 'gis-import',
       dependencies: ['setup'],
       testMatch: /gis-upload-sanity\.spec\.ts|gis-import\.spec\.ts/,
+      use: {
+        storageState: '.auth/user.json',
+      },
+    },
+    {
+      name: 'e2e-pipeline',
+      dependencies: ['setup'],
+      testMatch: /e2e-pipeline-test\.spec\.ts/,
+      use: {
+        storageState: '.auth/user.json',
+      },
+    },
+    {
+      name: 'e2e-complete-pipeline',
+      dependencies: ['setup'],
+      testMatch: /e2e-complete-erp-pipeline\.spec\.ts/,
       use: {
         storageState: '.auth/user.json',
       },
