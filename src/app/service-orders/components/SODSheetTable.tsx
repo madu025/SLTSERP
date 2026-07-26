@@ -20,7 +20,7 @@ import {
 
 interface SODSheetTableProps {
     orders: ServiceOrder[];
-    filterType: "pending" | "install_closed" | "completed" | "return";
+    filterType: "pending" | "install_closed" | "completed" | "return" | "disappeared";
     contractors: Contractor[];
     selectedIds: Set<string>;
     toggleSelect: (id: string) => void;

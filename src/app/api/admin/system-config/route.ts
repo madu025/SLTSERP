@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { SystemConfigService } from '@/services/system-config.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';

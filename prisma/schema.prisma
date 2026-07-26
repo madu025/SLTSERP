@@ -4420,7 +4420,7 @@ model PettyCashAccount {
   imprestLimit   Float                    @default(0)
   currentBalance Float                    @default(0)
   status         String                   @default("ACTIVE") // ACTIVE, SUSPENDED, CLOSED
-  createdById    String
+  createdById    String?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
   opmc           OPMC                     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
@@ -4444,7 +4444,8 @@ model PettyCashVoucher {
   approvedAt      DateTime?
   rejectionReason String?
   reimbursementId String?
-  createdById     String
+  createdById     String?
+
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   account         PettyCashAccount        @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -4539,4 +4540,125 @@ model QCNotification {
   @@index([soNum])
   @@index([isRead])
 }
+
+model FixedAsset {
+  id                      String    @id @default(cuid())
+  assetNumber             String    @unique
+  name                    String
+  category                String    @default("EQUIPMENT")
+  subCategory             String?
+  acquisitionDate        DateTime?
+  purchasedYear           String?
+  cost                    Float     @default(0)
+  usefulLifeYears         Int       @default(5)
+  depreciationMethod      String    @default("STRAIGHT_LINE")
+  glAssetCode             String    @default("120000")
+  glDepExpCode            String    @default("540000")
+  glAccumDepCode          String    @default("129000")
+  accumulatedDepreciation Float     @default(0)
+  netBookValue            Float     @default(0)
+  locationCode            String?
+  locationName            String?
+  details                 String?
+  status                  String    @default("ACTIVE")
+  verifiedAt              DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([locationCode])
+  @@index([category])
+  @@index([status])
+}
+
+model OspPettyCashIou {
+  id              String    @id @default(cuid())
+  iouNumber       String
+  opmcId          String?
+  staffName       String
+  staffServiceNo  String?
+  type            String    @default("PETTY_CASH")
+  amount          Float
+  issuedDate      DateTime?
+  reason          String?
+  noOfDays        Int?      @default(0)
+  status          String    @default("PENDING")
+  remarks         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([iouNumber, staffName])
+  @@index([opmcId])
+  @@index([status])
+  @@index([type])
+}
+
+model OspProjectAdvance {
+  id              String    @id @default(cuid())
+  refNumber       String    @unique
+  type            String    @default("PROJECT")
+  supplierName    String?
+  description     String
+  invoiceNo       String?
+  amount          Float
+  vatAmount       Float     @default(0)
+  totalAmount     Float
+  status          String    @default("SETTLED")
+  opmcId          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([opmcId])
+  @@index([status])
+}
+
+model OspPropertyRentPayment {
+  id              String    @id @default(cuid())
+  accountNo       String?
+  supplierName    String
+  amount          Float
+  category        String    @default("Office Rent")
+  slipNo          String
+  slipDate        DateTime?
+  opmcId          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([supplierName, slipNo])
+  @@index([opmcId])
+  @@index([category])
+}
+
+model OspFuelDepositLedger {
+  id              String    @id @default(cuid())
+  officeLocation  String
+  opmcId          String?
+  stationName     String
+  actualDeposit   Float
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([officeLocation, stationName])
+  @@index([opmcId])
+}
+
+model OspVehicleHiringPayment {
+  id              String    @id @default(cuid())
+  vehicleNo       String?
+  bankCode        String?
+  accountNo       String?
+  accountName     String
+  amount          Float
+  slipNo          String
+  slipDate        DateTime?
+  paidDate        DateTime?
+  opmcId          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([accountName, slipNo])
+  @@index([opmcId])
+}
+
+
+
 

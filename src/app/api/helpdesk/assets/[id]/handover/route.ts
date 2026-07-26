@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { HelpdeskService } from '@/services/helpdesk.service';
 import { CreateAssetHandoverSchema } from '@/lib/validations/helpdesk.schema';
-import { prisma } from '@/lib/prisma';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -30,14 +30,7 @@ export const POST = apiHandler(async (req, params, user) => {
 export const GET = apiHandler(async (req, params) => {
   const { id } = await params;
   
-  const handovers = await prisma.assetHandoverLog.findMany({
-    where: { assetId: id },
-    include: {
-      performedBy: { select: { name: true, username: true } },
-      targetStaff: { select: { name: true, employeeId: true } }
-    },
-    orderBy: { date: 'desc' }
-  });
+  const handovers = await HelpdeskService.getAssetHandovers(id);
 
   return handovers;
 }, {

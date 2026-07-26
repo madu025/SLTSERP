@@ -12,19 +12,19 @@ model PreErpMaterialBalance {
   itemId                 String
   itemCode               String
   itemName               String
-  year                   Int                                                   // e.g., 2024, 2025, 2026
-  month                  String                                                // e.g., "JULY", "AUG", "SEP"
-  carryForwardQuantity   Float                        @default(0)              // Opening balance
-  receivedQuantity       Float                        @default(0)              // Inward received
-  totalInHandQuantity    Float                        @default(0)              // Available
-  usageQuantity          Float                        @default(0)              // Consumed in field
-  wastageQuantity        Float                        @default(0)              // Scrap / Wastage
-  faultyQuantity         Float                        @default(0)              // Damaged
-  totalUsageQuantity     Float                        @default(0)              // Usage + Wastage
-  closingBalanceQuantity Float                        @default(0)              // Computed remaining
-  receivedCostLkr        Float                        @default(0)              // Financial value received
-  usageCostLkr           Float                        @default(0)              // Financial value consumed
-  unitCostLkr            Float                        @default(0)              // Unit price
+  year                   Int // e.g., 2024, 2025, 2026
+  month                  String // e.g., "JULY", "AUG", "SEP"
+  carryForwardQuantity   Float                        @default(0) // Opening balance
+  receivedQuantity       Float                        @default(0) // Inward received
+  totalInHandQuantity    Float                        @default(0) // Available
+  usageQuantity          Float                        @default(0) // Consumed in field
+  wastageQuantity        Float                        @default(0) // Scrap / Wastage
+  faultyQuantity         Float                        @default(0) // Damaged
+  totalUsageQuantity     Float                        @default(0) // Usage + Wastage
+  closingBalanceQuantity Float                        @default(0) // Computed remaining
+  receivedCostLkr        Float                        @default(0) // Financial value received
+  usageCostLkr           Float                        @default(0) // Financial value consumed
+  unitCostLkr            Float                        @default(0) // Unit price
   status                 String                       @default("UNRECONCILED") // UNRECONCILED | RECONCILED | ADJUSTED
   createdById            String
   createdAt              DateTime                     @default(now())
@@ -45,12 +45,12 @@ model MaterialVarianceAdjustment {
   balanceId           String
   opmcId              String?
   itemId              String
-  systemCalculatedQty Float                                                // Quantity from monthly math
-  physicalAuditedQty  Float                                                // Physical stock count
-  varianceQuantity    Float                                                // Physical - System
-  varianceReason      String                                               // UNRECORDED_RECEIPT | BUFFER_STOCK | FIELD_SCRAP | OTHER
-  financialImpactLkr  Float                                                // Variance * UnitCost
-  status              String                @default("PENDING")            // PENDING | APPROVED | REJECTED
+  systemCalculatedQty Float // Quantity from monthly math
+  physicalAuditedQty  Float // Physical stock count
+  varianceQuantity    Float // Physical - System
+  varianceReason      String // UNRECORDED_RECEIPT | BUFFER_STOCK | FIELD_SCRAP | OTHER
+  financialImpactLkr  Float // Variance * UnitCost
+  status              String                @default("PENDING") // PENDING | APPROVED | REJECTED
   approvedById        String?
   approvedAt          DateTime?
   rejectionReason     String?

@@ -1,22 +1,14 @@
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskService } from "@/services/helpdesk.service";
 import { CreateITAssetUnitSchema, UpdateITAssetUnitSchema } from "@/lib/validations/helpdesk.schema";
-import { prisma } from "@/lib/prisma";
+
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req, params) => {
   const { id: assetId } = await params;
 
-  const units = await prisma.iTAssetUnit.findMany({
-    where: { assetId },
-    include: {
-      assignedStaff: {
-        select: { id: true, name: true, employeeId: true, designation: true }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
+  const units = await HelpdeskService.getAssetUnits(assetId);
 
   return { success: true, data: units };
 });

@@ -209,13 +209,25 @@
 ### [contractor-kpi.service.ts](src/services/contractor-kpi.service.ts)
 * **Class**: `ContractorKPIService`
   * **Methods**:
+    * `getProjectContractorId(projectId: string): Promise<string | null>`
     * `calculateMonthlyScore(contractorId: string, month: string, projectId?: string): any`
     * `getContractorRanking(limit = 10): any`
     * `getForProject(projectId: string): any`
 
+### [dashboard.service.ts](src/services/contractor-portal/dashboard.service.ts)
+* **Class**: `ContractorDashboardService`
+  * **Methods**:
+    * `getDashboardData(contractorId?: string): any`
+
+### [finance.service.ts](src/services/contractor-portal/finance.service.ts)
+* **Class**: `ContractorFinanceService`
+  * **Methods**:
+    * `getFinanceDashboard(userId: string | null, contractorId: string | null): any`
+
 ### [contractor.service.ts](src/services/contractor.service.ts)
 * **Class**: `ContractorService`
   * **Methods**:
+    * `resolveContractorContext(userId: string | null | undefined, providedContractorId: string | null | undefined): Promise<{ contractorId: string | null, role: string | null }>`
     * `getAllContractors(opmcIds?: string[] | ContractorQueryParams, page?: number, limit?: number): any`
     * `getContractorById(id: string): any`
     * `generateRegistrationLink(data: RegistrationLinkParams): any`
@@ -248,6 +260,12 @@
   * **Methods**:
     * `getDashboardAlerts(userId: string, userRole: string): Promise<{ alerts: AlertItem[] }>`
 
+### [dashboard.service.ts](src/services/dashboard.service.ts)
+* **Class**: `DashboardService`
+  * **Methods**:
+    * `getFinanceMetrics(rtom: string = 'ALL'): any`
+    * `getInventoryMetrics(rtom: string = 'ALL'): any`
+
 ### [executive-dashboard.service.ts](src/services/executive-dashboard.service.ts)
 * **Class**: `ExecutiveDashboardService`
   * **Methods**:
@@ -274,7 +292,8 @@
 ### [ar-ap.service.ts](src/services/finance/ar-ap.service.ts)
 * **Class**: `ArApService`
   * **Methods**:
-    * `recordCustomerReceipt(tx: TransactionClient, payload: CustomerReceiptPayload): any`
+    * `recordCustomerReceipt(payload: CustomerReceiptPayload): any`
+    * `getCustomerReceipts(): any`
     * `getArAgingReport(): Promise<ArAgingReport>`
     * `getApAgingReport(): Promise<ApAgingReport>`
 
@@ -285,6 +304,24 @@
     * `importBankStatement(bankAccountId: string, lines: { statementDate: Date; description: string; referenceNumber?: string; debit: number; credit: number }[]): any`
     * `reconcileStatementLine(statementLineId: string, journalLineId: string): any`
     * `getBankReconciliationSummary(bankAccountId: string): Promise<BankReconciliationSummary>`
+
+### [bank-reconciliation.service.ts](src/services/finance/bank-reconciliation.service.ts)
+* **Class**: `BankReconciliationService`
+  * **Methods**:
+    * `autoReconcileStatement(rows: BankStatementRow[]): Promise<ReconciliationResult>`
+
+### [billing.service.ts](src/services/finance/billing.service.ts)
+* **Class**: `BillingService`
+  * **Methods**:
+    * `generateContractorInvoice(data: {
+        contractorId: string;
+        projectId?: string;
+        description?: string;
+        retentionPercent?: number; // e.g. 5 for 5%
+        whtPercent?: number;       // e.g. 5 for 5%
+        advanceDeduction?: number;
+    }): any`
+    * `getUnbilledSods(contractorId: string): any`
 
 ### [bom-invoice.service.ts](src/services/finance/bom-invoice.service.ts)
 * **Class**: `BOMInvoiceService`
@@ -360,6 +397,16 @@
     * `createAllocationMemo(payload: CreateMemoPayload): any`
     * `getAllocationMemos(): any`
 
+### [credit-note.service.ts](src/services/finance/credit-note.service.ts)
+* **Class**: `CreditNoteService`
+  * **Methods**:
+    * `issueCreditNote(data: {
+        invoiceId: string;
+        amount: number;
+        reason: string;
+        issuedById: string;
+    }): any`
+
 ### [dashboard.service.ts](src/services/finance/dashboard.service.ts)
 * **Class**: `FinanceDashboardService`
   * **Methods**:
@@ -377,7 +424,31 @@
   * **Methods**:
     * `createAsset(data: CreateFixedAssetPayload): Promise<FixedAsset>`
     * `getAssetRegister(): Promise<AssetRegisterSummary>`
-    * `runMonthlyDepreciation(tx: TransactionClient, year: number, month: number, createdById?: string): any`
+    * `runMonthlyDepreciation(year: number, month: number, createdById?: string): any`
+
+### [fpa-dashboard.service.ts](src/services/finance/fpa-dashboard.service.ts)
+* **Class**: `FPADashboardService`
+  * **Methods**:
+    * `getPredictiveProfitability(year: number, quarter?: number): Promise<PredictiveFPAMetrics>`
+
+### [fx.service.ts](src/services/finance/fx.service.ts)
+* **Class**: `FXService`
+  * **Methods**:
+    * `getCurrentRate(currencyCode: string): Promise<number>`
+    * `setExchangeRate(currencyCode: string, rate: number, effectiveDate: Date = new Date()): any`
+    * `calculateRealizedGainLoss(foreignAmount: number, bookedRate: number, paymentRate: number, isPayable: boolean = true): number`
+    * `getAllLatestRates(): any`
+
+### [invoice-approval.service.ts](src/services/finance/invoice-approval.service.ts)
+* **Class**: `InvoiceApprovalService`
+  * **Methods**:
+    * `approveInvoice(invoiceId: string, approverId: string, approverRole: string): any`
+    * `rejectInvoice(invoiceId: string, reason: string): any`
+
+### [invoice.service.ts](src/services/finance/invoice.service.ts)
+* **Class**: `InvoiceService`
+  * **Methods**:
+    * `getInvoices(params: GetInvoicesParams): any`
 
 ### [ld-penalty.service.ts](src/services/finance/ld-penalty.service.ts)
 * **Class**: `LDPenaltyService`
@@ -401,12 +472,15 @@
 ### [ledger.service.ts](src/services/finance/ledger.service.ts)
 * **Class**: `LedgerService`
   * **Methods**:
+    * `logInvoiceApproval(tx: any, invoice: any): any`
     * `postTransaction(tx: TransactionClient, payload: PostTransactionInput): any`
     * `reverseTransaction(tx: TransactionClient, originalEntryId: string, reversalReason: string, createdById?: string): any`
     * `logGrnReceipt(tx: TransactionClient, grnId: string, totalCost: number, description?: string): any`
     * `logSodConsumption(tx: TransactionClient, sodId: string, totalCost: number, description?: string): any`
     * `logSodRevenue(tx: TransactionClient, sodId: string, revenueAmount: number, description?: string): any`
+    * `logInvoiceGeneration(tx: TransactionClient, invoiceId: string, invoiceNumber: string, totalRevenue: number, contractorAmountA: number, retentionAmount: number, description?: string): any`
     * `logWastage(tx: TransactionClient, wastageId: string, totalCost: number, description?: string): any`
+    * `logCycleCountAdjustment(tx: TransactionClient, cycleCountId: string, cycleCountNumber: string, totalVarianceValue: number, description?: string): any`
     * `rollbackSodTransaction(tx: TransactionClient, sodId: string, description?: string): any`
     * `logCostAllocationMemo(tx: TransactionClient, memoId: string, totalCost: number, allocationTarget: string, description?: string): any`
     * `logMrnReturn(tx: TransactionClient, mrnId: string, totalCost: number, description?: string): any`
@@ -416,6 +490,96 @@
     * `logInvoiceIssuance(tx: TransactionClient, invoiceId: string, amount: number, type: string, invoiceNumber: string, description?: string): any`
     * `logPaymentVoucherPayment(tx: TransactionClient, pvId: string, amount: number, type: string, pvNumber: string, payeeName: string, description?: string): any`
     * `getLedgerEntries(pagination?: { page?: number; limit?: number }): any`
+    * `getGlDrilldown(accountCode: string, fromDate?: Date, toDate?: Date): any`
+
+### [osp-account-crud.service.ts](src/services/finance/osp-account-crud.service.ts)
+* **Class**: `OSPAccountCrudService`
+  * **Methods**:
+    * `createIOU(data: {
+    iouNumber: string;
+    opmcId?: string;
+    staffName: string;
+    staffServiceNo?: string;
+    type?: string;
+    amount: number;
+    issuedDate?: Date;
+    reason?: string;
+    noOfDays?: number;
+    remarks?: string;
+  }): any`
+    * `approveIOU(id: string): any`
+    * `rejectIOU(id: string, reason?: string): any`
+    * `getIOUs(): any`
+    * `getAdvances(): any`
+    * `createAdvance(data: {
+    refNumber: string;
+    type?: string;
+    supplierName?: string;
+    description: string;
+    invoiceNo?: string;
+    amount: number;
+    vatAmount?: number;
+    opmcId?: string;
+  }): any`
+    * `approveAdvance(id: string): any`
+    * `rejectAdvance(id: string): any`
+    * `createRentPayment(data: {
+    accountNo?: string;
+    supplierName: string;
+    amount: number;
+    category?: string;
+    slipNo: string;
+    slipDate?: Date;
+    opmcId?: string;
+  }): any`
+    * `approveRentPayment(id: string): any`
+    * `rejectRentPayment(id: string): any`
+    * `getRentPayments(): any`
+    * `createFuelDeposit(data: {
+    officeLocation: string;
+    stationName: string;
+    actualDeposit: number;
+    opmcId?: string;
+  }): any`
+    * `approveFuelDeposit(id: string): any`
+    * `rejectFuelDeposit(id: string): any`
+    * `getFuelDeposits(): any`
+    * `createHiringPayment(data: {
+    vehicleNo?: string;
+    bankCode?: string;
+    accountNo?: string;
+    accountName: string;
+    amount: number;
+    slipNo: string;
+    slipDate?: Date;
+    paidDate?: Date;
+    opmcId?: string;
+  }): any`
+    * `approveHiringPayment(id: string): any`
+    * `rejectHiringPayment(id: string): any`
+    * `getHiringPayments(): any`
+
+### [osp-account-ingestion.service.ts](src/services/finance/osp-account-ingestion.service.ts)
+* **Class**: `OSPAccountIngestionService`
+  * **Methods**:
+    * `ingestAll(): Promise<IngestionResult>`
+
+### [osp-account-report.service.ts](src/services/finance/osp-account-report.service.ts)
+* **Class**: `OspAccountReportService`
+  * **Methods**:
+    * `getDashboardReports(): any`
+
+### [osp-ledger.service.ts](src/services/finance/osp-ledger.service.ts)
+* **Class**: `OSPLedgerService`
+  * **Methods**:
+    * `postAutomatedTransaction(tx: any, args: {
+      sourceModule: string;
+      transactionType: string;
+      referenceId: string;
+      description: string;
+      amount: number;
+      transactionDate: Date;
+    }): any`
 
 ### [payment-voucher.service.ts](src/services/finance/payment-voucher.service.ts)
 * **Class**: `PaymentVoucherService`
@@ -441,14 +605,15 @@
 ### [payroll-expense.service.ts](src/services/finance/payroll-expense.service.ts)
 * **Class**: `PayrollExpenseService`
   * **Methods**:
-    * `recordPayrollAllocation(tx: TransactionClient, payload: PayrollAllocationPayload): any`
+    * `recordPayrollAllocation(payload: PayrollAllocationPayload): any`
     * `getPayrollExpenses(opmcId?: string, period?: string): any`
 
 ### [period-close.service.ts](src/services/finance/period-close.service.ts)
 * **Class**: `PeriodCloseService`
   * **Methods**:
-    * `executeYearEndClose(tx: TransactionClient, year: number, closedById?: string): any`
-    * `createCreditDebitNote(tx: TransactionClient, payload: CreditDebitNotePayload): any`
+    * `executeYearEndClose(year: number, closedById?: string): any`
+    * `createCreditDebitNote(payload: CreditDebitNotePayload): any`
+    * `getCreditDebitNotes(): any`
 
 ### [petty-cash.service.ts](src/services/finance/petty-cash.service.ts)
 * **Class**: `PettyCashService`
@@ -494,6 +659,12 @@
     retentionPercent?: number;
     retentionAmount: number;
   }): any`
+
+### [sf-audit.service.ts](src/services/finance/sf-audit.service.ts)
+* **Class**: `SfAuditService`
+  * **Methods**:
+    * `getPaymentSplitConfig(): Promise<PaymentSplitConfigData>`
+    * `savePaymentSplitConfig(data: PaymentSplitConfigData): Promise<PaymentSplitConfigData>`
 
 ### [sod-wip-revenue.service.ts](src/services/finance/sod-wip-revenue.service.ts)
 * **Class**: `SODWipRevenueService`
@@ -676,6 +847,10 @@
             status: 'PLANNED' | 'INSTALLED' | 'VERIFIED';
             installationDate?: string | null;
         }): any`
+    * `getActiveRoutesAndStats(): any`
+    * `getProjectGISData(projectId: string): any`
+    * `updateCableSegment(segmentId: string, coordinates: number[][], computedLength: number): any`
+    * `addSlackLoop(segmentId: string): any`
     * `getProjectGISMapping(projectId: string): any`
     * `saveProjectGISMapping(projectId: string, mappings: Record<string, { materialId: string }>): any`
     * `createPreSurveyRoute(projectId: string, data: {
@@ -728,7 +903,13 @@
 ### [helpdesk.service.ts](src/services/helpdesk.service.ts)
 * **Class**: `HelpdeskService`
   * **Methods**:
+    * `searchAssetBySerial(serial: string): any`
+    * `getAssetStats(): any`
+    * `getStaffAssets(staffId: string): any`
+    * `getAssetHandovers(assetId: string): any`
     * `getAssetById(id: string): any`
+    * `getAssetUnits(assetId: string): any`
+    * `getAssetHistory(assetId: string): any`
     * `ensureUserAccountForStaff(staffId: string, tx?: TxClient): any`
     * `getAssets(params: {
     page?: number;
@@ -921,6 +1102,12 @@
 ### [contractor-inventory.service.ts](src/services/inventory/contractor-inventory.service.ts)
 * **Class**: `ContractorInventoryService`
   * **Methods**:
+    * `acceptMaterialReturn(returnId: string, acceptedQuantity: number | undefined, storekeeperNotes: string | undefined, userId: string | null): any`
+    * `acceptMaterialIssue(issueId: string, signatureName: string | undefined, userId: string | null): any`
+    * `getMaterialReturns(contractorId: string): any`
+    * `getMaterialIssues(contractorId: string): any`
+    * `createMaterialReturn(contractorId: string, data: { itemId: string, quantity: number, condition?: string, reason?: string }): any`
+    * `getContractorStockDashboard(contractorId: string | null, userId: string | null, teamId?: string, month?: string, year?: string): any`
     * `getTeamWiseMaterialBalance(params: TeamMaterialBalanceParams): any`
 
 ### [cycle-count.service.ts](src/services/inventory/cycle-count.service.ts)
@@ -1867,6 +2054,8 @@
 ### [project-ir-ledger.service.ts](src/services/project/project-ir-ledger.service.ts)
 * **Class**: `ProjectIRLedgerService`
   * **Methods**:
+    * `getIRLedgerHistory(irNumber: string): any`
+    * `getIRLedgerMeta(): any`
     * `verifyProjectStatus(tx: any, projectId: string): any`
     * `verifyProjectLeftover(tx: any, projectId: string, itemId: string, batchId: string, requiredQty: number): Promise<number>`
     * `getIRLedger(projectId?: string): Promise<IRLedgerEntry[]>`
@@ -2666,6 +2855,8 @@
 | `/api/cron/sync-sod` | [route.ts](src/app/api/cron/sync-sod/route.ts) | `GET` |
 | `/api/dashboard/alerts` | [route.ts](src/app/api/dashboard/alerts/route.ts) | `GET` |
 | `/api/dashboard/executive` | [route.ts](src/app/api/dashboard/executive/route.ts) | `GET` |
+| `/api/dashboard/finance` | [route.ts](src/app/api/dashboard/finance/route.ts) | `GET` |
+| `/api/dashboard/inventory` | [route.ts](src/app/api/dashboard/inventory/route.ts) | `GET` |
 | `/api/dashboard/project-stats` | [route.ts](src/app/api/dashboard/project-stats/route.ts) | `GET` |
 | `/api/dashboard/projects` | [route.ts](src/app/api/dashboard/projects/route.ts) | `GET` |
 | `/api/dashboard/stats` | [route.ts](src/app/api/dashboard/stats/route.ts) | `GET` |
@@ -2676,6 +2867,7 @@
 | `/api/finance/ar/receipts` | [route.ts](src/app/api/finance/ar/receipts/route.ts) | `GET`, `POST` |
 | `/api/finance/bank/cash-book` | [route.ts](src/app/api/finance/bank/cash-book/route.ts) | `GET` |
 | `/api/finance/bank/reconciliation` | [route.ts](src/app/api/finance/bank/reconciliation/route.ts) | `GET`, `POST` |
+| `/api/finance/bank-reconciliation` | [route.ts](src/app/api/finance/bank-reconciliation/route.ts) | `POST` |
 | `/api/finance/budget` | [route.ts](src/app/api/finance/budget/route.ts) | `GET`, `POST` |
 | `/api/finance/budget/[id]` | [route.ts](src/app/api/finance/budget/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 | `/api/finance/capex-opex` | [route.ts](src/app/api/finance/capex-opex/route.ts) | `GET`, `POST` |
@@ -2684,10 +2876,28 @@
 | `/api/finance/capex-opex/trend` | [route.ts](src/app/api/finance/capex-opex/trend/route.ts) | `GET` |
 | `/api/finance/chart-of-accounts` | [route.ts](src/app/api/finance/chart-of-accounts/route.ts) | `GET`, `POST`, `PUT` |
 | `/api/finance/credit-notes` | [route.ts](src/app/api/finance/credit-notes/route.ts) | `GET`, `POST` |
+| `/api/finance/exchange-rates` | [route.ts](src/app/api/finance/exchange-rates/route.ts) | `GET`, `POST` |
 | `/api/finance/fixed-assets/depreciate` | [route.ts](src/app/api/finance/fixed-assets/depreciate/route.ts) | `POST` |
 | `/api/finance/fixed-assets` | [route.ts](src/app/api/finance/fixed-assets/route.ts) | `GET`, `POST` |
+| `/api/finance/fpa-dashboard` | [route.ts](src/app/api/finance/fpa-dashboard/route.ts) | `GET` |
+| `/api/finance/general-ledger` | [route.ts](src/app/api/finance/general-ledger/route.ts) | `GET` |
+| `/api/finance/invoices/generate` | [route.ts](src/app/api/finance/invoices/generate/route.ts) | `POST` |
+| `/api/finance/invoices` | [route.ts](src/app/api/finance/invoices/route.ts) | `GET` |
+| `/api/finance/invoices/[id]/approve` | [route.ts](src/app/api/finance/invoices/[id]/approve/route.ts) | `POST` |
 | `/api/finance/ld-penalties` | [route.ts](src/app/api/finance/ld-penalties/route.ts) | `GET`, `POST`, `PATCH`, `DELETE` |
 | `/api/finance/ledger` | [route.ts](src/app/api/finance/ledger/route.ts) | `GET` |
+| `/api/finance/osp-account/advances` | [route.ts](src/app/api/finance/osp-account/advances/route.ts) | `GET`, `POST` |
+| `/api/finance/osp-account/advances/[id]/approve` | [route.ts](src/app/api/finance/osp-account/advances/[id]/approve/route.ts) | `PATCH` |
+| `/api/finance/osp-account/fleet/fuel-deposits` | [route.ts](src/app/api/finance/osp-account/fleet/fuel-deposits/route.ts) | `GET`, `POST` |
+| `/api/finance/osp-account/fleet/fuel-deposits/[id]/approve` | [route.ts](src/app/api/finance/osp-account/fleet/fuel-deposits/[id]/approve/route.ts) | `PATCH` |
+| `/api/finance/osp-account/fleet/hiring-payments` | [route.ts](src/app/api/finance/osp-account/fleet/hiring-payments/route.ts) | `GET`, `POST` |
+| `/api/finance/osp-account/fleet/hiring-payments/[id]/approve` | [route.ts](src/app/api/finance/osp-account/fleet/hiring-payments/[id]/approve/route.ts) | `PATCH` |
+| `/api/finance/osp-account/ingest` | [route.ts](src/app/api/finance/osp-account/ingest/route.ts) | `POST` |
+| `/api/finance/osp-account/ious` | [route.ts](src/app/api/finance/osp-account/ious/route.ts) | `GET`, `POST` |
+| `/api/finance/osp-account/ious/[id]/approve` | [route.ts](src/app/api/finance/osp-account/ious/[id]/approve/route.ts) | `PATCH` |
+| `/api/finance/osp-account/rents` | [route.ts](src/app/api/finance/osp-account/rents/route.ts) | `GET`, `POST` |
+| `/api/finance/osp-account/rents/[id]/approve` | [route.ts](src/app/api/finance/osp-account/rents/[id]/approve/route.ts) | `PATCH` |
+| `/api/finance/osp-account/reports` | [route.ts](src/app/api/finance/osp-account/reports/route.ts) | `GET` |
 | `/api/finance/payment-vouchers` | [route.ts](src/app/api/finance/payment-vouchers/route.ts) | `GET`, `POST` |
 | `/api/finance/payment-vouchers/[id]` | [route.ts](src/app/api/finance/payment-vouchers/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 | `/api/finance/payment-vouchers/[id]/status` | [route.ts](src/app/api/finance/payment-vouchers/[id]/status/route.ts) | `PATCH` |
@@ -2706,6 +2916,7 @@
 | `/api/finance/sf-audit/payment-split-config` | [route.ts](src/app/api/finance/sf-audit/payment-split-config/route.ts) | `GET`, `POST` |
 | `/api/finance/tax/vat-return` | [route.ts](src/app/api/finance/tax/vat-return/route.ts) | `GET` |
 | `/api/finance/tax/wht-register` | [route.ts](src/app/api/finance/tax/wht-register/route.ts) | `GET` |
+| `/api/finance/unbilled-sods` | [route.ts](src/app/api/finance/unbilled-sods/route.ts) | `GET` |
 | `/api/finance/wip-revenue` | [route.ts](src/app/api/finance/wip-revenue/route.ts) | `GET`, `POST` |
 | `/api/gis/ai-training` | [route.ts](src/app/api/gis/ai-training/route.ts) | `GET` |
 | `/api/gis/auto-plan/ai-optimize` | [route.ts](src/app/api/gis/auto-plan/ai-optimize/route.ts) | `POST` |
@@ -2970,6 +3181,22 @@
   * `updatedAt: DateTime` `[@updatedAt]`
   * `parent: ChartOfAccount?` `[@relation("CoAHierarchy", fields: [parentId], references: [id])]`
   * `children: ChartOfAccount[]` `[@relation("CoAHierarchy")]`
+  * `debitMappings: GLMappingConfig[]` `[@relation("DebitAccountMappings")]`
+  * `creditMappings: GLMappingConfig[]` `[@relation("CreditAccountMappings")]`
+  * `rollupBalances: AccountBalanceRollup[]` `[@relation("RollupBalances")]`
+
+### [GLMappingConfig](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `sourceModule: String` `[// e.g. "OSP_IOU", "OSP_RENT", "SOD_INVOICE"]`
+  * `transactionType: String` `[// e.g. "ISSUE_ADVANCE", "PAY_RENT", "RECOGNIZE_REVENUE"]`
+  * `debitAccountCode: String`
+  * `creditAccountCode: String`
+  * `debitAccount: ChartOfAccount` `[@relation("DebitAccountMappings", fields: [debitAccountCode], references: [code])]`
+  * `creditAccount: ChartOfAccount` `[@relation("CreditAccountMappings", fields: [creditAccountCode], references: [code])]`
+  * `isActive: Boolean` `[@default(true)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [FiscalPeriod](prisma/schema/accounting.prisma)
 * **Fields**:
@@ -2981,6 +3208,7 @@
   * `closedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `accountBalanceRollups: AccountBalanceRollup[]`
 
 ### [Customer](prisma/schema/accounting.prisma)
 * **Fields**:
@@ -3051,7 +3279,9 @@
   * `assetNumber: String` `[@unique]`
   * `name: String`
   * `category: String` `[@default("EQUIPMENT")]`
+  * `subCategory: String?`
   * `acquisitionDate: DateTime` `[@default(now())]`
+  * `purchasedYear: String?`
   * `cost: Float` `[@default(0)]`
   * `usefulLifeYears: Int` `[@default(5)]`
   * `depreciationMethod: String` `[@default("STRAIGHT_LINE")]`
@@ -3060,7 +3290,11 @@
   * `glAccumDepCode: String` `[@default("ACC-DEP-1510")]`
   * `accumulatedDepreciation: Float` `[@default(0)]`
   * `netBookValue: Float` `[@default(0)]`
+  * `locationCode: String?`
+  * `locationName: String?`
+  * `details: String?`
   * `status: String` `[@default("ACTIVE")]`
+  * `verifiedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `depreciationLogs: DepreciationLog[]`
@@ -3117,6 +3351,30 @@
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
+### [CurrencyExchange](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `currencyCode: String` `[// e.g. "USD", "EUR"]`
+  * `exchangeRate: Float`
+  * `effectiveDate: DateTime`
+  * `isActive: Boolean` `[@default(true)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [AccountBalanceRollup](prisma/schema/accounting.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `accountCode: String`
+  * `fiscalPeriodId: String`
+  * `year: Int`
+  * `month: Int`
+  * `totalDebit: Float` `[@default(0)]`
+  * `totalCredit: Float` `[@default(0)]`
+  * `closingBalance: Float` `[@default(0)]`
+  * `lastCalculatedAt: DateTime` `[@default(now())]`
+  * `account: ChartOfAccount` `[@relation("RollupBalances", fields: [accountCode], references: [code], onDelete: Cascade)]`
+  * `fiscalPeriod: FiscalPeriod` `[@relation(fields: [fiscalPeriodId], references: [id], onDelete: Cascade)]`
+
 ### [AssetSyncLog](prisma/schema/agent-sync.prisma)
 * **Fields**:
   * `id: Int` `[@id @default(autoincrement())]`
@@ -3139,7 +3397,7 @@
   * `description: String?`
   * `approvedById: String?`
   * `approvedAt: DateTime?`
-  * `status: String` `[@default("ACTIVE")   // ACTIVE | FROZEN | REVISED]`
+  * `status: String` `[@default("ACTIVE") // ACTIVE | FROZEN | REVISED]`
   * `createdById: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -3213,6 +3471,10 @@
   * `documentStatus: String` `[@default("PENDING")]`
   * `uploadToken: String?` `[@unique]`
   * `uploadTokenExpiry: DateTime?`
+  * `tinNumber: String?`
+  * `vatNumber: String?`
+  * `kycVerified: Boolean` `[@default(false)]`
+  * `whtHoldStatus: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `collectedCPEs: CollectedCPE[]` `[@relation("CollectedCPEs")]`
@@ -3876,17 +4138,17 @@
   * `itemName: String`
   * `year: Int` `[// e.g., 2024, 2025, 2026]`
   * `month: String` `[// e.g., "JULY", "AUG", "SEP"]`
-  * `carryForwardQuantity: Float` `[@default(0)              // Opening balance]`
-  * `receivedQuantity: Float` `[@default(0)              // Inward received]`
-  * `totalInHandQuantity: Float` `[@default(0)              // Available]`
-  * `usageQuantity: Float` `[@default(0)              // Consumed in field]`
-  * `wastageQuantity: Float` `[@default(0)              // Scrap / Wastage]`
-  * `faultyQuantity: Float` `[@default(0)              // Damaged]`
-  * `totalUsageQuantity: Float` `[@default(0)              // Usage + Wastage]`
-  * `closingBalanceQuantity: Float` `[@default(0)              // Computed remaining]`
-  * `receivedCostLkr: Float` `[@default(0)              // Financial value received]`
-  * `usageCostLkr: Float` `[@default(0)              // Financial value consumed]`
-  * `unitCostLkr: Float` `[@default(0)              // Unit price]`
+  * `carryForwardQuantity: Float` `[@default(0) // Opening balance]`
+  * `receivedQuantity: Float` `[@default(0) // Inward received]`
+  * `totalInHandQuantity: Float` `[@default(0) // Available]`
+  * `usageQuantity: Float` `[@default(0) // Consumed in field]`
+  * `wastageQuantity: Float` `[@default(0) // Scrap / Wastage]`
+  * `faultyQuantity: Float` `[@default(0) // Damaged]`
+  * `totalUsageQuantity: Float` `[@default(0) // Usage + Wastage]`
+  * `closingBalanceQuantity: Float` `[@default(0) // Computed remaining]`
+  * `receivedCostLkr: Float` `[@default(0) // Financial value received]`
+  * `usageCostLkr: Float` `[@default(0) // Financial value consumed]`
+  * `unitCostLkr: Float` `[@default(0) // Unit price]`
   * `status: String` `[@default("UNRECONCILED") // UNRECONCILED | RECONCILED | ADJUSTED]`
   * `createdById: String`
   * `createdAt: DateTime` `[@default(now())]`
@@ -3906,7 +4168,7 @@
   * `varianceQuantity: Float` `[// Physical - System]`
   * `varianceReason: String` `[// UNRECORDED_RECEIPT | BUFFER_STOCK | FIELD_SCRAP | OTHER]`
   * `financialImpactLkr: Float` `[// Variance * UnitCost]`
-  * `status: String` `[@default("PENDING")            // PENDING | APPROVED | REJECTED]`
+  * `status: String` `[@default("PENDING") // PENDING | APPROVED | REJECTED]`
   * `approvedById: String?`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
@@ -4010,6 +4272,7 @@
   * `storeId: String`
   * `itemId: String`
   * `quantity: Decimal` `[@default(0)]`
+  * `allocatedQuantity: Decimal` `[@default(0)]`
   * `minLevel: Decimal` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -4043,11 +4306,13 @@
   * `itemId: String`
   * `batchId: String`
   * `quantity: Decimal` `[@default(0)]`
+  * `allocatedQuantity: Decimal` `[@default(0)]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `locator: String?`
+  * `locatorId: String?`
   * `batch: InventoryBatch` `[@relation(fields: [batchId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
+  * `locator: WarehouseLocator?` `[@relation(fields: [locatorId], references: [id])]`
 
 ### [InventoryTransaction](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -4128,11 +4393,14 @@
   * `id: String` `[@id @default(cuid())]`
   * `referenceId: String?`
   * `referenceType: String?`
+  * `idempotencyKey: String?` `[@unique]`
+  * `sha256Hash: String?`
   * `description: String`
-  * `status: String` `[@default("POSTED") // DRAFT, POSTED, REVERSED]`
-  * `isLocked: Boolean` `[@default(true)]`
-  * `postedAt: DateTime?` `[@default(now())]`
+  * `status: String` `[@default("DRAFT") // DRAFT, PENDING_APPROVAL, POSTED, REVERSED]`
+  * `isLocked: Boolean` `[@default(false)]`
+  * `postedAt: DateTime?`
   * `createdById: String?`
+  * `approvedById: String?`
   * `reversalOfId: String?`
   * `date: DateTime` `[@default(now())]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4147,6 +4415,8 @@
   * `debit: Decimal` `[@default(0)]`
   * `credit: Decimal` `[@default(0)]`
   * `description: String?`
+  * `currency: String` `[@default("LKR")]`
+  * `exchangeRate: Float` `[@default(1.0)]`
   * `entry: JournalEntry` `[@relation(fields: [entryId], references: [id], onDelete: Cascade)]`
 
 ### [WarehouseLocator](prisma/schema/inventory.prisma)
@@ -4163,6 +4433,7 @@
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id], onDelete: Cascade)]`
+  * `inventoryBatchStocks: InventoryBatchStock[]`
 
 ### [CycleCountHeader](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -4215,7 +4486,9 @@
   * `unitPrice: Decimal` `[@default(0) @db.Decimal(12, 2)]`
   * `totalValue: Decimal` `[@default(0) @db.Decimal(14, 2)]`
   * `performedById: String`
-  * `checksum: String` `[// SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt)]`
+  * `idempotencyKey: String?` `[@unique]`
+  * `previousChecksum: String?`
+  * `checksum: String` `[// SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt + previousChecksum)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
@@ -4265,6 +4538,85 @@
   * `capexOpexLedgerEntries: CapexOpexLedgerEntry[]`
   * `preErpMaterialBalances: PreErpMaterialBalance[]`
   * `materialVarianceAdjustments: MaterialVarianceAdjustment[]`
+
+### [OspPettyCashIou](prisma/schema/osp-account.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `iouNumber: String`
+  * `opmcId: String?`
+  * `staffName: String`
+  * `staffServiceNo: String?`
+  * `type: String` `[@default("PETTY_CASH")]`
+  * `amount: Float`
+  * `issuedDate: DateTime?`
+  * `reason: String?`
+  * `noOfDays: Int?` `[@default(0)]`
+  * `status: String` `[@default("PENDING")]`
+  * `approvedAt: DateTime?`
+  * `remarks: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspProjectAdvance](prisma/schema/osp-account.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `refNumber: String` `[@unique]`
+  * `type: String` `[@default("PROJECT")]`
+  * `supplierName: String?`
+  * `description: String`
+  * `invoiceNo: String?`
+  * `amount: Float`
+  * `vatAmount: Float` `[@default(0)]`
+  * `totalAmount: Float`
+  * `status: String` `[@default("PENDING")]`
+  * `approvedAt: DateTime?`
+  * `opmcId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspPropertyRentPayment](prisma/schema/osp-account.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `accountNo: String?`
+  * `supplierName: String`
+  * `amount: Float`
+  * `category: String` `[@default("Office Rent")]`
+  * `slipNo: String`
+  * `slipDate: DateTime?`
+  * `status: String` `[@default("PENDING")]`
+  * `approvedAt: DateTime?`
+  * `opmcId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspFuelDepositLedger](prisma/schema/osp-account.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `officeLocation: String`
+  * `opmcId: String?`
+  * `stationName: String`
+  * `actualDeposit: Float`
+  * `status: String` `[@default("PENDING")]`
+  * `approvedAt: DateTime?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspVehicleHiringPayment](prisma/schema/osp-account.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `vehicleNo: String?`
+  * `bankCode: String?`
+  * `accountNo: String?`
+  * `accountName: String`
+  * `amount: Float`
+  * `slipNo: String`
+  * `slipDate: DateTime?`
+  * `paidDate: DateTime?`
+  * `status: String` `[@default("PENDING")]`
+  * `approvedAt: DateTime?`
+  * `opmcId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [AuthorityEntity](prisma/schema/permits.prisma)
 * **Fields**:
@@ -4351,7 +4703,7 @@
   * `imprestLimit: Float` `[@default(0)]`
   * `currentBalance: Float` `[@default(0)]`
   * `status: String` `[@default("ACTIVE")]`
-  * `createdById: String`
+  * `createdById: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id], onDelete: Cascade)]`
@@ -4375,7 +4727,7 @@
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
   * `reimbursementId: String?`
-  * `createdById: String`
+  * `createdById: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `account: PettyCashAccount` `[@relation(fields: [accountId], references: [id], onDelete: Cascade)]`
@@ -4389,7 +4741,7 @@
   * `totalAmount: Float` `[@default(0)]`
   * `status: String` `[@default("PENDING")]`
   * `paymentVoucherId: String?`
-  * `createdById: String`
+  * `createdById: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `account: PettyCashAccount` `[@relation(fields: [accountId], references: [id], onDelete: Cascade)]`
@@ -4952,6 +5304,10 @@
   * `paidDateB: DateTime?`
   * `amount: Float`
   * `status: String` `[@default("PENDING")]`
+  * `approvalStatus: String` `[@default("DRAFT")]`
+  * `idempotencyKey: String?` `[@unique]`
+  * `retentionAmount: Float` `[@default(0)]`
+  * `advanceDeduction: Float` `[@default(0)]`
   * `description: String?`
   * `vatAmount: Float` `[@default(0)]`
   * `ssclAmount: Float` `[@default(0)]`
@@ -5133,7 +5489,7 @@
   * `status: String` `[@default("DRAFT")]`
   * `priority: String` `[@default("MEDIUM")]`
   * `type: String` `[@default("MATERIAL")]`
-  * `expenditureType: String` `[@default("CAPEX")  // CAPEX | OPEX]`
+  * `expenditureType: String` `[@default("CAPEX") // CAPEX | OPEX]`
   * `orderDate: DateTime` `[@default(now())]`
   * `expectedDelivery: DateTime?`
   * `deliveryLocation: String?`
@@ -5285,7 +5641,7 @@
   * `description: String?`
   * `status: String` `[@default("DRAFT")]`
   * `type: String` `[@default("CONTRACTOR")]`
-  * `expenditureType: String` `[@default("OPEX")         // CAPEX | OPEX]`
+  * `expenditureType: String` `[@default("OPEX") // CAPEX | OPEX]`
   * `payeeName: String`
   * `payeeId: String?`
   * `invoiceId: String?`
@@ -5976,8 +6332,8 @@
   * `targetVolume: Int` `[// e.g. 6000 for Jan, 8000 for Feb]`
   * `baseUnitRate: Float` `[// Base LKR rate per connection e.g. 10000.00]`
   * `poleRate: Float?` `[@default(4500) // LKR surcharge per pole planted]`
-  * `perMeterRate: Float?` `[@default(250)  // LKR surcharge per extra meter beyond threshold]`
-  * `distanceThresholdMeters: Float?` `[@default(50)   // Free span threshold (e.g. 50 meters)]`
+  * `perMeterRate: Float?` `[@default(250) // LKR surcharge per extra meter beyond threshold]`
+  * `distanceThresholdMeters: Float?` `[@default(50) // Free span threshold (e.g. 50 meters)]`
   * `customSurcharges: Json?` `[// Flexible JSON store for arbitrary custom SLT rate variables]`
   * `penaltyPerShortfall: Float` `[@default(0) // Optional LKR penalty per missing order below target]`
   * `bonusPerOverachieve: Float` `[@default(0) // Optional LKR bonus per extra order above target]`
@@ -10796,7 +11152,7 @@
   * `imprestLimit: Float` `[@default(0)]`
   * `currentBalance: Float` `[@default(0)]`
   * `status: String` `[@default("ACTIVE") // ACTIVE, SUSPENDED, CLOSED]`
-  * `createdById: String`
+  * `createdById: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id], onDelete: Cascade)]`
@@ -10820,7 +11176,7 @@
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
   * `reimbursementId: String?`
-  * `createdById: String`
+  * `createdById: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `account: PettyCashAccount` `[@relation(fields: [accountId], references: [id], onDelete: Cascade)]`
@@ -10899,4 +11255,100 @@
   * `severity: String` `[@default("WARNING") // WARNING, CRITICAL, INFO]`
   * `isRead: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
+
+### [FixedAsset](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `assetNumber: String` `[@unique]`
+  * `name: String`
+  * `category: String` `[@default("EQUIPMENT")]`
+  * `subCategory: String?`
+  * `acquisitionDate: DateTime?`
+  * `purchasedYear: String?`
+  * `cost: Float` `[@default(0)]`
+  * `usefulLifeYears: Int` `[@default(5)]`
+  * `depreciationMethod: String` `[@default("STRAIGHT_LINE")]`
+  * `glAssetCode: String` `[@default("120000")]`
+  * `glDepExpCode: String` `[@default("540000")]`
+  * `glAccumDepCode: String` `[@default("129000")]`
+  * `accumulatedDepreciation: Float` `[@default(0)]`
+  * `netBookValue: Float` `[@default(0)]`
+  * `locationCode: String?`
+  * `locationName: String?`
+  * `details: String?`
+  * `status: String` `[@default("ACTIVE")]`
+  * `verifiedAt: DateTime?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspPettyCashIou](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `iouNumber: String`
+  * `opmcId: String?`
+  * `staffName: String`
+  * `staffServiceNo: String?`
+  * `type: String` `[@default("PETTY_CASH")]`
+  * `amount: Float`
+  * `issuedDate: DateTime?`
+  * `reason: String?`
+  * `noOfDays: Int?` `[@default(0)]`
+  * `status: String` `[@default("PENDING")]`
+  * `remarks: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspProjectAdvance](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `refNumber: String` `[@unique]`
+  * `type: String` `[@default("PROJECT")]`
+  * `supplierName: String?`
+  * `description: String`
+  * `invoiceNo: String?`
+  * `amount: Float`
+  * `vatAmount: Float` `[@default(0)]`
+  * `totalAmount: Float`
+  * `status: String` `[@default("SETTLED")]`
+  * `opmcId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspPropertyRentPayment](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `accountNo: String?`
+  * `supplierName: String`
+  * `amount: Float`
+  * `category: String` `[@default("Office Rent")]`
+  * `slipNo: String`
+  * `slipDate: DateTime?`
+  * `opmcId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspFuelDepositLedger](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `officeLocation: String`
+  * `opmcId: String?`
+  * `stationName: String`
+  * `actualDeposit: Float`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OspVehicleHiringPayment](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `vehicleNo: String?`
+  * `bankCode: String?`
+  * `accountNo: String?`
+  * `accountName: String`
+  * `amount: Float`
+  * `slipNo: String`
+  * `slipDate: DateTime?`
+  * `paidDate: DateTime?`
+  * `opmcId: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
 

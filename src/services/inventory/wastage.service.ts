@@ -27,7 +27,7 @@ export class WastageService {
         // 1. Identify if approval is needed based on DB flags
         // flag: isWastageAllowed (if false, needs approval)
         // flag: maxWastagePercentage (if exceeded, needs approval)
-        const itemMetas = await prisma.inventoryItem.findMany({
+        const itemMetas = await prisma.inventoryItem.findMany({ select: { id: true, name: true, unitPrice: true, costPrice: true, maxWastagePercentage: true, isWastageAllowed: true },
             where: { id: { in: items.map(i => i.itemId) } }
         });
 
@@ -105,7 +105,7 @@ export class WastageService {
 
             return await prisma.$transaction(async (tx: TransactionClient) => {
                 
-                const wastage = await (tx as any).contractorWastage.create({
+                const wastage = await tx.contractorWastage.create({
                     data: {
                         contractorId,
                         storeId,
@@ -134,17 +134,10 @@ export class WastageService {
                         const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);
                         for (const picked of pickedBatches) {
                             
-                            await (tx as any).contractorBatchStock.update({
-                                where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
-                                data: { quantity: { decrement: picked.quantity } }
-                            });
+                            await ContractorRepository.decrementBatchStockAtomic(contractorId, picked.batchId!, picked.quantity, tx);
                         }
 
-                        
-                        await (tx as any).contractorStock.update({
-                            where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
-                            data: { quantity: { decrement: qty } }
-                        });
+                        await ContractorRepository.decrementStockAtomic(contractorId, item.itemId, qty, tx);
                     }
                     await LedgerService.logWastage(tx, wastage.id, totalWastageValue);
                 }
@@ -183,35 +176,28 @@ export class WastageService {
                     for (const picked of pickedBatches) {
                         if (picked.batchId) {
                             
-                            await (tx as any).inventoryBatchStock.update({
-                                where: { storeId_batchId: { storeId, batchId: picked.batchId } },
-                                data: { quantity: { decrement: picked.quantity } }
-                            });
+                            await InventoryRepository.decrementBatchStockAtomic(storeId, picked.batchId!, picked.quantity, tx);
                         }
                         transactionItems.push({
                             itemId: item.itemId,
-                            quantity: -picked.quantity,
+                            quantity: -Number(picked.quantity),
                             batchId: picked.batchId
                         });
                     }
 
                     
-                    await (tx as any).inventoryStock.upsert({
-                        where: { storeId_itemId: { storeId, itemId: item.itemId } },
-                        update: { quantity: { decrement: qty } },
-                        create: { storeId, itemId: item.itemId, quantity: -qty }
-                    });
+                    await InventoryRepository.decrementStockAtomic(storeId, item.itemId, qty, tx);
                 } else {
                     transactionItems.push({
                         itemId: item.itemId,
-                        quantity: -qty,
+                        quantity: -Number(qty),
                         batchId: null
                     });
                 }
             }
 
             
-            const txRecord = await (tx as any).inventoryTransaction.create({
+            const txRecord = await tx.inventoryTransaction.create({
                 data: {
                     type: 'WASTAGE',
                     storeId,
@@ -253,7 +239,7 @@ export class WastageService {
     static async approveWastage(wastageId: string, userId: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
             
-            const wastage = await (tx as any).contractorWastage.findUnique({
+            const wastage = await tx.contractorWastage.findUnique({
                 where: { id: wastageId },
                 include: { items: true }
             });
@@ -262,9 +248,8 @@ export class WastageService {
                 if (wastage.status !== 'PENDING') throw AppError.badRequest('ALREADY_PROCESSED');
 
                 const itemIds = wastage.items.map((i: any) => i.itemId);
-                const itemMetas = await tx.inventoryItem.findMany({
-                    where: { id: { in: itemIds } },
-                    select: { id: true, costPrice: true, unitPrice: true }
+                const itemMetas = await tx.inventoryItem.findMany({ select: { id: true, name: true, unitPrice: true, costPrice: true, maxWastagePercentage: true, isWastageAllowed: true },
+                    where: { id: { in: itemIds } }
                 });
                 const metaMap = new Map(itemMetas.map((m: any) => [m.id, m]));
 
@@ -276,29 +261,23 @@ export class WastageService {
                     const qty = StockService.round(item.quantity);
                     if (qty <= 0) continue;
 
-                    const itemMeta: any = metaMap.get(item.itemId);
+                    const itemMeta = metaMap.get(item.itemId);
                     const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
                     totalWastageValue += qty * price;
 
                     const pickedBatches = StockService.pickContractorBatchesFIFOBulk(availableBatches, item.itemId, qty);
                     for (const picked of pickedBatches) {
                         
-                        await (tx as any).contractorBatchStock.update({
-                            where: { contractorId_batchId: { contractorId: wastage.contractorId, batchId: picked.batchId! } },
-                            data: { quantity: { decrement: picked.quantity } }
-                        });
+                        await ContractorRepository.decrementBatchStockAtomic(wastage.contractorId, picked.batchId!, picked.quantity, tx);
                     }
 
                     
-                    await (tx as any).contractorStock.update({
-                        where: { contractorId_itemId: { contractorId: wastage.contractorId, itemId: item.itemId } },
-                        data: { quantity: { decrement: qty } }
-                    });
+                    await ContractorRepository.decrementStockAtomic(wastage.contractorId, item.itemId, qty, tx);
                 }
 
                 // Update Status
                 
-                const updated = await (tx as any).contractorWastage.update({
+                const updated = await tx.contractorWastage.update({
                     where: { id: wastageId },
                     data: { 
                         status: 'APPROVED',
@@ -313,7 +292,7 @@ export class WastageService {
             } else {
                 // If not found in ContractorWastage, check InventoryTransaction for Store Wastage
                 
-                const txRecord = await (tx as any).inventoryTransaction.findUnique({
+                const txRecord = await tx.inventoryTransaction.findUnique({
                     where: { id: wastageId },
                     include: { items: true }
                 });
@@ -327,9 +306,8 @@ export class WastageService {
                 }
 
                 const itemIds = txRecord.items.map((i: any) => i.itemId);
-                const itemMetas = await tx.inventoryItem.findMany({
-                    where: { id: { in: itemIds } },
-                    select: { id: true, costPrice: true, unitPrice: true }
+                const itemMetas = await tx.inventoryItem.findMany({ select: { id: true, name: true, unitPrice: true, costPrice: true, maxWastagePercentage: true, isWastageAllowed: true },
+                    where: { id: { in: itemIds } }
                 });
                 const metaMap = new Map(itemMetas.map((m: any) => [m.id, m]));
 
@@ -338,10 +316,10 @@ export class WastageService {
                 let totalWastageValue = 0;
                 // Apply deductions for store wastage
                 for (const item of txRecord.items) {
-                    const qty = StockService.round(Math.abs(item.quantity));
+                    const qty = StockService.round(Math.abs(Number(item.quantity)));
                     if (qty <= 0) continue;
 
-                    const itemMeta: any = metaMap.get(item.itemId);
+                    const itemMeta = metaMap.get(item.itemId);
                     const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
                     totalWastageValue += qty * price;
 
@@ -349,43 +327,49 @@ export class WastageService {
 
                     // Delete the pending log item and recreate it split by batchIds
                     
-                    await (tx as any).inventoryTransactionItem.delete({
+                    await tx.inventoryTransactionItem.delete({
                         where: { id: item.id }
                     });
 
                     for (const picked of pickedBatches) {
                         if (picked.batchId) {
                             
-                            await (tx as any).inventoryBatchStock.update({
-                                where: { storeId_batchId: { storeId: txRecord.storeId, batchId: picked.batchId } },
-                                data: { quantity: { decrement: picked.quantity } }
-                            });
+                            await InventoryRepository.decrementBatchStockAtomic(txRecord.storeId, picked.batchId!, picked.quantity, tx);
                         }
 
                         // Recreate the transaction item with batch association
                         
-                        await (tx as any).inventoryTransactionItem.create({
+                        await tx.inventoryTransactionItem.create({
                             data: {
                                 transactionId: txRecord.id,
                                 itemId: item.itemId,
-                                quantity: -picked.quantity,
+                                quantity: -Number(picked.quantity),
                                 batchId: picked.batchId
                             }
                         });
                     }
 
+                    const updatedStoreStock = await InventoryRepository.decrementStockAtomic(txRecord.storeId, item.itemId, qty, tx);
+                    const quantityAfter = updatedStoreStock?.quantity ? Number(updatedStoreStock.quantity) : 0;
                     
-                    await (tx as any).inventoryStock.upsert({
-                        where: { storeId_itemId: { storeId: txRecord.storeId, itemId: item.itemId } },
-                        update: { quantity: { decrement: qty } },
-                        create: { storeId: txRecord.storeId, itemId: item.itemId, quantity: -qty }
-                    });
+                    await AuditLedgerService.recordEntry({
+                        storeId: txRecord.storeId,
+                        itemId: item.itemId,
+                        referenceId: `WASTAGE_${txRecord.id}`,
+                        referenceType: 'Adjustment',
+                        transactionType: 'WASTAGE_ADJUSTMENT',
+                        quantityBefore: quantityAfter + qty,
+                        quantityChange: -qty,
+                        quantityAfter,
+                        idempotencyKey: `WASTAGE_${txRecord.id}_${item.itemId}`,
+                        performedById: 'system',
+                    }, tx);
                 }
 
                 // Update the notes in the transaction to APPROVED
                 const approvedNotes = txRecord.notes.replace('[STATUS: PENDING]', '[STATUS: APPROVED]');
                 
-                const updatedTx = await (tx as any).inventoryTransaction.update({
+                const updatedTx = await tx.inventoryTransaction.update({
                     where: { id: txRecord.id },
                     data: {
                         notes: approvedNotes,
@@ -406,7 +390,7 @@ export class WastageService {
     static async rejectWastage(wastageId: string, userId: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
             
-            const wastage = await (tx as any).contractorWastage.findUnique({
+            const wastage = await tx.contractorWastage.findUnique({
                 where: { id: wastageId }
             });
 
@@ -415,7 +399,7 @@ export class WastageService {
 
                 // Update Status to REJECTED
                 
-                const updated = await (tx as any).contractorWastage.update({
+                const updated = await tx.contractorWastage.update({
                     where: { id: wastageId },
                     data: { 
                         status: 'REJECTED',
@@ -428,7 +412,7 @@ export class WastageService {
             } else {
                 // If not found in ContractorWastage, check InventoryTransaction for Store Wastage
                 
-                const txRecord = await (tx as any).inventoryTransaction.findUnique({
+                const txRecord = await tx.inventoryTransaction.findUnique({
                     where: { id: wastageId }
                 });
 
@@ -443,7 +427,7 @@ export class WastageService {
                 // Update the notes in the transaction to REJECTED
                 const rejectedNotes = txRecord.notes.replace('[STATUS: PENDING]', '[STATUS: REJECTED]');
                 
-                const updatedTx = await (tx as any).inventoryTransaction.update({
+                const updatedTx = await tx.inventoryTransaction.update({
                     where: { id: txRecord.id },
                     data: {
                         notes: rejectedNotes,

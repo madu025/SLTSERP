@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { OSPLedgerService } from './osp-ledger.service';
 
 export class RetentionService {
   /**
@@ -77,6 +78,16 @@ export class RetentionService {
         }
       });
 
+      // 3. Subledger Accounting (SLA): Post Retention Release Entry
+      await OSPLedgerService.postAutomatedTransaction(tx, {
+        sourceModule: 'RETENTION',
+        transactionType: 'RELEASE_RETENTION',
+        referenceId: release.id,
+        description: `Retention Release of LKR ${data.releaseAmount} (${status})`,
+        amount: data.releaseAmount,
+        transactionDate: new Date()
+      });
+
       return release;
     });
   }
@@ -93,17 +104,28 @@ export class RetentionService {
   }) {
     const retentionPercent = data.retentionPercent || 10;
     
-    return prisma.projectRetention.create({
+    const retention = await prisma.projectRetention.create({
       data: {
         projectId: data.projectId,
         invoiceId: data.invoiceId,
         title: data.title,
         retentionPercent,
         retentionAmount: data.retentionAmount,
-        releasedAmount: 0,
         balanceAmount: data.retentionAmount,
         status: 'HELD'
       }
     });
+
+    // Subledger Accounting (SLA): Hold Retention Entry
+    await OSPLedgerService.postAutomatedTransaction(prisma, {
+      sourceModule: 'RETENTION',
+      transactionType: 'HOLD_RETENTION',
+      referenceId: retention.id,
+      description: `Hold Retention (${retentionPercent}%) for Invoice ${data.title}`,
+      amount: data.retentionAmount,
+      transactionDate: new Date()
+    });
+
+    return retention;
   }
 }

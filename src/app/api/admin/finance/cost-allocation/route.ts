@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { CostAllocationService } from '@/services/finance/cost-allocation.service';
 import { z } from 'zod';

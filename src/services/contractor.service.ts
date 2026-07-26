@@ -25,6 +25,22 @@ export type {
 export class ContractorService {
     
     // --- QUERY OPERATIONS ---
+
+    static async resolveContractorContext(userId: string | null | undefined, providedContractorId: string | null | undefined): Promise<{ contractorId: string | null, role: string | null }> {
+        if (!userId) return { contractorId: providedContractorId || null, role: null };
+
+        const { prisma } = await import('@/lib/prisma');
+        const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { contractorId: true, role: true }
+        });
+        
+        return {
+            contractorId: providedContractorId || currentUser?.contractorId || null,
+            role: currentUser?.role || null
+        };
+    }
+
     
     static async getAllContractors(opmcIds?: string[] | ContractorQueryParams, page?: number, limit?: number) {
         if (opmcIds && typeof opmcIds === 'object' && !Array.isArray(opmcIds)) {

@@ -4,8 +4,8 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GISImportService } from '@/services/GISImportService';
-import { prisma } from '@/lib/prisma';
+import { GISImportService } from '@/services/gis/GISImportService';
+import { GISRouteService } from '@/services/gis/GISRouteService';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -52,63 +52,8 @@ export async function GET(request: NextRequest) {
 
     // Return GIS data for a specific project
     if (projectId) {
-      const gisRoutes = await prisma.gISRoute.findMany({
-        where: { projectId },
-        include: {
-          poles: {
-            orderBy: { poleNumber: 'asc' }
-          },
-          closures: {
-            orderBy: { closureNumber: 'asc' }
-          },
-          chambers: true,
-          cableSegments: {
-            orderBy: { segmentNumber: 'asc' }
-          },
-          generatedBOQs: {
-            include: { items: true },
-          },
-        },
-      });
-
-      const assets = await prisma.projectAsset.findMany({
-        where: { projectId },
-      });
-
-      const surveys = await prisma.surveyRequest.findMany({
-        where: { projectId },
-        include: {
-          checkins: true,
-          findings: true,
-        },
-      });
-
-      const permits = await prisma.projectPermit.findMany({
-        where: { projectId },
-        include: {
-          permitType: {
-            include: { authority: true },
-          },
-        },
-      });
-
-      const fieldTasks = await prisma.fieldTask.findMany({
-        where: { projectId },
-      });
-
-      const otdrTests = await prisma.oTDRTest.findMany({
-        where: { projectId },
-      });
-
-      return NextResponse.json({
-        projectId,
-        gisRoutes,
-        assets,
-        surveys,
-        permits,
-        fieldTasks,
-        otdrTests,
-      });
+      const data = await GISRouteService.getProjectGISData(projectId);
+      return NextResponse.json(data);
     }
 
     // List all active sessions

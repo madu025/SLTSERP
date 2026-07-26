@@ -23,3 +23,6 @@ export { StatsCardGrid, type StatsCardGridProps } from './StatsCardGrid';
 export { ChartSection, type ChartSectionProps } from './ChartSection';
 export { PerformanceSection, type PerformanceSectionProps } from './PerformanceSection';
 export { RTOMTables, type RTOMTablesProps } from './RTOMTables';
+export { default as FinanceSection } from './FinanceSection';
+export { default as InventorySection } from './InventorySection';
+export { default as ProjectsSection } from './ProjectsSection';

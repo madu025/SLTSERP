@@ -417,7 +417,13 @@ export class SODSyncService {
             // This eliminates 44 per-OPMC findMany queries for disappeared SOD detection.
             const allOpmcIds = opmcs.map(o => o.id);
             const allPendingSods = await prisma.serviceOrder.findMany({
-                where: { opmcId: { in: allOpmcIds }, sltsStatus: 'INPROGRESS' },
+                where: { 
+                    opmcId: { in: allOpmcIds }, 
+                    sltsStatus: 'INPROGRESS',
+                    isOfflineWorkOrder: false,
+                    isManualEntry: false,
+                    isLegacyImport: false 
+                },
                 select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, opmcId: true }
             });
             // Group by opmcId → O(P) build time, O(1) lookup per OPMC
@@ -716,7 +722,13 @@ export class SODSyncService {
         // When called from syncAllOpmcs, pendingSods are pre-loaded globally (O(1) lookup)
         // When called standalone, fall back to per-OPMC query
         const localPendingSods = preloadedPendingSods ?? await prisma.serviceOrder.findMany({
-            where: { opmcId, sltsStatus: 'INPROGRESS' },
+            where: { 
+                opmcId, 
+                sltsStatus: 'INPROGRESS',
+                isOfflineWorkOrder: false,
+                isManualEntry: false,
+                isLegacyImport: false 
+            },
             select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
         });
 
@@ -775,7 +787,7 @@ export class SODSyncService {
                                     statusDate,
                                     sltsStatus: nextSltsStatus,
                                     completedDate: nextSltsStatus === 'COMPLETED' ? statusDate : undefined,
-                                    returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Return: ${extStatus.status}` : 'Returned in external portal')) : undefined
+                                    returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined
                                 };
 
                                 if (rawItemObj) {
@@ -814,23 +826,21 @@ export class SODSyncService {
                             updated++;
                         }
                     } else {
-                        // Disappeared and not found anywhere in completed or rejected -> mark as returned
-                        console.log(`[SYNC-DISAPPEARED] SOD ${disappearedSod.soNum} not found in completed/rejected lists. Marking as RETURN.`);
+                        // Disappeared and not found anywhere in completed or rejected -> mark as DISAPPEARED
+                        console.log(`[SYNC-DISAPPEARED] SOD ${disappearedSod.soNum} not found in completed/rejected lists. Marking as DISAPPEARED.`);
                         await prisma.$transaction(async (tx) => {
                             await tx.serviceOrder.update({
                                 where: { id: disappearedSod.id },
                                 data: {
-                                    status: 'RETURNED',
-                                    sltsStatus: 'RETURN',
-                                    completedDate: new Date(),
-                                    returnReason: 'Removed from external portal',
+                                    status: 'DISAPPEARED',
+                                    sltsStatus: 'DISAPPEARED',
+                                    returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing',
                                     comments: disappearedSod.comments 
-                                        ? `${disappearedSod.comments}\n[AUTO-RETURN] Disappeared from external portal` 
-                                        : '[AUTO-RETURN] Disappeared from external portal'
+                                        ? `${disappearedSod.comments}\n[AUTO-SYNC] Disappeared from active portal list` 
+                                        : '[AUTO-SYNC] Disappeared from active portal list'
                                 }
                             });
-                            await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'SYNC_SERVICE');
-                            await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
+                            // No material rollback for DISAPPEARED status
                         });
                         updated++;
                     }
@@ -1245,8 +1255,8 @@ export class SODSyncService {
                                 include: { materialUsage: true }
                             });
                             const usages = updatedWithUsages?.materialUsage || [];
-                            const totalSodMaterialCost = usages.reduce((sum, u) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
-                            await LedgerService.logSodConsumption(tx, updated.id, totalSodMaterialCost);
+                            const totalSodMaterialCost = usages.reduce((sum, u) => sum.add(new Prisma.Decimal(u.costPrice || 0).mul(new Prisma.Decimal(u.quantity))), new Prisma.Decimal(0));
+                            await LedgerService.logSodConsumption(tx, updated.id, totalSodMaterialCost.toNumber());
                         } catch (matErr) {
                             console.warn('[BRIDGE-SYNC] Material processing skipped due to error:', matErr instanceof Error ? matErr.message : matErr);
                         }

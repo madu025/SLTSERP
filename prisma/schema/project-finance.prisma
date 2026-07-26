@@ -1,39 +1,43 @@
 model Invoice {
-  id              String         @id @default(cuid())
-  invoiceNumber   String         @unique
-  contractorId    String
-  projectId       String?
-  year            Int?
-  month           Int?
-  totalAmount     Float          @default(0)
-  amountA         Float          @default(0)
-  statusA         String         @default("PENDING")
-  paidDateA       DateTime?
-  amountB         Float          @default(0)
-  statusB         String         @default("HOLD")
-  paidDateB       DateTime?
-  amount          Float
-  status          String         @default("PENDING")
-  description     String?
-  vatAmount       Float          @default(0)
-  ssclAmount      Float          @default(0)
-  whtAmount       Float          @default(0)
-  vatPercent      Float          @default(18)
-  ssclPercent     Float          @default(2.5)
-  whtPercent      Float          @default(5)
-  dueDate         DateTime?
-  date            DateTime       @default(now())
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  agreementNumber String?
-  bomNumber       String?
-  connectionTitle String?
-  projectNumber   Int?
-  rtomArea        String?
-  contractor      Contractor     @relation(fields: [contractorId], references: [id])
-  project         Project?       @relation(fields: [projectId], references: [id])
-  penalties       Penalty[]
-  sods            ServiceOrder[]
+  id                String                    @id @default(cuid())
+  invoiceNumber     String                    @unique
+  contractorId      String
+  projectId         String?
+  year              Int?
+  month             Int?
+  totalAmount       Float                     @default(0)
+  amountA           Float                     @default(0)
+  statusA           String                    @default("PENDING")
+  paidDateA         DateTime?
+  amountB           Float                     @default(0)
+  statusB           String                    @default("HOLD")
+  paidDateB         DateTime?
+  amount            Float
+  status            String                    @default("PENDING")
+  approvalStatus    String                    @default("DRAFT")
+  idempotencyKey    String?                   @unique
+  retentionAmount   Float                     @default(0)
+  advanceDeduction  Float                     @default(0)
+  description       String?
+  vatAmount         Float                     @default(0)
+  ssclAmount        Float                     @default(0)
+  whtAmount         Float                     @default(0)
+  vatPercent        Float                     @default(18)
+  ssclPercent       Float                     @default(2.5)
+  whtPercent        Float                     @default(5)
+  dueDate           DateTime?
+  date              DateTime                  @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  agreementNumber   String?
+  bomNumber         String?
+  connectionTitle   String?
+  projectNumber     Int?
+  rtomArea          String?
+  contractor        Contractor                @relation(fields: [contractorId], references: [id])
+  project           Project?                  @relation(fields: [projectId], references: [id])
+  penalties         Penalty[]
+  sods              ServiceOrder[]
   amendmentRequests InvoiceAmendmentRequest[]
 
   @@index([projectId])
@@ -221,7 +225,7 @@ model ProjectPurchaseOrder {
   status             String                     @default("DRAFT")
   priority           String                     @default("MEDIUM")
   type               String                     @default("MATERIAL")
-  expenditureType    String                     @default("CAPEX")  // CAPEX | OPEX
+  expenditureType    String                     @default("CAPEX") // CAPEX | OPEX
   orderDate          DateTime                   @default(now())
   expectedDelivery   DateTime?
   deliveryLocation   String?
@@ -325,45 +329,45 @@ model ProjectGoodsReceiptItem {
 }
 
 model ProjectInvoice {
-  id              String               @id @default(cuid())
-  invoiceNumber   String               @unique
-  projectId       String
-  title           String
-  description     String?
-  status          String               @default("DRAFT")
-  type            String               @default("CLIENT")
-  invoiceDate     DateTime             @default(now())
-  dueDate         DateTime?
-  subtotal        Float                @default(0)
-  taxAmount       Float                @default(0)
-  discountAmount  Float                @default(0)
-  vatAmount       Float                @default(0)
-  ssclAmount      Float                @default(0)
-  whtAmount       Float                @default(0)
-  vatPercent      Float                @default(18)
-  ssclPercent     Float                @default(2.5)
-  whtPercent      Float                @default(5)
-  totalAmount     Float                @default(0)
-  paidAmount      Float                @default(0)
-  balanceAmount   Float                @default(0)
-  currency        String               @default("LKR")
-  notes           String?
-  referenceNumber String?
-  periodFrom      DateTime?
-  periodTo        DateTime?
-  createdById     String?
-  approvedById    String?
-  approvedAt      DateTime?
-  cancelledReason String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  payments        PaymentVoucher[]     @relation("InvoicePayments")
-  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  items           ProjectInvoiceItem[]
-  retentions      ProjectRetention[]
-  sods            ServiceOrder[]       @relation("ProjectInvoiceSODs")
+  id               String               @id @default(cuid())
+  invoiceNumber    String               @unique
+  projectId        String
+  title            String
+  description      String?
+  status           String               @default("DRAFT")
+  type             String               @default("CLIENT")
+  invoiceDate      DateTime             @default(now())
+  dueDate          DateTime?
+  subtotal         Float                @default(0)
+  taxAmount        Float                @default(0)
+  discountAmount   Float                @default(0)
+  vatAmount        Float                @default(0)
+  ssclAmount       Float                @default(0)
+  whtAmount        Float                @default(0)
+  vatPercent       Float                @default(18)
+  ssclPercent      Float                @default(2.5)
+  whtPercent       Float                @default(5)
+  totalAmount      Float                @default(0)
+  paidAmount       Float                @default(0)
+  balanceAmount    Float                @default(0)
+  currency         String               @default("LKR")
+  notes            String?
+  referenceNumber  String?
+  periodFrom       DateTime?
+  periodTo         DateTime?
+  createdById      String?
+  approvedById     String?
+  approvedAt       DateTime?
+  cancelledReason  String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  payments         PaymentVoucher[]     @relation("InvoicePayments")
+  project          Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items            ProjectInvoiceItem[]
+  retentions       ProjectRetention[]
+  sods             ServiceOrder[]       @relation("ProjectInvoiceSODs")
   customerReceipts CustomerReceipt[]
-  creditNotes     CreditDebitNote[]
+  creditNotes      CreditDebitNote[]
 
   @@index([projectId])
   @@index([status])
@@ -396,7 +400,7 @@ model PaymentVoucher {
   description        String?
   status             String          @default("DRAFT")
   type               String          @default("CONTRACTOR")
-  expenditureType    String          @default("OPEX")         // CAPEX | OPEX
+  expenditureType    String          @default("OPEX") // CAPEX | OPEX
   payeeName          String
   payeeId            String?
   invoiceId          String?

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
 import { bridgeSyncSchema } from '@/lib/validations/service-order.schema';

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';

@@ -45,7 +45,9 @@ import {
     Layers,
     Package,
     Lock,
-    Tag
+    Tag,
+    Globe,
+    EyeOff
 } from 'lucide-react';
 
 
@@ -165,6 +167,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
+                title: 'Disappeared SODs',
+                path: '/service-orders/disappeared',
+                icon: EyeOff,
+                allowedRoles: ROLE_GROUPS.ALL_OPS
+            },
+            {
                 title: 'Completed SOD',
                 path: '/service-orders/completed',
                 icon: FileCheck2,
@@ -192,20 +200,20 @@ export const SIDEBAR_MENU: MenuItem[] = [
     },
     {
         title: 'Contractors',
-        path: '/admin/contractors',
+        path: '/contractors/management',
         icon: HardHat,
         allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS],
         permissionId: 'contractors',
         submenu: [
             {
                 title: 'All Contractors',
-                path: '/admin/contractors',
+                path: '/contractors/management',
                 icon: HardHat,
                 allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS]
             },
             {
                 title: 'Bulk Import',
-                path: '/admin/contractors/import',
+                path: '/contractors/management/import',
                 icon: Upload,
                 allowedRoles: ROLE_GROUPS.ADMINS
             }
@@ -270,8 +278,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
     },
 
     {
-        title: 'Finance & Accounts',
-        path: '/admin/finance',
+        title: 'Finance Setup & Ops',
+        path: '/finance/setup',
         icon: Banknote,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER'],
         permissionId: 'invoices',
@@ -284,73 +292,73 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Vendor Registry',
-                path: '/admin/finance/vendors',
+                path: '/finance/vendors',
                 icon: Building,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'Bank Registry',
-                path: '/admin/finance/banks',
+                path: '/finance/banks',
                 icon: Landmark,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'Payment Vouchers',
-                path: '/admin/finance/payments',
+                path: '/finance/payments',
                 icon: Receipt,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'Petty Cash',
-                path: '/admin/finance/petty-cash',
+                path: '/finance/petty-cash',
                 icon: Banknote,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS]
             },
             {
                 title: 'Retention Management',
-                path: '/admin/finance/retention',
+                path: '/finance/retention',
                 icon: Shield,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'LD Penalties',
-                path: '/admin/finance/ld-penalties',
+                path: '/finance/ld-penalties',
                 icon: ShieldAlert,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'Rate Matrix Config',
-                path: '/admin/finance/rate-matrix',
+                path: '/finance/rate-matrix',
                 icon: Calculator,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
             },
             {
                 title: 'CAPEX / OPEX Dashboard',
-                path: '/admin/finance/capex-opex',
+                path: '/finance/capex-opex',
                 icon: TrendingUp,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'AREA_MANAGER']
             },
             {
                 title: 'WIP Revenue & Billing Pipeline',
-                path: '/admin/finance/wip-revenue',
+                path: '/finance/wip-revenue',
                 icon: TrendingUp,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
             },
             {
                 title: 'Budget Allocations',
-                path: '/admin/finance/budget',
+                path: '/finance/budget',
                 icon: PieChart,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'Vendor Upload (HO)',
-                path: '/admin/finance/vendors/import',
+                path: '/finance/vendors/import',
                 icon: Upload,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
                 title: 'Bank Upload (HO)',
-                path: '/admin/finance/banks/import',
+                path: '/finance/banks/import',
                 icon: Upload,
                 allowedRoles: ROLE_GROUPS.ADMINS
             }
@@ -422,15 +430,71 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Cost Allocation',
-                path: '/admin/finance/cost-allocation',
+                path: '/finance/cost-allocation',
                 icon: FileSignature,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
             },
             {
                 title: 'SOD Revenue Config',
-                path: '/admin/sod-revenue',
+                path: '/finance/sod-revenue',
                 icon: Receipt,
                 allowedRoles: ROLE_GROUPS.ADMINS
+            }
+        ]
+    },
+
+    {
+        title: 'Central Finance',
+        path: '/finance',
+        icon: Receipt,
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE],
+        permissionId: 'finance',
+        submenu: [
+            {
+                title: 'General Ledger',
+                path: '/finance/general-ledger',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
+            }
+        ]
+    },
+
+    {
+        title: 'OSP Accounts',
+        path: '/finance/osp-account',
+        icon: Receipt,
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER'],
+        permissionId: 'finance',
+        submenu: [
+            {
+                title: 'OSP Dashboard',
+                path: '/finance/osp-account-reports',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+            },
+            {
+                title: 'Petty Cash IOUs',
+                path: '/finance/osp-account/ious',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+            },
+            {
+                title: 'Project Advances',
+                path: '/finance/osp-account/advances',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+            },
+            {
+                title: 'Property Rents',
+                path: '/finance/osp-account/rents',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+            },
+            {
+                title: 'Fleet Ledger',
+                path: '/finance/osp-account/fleet',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
             }
         ]
     },
@@ -457,19 +521,19 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Initial Stock Setup',
-                path: '/admin/inventory/initial',
+                path: '/inventory/admin/initial',
                 icon: Warehouse,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
                 title: 'Pre-ERP Reconciliation',
-                path: '/admin/inventory/pre-erp-reconciliation',
+                path: '/inventory/admin/pre-erp-reconciliation',
                 icon: Scale,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER']
             },
             {
                 title: 'Material Audit Report',
-                path: '/admin/inventory/material-audit-report',
+                path: '/inventory/admin/material-audit-report',
                 icon: FileSpreadsheet,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'FINANCE_MANAGER']
             },
@@ -514,20 +578,20 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Wastage Reports',
-                path: '/admin/inventory/wastage',
+                path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,   // was PackageMinus — conflicted with Stock Issue
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
             },
             // 4. Returns & Reconciliation
             {
                 title: 'MRN (Material Return)',
-                path: '/admin/inventory/mrns',
+                path: '/inventory/admin/mrns',
                 icon: RefreshCw,        // was Receipt — conflicted with GRN
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
                 title: 'Material Reconciliation',
-                path: '/admin/inventory/reconciliation',
+                path: '/inventory/admin/reconciliation',
                 icon: ClipboardCheck,
                 allowedRoles: ROLE_GROUPS.STORES
             },
@@ -539,7 +603,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Virtual Transition',
-                path: '/admin/inventory/virtual-swap',
+                path: '/inventory/admin/virtual-swap',
                 icon: RefreshCw,
                 allowedRoles: ROLE_GROUPS.STORES
             },
@@ -579,7 +643,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Contractor Registration Approvals',
-                path: '/admin/contractors/approvals',
+                path: '/contractors/management/approvals',
                 icon: FileSignature,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             }
@@ -613,101 +677,131 @@ export const SIDEBAR_MENU: MenuItem[] = [
         ]
     },
     {
-        title: 'Finance & Accounts',
-        path: '/admin/finance/chart-of-accounts',
+        title: 'Corporate Finance & Accounts',
+        path: '/finance/chart-of-accounts',
         icon: Landmark,
         allowedRoles: ROLE_GROUPS.FINANCE,
         permissionId: 'finance',
         submenu: [
             {
+                title: 'FP&A Variance Dashboard',
+                path: '/finance/fpa-dashboard',
+                icon: Activity,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Auto Bank Reconciliation',
+                path: '/finance/bank-reconciliation',
+                icon: CheckCircle2,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Multi-Currency FX Rates',
+                path: '/finance/exchange-rates',
+                icon: Globe,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
                 title: 'Chart of Accounts',
-                path: '/admin/finance/chart-of-accounts',
+                path: '/finance/chart-of-accounts',
                 icon: List,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Trial Balance',
-                path: '/admin/finance/reports/trial-balance',
+                path: '/finance/reports/trial-balance',
                 icon: Scale,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Profit & Loss Statement',
-                path: '/admin/finance/reports/pnl',
+                path: '/finance/reports/pnl',
                 icon: TrendingUp,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Balance Sheet',
-                path: '/admin/finance/reports/balance-sheet',
+                path: '/finance/reports/balance-sheet',
                 icon: Landmark,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'GL Ledger Viewer',
-                path: '/admin/finance/reports/gl-viewer',
+                path: '/finance/reports/gl-viewer',
                 icon: Layers,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'VAT Return & Tax Register',
-                path: '/admin/finance/tax/vat-return',
+                path: '/finance/tax/vat-return',
                 icon: Receipt,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'WHT Certificates & Register',
-                path: '/admin/finance/tax/wht-register',
+                path: '/finance/tax/wht-register',
                 icon: FileCheck2,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'AR Aging & Collections',
-                path: '/admin/finance/ar/aging',
+                path: '/finance/ar/aging',
                 icon: Users,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'AP Aging & Payables',
-                path: '/admin/finance/ap/aging',
+                path: '/finance/ap/aging',
                 icon: Building2,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Cash Book & Bank Ledger',
-                path: '/admin/finance/bank/cash-book',
+                path: '/finance/bank/cash-book',
                 icon: Landmark,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Bank Statement Reconciliation',
-                path: '/admin/finance/bank/reconciliation',
+                path: '/finance/bank/reconciliation',
                 icon: CheckCircle2,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Fixed Asset Register & Depreciation',
-                path: '/admin/finance/fixed-assets',
+                path: '/finance/fixed-assets',
                 icon: Package,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'HO Payroll Expense Allocation',
-                path: '/admin/finance/payroll',
+                path: '/finance/payroll',
                 icon: Users,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Financial Period Close & Year-End',
-                path: '/admin/finance/period-close',
+                path: '/finance/period-close',
                 icon: Lock,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
                 title: 'Credit & Debit Notes',
-                path: '/admin/finance/credit-notes',
+                path: '/finance/credit-notes',
                 icon: FileText,
                 allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Contractor Billing',
+                path: '/finance/billing',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+            },
+            {
+                title: 'Invoice Approvals',
+                path: '/finance/invoices',
+                icon: CheckCircle2,
+                allowedRoles: ['SUPER_ADMIN', 'FINANCE_MANAGER']
             }
         ]
     },
@@ -872,13 +966,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'RTOM Management',
-                path: '/admin/opmcs',
+                path: '/projects/opmcs',
                 icon: Building2,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
                 title: 'Store Management',
-                path: '/admin/stores',
+                path: '/inventory/stores',
                 icon: Warehouse,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
@@ -891,7 +985,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'SOD Import',
-                path: '/admin/sod-import',
+                path: '/service-orders/import',
                 icon: Upload,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },

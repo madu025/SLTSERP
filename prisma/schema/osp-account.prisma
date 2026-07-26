@@ -1,0 +1,99 @@
+model OspPettyCashIou {
+  id             String    @id @default(cuid())
+  iouNumber      String
+  opmcId         String?
+  staffName      String
+  staffServiceNo String?
+  type           String    @default("PETTY_CASH")
+  amount         Float
+  issuedDate     DateTime?
+  reason         String?
+  noOfDays       Int?      @default(0)
+  status         String    @default("PENDING")
+  approvedAt     DateTime?
+  remarks        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([iouNumber, staffName])
+  @@index([opmcId])
+  @@index([status])
+  @@index([type])
+}
+
+model OspProjectAdvance {
+  id           String    @id @default(cuid())
+  refNumber    String    @unique
+  type         String    @default("PROJECT")
+  supplierName String?
+  description  String
+  invoiceNo    String?
+  amount       Float
+  vatAmount    Float     @default(0)
+  totalAmount  Float
+  status       String    @default("PENDING")
+  approvedAt   DateTime?
+  opmcId       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([opmcId])
+  @@index([status])
+}
+
+model OspPropertyRentPayment {
+  id           String    @id @default(cuid())
+  accountNo    String?
+  supplierName String
+  amount       Float
+  category     String    @default("Office Rent")
+  slipNo       String
+  slipDate     DateTime?
+  status       String    @default("PENDING")
+  approvedAt   DateTime?
+  opmcId       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([supplierName, slipNo])
+  @@index([opmcId])
+  @@index([category])
+  @@index([status])
+}
+
+model OspFuelDepositLedger {
+  id             String    @id @default(cuid())
+  officeLocation String
+  opmcId         String?
+  stationName    String
+  actualDeposit  Float
+  status         String    @default("PENDING")
+  approvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([officeLocation, stationName])
+  @@index([opmcId])
+  @@index([status])
+}
+
+model OspVehicleHiringPayment {
+  id          String    @id @default(cuid())
+  vehicleNo   String?
+  bankCode    String?
+  accountNo   String?
+  accountName String
+  amount      Float
+  slipNo      String
+  slipDate    DateTime?
+  paidDate    DateTime?
+  status      String    @default("PENDING")
+  approvedAt  DateTime?
+  opmcId      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([accountName, slipNo])
+  @@index([opmcId])
+  @@index([status])
+}

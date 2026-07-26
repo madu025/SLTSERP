@@ -55,7 +55,7 @@ export class InventoryRepository {
     }
 
     /**
-     * Upsert global stock
+     * Upsert global stock (For Increments only)
      */
     static async upsertStock(storeId: string, itemId: string, quantity: number, tx: any) {
         return (tx as any).inventoryStock.upsert({
@@ -63,6 +63,49 @@ export class InventoryRepository {
             create: { storeId, itemId, quantity },
             update: { quantity: { increment: quantity } }
         });
+    }
+
+    static async decrementStockAtomic(storeId: string, itemId: string, quantity: number, tx: any) {
+        // We use $queryRaw for true atomic decrement with condition returning the updated row
+        const result: any[] = await tx.$queryRaw`
+            UPDATE "InventoryStock"
+            SET "quantity" = "quantity" - ${quantity}
+            WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND "quantity" >= ${quantity}
+            RETURNING *
+        `;
+        if (result.length === 0) {
+            throw new Error(`Insufficient physical stock for item ${itemId} in store ${storeId}`);
+        }
+        return result[0];
+    }
+
+    /**
+     * Reserve/Allocate Stock (ATP)
+     */
+    static async reserveStock(storeId: string, itemId: string, quantity: number, tx: any) {
+        const result = await tx.$executeRaw`
+            UPDATE "InventoryStock"
+            SET "allocatedQuantity" = "allocatedQuantity" + ${quantity}
+            WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND ("quantity" - "allocatedQuantity") >= ${quantity}
+        `;
+        if (result === 0) {
+            throw new Error(`Insufficient Available-To-Promise (ATP) stock for item ${itemId} in store ${storeId}`);
+        }
+    }
+
+    /**
+     * Fulfill/Commit Reserved Stock (Deducts both quantity and allocatedQuantity)
+     */
+    static async commitAllocatedStock(storeId: string, itemId: string, quantity: number, tx: any) {
+        const result = await tx.$executeRaw`
+            UPDATE "InventoryStock"
+            SET "quantity" = "quantity" - ${quantity},
+                "allocatedQuantity" = "allocatedQuantity" - ${quantity}
+            WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND "quantity" >= ${quantity} AND "allocatedQuantity" >= ${quantity}
+        `;
+        if (result === 0) {
+            throw new Error(`Failed to commit allocated stock for item ${itemId}. Invalid state.`);
+        }
     }
 
     /**
@@ -108,6 +151,22 @@ export class InventoryRepository {
             where: { storeId_batchId: { storeId, batchId } },
             data: { quantity: { increment: quantity } }
         });
+    }
+
+    /**
+     * Atomic Decrement for Store Batch Stock
+     */
+    static async decrementBatchStockAtomic(storeId: string, batchId: string, quantity: number, tx: any) {
+        const result: any[] = await tx.$queryRaw`
+            UPDATE "InventoryBatchStock"
+            SET "quantity" = "quantity" - ${quantity}
+            WHERE "storeId" = ${storeId} AND "batchId" = ${batchId} AND "quantity" >= ${quantity}
+            RETURNING *
+        `;
+        if (result.length === 0) {
+            throw new Error(`Insufficient physical batch stock for batch ${batchId} in store ${storeId}`);
+        }
+        return result[0];
     }
 
     /**

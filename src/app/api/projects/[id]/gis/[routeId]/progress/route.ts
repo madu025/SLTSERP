@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { updateGISRouteElementsSchema, UpdateGISRouteElementsSchema } from '@/lib/validations/gis.schema';

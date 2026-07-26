@@ -13,3 +13,5 @@ export const GET = apiHandler(async () => {
         throw AppError.internal(err.message || String(err));
     }
 }, { rawResponse: true });
+
+export const dynamic = 'force-dynamic';

@@ -273,6 +273,14 @@ export class StockRequestService {
             if (stockReq.sourceType === 'MAIN_STORE' && stockReq.toStoreId) {
                 nextWorkflowStage = 'MAIN_STORE_RELEASE';
                 rolesToNotify = ['STORES_ASSISTANT'];
+                
+                // ATP: Reserve stock in the provider store (toStoreId)
+                for (const item of (items || stockReq.items)) {
+                    const qtyToReserve = item.approvedQty || item.requestedQty;
+                    if (qtyToReserve > 0) {
+                        await InventoryRepository.reserveStock(stockReq.toStoreId, item.itemId, Number(qtyToReserve), tx);
+                    }
+                }
             } else if (stockReq.sourceType === 'SLT') {
                 nextWorkflowStage = 'GRN_PENDING';
             }
@@ -396,15 +404,9 @@ export class StockRequestService {
                 // Decrement from Main Store, Increment into Transit Store
                 const mainStoreKey = `${stockReq.toStoreId}:${reqItem.itemId}`;
                 if (globalStockSet.has(mainStoreKey)) {
-                    await prismaTx.inventoryStock.update({
-                        where: { storeId_itemId: { storeId: stockReq.toStoreId!, itemId: reqItem.itemId } },
-                        data: { quantity: { decrement: issuedQty } }
-                    });
+                    await InventoryRepository.commitAllocatedStock(stockReq.toStoreId!, reqItem.itemId, issuedQty, tx);
                 } else {
-                    await prismaTx.inventoryStock.create({
-                        data: { storeId: stockReq.toStoreId!, itemId: reqItem.itemId, quantity: -issuedQty }
-                    });
-                    globalStockSet.add(mainStoreKey);
+                    throw AppError.badRequest("Cannot commit allocated stock for non-existent stock record.");
                 }
 
                 const transitStoreKey = `${transitStoreId}:${reqItem.itemId}`;
@@ -558,10 +560,7 @@ export class StockRequestService {
                     const transitBSKey = `${transitStoreId}:${batchId}`;
                     const transitBS = batchStockMap.get(transitBSKey);
                     if (transitBS) {
-                        await prismaTx.inventoryBatchStock.update({
-                            where: { storeId_batchId: { storeId: transitStoreId, batchId } },
-                            data: { quantity: { decrement: take } }
-                        });
+                        await InventoryRepository.decrementBatchStockAtomic(transitStoreId, batchId, take, prismaTx);
                     }
 
                     // Increment in Destination store batch stock
@@ -590,17 +589,7 @@ export class StockRequestService {
 
                 // Decrement from Transit Store, Increment into Destination Store
                 const transitStockKey = `${transitStoreId}:${reqItem.itemId}`;
-                if (globalStockSet.has(transitStockKey)) {
-                    await prismaTx.inventoryStock.update({
-                        where: { storeId_itemId: { storeId: transitStoreId, itemId: reqItem.itemId } },
-                        data: { quantity: { decrement: receivedQty } }
-                    });
-                } else {
-                    await prismaTx.inventoryStock.create({
-                        data: { storeId: transitStoreId, itemId: reqItem.itemId, quantity: -receivedQty }
-                    });
-                    globalStockSet.add(transitStockKey);
-                }
+                await InventoryRepository.decrementStockAtomic(transitStoreId, reqItem.itemId, receivedQty, prismaTx);
 
                 const destStockKey = `${stockReq.fromStoreId}:${reqItem.itemId}`;
                 if (globalStockSet.has(destStockKey)) {

@@ -1,24 +1,24 @@
 model OPMC {
-  id                       String                    @id @default(cuid())
-  name                     String                    @default("")
-  rtom                     String                    @unique
-  region                   String                    @default("METRO")
-  province                 String                    @default("METRO 01")
-  storeId                  String?
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  contractors              Contractor[]
-  contractorPaymentConfigs ContractorPaymentConfig[]
-  contractorTeams          ContractorTeam[]
-  store                    InventoryStore?           @relation(fields: [storeId], references: [id])
-  pettyCashAccount         PettyCashAccount?
-  projects                 Project[]
-  revenueConfigs           SODRevenueConfig[]
-  serviceOrders            ServiceOrder[]
-  staff                    Staff[]
-  users                    User[]                    @relation("UserOpmcs")
-  financeBudgetAllocations FinanceBudgetAllocation[]
-  capexOpexLedgerEntries   CapexOpexLedgerEntry[]
-  preErpMaterialBalances   PreErpMaterialBalance[]
+  id                          String                       @id @default(cuid())
+  name                        String                       @default("")
+  rtom                        String                       @unique
+  region                      String                       @default("METRO")
+  province                    String                       @default("METRO 01")
+  storeId                     String?
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  contractors                 Contractor[]
+  contractorPaymentConfigs    ContractorPaymentConfig[]
+  contractorTeams             ContractorTeam[]
+  store                       InventoryStore?              @relation(fields: [storeId], references: [id])
+  pettyCashAccount            PettyCashAccount?
+  projects                    Project[]
+  revenueConfigs              SODRevenueConfig[]
+  serviceOrders               ServiceOrder[]
+  staff                       Staff[]
+  users                       User[]                       @relation("UserOpmcs")
+  financeBudgetAllocations    FinanceBudgetAllocation[]
+  capexOpexLedgerEntries      CapexOpexLedgerEntry[]
+  preErpMaterialBalances      PreErpMaterialBalance[]
   materialVarianceAdjustments MaterialVarianceAdjustment[]
 }

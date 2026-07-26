@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/user.service';
 import { z } from 'zod';

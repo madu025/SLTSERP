@@ -754,6 +754,183 @@ export class GISRouteService {
     }
 
     /**
+     * Fetch active GIS routes and global stats
+     */
+    static async getActiveRoutesAndStats() {
+        const routes = await prisma.gISRoute.findMany({
+            where: { isActive: true },
+            select: {
+                id: true,
+                projectId: true,
+                name: true,
+                versionType: true,
+                routeLength: true,
+                geojsonData: true,
+                project: {
+                    select: {
+                        name: true,
+                        projectCode: true
+                    }
+                }
+            }
+        });
+
+        const [polesCount, chambersCount, closuresCount, totalCableLengthDb] = await Promise.all([
+            prisma.gISPole.count(),
+            prisma.gISChamber.count(),
+            prisma.gISClosure.count(),
+            prisma.gISCableSegment.aggregate({
+                _sum: {
+                    length: true
+                }
+            })
+        ]);
+
+        return {
+            routes,
+            stats: {
+                polesCount,
+                chambersCount,
+                closuresCount,
+                totalCableLength: totalCableLengthDb._sum.length || 0
+            }
+        };
+    }
+
+    /**
+     * Fetch complete GIS dashboard data for a project
+     */
+    static async getProjectGISData(projectId: string) {
+        const gisRoutes = await prisma.gISRoute.findMany({
+            where: { projectId },
+            include: {
+                poles: { orderBy: { poleNumber: 'asc' } },
+                closures: { orderBy: { closureNumber: 'asc' } },
+                chambers: true,
+                cableSegments: { orderBy: { segmentNumber: 'asc' } },
+                generatedBOQs: { include: { items: true } },
+            },
+        });
+
+        const assets = await prisma.projectAsset.findMany({
+            where: { projectId },
+        });
+
+        const surveys = await prisma.surveyRequest.findMany({
+            where: { projectId },
+            include: { checkins: true, findings: true },
+        });
+
+        const permits = await prisma.projectPermit.findMany({
+            where: { projectId },
+            include: { permitType: { include: { authority: true } } },
+        });
+
+        const fieldTasks = await prisma.fieldTask.findMany({
+            where: { projectId },
+        });
+
+        const otdrTests = await prisma.oTDRTest.findMany({
+            where: { projectId },
+        });
+
+        return {
+            projectId,
+            gisRoutes,
+            assets,
+            surveys,
+            permits,
+            fieldTasks,
+            otdrTests,
+        };
+    }
+
+    /**
+     * Update a cable segment
+     */
+    static async updateCableSegment(segmentId: string, coordinates: number[][], computedLength: number) {
+        const segment = await prisma.gISCableSegment.findUnique({
+            where: { id: segmentId },
+            include: { route: true }
+        });
+
+        if (!segment) {
+            throw new Error('Cable segment not found');
+        }
+
+        const currentProperties = (segment.properties as Record<string, any>) || {};
+        const updatedProperties = {
+            ...currentProperties,
+            coordinates
+        };
+
+        const updatedSegment = await prisma.gISCableSegment.update({
+            where: { id: segmentId },
+            data: {
+                properties: updatedProperties,
+                length: computedLength
+            }
+        });
+
+        if (segment.route.status === 'BOQ_GENERATED') {
+            await prisma.gISRoute.update({
+                where: { id: segment.routeId },
+                data: { status: 'DRAFT' },
+            });
+        }
+
+        await prisma.gISGeneratedBOQ.deleteMany({
+            where: { routeId: segment.routeId },
+        });
+
+        return updatedSegment;
+    }
+
+    /**
+     * Add slack loop to a cable segment
+     */
+    static async addSlackLoop(segmentId: string) {
+        const segment = await prisma.gISCableSegment.findUnique({
+            where: { id: segmentId },
+            include: { route: true },
+        });
+
+        if (!segment) {
+            throw new Error('Cable segment not found');
+        }
+
+        const currentProperties = (segment.properties as Record<string, any>) || {};
+        const slackLoops = (currentProperties.slackLoops || 0) + 1;
+        const newProperties = {
+            ...currentProperties,
+            slackLoops,
+        };
+
+        const newLength = segment.length + 20.0;
+
+        const updatedSegment = await prisma.gISCableSegment.update({
+            where: { id: segmentId },
+            data: {
+                length: newLength,
+                properties: newProperties,
+            },
+        });
+
+        if (segment.route.status === 'BOQ_GENERATED') {
+            await prisma.gISRoute.update({
+                where: { id: segment.routeId },
+                data: { status: 'DRAFT' },
+            });
+        }
+
+        await prisma.gISGeneratedBOQ.deleteMany({
+            where: { routeId: segment.routeId },
+        });
+
+        return { updatedSegment, projectId: segment.route.projectId };
+    }
+
+    /**
      * Fetch GIS mappings and available inventory items for a project
      */
     static async getProjectGISMapping(projectId: string) {

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { RoleService } from '@/services/admin/role.service';
 import { z } from 'zod';

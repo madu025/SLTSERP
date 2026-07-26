@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { FinanceDashboardService } from '@/services/finance/dashboard.service';
 

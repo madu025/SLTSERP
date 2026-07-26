@@ -1,6 +1,13 @@
 import { prisma } from '@/lib/prisma';
 
 export class ContractorKPIService {
+  static async getProjectContractorId(projectId: string): Promise<string | null> {
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { contractorId: true },
+    });
+    return project?.contractorId || null;
+  }
   /**
    * Auto-calculate monthly KPI score for a contractor from live data
    */

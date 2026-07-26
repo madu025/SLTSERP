@@ -61,76 +61,90 @@ export class ArApService {
     /**
      * Record a Customer Receipt/Collection, settle invoice balance, and post DR Bank / CR AR.
      */
-    static async recordCustomerReceipt(tx: TransactionClient, payload: CustomerReceiptPayload) {
-        const { invoiceId, customerId, amount, paymentMethod, referenceNumber, receiptDate, createdById, notes } = payload;
+    static async recordCustomerReceipt(payload: CustomerReceiptPayload) {
+        return await prisma.$transaction(async (tx) => {
+            const { invoiceId, customerId, amount, paymentMethod, referenceNumber, receiptDate, createdById, notes } = payload;
 
-        if (amount <= 0) {
-            throw AppError.badRequest('Receipt amount must be greater than zero');
-        }
-
-        let invoice = null;
-        if (invoiceId) {
-            invoice = await tx.projectInvoice.findUnique({ where: { id: invoiceId } });
-            if (!invoice) throw AppError.notFound(`Invoice #${invoiceId} not found`);
-        }
-
-        const receiptNo = payload.receiptNumber || `RCT-${Date.now().toString().slice(-6)}`;
-
-        // 1. Create Receipt Record
-        const receipt = await tx.customerReceipt.create({
-            data: {
-                receiptNumber: receiptNo,
-                customerId: customerId || null,
-                invoiceId: invoiceId || null,
-                amount,
-                paymentMethod: paymentMethod || 'BANK_TRANSFER',
-                referenceNumber,
-                receiptDate: receiptDate || new Date(),
-                notes,
-                createdById
+            if (amount <= 0) {
+                throw AppError.badRequest('Receipt amount must be greater than zero');
             }
-        });
 
-        // 2. Update Invoice settlement balances
-        if (invoice) {
-            const newPaid = invoice.paidAmount + amount;
-            const newBalance = Math.max(0, invoice.totalAmount - newPaid);
-            const newStatus = newBalance === 0 ? 'PAID' : 'PARTIALLY_PAID';
+            let invoice = null;
+            if (invoiceId) {
+                invoice = await tx.projectInvoice.findUnique({ where: { id: invoiceId } });
+                if (!invoice) throw AppError.notFound(`Invoice #${invoiceId} not found`);
+            }
 
-            await tx.projectInvoice.update({
-                where: { id: invoiceId },
+            const receiptNo = payload.receiptNumber || `RCT-${Date.now().toString().slice(-6)}`;
+
+            // 1. Create Receipt Record
+            const receipt = await tx.customerReceipt.create({
                 data: {
-                    paidAmount: newPaid,
-                    balanceAmount: newBalance,
-                    status: newStatus
+                    receiptNumber: receiptNo,
+                    customerId: customerId || null,
+                    invoiceId: invoiceId || null,
+                    amount,
+                    paymentMethod: paymentMethod || 'BANK_TRANSFER',
+                    referenceNumber,
+                    receiptDate: receiptDate || new Date(),
+                    notes,
+                    createdById
                 }
             });
-        }
 
-        // 3. Post Double-Entry Journal: DR Bank (BANK-1000) / CR AR-1110
-        await LedgerService.postTransaction(tx, {
-            referenceId: receipt.id,
-            referenceType: 'CUSTOMER_RECEIPT',
-            description: notes || `Customer Receipt #${receiptNo} payment collection`,
-            date: receiptDate || new Date(),
-            createdById,
-            lines: [
-                {
-                    accountCode: 'BANK-1000',
-                    debit: amount,
-                    credit: 0,
-                    description: `Receipt #${receiptNo} deposited into Bank`
-                },
-                {
-                    accountCode: 'AR-1110',
-                    debit: 0,
-                    credit: amount,
-                    description: `AR settlement for Receipt #${receiptNo}`
-                }
-            ]
+            // 2. Update Invoice settlement balances
+            if (invoice) {
+                const newPaid = invoice.paidAmount + amount;
+                const newBalance = Math.max(0, invoice.totalAmount - newPaid);
+                const newStatus = newBalance === 0 ? 'PAID' : 'PARTIALLY_PAID';
+
+                await tx.projectInvoice.update({
+                    where: { id: invoiceId },
+                    data: {
+                        paidAmount: newPaid,
+                        balanceAmount: newBalance,
+                        status: newStatus
+                    }
+                });
+            }
+
+            // 3. Post Double-Entry Journal: DR Bank (BANK-1000) / CR AR-1110
+            await LedgerService.postTransaction(tx, {
+                referenceId: receipt.id,
+                referenceType: 'CUSTOMER_RECEIPT',
+                description: notes || `Customer Receipt #${receiptNo} payment collection`,
+                date: receiptDate || new Date(),
+                createdById,
+                lines: [
+                    {
+                        accountCode: 'BANK-1000',
+                        debit: amount,
+                        credit: 0,
+                        description: `Receipt #${receiptNo} deposited into Bank`
+                    },
+                    {
+                        accountCode: 'AR-1110',
+                        debit: 0,
+                        credit: amount,
+                        description: `AR settlement for Receipt #${receiptNo}`
+                    }
+                ]
+            });
+
+            return receipt;
         });
+    }
 
-        return receipt;
+    static async getCustomerReceipts() {
+        return await prisma.customerReceipt.findMany({
+            include: {
+                customer: true,
+                invoice: true
+            },
+            orderBy: {
+                receiptDate: 'desc'
+            }
+        });
     }
 
     /**

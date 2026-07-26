@@ -17,60 +17,62 @@ export class PayrollExpenseService {
     /**
      * Record a Head Office Payroll Expense allocation and post DR Staff Cost / CR HO Clearing via Central Gateway.
      */
-    static async recordPayrollAllocation(tx: TransactionClient, payload: PayrollAllocationPayload) {
-        const { period, opmcId, amount, referenceNumber, notes, createdById } = payload;
+    static async recordPayrollAllocation(payload: PayrollAllocationPayload) {
+        return await prisma.$transaction(async (tx) => {
+            const { period, opmcId, amount, referenceNumber, notes, createdById } = payload;
 
-        if (amount <= 0) {
-            throw AppError.badRequest('Payroll allocation amount must be greater than zero');
-        }
-
-        const refNo = referenceNumber || `PAYROLL-${period}-${Date.now().toString().slice(-4)}`;
-
-        // 1. Create PayrollExpense Record
-        const record = await tx.payrollExpense.create({
-            data: {
-                period,
-                opmcId,
-                amount,
-                referenceNumber: refNo,
-                notes,
-                status: 'POSTED',
-                createdById
+            if (amount <= 0) {
+                throw AppError.badRequest('Payroll allocation amount must be greater than zero');
             }
-        });
 
-        // 2. Post Double-Entry Journal via Central Gateway:
-        // DR: Staff Cost Expense (OPEX) (EXP-STAFF-6010)
-        // CR: Head Office Clearing (HO-CLEARING-2500)
-        const journal = await LedgerService.postTransaction(tx, {
-            referenceId: record.id,
-            referenceType: 'PAYROLL_ALLOCATION',
-            description: notes || `Head Office Payroll Allocation for Period ${period} (${refNo})`,
-            date: new Date(),
-            createdById,
-            lines: [
-                {
-                    accountCode: ACCOUNTS.STAFF_EXPENSE,
-                    debit: amount,
-                    credit: 0,
-                    description: `Staff Cost Expense Allocation for ${period}`
-                },
-                {
-                    accountCode: ACCOUNTS.HO_CLEARING,
-                    debit: 0,
-                    credit: amount,
-                    description: `Head Office Clearing for ${period} Payroll`
+            const refNo = referenceNumber || `PAYROLL-${period}-${Date.now().toString().slice(-4)}`;
+
+            // 1. Create PayrollExpense Record
+            const record = await tx.payrollExpense.create({
+                data: {
+                    period,
+                    opmcId,
+                    amount,
+                    referenceNumber: refNo,
+                    notes,
+                    status: 'POSTED',
+                    createdById
                 }
-            ]
-        });
+            });
 
-        // Update postedJournalId on record
-        await tx.payrollExpense.update({
-            where: { id: record.id },
-            data: { postedJournalId: journal.id }
-        });
+            // 2. Post Double-Entry Journal via Central Gateway:
+            // DR: Staff Cost Expense (OPEX) (EXP-STAFF-6010)
+            // CR: Head Office Clearing (HO-CLEARING-2500)
+            const journal = await LedgerService.postTransaction(tx, {
+                referenceId: record.id,
+                referenceType: 'PAYROLL_ALLOCATION',
+                description: notes || `Head Office Payroll Allocation for Period ${period} (${refNo})`,
+                date: new Date(),
+                createdById,
+                lines: [
+                    {
+                        accountCode: ACCOUNTS.STAFF_EXPENSE,
+                        debit: amount,
+                        credit: 0,
+                        description: `Staff Cost Expense Allocation for ${period}`
+                    },
+                    {
+                        accountCode: ACCOUNTS.HO_CLEARING,
+                        debit: 0,
+                        credit: amount,
+                        description: `Head Office Clearing for ${period} Payroll`
+                    }
+                ]
+            });
 
-        return record;
+            // Update postedJournalId on record
+            await tx.payrollExpense.update({
+                where: { id: record.id },
+                data: { postedJournalId: journal.id }
+            });
+
+            return record;
+        });
     }
 
     /**

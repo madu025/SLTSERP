@@ -35,3 +35,5 @@ export const GET = apiHandler(async (req) => {
 
     return await InventoryService.getMaterialIssues(contractorId, month || undefined);
 });
+
+export const dynamic = 'force-dynamic';

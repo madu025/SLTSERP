@@ -93,3 +93,13 @@ Stats: Total / Active / Inactive
 - `/src/app/admin/stores/hooks/useStoreOperations.ts` — mutations
 - `/src/app/admin/stores/components/StoreTable.tsx` — compact table
 - `/src/app/admin/stores/components/StoreFormDialog.tsx` — create/edit form
+
+---
+
+## API Integration Checklist
+- `[x]` Move `src/app/api/finance/ar/receipts/route.ts` to `ArApService`
+- `[x]` Refactor `src/app/api/finance/unbilled-sods/route.ts` to `BillingService`
+- `[x]` Migrate `src/app/api/finance/sf-audit/payment-split-config/route.ts` to `SfAuditService`
+- `[x]` Refactor `src/app/api/finance/reports/gl-drilldown/route.ts` to `LedgerService`
+- `[x]` Extract `osp-account` API routes to `OSPAccountCrudService` and `OspAccountReportService`
+- `[x]` Verify using `npx tsc --noEmit`

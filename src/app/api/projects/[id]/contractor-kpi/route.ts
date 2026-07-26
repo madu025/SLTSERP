@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorKPIService } from '@/services/contractor-kpi.service';
-import { prisma } from '@/lib/prisma';
+
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 
@@ -18,19 +18,15 @@ const calculateKPISchema = z.object({
 export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId } = params;
     const data = calculateKPISchema.parse(body);
-    
-    const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: { contractorId: true },
-    });
+    const contractorId = await ContractorKPIService.getProjectContractorId(projectId);
 
-    if (!project?.contractorId) {
+    if (!contractorId) {
         throw AppError.notFound('No contractor assigned to this project');
     }
 
     const evaluationMonth = data.month || new Date().toISOString().substring(0, 7);
     const score = await ContractorKPIService.calculateMonthlyScore(
-        project.contractorId,
+        contractorId,
         evaluationMonth,
         projectId
     );

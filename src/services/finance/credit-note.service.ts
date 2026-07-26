@@ -1,0 +1,74 @@
+import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
+import { TransactionClient } from '../inventory/types';
+import { LedgerService } from './ledger.service';
+import { Prisma } from '@prisma/client';
+
+export class CreditNoteService {
+    /**
+     * Issues a Credit Note against an APPROVED invoice to reverse or reduce its impact.
+     * Immutable architectural standard: Approved invoices cannot be deleted, only reversed.
+     */
+    static async issueCreditNote(data: {
+        invoiceId: string;
+        amount: number;
+        reason: string;
+        issuedById: string;
+    }) {
+        return await prisma.$transaction(async (tx: TransactionClient) => {
+            const invoice = await tx.invoice.findUnique({ where: { id: data.invoiceId } });
+            
+            if (!invoice) throw AppError.notFound('Invoice not found');
+            if (invoice.approvalStatus !== 'APPROVED') {
+                throw AppError.badRequest('Credit Notes can only be issued against APPROVED invoices.');
+            }
+
+            if (data.amount > invoice.totalAmount) {
+                throw AppError.badRequest('Credit Note amount cannot exceed the original invoice total amount.');
+            }
+
+            // Create Credit Note Record (Assuming AmendmentRequest for now since CreditNote model doesn't exist yet)
+            const amendment = await tx.invoiceAmendmentRequest.create({
+                data: {
+                    invoiceId: invoice.id,
+                    originalAmount: invoice.totalAmount,
+                    requestedAmount: invoice.totalAmount - data.amount, // Reduced amount
+                    originalAmountA: invoice.amountA,
+                    requestedAmountA: invoice.amountA, // Simplified
+                    originalAmountB: invoice.amountB,
+                    requestedAmountB: invoice.amountB, // Simplified
+                    reason: `CREDIT NOTE: ${data.reason}`,
+                    status: 'APPROVED', // Auto-approved if issued by authorized personnel
+                    requestedById: data.issuedById,
+                    approvedById: data.issuedById,
+                    approvedAt: new Date()
+                }
+            });
+
+            // Adjust invoice totals (or keep original and use related tables in a full implementation)
+            await tx.invoice.update({
+                where: { id: invoice.id },
+                data: {
+                    totalAmount: invoice.totalAmount - data.amount
+                }
+            });
+
+            // Post Ledger Reversal for the Credit Note Amount
+            // Dr. Revenue, Cr. AR
+            const lines = [
+                { accountCode: '4000', debit: data.amount, credit: 0, description: `Credit Note Rev Reversal for ${invoice.invoiceNumber}` },
+                { accountCode: '1100', debit: 0, credit: data.amount, description: `Credit Note AR Reversal for ${invoice.invoiceNumber}` }
+            ];
+
+            await LedgerService.postTransaction(tx, {
+                referenceId: amendment.id,
+                referenceType: 'InvoiceAmendmentRequest',
+                description: `Credit Note issued for ${invoice.invoiceNumber}`,
+                date: new Date(),
+                lines
+            });
+
+            return amendment;
+        });
+    }
+}

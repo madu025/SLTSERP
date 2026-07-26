@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { OSPLedgerService } from './osp-ledger.service';
 
 export interface ProposePenaltyInput {
   projectId: string;
@@ -105,10 +106,23 @@ export class LDPenaltyService {
       updateData.remarks = options.remarks;
     }
 
-    return prisma.projectLDPenalty.update({
+    const updated = await prisma.projectLDPenalty.update({
       where: { id },
       data: updateData
     });
+
+    if (status === 'APPROVED' || status === 'COLLECTED') {
+      await OSPLedgerService.postAutomatedTransaction(prisma, {
+        sourceModule: 'LD_PENALTY',
+        transactionType: 'APPLY_PENALTY',
+        referenceId: updated.id,
+        description: `LD Penalty Deduction for ${updated.title} (LKR ${updated.netAmount})`,
+        amount: updated.netAmount,
+        transactionDate: new Date()
+      });
+    }
+
+    return updated;
   }
 
   /**

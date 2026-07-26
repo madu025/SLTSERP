@@ -213,14 +213,14 @@ export class ServiceOrderService {
                     include: { materialUsage: true }
                 });
                 const usages = updatedWithUsages?.materialUsage || [];
-                const totalSodMaterialCost = usages.reduce((sum: number, u: { costPrice: number | Prisma.Decimal; quantity: number | Prisma.Decimal }) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
+                const totalSodMaterialCost = usages.reduce((sum, u) => sum.add(new Prisma.Decimal(u.costPrice || u.unitPrice || 0).mul(new Prisma.Decimal(u.quantity))), new Prisma.Decimal(0));
                 
                 // DR COGS, CR Inventory
-                await LedgerService.logSodConsumption(tx, id, totalSodMaterialCost);
+                await LedgerService.logSodConsumption(tx, id, totalSodMaterialCost.toNumber());
                 
                 // Only post revenue once on transition to Completed
                 if (isCompletingNow && updatedOrder.revenueAmount) {
-                    await LedgerService.logSodRevenue(tx, id, Number(updatedOrder.revenueAmount));
+                    await LedgerService.logSodRevenue(tx, id, new Prisma.Decimal(updatedOrder.revenueAmount).toNumber());
                 }
 
                 // Accrue Contractor Payable/Expense once on transition to Completed
@@ -229,7 +229,7 @@ export class ServiceOrderService {
                         ? await tx.contractor.findUnique({ where: { id: updatedOrder.contractorId } })
                         : null;
                     const contractorName = contractor?.name || 'Unknown Contractor';
-                    await LedgerService.logContractorAccrual(tx, id, Number(updatedOrder.contractorAmount), contractorName);
+                    await LedgerService.logContractorAccrual(tx, id, new Prisma.Decimal(updatedOrder.contractorAmount).toNumber(), contractorName);
                 }
             }
 

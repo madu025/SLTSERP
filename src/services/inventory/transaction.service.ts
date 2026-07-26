@@ -68,7 +68,7 @@ export class TransactionService {
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             
-            const existing = await (tx as any).contractorMaterialBalanceSheet.findUnique({
+            const existing = await tx.contractorMaterialBalanceSheet.findUnique({
                 where: {
                     contractorId_storeId_month: { contractorId, storeId, month }
                 }
@@ -76,12 +76,12 @@ export class TransactionService {
 
             if (existing) {
                 
-                await (tx as any).contractorBalanceSheetItem.deleteMany({
+                await tx.contractorBalanceSheetItem.deleteMany({
                     where: { balanceSheetId: existing.id }
                 });
 
                 
-                return await (tx as any).contractorMaterialBalanceSheet.update({
+                return await tx.contractorMaterialBalanceSheet.update({
                     where: { id: existing.id },
                     data: {
                         generatedAt: new Date(),
@@ -101,7 +101,7 @@ export class TransactionService {
                 });
             } else {
                 
-                return await (tx as any).contractorMaterialBalanceSheet.create({
+                return await tx.contractorMaterialBalanceSheet.create({
                     data: {
                         contractorId,
                         storeId,

@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { LedgerService } from '../finance/ledger.service';
+import { Prisma } from '@prisma/client';
 
 export interface CreateCycleCountInput {
     storeId: string;
@@ -225,32 +227,14 @@ export class CycleCountService {
             });
 
             // Post GL Journal Entry if variance value > 0
-            if (Number(header.totalVarianceValue) > 0) {
-                await tx.journalEntry.create({
-                    data: {
-                        referenceId: header.countNumber,
-                        referenceType: 'CYCLE_COUNT',
-                        description: `Physical Stock Adjustment - ${header.countNumber}`,
-                        lines: {
-                            create: [
-                                {
-                                    accountCode: '13000',
-                                    accountName: 'Inventory Asset',
-                                    debit: Number(header.totalVarianceValue) >= 0 ? Number(header.totalVarianceValue) : 0,
-                                    credit: Number(header.totalVarianceValue) < 0 ? Math.abs(Number(header.totalVarianceValue)) : 0,
-                                    description: 'Stock Count Inventory Adjustment'
-                                },
-                                {
-                                    accountCode: '52000',
-                                    accountName: 'Inventory Variance Expense',
-                                    debit: Number(header.totalVarianceValue) < 0 ? Math.abs(Number(header.totalVarianceValue)) : 0,
-                                    credit: Number(header.totalVarianceValue) >= 0 ? Number(header.totalVarianceValue) : 0,
-                                    description: 'Physical Count Adjustment Gain/Loss'
-                                }
-                            ]
-                        }
-                    }
-                });
+            if (Number(header.totalVarianceValue) !== 0) {
+                await LedgerService.logCycleCountAdjustment(
+                    tx,
+                    header.id,
+                    header.countNumber,
+                    Number(header.totalVarianceValue),
+                    `Physical Stock Adjustment - ${header.countNumber}`
+                );
             }
 
             // Update Header Status

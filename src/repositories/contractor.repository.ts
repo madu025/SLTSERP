@@ -64,6 +64,38 @@ export class ContractorRepository {
     }
 
     /**
+     * Atomic Decrement for Contractor Stock (Prevents Negative Stock)
+     */
+    static async decrementStockAtomic(contractorId: string, itemId: string, quantity: number, tx: any) {
+        const result: any[] = await tx.$queryRaw`
+            UPDATE "ContractorStock"
+            SET "quantity" = "quantity" - ${quantity}
+            WHERE "contractorId" = ${contractorId} AND "itemId" = ${itemId} AND "quantity" >= ${quantity}
+            RETURNING *
+        `;
+        if (result.length === 0) {
+            throw new Error(`Insufficient physical stock for item ${itemId} in contractor store ${contractorId}`);
+        }
+        return result[0];
+    }
+
+    /**
+     * Atomic Decrement for Contractor Batch Stock
+     */
+    static async decrementBatchStockAtomic(contractorId: string, batchId: string, quantity: number, tx: any) {
+        const result: any[] = await tx.$queryRaw`
+            UPDATE "ContractorBatchStock"
+            SET "quantity" = "quantity" - ${quantity}
+            WHERE "contractorId" = ${contractorId} AND "batchId" = ${batchId} AND "quantity" >= ${quantity}
+            RETURNING *
+        `;
+        if (result.length === 0) {
+            throw new Error(`Insufficient physical batch stock for batch ${batchId} in contractor store ${contractorId}`);
+        }
+        return result[0];
+    }
+
+    /**
      * Get OPMC details including store link
      */
     static async findOpmcWithStore(opmcId: string, tx?: any) {

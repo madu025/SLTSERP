@@ -108,7 +108,7 @@ export class SODQueryService {
                 });
             } else if (filter === 'completed') {
                 andFilters.push({ completedDate: { gte: startDate, lt: nextMonth } });
-            } else if (filter === 'return') {
+            } else if (filter === 'return' || filter === 'disappeared') {
                 andFilters.push({
                     OR: [
                         { completedDate: { gte: startDate, lt: nextMonth } },
@@ -140,7 +140,7 @@ export class SODQueryService {
                 andFilters.push({ sltsStatus: 'RETURN' });
             } else {
                 andFilters.push({
-                    sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN'] },
+                    sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN', 'DISAPPEARED'] },
                     status: { notIn: completionStatuses }
                 });
             }
@@ -159,6 +159,10 @@ export class SODQueryService {
                     { sltsStatus: { notIn: ['INSTALL_CLOSED', 'RETURN'] } },
                     { status: { notIn: ['INSTALL_CLOSED', 'RETURN', 'PAT_OPMC_REJECTED'] } }
                 ]
+            });
+        } else if (filter === 'disappeared') {
+            andFilters.push({
+                sltsStatus: 'DISAPPEARED'
             });
         } else if (filter === 'return') {
             andFilters.push({
@@ -230,7 +234,7 @@ export class SODQueryService {
         let primaryOrderBy: Prisma.ServiceOrderOrderByWithRelationInput = { createdAt: 'desc' };
         if (filter === 'completed') {
             primaryOrderBy = { completedDate: 'desc' };
-        } else if (filter === 'return') {
+        } else if (filter === 'return' || filter === 'disappeared') {
             primaryOrderBy = { completedDate: 'desc' };
         }
 

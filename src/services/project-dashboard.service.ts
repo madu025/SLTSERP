@@ -416,17 +416,7 @@ export class ProjectDashboardService {
             };
         });
 
-        if (recentActivities.length === 0) {
-            recentActivities.push(
-                {
-                    user: "System",
-                    action: "initialized",
-                    target: "Dashboard Engine",
-                    time: "Just now",
-                    type: "creation"
-                }
-            );
-        }
+        // Removed dummy data padding as requested
 
         return {
             overview: {

@@ -23,3 +23,5 @@ export const GET = apiHandler(async (req) => {
 
     return await InventoryService.getGRNs(storeId);
 });
+
+export const dynamic = 'force-dynamic';

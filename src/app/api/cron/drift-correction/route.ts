@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { StatsService } from '@/lib/stats.service';
 import { logger } from '@/lib/logger';

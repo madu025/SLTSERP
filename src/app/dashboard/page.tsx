@@ -7,7 +7,8 @@ import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DashboardFilters, StatsCardGrid, DashboardError } from './components';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection } from './components';
 import type { Stats } from './components';
 import RoleGuard from '@/components/RoleGuard';
 
@@ -51,6 +52,7 @@ export default function DashboardPage() {
     const [mounted, setMounted] = useState(false);
     const [selectedRegion, setSelectedRegion] = useState('ALL');
     const [selectedRtom, setSelectedRtom] = useState('ALL');
+    const [activeTab, setActiveTab] = useState('operations');
 
     useEffect(() => {
         Promise.resolve().then(() => setMounted(true));
@@ -84,6 +86,9 @@ export default function DashboardPage() {
     const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
     const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user.role);
     const canFilterGlobally = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER'].includes(user.role);
+    
+    // Only high level roles can see finance & inventory
+    const canViewFinance = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'MANAGER'].includes(user.role);
 
     const rtomRegionMap = stats?.rtomRegionMap;
     const userAccessibleRtoms = stats?.userAccessibleRtoms;
@@ -162,40 +167,67 @@ export default function DashboardPage() {
                 <main className="flex-1 flex flex-col min-w-0 h-full">
                     <Header />
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
-                        <div className="max-w-7xl mx-auto w-full">
+                        <div className="max-w-7xl mx-auto w-full space-y-6">
                             <DashboardFilters
                                 user={user}
-                            selectedRegion={selectedRegion}
-                            selectedRtom={selectedRtom}
-                            onRegionChange={(val) => { setSelectedRegion(val); setSelectedRtom('ALL'); }}
-                            onRtomChange={setSelectedRtom}
-                            onClearFilters={() => { setSelectedRegion('ALL'); setSelectedRtom('ALL'); }}
-                            canFilterGlobally={canFilterGlobally}
-                            availableRegions={stats?.availableRegions}
-                            availableRtoms={availableRtoms}
-                            patRejectedCount={stats?.pat?.rejected || 0}
-                            isAreaCoordinator={isAreaCoordinator}
-                            isLoading={isLoading}
-                        />
-                        <StatsCardGrid isLoading={isLoading} stats={stats} />
-                        <ChartSection
-                            isLoading={isLoading}
-                            monthlyPieData={monthlyPieData}
-                            patData={patData}
-                            statusBreakdown={stats?.statusBreakdown}
-                        />
-                        <PerformanceSection
-                            isLoading={isLoading}
-                            contractors={stats?.contractors}
-                            aging={stats?.aging}
-                        />
-                        {isHigherManagement && (
-                            <RTOMTables isLoading={isLoading} sortedRtoms={sortedRtoms} />
-                        )}
+                                selectedRegion={selectedRegion}
+                                selectedRtom={selectedRtom}
+                                onRegionChange={(val) => { setSelectedRegion(val); setSelectedRtom('ALL'); }}
+                                onRtomChange={setSelectedRtom}
+                                onClearFilters={() => { setSelectedRegion('ALL'); setSelectedRtom('ALL'); }}
+                                canFilterGlobally={canFilterGlobally}
+                                availableRegions={stats?.availableRegions}
+                                availableRtoms={availableRtoms}
+                                patRejectedCount={stats?.pat?.rejected || 0}
+                                isAreaCoordinator={isAreaCoordinator}
+                                isLoading={isLoading}
+                            />
+                            
+                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                                <TabsList className="mb-4">
+                                    <TabsTrigger value="operations">Operations</TabsTrigger>
+                                    <TabsTrigger value="projects">Projects</TabsTrigger>
+                                    {canViewFinance && <TabsTrigger value="finance">Finance</TabsTrigger>}
+                                    {canViewFinance && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
+                                </TabsList>
+                                
+                                <TabsContent value="operations" className="space-y-6">
+                                    <StatsCardGrid isLoading={isLoading} stats={stats} />
+                                    <ChartSection
+                                        isLoading={isLoading}
+                                        monthlyPieData={monthlyPieData}
+                                        patData={patData}
+                                        statusBreakdown={stats?.statusBreakdown}
+                                    />
+                                    <PerformanceSection
+                                        isLoading={isLoading}
+                                        contractors={stats?.contractors}
+                                        aging={stats?.aging}
+                                    />
+                                    {isHigherManagement && (
+                                        <RTOMTables isLoading={isLoading} sortedRtoms={sortedRtoms} />
+                                    )}
+                                </TabsContent>
+                                
+                                <TabsContent value="projects" className="space-y-6">
+                                    <ProjectsSection user={user} />
+                                </TabsContent>
+
+                                {canViewFinance && (
+                                    <>
+                                        <TabsContent value="finance" className="space-y-6">
+                                            <FinanceSection rtom={selectedRtom} />
+                                        </TabsContent>
+                                        <TabsContent value="inventory" className="space-y-6">
+                                            <InventorySection rtom={selectedRtom} />
+                                        </TabsContent>
+                                    </>
+                                )}
+                            </Tabs>
+                        </div>
                     </div>
-                </div>
-            </main>
-        </div>
+                </main>
+            </div>
         </RoleGuard>
     );
 }

@@ -63,9 +63,9 @@ model SystemConfig {
 
 model SystemConfigVersion {
   id            String    @id @default(cuid())
-  category      String    // FINANCE, SOD, INVENTORY
-  key           String    // e.g. FINANCE_VAT_PERCENT, INVENTORY_DROP_WIRE_RATE
-  value         String    // e.g. "18.0"
+  category      String // FINANCE, SOD, INVENTORY
+  key           String // e.g. FINANCE_VAT_PERCENT, INVENTORY_DROP_WIRE_RATE
+  value         String // e.g. "18.0"
   effectiveFrom DateTime  @default(now())
   effectiveTo   DateTime? // null means currently active without expiry
   description   String?
@@ -100,22 +100,22 @@ model DashboardStat {
 }
 
 model SystemErrorLog {
-  id          String    @id @default(cuid())
-  statusCode  Int       @default(500)
-  errorCode   String    @default("INTERNAL_ERROR")
-  message     String
-  stackTrace  String?   @db.Text
-  path        String
-  method      String    @default("GET")
-  userId      String?
-  userRole    String?
-  ipAddress   String?
-  userAgent   String?
-  resolved    Boolean   @default(false)
-  resolvedAt  DateTime?
-  resolvedBy  String?
-  metadata    Json?
-  createdAt   DateTime  @default(now())
+  id         String    @id @default(cuid())
+  statusCode Int       @default(500)
+  errorCode  String    @default("INTERNAL_ERROR")
+  message    String
+  stackTrace String?   @db.Text
+  path       String
+  method     String    @default("GET")
+  userId     String?
+  userRole   String?
+  ipAddress  String?
+  userAgent  String?
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
 
   @@index([createdAt])
   @@index([statusCode])

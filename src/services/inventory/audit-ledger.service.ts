@@ -14,21 +14,23 @@ export interface CreateLedgerEntryInput {
     quantityAfter: number | Decimal;
     unitPrice?: number | Decimal;
     performedById: string;
+    idempotencyKey?: string;
 }
 
 type Decimal = Prisma.Decimal;
 
 export class AuditLedgerService {
     /**
-     * Compute SHA-256 Checksum for tamper prevention
+     * Compute SHA-256 Checksum for tamper prevention using Hash Chaining
      */
     private static generateChecksum(
         storeId: string,
         itemId: string,
         quantityAfter: string | number,
-        createdAt: string
+        createdAt: string,
+        previousChecksum: string = 'GENESIS'
     ): string {
-        const payload = `${storeId}:${itemId}:${quantityAfter}:${createdAt}`;
+        const payload = `${storeId}:${itemId}:${quantityAfter}:${createdAt}:${previousChecksum}`;
         return crypto.createHash('sha256').update(payload).digest('hex');
     }
 
@@ -93,6 +95,23 @@ export class AuditLedgerService {
      */
     static async recordEntry(input: CreateLedgerEntryInput, tx?: any) {
         const client = tx || prisma;
+        
+        // 1. Idempotency Check
+        if (input.idempotencyKey) {
+            const existing = await client.inventoryLedger.findUnique({
+                where: { idempotencyKey: input.idempotencyKey }
+            });
+            if (existing) return existing;
+        }
+
+        // 2. Fetch Previous Checksum for Hash Chaining
+        const lastEntry = await client.inventoryLedger.findFirst({
+            where: { storeId: input.storeId, itemId: input.itemId },
+            orderBy: { createdAt: 'desc' },
+            select: { checksum: true }
+        });
+        const previousChecksum = lastEntry?.checksum || 'GENESIS';
+
         const qtyBefore = new Prisma.Decimal(String(input.quantityBefore));
         const qtyChange = new Prisma.Decimal(String(input.quantityChange));
         const qtyAfter = new Prisma.Decimal(String(input.quantityAfter));
@@ -105,7 +124,8 @@ export class AuditLedgerService {
             input.storeId,
             input.itemId,
             qtyAfter.toString(),
-            nowIso
+            nowIso,
+            previousChecksum
         );
 
         return client.inventoryLedger.create({
@@ -122,8 +142,10 @@ export class AuditLedgerService {
                 unitPrice: price,
                 totalValue: totalVal,
                 performedById: input.performedById,
-                checksum,
-                createdAt: now,
+                idempotencyKey: input.idempotencyKey || null,
+                previousChecksum: previousChecksum,
+                checksum: checksum,
+                createdAt: now
             }
         });
     }

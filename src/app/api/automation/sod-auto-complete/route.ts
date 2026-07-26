@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { SODAutoCompletionService } from '@/services/sod-auto-completion.service';
 

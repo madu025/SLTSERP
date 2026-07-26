@@ -2,13 +2,14 @@ import {
     InventoryStore,
     InventoryBatch,
     User,
+    PrismaClient
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export type InventoryItemContext = 'OSP_FTTH' | 'GENERAL' | string;
 
 // Type for the extended Prisma transaction client
-export type TransactionClient = any;
+export type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 export interface CreateItemData {
     code: string;

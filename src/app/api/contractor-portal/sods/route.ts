@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { prisma } from '@/lib/prisma';
+import { ContractorService } from '@/services/contractor.service';
 import { ServiceOrderService } from '@/services/sod.service';
 import { AppError } from '@/lib/error';
 
@@ -7,21 +7,11 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req: Request) => {
     const userId = req.headers.get('x-user-id');
-    let contractorId: string | null = req.headers.get('x-contractor-id');
-
-    if (!contractorId && userId) {
-        const currentUser = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { contractorId: true }
-        });
-        contractorId = currentUser?.contractorId || null;
-    }
+    const context = await ContractorService.resolveContractorContext(userId, req.headers.get('x-contractor-id'));
+    const contractorId = context.contractorId;
 
     if (!contractorId) {
-        // Only SUPER_ADMIN can query without a contractorId (but they must provide it via query param or headers if they want specific data)
-        const currentUser = await prisma.user.findUnique({ where: { id: userId || '' } });
-        if (currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN')) {
-             // Let them proceed, but without a contractorId, getContractorAssignedSODs will return empty or throw
+        if (context.role === 'SUPER_ADMIN' || context.role === 'ADMIN') {
              return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
         }
         throw AppError.forbidden('User does not have an assigned Contractor profile.');

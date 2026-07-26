@@ -94,15 +94,16 @@ model InventoryItem {
 }
 
 model InventoryStock {
-  id        String         @id @default(cuid())
-  storeId   String
-  itemId    String
-  quantity  Decimal        @default(0)
-  minLevel  Decimal        @default(0)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  item      InventoryItem  @relation(fields: [itemId], references: [id])
-  store     InventoryStore @relation(fields: [storeId], references: [id])
+  id                String         @id @default(cuid())
+  storeId           String
+  itemId            String
+  quantity          Decimal        @default(0)
+  allocatedQuantity Decimal        @default(0)
+  minLevel          Decimal        @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  item              InventoryItem  @relation(fields: [itemId], references: [id])
+  store             InventoryStore @relation(fields: [storeId], references: [id])
 
   @@unique([storeId, itemId])
 }
@@ -132,16 +133,18 @@ model InventoryBatch {
 }
 
 model InventoryBatchStock {
-  id        String         @id @default(cuid())
-  storeId   String
-  itemId    String
-  batchId   String
-  quantity  Decimal        @default(0)
-  updatedAt DateTime       @updatedAt
-  locator   String?
-  batch     InventoryBatch @relation(fields: [batchId], references: [id])
-  item      InventoryItem  @relation(fields: [itemId], references: [id])
-  store     InventoryStore @relation(fields: [storeId], references: [id])
+  id                String            @id @default(cuid())
+  storeId           String
+  itemId            String
+  batchId           String
+  quantity          Decimal           @default(0)
+  allocatedQuantity Decimal           @default(0)
+  updatedAt         DateTime          @updatedAt
+  locatorId         String?
+  batch             InventoryBatch    @relation(fields: [batchId], references: [id])
+  item              InventoryItem     @relation(fields: [itemId], references: [id])
+  store             InventoryStore    @relation(fields: [storeId], references: [id])
+  locator           WarehouseLocator? @relation(fields: [locatorId], references: [id])
 
   @@unique([storeId, batchId])
   @@index([storeId])
@@ -241,50 +244,57 @@ model InventoryItemSerial {
 }
 
 model JournalEntry {
-  id            String        @id @default(cuid())
-  referenceId   String?
-  referenceType String?
-  description   String
-  status        String        @default("POSTED") // DRAFT, POSTED, REVERSED
-  isLocked      Boolean       @default(true)
-  postedAt      DateTime?     @default(now())
-  createdById   String?
-  reversalOfId  String?
-  date          DateTime      @default(now())
-  createdAt     DateTime      @default(now())
-  lines         JournalLine[]
+  id             String        @id @default(cuid())
+  referenceId    String?
+  referenceType  String?
+  idempotencyKey String?       @unique
+  sha256Hash     String?
+  description    String
+  status         String        @default("DRAFT") // DRAFT, PENDING_APPROVAL, POSTED, REVERSED
+  isLocked       Boolean       @default(false)
+  postedAt       DateTime?
+  createdById    String?
+  approvedById   String?
+  reversalOfId   String?
+  date           DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  lines          JournalLine[]
 
   @@index([referenceId, referenceType])
   @@index([status])
+  @@index([idempotencyKey])
 }
 
 model JournalLine {
-  id          String       @id @default(cuid())
-  entryId     String
-  accountCode String
-  accountName String
-  debit       Decimal      @default(0)
-  credit      Decimal      @default(0)
-  description String?
-  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  entryId      String
+  accountCode  String
+  accountName  String
+  debit        Decimal      @default(0)
+  credit       Decimal      @default(0)
+  description  String?
+  currency     String       @default("LKR")
+  exchangeRate Float        @default(1.0)
+  entry        JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@index([entryId])
   @@index([accountCode])
 }
 
 model WarehouseLocator {
-  id          String              @id @default(cuid())
-  storeId     String
-  code        String              
-  aisle       String?
-  rack        String?
-  shelf       String?
-  bin         String?
-  description String?
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  store       InventoryStore      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id                   String                @id @default(cuid())
+  storeId              String
+  code                 String
+  aisle                String?
+  rack                 String?
+  shelf                String?
+  bin                  String?
+  description          String?
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  store                InventoryStore        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  inventoryBatchStocks InventoryBatchStock[]
 
   @@unique([storeId, code])
   @@index([storeId])
@@ -292,23 +302,23 @@ model WarehouseLocator {
 }
 
 model CycleCountHeader {
-  id                  String           @id @default(cuid())
-  countNumber         String           @unique
-  storeId             String
-  status              String           @default("DRAFT") 
-  countType           String           @default("BLIND") 
-  plannedDate         DateTime         @default(now())
-  completedDate       DateTime?
-  countedById         String
-  approvedById        String?
-  remarks             String?
-  totalVarianceValue  Decimal          @default(0)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  store               InventoryStore   @relation(fields: [storeId], references: [id])
-  countedBy           User             @relation("CycleCounter", fields: [countedById], references: [id])
-  approvedBy          User?            @relation("CycleApprover", fields: [approvedById], references: [id])
-  lines               CycleCountLine[]
+  id                 String           @id @default(cuid())
+  countNumber        String           @unique
+  storeId            String
+  status             String           @default("DRAFT")
+  countType          String           @default("BLIND")
+  plannedDate        DateTime         @default(now())
+  completedDate      DateTime?
+  countedById        String
+  approvedById       String?
+  remarks            String?
+  totalVarianceValue Decimal          @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  store              InventoryStore   @relation(fields: [storeId], references: [id])
+  countedBy          User             @relation("CycleCounter", fields: [countedById], references: [id])
+  approvedBy         User?            @relation("CycleApprover", fields: [approvedById], references: [id])
+  lines              CycleCountLine[]
 
   @@index([storeId])
   @@index([status])
@@ -316,48 +326,48 @@ model CycleCountHeader {
 }
 
 model CycleCountLine {
-  id              String           @id @default(cuid())
-  headerId        String
-  itemId          String
-  batchId         String?
-  systemQty       Decimal          @default(0)
-  countedQty      Decimal          @default(0)
-  varianceQty     Decimal          @default(0)
-  unitCost        Decimal          @default(0)
-  varianceValue   Decimal          @default(0)
-  notes           String?
-  header          CycleCountHeader @relation(fields: [headerId], references: [id], onDelete: Cascade)
-  item            InventoryItem    @relation(fields: [itemId], references: [id])
-  batch           InventoryBatch?  @relation(fields: [batchId], references: [id])
+  id            String           @id @default(cuid())
+  headerId      String
+  itemId        String
+  batchId       String?
+  systemQty     Decimal          @default(0)
+  countedQty    Decimal          @default(0)
+  varianceQty   Decimal          @default(0)
+  unitCost      Decimal          @default(0)
+  varianceValue Decimal          @default(0)
+  notes         String?
+  header        CycleCountHeader @relation(fields: [headerId], references: [id], onDelete: Cascade)
+  item          InventoryItem    @relation(fields: [itemId], references: [id])
+  batch         InventoryBatch?  @relation(fields: [batchId], references: [id])
 
   @@index([headerId])
   @@index([itemId])
 }
 
 model InventoryLedger {
-  id              String         @id @default(cuid())
-  storeId         String
-  itemId          String
-  batchId         String?
-  transactionType String         // GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION
-  referenceType   String         // GRN, ContractorMaterialIssue, SOD, MRN, CycleCount
-  referenceId     String
-  quantityBefore  Decimal        @default(0) @db.Decimal(12, 4)
-  quantityChange  Decimal        @default(0) @db.Decimal(12, 4)
-  quantityAfter   Decimal        @default(0) @db.Decimal(12, 4)
-  unitPrice       Decimal        @default(0) @db.Decimal(12, 2)
-  totalValue      Decimal        @default(0) @db.Decimal(14, 2)
-  performedById   String
-  checksum        String         // SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt)
-  createdAt       DateTime       @default(now())
+  id               String   @id @default(cuid())
+  storeId          String
+  itemId           String
+  batchId          String?
+  transactionType  String // GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION
+  referenceType    String // GRN, ContractorMaterialIssue, SOD, MRN, CycleCount
+  referenceId      String
+  quantityBefore   Decimal  @default(0) @db.Decimal(12, 4)
+  quantityChange   Decimal  @default(0) @db.Decimal(12, 4)
+  quantityAfter    Decimal  @default(0) @db.Decimal(12, 4)
+  unitPrice        Decimal  @default(0) @db.Decimal(12, 2)
+  totalValue       Decimal  @default(0) @db.Decimal(14, 2)
+  performedById    String
+  idempotencyKey   String?  @unique
+  previousChecksum String?
+  checksum         String // SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt + previousChecksum)
+  createdAt        DateTime @default(now())
 
-  store           InventoryStore @relation(fields: [storeId], references: [id])
-  item            InventoryItem  @relation(fields: [itemId], references: [id])
-  performedBy     User           @relation(fields: [performedById], references: [id])
+  store       InventoryStore @relation(fields: [storeId], references: [id])
+  item        InventoryItem  @relation(fields: [itemId], references: [id])
+  performedBy User           @relation(fields: [performedById], references: [id])
 
   @@index([storeId, itemId, createdAt])
   @@index([referenceType, referenceId])
   @@index([transactionType])
 }
-
-

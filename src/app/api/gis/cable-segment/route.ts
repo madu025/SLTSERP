@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { GISRouteService } from '@/services/gis/GISRouteService';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,16 +15,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Coordinates are required and must be an array of lon/lat points' }, { status: 400 });
     }
 
-    // 1. Fetch the cable segment
-    const segment = await prisma.gISCableSegment.findUnique({
-      where: { id: segmentId },
-      include: { route: true }
-    });
-
-    if (!segment) {
-      return NextResponse.json({ error: 'Cable segment not found' }, { status: 404 });
-    }
-
     // Calculate length in meters if not provided using haversine distance
     let computedLength = length;
     if (computedLength === undefined) {
@@ -37,33 +27,7 @@ export async function PATCH(req: NextRequest) {
       computedLength = dist;
     }
 
-    const currentProperties = (segment.properties as Record<string, any>) || {};
-    const updatedProperties = {
-      ...currentProperties,
-      coordinates
-    };
-
-    // Update coordinates in the properties JSON object and update length
-    const updatedSegment = await prisma.gISCableSegment.update({
-      where: { id: segmentId },
-      data: {
-        properties: updatedProperties,
-        length: computedLength
-      }
-    });
-
-    // Reset parent route status to DRAFT to allow BOQ regeneration
-    if (segment.route.status === 'BOQ_GENERATED') {
-      await prisma.gISRoute.update({
-        where: { id: segment.routeId },
-        data: { status: 'DRAFT' },
-      });
-    }
-
-    // Clear old BOQs for this route to prevent duplicates
-    await prisma.gISGeneratedBOQ.deleteMany({
-      where: { routeId: segment.routeId },
-    });
+    const updatedSegment = await GISRouteService.updateCableSegment(segmentId, coordinates, computedLength);
 
     return NextResponse.json({
       message: 'Cable segment updated successfully',

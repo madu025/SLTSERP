@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { AppointmentNotificationService } from '@/services/notification.service';
 import { AppError } from '@/lib/error';

@@ -5,7 +5,7 @@ model PettyCashAccount {
   imprestLimit   Float                    @default(0)
   currentBalance Float                    @default(0)
   status         String                   @default("ACTIVE")
-  createdById    String
+  createdById    String?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
   opmc           OPMC                     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
@@ -29,7 +29,7 @@ model PettyCashVoucher {
   approvedAt      DateTime?
   rejectionReason String?
   reimbursementId String?
-  createdById     String
+  createdById     String?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   account         PettyCashAccount        @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -46,7 +46,7 @@ model PettyCashReimbursement {
   totalAmount         Float              @default(0)
   status              String             @default("PENDING")
   paymentVoucherId    String?
-  createdById         String
+  createdById         String?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   account             PettyCashAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)

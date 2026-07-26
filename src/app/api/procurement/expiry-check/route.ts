@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { NotificationPolicyService } from '@/services/notification/notification-policy.service';
 

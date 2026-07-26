@@ -23,8 +23,247 @@ export class HelpdeskService {
   // IT ASSETS BUSINESS LOGIC
   // ==========================================
 
+  static async searchAssetBySerial(serial: string) {
+    const asset = await prisma.iTAsset.findFirst({
+      where: {
+        serialNumber: {
+          equals: serial.trim(),
+          mode: 'insensitive'
+        }
+      },
+      include: {
+        assignedStaff: {
+          select: {
+            employeeId: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (!asset) {
+      return { found: false };
+    }
+
+    return {
+      found: true,
+      asset: {
+        id: asset.id,
+        assetNumber: asset.assetNumber,
+        serialNumber: asset.serialNumber,
+        deviceType: asset.deviceType,
+        brand: asset.brand,
+        model: asset.model,
+        status: asset.status,
+        assignedStaff: asset.assignedStaff ? {
+          employeeId: asset.assignedStaff.employeeId,
+          name: asset.assignedStaff.name
+        } : null
+      }
+    };
+  }
+
+  static async getAssetStats() {
+    const counts = await prisma.iTAsset.groupBy({
+      by: ['status'],
+      _count: {
+        id: true
+      }
+    });
+
+    const stats = {
+      total: 0,
+      ACTIVE: 0,
+      SPARE: 0,
+      UNDER_REPAIR: 0,
+      FAULTY: 0,
+      DECOMMISSIONED: 0,
+      DISPOSED: 0,
+      TRANSFERRED: 0
+    };
+
+    for (const c of counts) {
+      const status = c.status;
+      const count = c._count.id;
+      if (status in stats) {
+        (stats as any)[status] = count;
+      }
+      stats.total += count;
+    }
+
+    return stats;
+  }
+
+  static async getStaffAssets(staffId: string) {
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
+      select: {
+        id: true,
+        name: true,
+        employeeId: true,
+        designation: true,
+        area: true
+      }
+    });
+
+    if (!staff) {
+      throw AppError.notFound("STAFF_NOT_FOUND");
+    }
+
+    const activeAssets = await prisma.iTAsset.findMany({
+      where: { assignedStaffId: staffId },
+      select: {
+        id: true,
+        assetNumber: true,
+        serialNumber: true,
+        deviceType: true,
+        brand: true,
+        model: true,
+        status: true,
+        physicallyInStores: true
+      }
+    });
+
+    const handovers = await prisma.assetHandoverLog.findMany({
+      where: { targetStaffId: staffId },
+      include: {
+        performedBy: { select: { name: true, username: true } },
+        asset: { select: { assetNumber: true, brand: true, model: true } }
+      },
+      orderBy: { date: "desc" }
+    });
+
+    return {
+      staff,
+      activeAssets,
+      handovers
+    };
+  }
+
+  static async getAssetHandovers(assetId: string) {
+    return await prisma.assetHandoverLog.findMany({
+      where: { assetId },
+      include: {
+        performedBy: { select: { name: true, username: true } },
+        targetStaff: { select: { name: true, employeeId: true } }
+      },
+      orderBy: { date: 'desc' }
+    });
+  }
   static async getAssetById(id: string) {
     return HelpdeskRepository.findAssetById(id);
+  }
+
+  static async getAssetUnits(assetId: string) {
+    return await prisma.iTAssetUnit.findMany({
+      where: { assetId },
+      include: {
+        assignedStaff: {
+          select: { id: true, name: true, employeeId: true, designation: true }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  static async getAssetHistory(assetId: string) {
+    const [handovers, auditLogs, syncLogs] = await Promise.all([
+      prisma.assetHandoverLog.findMany({
+        where: { assetId },
+        include: {
+          performedBy: { select: { name: true, username: true } },
+          targetStaff: { select: { name: true, employeeId: true } }
+        },
+        orderBy: { date: 'desc' }
+      }),
+      prisma.auditLog.findMany({
+        where: {
+          entity: "ITAsset",
+          entityId: assetId
+        },
+        include: {
+          user: { select: { name: true, username: true } }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.assetSyncLog.findMany({
+        where: { assetId },
+        orderBy: { syncedAt: 'desc' }
+      })
+    ]);
+
+    const mappedHandovers = handovers.map(h => ({
+      id: h.id,
+      type: "HANDOVER",
+      timestamp: h.date,
+      title: `Custody ${h.transactionType === "ISSUED_TO_USER" ? "Issue" : h.transactionType === "RETURNED_TO_STORE" ? "Return" : "Exchange"}`,
+      description: h.targetStaff
+        ? `Device ${h.transactionType === "ISSUED_TO_USER" ? "handed over to" : h.transactionType === "RETURNED_TO_STORE" ? "returned from" : "exchanged with"} ${h.targetStaff.name} (EPF: ${h.targetStaff.employeeId}).`
+        : `Custody changed (${h.transactionType}).`,
+      user: h.performedBy ? { name: h.performedBy.name, username: h.performedBy.username } : null,
+      meta: {
+        condition: h.condition,
+        remarks: h.remarks,
+        transactionType: h.transactionType
+      }
+    }));
+
+    const mappedAudit = auditLogs.map(a => {
+      let desc = `Asset details modified.`;
+      if (a.action === "CREATE") {
+        desc = "Asset registered in system.";
+      } else if (a.action === "DELETE") {
+        desc = "Asset deleted from inventory.";
+      } else if (a.action === "UPDATE" && a.newValue && typeof a.newValue === 'object') {
+        const oldVal = a.oldValue && typeof a.oldValue === 'object' ? (a.oldValue as Record<string, any>) : {};
+        const newVal = a.newValue as Record<string, any>;
+        const changes: string[] = [];
+        
+        for (const key of Object.keys(newVal)) {
+          if (key === 'updatedAt' || key === 'lastSyncedAt') continue;
+          if (JSON.stringify(newVal[key]) !== JSON.stringify(oldVal[key])) {
+            const displayOld = oldVal[key] !== undefined && oldVal[key] !== null ? String(oldVal[key]) : "empty";
+            const displayNew = newVal[key] !== undefined && newVal[key] !== null ? String(newVal[key]) : "empty";
+            const cleanKey = key.replace(/([A-Z])/g, ' $1').trim().replace(/^\w/, (c: string) => c.toUpperCase());
+            changes.push(`${cleanKey}: "${displayOld}" ➜ "${displayNew}"`);
+          }
+        }
+        if (changes.length > 0) {
+          desc = `Updated fields: ${changes.join(", ")}`;
+        }
+      }
+
+      return {
+        id: a.id,
+        type: "SYSTEM_UPDATE",
+        timestamp: a.createdAt,
+        title: `System ${a.action.charAt(0).toUpperCase() + a.action.slice(1).toLowerCase()}`,
+        description: desc,
+        user: a.user ? { name: a.user.name, username: a.user.username } : null,
+        meta: {
+          ipAddress: a.ipAddress,
+          userAgent: a.userAgent
+        }
+      };
+    });
+
+    const mappedSync = syncLogs.map(s => ({
+      id: `sync-${s.id}`,
+      type: "AGENT_SYNC",
+      timestamp: s.syncedAt,
+      title: "Automated Specifications Sync",
+      description: `Hardware & software synced from reported employee username "${s.reportedEmployeeUsername || '—'}" (EPF: ${s.reportedEmployeeNumber || '—'}) on IP ${s.ipAddress || '—'}.`,
+      user: null,
+      meta: {
+        ipAddress: s.ipAddress,
+        employeeNo: s.reportedEmployeeNumber,
+        username: s.reportedEmployeeUsername
+      }
+    }));
+
+    return [...mappedHandovers, ...mappedAudit, ...mappedSync].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
   }
 
   static async ensureUserAccountForStaff(

@@ -9,52 +9,52 @@
 model FinanceBudgetAllocation {
   id              String                 @id @default(cuid())
   opmcId          String
-  fiscalYear      Int                                          // e.g., 2025
-  quarter         Int?                                         // 1-4, null = full year
-  expenditureType String                                       // CAPEX | OPEX
-  category        String                                       // NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER
+  fiscalYear      Int // e.g., 2025
+  quarter         Int? // 1-4, null = full year
+  expenditureType String // CAPEX | OPEX
+  category        String // NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER
   allocatedAmount Float                  @default(0)
   description     String?
   approvedById    String?
   approvedAt      DateTime?
-  status          String                 @default("ACTIVE")   // ACTIVE | FROZEN | REVISED
+  status          String                 @default("ACTIVE") // ACTIVE | FROZEN | REVISED
   createdById     String
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   opmc            OPMC                   @relation(fields: [opmcId], references: [id])
   ledgerEntries   CapexOpexLedgerEntry[]
 
+  @@unique([opmcId, fiscalYear, quarter, expenditureType, category])
   @@index([opmcId])
   @@index([fiscalYear])
   @@index([expenditureType])
   @@index([category])
   @@index([status])
-  @@unique([opmcId, fiscalYear, quarter, expenditureType, category])
 }
 
 // ─── Unified CAPEX/OPEX Ledger — Every Spend Event Recorded Here ─────────────
 model CapexOpexLedgerEntry {
-  id               String                    @id @default(cuid())
-  budgetId         String?
-  opmcId           String
-  expenditureType  String                                       // CAPEX | OPEX
-  category         String                                       // NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER
-  sourceType       String                                       // PROJECT_EXPENSE | INVOICE | PETTY_CASH | PURCHASE_ORDER | VEHICLE_TRIP | MANUAL
-  sourceId         String                                       // Polymorphic FK to the originating record
-  amount           Float                     @default(0)
-  transactionDate  DateTime                  @default(now())
-  fiscalYear       Int
-  quarter          Int                                          // 1-4, computed from transactionDate
-  description      String
-  referenceNumber  String?                                      // PO/Invoice/Voucher reference number
-  vendorId         String?
-  projectId        String?
-  approvedById     String?
-  createdById      String
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
-  budget           FinanceBudgetAllocation?  @relation(fields: [budgetId], references: [id])
-  opmc             OPMC                      @relation(fields: [opmcId], references: [id])
+  id              String                   @id @default(cuid())
+  budgetId        String?
+  opmcId          String
+  expenditureType String // CAPEX | OPEX
+  category        String // NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER
+  sourceType      String // PROJECT_EXPENSE | INVOICE | PETTY_CASH | PURCHASE_ORDER | VEHICLE_TRIP | MANUAL
+  sourceId        String // Polymorphic FK to the originating record
+  amount          Float                    @default(0)
+  transactionDate DateTime                 @default(now())
+  fiscalYear      Int
+  quarter         Int // 1-4, computed from transactionDate
+  description     String
+  referenceNumber String? // PO/Invoice/Voucher reference number
+  vendorId        String?
+  projectId       String?
+  approvedById    String?
+  createdById     String
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  budget          FinanceBudgetAllocation? @relation(fields: [budgetId], references: [id])
+  opmc            OPMC                     @relation(fields: [opmcId], references: [id])
 
   @@index([opmcId])
   @@index([expenditureType])

@@ -1,86 +1,86 @@
 model ServiceOrder {
-  id               String                      @id @default(cuid())
-  rtom             String
-  lea              String?
-  soNum            String                      @unique
-  voiceNumber      String?
-  orderType        String?
-  serviceType      String?
-  customerName     String?
-  techContact      String?
-  status           String
-  statusDate       DateTime?
-  receivedDate     DateTime?
-  address          String?
-  dp               String?
-  package          String?
-  ospPhoneClass    String?
-  phonePurchase    String?
-  sales            String?
-  woroTaskName     String?
-  iptv             String?
-  woroSeit         String?
-  ftthInstSeit     String?
-  ftthWifi         String?
-  sltsStatus       String                      @default("INPROGRESS")
-  scheduledDate    DateTime?
-  scheduledTime    String?
-  comments         String?
-  completedDate    DateTime?
-  ontSerialNumber  String?
-  dpDetails        String?
-  patStatus        String?
-  sltsPatStatus    String?                     @default("PENDING")
-  sltsPatDate      DateTime?
-  opmcPatStatus    String?                     @default("PENDING")
-  opmcPatDate      DateTime?
-  hoPatStatus      String?                     @default("PENDING")
-  hoPatDate        DateTime?
-  isInvoicable     Boolean                     @default(false)
-  invoiced         Boolean                     @default(false)
-  invoiceId        String?
-  wiredOnly        Boolean                     @default(false)
-  delayReasons     Json?
-  stbShortage      Boolean                     @default(false)
-  ontShortage      Boolean                     @default(false)
-  ontType          String?
-  returnReason     String?
-  completionMode   String?
-  materialSource   String?
-  directTeam       String?
-  photoUrls        String[]                    @default([])
-  dropWireDistance Float?
-  revenueAmount    Float?
-  contractorAmount Float?
-  opmcId           String
-  contractorId     String?
-  teamId           String?
-  isManualEntry    Boolean                     @default(false)
-  isLegacyImport   Boolean                     @default(false)
-  isOfflineWorkOrder Boolean                   @default(false)
-  offlineReference String?                     
-  qcStatus         String?                     @default("PENDING_QC")
-  qcDefects        Json?
-  qcComment        String?
-  qcInspectedAt    DateTime?
-  createdAt        DateTime                    @default(now())
-  updatedAt        DateTime                    @updatedAt
-  projectInvoiceId String?
-  collectedCPEs    CollectedCPE[]              @relation("CollectedCPEs")
-  materialReturns  ContractorMaterialReturn[]  @relation("SODMaterialReturns")
-  penalties        Penalty[]
-  restoreRequests  RestoreRequest[]
-  erectedPoles     SODErectedPole[]
-  forensicAudit    SODForensicAudit?
-  iptvSerials      SODIptvSerial[]
-  materialUsage    SODMaterialUsage[]
-  contractor       Contractor?                 @relation(fields: [contractorId], references: [id])
-  invoice          Invoice?                    @relation(fields: [invoiceId], references: [id])
-  opmc             OPMC                        @relation(fields: [opmcId], references: [id], onDelete: Cascade)
-  projectInvoice   ProjectInvoice?             @relation("ProjectInvoiceSODs", fields: [projectInvoiceId], references: [id])
-  team             ContractorTeam?             @relation(fields: [teamId], references: [id])
-  commentsHistory  ServiceOrderComment[]
-  statusHistory    ServiceOrderStatusHistory[]
+  id                 String                      @id @default(cuid())
+  rtom               String
+  lea                String?
+  soNum              String                      @unique
+  voiceNumber        String?
+  orderType          String?
+  serviceType        String?
+  customerName       String?
+  techContact        String?
+  status             String
+  statusDate         DateTime?
+  receivedDate       DateTime?
+  address            String?
+  dp                 String?
+  package            String?
+  ospPhoneClass      String?
+  phonePurchase      String?
+  sales              String?
+  woroTaskName       String?
+  iptv               String?
+  woroSeit           String?
+  ftthInstSeit       String?
+  ftthWifi           String?
+  sltsStatus         String                      @default("INPROGRESS")
+  scheduledDate      DateTime?
+  scheduledTime      String?
+  comments           String?
+  completedDate      DateTime?
+  ontSerialNumber    String?
+  dpDetails          String?
+  patStatus          String?
+  sltsPatStatus      String?                     @default("PENDING")
+  sltsPatDate        DateTime?
+  opmcPatStatus      String?                     @default("PENDING")
+  opmcPatDate        DateTime?
+  hoPatStatus        String?                     @default("PENDING")
+  hoPatDate          DateTime?
+  isInvoicable       Boolean                     @default(false)
+  invoiced           Boolean                     @default(false)
+  invoiceId          String?
+  wiredOnly          Boolean                     @default(false)
+  delayReasons       Json?
+  stbShortage        Boolean                     @default(false)
+  ontShortage        Boolean                     @default(false)
+  ontType            String?
+  returnReason       String?
+  completionMode     String?
+  materialSource     String?
+  directTeam         String?
+  photoUrls          String[]                    @default([])
+  dropWireDistance   Float?
+  revenueAmount      Float?
+  contractorAmount   Float?
+  opmcId             String
+  contractorId       String?
+  teamId             String?
+  isManualEntry      Boolean                     @default(false)
+  isLegacyImport     Boolean                     @default(false)
+  isOfflineWorkOrder Boolean                     @default(false)
+  offlineReference   String?
+  qcStatus           String?                     @default("PENDING_QC")
+  qcDefects          Json?
+  qcComment          String?
+  qcInspectedAt      DateTime?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  projectInvoiceId   String?
+  collectedCPEs      CollectedCPE[]              @relation("CollectedCPEs")
+  materialReturns    ContractorMaterialReturn[]  @relation("SODMaterialReturns")
+  penalties          Penalty[]
+  restoreRequests    RestoreRequest[]
+  erectedPoles       SODErectedPole[]
+  forensicAudit      SODForensicAudit?
+  iptvSerials        SODIptvSerial[]
+  materialUsage      SODMaterialUsage[]
+  contractor         Contractor?                 @relation(fields: [contractorId], references: [id])
+  invoice            Invoice?                    @relation(fields: [invoiceId], references: [id])
+  opmc               OPMC                        @relation(fields: [opmcId], references: [id], onDelete: Cascade)
+  projectInvoice     ProjectInvoice?             @relation("ProjectInvoiceSODs", fields: [projectInvoiceId], references: [id])
+  team               ContractorTeam?             @relation(fields: [teamId], references: [id])
+  commentsHistory    ServiceOrderComment[]
+  statusHistory      ServiceOrderStatusHistory[]
 
   @@index([opmcId])
   @@index([rtom])
@@ -178,26 +178,26 @@ model RestoreRequest {
 }
 
 model SODMaterialUsage {
-  id             String                @id @default(cuid())
+  id             String               @id @default(cuid())
   serviceOrderId String
   itemId         String
   quantity       Float
   unit           String
   usageType      String
   batchId        String?
-  unitPrice      Float?                @default(0)
-  costPrice      Float?                @default(0)
+  unitPrice      Float?               @default(0)
+  costPrice      Float?               @default(0)
   wastagePercent Float?
-  exceedsLimit   Boolean               @default(false)
+  exceedsLimit   Boolean              @default(false)
   comment        String?
   serialNumber   String?
   approvedBy     String?
   approvedAt     DateTime?
-  createdAt      DateTime              @default(now())
-  batch          InventoryBatch?       @relation(fields: [batchId], references: [id])
-  item           InventoryItem         @relation("SODUsage", fields: [itemId], references: [id])
-  serviceOrder   ServiceOrder          @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
-  serialItem     InventoryItemSerial?  @relation(fields: [serialNumber], references: [serialNumber], onDelete: SetNull)
+  createdAt      DateTime             @default(now())
+  batch          InventoryBatch?      @relation(fields: [batchId], references: [id])
+  item           InventoryItem        @relation("SODUsage", fields: [itemId], references: [id])
+  serviceOrder   ServiceOrder         @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  serialItem     InventoryItemSerial? @relation(fields: [serialNumber], references: [serialNumber], onDelete: SetNull)
 
   @@index([serviceOrderId])
   @@index([itemId])

@@ -1,24 +1,24 @@
 model Contractor {
-  id                      String                           @id @default(cuid())
+  id                      String           @id @default(cuid())
   name                    String
   contactNumber           String?
   email                   String?
   nic                     String?
   address                 String?
-  type                    ContractorType                   @default(SOD)
-  registrationNumber      String?                          @unique
+  type                    ContractorType   @default(SOD)
+  registrationNumber      String?          @unique
   brNumber                String?
-  status                  ContractorStatus                 @default(PENDING)
+  status                  ContractorStatus @default(PENDING)
   photoUrl                String?
   nicFrontUrl             String?
   nicBackUrl              String?
   policeReportUrl         String?
   gramaCertUrl            String?
-  registrationFeePaid     Boolean                          @default(false)
+  registrationFeePaid     Boolean          @default(false)
   registrationFeeSlipUrl  String?
-  agreementSigned         Boolean                          @default(false)
+  agreementSigned         Boolean          @default(false)
   agreementDate           DateTime?
-  agreementDuration       Int?                             @default(1)
+  agreementDuration       Int?             @default(1)
   brCertUrl               String?
   armApprovedAt           DateTime?
   armApprovedById         String?
@@ -27,7 +27,7 @@ model Contractor {
   rejectionReason         String?
   rejectionById           String?
   rejectedAt              DateTime?
-  registrationToken       String?                          @unique
+  registrationToken       String?          @unique
   registrationTokenExpiry DateTime?
   registrationStartedAt   DateTime?
   registrationDraft       Json?
@@ -37,31 +37,38 @@ model Contractor {
   bankBranch              String?
   bankAccountNumber       String?
   bankPassbookUrl         String?
-  documentStatus          String                           @default("PENDING")
-  uploadToken             String?                          @unique
+  documentStatus          String           @default("PENDING")
+  uploadToken             String?          @unique
   uploadTokenExpiry       DateTime?
-  createdAt               DateTime                         @default(now())
-  updatedAt               DateTime                         @updatedAt
-  collectedCPEs           CollectedCPE[]                   @relation("CollectedCPEs")
-  armApprovedBy           User?                            @relation("ContractorArmApproval", fields: [armApprovedById], references: [id])
-  opmc                    OPMC?                            @relation(fields: [opmcId], references: [id])
-  ospApprovedBy           User?                            @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
-  rejectionBy             User?                            @relation("ContractorRejection", fields: [rejectionById], references: [id])
-  siteOfficeStaff         User?                            @relation("ContractorLinkGenerator", fields: [siteOfficeStaffId], references: [id])
-  batchStocks             ContractorBatchStock[]
-  balanceSheets           ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
-  materialIssues          ContractorMaterialIssue[]        @relation("MaterialIssues")
-  materialReturns         ContractorMaterialReturn[]       @relation("MaterialReturns")
-  performanceScores       ContractorPerformanceScore[]
-  stock                   ContractorStock[]
-  teams                   ContractorTeam[]
-  wastageReports          ContractorWastage[]
-  serials                 InventoryItemSerial[]
-  invoices                Invoice[]
-  projects                Project[]
-  serviceOrders           ServiceOrder[]
-  stockIssues             StockIssue[]                     @relation("ContractorIssues")
-  teamMembers             TeamMember[]
+
+  // Tax & Compliance (Oracle Fusion Integration)
+  tinNumber     String?
+  vatNumber     String?
+  kycVerified   Boolean @default(false)
+  whtHoldStatus Boolean @default(false)
+
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+  collectedCPEs     CollectedCPE[]                   @relation("CollectedCPEs")
+  armApprovedBy     User?                            @relation("ContractorArmApproval", fields: [armApprovedById], references: [id])
+  opmc              OPMC?                            @relation(fields: [opmcId], references: [id])
+  ospApprovedBy     User?                            @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
+  rejectionBy       User?                            @relation("ContractorRejection", fields: [rejectionById], references: [id])
+  siteOfficeStaff   User?                            @relation("ContractorLinkGenerator", fields: [siteOfficeStaffId], references: [id])
+  batchStocks       ContractorBatchStock[]
+  balanceSheets     ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  materialIssues    ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns   ContractorMaterialReturn[]       @relation("MaterialReturns")
+  performanceScores ContractorPerformanceScore[]
+  stock             ContractorStock[]
+  teams             ContractorTeam[]
+  wastageReports    ContractorWastage[]
+  serials           InventoryItemSerial[]
+  invoices          Invoice[]
+  projects          Project[]
+  serviceOrders     ServiceOrder[]
+  stockIssues       StockIssue[]                     @relation("ContractorIssues")
+  teamMembers       TeamMember[]
 
   @@index([status])
   @@index([opmcId])

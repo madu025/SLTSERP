@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/TripService';
 import { AppError } from '@/lib/error';

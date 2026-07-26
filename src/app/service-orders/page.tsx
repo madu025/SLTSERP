@@ -33,7 +33,7 @@ const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionMo
 const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportModal"), { ssr: false });
 
 
-function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'install_closed' | 'completed' | 'return'; pageTitle?: string; }) {
+function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'install_closed' | 'completed' | 'return' | 'disappeared'; pageTitle?: string; }) {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
     const urlSearch = searchParams.get('search');
@@ -69,7 +69,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
-        key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' ? 'statusDate' : 'createdAt'),
+        key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' || filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
         direction: "desc"
     });
 
@@ -599,7 +599,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 }
 
 interface ServiceOrdersPageProps {
-    filterType?: "pending" | "install_closed" | "completed" | "return";
+    filterType?: "pending" | "install_closed" | "completed" | "return" | "disappeared";
     pageTitle?: string;
 }
 

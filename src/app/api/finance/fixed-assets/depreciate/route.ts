@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { prisma } from '@/lib/prisma';
+
 import { FixedAssetService } from '@/services/finance/fixed-asset.service';
 import { AppError } from '@/lib/error';
 
@@ -15,14 +15,11 @@ export const POST = apiHandler(async (req) => {
 
     const userId = req.headers.get('x-user-id') || (req as Request & { user?: { id?: string } }).user?.id || undefined;
 
-    const result = await prisma.$transaction(async (tx) => {
-        return await FixedAssetService.runMonthlyDepreciation(
-            tx,
-            Number(year),
-            Number(month),
-            userId
-        );
-    });
+    const result = await FixedAssetService.runMonthlyDepreciation(
+        Number(year),
+        Number(month),
+        userId
+    );
 
     return result;
 }, {

@@ -6,6 +6,8 @@ import { StoreService } from './store.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { emitSystemEvent } from '@/lib/events';
 import { TransactionClient } from './types';
+import { InventoryRepository } from '@/repositories/inventory.repository';
+import { ContractorRepository } from '@/repositories/contractor.repository';
 
 export class IssueService {
     static async getMaterialIssues(contractorId: string, month?: string) {
@@ -72,10 +74,7 @@ export class IssueService {
                     if (!picked.batchId) continue; // Safety check
                     // Reduce from Store Batch Stock
                     
-                    await (transaction as any).inventoryBatchStock.update({
-                        where: { storeId_batchId: { storeId, batchId: picked.batchId } },
-                        data: { quantity: { decrement: picked.quantity } }
-                    });
+                    await InventoryRepository.decrementBatchStockAtomic(storeId, picked.batchId, picked.quantity, transaction);
 
                     // Add to Contractor Batch Stock
                     
@@ -99,10 +98,7 @@ export class IssueService {
                 }
 
                 // D. Update Global Store Stock
-                const updatedStoreStock = await (transaction as any).inventoryStock.update({
-                    where: { storeId_itemId: { storeId, itemId: item.itemId } },
-                    data: { quantity: { decrement: qty } }
-                });
+                const updatedStoreStock = await InventoryRepository.decrementStockAtomic(storeId, item.itemId, qty, transaction);
 
                 // Write Immutable Inventory Ledger Entry
                 const currentQtyAfter = updatedStoreStock?.quantity ? Number(updatedStoreStock.quantity) : 0;
@@ -220,7 +216,7 @@ export class IssueService {
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // 1. Create Return Record
             
-            const materialReturn = await (tx as any).contractorMaterialReturn.create({
+            const materialReturn = await tx.contractorMaterialReturn.create({
                 data: {
                     contractorId,
                     storeId,
@@ -255,14 +251,11 @@ export class IssueService {
                 for (const picked of pickedBatches) {
                     if (!picked.batchId) continue; // Safety check
                     
-                    await (tx as any).contractorBatchStock.update({
-                        where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
-                        data: { quantity: { decrement: picked.quantity } }
-                    });
+                    await ContractorRepository.decrementBatchStockAtomic(contractorId, picked.batchId, picked.quantity, tx);
 
                     if (item.condition === 'GOOD') {
                         
-                        await (tx as any).inventoryBatchStock.upsert({
+                        await tx.inventoryBatchStock.upsert({
                             where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                             update: { quantity: { increment: picked.quantity } },
                             create: {
@@ -277,14 +270,11 @@ export class IssueService {
                 }
 
                 
-                await (tx as any).contractorStock.update({
-                    where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
-                    data: { quantity: { decrement: qty } }
-                });
+                await ContractorRepository.decrementStockAtomic(contractorId, item.itemId, qty, tx);
 
                 if (item.condition === 'GOOD') {
                     
-                    await (tx as any).inventoryStock.upsert({
+                    await tx.inventoryStock.upsert({
                         where: { storeId_itemId: { storeId, itemId: item.itemId } },
                         update: { quantity: { increment: qty } },
                         create: { storeId, itemId: item.itemId, quantity: qty }
@@ -314,7 +304,7 @@ export class IssueService {
 
             // 3. Log Transfer-In Transaction
             
-            await (tx as any).inventoryTransaction.create({
+            await tx.inventoryTransaction.create({
                 data: {
                     type: 'TRANSFER_IN',
                     storeId,

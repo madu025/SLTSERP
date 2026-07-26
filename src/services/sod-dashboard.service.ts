@@ -155,7 +155,7 @@ export class ServiceOrderDashboardService {
                 if (g.sltsStatus === 'COMPLETED' || g.sltsStatus === 'PROV_CLOSED' || g.sltsStatus === 'INSTALL_CLOSED') {
                     rtomStatsMap[rtom].completed += g._count._all;
                     const revVal = Number(g._sum?.revenueAmount || 0);
-                    rtomStatsMap[rtom].revenue += revVal > 0 ? revVal : (g._count._all * 6500); // 6,500 LKR standard revenue rate per completed SOD
+                    rtomStatsMap[rtom].revenue += revVal;
                 } else if (g.sltsStatus === 'RETURN') {
                     rtomStatsMap[rtom].returned += g._count._all;
                 } else {

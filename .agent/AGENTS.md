@@ -168,56 +168,73 @@ To ensure every newly created dashboard page includes the global navigation Side
    * Whenever a new route page is created (e.g., `/sf-audit/payment-split-config`), its path, title, icon, and `allowedRoles` MUST be explicitly added to the `SIDEBAR_MENU` array in `src/config/sidebar-menu.ts` so users can navigate to it directly.
 
 
-## 🤖 Automatic 5-Perspective Enterprise Multi-Role Grill-Me Standard
+## 🤖 Upgraded Enterprise Multi-Role Grill-Me Standard (`/grill-me`)
 
-To ensure maximum production quality and eliminate single-perspective gaps, whenever `/grill-me` or major design planning is executed, the agent MUST evaluate the architecture from a **5-Perspective Enterprise Expert Panel**:
+To ensure maximum production quality, deep technical depth, and global industry competitiveness, whenever `/grill-me` or major design planning is executed, the agent MUST evaluate the architecture using the following **Upgraded 5-Perspective Expert Panel**. 
+
+**CRITICAL RULES FOR /GRILL-ME:**
+- **Go Beyond the Prompt (Proactive Innovation):** Do not just answer what the user asked. Proactively suggest missing enterprise-grade features (e.g., Maker-Checker approval flows, Idempotency keys, audit webhooks, scalable architectures) that the user may not have thought of.
+- **Global Industry Benchmarking:** Actively compare the proposed design with top-tier global platforms (e.g., SAP, Oracle ERP, Salesforce, ServiceNow). Identify what features those platforms have for this specific module and recommend adopting them in SLTSERP.
+- **Zero Hallucination & Concrete Tech:** Never suggest fluffy buzzwords. Every suggestion must be technically feasible within the existing Next.js + Prisma + PostgreSQL stack. Provide concrete DB schema changes or algorithmic patterns.
+
+### The 5-Perspective Expert Panel:
 
 1. **👨‍💻 Lead Architect & Senior Full-Stack Developer**:
-   - Algorithmic efficiency ($O(1)$ HashMaps, $O(N)$ batch transactions).
-   - Zero `any` types & strict Prisma foreign key relationships.
-   - Decoupled API routes (`src/services/` logic) & dynamic caching guards (`export const dynamic = 'force-dynamic'`).
+   - Algorithmic efficiency ($O(1)$ HashMaps, $O(N)$ batch transactions) and Zero `any` types.
+   - Idempotency, decoupling API routes (`src/services/`), and dynamic caching guards.
+   - **Global Benchmark**: How do modern microservice architectures handle this? (e.g. Event-driven vs REST).
 
 2. **🧪 QA Lead & Security Auditor**:
-   - Edge cases, failure recovery, boundary limits, and input validation schemas (Zod).
-   - RBAC (`RoleGuard`) role permissions and immutable audit logging (`InventoryLedger` SHA-256 checksums).
+   - Edge cases, failure recovery, race conditions, and input validation (Zod).
+   - RBAC (`RoleGuard`), role permissions, and immutable audit logging (SHA-256 checksums).
+   - **Global Benchmark**: How do banking/ERP systems secure this data? (e.g. Maker-Checker dual approvals).
 
-3. **👔 OSP & Enterprise Domain SME (Subject Matter Expert)**:
-   - Field operations accuracy (MIN/MRN Store Issue Notes, OSP drop wire calculations, PAT acceptance).
-   - Contractor payment splits (`SPLIT_AB` 90/10, `SPLIT_ABC` 70/20/10), 5% retention, and financial GL ledger posting consistency.
+3. **👔 OSP & Enterprise Domain SME**:
+   - Field operations accuracy (MIN/MRN Store Issue Notes, OSP calculations, PAT acceptance).
+   - Contractor payment splits, retention, and GL posting consistency.
+   - **Global Benchmark**: How do top-tier Field Service Management (FSM) tools like ServiceNow or Salesforce Field Service handle this workflow?
 
-4. **📊 Chief Financial Officer (CFO) & Financial Controller**:
-   - Revenue recognition compliance (GAAP/IFRS unbilled WIP receivables vs deferred revenue).
-   - Full job costing matching (Revenue - Contractor Payout - Material COGS - Vehicle Logistics - Site Office Expenses - Payroll).
+4. **📊 Chief Financial Officer (CFO)**:
+   - Revenue recognition (GAAP/IFRS unbilled WIP receivables vs deferred revenue).
+   - Full job costing (Revenue - Payout - COGS - Logistics - Payroll).
+   - **Global Benchmark**: How does SAP or Oracle Financials structure these ledger entries?
 
 5. **⚡ Performance & DevOps Engineer**:
-   - Zero database egress regress (selective Prisma `select` blocks without `include *`).
-   - Dynamic map auto-resizing (`ResizeObserver` for OpenLayers GIS) and Next.js client-side cache busting.
+   - Zero database egress regress (selective Prisma `select` blocks).
+   - Next.js client-side cache busting and connection pooling limits.
+   - **Global Benchmark**: How to handle high-concurrency spikes without bringing down the PostgreSQL DB?
 
-* **Automated Recommended Defaults**: Adopt AI-recommended options validated by the 5-Perspective Panel without redundant interactive single-question prompts, unless the user explicitly requests an interactive Q&A.
+* **Automated Recommended Defaults**: Adopt AI-recommended options validated by the Panel without redundant single-question prompts, unless the user explicitly requests an interactive Q&A.
 * **Consolidated Multi-Role Review Table**: Present all adopted decisions categorized across all 5 Expert viewpoints in a single structured table for instant 1-click user review.
 
 
 ## 🚀 Autonomous Goal & Long-Running Task Standard (`/goal`)
 
-To ensure maximum agent autonomy and thoroughness during long-running background or overnight goal tasks:
+## 🚀 Upgraded Autonomous Goal & Long-Running Task Standard (`/goal`)
 
-1. **Unstoppable Autonomous Execution**:
-   - The agent MUST continue executing continuously, resolving obstacles, writing code, fixing lints, and running tests until the user's objective is 100% achieved.
-   - Never stop midway or pause for trivial user confirmation when an obvious technical path exists.
+To ensure maximum agent autonomy, flawless execution, and enterprise-grade output during long-running background tasks, the agent MUST follow these strict rules:
+
+1. **Unstoppable Autonomous Execution (Zero Hand-Holding)**:
+   - The agent MUST execute continuously, resolving all obstacles, writing code, fixing lints, and running tests until the user's objective is **100% achieved**.
+   - NEVER stop midway, NEVER output placeholders (e.g. `// add logic here`), and NEVER pause for trivial user confirmation when an obvious technical path exists. If you hit an error, read the logs, fix the code, and try again autonomously.
 
 2. **Strict Empirical Verification Mandate**:
    - Never declare a goal complete without running concrete verification commands (`npx tsc --noEmit`, dev server builds, or browser subagent checks).
-   - If a type error or runtime failure occurs, inspect logs immediately, fix the root cause, and re-run verification until 0 errors are achieved.
+   - If a type error or runtime failure occurs, you MUST fix the root cause and re-run verification until exactly 0 errors are achieved.
 
-3. **Multi-Role Quality Enforcement**:
-   - Apply the **Multi-Role Expert Panel** checks (Lead Architect, QA Lead, Domain SME) to every feature created or modified during the goal execution.
+3. **Enterprise Aesthetics & UX Enforcement**:
+   - For any UI changes, you MUST enforce "Rich Aesthetics" (modern typography, micro-animations, correct Shadcn UI usage, Tailwind layouts).
+   - Never deliver a "basic" or "MVP" looking UI. The final output must look premium and match global SaaS standards.
 
-4. **Codemap & Audit Trail Synchronization**:
-   - Whenever code changes modify method signatures or API routes, run `npm run codemap:update` and ensure `.agent/CODEMAP.md` is updated.
+4. **Multi-Role Quality Enforcement**:
+   - Apply the **Upgraded 5-Perspective Expert Panel** checks to every feature created or modified during the goal execution. Do not compromise on architecture for speed.
 
-5. **Consolidated Executive Completion Summary**:
+5. **Codemap & Audit Trail Synchronization**:
+   - Run `npm run codemap:update` whenever method signatures or APIs change, ensuring `.agent/CODEMAP.md` is always up to date.
+
+6. **Consolidated Executive Completion Summary**:
    - Upon completing the goal, provide a single, comprehensive markdown summary detailing:
-     - 🎯 Goal Accomplishments
+     - 🎯 Goal Accomplishments (with technical depth)
      - 📁 Files Modified / Created
      - 🧪 Verification Command Outputs (`npx tsc --noEmit` exit code 0)
      - 📊 Updated Business & Technical State

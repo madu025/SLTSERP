@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { AiAuditService } from '@/services/inventory/ai-audit.service';
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { apiHandler } from '@/lib/api-handler';
 import { NexusAgentService } from '@/services/nexus-agent.service';
 import { prisma } from '@/lib/prisma';

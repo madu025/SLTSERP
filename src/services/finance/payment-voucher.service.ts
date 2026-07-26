@@ -136,7 +136,27 @@ export class PaymentVoucherService {
     });
 
     const pvNumber = `PV-${year}-${(count + 1).toString().padStart(4, '0')}`;
-    const calculatedNetAmount = data.amount - (data.taxWithheld || 0) - (data.retentionAmount || 0);
+    
+    // Vendor Compliance Integration (Oracle Fusion Upgrade)
+    let autoTaxWithheld = data.taxWithheld || 0;
+    if (data.type === 'CONTRACTOR' && data.payeeId) {
+      const contractor = await prisma.contractor.findUnique({
+        where: { id: data.payeeId },
+        select: { kycVerified: true, whtHoldStatus: true }
+      });
+
+      if (contractor) {
+        if (!contractor.kycVerified) {
+          throw AppError.badRequest('CONTRACTOR_KYC_FAILED', 'Contractor KYC is pending or rejected. Payment blocked.');
+        }
+        if (contractor.whtHoldStatus) {
+          // Auto deduct 5% WHT if Contractor is flagged for WHT holding
+          autoTaxWithheld = Math.max(autoTaxWithheld, data.amount * 0.05);
+        }
+      }
+    }
+
+    const calculatedNetAmount = data.amount - autoTaxWithheld - (data.retentionAmount || 0);
 
     let finalDescription = data.description || null;
     if (data.contractorInvoiceId) {
@@ -161,7 +181,7 @@ export class PaymentVoucherService {
         accountNumber: data.accountNumber || null,
         chequeNumber: data.chequeNumber || null,
         referenceNumber: data.referenceNumber || null,
-        taxWithheld: data.taxWithheld || 0,
+        taxWithheld: autoTaxWithheld,
         netAmount: data.netAmount !== undefined ? data.netAmount : calculatedNetAmount,
         retentionAmount: data.retentionAmount || 0,
         retentionReleaseId: data.retentionReleaseId || null,

@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { prisma } from '@/lib/prisma';
+
 import { PeriodCloseService } from '@/services/finance/period-close.service';
 import { AppError } from '@/lib/error';
 
@@ -15,13 +15,10 @@ export const POST = apiHandler(async (req) => {
 
     const userId = req.headers.get('x-user-id') || (req as Request & { user?: { id?: string } }).user?.id || undefined;
 
-    const result = await prisma.$transaction(async (tx) => {
-        return await PeriodCloseService.executeYearEndClose(
-            tx,
-            Number(year),
-            userId
-        );
-    });
+    const result = await PeriodCloseService.executeYearEndClose(
+        Number(year),
+        userId
+    );
 
     return result;
 }, {

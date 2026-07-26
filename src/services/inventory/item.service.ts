@@ -102,7 +102,7 @@ export class ItemService {
                 };
 
                 if (itemId) {
-                    await (tx as any).inventoryItem.update({
+                    await tx.inventoryItem.update({
                         where: { id: itemId },
                         data: updateData
                     });
@@ -123,33 +123,33 @@ export class ItemService {
         if (!source || !target) throw AppError.badRequest('ITEM_NOT_FOUND');
 
         await prisma.$transaction(async (tx: TransactionClient) => {
-            const sourceContractorStock = await (tx as any).contractorStock.findMany({ where: { itemId: sourceId } });
+            const sourceContractorStock = await tx.contractorStock.findMany({ where: { itemId: sourceId } });
             for (const stock of sourceContractorStock) {
-                await ContractorRepository.upsertStock(stock.contractorId, targetId, stock.quantity, tx);
+                await ContractorRepository.upsertStock(stock.contractorId, targetId, Number(stock.quantity), tx);
             }
-            await (tx as any).contractorStock.deleteMany({ where: { itemId: sourceId } });
+            await tx.contractorStock.deleteMany({ where: { itemId: sourceId } });
 
-            const sourceInventoryStock = await (tx as any).inventoryStock.findMany({ where: { itemId: sourceId } });
+            const sourceInventoryStock = await tx.inventoryStock.findMany({ where: { itemId: sourceId } });
             for (const stock of sourceInventoryStock) {
-                await InventoryRepository.upsertStock(stock.storeId, targetId, stock.quantity, tx);
+                await InventoryRepository.upsertStock(stock.storeId, targetId, Number(stock.quantity), tx);
             }
-            await (tx as any).inventoryStock.deleteMany({ where: { itemId: sourceId } });
+            await tx.inventoryStock.deleteMany({ where: { itemId: sourceId } });
 
-            await (tx as any).inventoryBatch.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).inventoryBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).contractorBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.inventoryBatch.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.inventoryBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
 
-            await (tx as any).sODMaterialUsage.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).stockRequestItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).stockIssueItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).gRNItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).mRNItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).inventoryTransactionItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).contractorMaterialIssueItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).contractorMaterialReturnItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).projectMaterialReturnItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).contractorWastageItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
-            await (tx as any).projectBOQItem.updateMany({ where: { materialId: sourceId }, data: { materialId: targetId } });
+            await tx.sODMaterialUsage.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.stockRequestItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.stockIssueItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.gRNItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.mRNItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.inventoryTransactionItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorMaterialIssueItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorMaterialReturnItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.projectMaterialReturnItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorWastageItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.projectBOQItem.updateMany({ where: { materialId: sourceId }, data: { materialId: targetId } });
 
             const mergedAliases = Array.from(new Set([
                 ...(target.importAliases || []),

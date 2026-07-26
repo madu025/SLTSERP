@@ -25,19 +25,43 @@ model ChartOfAccount {
   parent     ChartOfAccount?  @relation("CoAHierarchy", fields: [parentId], references: [id])
   children   ChartOfAccount[] @relation("CoAHierarchy")
 
+  // GL Mapping Relations
+  debitMappings  GLMappingConfig[]      @relation("DebitAccountMappings")
+  creditMappings GLMappingConfig[]      @relation("CreditAccountMappings")
+  rollupBalances AccountBalanceRollup[] @relation("RollupBalances")
+
   @@index([type])
   @@index([code])
 }
 
+model GLMappingConfig {
+  id              String @id @default(cuid())
+  sourceModule    String // e.g. "OSP_IOU", "OSP_RENT", "SOD_INVOICE"
+  transactionType String // e.g. "ISSUE_ADVANCE", "PAY_RENT", "RECOGNIZE_REVENUE"
+
+  debitAccountCode  String
+  creditAccountCode String
+
+  debitAccount  ChartOfAccount @relation("DebitAccountMappings", fields: [debitAccountCode], references: [code])
+  creditAccount ChartOfAccount @relation("CreditAccountMappings", fields: [creditAccountCode], references: [code])
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceModule, transactionType])
+}
+
 model FiscalPeriod {
-  id         String             @id @default(cuid())
-  year       Int
-  month      Int
-  status     FiscalPeriodStatus @default(OPEN)
-  closedById String?
-  closedAt   DateTime?
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  id                    String                 @id @default(cuid())
+  year                  Int
+  month                 Int
+  status                FiscalPeriodStatus     @default(OPEN)
+  closedById            String?
+  closedAt              DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  accountBalanceRollups AccountBalanceRollup[]
 
   @@unique([year, month])
   @@index([status])
@@ -94,19 +118,19 @@ model BankAccount {
 }
 
 model BankStatementLine {
-  id                     String       @id @default(cuid())
-  bankAccountId          String
-  statementDate          DateTime
-  description            String
-  referenceNumber        String?
-  debit                  Float        @default(0)
-  credit                 Float        @default(0)
-  isReconciled           Boolean      @default(false)
+  id                      String      @id @default(cuid())
+  bankAccountId           String
+  statementDate           DateTime
+  description             String
+  referenceNumber         String?
+  debit                   Float       @default(0)
+  credit                  Float       @default(0)
+  isReconciled            Boolean     @default(false)
   reconciledJournalLineId String?
-  reconciledAt           DateTime?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-  bankAccount            BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  reconciledAt            DateTime?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+  bankAccount             BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
 
   @@index([bankAccountId])
   @@index([isReconciled])
@@ -117,7 +141,9 @@ model FixedAsset {
   assetNumber             String            @unique
   name                    String
   category                String            @default("EQUIPMENT")
-  acquisitionDate        DateTime          @default(now())
+  subCategory             String?
+  acquisitionDate         DateTime          @default(now())
+  purchasedYear           String?
   cost                    Float             @default(0)
   usefulLifeYears         Int               @default(5)
   depreciationMethod      String            @default("STRAIGHT_LINE")
@@ -126,13 +152,18 @@ model FixedAsset {
   glAccumDepCode          String            @default("ACC-DEP-1510")
   accumulatedDepreciation Float             @default(0)
   netBookValue            Float             @default(0)
+  locationCode            String?
+  locationName            String?
+  details                 String?
   status                  String            @default("ACTIVE")
+  verifiedAt              DateTime?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
   depreciationLogs        DepreciationLog[]
 
   @@index([category])
   @@index([status])
+  @@index([locationCode])
 }
 
 model DepreciationLog {
@@ -196,4 +227,36 @@ model ApprovalMatrix {
   updatedAt    DateTime @updatedAt
 
   @@index([module])
+}
+
+model CurrencyExchange {
+  id            String   @id @default(cuid())
+  currencyCode  String // e.g. "USD", "EUR"
+  exchangeRate  Float
+  effectiveDate DateTime
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([currencyCode, effectiveDate])
+  @@index([currencyCode])
+}
+
+model AccountBalanceRollup {
+  id               String   @id @default(cuid())
+  accountCode      String
+  fiscalPeriodId   String
+  year             Int
+  month            Int
+  totalDebit       Float    @default(0)
+  totalCredit      Float    @default(0)
+  closingBalance   Float    @default(0)
+  lastCalculatedAt DateTime @default(now())
+
+  account      ChartOfAccount @relation("RollupBalances", fields: [accountCode], references: [code], onDelete: Cascade)
+  fiscalPeriod FiscalPeriod   @relation(fields: [fiscalPeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([accountCode, fiscalPeriodId])
+  @@index([fiscalPeriodId])
+  @@index([year, month])
 }
