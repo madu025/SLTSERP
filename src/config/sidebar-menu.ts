@@ -51,38 +51,42 @@ import {
 } from 'lucide-react';
 
 
-// Define Role Groups based on Department Categories
+// Define Role Groups based on 7 Department Categories under Manager OSP
 export const ROLE_GROUPS = {
-    // Super Users
-    ADMINS: ['SUPER_ADMIN', 'ADMIN'],
+    // Executive Leadership Tier
+    EXECUTIVES: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'],
+    ADMINS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'],
 
-    // 1. OSP Projects (Engineers, Coordinators)
-    OSP_PROJECTS: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+    // Section 1: SOD Project Section (Service Order Delivery / New Connections)
+    SOD_PROJECT: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
 
-    // 2. New Connections (Service Provisioning)
-    NEW_CONNECTION: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
+    // Section 2: SA Project Section (Service Assurance / Repairs)
+    SA_PROJECT: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN'],
 
-    // 3. Service Assurance (Faults/Maintenance)
-    SERVICE_ASSURANCE: ['SUPER_ADMIN', 'ADMIN', 'SA_MANAGER', 'SA_ASSISTANT'],
+    // Section 3: OSP Infrastructure Project Section (Fiber/Civil)
+    OSP_PROJECTS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER', 'ENGINEER'],
 
-    // 4. Stores / Inventory
-    STORES: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT'],
+    // Section 4: Finance Section (Corporate Accounting & GL)
+    FINANCE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER'],
 
-    // 5. Procurement
-    PROCUREMENT: ['SUPER_ADMIN', 'ADMIN', 'PROCUREMENT_OFFICER'],
+    // Section 5: Stores & Logistics Section (Stock/MIN/GRN)
+    STORES: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'],
 
-    // 6. Finance
-    FINANCE: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT'],
+    // Section 6: SF Project Invoicing Section (SLT Corporate Invoices)
+    SF_INVOICING: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER'],
+    INVOICE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER'],
 
-    // 7. Invoice
-    INVOICE: ['SUPER_ADMIN', 'ADMIN', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT'],
+    // Section 7: SF Project Auditing Section (Contractor Invoices & Rates Audit)
+    SF_AUDITING: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER', 'RATE_AUDITOR', 'FINANCE_MANAGER'],
 
-    // 8. Office Admin (Staff/HR)
-    OFFICE_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
+    // Legacy Aliases for Backward Compatibility
+    PROCUREMENT: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'STORES_MANAGER'],
+    OFFICE_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
+    NEW_CONNECTION: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
+    SERVICE_ASSURANCE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'SA_MANAGER', 'SA_ASSISTANT'],
 
-    // Combined Groups for Shared Access
-    // Ops Team = OSP Projects + New Connection + Service Assurance
-    ALL_OPS: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT']
+    // Combined Operations Group
+    ALL_OPS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT', 'OSP_ENGINEER']
 };
 
 export interface MenuItem {

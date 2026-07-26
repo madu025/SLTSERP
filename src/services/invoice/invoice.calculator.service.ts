@@ -13,7 +13,7 @@ export interface StatutoryInvoiceBreakdown {
     penaltyTotal: number;
     grossWithTaxes: number;
     netPayableAmount: number;
-    requiredApprovalRole: 'AREA_MANAGER' | 'GENERAL_MANAGER' | 'DIRECTOR';
+    requiredApprovalRole: 'AREA_MANAGER' | 'OSP_MANAGER' | 'HEAD_OF_OSP' | 'CEO' | 'GENERAL_MANAGER' | 'DIRECTOR';
 }
 
 export class InvoiceCalculatorService {
@@ -71,11 +71,13 @@ export class InvoiceCalculatorService {
         const grossWithTaxes = round2(subtotal + vatAmount + ssclAmount);
         const netPayableAmount = round2(grossWithTaxes - retentionAmount - whtAmount - penaltyTotal);
 
-        let requiredApprovalRole: 'AREA_MANAGER' | 'GENERAL_MANAGER' | 'DIRECTOR' = 'AREA_MANAGER';
-        if (netPayableAmount > config.approvalLimitGM) {
-            requiredApprovalRole = 'DIRECTOR';
-        } else if (netPayableAmount > config.approvalLimitManager) {
-            requiredApprovalRole = 'GENERAL_MANAGER';
+        let requiredApprovalRole: 'AREA_MANAGER' | 'OSP_MANAGER' | 'HEAD_OF_OSP' | 'CEO' = 'AREA_MANAGER';
+        if (netPayableAmount > (config as unknown as { approvalLimitDirector?: number }).approvalLimitDirector! || netPayableAmount > 5000000) {
+            requiredApprovalRole = 'CEO';
+        } else if (netPayableAmount > config.approvalLimitGM || netPayableAmount > 1000000) {
+            requiredApprovalRole = 'HEAD_OF_OSP';
+        } else if (netPayableAmount > config.approvalLimitManager || netPayableAmount > 100000) {
+            requiredApprovalRole = 'OSP_MANAGER';
         }
 
         return {
