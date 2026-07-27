@@ -107,7 +107,24 @@ export class SODQueryService {
                     isInvoicable: true
                 });
             } else if (filter === 'completed') {
-                andFilters.push({ completedDate: { gte: startDate, lt: nextMonth } });
+                andFilters.push({
+                    OR: [
+                        { completedDate: { gte: startDate, lt: nextMonth } },
+                        {
+                            AND: [
+                                { completedDate: null },
+                                { statusDate: { gte: startDate, lt: nextMonth } }
+                            ]
+                        },
+                        {
+                            AND: [
+                                { completedDate: null },
+                                { statusDate: null },
+                                { updatedAt: { gte: startDate, lt: nextMonth } }
+                            ]
+                        }
+                    ]
+                });
             } else if (filter === 'return' || filter === 'disappeared') {
                 andFilters.push({
                     OR: [
@@ -153,11 +170,17 @@ export class SODQueryService {
             andFilters.push({
                 OR: [
                     { sltsStatus: 'COMPLETED' },
-                    { status: { in: ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } }
+                    { status: { in: ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED', 'CLOSED', 'PASSED'] } }
                 ],
-                AND: [
-                    { sltsStatus: { notIn: ['INSTALL_CLOSED', 'RETURN'] } },
-                    { status: { notIn: ['INSTALL_CLOSED', 'RETURN', 'PAT_OPMC_REJECTED'] } }
+                NOT: [
+                    { status: 'INSTALL_CLOSED' },
+                    { status: 'PROV_CLOSED' },
+                    { sltsStatus: 'PROV_CLOSED' },
+                    { sltsStatus: 'INPROGRESS' },
+                    { sltsStatus: 'RETURN' },
+                    { status: 'RETURNED' },
+                    { sltsStatus: 'DISAPPEARED' },
+                    { status: 'PAT_OPMC_REJECTED' }
                 ]
             });
         } else if (filter === 'disappeared') {

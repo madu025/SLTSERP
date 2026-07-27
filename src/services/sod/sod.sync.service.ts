@@ -96,9 +96,9 @@ export class SODSyncService {
                             data: {
                                 opmcPatStatus: status,
                                 opmcPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                                isInvoicable: status === 'PAT_PASSED' && 
-                                              order.hoPatStatus === 'PAT_PASSED' && 
-                                              order.sltsPatStatus === 'PAT_PASSED'
+                                isInvoicable: status === 'PAT_PASSED' &&
+                                    order.hoPatStatus === 'PAT_PASSED' &&
+                                    order.sltsPatStatus === 'PAT_PASSED'
                             }
                         });
                     }
@@ -129,7 +129,7 @@ export class SODSyncService {
     static async syncHoApprovedResults() {
         try {
             let data = await sltApiService.fetchHOApprovedGlobal();
-            
+
             const lastSyncSetting = await prisma.systemSetting.findUnique({ where: { key: 'LAST_HO_APPROVED_SYNC' } });
             const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2020-01-01');
 
@@ -218,7 +218,7 @@ export class SODSyncService {
                 });
 
                 const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
-                
+
                 // Optimization: Controlled concurrency chunking (50 concurrent updates at a time)
                 const updateChunkSize = 50;
                 for (let j = 0; j < ordersToUpdate.length; j += updateChunkSize) {
@@ -263,7 +263,7 @@ export class SODSyncService {
     static async syncHoRejectedResults() {
         try {
             const data = await sltApiService.fetchHORejected();
-            
+
             const lastSyncSetting = await prisma.systemSetting.findUnique({ where: { key: 'LAST_HO_REJECTED_SYNC' } });
             const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2020-01-01');
 
@@ -346,7 +346,7 @@ export class SODSyncService {
                 });
 
                 const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
-                
+
                 // Optimization: Controlled concurrency chunking (5 concurrent transactions at a time to prevent deadlocks)
                 const updateChunkSize = 5;
                 for (let j = 0; j < ordersToUpdate.length; j += updateChunkSize) {
@@ -406,7 +406,7 @@ export class SODSyncService {
      */
     static async syncAllOpmcs() {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
-        
+
         if (process.env.VERCEL === '1') {
             console.log('[SYNC] Serverless/Vercel environment: running sync synchronously for all OPMCs with controlled concurrency...');
             let created = 0;
@@ -417,12 +417,12 @@ export class SODSyncService {
             // This eliminates 44 per-OPMC findMany queries for disappeared SOD detection.
             const allOpmcIds = opmcs.map(o => o.id);
             const allPendingSods = await prisma.serviceOrder.findMany({
-                where: { 
-                    opmcId: { in: allOpmcIds }, 
+                where: {
+                    opmcId: { in: allOpmcIds },
                     sltsStatus: 'INPROGRESS',
                     isOfflineWorkOrder: false,
                     isManualEntry: false,
-                    isLegacyImport: false 
+                    isLegacyImport: false
                 },
                 select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, opmcId: true }
             });
@@ -433,7 +433,7 @@ export class SODSyncService {
                 list.push(sod);
                 pendingByOpmc.set(sod.opmcId, list);
             }
-            
+
             const concurrencyLimit = 4;
             for (let i = 0; i < opmcs.length; i += concurrencyLimit) {
                 const chunk = opmcs.slice(i, i + concurrencyLimit);
@@ -570,7 +570,7 @@ export class SODSyncService {
         // ── Optimization: Collect new records in a batch, flush with createMany ──
         // Reduces O(N) individual DB round-trips to O(1) per OPMC
         const toCreate: Prisma.ServiceOrderUncheckedCreateInput[] = [];
-        const toUpdate: { existing: any, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
+        const toUpdate: { existing: { id: string; soNum?: string | null; status: string; sltsStatus: string; returnReason?: string | null; contractorId?: string | null; completedDate?: Date | null; receivedDate?: Date | null; comments?: string | null; completionMode?: string | null; rtom?: string | null }, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
 
         for (const item of syncableData) {
             try {
@@ -681,7 +681,7 @@ export class SODSyncService {
                 try {
                     const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
                     const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
-                    
+
                     await prisma.$transaction(async (tx) => {
                         await tx.serviceOrder.update({
                             where: { id: existing.id },
@@ -695,7 +695,7 @@ export class SODSyncService {
                                 returnReason: isRestoring ? null : undefined
                             }
                         });
-                        
+
                         if (isReturning) {
                             await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
                             await LedgerService.rollbackSodTransaction(tx, existing.id);
@@ -722,12 +722,12 @@ export class SODSyncService {
         // When called from syncAllOpmcs, pendingSods are pre-loaded globally (O(1) lookup)
         // When called standalone, fall back to per-OPMC query
         const localPendingSods = preloadedPendingSods ?? await prisma.serviceOrder.findMany({
-            where: { 
-                opmcId, 
+            where: {
+                opmcId,
                 sltsStatus: 'INPROGRESS',
                 isOfflineWorkOrder: false,
                 isManualEntry: false,
-                isLegacyImport: false 
+                isLegacyImport: false
             },
             select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
         });
@@ -741,18 +741,18 @@ export class SODSyncService {
             // Fetch last 2 months of completed SODs to locate missing ones
             const startDate = format(subMonths(today, 2), 'yyyy-MM-dd');
             const endDate = format(today, 'yyyy-MM-dd');
-            
+
             const [completedResults, rejectedResults] = await Promise.all([
                 sltApiService.fetchCompletedSODs(rtom, startDate, endDate),
                 sltApiService.fetchOpmcRejected(rtom)
             ]);
 
             const externalStatusMap = new Map<string, { status: string; statusDate: string; rawItem?: unknown }>();
-            
+
             completedResults.forEach(item => {
                 externalStatusMap.set(item.SO_NUM, { status: item.CON_STATUS, statusDate: item.CON_STATUS_DATE, rawItem: item });
             });
-            
+
             rejectedResults.forEach(item => {
                 externalStatusMap.set(item.SO_NUM, { status: item.CON_STATUS, statusDate: item.CON_STATUS_DATE, rawItem: item });
             });
@@ -766,7 +766,7 @@ export class SODSyncService {
                         const completionStatuses = ['INSTALL_CLOSED'];
                         const returnStatuses = ['RETURN', 'RETURNED', 'FIELD_RETURN', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
                         const isPatRejection = statusUpper.includes('PAT') || statusUpper.includes('OPMC_REJECT') || statusUpper.includes('HO_REJECT');
-                        
+
                         let nextSltsStatus = 'INPROGRESS';
                         const rawItemObj = extStatus.rawItem as Record<string, unknown> | undefined;
                         const rawOrderType = (rawItemObj?.ORDER_TYPE as string | undefined) || '';
@@ -786,6 +786,7 @@ export class SODSyncService {
                                     status: extStatus.status,
                                     statusDate,
                                     sltsStatus: nextSltsStatus,
+                                    completionMode: isOfflineType ? 'OFFLINE' : undefined,
                                     completedDate: nextSltsStatus === 'COMPLETED' ? statusDate : undefined,
                                     returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined
                                 };
@@ -835,8 +836,8 @@ export class SODSyncService {
                                     status: 'DISAPPEARED',
                                     sltsStatus: 'DISAPPEARED',
                                     returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing',
-                                    comments: disappearedSod.comments 
-                                        ? `${disappearedSod.comments}\n[AUTO-SYNC] Disappeared from active portal list` 
+                                    comments: disappearedSod.comments
+                                        ? `${disappearedSod.comments}\n[AUTO-SYNC] Disappeared from active portal list`
                                         : '[AUTO-SYNC] Disappeared from active portal list'
                                 }
                             });
@@ -861,7 +862,7 @@ export class SODSyncService {
         if (created > 0 || updated > 0) {
             try {
                 const { NotificationService } = await import('@/services/notification.service');
-                
+
                 let title = 'Service Orders Synced';
                 let message = '';
                 if (created > 0 && updated > 0) {
@@ -989,7 +990,7 @@ export class SODSyncService {
 
         const portalStatus = (mapping.status || masterData['CON_STATUS'] || '').toString().toUpperCase();
 
-        const hasHiddenReturnFields = 
+        const hasHiddenReturnFields =
             (masterData['RETREASON_HIDDEN'] && masterData['RETREASON_HIDDEN'].trim().length > 0) ||
             (masterData['RETCMT_HIDDEN'] && masterData['RETCMT_HIDDEN'].trim().length > 0);
 
@@ -1007,34 +1008,34 @@ export class SODSyncService {
             if (!mapping.status || mapping.status === 'INPROGRESS') {
                 mapping.status = 'RETURN_PENDING';
             }
-            const rawReason = masterData['RETREASON_HIDDEN'] || 
-                              masterData['RTRESONALL_HIDDEN'] || 
-                              masterData['SOD RETURN'] || 
-                              masterData['RETURN REASON'] || 
-                              masterData['RETURNED REASON'] || 
-                              masterData['REASON'] || 
-                              masterData['rtresonall'] || 
-                              masterData['rt_reason'] || 
-                              portalStatus || 
-                              'NO OSP NW/PRIMARY/SECONDARY';
+            const rawReason = masterData['RETREASON_HIDDEN'] ||
+                masterData['RTRESONALL_HIDDEN'] ||
+                masterData['SOD RETURN'] ||
+                masterData['RETURN REASON'] ||
+                masterData['RETURNED REASON'] ||
+                masterData['REASON'] ||
+                masterData['rtresonall'] ||
+                masterData['rt_reason'] ||
+                portalStatus ||
+                'NO OSP NW/PRIMARY/SECONDARY';
 
-            const rawComment = masterData['RETCMT_HIDDEN'] || 
-                               masterData['RTCMTALL_HIDDEN'] || 
-                               masterData['RETURN COMMENT'] || 
-                               masterData['RETURNED COMMENT'] || 
-                               masterData['COMMENT'] || 
-                               masterData['rtcmtall'] || 
-                               masterData['rt_comment'] || 
-                               '';
+            const rawComment = masterData['RETCMT_HIDDEN'] ||
+                masterData['RTCMTALL_HIDDEN'] ||
+                masterData['RETURN COMMENT'] ||
+                masterData['RETURNED COMMENT'] ||
+                masterData['COMMENT'] ||
+                masterData['rtcmtall'] ||
+                masterData['rt_comment'] ||
+                '';
 
             const classification = SODReturnClassifierService.classify(String(rawReason) + ' ' + String(rawComment));
             const formattedReason = String(rawReason).toUpperCase().trim();
             mapping.returnReason = formattedReason && formattedReason !== 'RETURN_PENDING'
                 ? `${formattedReason} (${classification.category})`
                 : classification.category;
-            
+
             const combinedComment = `[AUTO_CAPTURED] Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
-            mapping.comments = serviceOrder?.comments 
+            mapping.comments = serviceOrder?.comments
                 ? (serviceOrder.comments.includes(combinedComment) ? serviceOrder.comments : `${serviceOrder.comments}\n${combinedComment}`)
                 : combinedComment;
 
@@ -1065,9 +1066,9 @@ export class SODSyncService {
             opmcId = firstOpmc?.id || '';
         }
 
-        const isOffline = (payload.url && payload.url.toLowerCase().includes('offline')) || 
-                          (typeof mapping.status === 'string' && mapping.status.toUpperCase() === 'OFFLINE') ||
-                          (masterData['COMPLETION_MODE'] && String(masterData['COMPLETION_MODE']).toUpperCase().includes('OFFLINE'));
+        const isOffline = (payload.url && payload.url.toLowerCase().includes('offline')) ||
+            (typeof mapping.status === 'string' && mapping.status.toUpperCase() === 'OFFLINE') ||
+            (masterData['COMPLETION_MODE'] && String(masterData['COMPLETION_MODE']).toUpperCase().includes('OFFLINE'));
 
         const dataToUpdate: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             ...mapping,
@@ -1086,11 +1087,11 @@ export class SODSyncService {
         const statusStr = typeof mapping.status === 'string' ? mapping.status : '';
         const currentStatus = statusStr.toUpperCase();
 
-        const isCompletedStatus = 
+        const isCompletedStatus =
             [SodStatus.COMPLETED, SodStatus.INSTALL_CLOSED, SodStatus.PROV_CLOSED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus) ||
             [SodStatus.COMPLETED, SodStatus.INSTALL_CLOSED, SodStatus.PROV_CLOSED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(String(mapping.status).toUpperCase());
 
-        if (isCompletedStatus) {
+        if (isCompletedStatus && !isServiceReturn) {
             dataToUpdate.sltsStatus = SodStatus.COMPLETED;
 
             // 1. Work Done Date (INSTALL_CLOSED Date - Physical Field Work Completion)
@@ -1098,7 +1099,7 @@ export class SODSyncService {
             if (!installDate) {
                 installDate = SodUtils.safeParseDate(masterData['INSTALL_CLOSED_DATE'] || masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
             }
-            
+
             if (!installDate && Array.isArray(payload.commentsList)) {
                 const completionLog = payload.commentsList.find(c => {
                     const commentText = String(c.comment || c.user || '').toLowerCase();
@@ -1143,7 +1144,7 @@ export class SODSyncService {
             const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
             const classification = SODReturnClassifierService.classify(rawReason);
             dataToUpdate.returnReason = classification.category;
-            dataToUpdate.comments = serviceOrder?.comments 
+            dataToUpdate.comments = serviceOrder?.comments
                 ? `${serviceOrder.comments}\n[AI_CLASSIFIED] Reason: ${rawReason}`
                 : `[AI_CLASSIFIED] Reason: ${rawReason}`;
         }
@@ -1168,7 +1169,7 @@ export class SODSyncService {
 
         const oldStatus = serviceOrder?.sltsStatus || null;
         let syncedOrder: ServiceOrder | null = null;
-        
+
         if (serviceOrder) {
             const isReturning = (dataToUpdate.sltsStatus === 'RETURN' && oldStatus !== 'RETURN');
             const isCompleting = (dataToUpdate.sltsStatus === 'COMPLETED' && oldStatus !== 'COMPLETED');
@@ -1344,7 +1345,7 @@ export class SODSyncService {
         }
 
         const voiceStatus = masterData['VOICE_TEST_RESULT'] || masterData['VOICE TEST'] || null;
-        
+
         let finalForensicAudit = forensicAudit || [];
         if (!finalForensicAudit || finalForensicAudit.length === 0) {
             const extractedAudit = [];

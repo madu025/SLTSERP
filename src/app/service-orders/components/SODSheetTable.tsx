@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
-import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar, ChevronDown, Tag, WifiOff } from "lucide-react";
+import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar, ChevronDown, Tag, WifiOff, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -841,7 +841,13 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 {order.soNum}
                                             </button>
                                             {order.hasBridgeLog && (
-                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shrink-0" title="BRIDGE Log Available" />
+                                                <span 
+                                                    className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-indigo-600/10 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-500/30 shadow-xs shrink-0 inline-flex items-center gap-0.5 cursor-help" 
+                                                    title="Synced via SLTS Bridge Chrome Extension Log"
+                                                >
+                                                    <Zap className="w-2.5 h-2.5 text-indigo-500 animate-pulse" />
+                                                    BRIDGE
+                                                </span>
                                             )}
                                         </div>
                                         {/* Received Date & Dynamic KPI Aging Indicator */}
