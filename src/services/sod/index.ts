@@ -198,10 +198,10 @@ export class ServiceOrderService {
             // Database update via Repository (Single Update)
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
 
-            console.log("=== SOD DEBUG STATE ===");
-            console.log("updatedOrder.sltsStatus:", updatedOrder.sltsStatus);
-            console.log("oldOrder.sltsStatus:", oldOrder.sltsStatus);
-            console.log("hasMaterialUpdate:", hasMaterialUpdate);
+            // console.log("=== SOD DEBUG STATE ===");
+            // console.log("updatedOrder.sltsStatus:", updatedOrder.sltsStatus);
+            // console.log("oldOrder.sltsStatus:", oldOrder.sltsStatus);
+            // console.log("hasMaterialUpdate:", hasMaterialUpdate);
 
             // Log material consumption & revenue in General Ledger on completion or adjustment
             const isCompletingNow = (updatedOrder.sltsStatus === 'COMPLETED' && oldOrder.sltsStatus !== 'COMPLETED');

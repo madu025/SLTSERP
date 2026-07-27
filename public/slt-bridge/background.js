@@ -9,10 +9,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         // Strategy: Async Burst Sync (Phoenix Bridge) with Local Dev Auto-Routing
         chrome.storage.local.get(['erpOrigin'], (res) => {
-            const origin = res.erpOrigin || 'https://d2ixqikwtprwf0.cloudfront.net';
-            const targetUrl = origin.includes('localhost')
-                ? `${origin}/api/test/extension-push`
-                : 'https://d2ixqikwtprwf0.cloudfront.net/api/service-orders/bridge-sync';
+            const origin = res.erpOrigin || 'https://sltserp.vercel.app';
+            const targetUrl = `${origin.replace(/\/+$/, '')}/api/test/extension-push`;
 
             console.log(`[PHOENIX-PROXY] Attempting to push to ERP at: ${targetUrl}`);
             fetch(targetUrl, {
@@ -58,9 +56,11 @@ chrome.alarms.onAlarm.addListener(alarm => {
 
 // Auto-Sync SLT Portal Session Cookie to local/production ERP
 function syncSLTCookie() {
-    chrome.cookies.get({ url: 'https://serviceportal.slt.lk', name: 'PHPSESSID' }, (cookie) => {
-        if (cookie && cookie.value) {
-            const cookieValue = `PHPSESSID=${cookie.value}`;
+    chrome.cookies.get({ url: 'https://ishamp.slt.lk', name: 'PHPSESSID' }, (cookie1) => {
+        chrome.cookies.get({ url: 'https://serviceportal.slt.lk', name: 'PHPSESSID' }, (cookie2) => {
+            const cookie = cookie1 || cookie2;
+            if (cookie && cookie.value) {
+                const cookieValue = `PHPSESSID=${cookie.value}`;
             
             chrome.storage.local.get(['erpOrigin'], (res) => {
                 const origin = res.erpOrigin || 'https://sltserp.vercel.app';
@@ -86,6 +86,7 @@ function syncSLTCookie() {
             });
         }
     });
+});
 }
 
 // Sync on startup and installation

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { sltApiService } from './slt-api.service';
 import { ServiceOrderService } from './sod.service';
 import { SodStatus } from '@/lib/constants/sod-constants';
@@ -20,13 +21,10 @@ export class CompletedSODSyncService {
 
         let startDate: string;
         if (customStartDate) {
-            // For Admin Panel / One-time full sync (e.g., '2026-01-01')
             startDate = customStartDate;
         } else {
-            // For Background Process: Sync Last Month + Current Month
-            // This covers the "relevant month" requirement + buffer for late updates
-            const lastMonth = subMonths(today, 1);
-            startDate = format(startOfMonth(lastMonth), 'yyyy-MM-dd');
+            // Strictly Current Month: 1st of current month to end of current month
+            startDate = format(startOfMonth(today), 'yyyy-MM-dd');
         }
 
         const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
@@ -90,97 +88,102 @@ export class CompletedSODSyncService {
                         return SodStatus.COMPLETED;
                     };
 
-                    // Process each unique completed SOD record in batches
-                    const CHUNK_SIZE = 10;
-                    for (let i = 0; i < uniqueResults.length; i += CHUNK_SIZE) {
-                        const chunk = uniqueResults.slice(i, i + CHUNK_SIZE);
-                        await Promise.all(chunk.map(async (sltData) => {
-                            try {
-                                const finalSltsStatus = resolveSltsStatus(sltData.CON_STATUS);
-                                const isWiredOnly = finalSltsStatus === SodStatus.PROV_CLOSED;
+                    // Batch objects
+                    const missingSodsToCreate: Prisma.ServiceOrderCreateManyInput[] = [];
 
-                                // CHECK MAP: Look for ANY record with this SO_NUM
-                                const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
+                    // Process each unique completed SOD record sequentially for existing (to protect ledger tx)
+                    // and collect missing ones for a single bulk insert
+                    for (const sltData of uniqueResults) {
+                        try {
+                            const finalSltsStatus = resolveSltsStatus(sltData.CON_STATUS);
+                            const isWiredOnly = finalSltsStatus === SodStatus.PROV_CLOSED;
 
-                                const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
-                                const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
-                                const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
+                            // CHECK MAP: Look for ANY record with this SO_NUM
+                            const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
 
-                                if (localSODs.length > 0) {
-                                    // CASE A: Exists
-                                    // Update if status differs or completedDate missing
-                                    for (const localSOD of localSODs) {
-                                        if (localSOD.sltsStatus !== finalSltsStatus || !localSOD.completedDate) {
+                            const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
+                            const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
+                            const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
 
-                                            console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ♻️ Updating SOD: ${sltData.SO_NUM} (${finalSltsStatus})`);
-
-                                            await ServiceOrderService.patchServiceOrder(
-                                                localSOD.id,
-                                                {
-                                                    status: sltData.CON_STATUS,
-                                                    sltsStatus: finalSltsStatus,
-                                                    completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : localSOD.completedDate,
-                                                    wiredOnly: isWiredOnly,
-                                                    dpDetails: sltData.DP,
-                                                    ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
-                                                    iptvSerialNumbers: (sltData.IPTV && String(sltData.IPTV).trim().length > 5) ? [String(sltData.IPTV).trim()] : undefined,
-                                                    dropWireDistance: dropWireDistance,
-                                                    comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,
-                                                }
-                                            );
-                                            completedCount++;
-                                        }
+                            if (localSODs.length > 0) {
+                                // CASE A: Exists
+                                // Update if status differs or completedDate missing
+                                for (const localSOD of localSODs) {
+                                    if (localSOD.sltsStatus !== finalSltsStatus || !localSOD.completedDate) {
+                                        await ServiceOrderService.patchServiceOrder(
+                                            localSOD.id,
+                                            {
+                                                status: sltData.CON_STATUS,
+                                                sltsStatus: finalSltsStatus,
+                                                completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : localSOD.completedDate,
+                                                wiredOnly: isWiredOnly,
+                                                dpDetails: sltData.DP,
+                                                ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
+                                                iptvSerialNumbers: (sltData.IPTV && String(sltData.IPTV).trim().length > 5) ? [String(sltData.IPTV).trim()] : undefined,
+                                                dropWireDistance: dropWireDistance,
+                                                comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,
+                                            }
+                                        );
+                                        completedCount++;
                                     }
-                                } else {
-                                    // CASE B: DOES NOT EXIST (Missing History)
-                                    // Create new record directly
-                                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🆕 Creating MISSING Historical SOD: ${sltData.SO_NUM}`);
-
-                                    await prisma.serviceOrder.create({
-                                        data: {
-                                            opmcId: opmc.id,
-                                            rtom: sltData.RTOM || opmc.rtom,
-                                            soNum: sltData.SO_NUM,
-                                            lea: sltData.LEA,
-                                            voiceNumber: sltData.VOICENUMBER,
-                                            orderType: sltData.ORDER_TYPE,
-                                            serviceType: sltData.S_TYPE,
-                                            customerName: sltData.CON_CUS_NAME,
-                                            techContact: sltData.CON_TEC_CONTACT,
-                                            address: sltData.ADDRE,
-                                            dp: sltData.DP,
-                                            package: sltData.PKG,
-                                            ospPhoneClass: sltData.CON_OSP_PHONE_CLASS,
-                                            phonePurchase: sltData.CON_PHN_PURCH,
-                                            sales: sltData.CON_SALES,
-                                            woroTaskName: sltData.CON_WORO_TASK_NAME,
-                                            iptv: sltData.IPTV,
-                                            woroSeit: sltData.CON_WORO_SEIT,
-                                            ftthInstSeit: sltData.FTTH_INST_SIET,
-                                            ftthWifi: sltData.FTTH_WIFI,
-
-                                            // Status fields
-                                            status: sltData.CON_STATUS,
-                                            sltsStatus: finalSltsStatus,
-
-                                            // Dates
-                                            receivedDate: completedDate,
-                                            statusDate: completedDate,
-                                            completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : null,
-
-                                            // Other
-                                            comments: 'Auto-created from Missing History Sync',
-                                            dropWireDistance: dropWireDistance,
-                                            wiredOnly: isWiredOnly,
-                                        }
-                                    });
-                                    completedCount++;
                                 }
-                            } catch (err) {
-                                console.error(`[COMPLETED-SOD-SYNC] [ERROR] Processing SOD ${sltData.SO_NUM} failed:`, err);
-                                errors.push(`Processing specific SOD ${sltData.SO_NUM} failed: ${(err as Error).message}`);
+                            } else {
+                                // CASE B: DOES NOT EXIST (Missing History)
+                                missingSodsToCreate.push({
+                                    opmcId: opmc.id,
+                                    rtom: sltData.RTOM || opmc.rtom,
+                                    soNum: sltData.SO_NUM,
+                                    lea: sltData.LEA,
+                                    voiceNumber: sltData.VOICENUMBER,
+                                    orderType: sltData.ORDER_TYPE,
+                                    serviceType: sltData.S_TYPE,
+                                    customerName: sltData.CON_CUS_NAME,
+                                    techContact: sltData.CON_TEC_CONTACT,
+                                    address: sltData.ADDRE,
+                                    dp: sltData.DP,
+                                    package: sltData.PKG,
+                                    ospPhoneClass: sltData.CON_OSP_PHONE_CLASS,
+                                    phonePurchase: sltData.CON_PHN_PURCH,
+                                    sales: sltData.CON_SALES,
+                                    woroTaskName: sltData.CON_WORO_TASK_NAME,
+                                    iptv: sltData.IPTV,
+                                    woroSeit: sltData.CON_WORO_SEIT,
+                                    ftthInstSeit: sltData.FTTH_INST_SIET,
+                                    ftthWifi: sltData.FTTH_WIFI,
+
+                                    // Status fields
+                                    status: sltData.CON_STATUS,
+                                    sltsStatus: finalSltsStatus,
+
+                                    // Dates
+                                    receivedDate: completedDate,
+                                    statusDate: completedDate,
+                                    completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : null,
+
+                                    // Other
+                                    comments: 'Auto-created from Missing History Sync',
+                                    dropWireDistance: dropWireDistance,
+                                    wiredOnly: isWiredOnly,
+                                });
                             }
-                        }));
+                        } catch (err) {
+                            console.error(`[COMPLETED-SOD-SYNC] [ERROR] Processing SOD ${sltData.SO_NUM} failed:`, err);
+                            errors.push(`Processing specific SOD ${sltData.SO_NUM} failed: ${(err as Error).message}`);
+                        }
+                    }
+
+                    // Perform Batch Insert for all missing SODs
+                    if (missingSodsToCreate.length > 0) {
+                        try {
+                            const result = await prisma.serviceOrder.createMany({
+                                data: missingSodsToCreate,
+                                skipDuplicates: true
+                            });
+                            completedCount += result.count;
+                        } catch (batchErr) {
+                            console.error(`[COMPLETED-SOD-SYNC] [BATCH-ERROR] OPMC ${opmc.name} Batch Insert Failed:`, batchErr);
+                            errors.push(`Batch Insert for OPMC ${opmc.name} failed: ${(batchErr as Error).message}`);
+                        }
                     }
                 } catch (opmcErr) {
                     console.error(`[COMPLETED-SOD-SYNC] [OPMC-ERROR] OPMC ${opmc.name}:`, opmcErr);

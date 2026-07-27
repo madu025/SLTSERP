@@ -130,8 +130,8 @@ export async function OPTIONS() {
 const postSchema = z.object({
     action: z.string().optional(),
     cookie: z.string().optional(),
-    boms: z.array(z.any()).optional()
-}).catchall(z.any());
+    boms: z.array(z.unknown()).optional()
+});
 
 export const POST = apiHandler(async (req, _params, body) => {
     const extensionKey = req.headers.get('x-extension-key');

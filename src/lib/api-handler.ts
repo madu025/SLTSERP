@@ -34,6 +34,7 @@ export function apiHandler<T, B = any>(
             entity: string;
         };
         rawResponse?: boolean;
+        rateLimit?: { max: number; windowSecs: number; };
     }
 ) {
     return async (req: Request, context: any) => {
@@ -48,6 +49,25 @@ export function apiHandler<T, B = any>(
                 if (options?.roles && options.roles.length > 0) {
                     if (userRole && !options.roles.includes(userRole)) {
                         throw new AppError('Forbidden: Access denied', ErrorCode.FORBIDDEN, 403);
+                    }
+                }
+
+                // Rate Limiting
+                if (options?.rateLimit) {
+                    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+                    const rlKey = `rate-limit:${req.url}:${ip}`;
+                    try {
+                        const { redis } = await import('@/lib/redis');
+                        const current = await redis.incr(rlKey);
+                        if (current === 1) {
+                            await redis.expire(rlKey, options.rateLimit.windowSecs);
+                        }
+                        if (current > options.rateLimit.max) {
+                            throw new AppError('Too many requests, please try again later.', 'RATE_LIMIT_EXCEEDED' as any, 429);
+                        }
+                    } catch (e) {
+                        if (e instanceof AppError) throw e;
+                        console.warn('Rate limiter redis failure, bypassing:', e);
                     }
                 }
 

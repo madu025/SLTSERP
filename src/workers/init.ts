@@ -28,11 +28,11 @@ export async function initializeBackgroundWorkers() {
     // 🕊️ REGISTER REPEATABLE JOBS (The "One Truth" Scheduler)
     // BullMQ handles redundancy automatically across multiple server instances.
     try {
-        // 1. Completed SOD Sync (Every 15 minutes)
+        // 1. Completed SOD Sync (Every 20 minutes)
         await sodSyncQueue.add(
             'periodic-completed-sync',
             { type: 'PERIODIC_COMPLETED_SYNC' },
-            { repeat: { every: 15 * 60 * 1000 }, jobId: 'repeat-completed-sync' }
+            { repeat: { every: 20 * 60 * 1000 }, jobId: 'repeat-completed-sync' }
         );
 
         // 2. Pending SOD Sync (Every 20 minutes)

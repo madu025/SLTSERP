@@ -36,5 +36,5 @@ export const POST = apiHandler(async (req, _params, body) => {
     return result;
 }, {
     schema: LoginSchema,
-    rawResponse: true
+    rawResponse: true, rateLimit: { max: 10, windowSecs: 60 }
 });

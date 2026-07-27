@@ -16,12 +16,15 @@ interface ServiceOrdersResponse {
     };
 }
 
-export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
+export function useSODOperations(selectedRtomId: string, selectedRtom: string, filterType?: string) {
     const queryClient = useQueryClient();
 
     const syncMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch("/api/service-orders/sync", {
+            const isCompletedSync = filterType === 'completed';
+            const endpoint = isCompletedSync ? "/api/automation/completed-sod-sync" : "/api/service-orders/sync";
+            
+            const res = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ rtomId: selectedRtomId, rtom: selectedRtom })
@@ -34,7 +37,14 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-            const message = `Sync completed: ${data.created} created, ${data.updated} updated${data.markedAsMissing > 0 ? `, ${data.markedAsMissing} marked as missing` : ''}`;
+            
+            let message = '';
+            if (filterType === 'completed') {
+                const result = data.data;
+                message = `Sync completed: Checked ${result.checked}, Updated ${result.completed}`;
+            } else {
+                message = `Sync completed: ${data.created} created, ${data.updated} updated${data.markedAsMissing > 0 ? `, ${data.markedAsMissing} marked as missing` : ''}`;
+            }
             toast.success(message);
         },
         onError: (err: any) => {

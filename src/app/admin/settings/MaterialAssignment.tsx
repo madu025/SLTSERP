@@ -1,5 +1,6 @@
 "use client";
 
+import { safeJsonParse } from '@/utils/safeJsonParse';
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from 'sonner';
 import { Search, Save, Loader2, Plus, X, Edit2, Tag, GripVertical, Link2, CheckCircle2, AlertCircle, Info, Sparkles, LayoutGrid, List, ArrowUpDown, Layers, ChevronUp, ChevronDown } from "lucide-react";
@@ -160,12 +161,8 @@ export function MaterialAssignment() {
             if (Array.isArray(data)) {
                 setItems(data);
             }
-            if (config['OSP_ITEM_ORDER']) {
-                try { setItemOrder(JSON.parse(config['OSP_ITEM_ORDER'])); } catch (e) {}
-            }
-            if (config['OSP_CATEGORY_ORDER']) {
-                try { setCategoryOrder(JSON.parse(config['OSP_CATEGORY_ORDER'])); } catch (e) {}
-            }
+            setItemOrder(safeJsonParse<string[]>(config['OSP_ITEM_ORDER'], []));
+            setCategoryOrder(safeJsonParse<string[]>(config['OSP_CATEGORY_ORDER'], []));
         } catch (error) {
             console.error("Failed to fetch data:", error);
         } finally {

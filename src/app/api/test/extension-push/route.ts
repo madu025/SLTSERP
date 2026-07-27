@@ -71,16 +71,21 @@ export const POST = apiHandler(async (req, _params, body) => {
     const lockKey = `lock:bridge-sync:${soNum}`;
     if (soNum) {
         try {
-            const lockAcquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
-            acquired = !!lockAcquired;
-            if (!acquired) {
-                return Response.json(
-                    { success: false, error: 'CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.' },
-                    { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } }
-                );
+            if (redis.status === 'ready') {
+                const lockAcquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
+                acquired = !!lockAcquired;
+                if (!acquired) {
+                    return Response.json(
+                        { success: false, error: 'CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.' },
+                        { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } }
+                    );
+                }
+            } else {
+                // Silently bypass lock if Redis is not connected to avoid terminal error spam
+                acquired = true; 
             }
-        } catch (redisErr) {
-            console.warn('[EXTENSION-PUSH] Redis unavailable, bypassing lock:', redisErr);
+        } catch (redisErr: any) {
+            console.warn(`[EXTENSION-PUSH] Redis lock bypass (Status: ${redis.status}):`, redisErr.message || redisErr);
         }
     }
 

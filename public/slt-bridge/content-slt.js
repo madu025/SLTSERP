@@ -462,13 +462,15 @@ async function orchestrate() {
         currentUser: PhoenixScanner.clean(document.querySelector('.user-profile-dropdown h6, #user_name')?.innerText || "").replace("Welcome, ", "")
     };
 
+    // Always ensure lastScraped is set in storage for current soNum
+    chrome.storage.local.set({ lastScraped: payload, [`sod_${soNum}`]: GLOBAL_RECON.tabs });
+
     const hash = JSON.stringify(GLOBAL_RECON.tabs) + JSON.stringify(payload.materialDetails) + JSON.stringify(payload.history) + JSON.stringify(payload.forensicAudit);
 
     const currentHash = hash.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0).toString();
 
     if (currentHash !== GLOBAL_RECON.lastHash) {
         GLOBAL_RECON.lastHash = currentHash;
-        chrome.storage.local.set({ lastScraped: payload, [`sod_${soNum}`]: GLOBAL_RECON.tabs });
         chrome.runtime.sendMessage({ action: 'pushToERP', data: payload });
         const hud = document.getElementById('phoenix-hud');
         if (hud) {

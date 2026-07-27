@@ -131,7 +131,7 @@ export class SODSyncService {
             let data = await sltApiService.fetchHOApprovedGlobal();
 
             const lastSyncSetting = await prisma.systemSetting.findUnique({ where: { key: 'LAST_HO_APPROVED_SYNC' } });
-            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2020-01-01');
+            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date(process.env.SYNC_EPOCH_START || '2020-01-01');
 
             if (!data || data.length === 0) {
                 const dateStr = filterDate.toISOString().split('T')[0];
@@ -265,7 +265,7 @@ export class SODSyncService {
             const data = await sltApiService.fetchHORejected();
 
             const lastSyncSetting = await prisma.systemSetting.findUnique({ where: { key: 'LAST_HO_REJECTED_SYNC' } });
-            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2020-01-01');
+            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date(process.env.SYNC_EPOCH_START || '2020-01-01');
 
             if (!data || data.length === 0) return { totalCached: 0, totalUpdated: 0 };
 

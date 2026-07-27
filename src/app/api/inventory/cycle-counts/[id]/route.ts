@@ -12,13 +12,17 @@ const submitCountSchema = z.object({
     }))
 });
 
-export const GET = apiHandler(async (_request: Request, params: any) => {
-    const { id } = params;
+const paramsSchema = z.object({
+    id: z.string()
+});
+
+export const GET = apiHandler(async (_request: Request, params: unknown) => {
+    const { id } = paramsSchema.parse(params);
     return await InventoryService.getCycleCountById(id);
 }, { rawResponse: true });
 
-export const PUT = apiHandler(async (_request: Request, params: any, body: any) => {
-    const { id } = params;
+export const PUT = apiHandler(async (_request: Request, params: unknown, body: unknown) => {
+    const { id } = paramsSchema.parse(params);
     const { lines } = submitCountSchema.parse(body);
 
     return await InventoryService.submitCountResults(id, lines);

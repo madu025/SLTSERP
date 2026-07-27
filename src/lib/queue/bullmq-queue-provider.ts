@@ -6,6 +6,10 @@ export class BullMQQueueProvider implements QueueProvider {
     private queues = new Map<string, Queue>();
 
     private getQueue(name: string): Queue | null {
+        // Fallback immediately if Redis connection is closed/closing or unavailable
+        if (redis.status === 'end' || redis.status === 'close') {
+            return null;
+        }
         let q = this.queues.get(name);
         if (!q) {
             try {
@@ -22,7 +26,7 @@ export class BullMQQueueProvider implements QueueProvider {
                     },
                 });
                 this.queues.set(name, q);
-            } catch (err) {
+            } catch {
                 console.warn(`[BullMQ] Failed to initialize queue '${name}'. Fallback enabled.`);
                 return null;
             }

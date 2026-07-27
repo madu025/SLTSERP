@@ -10,7 +10,6 @@ const loginSchema = z.object({
 });
 
 export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginSchema>) => {
-
     try {
         const { token, user } = await UserService.login({ username: data.username, password: data.password });
 
@@ -38,7 +37,4 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
 
         throw error;
     }
-}, {
-    schema: loginSchema,
-    rawResponse: true
-});
+}, { schema: loginSchema, rawResponse: true, rateLimit: { max: 10, windowSecs: 60 } });

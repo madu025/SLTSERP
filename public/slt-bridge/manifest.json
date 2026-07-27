@@ -33,7 +33,9 @@
     "content_scripts": [
         {
             "matches": [
-                "https://serviceportal.slt.lk/*"
+                "https://serviceportal.slt.lk/*",
+                "https://ishamp.slt.lk/*",
+                "https://*.slt.lk/*"
             ],
             "js": [
                 "content-slt.js"

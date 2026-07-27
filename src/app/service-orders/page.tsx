@@ -110,7 +110,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     }, [clearSodNotifications]);
 
     // --- HOOKS ---
-    const { syncMutation, addOrderMutation, updateStatusMutation, scheduleMutation, commentMutation } = useSODOperations(selectedRtomId, selectedRtom);
+    const { syncMutation, addOrderMutation, updateStatusMutation, scheduleMutation, commentMutation } = useSODOperations(selectedRtomId, selectedRtom, filterType);
 
     // Fetch OPMCs for context
     const { data: opmcs = [] } = useQuery<OPMC[]>({

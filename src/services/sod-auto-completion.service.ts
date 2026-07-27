@@ -56,26 +56,36 @@ export class SODAutoCompletionService {
         endDate: string
     ): Promise<SLTCompletedSOD[]> {
         try {
-            // Fetch completed SODs using the same pattern as other methods
-            const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load`;
+            const domains = ['https://ishamp.slt.lk', 'https://serviceportal.slt.lk'];
             const params = new URLSearchParams({
                 x: 'ftth',
                 z: `${rtom}_${startDate}_${endDate}_COMPLETED_SLTS`,
                 _: Date.now().toString()
             });
 
-            const response = await fetch(`${url}?${params}`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json, text/plain, */*',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                },
-                signal: AbortSignal.timeout(60000), // 60 second timeout
-            });
+            let response: Response | null = null;
+            for (const domain of domains) {
+                try {
+                    const res = await fetch(`${domain}/iShamp/contr/dynamic_load?${params}`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json, text/plain, */*',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                        },
+                        signal: AbortSignal.timeout(30000),
+                    });
+                    if (res.ok) {
+                        response = res;
+                        break;
+                    }
+                } catch {
+                    // Try next domain
+                }
+            }
 
-            if (!response.ok) {
-                console.error(`[SOD-AUTO-COMPLETE] SLT API Error for ${rtom}: ${response.status} ${response.statusText}`);
+            if (!response || !response.ok) {
+                console.error(`[SOD-AUTO-COMPLETE] SLT API Error for ${rtom}: Response unavailable or failed`);
                 return [];
             }
 
