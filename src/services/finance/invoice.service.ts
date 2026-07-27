@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { AppError } from '@/lib/error';
+import { AuditService } from '@/services/audit.service';
 
 export interface GetInvoicesParams {
     page?: number;
@@ -42,6 +44,44 @@ export class InvoiceService {
             total,
             page,
             totalPages: Math.ceil(total / limit)
+        };
+    }
+
+    static async approveBySfAudit(invoiceId: string, userId: string) {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { contractor: { select: { name: true } } }
+        });
+
+        if (!invoice) {
+            throw AppError.notFound('Invoice not found');
+        }
+
+        const updatedInvoice = await prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: 'SF_AUDIT_APPROVED',
+                statusA: 'SF_AUDIT_APPROVED'
+            }
+        });
+
+        await AuditService.log({
+            userId,
+            action: 'SF_AUDIT_INVOICE_CLEARANCE',
+            entity: 'Invoice',
+            entityId: invoice.id,
+            newValue: {
+                invoiceNumber: invoice.invoiceNumber,
+                totalAmount: parseFloat(invoice.totalAmount.toString()),
+                contractorName: invoice.contractor?.name,
+                approvedBy: userId,
+                approvedAt: new Date().toISOString()
+            }
+        });
+
+        return {
+            invoice: updatedInvoice,
+            invoiceNumber: invoice.invoiceNumber
         };
     }
 }

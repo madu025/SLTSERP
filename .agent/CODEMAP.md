@@ -449,6 +449,7 @@
 * **Class**: `InvoiceService`
   * **Methods**:
     * `getInvoices(params: GetInvoicesParams): any`
+    * `approveBySfAudit(invoiceId: string, userId: string): any`
 
 ### [ld-penalty.service.ts](src/services/finance/ld-penalty.service.ts)
 * **Class**: `LDPenaltyService`
@@ -867,17 +868,20 @@
 * **Class**: `ITAssetDepreciationService`
   * **Methods**:
     * `postMonthlyDepreciation(period: string, userId: string): Promise<{ processed: number, totalDepreciation: number }>`
+    * `getDepreciationSchedule(): any`
 
 ### [sla-worker.service.ts](src/services/helpdesk/sla-worker.service.ts)
 * **Class**: `SLABreachWorkerService`
   * **Methods**:
     * `processSLA(job: Job<SLAJobData>): any`
+    * `getSLAStats(): any`
 
 ### [telemetry.service.ts](src/services/helpdesk/telemetry.service.ts)
 * **Class**: `TelemetryService`
   * **Methods**:
     * `ingestTelemetry(payload: AgentTelemetryPayload): Promise<void>`
     * `syncTelemetryToDB(): Promise<number>`
+    * `getRegisteredDevices(): any`
 
 ### [helpdesk-audit.service.ts](src/services/helpdesk-audit.service.ts)
 * **Class**: `HelpdeskAuditService`
@@ -1338,6 +1342,7 @@
     * `deleteStore(id: string): Promise<void>`
     * `checkLowStock(storeId: string, itemId: string): Promise<void>`
     * `checkAllLowStock(storeId: string): Promise<number>`
+    * `getPublicSiteOffices(): any`
 
 ### [transaction.service.ts](src/services/inventory/transaction.service.ts)
 * **Class**: `TransactionService`
@@ -1441,6 +1446,7 @@
     * `createInvoice(data: CreateInvoiceDTO): any`
     * `updateInvoice(data: UpdateInvoiceDTO): any`
     * `deleteInvoice(id: string): any`
+    * `approveBySfAudit(invoiceId: string, userId: string): any`
 
 ### [job.service.ts](src/services/job.service.ts)
 * **Class**: `JobService`
@@ -1815,6 +1821,7 @@
     * `getUserPreferences(userId: string): any`
     * `upsertUserPreference(userId: string, type: string, enabled: boolean): any`
     * `sendTestNotification(userId: string | null): any`
+    * `markBulkAsRead(userId: string, notificationIds: string[]): any`
 
 ### [notification-policy.service.ts](src/services/notification/notification-policy.service.ts)
 * **Class**: `NotificationPolicyService`
@@ -2471,6 +2478,7 @@
         }): any`
     * `getExtensionLogs(): any`
     * `clearExtensionLogs(): any`
+    * `verifyInvoicable(sodIds: string[], userId: string, notes?: string): any`
 
 ### [sod-return-classifier.service.ts](src/services/sod/sod-return-classifier.service.ts)
 * **Class**: `SODReturnClassifierService`
@@ -2652,6 +2660,7 @@
     * `createStaff(data: CreateStaffInput): any`
     * `updateStaff(id: string, data: UpdateStaffInput): any`
     * `deleteStaff(id: string): any`
+    * `findPublicStaffByEmployeeId(employeeNo: string): any`
 
 ### [system-config.service.ts](src/services/system-config.service.ts)
 * **Class**: `SystemConfigService`
@@ -7901,7 +7910,7 @@
   * `statusHistory: ServiceOrderStatusHistory[]`
   * `commentsHistory: ServiceOrderComment[]`
   * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
-  * `invoice: Invoice?` `[@relation(fields: [invoiceId], references: [id])]`
+  * `invoice: Invoice?` `[@relation(fields: [invoiceId], references: [id], onDelete: SetNull)]`
   * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id], onDelete: Cascade)]`
   * `team: ContractorTeam?` `[@relation(fields: [teamId], references: [id])]`
   * `forensicAudit: SODForensicAudit?`

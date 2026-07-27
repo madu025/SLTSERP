@@ -454,4 +454,61 @@ export class ServiceOrderService {
     static async clearExtensionLogs() {
         return prisma.extensionRawData.deleteMany({});
     }
+
+    /**
+     * Mark SODs as invoicable after engineer verification
+     */
+    static async verifyInvoicable(sodIds: string[], userId: string, notes?: string) {
+        const sods = await prisma.serviceOrder.findMany({
+            where: {
+                id: { in: sodIds },
+                OR: [
+                    { sltsStatus: 'COMPLETED' },
+                    { status: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED'] } }
+                ]
+            }
+        });
+
+        if (sods.length === 0) {
+            throw AppError.badRequest('No completed SODs found matching the provided IDs');
+        }
+
+        const verifiedIds: string[] = [];
+
+        await prisma.$transaction(async (tx) => {
+            for (const sod of sods) {
+                await tx.serviceOrder.update({
+                    where: { id: sod.id },
+                    data: {
+                        isInvoicable: true,
+                        sltsPatStatus: 'PAT_PASSED',
+                        opmcPatStatus: 'PAT_PASSED',
+                        hoPatStatus: 'PAT_PASSED'
+                    }
+                });
+
+                await tx.auditLog.create({
+                    data: {
+                        action: 'SOD_INVOICABLE_VERIFIED',
+                        entity: 'ServiceOrder',
+                        entityId: sod.id,
+                        userId: userId,
+                        newValue: {
+                            soNum: sod.soNum,
+                            rtom: sod.rtom,
+                            verifiedBy: userId,
+                            notes: notes || 'Engineer verification passed'
+                        }
+                    }
+                });
+
+                verifiedIds.push(sod.id);
+            }
+        });
+
+        return {
+            count: verifiedIds.length,
+            verifiedIds
+        };
+    }
 }

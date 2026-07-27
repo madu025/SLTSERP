@@ -63,11 +63,11 @@ export class CompletedSODSyncService {
                     const allSoNums = uniqueResults.map(r => r.SO_NUM);
                     const localSODsBatch = allSoNums.length > 0 ? await prisma.serviceOrder.findMany({
                         where: { soNum: { in: allSoNums } },
-                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true }
+                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true, ontSerialNumber: true }
                     }) : [];
 
                     // Group local service orders by soNum in-memory
-                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null }>>();
+                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null, ontSerialNumber: string | null }>>();
                     localSODsBatch.forEach(sod => {
                         const key = sod.soNum;
                         if (key) {
@@ -118,7 +118,7 @@ export class CompletedSODSyncService {
                                                 completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : localSOD.completedDate,
                                                 wiredOnly: isWiredOnly,
                                                 dpDetails: sltData.DP,
-                                                ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
+                                                ontSerialNumber: localSOD.ontSerialNumber ? localSOD.ontSerialNumber : (sltData.CON_WORO_SEIT || undefined),
                                                 iptvSerialNumbers: (sltData.IPTV && String(sltData.IPTV).trim().length > 5) ? [String(sltData.IPTV).trim()] : undefined,
                                                 dropWireDistance: dropWireDistance,
                                                 comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,

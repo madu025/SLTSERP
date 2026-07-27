@@ -658,4 +658,47 @@ export class InvoiceService {
 
         return { success: true };
     }
+
+    /**
+     * Approve invoice by SF Audit section
+     */
+    static async approveBySfAudit(invoiceId: string, userId: string) {
+        const { AuditService } = await import('@/services/audit.service');
+
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { contractor: { select: { name: true } } }
+        });
+
+        if (!invoice) {
+            throw AppError.notFound('Invoice not found');
+        }
+
+        const updatedInvoice = await prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: 'SF_AUDIT_APPROVED',
+                statusA: 'SF_AUDIT_APPROVED'
+            }
+        });
+
+        await AuditService.log({
+            userId,
+            action: 'SF_AUDIT_INVOICE_CLEARANCE',
+            entity: 'Invoice',
+            entityId: invoice.id,
+            newValue: {
+                invoiceNumber: invoice.invoiceNumber,
+                totalAmount: parseFloat(invoice.totalAmount.toString()),
+                contractorName: invoice.contractor?.name,
+                approvedBy: userId,
+                approvedAt: new Date().toISOString()
+            }
+        });
+
+        return {
+            invoice: updatedInvoice,
+            invoiceNumber: invoice.invoiceNumber
+        };
+    }
 }

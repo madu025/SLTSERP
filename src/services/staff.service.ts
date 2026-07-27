@@ -134,4 +134,46 @@ export class StaffService {
 
     return prisma.staff.delete({ where: { id } });
   }
+
+  /**
+   * Find staff details for public verification by employee number
+   */
+  static async findPublicStaffByEmployeeId(employeeNo: string) {
+    const staff = await prisma.staff.findFirst({
+      where: {
+        employeeId: {
+          equals: employeeNo.trim(),
+          mode: 'insensitive'
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        assignedITAssets: {
+          select: {
+            id: true,
+            serialNumber: true,
+            assetNumber: true,
+            deviceType: true,
+            brand: true,
+            model: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    if (!staff) {
+      return { found: false };
+    }
+
+    return {
+      found: true,
+      staff: {
+        id: staff.id,
+        name: staff.name,
+        assignedITAssets: staff.assignedITAssets
+      }
+    };
+  }
 }

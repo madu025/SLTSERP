@@ -324,7 +324,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button className={`w-full h-full flex items-center justify-between bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-primary/5 pl-1.5 pr-2 py-1 text-[10px] font-bold text-left hover:bg-primary/5 transition-colors ${isSyncedTeam ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-blue-500'}`}>
-                            <span className="truncate" title={label}>{isSyncedTeam ? `⚡ ${label}` : label}</span>
+                            <span className="truncate" title={label}>{label}</span>
                             <ChevronDown className="w-3 h-3 opacity-50 ml-1 shrink-0" />
                         </button>
                     </DropdownMenuTrigger>
@@ -842,11 +842,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             </button>
                                             {order.hasBridgeLog && (
                                                 <span 
-                                                    className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-indigo-600/10 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-500/30 shadow-xs shrink-0 inline-flex items-center gap-0.5 cursor-help" 
+                                                    className="p-1 rounded-full bg-indigo-600/10 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-500/30 shadow-xs shrink-0 inline-flex items-center justify-center cursor-help" 
                                                     title="Synced via SLTS Bridge Chrome Extension Log"
                                                 >
                                                     <Zap className="w-2.5 h-2.5 text-indigo-500 animate-pulse" />
-                                                    BRIDGE
                                                 </span>
                                             )}
                                         </div>

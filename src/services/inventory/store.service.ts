@@ -210,4 +210,19 @@ export class StoreService {
         }
         return stocks.length;
     }
+
+    /**
+     * Get basic list of public site offices (stores) for dropdowns
+     */
+    static async getPublicSiteOffices() {
+        return InventoryRepository.findStores({
+            select: {
+                id: true,
+                name: true
+            },
+            orderBy: {
+                name: 'asc'
+            }
+        });
+    }
 }

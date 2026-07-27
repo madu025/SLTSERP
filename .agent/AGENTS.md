@@ -2,6 +2,12 @@
 
 This document contains workspace-specific rules and instructions for coding agents operating on the SLTSERP codebase.
 
+> **Changelog note:** Sections marked `🆕 [AUDIT-DERIVED]` were added after a full codebase audit
+> (see AUDIT_REPORT.md) surfaced gaps not previously covered here — specifically around
+> transactional data integrity, schema-change blast radius, and rate limiting. These sections
+> do not override any existing rule below unless explicitly stated (see the caching note under
+> Next.js Route Caching Standards).
+
 ## 🏆 Mandatory Production-Level Coding Standards
 All code additions, edits, or refactors MUST comply with strict production-level standards:
 1. **API Endpoints**: Always wrap write and complex read route handlers with `apiHandler` (Zod validation, role checks, audit trail logging, unified error handling). Avoid manual `try/catch` and direct `NextResponse.json` returns.
@@ -11,6 +17,85 @@ All code additions, edits, or refactors MUST comply with strict production-level
 5. **No Caching Drift**: Declare `export const dynamic = 'force-dynamic'` in any GET API route returning dynamic database records.
 6. **Zero `any` Type Tolerance**: Never use `any` or `any[]` types. All variables, API payloads, error catches, and return types must be strictly typed using interfaces, `Record<string, unknown>`, `unknown`, or Zod validation schemas. Using `any` is strictly prohibited and violates code quality standards.
 7. **Algorithmic Efficiency (Big-O)**: Avoid $O(N^2)$ loops (e.g., nested `find` or database queries inside a loop). Utilize $O(1)$ Hash Maps, Sets, and Prisma `$transaction` batch operations to optimize time and space complexity.
+8. **🆕 [AUDIT-DERIVED] Fixed-Value Fields Must Be Enums**: Never use a plain `String` type in Prisma for a field that represents a known, fixed set of values (status, priority, type, category, etc.). Always define an explicit Prisma `enum`. This prevents invalid states from being written to the database and silently breaking downstream logic (workflow engines, invoice generation, ledger posting).
+9. **🆕 [AUDIT-DERIVED] Never Store Individually-Queryable Data as JSON**: If a field's contents need to be filtered, aggregated, or queried individually (e.g. a list of delay reasons, line items, attachments), it must be a proper one-to-many relation table — not a `Json` column. `Json` columns are only acceptable for genuinely opaque, non-queried blobs (e.g. raw external API payloads kept for audit purposes only).
+
+
+## 💰 Financial & Transactional Data Integrity Standards 🆕 [AUDIT-DERIVED]
+
+SLTSERP handles invoices, payments, contractor payouts, GL postings, and stock/material
+deduction — all financial or quasi-financial state. The following rules are **non-negotiable**:
+
+1. **Mandatory `$transaction()` for Multi-Table Writes**: Any operation that writes to 2+ tables
+   where partial completion would leave the system in an invalid state — invoice creation/update,
+   payment posting, ledger entries, contractor payout splits, stock/material deduction on service
+   order completion — MUST be wrapped in `prisma.$transaction()`. Before writing any new business
+   logic touching money, stock, or ledger state, the agent must explicitly ask itself: *"if this
+   fails halfway, is the data still consistent?"* If not, wrap it in a transaction.
+2. **Idempotency on Write Endpoints**: Payment, invoice, and payout-related mutation endpoints
+   should support idempotency keys where the client may retry a request (e.g. network timeout on
+   a payment POST). Do not assume retries are safe by default.
+3. **STOP Rule**: If a fix or feature touches a financial/ledger/invoice write path, the agent
+   MUST stop and confirm the approach with the user before applying — even if the change appears
+   obviously correct. This applies regardless of which task or phase the agent is currently
+   executing.
+4. **No Silent Financial Failures**: `catch {}` blocks are never acceptable anywhere in the
+   codebase (see Error Handling Standards below), but around financial write paths this is
+   elevated from a code-quality issue to a data-integrity issue — a swallowed exception here can
+   mean money or stock moved without a corresponding record.
+
+
+## 🧬 Schema Change & Migration Safety Standards 🆕 [AUDIT-DERIVED]
+
+1. **Blast-Radius Check Before Schema Changes**: Before modifying, renaming, retyping, or removing
+   any Prisma field — especially converting a `String` to an `enum`, or restructuring a `Json`
+   column into a relation table — the agent must first list every file in the codebase that
+   reads or writes that field, and present that list to the user before making any change.
+2. **Investigate Before Assuming Redundancy Is a Bug**: If a field appears redundant with data
+   available via a relation (e.g. a child table storing a copy of a value that also exists on its
+   parent), do NOT assume this is a mistake. Search the codebase for evidence it's an intentional
+   historical snapshot (a value captured at a point in time that is meant to remain fixed even if
+   the parent's value later changes). Report findings to the user before changing or removing the
+   field.
+3. **Explicit `onDelete` on Every Relation**: Every foreign key relation must have an explicit
+   `onDelete` behavior defined — never leave it to the Prisma default. When choosing between
+   `Restrict`, `SetNull`, and `Cascade` on entities with audit/traceability requirements
+   (invoices, service orders, ledger entries), default to `Restrict` unless the user confirms
+   otherwise — silently orphaning or cascading financial records is higher-risk than blocking a
+   delete.
+4. **Data Migrations Before Column Drops**: When restructuring a `Json` column into a relation
+   table, write and show the user the data-migration script that moves existing JSON data into
+   the new table. Do not drop the old column until the user has confirmed the migration ran
+   correctly in a dev environment.
+5. **Local Dev Only, Never Auto-Apply**: Any schema change is generated via
+   `npx prisma migrate dev --name <descriptive_name>` against the local dev database only. Never
+   run a migration automatically against a shared or production database.
+
+
+## 🛡️ Auth, Rate Limiting & Dependency Standards 🆕 [AUDIT-DERIVED]
+
+1. **Rate Limiting on Public & Auth Endpoints**: Every authentication endpoint (login, password
+   reset, OTP/verification) and any other public-facing endpoint must have rate limiting applied.
+   Check for existing rate-limit middleware in the project before introducing a new library.
+2. **No Blind Bulk Dependency Upgrades**: When updating `package.json` dependencies, never bulk-
+   upgrade multiple major versions at once. List current vs. latest version and any breaking
+   changes from the changelog first, then upgrade one package at a time, running the full test
+   suite (`npx tsc --noEmit` + `npm test` / `npx playwright test`) between each.
+3. **Secrets Handling**: Never hardcode secrets, API keys, or credentials in source. Confirm
+   `.env*` files are covered by `.gitignore` before committing.
+
+
+## 🧯 Error Handling Standards 🆕 [AUDIT-DERIVED]
+
+1. **No Empty Catch Blocks**: `catch (error) {}` is never acceptable anywhere in the codebase —
+   client components, services, or route handlers. At minimum: log the error (or route it through
+   the project's audit/logging layer via `apiHandler` where applicable) and either re-throw,
+   return a safe fallback, or surface user-facing feedback (toast/UI state).
+2. **Safe JSON Parsing**: Never call `JSON.parse()` directly on data sourced from the database or
+   external input without a try/catch and a safe fallback default. Prefer a shared utility (e.g.
+   `utils/safeJsonParse.ts`) over inline parsing.
+3. **Typed Catches**: Per the Zero `any` Type Tolerance rule above, all catch blocks must use
+   `catch (error: unknown)` with `error instanceof Error` narrowing — never `catch (error: any)`.
 
 
 ## 🗺️ GIS Map Integration & OpenLayers Sizing Standards
@@ -61,6 +146,7 @@ To prevent the OpenLayers GIS map container from collapsing or rendering as a bl
 ### 5. Render Loop State Rule
 * **No Refs in JSX**: Never read `.current` properties of React `useRef` directly during JSX rendering (e.g. `lastSegmentDistanceRef.current`). Synchronize all computed values to React state hooks inside event handlers, and render from states instead.
 
+
 ## ⚡ Next.js Route Caching & State Refresh Standards
 
 To ensure that UI data tables and dashboards refresh instantly after a resource is deleted, updated, or created, follow these rules:
@@ -70,6 +156,10 @@ To ensure that UI data tables and dashboards refresh instantly after a resource 
   ```typescript
   export const dynamic = 'force-dynamic';
   ```
+> **🆕 Note:** This rule is intentional project policy and takes precedence over generic
+> performance advice (e.g. "use ISR/`revalidate` for static-ish GET routes"). Any future audit
+> or agent suggesting `revalidate` instead of `force-dynamic` should be rejected unless the user
+> explicitly changes this policy.
 
 ### 2. Client-Side Cache Busting & Headers
 * When performing fetch calls to retrieve lists of items (especially when reloading after mutations like delete), always append a timestamp parameter (e.g., `_t=${Date.now()}`) to the URL and configure headers/cache options:
@@ -88,6 +178,7 @@ To ensure that UI data tables and dashboards refresh instantly after a resource 
   ```typescript
   setExistingProjects((prev) => prev.filter((p) => p.id !== deletedId));
   ```
+
 
 ## 📉 Database Egress & Bandwidth Optimization Standards
 
@@ -170,7 +261,7 @@ To ensure every newly created dashboard page includes the global navigation Side
 
 ## 🤖 Upgraded Enterprise Multi-Role Grill-Me Standard (`/grill-me`)
 
-To ensure maximum production quality, deep technical depth, and global industry competitiveness, whenever `/grill-me` or major design planning is executed, the agent MUST evaluate the architecture using the following **Upgraded 5-Perspective Expert Panel**. 
+To ensure maximum production quality, deep technical depth, and global industry competitiveness, whenever `/grill-me` or major design planning is executed, the agent MUST evaluate the architecture using the following **Upgraded 5-Perspective Expert Panel**.
 
 **CRITICAL RULES FOR /GRILL-ME:**
 - **Go Beyond the Prompt (Proactive Innovation):** Do not just answer what the user asked. Proactively suggest missing enterprise-grade features (e.g., Maker-Checker approval flows, Idempotency keys, audit webhooks, scalable architectures) that the user may not have thought of.
@@ -179,7 +270,7 @@ To ensure maximum production quality, deep technical depth, and global industry 
 
 ### The 5-Perspective Expert Panel:
 
-1. **👨‍💻 Lead Architect & Senior Full-Stack Developer**:
+1. **👨💻 Lead Architect & Senior Full-Stack Developer**:
    - Algorithmic efficiency ($O(1)$ HashMaps, $O(N)$ batch transactions) and Zero `any` types.
    - Idempotency, decoupling API routes (`src/services/`), and dynamic caching guards.
    - **Global Benchmark**: How do modern microservice architectures handle this? (e.g. Event-driven vs REST).
@@ -207,8 +298,40 @@ To ensure maximum production quality, deep technical depth, and global industry 
 * **Automated Recommended Defaults**: Adopt AI-recommended options validated by the Panel without redundant single-question prompts, unless the user explicitly requests an interactive Q&A.
 * **Consolidated Multi-Role Review Table**: Present all adopted decisions categorized across all 5 Expert viewpoints in a single structured table for instant 1-click user review.
 
+6. **Tiered Recommendation Output (Must / Should / Future)**:
+   - Every suggestion from the panel must be tagged:
+     - 🔴 **Must-Have** — blocks correctness, security, or data integrity (safe to auto-adopt).
+     - 🟡 **Should-Have** — meaningfully improves the module but is not blocking; requires 
+       explicit user approval before being added to any execution plan.
+     - 🔵 **Future Roadmap** — global-benchmark-inspired ideas (SAP/Oracle/ServiceNow-style 
+       features) that are valuable but out of scope for now; logged for later, never 
+       auto-adopted.
+   - "Automated Recommended Defaults" (above) applies ONLY to 🔴 Must-Have items.
 
-## 🚀 Autonomous Goal & Long-Running Task Standard (`/goal`)
+7. **Cost/Complexity Counterpoint Required**:
+   - For every suggestion, the panel must also state the implementation cost/complexity and 
+     any downside (e.g. added latency, more tables to maintain, more edge cases) — not just the 
+     benefit. A one-sided "adopt this" recommendation without a stated trade-off is incomplete.
+
+8. **Cross-Check Against Existing Safety Rules**:
+   - Any suggestion touching the database schema must be flagged against the Schema Change & 
+     Migration Safety Standards (blast-radius check required before implementation).
+   - Any suggestion touching money, ledger, payments, or stock must be flagged against the 
+     Financial & Transactional Data Integrity Standards (STOP rule — needs user confirmation, 
+     `$transaction()` required).
+   - The grill-me output itself does not bypass these rules — it only plans; execution still 
+     goes through them.
+
+9. **Grill-Me Session Log**:
+   - Each `/grill-me` session's Consolidated Review Table must be appended to 
+     `.agent/grill-me-log.md` (module name, date, decisions adopted/deferred/rejected) so past 
+     sessions aren't silently re-litigated and institutional decisions are traceable.
+
+10. **Handoff to `/goal`**:
+    - When a grill-me output is later executed via `/goal`, only 🔴 Must-Have and explicitly 
+      user-approved 🟡 Should-Have items become part of that goal's Definition of Done checklist. 
+      🔵 Future Roadmap items must never be silently pulled into an unrelated goal's execution.
+
 
 ## 🚀 Upgraded Autonomous Goal & Long-Running Task Standard (`/goal`)
 
@@ -217,6 +340,10 @@ To ensure maximum agent autonomy, flawless execution, and enterprise-grade outpu
 1. **Unstoppable Autonomous Execution (Zero Hand-Holding)**:
    - The agent MUST execute continuously, resolving all obstacles, writing code, fixing lints, and running tests until the user's objective is **100% achieved**.
    - NEVER stop midway, NEVER output placeholders (e.g. `// add logic here`), and NEVER pause for trivial user confirmation when an obvious technical path exists. If you hit an error, read the logs, fix the code, and try again autonomously.
+   - **🆕 Exception**: This "unstoppable" rule does NOT override the STOP Rule under Financial &
+     Transactional Data Integrity Standards, or the Blast-Radius Check under Schema Change Safety
+     Standards. Autonomy applies to fixing bugs, lints, and tests — not to unilaterally deciding
+     schema changes or financial-write-path changes without user sign-off.
 
 2. **Strict Empirical Verification Mandate**:
    - Never declare a goal complete without running concrete verification commands (`npx tsc --noEmit`, dev server builds, or browser subagent checks).
@@ -238,3 +365,44 @@ To ensure maximum agent autonomy, flawless execution, and enterprise-grade outpu
      - 📁 Files Modified / Created
      - 🧪 Verification Command Outputs (`npx tsc --noEmit` exit code 0)
      - 📊 Updated Business & Technical State
+
+7. **Scope Boundary Lock**:
+   - Before starting autonomous execution, the agent MUST restate the goal in its own words 
+     and list the explicit boundaries — which files/modules are in scope and which are NOT.
+   - If mid-execution the agent discovers work that falls outside this stated scope (e.g. an 
+     unrelated bug, a missing feature in another module), it must log it under a 
+     "Discovered But Out Of Scope" list in the final summary — NOT silently fix it, and NOT 
+     silently skip it without mentioning it.
+
+8. **Checkpoint & Resumability**:
+   - For any goal expected to span multiple files or a long execution, the agent must maintain 
+     a running checkpoint file (e.g. `.agent/goal-progress.md`) listing: tasks completed, tasks 
+     remaining, last verified state (tsc/test pass/fail), and any blockers.
+   - If execution is interrupted, the next session MUST read this checkpoint file first before 
+     resuming, rather than re-scanning the whole codebase from scratch.
+
+9. **Git Commit Discipline**:
+   - Commit in small, logical, revertable units — one concern per commit (e.g. "add rate 
+     limiting to auth routes" not "goal execution part 3").
+   - Never commit with a failing `npx tsc --noEmit` or failing test suite.
+   - Never force-push or rewrite shared branch history autonomously.
+
+10. **Explicit Definition of Done**:
+    - Before execution starts, the agent must write a numbered checklist of concrete, testable 
+      completion criteria derived from the goal (not just "looks done"). 
+    - The Consolidated Executive Completion Summary must check off each item against this 
+      original checklist — if something can't be checked off, it must be explicitly listed as 
+      incomplete, not silently omitted.
+
+11. **Safe Rollback on Critical Failure**:
+    - If autonomous execution causes a state where `npx tsc --noEmit` cannot be brought back to 
+      0 errors after 3 genuine fix attempts, OR a financial/schema change (per existing 
+      Financial Integrity / Schema Safety rules) produces unexpected data inconsistency, the 
+      agent MUST stop, revert the specific change via git, and report the failure with root 
+      cause analysis — rather than continuing to autonomously patch around it.
+
+12. **Token/Time Budget Awareness**:
+    - For very large goals, the agent should periodically estimate remaining scope vs. context 
+      budget. If it's clear the goal cannot be completed in the current session, it must save 
+      progress to the checkpoint file (Rule 8) and clearly tell the user how much is left, 
+      rather than rushing the remainder with lower quality.

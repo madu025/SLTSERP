@@ -453,4 +453,37 @@ export class NotificationService {
             link: '/service-orders'
         });
     }
+
+    /**
+     * Mark multiple notifications as read for a user
+     */
+    static async markBulkAsRead(userId: string, notificationIds: string[]) {
+        const result = await prisma.notification.updateMany({
+            where: {
+                id: { in: notificationIds },
+                userId
+            },
+            data: {
+                isRead: true
+            }
+        });
+
+        const remainingUnread = await prisma.notification.count({
+            where: {
+                userId,
+                isRead: false
+            }
+        });
+
+        try {
+            await redis.set(`unread:${userId}`, remainingUnread.toString());
+        } catch (err) {
+            console.error('Failed to sync Redis unread counter:', err);
+        }
+
+        return {
+            updatedCount: result.count,
+            unreadCount: remainingUnread
+        };
+    }
 }

@@ -69,7 +69,7 @@ export function SODTable({ orders, filterType, isColumnVisible, onSort, sortConf
                                         )}
                                         <button onClick={() => onAction(order, 'detail')}>{order.soNum}</button>
                                         {order.isManualEntry && <span className="text-[7px] bg-slate-100 text-slate-500 px-1 border border-slate-200 rounded font-bold uppercase">Manual</span>}
-                                        {order.hasBridgeLog && <span className="text-[7px] bg-indigo-500 text-white px-1 rounded font-bold uppercase flex items-center gap-0.5 border border-indigo-400"><Activity className="w-2 h-2" /> BRIDGE</span>}
+                                        {order.hasBridgeLog && <span className="p-0.5 rounded-full bg-indigo-500 text-white inline-flex items-center justify-center border border-indigo-400 cursor-help" title="Synced via SLTS Bridge Chrome Extension Log"><Activity className="w-2 h-2" /></span>}
                                     </div>
                                 </td>
                             )}

@@ -67,4 +67,51 @@ export class TelemetryService {
         
         return syncedCount;
     }
+
+    /**
+     * Fetch registered IT Asset devices telemetry summary
+     */
+    static async getRegisteredDevices() {
+        const assets = await prisma.iTAsset.findMany({
+            where: {
+                status: { in: ['ACTIVE', 'SPARE', 'UNDER_REPAIR'] }
+            },
+            select: {
+                id: true,
+                assetNumber: true,
+                serialNumber: true,
+                model: true,
+                brand: true,
+                deviceType: true,
+                mdmDeviceId: true,
+                dataPlanLimit: true,
+                updatedAt: true,
+                assignedUser: {
+                    select: { id: true, name: true, email: true }
+                },
+                siteOffice: {
+                    select: { id: true, name: true, type: true }
+                }
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 100
+        });
+
+        const activeCount = assets.filter(a => a.mdmDeviceId).length;
+
+        const formattedDevices = assets.map(a => ({
+            ...a,
+            assetTag: a.assetNumber,
+            deviceName: `${a.brand} ${a.model}`
+        }));
+
+        return {
+            devices: formattedDevices,
+            stats: {
+                totalRegistered: assets.length,
+                mdmActive: activeCount,
+                unregistered: assets.length - activeCount
+            }
+        };
+    }
 }

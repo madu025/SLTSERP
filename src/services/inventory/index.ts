@@ -47,6 +47,7 @@ export class InventoryService {
     static deleteStore = StoreService.deleteStore;
     static checkLowStock = StoreService.checkLowStock;
     static checkAllLowStock = StoreService.checkAllLowStock;
+    static getPublicSiteOffices = StoreService.getPublicSiteOffices;
 
     // --- WAREHOUSE LOCATOR MANAGEMENT ---
     static getLocatorsByStore = LocatorService.getLocatorsByStore;

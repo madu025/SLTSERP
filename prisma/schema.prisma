@@ -101,7 +101,7 @@ model ServiceOrder {
   statusHistory     ServiceOrderStatusHistory[]
   commentsHistory   ServiceOrderComment[]
   contractor        Contractor?        @relation(fields: [contractorId], references: [id])
-  invoice           Invoice?           @relation(fields: [invoiceId], references: [id])
+  invoice           Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   opmc              OPMC               @relation(fields: [opmcId], references: [id], onDelete: Cascade)
   team              ContractorTeam?    @relation(fields: [teamId], references: [id])
 
@@ -654,6 +654,8 @@ model Contractor {
   @@index([status])
   @@index([opmcId])
   @@index([type])
+  @@index([name])
+  @@index([contactNumber])
 }
 
 model ContractorStock {
