@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import xlsx from 'xlsx';
+import * as XLSX from 'xlsx';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 
@@ -141,7 +141,7 @@ export class OSPAccountIngestionService {
       const filePath = path.join(this.OSP_ACCOUNT_DIR, fileName);
       if (!fs.existsSync(filePath)) continue;
 
-      const wb = xlsx.readFile(filePath);
+      const wb = XLSX.readFile(filePath);
       const isAnuradhapura = fileName.includes('Anuradhapura');
       const opmcName = isAnuradhapura ? 'Anuradhapura' : 'Gampaha';
 
@@ -165,7 +165,7 @@ export class OSPAccountIngestionService {
 
       for (const sheetName of wb.SheetNames) {
         const ws = wb.Sheets[sheetName];
-        const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+        const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
         if (rows.length < 5) continue;
 
         for (let i = 4; i < rows.length; i++) {
@@ -222,9 +222,9 @@ export class OSPAccountIngestionService {
 
     const cancelFile = path.join(this.OSP_ACCOUNT_DIR, 'Petty Cash Cancel Vouchers.xlsx');
     if (fs.existsSync(cancelFile)) {
-      const wb = xlsx.readFile(cancelFile);
+      const wb = XLSX.readFile(cancelFile);
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+      const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
       for (let i = 2; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !row[0]) continue;
@@ -253,7 +253,7 @@ export class OSPAccountIngestionService {
     const filePath = path.join(this.OSP_ACCOUNT_DIR, fileName);
     if (!fs.existsSync(filePath)) return 0;
 
-    const wb = xlsx.readFile(filePath);
+    const wb = XLSX.readFile(filePath);
 
     for (const sheetName of wb.SheetNames) {
       if (sheetName === 'Content' || sheetName === 'General Description' || sheetName === 'Assets Coding System' || sheetName === 'Sheet1') {
@@ -261,7 +261,7 @@ export class OSPAccountIngestionService {
       }
 
       const ws = wb.Sheets[sheetName];
-      const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+      const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
       if (rows.length < 6) continue;
 
       let locName = `Location ${sheetName}`;
@@ -357,9 +357,9 @@ export class OSPAccountIngestionService {
 
     const vehicleFile = path.join(this.OSP_ACCOUNT_DIR, 'Vehicle List 2025 10 30.xlsx');
     if (fs.existsSync(vehicleFile)) {
-      const wb = xlsx.readFile(vehicleFile);
+      const wb = XLSX.readFile(vehicleFile);
       const ws = wb.Sheets['Sheet1'] || wb.Sheets[wb.SheetNames[0]];
-      const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+      const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -401,10 +401,10 @@ export class OSPAccountIngestionService {
 
     const hiringFile = path.join(this.OSP_ACCOUNT_DIR, 'Hiring Vehicle Payments Detail - 12.02.2026 - Mr.Kalana.xlsx');
     if (fs.existsSync(hiringFile)) {
-      const wb = xlsx.readFile(hiringFile);
+      const wb = XLSX.readFile(hiringFile);
       for (const sheetName of wb.SheetNames) {
         const ws = wb.Sheets[sheetName];
-        const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+        const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row || row.length < 5) continue;
@@ -455,9 +455,9 @@ export class OSPAccountIngestionService {
 
     const fuelFile = path.join(this.OSP_ACCOUNT_DIR, 'Fuel Deposit.xlsx');
     if (fs.existsSync(fuelFile)) {
-      const wb = xlsx.readFile(fuelFile);
+      const wb = XLSX.readFile(fuelFile);
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+      const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -508,9 +508,9 @@ export class OSPAccountIngestionService {
 
     const advFile = path.join(this.OSP_ACCOUNT_DIR, 'Project Advance Payment.xlsx');
     if (fs.existsSync(advFile)) {
-      const wb = xlsx.readFile(advFile);
+      const wb = XLSX.readFile(advFile);
       const ws = wb.Sheets['Sheet1'] || wb.Sheets[wb.SheetNames[0]];
-      const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+      const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -557,11 +557,11 @@ export class OSPAccountIngestionService {
 
     const iouFile = path.join(this.OSP_ACCOUNT_DIR, 'IOU-2026 03.04.2026.xlsx');
     if (fs.existsSync(iouFile)) {
-      const wb = xlsx.readFile(iouFile);
+      const wb = XLSX.readFile(iouFile);
       for (const sheetName of ['03.04.2026', 'IOU-Petty Cash', 'IOU-Project Adv', 'Sheet2']) {
         const ws = wb.Sheets[sheetName];
         if (!ws) continue;
-        const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+        const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
 
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
@@ -615,9 +615,9 @@ export class OSPAccountIngestionService {
 
     const rentFile = path.join(this.OSP_ACCOUNT_DIR, 'KD Office & Land payments Detail.xlsx');
     if (fs.existsSync(rentFile)) {
-      const wb = xlsx.readFile(rentFile);
+      const wb = XLSX.readFile(rentFile);
       const ws = wb.Sheets['Sheet1'] || wb.Sheets[wb.SheetNames[0]];
-      const rows = xlsx.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
+      const rows = XLSX.utils.sheet_to_json<Array<string | number>>(ws, { header: 1 });
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];

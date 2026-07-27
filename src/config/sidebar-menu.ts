@@ -47,7 +47,9 @@ import {
     Lock,
     Tag,
     Globe,
-    EyeOff
+    EyeOff,
+    Trash2,
+    Clock
 } from 'lucide-react';
 
 
@@ -1029,6 +1031,30 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'IT Asset Management',
                 path: '/helpdesk/assets',
                 icon: Laptop,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+            },
+            {
+                title: 'Asset Disposals (Maker-Checker)',
+                path: '/helpdesk/disposals',
+                icon: Trash2,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'FINANCE_MANAGER', 'ENGINEER']
+            },
+            {
+                title: 'Asset Depreciation & GL',
+                path: '/helpdesk/depreciation',
+                icon: Calculator,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'FINANCE_MANAGER', 'ENGINEER']
+            },
+            {
+                title: 'Live Device Telemetry',
+                path: '/helpdesk/telemetry',
+                icon: Activity,
+                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+            },
+            {
+                title: 'SLA Breach Monitor',
+                path: '/helpdesk/sla-monitor',
+                icon: Clock,
                 allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
             },
             {

@@ -40,6 +40,12 @@ model ITAsset {
   tickets                  Ticket[]
   syncLogs                 AssetSyncLog[]
 
+  dataPlanLimit       Float?
+  mdmDeviceId         String?
+  childRelationships  CMDBRelationship[]     @relation("CMDBParent")
+  parentRelationships CMDBRelationship[]     @relation("CMDBChild")
+  disposalRequests    AssetDisposalRequest[]
+
   @@index([assignedStaffId])
   @@index([assignedUserId])
   @@index([siteOfficeId])
@@ -202,6 +208,7 @@ model AssetHandoverLog {
   asset           ITAsset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
   performedBy     User                 @relation("HandoverPerformed", fields: [performedById], references: [id])
   targetStaff     Staff?               @relation("HandoverReceived", fields: [targetStaffId], references: [id])
+  signatureHash   String?
 
   @@index([assetId])
   @@index([performedById])
@@ -342,4 +349,58 @@ enum AssetTransactionType {
   ISSUED_TO_USER
   RETURNED_TO_STORE
   EXCHANGED
+}
+
+model CMDBRelationship {
+  id               String               @id @default(cuid())
+  parentAssetId    String
+  childAssetId     String
+  relationshipType CMDBRelationshipType
+  createdAt        DateTime             @default(now())
+
+  parentAsset ITAsset @relation("CMDBParent", fields: [parentAssetId], references: [id], onDelete: Cascade)
+  childAsset  ITAsset @relation("CMDBChild", fields: [childAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([parentAssetId, childAssetId, relationshipType])
+  @@index([parentAssetId])
+  @@index([childAssetId])
+}
+
+enum CMDBRelationshipType {
+  DEPENDS_ON
+  CONNECTED_TO
+  HOSTED_ON
+  BACKUP_FOR
+}
+
+model AssetDisposalRequest {
+  id            String         @id @default(cuid())
+  assetId       String
+  requestedById String
+  approvedById  String?
+  reason        DisposalReason
+  salvageValue  Float          @default(0.0)
+  status        ApprovalStatus @default(PENDING)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  asset       ITAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  requestedBy User    @relation("DisposalRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?   @relation("DisposalApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([assetId])
+  @@index([status])
+}
+
+enum DisposalReason {
+  OBSOLETE
+  BEYOND_ECONOMIC_REPAIR
+  LOST_OR_STOLEN
+  SOLD
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

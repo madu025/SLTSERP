@@ -65,6 +65,8 @@ model User {
   sectionAssignments            UserSectionAssignment[]
   accessibleOpmcs               OPMC[]                        @relation("UserOpmcs")
   inventoryLedgers              InventoryLedger[]
+  disposalsRequested            AssetDisposalRequest[]        @relation("DisposalRequestedBy")
+  disposalsApproved             AssetDisposalRequest[]        @relation("DisposalApprovedBy")
 
   @@index([role])
   @@index([supervisorId])

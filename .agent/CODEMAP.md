@@ -863,6 +863,22 @@
             fiberCount?: number;
         }, userId: string): any`
 
+### [asset-depreciation.service.ts](src/services/helpdesk/asset-depreciation.service.ts)
+* **Class**: `ITAssetDepreciationService`
+  * **Methods**:
+    * `postMonthlyDepreciation(period: string, userId: string): Promise<{ processed: number, totalDepreciation: number }>`
+
+### [sla-worker.service.ts](src/services/helpdesk/sla-worker.service.ts)
+* **Class**: `SLABreachWorkerService`
+  * **Methods**:
+    * `processSLA(job: Job<SLAJobData>): any`
+
+### [telemetry.service.ts](src/services/helpdesk/telemetry.service.ts)
+* **Class**: `TelemetryService`
+  * **Methods**:
+    * `ingestTelemetry(payload: AgentTelemetryPayload): Promise<void>`
+    * `syncTelemetryToDB(): Promise<number>`
+
 ### [helpdesk-audit.service.ts](src/services/helpdesk-audit.service.ts)
 * **Class**: `HelpdeskAuditService`
   * **Methods**:
@@ -2936,6 +2952,7 @@
 | `/api/gis/upload` | [route.ts](src/app/api/gis/upload/route.ts) | `POST` |
 | `/api/gis/wms/[[...path]]` | [route.ts](src/app/api/gis/wms/[[...path]]/route.ts) | `GET`, `POST`, `OPTIONS` |
 | `/api/health` | [route.ts](src/app/api/health/route.ts) | `GET` |
+| `/api/helpdesk/agent/telemetry` | [route.ts](src/app/api/helpdesk/agent/telemetry/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/assets/audits/gaps` | [route.ts](src/app/api/helpdesk/assets/audits/gaps/route.ts) | `GET` |
 | `/api/helpdesk/assets/audits` | [route.ts](src/app/api/helpdesk/assets/audits/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `/api/helpdesk/assets` | [route.ts](src/app/api/helpdesk/assets/route.ts) | `GET`, `POST` |
@@ -2945,8 +2962,11 @@
 | `/api/helpdesk/assets/[id]/history` | [route.ts](src/app/api/helpdesk/assets/[id]/history/route.ts) | `GET` |
 | `/api/helpdesk/assets/[id]` | [route.ts](src/app/api/helpdesk/assets/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 | `/api/helpdesk/assets/[id]/units` | [route.ts](src/app/api/helpdesk/assets/[id]/units/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
+| `/api/helpdesk/depreciation` | [route.ts](src/app/api/helpdesk/depreciation/route.ts) | `GET`, `POST` |
+| `/api/helpdesk/disposal` | [route.ts](src/app/api/helpdesk/disposal/route.ts) | `GET`, `POST`, `PUT` |
 | `/api/helpdesk/reports` | [route.ts](src/app/api/helpdesk/reports/route.ts) | `GET` |
 | `/api/helpdesk/site-offices` | [route.ts](src/app/api/helpdesk/site-offices/route.ts) | `GET` |
+| `/api/helpdesk/sla` | [route.ts](src/app/api/helpdesk/sla/route.ts) | `GET` |
 | `/api/helpdesk/software-licenses` | [route.ts](src/app/api/helpdesk/software-licenses/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/software-licenses/[id]/assignments` | [route.ts](src/app/api/helpdesk/software-licenses/[id]/assignments/route.ts) | `POST`, `DELETE` |
 | `/api/helpdesk/software-licenses/[id]` | [route.ts](src/app/api/helpdesk/software-licenses/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
@@ -3934,6 +3954,11 @@
   * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("AssetSoftwareLicenses")]`
   * `tickets: Ticket[]`
   * `syncLogs: AssetSyncLog[]`
+  * `dataPlanLimit: Float?`
+  * `mdmDeviceId: String?`
+  * `childRelationships: CMDBRelationship[]` `[@relation("CMDBParent")]`
+  * `parentRelationships: CMDBRelationship[]` `[@relation("CMDBChild")]`
+  * `disposalRequests: AssetDisposalRequest[]`
 
 ### [Ticket](prisma/schema/helpdesk.prisma)
 * **Fields**:
@@ -4066,6 +4091,7 @@
   * `asset: ITAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
   * `performedBy: User` `[@relation("HandoverPerformed", fields: [performedById], references: [id])]`
   * `targetStaff: Staff?` `[@relation("HandoverReceived", fields: [targetStaffId], references: [id])]`
+  * `signatureHash: String?`
 
 ### [SoftwareLicense](prisma/schema/helpdesk.prisma)
 * **Fields**:
@@ -4132,6 +4158,31 @@
   * `location: String?`
   * `siteOfficeId: String?`
   * `isPersonal: Boolean` `[@default(false)]`
+
+### [CMDBRelationship](prisma/schema/helpdesk.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `parentAssetId: String`
+  * `childAssetId: String`
+  * `relationshipType: CMDBRelationshipType`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `parentAsset: ITAsset` `[@relation("CMDBParent", fields: [parentAssetId], references: [id], onDelete: Cascade)]`
+  * `childAsset: ITAsset` `[@relation("CMDBChild", fields: [childAssetId], references: [id], onDelete: Cascade)]`
+
+### [AssetDisposalRequest](prisma/schema/helpdesk.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `assetId: String`
+  * `requestedById: String`
+  * `approvedById: String?`
+  * `reason: DisposalReason`
+  * `salvageValue: Float` `[@default(0.0)]`
+  * `status: ApprovalStatus` `[@default(PENDING)]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `asset: ITAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
+  * `requestedBy: User` `[@relation("DisposalRequestedBy", fields: [requestedById], references: [id])]`
+  * `approvedBy: User?` `[@relation("DisposalApprovedBy", fields: [approvedById], references: [id])]`
 
 ### [PreErpMaterialBalance](prisma/schema/inventory-reconciliation.prisma)
 * **Fields**:
@@ -7138,6 +7189,8 @@
   * `sectionAssignments: UserSectionAssignment[]`
   * `accessibleOpmcs: OPMC[]` `[@relation("UserOpmcs")]`
   * `inventoryLedgers: InventoryLedger[]`
+  * `disposalsRequested: AssetDisposalRequest[]` `[@relation("DisposalRequestedBy")]`
+  * `disposalsApproved: AssetDisposalRequest[]` `[@relation("DisposalApprovedBy")]`
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:
