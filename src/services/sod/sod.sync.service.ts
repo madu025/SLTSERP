@@ -1088,8 +1088,8 @@ export class SODSyncService {
         const currentStatus = statusStr.toUpperCase();
 
         const isCompletedStatus =
-            [SodStatus.COMPLETED, SodStatus.INSTALL_CLOSED, SodStatus.PROV_CLOSED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus) ||
-            [SodStatus.COMPLETED, SodStatus.INSTALL_CLOSED, SodStatus.PROV_CLOSED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(String(mapping.status).toUpperCase());
+            [SodStatus.COMPLETED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus) ||
+            [SodStatus.COMPLETED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(String(mapping.status).toUpperCase());
 
         if (isCompletedStatus && !isServiceReturn) {
             dataToUpdate.sltsStatus = SodStatus.COMPLETED;
