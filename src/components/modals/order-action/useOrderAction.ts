@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData } from "./types";
+import { formatMaterialUsage } from "./utils";
 
 export function useOrderAction(
     isOpen: boolean,
@@ -108,13 +109,13 @@ export function useOrderAction(
 
         // Group OSP_FTTH items by commonName (Category Group Name) for clean, non-duplicated representation
         const groupedMap = new Map<string, InventoryItem>();
+        const effectiveSource = (orderData?.materialSource || materialSource) === 'SLT' ? 'SLT' : 'SLTS';
         items.forEach(item => {
             if (!item.isOspFtth) return;
             const groupName = item.commonName || item.name;
             if (!groupedMap.has(groupName)) {
                 const groupItems = items.filter(i => (i.commonName || i.name) === groupName);
-                const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
-                const bestItem = groupItems.find(i => i.type === activeSource) || groupItems[0];
+                const bestItem = groupItems.find(i => i.type === effectiveSource) || groupItems[0];
                 groupedMap.set(groupName, bestItem);
             }
         });
@@ -237,7 +238,7 @@ export function useOrderAction(
                         if (matchedItem) {
                             const groupName = matchedItem.commonName || matchedItem.name;
                             const groupItems = items.filter(i => (i.commonName || i.name) === groupName);
-                            const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+                            const activeSource = (orderData?.materialSource || materialSource) === 'SLT' ? 'SLT' : 'SLTS';
                             const bestGroupItem = groupItems.find(i => i.type === activeSource) || matchedItem;
                             const lowerName = groupName.toLowerCase();
                             const isDropWire = lowerName.includes("drop wire") || lowerName.includes("drop cable");
@@ -362,8 +363,8 @@ export function useOrderAction(
                     if (matchedItem) {
                         const groupName = matchedItem.commonName || matchedItem.name;
                         const groupItems = items.filter(i => (i.commonName || i.name) === groupName);
-                        const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
-                        const bestGroupItem = groupItems.find(i => i.type === activeSource) || matchedItem;
+                        const effectiveSource = (orderData?.materialSource || materialSource) === 'SLT' ? 'SLT' : 'SLTS';
+                        const bestGroupItem = groupItems.find(i => i.type === effectiveSource) || matchedItem;
 
                         const lowerName = groupName.toLowerCase();
                         const isDropWire = lowerName.includes("drop wire") || lowerName.includes("drop cable");
@@ -471,27 +472,15 @@ export function useOrderAction(
         // Validation logic
         if (!date) { toast.error("Please select a date"); return; }
         
-        // Transform MaterialUsageRow[] to MaterialUsageUpdateInput[]
-        const materialUsage: Array<{ itemId: string; quantity: number; usageType: string; serialNumber?: string; comment?: string }> = [];
-        extendedMaterialRows.forEach(row => {
-            if (!row.itemId) return;
-
-            // 1. Used Qty
-            if (row.f1Qty && parseFloat(row.f1Qty) > 0) {
-                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.f1Qty), usageType: 'USED_F1', serialNumber: row.serialNumber });
-            }
-            if (row.g1Qty && parseFloat(row.g1Qty) > 0) {
-                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.g1Qty), usageType: 'USED_G1' });
-            }
-            if (row.usedQty && parseFloat(row.usedQty) > 0) {
-                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.usedQty), usageType: 'USED', serialNumber: row.serialNumber });
-            }
-            
-            // 2. Wastage
-            if (row.wastageQty && parseFloat(row.wastageQty) > 0) {
-                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.wastageQty), usageType: 'WASTAGE', comment: row.wastageReason });
-            }
-        });
+        // Transform MaterialUsageRow[] to deduplicated material usage entries
+        const rawUsage = formatMaterialUsage(extendedMaterialRows);
+        const materialUsage = rawUsage.map(m => ({
+            itemId: m.itemId,
+            quantity: parseFloat(m.quantity),
+            usageType: m.usageType,
+            serialNumber: m.serialNumber,
+            comment: m.comment
+        }));
 
         onConfirm({
             date: date.toISOString(),

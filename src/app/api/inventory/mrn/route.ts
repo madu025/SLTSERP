@@ -13,6 +13,7 @@ export const POST = apiHandler(async (request, _params, body) => {
         throw AppError.internal('Failed to create MRN');
     }
 }, {
+    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
     audit: { action: 'CREATE', entity: 'MRN' },
     rawResponse: true
 });
@@ -29,7 +30,10 @@ export const GET = apiHandler(async (request) => {
         console.error("MRN Fetch Error:", error);
         throw AppError.internal('Failed to fetch MRNs');
     }
-}, { rawResponse: true });
+}, {
+    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    rawResponse: true
+});
 
 export const PATCH = apiHandler(async (request, _params, body) => {
     try {
@@ -48,6 +52,7 @@ export const PATCH = apiHandler(async (request, _params, body) => {
         throw AppError.internal('Failed to process MRN');
     }
 }, {
+    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
     audit: { action: 'UPDATE', entity: 'MRN' },
     rawResponse: true
 });

@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { OSPLedgerService } from './osp-ledger.service';
+import { AccountingPostingRegistry } from './accounting-posting-registry.service';
 
 export interface ProposePenaltyInput {
   projectId: string;
@@ -112,13 +112,14 @@ export class LDPenaltyService {
     });
 
     if (status === 'APPROVED' || status === 'COLLECTED') {
-      await OSPLedgerService.postAutomatedTransaction(prisma, {
-        sourceModule: 'LD_PENALTY',
-        transactionType: 'APPLY_PENALTY',
+      // General Ledger: Post LD Penalty via the canonical posting registry
+      // DR Accrued Payable / CR Liquidated Damages Income.
+      await AccountingPostingRegistry.postRetentionAndLd(prisma, {
         referenceId: updated.id,
-        description: `LD Penalty Deduction for ${updated.title} (LKR ${updated.netAmount})`,
+        type: 'LD_PENALTY',
         amount: updated.netAmount,
-        transactionDate: new Date()
+        contractorName: updated.title,
+        description: `LD Penalty Deduction for ${updated.title} (LKR ${updated.netAmount})`
       });
     }
 

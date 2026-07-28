@@ -8,5 +8,6 @@ export const DELETE = apiHandler(async (_req, params) => {
     await ContractorService.deleteTeam(teamId);
     return { success: true, message: `Team ${teamId} deleted successfully` };
 }, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
     audit: { action: 'DELETE_CONTRACTOR_TEAM', entity: 'ContractorTeam' }
 });

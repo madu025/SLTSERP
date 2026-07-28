@@ -5,6 +5,7 @@ import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue } from '@
 import { TransactionClient, PickedBatch } from './types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
+import { AuditLedgerService } from './audit-ledger.service';
 
 export class StockService {
     // Round to 4 decimal places to prevent floating point issues
@@ -304,7 +305,7 @@ export class StockService {
         }
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            const issueNumber = `ISS-${Date.now()}`;
+            const issueNumber = await AuditLedgerService.getNextDocumentNumber('ISS', tx);
             const isContractorIssue = issueType === 'CONTRACTOR' && !!contractorId;
 
             // Validate all serials (exist, match item, available in store)
@@ -379,6 +380,21 @@ export class StockService {
 
                     // B. Decrement global store stock
                     await InventoryRepository.updateStock(storeId, item.itemId, { quantity: { decrement: quantity } }, tx);
+
+                    // Write Immutable Inventory Ledger Entry for the store deduction
+                    const quantityBefore = Number(existingStock.quantity);
+                    await AuditLedgerService.recordEntry({
+                        storeId,
+                        itemId: item.itemId,
+                        transactionType: 'STOCK_ISSUE',
+                        referenceType: 'StockIssue',
+                        referenceId: issueNumber,
+                        quantityBefore,
+                        quantityChange: -quantity,
+                        quantityAfter: quantityBefore - quantity,
+                        performedById: issuedById,
+                        idempotencyKey: `stock-issue-${issueNumber}-${item.itemId}`
+                    }, tx);
 
                     // D. Update serial status if serials are provided in the payload
                     if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {

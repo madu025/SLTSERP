@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from '../inventory/stock.service';
+import { AuditLedgerService } from '../inventory/audit-ledger.service';
 
 export interface IRLedgerEntry {
   irNumber: string;
@@ -416,10 +417,11 @@ export class ProjectIRLedgerService {
     const { irNumber, storeId, receivedById, items } = data;
 
     return await prisma.$transaction(async (tx) => {
-      // Create the GRN
+      // Create the GRN with an atomic document number
+      const grnNumber = await AuditLedgerService.getNextDocumentNumber('GRN-IR', tx);
       const grn = await tx.gRN.create({
         data: {
-          grnNumber: `GRN-IR-${Date.now()}`,
+          grnNumber,
           storeId,
           sourceType: 'SLT',
           receivedById,
@@ -485,6 +487,11 @@ export class ProjectIRLedgerService {
         });
 
         // Add to Store Stock overall
+        const existingStock = await tx.inventoryStock.findUnique({
+          where: { storeId_itemId: { storeId, itemId: item.itemId } }
+        });
+        const quantityBefore = existingStock ? Number(existingStock.quantity) : 0;
+
         await tx.inventoryStock.upsert({
           where: {
             storeId_itemId: {
@@ -501,6 +508,22 @@ export class ProjectIRLedgerService {
             quantity: item.quantity
           }
         });
+
+        // Write Immutable Inventory Ledger Entry for the IR receipt
+        await AuditLedgerService.recordEntry({
+          storeId,
+          itemId: item.itemId,
+          batchId: batch.id,
+          transactionType: 'GRN_RECEIPT',
+          referenceType: 'GRN',
+          referenceId: grn.id,
+          quantityBefore,
+          quantityChange: item.quantity,
+          quantityAfter: quantityBefore + item.quantity,
+          unitPrice: Number(costPrice),
+          performedById: receivedById,
+          idempotencyKey: `grn-ir-${grn.id}-${item.itemId}-${batch.id}`
+        }, tx);
 
         txItems.push({
           itemId: item.itemId,
@@ -594,15 +617,21 @@ export class ProjectIRLedgerService {
       });
 
       // Overall stock decrement
+      const overallStock = await tx.inventoryStock.findUnique({
+        where: { storeId_itemId: { storeId, itemId } }
+      });
+      const stockBefore = overallStock ? Number(overallStock.quantity) : 0;
+
       await tx.inventoryStock.update({
         where: { storeId_itemId: { storeId, itemId } },
         data: { quantity: { decrement: quantity } }
       });
 
-      // Create Stock Issue record
+      // Create Stock Issue record with an atomic document number
+      const issueNumber = await AuditLedgerService.getNextDocumentNumber('ISS-IR', tx);
       const issue = await tx.stockIssue.create({
         data: {
-          issueNumber: `ISS-IR-${Date.now()}`,
+          issueNumber,
           storeId,
           issuedById: userId,
           issueType: 'PROJECT',
@@ -637,6 +666,21 @@ export class ProjectIRLedgerService {
           }
         }
       });
+
+      // Write Immutable Inventory Ledger Entry for the project issue
+      await AuditLedgerService.recordEntry({
+        storeId,
+        itemId,
+        batchId,
+        transactionType: 'PROJECT_ISSUE',
+        referenceType: 'ProjectIR',
+        referenceId: issue.id,
+        quantityBefore: stockBefore,
+        quantityChange: -quantity,
+        quantityAfter: stockBefore - quantity,
+        performedById: userId,
+        idempotencyKey: `project-issue-${issue.id}-${itemId}`
+      }, tx);
 
       return issue;
     });
@@ -673,16 +717,22 @@ export class ProjectIRLedgerService {
       });
 
       // Overall stock increment
+      const currentStock = await tx.inventoryStock.findUnique({
+        where: { storeId_itemId: { storeId, itemId } }
+      });
+      const stockBefore = currentStock ? Number(currentStock.quantity) : 0;
+
       await tx.inventoryStock.upsert({
         where: { storeId_itemId: { storeId, itemId } },
         update: { quantity: { increment: quantity } },
         create: { storeId, itemId, quantity }
       });
 
-      // 2. Create project return record
+      // 2. Create project return record with an atomic document number
+      const returnNumber = await AuditLedgerService.getNextDocumentNumber('RET-IR', tx);
       const ret = await tx.projectMaterialReturn.create({
         data: {
-          returnNumber: `RET-IR-${Date.now()}`,
+          returnNumber,
           projectId,
           storeId,
           returnedById: userId,
@@ -716,6 +766,21 @@ export class ProjectIRLedgerService {
           }
         }
       });
+
+      // Write Immutable Inventory Ledger Entry for the project return
+      await AuditLedgerService.recordEntry({
+        storeId,
+        itemId,
+        batchId,
+        transactionType: 'PROJECT_RETURN',
+        referenceType: 'ProjectIR',
+        referenceId: ret.id,
+        quantityBefore: stockBefore,
+        quantityChange: quantity,
+        quantityAfter: stockBefore + quantity,
+        performedById: userId,
+        idempotencyKey: `project-return-${ret.id}-${itemId}`
+      }, tx);
 
       return ret;
     });
@@ -886,15 +951,16 @@ export class ProjectIRLedgerService {
       await ProjectIRLedgerService.verifyProjectStatus(tx, projectId);
       await ProjectIRLedgerService.verifyProjectLeftover(tx, projectId, itemId, batchId, quantity);
 
-      // 1. Create MRN
+      // 1. Create MRN with an atomic document number (gatepass kept in reason/notes)
+      const mrnNumber = await AuditLedgerService.getNextDocumentNumber('MRN-IR', tx);
       const mrn = await tx.mRN.create({
         data: {
-          mrnNumber: `MRN-IR-${gatepassNumber}-${Date.now()}`,
+          mrnNumber,
           storeId,
           returnType: 'SLT',
           returnTo: 'SLT Warehouse',
           status: 'APPROVED',
-          reason: remarks || `Leftover material returned to SLT`,
+          reason: remarks ? `Gatepass: ${gatepassNumber} | ${remarks}` : `Gatepass: ${gatepassNumber} | Leftover material returned to SLT`,
           returnedById: userId,
           items: {
             create: [{

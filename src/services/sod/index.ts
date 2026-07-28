@@ -92,9 +92,19 @@ export class ServiceOrderService {
         }
 
         // 4. System specific manual updates (Snapshots) - Fetch before transaction
-        const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
-        const currentSource = configs[0]?.value || 'SLT';
-        updateData.materialSource = currentSource;
+        // Priority: explicit payload > existing per-SOD snapshot > global config default.
+        // Never overwrite an order's own materialSource with the global setting.
+        const ALLOWED_MATERIAL_SOURCES = ['SLT', 'SLTS'];
+        if (data.materialSource) {
+            if (!ALLOWED_MATERIAL_SOURCES.includes(data.materialSource)) {
+                throw AppError.badRequest(`INVALID_MATERIAL_SOURCE: must be one of ${ALLOWED_MATERIAL_SOURCES.join(', ')}`);
+            }
+            updateData.materialSource = data.materialSource;
+        } else if (!oldOrder.materialSource) {
+            const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
+            const configuredSource = configs[0]?.value;
+            updateData.materialSource = (configuredSource && ALLOWED_MATERIAL_SOURCES.includes(configuredSource)) ? configuredSource : 'SLT';
+        }
 
         // 5. TRANSACTIONAL DATABASE UPDATE
         const finalOrder = await prisma.$transaction(async (tx: TransactionClient) => {

@@ -68,7 +68,9 @@ export class LedgerReportService {
 
         const entryWhere = {
             ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
-            status: { not: 'REVERSED' }
+            // Official financials reflect only authoritative postings: exclude
+            // reversed entries and any still awaiting maker-checker approval.
+            status: { notIn: ['REVERSED', 'PENDING_APPROVAL'] }
         };
 
         // Fetch all CoA records for catalog names & types

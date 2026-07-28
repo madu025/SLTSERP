@@ -1,12 +1,15 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '../inventory/types';
-import { LedgerService } from './ledger.service';
 
 export class InvoiceApprovalService {
     /**
      * Approves an invoice, enforcing Maker-Checker rules based on amount.
-     * Triggers Ledger posting upon final approval.
+     *
+     * No GL posting happens here. Revenue / cost for an invoice is recognized
+     * authoritatively earlier in the lifecycle (SOD completion accrual and
+     * invoice generation), so posting again at approval would double-recognize
+     * AR / revenue. Approval is purely a maker-checker status gate.
      */
     static async approveInvoice(invoiceId: string, approverId: string, approverRole: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
@@ -28,18 +31,14 @@ export class InvoiceApprovalService {
                 throw AppError.forbidden('Insufficient permissions to approve invoices.');
             }
 
-            // Update status
+            // Update status only (GL already posted at generation/accrual).
             const updatedInvoice = await tx.invoice.update({
                 where: { id: invoiceId },
                 data: {
                     approvalStatus: 'APPROVED',
                     status: 'APPROVED', // Assuming standard status is synced
-                    // Note: Would typically save approvedById but field might not exist in base model yet, let's keep it simple
                 }
             });
-
-            // Trigger GL Posting
-            await LedgerService.logInvoiceApproval(tx, updatedInvoice);
 
             return updatedInvoice;
         });

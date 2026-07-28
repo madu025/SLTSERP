@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MaterialUsageRow, InventoryItem } from "./types";
+import { SelectGroup, SelectLabel } from "@/components/ui/select";
+import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 
 interface MaterialUsageSectionProps {
     rows: MaterialUsageRow[];
@@ -113,21 +115,40 @@ export function MaterialUsageSection({
                             return (
                                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-3 py-1.5 w-[360px]">
-                                        <Select 
-                                            value={row.itemId} 
-                                            onValueChange={(val) => onUpdateRow(idx, 'itemId', val)}
-                                        >
-                                            <SelectTrigger className="h-8 border-slate-200 text-xs">
-                                                <SelectValue placeholder="Select Item" />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-[250px]">
-                                                {items.map(item => (
-                                                    <SelectItem key={item.id} value={item.id} className="text-xs">
-                                                        {item.code} - {item.name} ({item.unit})
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                         <Select 
+                                             value={row.itemId} 
+                                             onValueChange={(val) => onUpdateRow(idx, 'itemId', val)}
+                                         >
+                                             <SelectTrigger className="h-8 border-slate-200 text-xs">
+                                                 <SelectValue placeholder="Select Item" />
+                                             </SelectTrigger>
+                                             <SelectContent className="max-h-[250px]">
+                                                 {(() => {
+                                                     const grouped = items.reduce<Record<string, InventoryItem[]>>((acc, item) => {
+                                                         const cat = item.category || 'OTHERS';
+                                                         if (!acc[cat]) acc[cat] = [];
+                                                         acc[cat].push(item);
+                                                         return acc;
+                                                     }, {});
+                                                     const categoryOrder = MATERIAL_CATEGORY_ORDER;
+                                                     const sortedCats = Object.keys(grouped).sort((a, b) => {
+                                                         const ai = categoryOrder.indexOf(a);
+                                                         const bi = categoryOrder.indexOf(b);
+                                                         return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                                                     });
+                                                     return sortedCats.map(cat => (
+                                                         <SelectGroup key={cat}>
+                                                             <SelectLabel className="text-[9px] uppercase tracking-widest text-slate-400 font-black px-2 py-1">{cat}</SelectLabel>
+                                                             {grouped[cat].map(item => (
+                                                                 <SelectItem key={item.id} value={item.id} className="text-xs">
+                                                                     {item.code} - {item.name} ({item.unit})
+                                                                 </SelectItem>
+                                                             ))}
+                                                         </SelectGroup>
+                                                     ));
+                                                 })()}
+                                             </SelectContent>
+                                         </Select>
                                     </td>
                                     <td className="px-2 py-1.5 w-[110px]">
                                         {isDW ? (

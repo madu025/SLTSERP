@@ -6,8 +6,8 @@ export interface CreateLedgerEntryInput {
     storeId: string;
     itemId: string;
     batchId?: string | null;
-    transactionType: 'GRN_RECEIPT' | 'CONTRACTOR_ISSUE' | 'CONTRACTOR_RETURN' | 'SOD_INSTALLATION' | 'WASTAGE_ADJUSTMENT' | 'CYCLE_COUNT_CORRECTION';
-    referenceType: 'GRN' | 'ContractorMaterialIssue' | 'SOD' | 'MRN' | 'CycleCount' | 'Adjustment';
+    transactionType: 'GRN_RECEIPT' | 'CONTRACTOR_ISSUE' | 'CONTRACTOR_RETURN' | 'SOD_INSTALLATION' | 'WASTAGE_ADJUSTMENT' | 'CYCLE_COUNT_CORRECTION' | 'PROJECT_ISSUE' | 'PROJECT_RETURN' | 'VIRTUAL_SWAP' | 'STOCK_ISSUE';
+    referenceType: 'GRN' | 'ContractorMaterialIssue' | 'SOD' | 'MRN' | 'CycleCount' | 'Adjustment' | 'StockIssue' | 'ProjectIR' | 'VirtualSwap' | 'ContractorWastage';
     referenceId: string;
     quantityBefore: number | Decimal;
     quantityChange: number | Decimal;
@@ -35,59 +35,38 @@ export class AuditLedgerService {
     }
 
     /**
-     * Generate Atomic MIN (Material Issue Note) Number: MIN-YYYY-MM-XXXX
+     * Atomically reserve the next document number for a given type using the
+     * DocumentCounter table: `${type}-YYYY-MM-XXXX`. Safe under concurrency
+     * (single-row atomic increment); pass the surrounding transaction when available.
      */
-    static async generateMINNumber(tx?: any): Promise<string> {
+    static async getNextDocumentNumber(type: string, tx?: any): Promise<string> {
         const client = tx || prisma;
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
-        const prefix = `MIN-${year}-${month}-`;
+        const period = `${year}-${month}`;
 
-        const lastIssue = await client.contractorMaterialIssue.findFirst({
-            where: { issueNumber: { startsWith: prefix } },
-            orderBy: { issueNumber: 'desc' },
-            select: { issueNumber: true }
+        const counter = await client.documentCounter.upsert({
+            where: { type_period: { type, period } },
+            update: { sequence: { increment: 1 } },
+            create: { type, period, sequence: 1 }
         });
 
-        let nextSeq = 1;
-        if (lastIssue?.issueNumber) {
-            const parts = lastIssue.issueNumber.split('-');
-            const lastSeq = parseInt(parts[parts.length - 1], 10);
-            if (!isNaN(lastSeq)) {
-                nextSeq = lastSeq + 1;
-            }
-        }
+        return `${type}-${year}-${month}-${String(counter.sequence).padStart(4, '0')}`;
+    }
 
-        return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+    /**
+     * Generate Atomic MIN (Material Issue Note) Number: MIN-YYYY-MM-XXXX
+     */
+    static async generateMINNumber(tx?: any): Promise<string> {
+        return this.getNextDocumentNumber('MIN', tx);
     }
 
     /**
      * Generate Atomic MRN (Material Return Note) Number: MRN-YYYY-MM-XXXX
      */
     static async generateMRNNumber(tx?: any): Promise<string> {
-        const client = tx || prisma;
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const prefix = `MRN-${year}-${month}-`;
-
-        const lastReturn = await client.contractorMaterialReturn.findFirst({
-            where: { returnNumber: { startsWith: prefix } },
-            orderBy: { returnNumber: 'desc' },
-            select: { returnNumber: true }
-        });
-
-        let nextSeq = 1;
-        if (lastReturn?.returnNumber) {
-            const parts = lastReturn.returnNumber.split('-');
-            const lastSeq = parseInt(parts[parts.length - 1], 10);
-            if (!isNaN(lastSeq)) {
-                nextSeq = lastSeq + 1;
-            }
-        }
-
-        return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+        return this.getNextDocumentNumber('MRN', tx);
     }
 
     /**
@@ -151,7 +130,7 @@ export class AuditLedgerService {
     }
 
     /**
-     * Audit & Verify ledger entry checksum integrity
+     * Audit & Verify ledger entry checksum integrity (hash-chain aware)
      */
     static async verifyLedgerIntegrity(storeId?: string, itemId?: string) {
         const ledgers = await prisma.inventoryLedger.findMany({
@@ -163,16 +142,40 @@ export class AuditLedgerService {
             take: 1000,
         });
 
+        // Track the last checksum per store+item chain to verify linkage
+        const chainTails = new Map<string, string>();
+
         let tamperedCount = 0;
+        let legacyCount = 0;
         const auditResults = ledgers.map((entry) => {
+            // Entries written before hash chaining have no previousChecksum — report
+            // them as legacy instead of tampered.
+            if (entry.previousChecksum === null) {
+                legacyCount++;
+                return {
+                    id: entry.id,
+                    referenceId: entry.referenceId,
+                    transactionType: entry.transactionType,
+                    isValid: true,
+                    legacy: true,
+                };
+            }
+
             const expectedChecksum = this.generateChecksum(
                 entry.storeId,
                 entry.itemId,
                 entry.quantityAfter.toString(),
-                entry.createdAt.toISOString()
+                entry.createdAt.toISOString(),
+                entry.previousChecksum
             );
 
-            const isValid = entry.checksum === expectedChecksum;
+            // Verify chain linkage against the previous entry of the same store+item
+            const chainKey = `${entry.storeId}:${entry.itemId}`;
+            const expectedPrevious = chainTails.get(chainKey);
+            const chainLinked = expectedPrevious === undefined || entry.previousChecksum === expectedPrevious;
+            chainTails.set(chainKey, entry.checksum);
+
+            const isValid = entry.checksum === expectedChecksum && chainLinked;
             if (!isValid) tamperedCount++;
 
             return {
@@ -180,12 +183,14 @@ export class AuditLedgerService {
                 referenceId: entry.referenceId,
                 transactionType: entry.transactionType,
                 isValid,
+                legacy: false,
             };
         });
 
         return {
             totalChecked: ledgers.length,
             tamperedCount,
+            legacyCount,
             isIntegral: tamperedCount === 0,
             auditResults,
         };

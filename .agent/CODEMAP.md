@@ -1109,6 +1109,7 @@
 ### [audit-ledger.service.ts](src/services/inventory/audit-ledger.service.ts)
 * **Class**: `AuditLedgerService`
   * **Methods**:
+    * `getNextDocumentNumber(type: string, tx?: any): Promise<string>`
     * `generateMINNumber(tx?: any): Promise<string>`
     * `generateMRNNumber(tx?: any): Promise<string>`
     * `recordEntry(input: CreateLedgerEntryInput, tx?: any): any`
@@ -1122,7 +1123,7 @@
 ### [contractor-inventory.service.ts](src/services/inventory/contractor-inventory.service.ts)
 * **Class**: `ContractorInventoryService`
   * **Methods**:
-    * `acceptMaterialReturn(returnId: string, acceptedQuantity: number | undefined, storekeeperNotes: string | undefined, userId: string | null): any`
+    * `acceptMaterialReturn(returnId: string, acceptedQuantity: number | undefined, storekeeperNotes: string | undefined, userId: string | null, acceptedQuantities?: Record<string, number>): any`
     * `acceptMaterialIssue(issueId: string, signatureName: string | undefined, userId: string | null): any`
     * `getMaterialReturns(contractorId: string): any`
     * `getMaterialIssues(contractorId: string): any`
@@ -4535,6 +4536,13 @@
   * `header: CycleCountHeader` `[@relation(fields: [headerId], references: [id], onDelete: Cascade)]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `batch: InventoryBatch?` `[@relation(fields: [batchId], references: [id])]`
+
+### [DocumentCounter](prisma/schema/inventory.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `type: String` `[// MIN | MRN | GRN | ISS | GRN-IR | ISS-IR | MRN-IR]`
+  * `period: String` `[// YYYY-MM]`
+  * `sequence: Int` `[@default(0)]`
 
 ### [InventoryLedger](prisma/schema/inventory.prisma)
 * **Fields**:

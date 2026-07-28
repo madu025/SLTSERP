@@ -29,6 +29,7 @@ export const ACCOUNTS = {
     PETTY_CASH: 'PETTY-1020',
     AR_CLIENT: 'AR-1110',
     UNBILLED_WIP: 'AR-WIP-1120',
+    ADVANCES: 'ADV-1210',
     WHT_RECEIVABLE: 'WHT-REC-1300',
     FIXED_ASSETS: 'FA-1500',
     ACCUM_DEPRECIATION: 'ACCUM-DEP-1590',
@@ -61,6 +62,7 @@ export const ACCOUNTS = {
     VEHICLE_EXPENSE: 'EXP-VEHICLE-6020',
     DEPRECIATION_EXPENSE: 'EXP-DEP-6030',
     PETTY_CASH_EXPENSE: 'EXP-PETTY-6040',
+    RENT_EXPENSE: 'EXP-RENT-6050',
     OSP_EXPENSE: 'EXP-OSP-8010',
 } as const;
 
@@ -76,6 +78,7 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountEntry[] = [
     { code: ACCOUNTS.PETTY_CASH, name: 'Petty Cash Imprest Account', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.AR_CLIENT, name: 'Accounts Receivable - Client', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.UNBILLED_WIP, name: 'Unbilled Work In Progress (WIP)', type: 'ASSET', isPostable: true },
+    { code: ACCOUNTS.ADVANCES, name: 'Staff & Contractor Advances', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.WHT_RECEIVABLE, name: 'Withholding Tax (WHT) Receivable', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.FIXED_ASSETS, name: 'Fixed Assets - Machinery & Equipment', type: 'ASSET', isPostable: true },
     { code: ACCOUNTS.ACCUM_DEPRECIATION, name: 'Accumulated Depreciation - Fixed Assets', type: 'ASSET', isPostable: true },
@@ -108,6 +111,7 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountEntry[] = [
     { code: ACCOUNTS.VEHICLE_EXPENSE, name: 'Vehicle Running & Maintenance Cost', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.DEPRECIATION_EXPENSE, name: 'Depreciation Expense', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.PETTY_CASH_EXPENSE, name: 'General & Administrative Petty Cash Expenses', type: 'EXPENSE', isPostable: true },
+    { code: ACCOUNTS.RENT_EXPENSE, name: 'OPMC Property Rent Expense', type: 'EXPENSE', isPostable: true },
     { code: ACCOUNTS.OSP_EXPENSE, name: 'OSP Direct Expense (Legacy)', type: 'EXPENSE', isPostable: true },
 ];
 

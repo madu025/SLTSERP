@@ -390,7 +390,7 @@ export default function ContractorInventoryPage() {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {pendingIssues.map((issue) => {
-                                    const minRef = issue.issueNumber || `MIN-2026-${issue.id.slice(-6).toUpperCase()}`;
+                                    const minRef = issue.issueNumber || `LEGACY-${issue.id.slice(-6).toUpperCase()}`;
                                     return (
                                         <Card key={issue.id} className="bg-slate-900/80 border-slate-800 shadow-md">
                                             <CardHeader className="p-3.5 pb-2">
@@ -457,7 +457,7 @@ export default function ContractorInventoryPage() {
 
                         <div className="space-y-2">
                             {acceptedIssues.map((issue) => {
-                                const minRef = issue.issueNumber || `MIN-2026-${issue.id.slice(-6).toUpperCase()}`;
+                                const minRef = issue.issueNumber || `LEGACY-${issue.id.slice(-6).toUpperCase()}`;
                                 return (
                                     <div 
                                         key={issue.id} 
@@ -716,7 +716,7 @@ export default function ContractorInventoryPage() {
                             <span className="text-[10px] text-slate-400 font-mono">Store Issue Voucher</span>
                         </div>
                         <DialogTitle className="text-sm sm:text-base font-bold text-amber-400 font-mono tracking-tight pt-1">
-                            {viewVoucherIssue?.issueNumber || `MIN-2026-${viewVoucherIssue?.id.slice(-6).toUpperCase()}`}
+                            {viewVoucherIssue?.issueNumber || `LEGACY-${viewVoucherIssue?.id.slice(-6).toUpperCase()}`}
                         </DialogTitle>
                     </DialogHeader>
 

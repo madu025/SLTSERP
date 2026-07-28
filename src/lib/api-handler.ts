@@ -45,9 +45,9 @@ export function apiHandler<T, B = any>(
 
         return await requestContext.run({ requestId }, async () => {
             try {
-                // 1. Authentication & RBAC Check
+                // 1. Authentication & RBAC Check (fail-closed: a missing role is denied)
                 if (options?.roles && options.roles.length > 0) {
-                    if (userRole && !options.roles.includes(userRole)) {
+                    if (!userRole || !options.roles.includes(userRole)) {
                         throw new AppError('Forbidden: Access denied', ErrorCode.FORBIDDEN, 403);
                     }
                 }

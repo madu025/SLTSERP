@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
-import crypto from 'crypto';
+import { StockService } from './stock.service';
+import { AuditLedgerService } from './audit-ledger.service';
+import { ContractorRepository } from '@/repositories/contractor.repository';
 
 export interface TeamMaterialBalanceParams {
     contractorId: string;
@@ -26,71 +28,114 @@ export interface MaterialBalanceRow {
 }
 
 export class ContractorInventoryService {
-    static async acceptMaterialReturn(returnId: string, acceptedQuantity: number | undefined, storekeeperNotes: string | undefined, userId: string | null) {
-        const returnRecord = await prisma.contractorMaterialReturn.findUnique({
-            where: { id: returnId },
-            include: { items: true, contractor: true }
-        });
-
-        if (!returnRecord) {
-            throw new Error('Material return request not found');
-        }
-
-        // Update Return Items with fine-tuned accepted quantity
-        for (const item of returnRecord.items) {
-            const finalAcceptedQty = acceptedQuantity !== undefined ? Number(acceptedQuantity) : item.quantity;
-            
-            await prisma.contractorMaterialReturnItem.update({
-                where: { id: item.id },
-                data: { acceptedQuantity: finalAcceptedQty }
+    static async acceptMaterialReturn(
+        returnId: string,
+        acceptedQuantity: number | undefined,
+        storekeeperNotes: string | undefined,
+        userId: string | null,
+        acceptedQuantities?: Record<string, number>
+    ) {
+        return prisma.$transaction(async (tx) => {
+            const returnRecord = await tx.contractorMaterialReturn.findUnique({
+                where: { id: returnId },
+                include: { items: true, contractor: true }
             });
 
-            // Deduct accepted quantity from Contractor Virtual Stock
-            await prisma.contractorStock.updateMany({
-                where: {
-                    contractorId: returnRecord.contractorId,
-                    itemId: item.itemId,
-                },
-                data: {
-                    quantity: { decrement: finalAcceptedQty }
-                }
-            });
-        }
-
-        // Update Return Status to ACCEPTED
-        const updatedReturn = await prisma.contractorMaterialReturn.update({
-            where: { id: returnId },
-            data: {
-                status: 'ACCEPTED',
-                acceptedBy: userId || 'Storekeeper Supervisor',
-                acceptedAt: new Date(),
-                reason: storekeeperNotes || returnRecord.reason,
-            },
-            include: { items: { include: { item: true } }, store: true }
-        });
-
-        // Create Audit Ledger Entry
-        const checksum = crypto
-            .createHash('sha256')
-            .update(`${updatedReturn.id}:RETURN_ACCEPTED:${Date.now()}`)
-            .digest('hex');
-
-        await prisma.inventoryLedger.create({
-            data: {
-                storeId: returnRecord.storeId,
-                transactionType: 'CONTRACTOR_RETURN',
-                referenceType: 'ContractorMaterialReturn',
-                referenceId: updatedReturn.id,
-                itemId: returnRecord.items[0]?.itemId || '',
-                performedById: userId || 'STOREKEEPER',
-                quantityBefore: 0,
-                quantityChange: returnRecord.items[0]?.quantity || 0,
-                quantityAfter: 0,
-                checksum,
+            if (!returnRecord) {
+                throw new Error('Material return request not found');
             }
-        });
+            if (returnRecord.status === 'ACCEPTED') {
+                throw new Error('Material return is already accepted');
+            }
 
-        return updatedReturn;
+            for (const item of returnRecord.items) {
+                // Resolve accepted quantity: per-item map > legacy single value (single-item returns only) > requested quantity
+                let finalAcceptedQty = Number(item.quantity);
+                if (acceptedQuantities && acceptedQuantities[item.itemId] !== undefined) {
+                    finalAcceptedQty = Number(acceptedQuantities[item.itemId]);
+                } else if (acceptedQuantity !== undefined && returnRecord.items.length === 1) {
+                    finalAcceptedQty = Number(acceptedQuantity);
+                }
+
+                if (!Number.isFinite(finalAcceptedQty) || finalAcceptedQty < 0 || finalAcceptedQty > Number(item.quantity)) {
+                    throw new Error(`Invalid accepted quantity ${finalAcceptedQty} for item ${item.itemId} (requested ${item.quantity})`);
+                }
+
+                await tx.contractorMaterialReturnItem.update({
+                    where: { id: item.id },
+                    data: { acceptedQuantity: finalAcceptedQty }
+                });
+
+                if (finalAcceptedQty <= 0) continue;
+
+                const isGood = (item.condition || 'GOOD') === 'GOOD';
+
+                // FIFO deduction from Contractor Batch Stock; restock Store batches for GOOD condition
+                const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, returnRecord.contractorId, item.itemId, finalAcceptedQty);
+                for (const picked of pickedBatches) {
+                    if (!picked.batchId) continue;
+
+                    await ContractorRepository.decrementBatchStockAtomic(returnRecord.contractorId, picked.batchId, picked.quantity, tx);
+
+                    if (isGood) {
+                        await tx.inventoryBatchStock.upsert({
+                            where: { storeId_batchId: { storeId: returnRecord.storeId, batchId: picked.batchId } },
+                            update: { quantity: { increment: picked.quantity } },
+                            create: {
+                                storeId: returnRecord.storeId,
+                                batchId: picked.batchId,
+                                itemId: item.itemId,
+                                quantity: picked.quantity
+                            }
+                        });
+                    }
+                }
+
+                // Deduct summary Contractor Virtual Stock (throws on insufficient stock)
+                await ContractorRepository.decrementStockAtomic(returnRecord.contractorId, item.itemId, finalAcceptedQty, tx);
+
+                if (isGood) {
+                    // Restock summary Store Stock and record immutable ledger entry
+                    const storeStock = await tx.inventoryStock.findUnique({
+                        where: { storeId_itemId: { storeId: returnRecord.storeId, itemId: item.itemId } }
+                    });
+                    const quantityBefore = Number(storeStock?.quantity || 0);
+
+                    await tx.inventoryStock.upsert({
+                        where: { storeId_itemId: { storeId: returnRecord.storeId, itemId: item.itemId } },
+                        update: { quantity: { increment: finalAcceptedQty } },
+                        create: { storeId: returnRecord.storeId, itemId: item.itemId, quantity: finalAcceptedQty }
+                    });
+
+                    await AuditLedgerService.recordEntry({
+                        storeId: returnRecord.storeId,
+                        itemId: item.itemId,
+                        transactionType: 'CONTRACTOR_RETURN',
+                        referenceType: 'MRN',
+                        referenceId: returnRecord.id,
+                        quantityBefore,
+                        quantityChange: finalAcceptedQty,
+                        quantityAfter: quantityBefore + finalAcceptedQty,
+                        performedById: userId || 'STOREKEEPER',
+                        idempotencyKey: `return-accept-${returnId}-${item.itemId}`
+                    }, tx);
+                }
+            }
+
+            // Update Return Status to ACCEPTED
+            const updatedReturn = await tx.contractorMaterialReturn.update({
+                where: { id: returnId },
+                data: {
+                    status: 'ACCEPTED',
+                    acceptedBy: userId || 'Storekeeper Supervisor',
+                    acceptedAt: new Date(),
+                    reason: storekeeperNotes || returnRecord.reason,
+                },
+                include: { items: { include: { item: true } }, store: true }
+            });
+
+            return updatedReturn;
+        });
     }
 
     static async acceptMaterialIssue(issueId: string, signatureName: string | undefined, userId: string | null) {
@@ -107,7 +152,10 @@ export class ContractorInventoryService {
             return { success: true, message: 'Issue is already accepted.' };
         }
 
-        // Update ContractorMaterialIssue status to ACCEPTED
+        // Update ContractorMaterialIssue status to ACCEPTED.
+        // NOTE: Stock is NOT incremented here — IssueService.issueMaterial already moved
+        // both batch and summary stock to the contractor at issue time. Acceptance is a
+        // signature/status confirmation only (prevents double-counting).
         const updatedIssue = await prisma.contractorMaterialIssue.update({
             where: { id: issueId },
             data: {
@@ -118,29 +166,9 @@ export class ContractorInventoryService {
             }
         });
 
-        // Update ContractorStock virtual balance
-        for (const item of issue.items) {
-            await prisma.contractorStock.upsert({
-                where: {
-                    contractorId_itemId: {
-                        contractorId: issue.contractorId,
-                        itemId: item.itemId,
-                    }
-                },
-                update: {
-                    quantity: { increment: item.quantity }
-                },
-                create: {
-                    contractorId: issue.contractorId,
-                    itemId: item.itemId,
-                    quantity: item.quantity,
-                }
-            });
-        }
-
         return {
             success: true,
-            message: 'Material issue accepted successfully. Virtual stock updated.',
+            message: 'Material issue accepted successfully.',
             data: updatedIssue,
         };
     }
@@ -187,8 +215,9 @@ export class ContractorInventoryService {
             throw new Error('Material item not found');
         }
 
-        const returnNumber = `MRN-2026-${Date.now().toString().slice(-6)}`;
-        const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+        const returnNumber = await AuditLedgerService.generateMRNNumber();
+        const now = new Date();
+        const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
         return prisma.contractorMaterialReturn.create({
             data: {

@@ -56,6 +56,7 @@ export interface ServiceOrder {
     isManualEntry?: boolean;
     isLegacyImport?: boolean;
     hasBridgeLog?: boolean;
+    materialSource?: string | null;
     _count?: {
         commentsHistory: number;
     };

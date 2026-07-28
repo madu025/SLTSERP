@@ -344,6 +344,15 @@ model CycleCountLine {
   @@index([itemId])
 }
 
+model DocumentCounter {
+  id       String @id @default(cuid())
+  type     String // MIN | MRN | GRN | ISS | GRN-IR | ISS-IR | MRN-IR
+  period   String // YYYY-MM
+  sequence Int    @default(0)
+
+  @@unique([type, period])
+}
+
 model InventoryLedger {
   id               String   @id @default(cuid())
   storeId          String

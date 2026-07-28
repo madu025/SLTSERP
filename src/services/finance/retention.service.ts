@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { OSPLedgerService } from './osp-ledger.service';
+import { AccountingPostingRegistry } from './accounting-posting-registry.service';
 
 export class RetentionService {
   /**
@@ -78,14 +78,13 @@ export class RetentionService {
         }
       });
 
-      // 3. Subledger Accounting (SLA): Post Retention Release Entry
-      await OSPLedgerService.postAutomatedTransaction(tx, {
-        sourceModule: 'RETENTION',
-        transactionType: 'RELEASE_RETENTION',
+      // 3. General Ledger: Post Retention Release via the canonical posting registry
+      //    DR Retention Payable / CR Bank.
+      await AccountingPostingRegistry.postRetentionAndLd(tx, {
         referenceId: release.id,
-        description: `Retention Release of LKR ${data.releaseAmount} (${status})`,
+        type: 'RETENTION_RELEASE',
         amount: data.releaseAmount,
-        transactionDate: new Date()
+        description: `Retention Release of LKR ${data.releaseAmount} (${status})`
       });
 
       return release;
@@ -116,16 +115,10 @@ export class RetentionService {
       }
     });
 
-    // Subledger Accounting (SLA): Hold Retention Entry
-    await OSPLedgerService.postAutomatedTransaction(prisma, {
-      sourceModule: 'RETENTION',
-      transactionType: 'HOLD_RETENTION',
-      referenceId: retention.id,
-      description: `Hold Retention (${retentionPercent}%) for Invoice ${data.title}`,
-      amount: data.retentionAmount,
-      transactionDate: new Date()
-    });
-
+    // Note: The retention liability (CR Retention Payable) is credited at invoice
+    // generation (LedgerService.logInvoiceGeneration). Posting a separate HOLD
+    // entry here would double-count the liability, so no GL posting is done at
+    // hold time; the release is what moves cash out of the liability later.
     return retention;
   }
 }

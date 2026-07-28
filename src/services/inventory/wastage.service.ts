@@ -52,6 +52,12 @@ export class WastageService {
             const meta = itemMetas.find(m => m.id === item.itemId);
             if (!meta) continue;
 
+            // Reject negative/invalid wastage quantities up-front so value and movement stay consistent
+            const requestedQty = parseFloat(item.quantity.toString());
+            if (!Number.isFinite(requestedQty) || requestedQty < 0) {
+                throw AppError.badRequest(`INVALID_WASTAGE_QUANTITY: ${meta.name} quantity must be zero or positive`);
+            }
+
             // Trigger approval flow if wastage is not generally allowed for this item
             if (!meta.isWastageAllowed) {
                 requiresApproval = true;
@@ -59,7 +65,7 @@ export class WastageService {
 
             // Calculate total financial value of the wastage
             const price = meta.costPrice ? Number(meta.costPrice) : (meta.unitPrice ? Number(meta.unitPrice) : 0);
-            const qty = parseFloat(item.quantity.toString()) || 0;
+            const qty = requestedQty || 0;
             totalWastageValue += qty * price;
 
             // Validate wastage percentage limits for contractor issues
@@ -138,6 +144,20 @@ export class WastageService {
                         }
 
                         await ContractorRepository.decrementStockAtomic(contractorId, item.itemId, qty, tx);
+
+                        // Write Immutable Inventory Ledger Entry for the contractor wastage
+                        await AuditLedgerService.recordEntry({
+                            storeId,
+                            itemId: item.itemId,
+                            transactionType: 'WASTAGE_ADJUSTMENT',
+                            referenceType: 'ContractorWastage',
+                            referenceId: wastage.id,
+                            quantityBefore: 0,
+                            quantityChange: -qty,
+                            quantityAfter: 0,
+                            performedById: userId || 'SYSTEM',
+                            idempotencyKey: `wastage-record-${wastage.id}-${item.itemId}`
+                        }, tx);
                     }
                     await LedgerService.logWastage(tx, wastage.id, totalWastageValue);
                 }
@@ -273,6 +293,20 @@ export class WastageService {
 
                     
                     await ContractorRepository.decrementStockAtomic(wastage.contractorId, item.itemId, qty, tx);
+
+                    // Write Immutable Inventory Ledger Entry for the approved contractor wastage
+                    await AuditLedgerService.recordEntry({
+                        storeId: wastage.storeId,
+                        itemId: item.itemId,
+                        transactionType: 'WASTAGE_ADJUSTMENT',
+                        referenceType: 'ContractorWastage',
+                        referenceId: wastage.id,
+                        quantityBefore: 0,
+                        quantityChange: -qty,
+                        quantityAfter: 0,
+                        performedById: userId,
+                        idempotencyKey: `wastage-approve-${wastage.id}-${item.itemId}`
+                    }, tx);
                 }
 
                 // Update Status

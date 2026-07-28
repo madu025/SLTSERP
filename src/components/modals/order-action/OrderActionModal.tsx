@@ -57,10 +57,15 @@ export default function OrderActionModal({
         setShowSuccess(true);
     };
 
+    const effectiveMaterialSource = orderData?.materialSource || materialSource || 'SLT';
+
     // Filter & Sort Items Logic based on Admin Settings Category Order
     const filteredItems = useMemo(() => {
         if (!items) return [];
-        const result = [...items];
+        const activeType = (effectiveMaterialSource === 'SLTS' || effectiveMaterialSource === 'COMPANY') ? 'SLTS' : 'SLT';
+        // Filter items matching active SOD material source type (or items without specific type restriction)
+        const matchedSourceItems = items.filter(i => !i.type || i.type === activeType || i.type === 'ALL');
+        const result = matchedSourceItems.length > 0 ? [...matchedSourceItems] : [...items];
         
         if (categoryOrder && categoryOrder.length > 0) {
             result.sort((a, b) => {
@@ -84,9 +89,9 @@ export default function OrderActionModal({
             });
         }
         return result;
-    }, [items, itemSortOrder, categoryOrder]);
+    }, [items, itemSortOrder, categoryOrder, effectiveMaterialSource]);
 
-    const { state, controls } = useOrderAction(isOpen, orderData, filteredItems, materialSource, handleHookConfirm);
+    const { state, controls } = useOrderAction(isOpen, orderData, filteredItems, effectiveMaterialSource, handleHookConfirm);
 
     // Reset local success state on reopen
     React.useEffect(() => {
@@ -112,11 +117,11 @@ export default function OrderActionModal({
         });
 
         return Object.entries(groups).map(([label, groupItems]) => {
-            const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+            const activeSource = (effectiveMaterialSource === 'SLTS' || effectiveMaterialSource === 'COMPANY') ? 'SLTS' : 'SLT';
             const best = groupItems.find(i => i.type === activeSource) || groupItems[0];
             return { label, item: best };
         });
-    }, [items, materialSource]);
+    }, [items, effectiveMaterialSource]);
 
     const drawerWidth = useExtendedView ? "sm:max-w-4xl md:max-w-5xl" : "sm:max-w-md";
     const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);

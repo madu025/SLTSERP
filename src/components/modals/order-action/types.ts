@@ -45,6 +45,7 @@ export interface OrderActionData {
         condition: string;
     }> | null;
     dropWireDistance?: number | null;
+    materialSource?: string | null;
 }
 
 export interface Contractor {
@@ -58,6 +59,7 @@ export interface InventoryItem {
     name: string;
     code: string;
     unit: string;
+    category?: string;
     commonFor?: string[] | string;
     commonName?: string | null;
     isOspFtth?: boolean;

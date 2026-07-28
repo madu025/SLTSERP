@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { OSPLedgerService } from './osp-ledger.service';
+import { AccountingPostingRegistry } from './accounting-posting-registry.service';
 
 export class OSPAccountCrudService {
   // ==========================================
@@ -274,16 +275,30 @@ export class OSPAccountCrudService {
   }
 
   static async approveFuelDeposit(id: string) {
-    const deposit = await prisma.ospFuelDepositLedger.findUnique({ where: { id } });
-    if (!deposit) throw AppError.notFound('FUEL_DEPOSIT_NOT_FOUND');
-    if (deposit.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+    return await prisma.$transaction(async (tx) => {
+      const deposit = await tx.ospFuelDepositLedger.findUnique({ where: { id } });
+      if (!deposit) throw AppError.notFound('FUEL_DEPOSIT_NOT_FOUND');
+      if (deposit.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
 
-    return await prisma.ospFuelDepositLedger.update({
-      where: { id },
-      data: { 
-        status: 'APPROVED',
-        approvedAt: new Date()
-      }
+      const updated = await tx.ospFuelDepositLedger.update({
+        where: { id },
+        data: {
+          status: 'APPROVED',
+          approvedAt: new Date()
+        }
+      });
+
+      // General Ledger: Vehicle fuel cost (DR Vehicle Expense / CR Bank)
+      await AccountingPostingRegistry.postVehicleExpense(tx, {
+        vehicleId: deposit.id,
+        vehicleRegNo: deposit.stationName,
+        amount: deposit.actualDeposit,
+        expenseType: 'FUEL',
+        paymentSource: 'BANK',
+        description: `Fuel Deposit for ${deposit.stationName} (${deposit.officeLocation})`
+      });
+
+      return updated;
     });
   }
 
@@ -342,16 +357,30 @@ export class OSPAccountCrudService {
   }
 
   static async approveHiringPayment(id: string) {
-    const payment = await prisma.ospVehicleHiringPayment.findUnique({ where: { id } });
-    if (!payment) throw AppError.notFound('HIRING_PAYMENT_NOT_FOUND');
-    if (payment.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
+    return await prisma.$transaction(async (tx) => {
+      const payment = await tx.ospVehicleHiringPayment.findUnique({ where: { id } });
+      if (!payment) throw AppError.notFound('HIRING_PAYMENT_NOT_FOUND');
+      if (payment.status === 'APPROVED') throw AppError.badRequest('ALREADY_APPROVED');
 
-    return await prisma.ospVehicleHiringPayment.update({
-      where: { id },
-      data: { 
-        status: 'APPROVED',
-        approvedAt: new Date()
-      }
+      const updated = await tx.ospVehicleHiringPayment.update({
+        where: { id },
+        data: {
+          status: 'APPROVED',
+          approvedAt: new Date()
+        }
+      });
+
+      // General Ledger: Vehicle hiring cost (DR Vehicle Expense / CR Bank)
+      await AccountingPostingRegistry.postVehicleExpense(tx, {
+        vehicleId: payment.id,
+        vehicleRegNo: payment.vehicleNo || payment.accountName,
+        amount: payment.amount,
+        expenseType: 'HIRING',
+        paymentSource: 'BANK',
+        description: `Vehicle Hiring Payment to ${payment.accountName} (${payment.slipNo})`
+      });
+
+      return updated;
     });
   }
 

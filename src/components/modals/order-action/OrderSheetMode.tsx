@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Contractor, InventoryItem, MaterialUsageRow, OrderActionData } from "./types";
 import { OrderAssignmentSection } from "./OrderAssignmentSection";
+import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 import { toast } from "sonner";
 
 export interface CollectedCpe {
@@ -734,11 +735,29 @@ export function OrderSheetMode({
                                                     onKeyDown={(e) => handleGridKeyDown(e, baseRowIndex, 1)}
                                                 >
                                                     <option value="">Select Item...</option>
-                                                    {filteredItems.map(item => (
-                                                        <option key={item.id} value={item.id}>
-                                                            {item.code} - {item.name}
-                                                        </option>
-                                                    ))}
+                                                    {(() => {
+                                                        const grouped = filteredItems.reduce<Record<string, InventoryItem[]>>((acc, item) => {
+                                                            const cat = item.category || 'OTHERS';
+                                                            if (!acc[cat]) acc[cat] = [];
+                                                            acc[cat].push(item);
+                                                            return acc;
+                                                        }, {});
+                                                        const catOrder = MATERIAL_CATEGORY_ORDER;
+                                                        const sortedCats = Object.keys(grouped).sort((a, b) => {
+                                                            const ai = catOrder.indexOf(a);
+                                                            const bi = catOrder.indexOf(b);
+                                                            return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                                                        });
+                                                        return sortedCats.map(cat => (
+                                                            <optgroup key={cat} label={`── ${cat} ──`}>
+                                                                {grouped[cat].map(item => (
+                                                                    <option key={item.id} value={item.id}>
+                                                                        {item.code} - {item.name}
+                                                                    </option>
+                                                                ))}
+                                                            </optgroup>
+                                                        ));
+                                                    })()}
                                                 </select>
                                             </td>
                                             {/* Used Qty: Editable for normal items, Auto-Calculated/Disabled for Drop Wire */}

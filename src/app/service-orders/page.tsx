@@ -574,7 +574,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                     orderData={selectedOrder as unknown as OrderActionData} 
                     contractors={contractors}
                     items={inventoryItems}
-                    materialSource={systemConfigs['OSP_MATERIAL_SOURCE'] || 'SLT'}
+                    materialSource={selectedOrder?.materialSource || systemConfigs['OSP_MATERIAL_SOURCE'] || 'SLT'}
                     categoryOrder={systemConfigs['OSP_CATEGORY_ORDER'] ? JSON.parse(systemConfigs['OSP_CATEGORY_ORDER']) : []}
                     itemSortOrder={systemConfigs['OSP_ITEM_ORDER'] ? JSON.parse(systemConfigs['OSP_ITEM_ORDER']) : []}
                     onConfirm={(data: OrderCompletionData) => { 

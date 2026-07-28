@@ -214,10 +214,12 @@ export class IssueService {
         }
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            // 1. Create Return Record
-            
+            // 1. Create Return Record with atomic MRN number
+            const returnNumber = await AuditLedgerService.generateMRNNumber(tx);
+
             const materialReturn = await tx.contractorMaterialReturn.create({
                 data: {
+                    returnNumber,
                     contractorId,
                     storeId,
                     month,
@@ -273,12 +275,30 @@ export class IssueService {
                 await ContractorRepository.decrementStockAtomic(contractorId, item.itemId, qty, tx);
 
                 if (item.condition === 'GOOD') {
-                    
+                    const existingStoreStock = await tx.inventoryStock.findUnique({
+                        where: { storeId_itemId: { storeId, itemId: item.itemId } }
+                    });
+                    const quantityBefore = existingStoreStock ? Number(existingStoreStock.quantity) : 0;
+
                     await tx.inventoryStock.upsert({
                         where: { storeId_itemId: { storeId, itemId: item.itemId } },
                         update: { quantity: { increment: qty } },
                         create: { storeId, itemId: item.itemId, quantity: qty }
                     });
+
+                    // Write Immutable Inventory Ledger Entry for store restock
+                    await AuditLedgerService.recordEntry({
+                        storeId,
+                        itemId: item.itemId,
+                        transactionType: 'CONTRACTOR_RETURN',
+                        referenceType: 'MRN',
+                        referenceId: materialReturn.id,
+                        quantityBefore,
+                        quantityChange: qty,
+                        quantityAfter: quantityBefore + qty,
+                        performedById: userId || 'SYSTEM',
+                        idempotencyKey: `return-create-${materialReturn.id}-${item.itemId}`
+                    }, tx);
                 }
 
                 // Update serials status if returned and serials are provided

@@ -1,7 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { InvoiceCalculatorService } from './invoice.calculator.service';
-import { OSPLedgerService } from '../finance/osp-ledger.service';
 import { LedgerService } from '../finance/ledger.service';
 
 export class InvoiceGeneratorService {
@@ -181,17 +180,10 @@ export class InvoiceGeneratorService {
                 data: { invoiced: true, invoiceId: invoice.id }
             });
 
-            // 7. Subledger Accounting (SLA) Engine: Recognize Revenue in Unified GL
-            await OSPLedgerService.postAutomatedTransaction(tx, {
-                sourceModule: 'SOD_INVOICING',
-                transactionType: 'RECOGNIZE_REVENUE',
-                referenceId: invoice.id,
-                description: `Revenue Recognition for ${invoice.invoiceNumber} (${other.sodIds.length} SODs)`,
-                amount: invoice.totalAmount,
-                transactionDate: new Date()
-            });
-
-            // 8. General Ledger: Move WIP to AR & Accrue Retention Liability
+            // 7. General Ledger: reclassify Unbilled WIP to AR, record output
+            //    taxes (VAT/SSCL), and accrue contractor payable & retention.
+            //    Revenue itself was already recognized at SOD completion, so it
+            //    is not re-recognized here (single authoritative trigger point).
             await LedgerService.logInvoiceGeneration(
                 tx,
                 invoice.id,
@@ -199,7 +191,9 @@ export class InvoiceGeneratorService {
                 invoice.totalAmount, // Total Revenue (relieving WIP)
                 amountA,             // Contractor Payable
                 amountB,             // Retention Liability
-                `Enterprise Ledger GL Posting for Invoice: ${invoice.invoiceNumber}`
+                `Enterprise Ledger GL Posting for Invoice: ${invoice.invoiceNumber}`,
+                invoice.vatAmount,   // Output VAT (0 unless statutory breakdown applied)
+                invoice.ssclAmount   // SSCL (0 unless statutory breakdown applied)
             );
 
             return invoice;

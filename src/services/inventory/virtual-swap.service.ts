@@ -2,6 +2,7 @@ import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
 import { TransactionClient } from './types';
+import { AuditLedgerService } from './audit-ledger.service';
 
 export class VirtualSwapService {
 
@@ -167,6 +168,19 @@ export class VirtualSwapService {
                 include: { item: true }
             });
 
+            // Prefetch each contractor's store once (avoids N+1 lookups inside the loop)
+            const contractorIds = Array.from(new Set(currentBatches.map((cbs: { contractorId: string }) => cbs.contractorId)));
+            const contractorsWithStore = await tx.contractor.findMany({
+                where: { id: { in: contractorIds } },
+                select: { id: true, opmc: { select: { storeId: true } } }
+            });
+            const contractorStoreMap = new Map<string, string | null | undefined>(
+                contractorsWithStore.map((c: { id: string; opmc: { storeId: string | null } | null }) => [c.id, c.opmc?.storeId])
+            );
+            const fallbackStore = await tx.inventoryStore.findFirst({ where: { type: 'MAIN' } })
+                || await tx.inventoryStore.findFirst();
+            const fallbackStoreId = fallbackStore?.id;
+
             for (const cbs of currentBatches) {
                 const targetSltsItem = sltsItems.find((i: { commonName: string | null }) => i.commonName === cbs.item.commonName);
                 if (!targetSltsItem) continue;
@@ -235,18 +249,7 @@ export class VirtualSwapService {
                 results.itemsSwapped += 1;
                 results.totalQtySwapped += qty;
 
-                const contractor = await tx.contractor.findUnique({
-                    where: { id: cbs.contractorId },
-                    select: { opmc: { select: { storeId: true } } }
-                });
-
-                let txStoreId = contractor?.opmc?.storeId;
-                if (!txStoreId) {
-                    const fallbackStore = await tx.inventoryStore.findFirst({
-                        where: { type: 'MAIN' }
-                    });
-                    txStoreId = fallbackStore?.id || (await tx.inventoryStore.findFirst())?.id;
-                }
+                const txStoreId = contractorStoreMap.get(cbs.contractorId) || fallbackStoreId;
 
                 if (!txStoreId) {
                     throw AppError.badRequest("NO_STORE_FOUND_FOR_VIRTUAL_SWAP");
@@ -266,6 +269,35 @@ export class VirtualSwapService {
                         }
                     }
                 });
+
+                // Write Immutable Inventory Ledger Entries for both legs of the swap
+                await AuditLedgerService.recordEntry({
+                    storeId: txStoreId,
+                    itemId: cbs.item.id,
+                    batchId: cbs.batchId,
+                    transactionType: 'VIRTUAL_SWAP',
+                    referenceType: 'VirtualSwap',
+                    referenceId: cbs.id,
+                    quantityBefore: 0,
+                    quantityChange: -qty,
+                    quantityAfter: 0,
+                    performedById: userId,
+                    idempotencyKey: `vswap-out-${cbs.id}-${targetSltsItem.id}`
+                }, tx);
+
+                await AuditLedgerService.recordEntry({
+                    storeId: txStoreId,
+                    itemId: targetSltsItem.id,
+                    batchId: vtBatch.id,
+                    transactionType: 'VIRTUAL_SWAP',
+                    referenceType: 'VirtualSwap',
+                    referenceId: cbs.id,
+                    quantityBefore: 0,
+                    quantityChange: qty,
+                    quantityAfter: 0,
+                    performedById: userId,
+                    idempotencyKey: `vswap-in-${cbs.id}-${targetSltsItem.id}`
+                }, tx);
             }
 
             results.contractorsProcessed = processedContractors.size;

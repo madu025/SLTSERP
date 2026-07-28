@@ -1205,8 +1205,13 @@ export class SODSyncService {
                         const qty = parseFloat(String(mat.QTY || "0"));
 
                         if (qty > 0 && (code || name)) {
+                            const targetSource = updated.materialSource || serviceOrder.materialSource || 'SLT';
+                            const targetType = (targetSource === 'SLTS' || targetSource === 'COMPANY') ? 'SLTS' : 'SLT';
+
+                            // 1. Try finding item matching the SOD's materialSource type
                             let item = await tx.inventoryItem.findFirst({
                                 where: {
+                                    type: targetType,
                                     OR: [
                                         { code: code ? code.trim().toUpperCase() : undefined },
                                         { name: name ? { equals: name, mode: 'insensitive' } : undefined },
@@ -1216,13 +1221,60 @@ export class SODSyncService {
                                 }
                             });
 
+                            // 2. Fallback to any item type if specific type match is missing
+                            if (!item) {
+                                item = await tx.inventoryItem.findFirst({
+                                    where: {
+                                        OR: [
+                                            { code: code ? code.trim().toUpperCase() : undefined },
+                                            { name: name ? { equals: name, mode: 'insensitive' } : undefined },
+                                            { importAliases: { has: code || "" } },
+                                            { importAliases: { has: name || "" } }
+                                        ]
+                                    }
+                                });
+                            }
+
                             if (!item) {
                                 const searchKey = (name || code || "").toUpperCase();
                                 let mappedCode = null;
                                 for (const [key, val] of Object.entries(MATERIAL_MAP)) {
                                     if (searchKey.includes(key)) { mappedCode = val; break; }
                                 }
-                                if (mappedCode) item = await tx.inventoryItem.findFirst({ where: { code: mappedCode } });
+                                if (mappedCode) {
+                                    item = await tx.inventoryItem.findFirst({ where: { code: mappedCode, type: targetType } }) ||
+                                           await tx.inventoryItem.findFirst({ where: { code: mappedCode } });
+                                }
+                            }
+
+                            // 4. Portal sends a single code, but the same physical material exists as
+                            //    separate SLT / SLTS items with different codes. If the matched item's
+                            //    type mismatches the SOD's materialSource, swap to the correct type
+                            //    variant sharing the same commonName group — only when the contractor
+                            //    actually holds stock of the variant (prevents negative-stock deductions).
+                            if (item && item.type !== targetType) {
+                                const groupName = item.commonName || item.name;
+                                const typeVariant = await tx.inventoryItem.findFirst({
+                                    where: {
+                                        type: targetType,
+                                        OR: [
+                                            { commonName: groupName },
+                                            { name: { equals: groupName, mode: 'insensitive' } }
+                                        ]
+                                    }
+                                });
+                                if (typeVariant) {
+                                    if (updated.contractorId) {
+                                        const variantStock = await tx.contractorStock.findUnique({
+                                            where: { contractorId_itemId: { contractorId: updated.contractorId, itemId: typeVariant.id } }
+                                        });
+                                        if (variantStock && Number(variantStock.quantity) >= qty) {
+                                            item = typeVariant;
+                                        }
+                                    } else {
+                                        item = typeVariant;
+                                    }
+                                }
                             }
 
                             const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_']) : null);
@@ -1384,8 +1436,12 @@ export class SODSyncService {
                 const qty = parseFloat(String(mat.QTY || "0"));
 
                 if (qty > 0 && (code || name)) {
+                    const targetSource = syncedOrder.materialSource || 'SLT';
+                    const targetType = (targetSource === 'SLTS' || targetSource === 'COMPANY') ? 'SLTS' : 'SLT';
+
                     let item = await prisma.inventoryItem.findFirst({
                         where: {
+                            type: targetType,
                             OR: [
                                 { code: code ? code.trim().toUpperCase() : undefined },
                                 { name: name ? { equals: name, mode: 'insensitive' } : undefined },
@@ -1396,12 +1452,57 @@ export class SODSyncService {
                     });
 
                     if (!item) {
+                        item = await prisma.inventoryItem.findFirst({
+                            where: {
+                                OR: [
+                                    { code: code ? code.trim().toUpperCase() : undefined },
+                                    { name: name ? { equals: name, mode: 'insensitive' } : undefined },
+                                    { importAliases: { has: code || "" } },
+                                    { importAliases: { has: name || "" } }
+                                ]
+                            }
+                        });
+                    }
+
+                    if (!item) {
                         const searchKey = (name || code || "").toUpperCase();
                         let mappedCode = null;
                         for (const [key, val] of Object.entries(MATERIAL_MAP)) {
                             if (searchKey.includes(key)) { mappedCode = val; break; }
                         }
-                        if (mappedCode) item = await prisma.inventoryItem.findFirst({ where: { code: mappedCode } });
+                        if (mappedCode) {
+                            item = await prisma.inventoryItem.findFirst({ where: { code: mappedCode, type: targetType } }) ||
+                                   await prisma.inventoryItem.findFirst({ where: { code: mappedCode } });
+                        }
+                    }
+
+                    // Portal sends a single code; resolve to the SLT/SLTS type variant
+                    // sharing the same commonName group when types mismatch — only when
+                    // the contractor actually holds stock of the variant (prevents
+                    // negative-stock deductions once the SOD completes).
+                    if (item && item.type !== targetType) {
+                        const groupName = item.commonName || item.name;
+                        const typeVariant = await prisma.inventoryItem.findFirst({
+                            where: {
+                                type: targetType,
+                                OR: [
+                                    { commonName: groupName },
+                                    { name: { equals: groupName, mode: 'insensitive' } }
+                                ]
+                            }
+                        });
+                        if (typeVariant) {
+                            if (syncedOrder.contractorId) {
+                                const variantStock = await prisma.contractorStock.findUnique({
+                                    where: { contractorId_itemId: { contractorId: syncedOrder.contractorId, itemId: typeVariant.id } }
+                                });
+                                if (variantStock && Number(variantStock.quantity) >= qty) {
+                                    item = typeVariant;
+                                }
+                            } else {
+                                item = typeVariant;
+                            }
+                        }
                     }
 
                     const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_']) : null);

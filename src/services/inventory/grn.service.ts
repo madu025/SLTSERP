@@ -58,11 +58,11 @@ export class GRNService {
                 }
             }
 
-            // 1. Create GRN
-            
+            // 1. Create GRN with an atomic document number
+            const grnNumber = await AuditLedgerService.getNextDocumentNumber('GRN', tx);
             const grn = await (tx as any).gRN.create({
                 data: {
-                    grnNumber: `GRN-${Date.now()}`,
+                    grnNumber,
                     storeId,
                     sourceType,
                     supplier,
