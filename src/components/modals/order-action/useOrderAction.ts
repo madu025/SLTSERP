@@ -210,7 +210,7 @@ export function useOrderAction(
                             const iCode = (i.code || "").toUpperCase();
                             const iName = (i.name || "").toUpperCase();
                             const iCommon = (i.commonName || "").toUpperCase();
-                            const aliases = (i.importAliases || []).map(a => a.toUpperCase());
+                            const aliases = [...(i.scrapedAliases || []), ...(i.importAliases || []), ...(i.bomAliases || [])].map(a => a.toUpperCase());
                             return searchKeys.some(sk => iCode === sk || iName === sk || iCommon === sk || aliases.includes(sk));
                         });
 
@@ -334,7 +334,7 @@ export function useOrderAction(
                         const iCode = (i.code || "").toUpperCase();
                         const iName = (i.name || "").toUpperCase();
                         const iCommon = (i.commonName || "").toUpperCase();
-                        const aliases = (i.importAliases || []).map(a => a.toUpperCase());
+                        const aliases = [...(i.scrapedAliases || []), ...(i.importAliases || []), ...(i.bomAliases || [])].map(a => a.toUpperCase());
                         return searchKeys.some(sk => iCode === sk || iName === sk || iCommon === sk || aliases.includes(sk));
                     });
 

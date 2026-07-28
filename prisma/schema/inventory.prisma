@@ -63,6 +63,8 @@ model InventoryItem {
   sltCode               String?
   isOspFtth             Boolean?                       @default(false)
   importAliases         String[]
+  scrapedAliases        String[]                       @default([])
+  bomAliases            String[]                       @default([])
   balanceSheetItems     ContractorBalanceSheetItem[]   @relation("BalanceSheetItems")
   contractorBatchStocks ContractorBatchStock[]
   issueItems            ContractorMaterialIssueItem[]  @relation("IssueItems")
@@ -266,16 +268,17 @@ model JournalEntry {
 }
 
 model JournalLine {
-  id           String       @id @default(cuid())
+  id           String          @id @default(cuid())
   entryId      String
   accountCode  String
   accountName  String
-  debit        Decimal      @default(0)
-  credit       Decimal      @default(0)
+  debit        Decimal         @default(0)
+  credit       Decimal         @default(0)
   description  String?
-  currency     String       @default("LKR")
-  exchangeRate Float        @default(1.0)
-  entry        JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  currency     String          @default("LKR")
+  exchangeRate Float           @default(1.0)
+  entry        JournalEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account      ChartOfAccount? @relation(fields: [accountCode], references: [code], onDelete: Restrict)
 
   @@index([entryId])
   @@index([accountCode])
@@ -358,7 +361,7 @@ model InventoryLedger {
   storeId          String
   itemId           String
   batchId          String?
-  transactionType  String // GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION
+  transactionType  String // GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, MRN_APPROVAL, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION
   referenceType    String // GRN, ContractorMaterialIssue, SOD, MRN, CycleCount
   referenceId      String
   quantityBefore   Decimal  @default(0) @db.Decimal(12, 4)

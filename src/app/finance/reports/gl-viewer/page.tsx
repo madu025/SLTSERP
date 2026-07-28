@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Layers } from "lucide-react";
 import Link from 'next/link';
+import { ACCOUNTS } from '@/services/finance/account-codes';
 
 interface DrilldownRow {
     id: string;
@@ -38,7 +39,7 @@ interface GlViewerData {
 
 function GlViewerPageInner() {
     const searchParams = useSearchParams();
-    const accountCodeParam = searchParams.get('accountCode') || 'INV-1010';
+    const accountCodeParam = searchParams.get('accountCode') || ACCOUNTS.INVENTORY;
     const [selectedCode, setSelectedCode] = useState(accountCodeParam);
 
     const { data, isLoading } = useQuery<GlViewerData>({

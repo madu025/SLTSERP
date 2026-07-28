@@ -1,15 +1,29 @@
-import { apiHandler } from '@/lib/api-handler';
-import { recordWastage } from '@/actions/inventory-actions';
-import { AppError } from '@/lib/error';
+import { InventoryService } from '@/services/inventory';
+import { ROLE_GROUPS } from '@/config/roles';
+import { apiHandler, castBody } from '@/lib/api-handler';
+
+interface RecordWastageInput {
+    storeId?: string;
+    contractorId?: string;
+    month?: string;
+    description?: string;
+    reason?: string;
+    items: { itemId: string; quantity: string | number; unit?: string }[];
+    userId?: string;
+}
 
 export const POST = apiHandler(async (request, _params, body) => {
-    const result = await recordWastage(body);
+    const userId = request.headers.get('x-user-id') || undefined;
 
-    if (result.success) {
-        return { success: true, data: result.data };
-    } else {
-        throw AppError.badRequest(result.error);
-    }
+    const input = castBody<RecordWastageInput>(body);
+    const result = await InventoryService.recordWastage({
+        ...input,
+        userId
+    });
+
+    return result;
 }, {
+    roles: [...ROLE_GROUPS.STORES_ALL, 'QC_OFFICER'],
+    audit: { action: 'CREATE', entity: 'WASTAGE' },
     rawResponse: true
 });

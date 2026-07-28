@@ -1,74 +1,50 @@
 export const dynamic = 'force-dynamic';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler, castBody } from '@/lib/api-handler';
 import { SODAutoCompletionService } from '@/services/sod-auto-completion.service';
+import { AppError } from '@/lib/error';
 
 /**
  * GET /api/automation/sod-auto-complete
  * Get status of auto-completion background process
  */
-export async function GET() {
-    try {
-        const status = SODAutoCompletionService.getStatus();
-        return NextResponse.json(status);
-    } catch (error) {
-        console.error('Failed to get auto-completion status:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
-    }
-}
+export const GET = apiHandler(async () => {
+    return SODAutoCompletionService.getStatus();
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    rawResponse: true
+});
 
 /**
  * POST /api/automation/sod-auto-complete
  * Start or stop auto-completion background process
  */
-export async function POST(request: NextRequest) {
-    try {
-        const role = request.headers.get('x-user-role');
+export const POST = apiHandler(async (_request, _params, body) => {
+    const { action } = castBody<{ action: string }>(body);
 
-        // Only admins can control automation
-        if (!['ADMIN', 'SUPER_ADMIN'].includes(role || '')) {
-            return NextResponse.json(
-                { error: 'Forbidden' },
-                { status: 403 }
-            );
-        }
-
-        const body = await request.json();
-        const { action } = body;
-
-        if (action === 'start') {
-            SODAutoCompletionService.startBackgroundProcess();
-            return NextResponse.json({
-                message: 'Auto-completion background process started',
-                status: SODAutoCompletionService.getStatus()
-            });
-        } else if (action === 'stop') {
-            SODAutoCompletionService.stopBackgroundProcess();
-            return NextResponse.json({
-                message: 'Auto-completion background process stopped',
-                status: SODAutoCompletionService.getStatus()
-            });
-        } else if (action === 'run-now') {
-            // Run immediately (manual trigger)
-            const result = await SODAutoCompletionService.processCompletedSODs();
-            return NextResponse.json({
-                message: 'Auto-completion process executed',
-                result
-            });
-        } else {
-            return NextResponse.json(
-                { error: 'Invalid action. Use: start, stop, or run-now' },
-                { status: 400 }
-            );
-        }
-    } catch (error) {
-        console.error('Failed to control auto-completion:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+    if (action === 'start') {
+        SODAutoCompletionService.startBackgroundProcess();
+        return {
+            message: 'Auto-completion background process started',
+            status: SODAutoCompletionService.getStatus()
+        };
+    } else if (action === 'stop') {
+        SODAutoCompletionService.stopBackgroundProcess();
+        return {
+            message: 'Auto-completion background process stopped',
+            status: SODAutoCompletionService.getStatus()
+        };
+    } else if (action === 'run-now') {
+        const result = await SODAutoCompletionService.processCompletedSODs();
+        return {
+            message: 'Auto-completion process executed',
+            result
+        };
+    } else {
+        throw AppError.badRequest('Invalid action. Use: start, stop, or run-now');
     }
-}
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: { action: 'EXECUTE', entity: 'AUTOMATION_SOD_AUTO_COMPLETE' },
+    rawResponse: true
+});

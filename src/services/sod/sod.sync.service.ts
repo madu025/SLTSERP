@@ -1207,6 +1207,9 @@ export class SODSyncService {
                         if (qty > 0 && (code || name)) {
                             const targetSource = updated.materialSource || serviceOrder.materialSource || 'SLT';
                             const targetType = (targetSource === 'SLTS' || targetSource === 'COMPANY') ? 'SLTS' : 'SLT';
+                            // Normalized keys for exact-match against admin-managed alias arrays
+                            const codeKey = code ? code.trim().toUpperCase() : "";
+                            const nameKey = name ? name.trim().toUpperCase() : "";
 
                             // 1. Try finding item matching the SOD's materialSource type
                             let item = await tx.inventoryItem.findFirst({
@@ -1216,7 +1219,13 @@ export class SODSyncService {
                                         { code: code ? code.trim().toUpperCase() : undefined },
                                         { name: name ? { equals: name, mode: 'insensitive' } : undefined },
                                         { importAliases: { has: code || "" } },
-                                        { importAliases: { has: name || "" } }
+                                        { importAliases: { has: name || "" } },
+                                        { importAliases: { has: codeKey } },
+                                        { importAliases: { has: nameKey } },
+                                        { scrapedAliases: { has: codeKey } },
+                                        { scrapedAliases: { has: nameKey } },
+                                        { bomAliases: { has: codeKey } },
+                                        { bomAliases: { has: nameKey } }
                                     ]
                                 }
                             });
@@ -1229,7 +1238,13 @@ export class SODSyncService {
                                             { code: code ? code.trim().toUpperCase() : undefined },
                                             { name: name ? { equals: name, mode: 'insensitive' } : undefined },
                                             { importAliases: { has: code || "" } },
-                                            { importAliases: { has: name || "" } }
+                                            { importAliases: { has: name || "" } },
+                                            { importAliases: { has: codeKey } },
+                                            { importAliases: { has: nameKey } },
+                                            { scrapedAliases: { has: codeKey } },
+                                            { scrapedAliases: { has: nameKey } },
+                                            { bomAliases: { has: codeKey } },
+                                            { bomAliases: { has: nameKey } }
                                         ]
                                     }
                                 });
@@ -1438,6 +1453,9 @@ export class SODSyncService {
                 if (qty > 0 && (code || name)) {
                     const targetSource = syncedOrder.materialSource || 'SLT';
                     const targetType = (targetSource === 'SLTS' || targetSource === 'COMPANY') ? 'SLTS' : 'SLT';
+                    // Normalized keys for exact-match against admin-managed alias arrays
+                    const codeKey = code ? code.trim().toUpperCase() : "";
+                    const nameKey = name ? name.trim().toUpperCase() : "";
 
                     let item = await prisma.inventoryItem.findFirst({
                         where: {
@@ -1446,7 +1464,13 @@ export class SODSyncService {
                                 { code: code ? code.trim().toUpperCase() : undefined },
                                 { name: name ? { equals: name, mode: 'insensitive' } : undefined },
                                 { importAliases: { has: code || "" } },
-                                { importAliases: { has: name || "" } }
+                                { importAliases: { has: name || "" } },
+                                { importAliases: { has: codeKey } },
+                                { importAliases: { has: nameKey } },
+                                { scrapedAliases: { has: codeKey } },
+                                { scrapedAliases: { has: nameKey } },
+                                { bomAliases: { has: codeKey } },
+                                { bomAliases: { has: nameKey } }
                             ]
                         }
                     });
@@ -1458,7 +1482,13 @@ export class SODSyncService {
                                     { code: code ? code.trim().toUpperCase() : undefined },
                                     { name: name ? { equals: name, mode: 'insensitive' } : undefined },
                                     { importAliases: { has: code || "" } },
-                                    { importAliases: { has: name || "" } }
+                                    { importAliases: { has: name || "" } },
+                                    { importAliases: { has: codeKey } },
+                                    { importAliases: { has: nameKey } },
+                                    { scrapedAliases: { has: codeKey } },
+                                    { scrapedAliases: { has: nameKey } },
+                                    { bomAliases: { has: codeKey } },
+                                    { bomAliases: { has: nameKey } }
                                 ]
                             }
                         });

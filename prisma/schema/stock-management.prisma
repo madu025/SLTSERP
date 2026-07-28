@@ -3,7 +3,7 @@ model ContractorBatchStock {
   contractorId String
   itemId       String
   batchId      String
-  quantity     Float          @default(0)
+  quantity     Decimal        @default(0)
   updatedAt    DateTime       @updatedAt
   batch        InventoryBatch @relation(fields: [batchId], references: [id])
   contractor   Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)

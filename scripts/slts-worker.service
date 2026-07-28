@@ -1,0 +1,15 @@
+[Unit]
+Description=SLTSERP Background Worker Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/sltserp
+ExecStart=/usr/bin/npm run worker:start
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

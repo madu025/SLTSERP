@@ -6,6 +6,14 @@ import { emitSystemEvent } from '@/lib/events';
 import { CreateItemData, TransactionClient } from './types';
 import { prisma } from '@/lib/prisma';
 
+/** Normalize alias arrays for exact-match storage: trim + uppercase, drop blanks, dedupe. */
+function normalizeAliases(aliases?: string[]): string[] | undefined {
+    if (aliases === undefined) return undefined;
+    return Array.from(new Set(
+        (aliases || []).map(a => (a || '').trim().toUpperCase()).filter(Boolean)
+    ));
+}
+
 export class ItemService {
     /**
      * Fetch all items with optional filtering (Context-based)
@@ -49,7 +57,9 @@ export class ItemService {
                 hasSerial: data.hasSerial || false,
                 commonName: data.commonName,
                 sltCode: data.sltCode,
-                importAliases: data.importAliases || []
+                importAliases: normalizeAliases(data.importAliases) || [],
+                scrapedAliases: normalizeAliases(data.scrapedAliases) || [],
+                bomAliases: normalizeAliases(data.bomAliases) || []
             });
 
             emitSystemEvent('INVENTORY_UPDATE');
@@ -81,7 +91,9 @@ export class ItemService {
             hasSerial: data.hasSerial,
             commonName: data.commonName,
             sltCode: data.sltCode,
-            importAliases: data.importAliases
+            importAliases: normalizeAliases(data.importAliases),
+            scrapedAliases: normalizeAliases(data.scrapedAliases),
+            bomAliases: normalizeAliases(data.bomAliases)
         });
 
         emitSystemEvent('INVENTORY_UPDATE');
@@ -94,12 +106,18 @@ export class ItemService {
         await prisma.$transaction(async (tx: TransactionClient) => {
             for (const u of updates) {
                 const itemId = u.id;
-                const updateData = u.data ? u.data : {
-                    isOspFtth: u.isOspFtth,
-                    type: u.type,
-                    commonName: u.commonName,
-                    commonFor: u.tags || u.commonFor
+                const source = u.data ? u.data : u;
+                // Whitelist allowed bulk-patch fields (no raw pass-through)
+                const updateData: Record<string, any> = {
+                    isOspFtth: source.isOspFtth,
+                    type: source.type,
+                    category: source.category,
+                    commonName: source.commonName,
+                    commonFor: source.tags || source.commonFor
                 };
+                if (source.importAliases !== undefined) updateData.importAliases = normalizeAliases(source.importAliases);
+                if (source.scrapedAliases !== undefined) updateData.scrapedAliases = normalizeAliases(source.scrapedAliases);
+                if (source.bomAliases !== undefined) updateData.bomAliases = normalizeAliases(source.bomAliases);
 
                 if (itemId) {
                     await tx.inventoryItem.update({
@@ -150,16 +168,29 @@ export class ItemService {
             await tx.projectMaterialReturnItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
             await tx.contractorWastageItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
             await tx.projectBOQItem.updateMany({ where: { materialId: sourceId }, data: { materialId: targetId } });
+            await tx.preErpMaterialBalance.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
 
-            const mergedAliases = Array.from(new Set([
+            const mergedAliases = normalizeAliases([
                 ...(target.importAliases || []),
                 source.code,
                 ...(source.sltCode ? [source.sltCode] : []),
                 ...(source.importAliases || [])
-            ])).filter(Boolean);
+            ]) || [];
+
+            const mergedScraped = normalizeAliases([
+                ...(target.scrapedAliases || []),
+                ...(source.scrapedAliases || [])
+            ]) || [];
+
+            const mergedBom = normalizeAliases([
+                ...(target.bomAliases || []),
+                ...(source.bomAliases || [])
+            ]) || [];
 
             await InventoryRepository.updateItem(targetId, {
                 importAliases: mergedAliases,
+                scrapedAliases: mergedScraped,
+                bomAliases: mergedBom,
                 commonName: target.commonName || source.commonName,
                 sltCode: target.sltCode || source.sltCode
             }, tx);
@@ -173,8 +204,37 @@ export class ItemService {
 
     static async deleteItem(id: string): Promise<boolean> {
         if (!id) throw AppError.badRequest('ID_REQUIRED');
-        await InventoryRepository.deleteItem(id);
+
+        const item = await InventoryRepository.findItemById(id);
+        if (!item) throw AppError.notFound('Item not found');
+
+        // Check for active references before attempting hard delete
+        const [preErpCount, stockCount, usageCount] = await Promise.all([
+            prisma.preErpMaterialBalance.count({ where: { itemId: id } }),
+            prisma.inventoryStock.count({ where: { itemId: id } }),
+            prisma.sODMaterialUsage.count({ where: { itemId: id } })
+        ]);
+
+        if (preErpCount > 0 || stockCount > 0 || usageCount > 0) {
+            throw AppError.badRequest(
+                `Cannot delete item '${item.name}' (${item.code}) because it has active stock balance or historical transaction records. Consider merging or editing its configuration instead.`
+            );
+        }
+
+        try {
+            await InventoryRepository.deleteItem(id);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            if (msg.includes('Foreign key constraint violated') || msg.includes('fkey')) {
+                throw AppError.badRequest(
+                    `Cannot delete item '${item.name}' (${item.code}) because it is referenced in inventory balances or financial ledgers.`
+                );
+            }
+            throw error;
+        }
+
         emitSystemEvent('INVENTORY_UPDATE');
         return true;
     }
 }
+

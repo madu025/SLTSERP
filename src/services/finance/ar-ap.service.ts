@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '../inventory/types';
+import { ACCOUNTS } from './account-codes';
 
 export interface CustomerReceiptPayload {
     receiptNumber?: string;
@@ -117,13 +118,13 @@ export class ArApService {
                 createdById,
                 lines: [
                     {
-                        accountCode: 'BANK-1000',
+                        accountCode: ACCOUNTS.BANK,
                         debit: amount,
                         credit: 0,
                         description: `Receipt #${receiptNo} deposited into Bank`
                     },
                     {
-                        accountCode: 'AR-1110',
+                        accountCode: ACCOUNTS.AR_CLIENT,
                         debit: 0,
                         credit: amount,
                         description: `AR settlement for Receipt #${receiptNo}`
@@ -206,7 +207,7 @@ export class ArApService {
         // Fetch GL AR-1110 control account balance
         const arGlLines = await prisma.journalLine.findMany({
             where: {
-                accountCode: 'AR-1110',
+                accountCode: ACCOUNTS.AR_CLIENT,
                 entry: { status: { not: 'REVERSED' } }
             }
         });
@@ -284,7 +285,7 @@ export class ArApService {
         // Fetch GL AP-2010 control account balance
         const apGlLines = await prisma.journalLine.findMany({
             where: {
-                accountCode: { in: ['AP-2010', 'AP-VEND-2010', 'AP-CON-2020'] },
+                accountCode: { in: [ACCOUNTS.AP_ACCRUED, ACCOUNTS.AP_VENDOR, ACCOUNTS.AP_CONTRACTOR] },
                 entry: { status: { not: 'REVERSED' } }
             }
         });

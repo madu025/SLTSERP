@@ -110,7 +110,7 @@ export class ContractorInventoryService {
                     await AuditLedgerService.recordEntry({
                         storeId: returnRecord.storeId,
                         itemId: item.itemId,
-                        transactionType: 'CONTRACTOR_RETURN',
+                        transactionType: 'MRN_APPROVAL',
                         referenceType: 'MRN',
                         referenceId: returnRecord.id,
                         quantityBefore,

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { ACCOUNTS } from '@/services/finance/account-codes';
 
 export interface AuditDiscrepancy {
     type: 'SOD_MATERIAL_MISSING' | 'GL_POSTING_MISMATCH' | 'GL_POSTING_MISSING' | 'REVERSAL_MISSING' | 'STOCK_MISMATCH';
@@ -91,7 +92,7 @@ export class AiAuditService {
             } else {
                 // Check if GL posting lines match the calculated cost
                 const firstEntry = glEntries[0];
-                const cogsLine = firstEntry.lines.find(l => l.accountCode === 'COGS-5010');
+                const cogsLine = firstEntry.lines.find(l => l.accountCode === ACCOUNTS.COGS);
                 const debitVal = cogsLine ? Number(cogsLine.debit) : 0;
 
                 if (Math.abs(debitVal - calculatedCost) > 0.01) {

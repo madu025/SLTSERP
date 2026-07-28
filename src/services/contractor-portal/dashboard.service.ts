@@ -72,11 +72,11 @@ export class ContractorDashboardService {
             const itemName = s.item?.name?.toUpperCase() || '';
 
             if (itemCode.includes('DROP') || itemName.includes('DROP WIRE')) {
-                dropWireMeters += s.quantity;
+                dropWireMeters += Number(s.quantity);
             } else if (itemCode.includes('ONT') || itemName.includes('ONT')) {
-                ontCount += s.quantity;
+                ontCount += Number(s.quantity);
             } else if (itemCode.includes('FAC') || itemName.includes('FAST') || itemName.includes('CONNECTOR')) {
-                facCount += s.quantity;
+                facCount += Number(s.quantity);
             }
         });
 

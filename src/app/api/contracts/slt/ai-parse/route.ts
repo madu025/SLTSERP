@@ -1,5 +1,6 @@
 import { extractContractDataFromPdfText } from '@/services/slt-contract-pdf-parser';
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
+import { ROLE_GROUPS } from '@/config/roles';
 import fs from 'fs';
 import path from 'path';
 
@@ -68,26 +69,24 @@ async function readPdfBuffer(req: Request): Promise<Buffer | null> {
     return null;
 }
 
-export async function POST(req: Request) {
+export const POST = apiHandler(async (req: Request) => {
     try {
         const pdfBuffer = await readPdfBuffer(req);
 
         if (!pdfBuffer) {
-            return NextResponse.json({
+            return {
                 success: false,
                 documentType: 'UNKNOWN',
                 isScanned: false,
                 extracted: null,
                 source: 'local-pdf-engine-v2',
                 message: 'No PDF supplied. Attach a PDF file to extract contract data.'
-            });
+            };
         }
 
         let pdfText = '';
         let pages = 1;
         try {
-            // Lazy-require inside the handler — kept external via serverExternalPackages
-            // so webpack never tries to bundle pdfjs (which crashes on DOMMatrix at build).
             // eslint-disable-next-line @typescript-eslint/no-var-requires
             const mod = require('pdf-parse');
             const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
@@ -106,22 +105,25 @@ export async function POST(req: Request) {
 
         const extracted = extractContractDataFromPdfText(pdfText, pages);
 
-        return NextResponse.json({
+        return {
             success: true,
             documentType: extracted.documentType,
             isScanned: extracted.isScanned,
             extracted,
             source: 'local-pdf-engine-v2'
-        });
+        };
     } catch (err: unknown) {
         console.error('[SLT_AI_PARSE_CRITICAL_ERR]', err);
         const fallbackData = extractContractDataFromPdfText('', 1);
-        return NextResponse.json({
+        return {
             success: true,
             documentType: 'PRINCIPAL_CONTRACT',
             isScanned: false,
             extracted: fallbackData,
             source: 'local-pdf-engine-fallback-safe'
-        });
+        };
     }
-}
+}, {
+    roles: ROLE_GROUPS.ADMINS,
+    rawResponse: true
+});

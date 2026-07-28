@@ -1,11 +1,12 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankCashService } from '@/services/finance/bank-cash.service';
+import { ACCOUNTS } from '@/services/finance/account-codes';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
-    const glAccountCode = searchParams.get('accountCode') || 'BANK-1000';
+    const glAccountCode = searchParams.get('accountCode') || ACCOUNTS.BANK;
     const fromStr = searchParams.get('from');
     const toStr = searchParams.get('to');
 

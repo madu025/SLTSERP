@@ -15,6 +15,7 @@ export const GET = apiHandler(async (req) => {
 
     return await PaymentVoucherService.getPaymentVouchers({ status, projectId, type });
 }, {
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     rawResponse: true
 });
 

@@ -29,6 +29,7 @@ model ChartOfAccount {
   debitMappings  GLMappingConfig[]      @relation("DebitAccountMappings")
   creditMappings GLMappingConfig[]      @relation("CreditAccountMappings")
   rollupBalances AccountBalanceRollup[] @relation("RollupBalances")
+  journalLines   JournalLine[]
 
   @@index([type])
   @@index([code])

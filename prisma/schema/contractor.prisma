@@ -79,7 +79,7 @@ model ContractorStock {
   id           String        @id @default(cuid())
   contractorId String
   itemId       String
-  quantity     Float         @default(0)
+  quantity     Decimal       @default(0)
   updatedAt    DateTime      @updatedAt
   contractor   Contractor    @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   item         InventoryItem @relation(fields: [itemId], references: [id])
@@ -175,7 +175,7 @@ model ContractorPaymentTier {
 
 model Penalty {
   id             String        @id @default(cuid())
-  amount         Float         @default(0)
+  amount         Decimal       @default(0)
   reason         String
   description    String?
   status         String        @default("PENDING")

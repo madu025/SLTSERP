@@ -300,7 +300,7 @@
 ### [bank-cash.service.ts](src/services/finance/bank-cash.service.ts)
 * **Class**: `BankCashService`
   * **Methods**:
-    * `getCashBook(glAccountCode: string = 'BANK-1000', fromDate?: Date, toDate?: Date): Promise<CashBookReport>`
+    * `getCashBook(glAccountCode: string = ACCOUNTS.BANK, fromDate?: Date, toDate?: Date): Promise<CashBookReport>`
     * `importBankStatement(bankAccountId: string, lines: { statementDate: Date; description: string; referenceNumber?: string; debit: number; credit: number }[]): any`
     * `reconcileStatementLine(statementLineId: string, journalLineId: string): any`
     * `getBankReconciliationSummary(bankAccountId: string): Promise<BankReconciliationSummary>`
@@ -868,6 +868,13 @@
   * **Methods**:
     * `postMonthlyDepreciation(period: string, userId: string): Promise<{ processed: number, totalDepreciation: number }>`
     * `getDepreciationSchedule(): any`
+
+### [asset-disposal.service.ts](src/services/helpdesk/asset-disposal.service.ts)
+* **Class**: `AssetDisposalService`
+  * **Methods**:
+    * `getDisposalRequests(filters: DisposalFilterQuery): any`
+    * `createDisposalRequest(userId: string, data: { assetId: string; reason: DisposalReason; salvageValue?: number }): any`
+    * `processDisposalApproval(userId: string, data: { requestId: string; action: 'APPROVE' | 'REJECT' }): any`
 
 ### [sla-worker.service.ts](src/services/helpdesk/sla-worker.service.ts)
 * **Class**: `SLABreachWorkerService`
@@ -2911,6 +2918,7 @@
 | `/api/finance/fixed-assets` | [route.ts](src/app/api/finance/fixed-assets/route.ts) | `GET`, `POST` |
 | `/api/finance/fpa-dashboard` | [route.ts](src/app/api/finance/fpa-dashboard/route.ts) | `GET` |
 | `/api/finance/general-ledger` | [route.ts](src/app/api/finance/general-ledger/route.ts) | `GET` |
+| `/api/finance/invoice` | [route.ts](src/app/api/finance/invoice/route.ts) | `GET` |
 | `/api/finance/invoices/generate` | [route.ts](src/app/api/finance/invoices/generate/route.ts) | `POST` |
 | `/api/finance/invoices` | [route.ts](src/app/api/finance/invoices/route.ts) | `GET` |
 | `/api/finance/invoices/[id]/approve` | [route.ts](src/app/api/finance/invoices/[id]/approve/route.ts) | `POST` |
@@ -3218,6 +3226,7 @@
   * `debitMappings: GLMappingConfig[]` `[@relation("DebitAccountMappings")]`
   * `creditMappings: GLMappingConfig[]` `[@relation("CreditAccountMappings")]`
   * `rollupBalances: AccountBalanceRollup[]` `[@relation("RollupBalances")]`
+  * `journalLines: JournalLine[]`
 
 ### [GLMappingConfig](prisma/schema/accounting.prisma)
 * **Fields**:
@@ -3537,7 +3546,7 @@
   * `id: String` `[@id @default(cuid())]`
   * `contractorId: String`
   * `itemId: String`
-  * `quantity: Float` `[@default(0)]`
+  * `quantity: Decimal` `[@default(0)]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id], onDelete: Cascade)]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
@@ -3620,7 +3629,7 @@
 ### [Penalty](prisma/schema/contractor.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `amount: Float` `[@default(0)]`
+  * `amount: Decimal` `[@default(0)]`
   * `reason: String`
   * `description: String?`
   * `status: String` `[@default("PENDING")]`
@@ -4307,6 +4316,8 @@
   * `sltCode: String?`
   * `isOspFtth: Boolean?` `[@default(false)]`
   * `importAliases: String[]`
+  * `scrapedAliases: String[]` `[@default([])]`
+  * `bomAliases: String[]` `[@default([])]`
   * `balanceSheetItems: ContractorBalanceSheetItem[]` `[@relation("BalanceSheetItems")]`
   * `contractorBatchStocks: ContractorBatchStock[]`
   * `issueItems: ContractorMaterialIssueItem[]` `[@relation("IssueItems")]`
@@ -4483,6 +4494,7 @@
   * `currency: String` `[@default("LKR")]`
   * `exchangeRate: Float` `[@default(1.0)]`
   * `entry: JournalEntry` `[@relation(fields: [entryId], references: [id], onDelete: Cascade)]`
+  * `account: ChartOfAccount?` `[@relation(fields: [accountCode], references: [code], onDelete: Restrict)]`
 
 ### [WarehouseLocator](prisma/schema/inventory.prisma)
 * **Fields**:
@@ -4549,7 +4561,7 @@
   * `storeId: String`
   * `itemId: String`
   * `batchId: String?`
-  * `transactionType: String` `[// GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION]`
+  * `transactionType: String` `[// GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, MRN_APPROVAL, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION]`
   * `referenceType: String` `[// GRN, ContractorMaterialIssue, SOD, MRN, CycleCount]`
   * `referenceId: String`
   * `quantityBefore: Decimal` `[@default(0) @db.Decimal(12, 4)]`
@@ -5367,23 +5379,23 @@
   * `projectId: String?`
   * `year: Int?`
   * `month: Int?`
-  * `totalAmount: Float` `[@default(0)]`
-  * `amountA: Float` `[@default(0)]`
+  * `totalAmount: Decimal` `[@default(0)]`
+  * `amountA: Decimal` `[@default(0)]`
   * `statusA: String` `[@default("PENDING")]`
   * `paidDateA: DateTime?`
-  * `amountB: Float` `[@default(0)]`
+  * `amountB: Decimal` `[@default(0)]`
   * `statusB: String` `[@default("HOLD")]`
   * `paidDateB: DateTime?`
-  * `amount: Float`
+  * `amount: Decimal`
   * `status: String` `[@default("PENDING")]`
   * `approvalStatus: String` `[@default("DRAFT")]`
   * `idempotencyKey: String?` `[@unique]`
-  * `retentionAmount: Float` `[@default(0)]`
-  * `advanceDeduction: Float` `[@default(0)]`
+  * `retentionAmount: Decimal` `[@default(0)]`
+  * `advanceDeduction: Decimal` `[@default(0)]`
   * `description: String?`
-  * `vatAmount: Float` `[@default(0)]`
-  * `ssclAmount: Float` `[@default(0)]`
-  * `whtAmount: Float` `[@default(0)]`
+  * `vatAmount: Decimal` `[@default(0)]`
+  * `ssclAmount: Decimal` `[@default(0)]`
+  * `whtAmount: Decimal` `[@default(0)]`
   * `vatPercent: Float` `[@default(18)]`
   * `ssclPercent: Float` `[@default(2.5)]`
   * `whtPercent: Float` `[@default(5)]`
@@ -5406,12 +5418,12 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `invoiceId: String`
-  * `originalAmount: Float`
-  * `requestedAmount: Float`
-  * `originalAmountA: Float`
-  * `requestedAmountA: Float`
-  * `originalAmountB: Float`
-  * `requestedAmountB: Float`
+  * `originalAmount: Decimal`
+  * `requestedAmount: Decimal`
+  * `originalAmountA: Decimal`
+  * `requestedAmountA: Decimal`
+  * `originalAmountB: Decimal`
+  * `requestedAmountB: Decimal`
   * `reason: String`
   * `status: String` `[@default("PENDING_SF_APPROVAL")]`
   * `requestedById: String`
@@ -5717,7 +5729,7 @@
   * `payeeName: String`
   * `payeeId: String?`
   * `invoiceId: String?`
-  * `amount: Float` `[@default(0)]`
+  * `amount: Decimal` `[@default(0)]`
   * `paymentDate: DateTime?`
   * `paymentMethod: String?`
   * `bankName: String?`
@@ -5725,9 +5737,9 @@
   * `accountNumber: String?`
   * `chequeNumber: String?`
   * `referenceNumber: String?`
-  * `taxWithheld: Float` `[@default(0)]`
-  * `netAmount: Float` `[@default(0)]`
-  * `retentionAmount: Float` `[@default(0)]`
+  * `taxWithheld: Decimal` `[@default(0)]`
+  * `netAmount: Decimal` `[@default(0)]`
+  * `retentionAmount: Decimal` `[@default(0)]`
   * `retentionReleaseId: String?`
   * `notes: String?`
   * `createdById: String?`
@@ -6455,7 +6467,7 @@
   * `contractorId: String`
   * `itemId: String`
   * `batchId: String`
-  * `quantity: Float` `[@default(0)]`
+  * `quantity: Decimal` `[@default(0)]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `batch: InventoryBatch` `[@relation(fields: [batchId], references: [id])]`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id], onDelete: Cascade)]`

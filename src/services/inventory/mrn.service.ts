@@ -155,7 +155,7 @@ export class MRNService {
                     await AuditLedgerService.recordEntry({
                         storeId: mrn.storeId,
                         itemId: item.itemId,
-                        transactionType: 'CONTRACTOR_RETURN',
+                        transactionType: 'MRN_APPROVAL',
                         referenceType: 'MRN',
                         referenceId: mrn.id,
                         quantityBefore: currentQtyAfter + item.quantity,

@@ -285,6 +285,7 @@ export class InventoryRepository {
         return (client as any).inventoryItem.delete({ where: { id } });
     }
 
+
     static async findItemByCode(code: string, tx?: any) {
         const client = tx || prisma;
         return (client as any).inventoryItem.findUnique({ where: { code } });

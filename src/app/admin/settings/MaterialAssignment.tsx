@@ -1,9 +1,10 @@
 "use client";
 
+import { getCanonicalCategoryName } from "@/config/slt-scraped-aliases";
 import { safeJsonParse } from '@/utils/safeJsonParse';
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from 'sonner';
-import { Search, Save, Loader2, Plus, X, Edit2, Tag, GripVertical, Link2, CheckCircle2, AlertCircle, Info, Sparkles, LayoutGrid, List, ArrowUpDown, Layers, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, Save, Loader2, Plus, X, Edit2, GripVertical, Info, LayoutGrid, List, Layers, ChevronUp, ChevronDown, Link2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,16 +56,15 @@ interface InventoryItem {
     unit?: string;
     commonName?: string;
     commonFor?: string[];
+    importAliases?: string[];
+    scrapedAliases?: string[];
+    bomAliases?: string[];
     isOspFtth: boolean;
     type: string;
     isWastageAllowed?: boolean;
 }
 
-interface EditingItem {
-    id: string;
-    commonName: string;
-    tags: string[];
-}
+type AliasField = 'importAliases' | 'scrapedAliases' | 'bomAliases';
 
 export function MaterialAssignment() {
     const [items, setItems] = useState<InventoryItem[]>([]);
@@ -82,7 +82,49 @@ export function MaterialAssignment() {
     const [selectedItem, setSelectedItem] = useState<string>("");
 
     const [showEditDialog, setShowEditDialog] = useState(false);
-    const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
+    const [editingItem, setEditingItem] = useState<{ id: string; commonName: string; tags: string[] } | null>(null);
+
+    const fetchItems = async () => {
+        setLoading(true);
+        try {
+            const [itemsRes, configRes] = await Promise.all([
+                fetch(`/api/inventory/items?_t=${Date.now()}`, { cache: 'no-store' }),
+                fetch(`/api/admin/system-config?_t=${Date.now()}`, { cache: 'no-store' })
+            ]);
+
+            if (itemsRes.ok) {
+                const data = await itemsRes.json();
+                const rawItems = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+                setItems(rawItems);
+            }
+
+            if (configRes.ok) {
+                const configs = await configRes.json();
+                const configArray = Array.isArray(configs) ? configs : (Array.isArray(configs?.data) ? configs.data : []);
+
+                const catConfig = configArray.find((c: { key: string }) => c.key === 'OSP_CATEGORY_ORDER');
+                if (catConfig?.value) {
+                    const parsedCat = safeJsonParse<string[]>(catConfig.value, []);
+                    if (Array.isArray(parsedCat)) setCategoryOrder(parsedCat);
+                }
+
+                const itemConfig = configArray.find((c: { key: string }) => c.key === 'OSP_ITEM_ORDER');
+                if (itemConfig?.value) {
+                    const parsedItem = safeJsonParse<string[]>(itemConfig.value, []);
+                    if (Array.isArray(parsedItem)) setItemOrder(parsedItem);
+                }
+            }
+        } catch (error) {
+            console.error('[MATERIAL_ASSIGNMENT] Error fetching material items:', error);
+            toast.error('Failed to load material codes');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchItems();
+    }, []);
 
     // Unique common names for datalist
     const uniqueCommonNames = useMemo(() => {
@@ -95,7 +137,7 @@ export function MaterialAssignment() {
         return Array.from(names).sort();
     }, [items, changes]);
 
-    // Group items into Category Pair Rows
+    // Group items into Category Pair Rows with Canonical Name Auto-Consolidation
     const mappedPairsMatrix = useMemo(() => {
         const matrix: Record<string, { commonName: string; sltItems: InventoryItem[]; companyItems: InventoryItem[] }> = {};
         
@@ -103,7 +145,8 @@ export function MaterialAssignment() {
             const isActive = changes[item.id]?.isOspFtth ?? item.isOspFtth;
             if (!isActive) return;
 
-            const cName = (changes[item.id]?.commonName !== undefined ? changes[item.id]?.commonName : item.commonName) || item.name;
+            const rawCName = (changes[item.id]?.commonName !== undefined ? changes[item.id]?.commonName : item.commonName) || item.name;
+            const cName = getCanonicalCategoryName(rawCName, Object.keys(matrix));
             const itemType = changes[item.id]?.type ?? item.type;
 
             if (!matrix[cName]) {
@@ -144,31 +187,6 @@ export function MaterialAssignment() {
         );
     }, [mappedPairsMatrix, categoryOrder, search]);
 
-    useEffect(() => {
-        fetchItems();
-    }, []);
-
-    const fetchItems = async () => {
-        try {
-            const [resItems, resConfig] = await Promise.all([
-                fetch("/api/inventory/items"),
-                fetch("/api/admin/system-config")
-            ]);
-
-            const data = await resItems.json();
-            const config = await resConfig.json();
-
-            if (Array.isArray(data)) {
-                setItems(data);
-            }
-            setItemOrder(safeJsonParse<string[]>(config['OSP_ITEM_ORDER'], []));
-            setCategoryOrder(safeJsonParse<string[]>(config['OSP_CATEGORY_ORDER'], []));
-        } catch (error) {
-            console.error("Failed to fetch data:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const activeItems = items.filter(item => {
         const isActive = changes[item.id]?.isOspFtth ?? item.isOspFtth;
@@ -280,33 +298,79 @@ export function MaterialAssignment() {
         setEditingItem(null);
     };
 
-    const handleAutoMapByName = () => {
+    const handleAddCategoryAlias = (cName: string, field: AliasField, rawAlias: string) => {
+        if (!rawAlias.trim()) return;
+        const cleanAlias = rawAlias.trim().toUpperCase();
+        const group = mappedPairsMatrix[cName];
+        if (!group) return;
+
+        const allItemsInGroup = [...group.sltItems, ...group.companyItems];
         const newChanges: Record<string, Partial<InventoryItem>> = { ...changes };
-        let count = 0;
 
-        items.forEach(i => {
-            if (!i.isOspFtth) return;
-            const lowerName = i.name.toLowerCase();
-            let suggestedCommon = i.commonName;
-
-            if (lowerName.includes("drop wire") || lowerName.includes("drop cable")) {
-                suggestedCommon = "Drop Wire Cable";
-            } else if (lowerName.includes("ont") || lowerName.includes("cpe") || lowerName.includes("router")) {
-                suggestedCommon = "ONT Router Unit";
-            } else if (lowerName.includes("rosette") || lowerName.includes("atb")) {
-                suggestedCommon = "Rosette ATB Box";
-            } else if (lowerName.includes("fast connector")) {
-                suggestedCommon = "Fast Connector";
-            }
-
-            if (suggestedCommon && suggestedCommon !== i.commonName) {
-                newChanges[i.id] = { ...newChanges[i.id], commonName: suggestedCommon };
-                count++;
+        allItemsInGroup.forEach(item => {
+            const existing = newChanges[item.id]?.[field] ?? item[field] ?? [];
+            if (!existing.includes(cleanAlias)) {
+                newChanges[item.id] = {
+                    ...newChanges[item.id],
+                    [field]: [...existing, cleanAlias]
+                };
             }
         });
 
         setChanges(newChanges);
-        toast.success(`Auto-mapped ${count} material items by Common Category Name! Click 'Save' to apply.`);
+        toast.success(`Added "${cleanAlias}" to category "${cName}"! Click 'Save' to apply.`);
+    };
+
+    const handleRemoveCategoryAlias = (cName: string, field: AliasField, aliasToRemove: string) => {
+        const group = mappedPairsMatrix[cName];
+        if (!group) return;
+
+        const allItemsInGroup = [...group.sltItems, ...group.companyItems];
+        const newChanges: Record<string, Partial<InventoryItem>> = { ...changes };
+
+        allItemsInGroup.forEach(item => {
+            const existing = newChanges[item.id]?.[field] ?? item[field] ?? [];
+            if (existing.includes(aliasToRemove)) {
+                newChanges[item.id] = {
+                    ...newChanges[item.id],
+                    [field]: existing.filter(a => a !== aliasToRemove)
+                };
+            }
+        });
+
+        setChanges(newChanges);
+        toast.info(`Removed "${aliasToRemove}" from category "${cName}". Click 'Save' to apply.`);
+    };
+
+    const handleAutoMergeCategories = () => {
+        const newChanges: Record<string, Partial<InventoryItem>> = { ...changes };
+        const canonicalCategories: string[] = [];
+        let mergedCount = 0;
+
+        items.forEach(i => {
+            if (!i.isOspFtth) return;
+            const currentCName = (newChanges[i.id]?.commonName !== undefined ? newChanges[i.id]?.commonName : i.commonName) || i.name;
+            const canonical = getCanonicalCategoryName(currentCName, canonicalCategories);
+
+            if (!canonicalCategories.includes(canonical)) {
+                canonicalCategories.push(canonical);
+            }
+
+            if (canonical !== currentCName) {
+                newChanges[i.id] = {
+                    ...newChanges[i.id],
+                    commonName: canonical
+                };
+                mergedCount++;
+            }
+        });
+
+        setChanges(newChanges);
+        if (mergedCount > 0) {
+            toast.success(`Auto-merged ${mergedCount} material items into unified Category Pairs! Click 'Save All Mappings' to commit.`);
+        } else {
+            toast.info("All Category Pair Names are already unified!");
+        }
     };
 
     const handleSave = async () => {
@@ -321,7 +385,10 @@ export function MaterialAssignment() {
                             isOspFtth: change.isOspFtth ?? original?.isOspFtth,
                             type: change.type ?? original?.type,
                             commonName: change.commonName !== undefined ? change.commonName : original?.commonName,
-                            commonFor: change.commonFor ?? original?.commonFor ?? []
+                            commonFor: change.commonFor ?? original?.commonFor ?? [],
+                            importAliases: change.importAliases ?? original?.importAliases ?? [],
+                            scrapedAliases: change.scrapedAliases ?? original?.scrapedAliases ?? [],
+                            bomAliases: change.bomAliases ?? original?.bomAliases ?? []
                         }
                     };
                 });
@@ -358,6 +425,69 @@ export function MaterialAssignment() {
         }
     };
 
+    // Renders one alias-group editing cell (badges + add popover) for a category row
+    const renderAliasCell = (
+        group: { commonName: string; sltItems: InventoryItem[]; companyItems: InventoryItem[] },
+        idx: number,
+        field: AliasField,
+        badgeClass: string,
+        addLabel: string,
+        placeholder: string
+    ) => {
+        const aliases = Array.from(new Set([
+            ...group.sltItems.flatMap(i => (changes[i.id]?.[field] ?? i[field] ?? [])),
+            ...group.companyItems.flatMap(i => (changes[i.id]?.[field] ?? i[field] ?? []))
+        ]));
+
+        return (
+            <TableCell>
+                <div className="flex flex-wrap gap-1 items-center max-w-[220px]">
+                    {aliases.length > 0 ? (
+                        aliases.map(alias => (
+                            <Badge key={alias} variant="outline" className={cn("font-mono text-[10px] font-bold flex items-center gap-1 py-0.5", badgeClass)}>
+                                {alias}
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleRemoveCategoryAlias(group.commonName, field, alias); }}
+                                    className="hover:text-red-600 ml-0.5"
+                                    title={`Remove ${alias}`}
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </Badge>
+                        ))
+                    ) : (
+                        <span className="text-[11px] text-slate-400 italic">—</span>
+                    )}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-slate-600 hover:bg-slate-100 font-bold">
+                                <Plus className="w-3 h-3 mr-0.5" /> Add
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-60 p-3" align="start">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold">{addLabel}</Label>
+                                <Input
+                                    id={`input-${field}-${idx}`}
+                                    placeholder={placeholder}
+                                    className="h-8 text-xs font-mono"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            handleAddCategoryAlias(group.commonName, field, (e.target as HTMLInputElement).value);
+                                            (e.target as HTMLInputElement).value = '';
+                                        }
+                                    }}
+                                />
+                                <p className="text-[10px] text-slate-500">Press Enter to add to every item in this group.</p>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </TableCell>
+        );
+    };
+
     if (loading) return <div className="p-8 text-center text-xs font-semibold text-slate-500">Loading material codes...</div>;
 
     return (
@@ -391,15 +521,6 @@ export function MaterialAssignment() {
                                     <LayoutGrid className="w-3.5 h-3.5 mr-1" /> Grid Cards
                                 </Button>
                             </div>
-
-                            <Button
-                                size="sm"
-                                onClick={handleAutoMapByName}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-8"
-                            >
-                                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                                Auto-Suggest Mappings
-                            </Button>
                         </div>
                     </div>
 
@@ -426,6 +547,16 @@ export function MaterialAssignment() {
                                 </p>
                             </div>
                             <div className="flex gap-2 flex-wrap">
+                                <Button
+                                    size="sm"
+                                    onClick={handleAutoMergeCategories}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 shadow-sm"
+                                    title="Merge singular/plural and duplicate category name variants (Bolt & Nut <-> Bolt & Nuts, CAT 5E <-> Cable CAT5E, DW-RT <-> Drop Wire Retainer)"
+                                >
+                                    <Link2 className="w-4 h-4 mr-1.5" />
+                                    Auto-Merge Duplicate Categories
+                                </Button>
+
                                 <Popover open={showAddExisting} onOpenChange={setShowAddExisting}>
                                     <PopoverTrigger asChild>
                                         <Button variant="outline" className="border-emerald-200 text-emerald-700 h-9 text-xs font-bold">
@@ -510,12 +641,14 @@ export function MaterialAssignment() {
                                     <TableHeader className="bg-slate-50">
                                         <TableRow className="border-b border-slate-200">
                                             <TableHead className="w-[40px]"></TableHead>
-                                            <TableHead className="w-[80px]">Order</TableHead>
-                                            <TableHead className="w-[200px]">Common Category Group</TableHead>
-                                            <TableHead>🔷 SLT Code & Name</TableHead>
-                                            <TableHead>🔶 SLTS Company Code & Name</TableHead>
-                                            <TableHead className="w-[120px]">Pair Status</TableHead>
-                                            <TableHead className="w-[100px] text-right">Quick Reorder</TableHead>
+                                            <TableHead className="w-[70px]">Order</TableHead>
+                                            <TableHead className="w-[160px]">Common Name</TableHead>
+                                            <TableHead>Item Codes (🔷 SLT / 🔶 SLTS)</TableHead>
+                                            <TableHead>⚡ SLT Scraped Codes</TableHead>
+                                            <TableHead>📋 SLT BOM Sheet Names</TableHead>
+                                            <TableHead>🏷️ Other Aliases</TableHead>
+                                            <TableHead className="w-[100px]">Pair Status</TableHead>
+                                            <TableHead className="w-[90px] text-right">Reorder</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -552,13 +685,13 @@ export function MaterialAssignment() {
                                                         {group.commonName}
                                                     </TableCell>
                                                     <TableCell className="font-mono text-xs">
-                                                        {group.sltItems.length > 0 ? (
-                                                            group.sltItems.map(item => (
+                                                        <div className="space-y-1">
+                                                            {group.sltItems.map(item => (
                                                                 <div key={item.id} className="flex items-center gap-1.5">
                                                                     <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 font-bold">
-                                                                        {item.code}
+                                                                        🔷 {item.code}
                                                                     </Badge>
-                                                                    <span className="text-[11px] text-slate-600 font-sans font-medium truncate max-w-[180px]">{item.name}</span>
+                                                                    <span className="text-[11px] text-slate-600 font-sans font-medium truncate max-w-[160px]">{item.name}</span>
                                                                     <button
                                                                         type="button"
                                                                         onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
@@ -567,19 +700,13 @@ export function MaterialAssignment() {
                                                                         <Edit2 className="w-3 h-3" />
                                                                     </button>
                                                                 </div>
-                                                            ))
-                                                        ) : (
-                                                            <span className="text-slate-400 italic text-[11px]">Unassigned</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="font-mono text-xs">
-                                                        {group.companyItems.length > 0 ? (
-                                                            group.companyItems.map(item => (
+                                                            ))}
+                                                            {group.companyItems.map(item => (
                                                                 <div key={item.id} className="flex items-center gap-1.5">
                                                                     <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 font-bold">
-                                                                        {item.code}
+                                                                        🔶 {item.code}
                                                                     </Badge>
-                                                                    <span className="text-[11px] text-slate-600 font-sans font-medium truncate max-w-[180px]">{item.name}</span>
+                                                                    <span className="text-[11px] text-slate-600 font-sans font-medium truncate max-w-[160px]">{item.name}</span>
                                                                     <button
                                                                         type="button"
                                                                         onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
@@ -588,11 +715,15 @@ export function MaterialAssignment() {
                                                                         <Edit2 className="w-3 h-3" />
                                                                     </button>
                                                                 </div>
-                                                            ))
-                                                        ) : (
-                                                            <span className="text-slate-400 italic text-[11px]">Unassigned</span>
-                                                        )}
+                                                            ))}
+                                                            {group.sltItems.length === 0 && group.companyItems.length === 0 && (
+                                                                <span className="text-slate-400 italic text-[11px]">Unassigned</span>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
+                                                    {renderAliasCell(group, idx, 'scrapedAliases', "bg-purple-50 text-purple-800 border-purple-200", "Add SLT Scraped Code", "e.g. DW-2C (from SLT extension)")}
+                                                    {renderAliasCell(group, idx, 'bomAliases', "bg-sky-50 text-sky-800 border-sky-200", "Add SLT BOM Sheet Name", "e.g. DROP WIRE 2 CORE")}
+                                                    {renderAliasCell(group, idx, 'importAliases', "bg-slate-100 text-slate-700 border-slate-300", "Add Other Alias", "e.g. F1, DWIRE")}
                                                     <TableCell>
                                                         {isPairMapped ? (
                                                             <Badge className="bg-emerald-600 text-white font-bold text-[10px]">
@@ -604,6 +735,7 @@ export function MaterialAssignment() {
                                                             </Badge>
                                                         )}
                                                     </TableCell>
+
                                                     <TableCell className="text-right">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <button

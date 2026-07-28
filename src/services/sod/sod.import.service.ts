@@ -188,18 +188,27 @@ export class SODImportService {
         }
 
         // Get all inventory items with their import aliases
-        // Get all inventory items with their import aliases
         const inventoryItems = await prisma.inventoryItem.findMany({
-            select: { id: true, code: true, name: true, importAliases: true, unitPrice: true, costPrice: true }
+            select: { id: true, code: true, name: true, importAliases: true, scrapedAliases: true, bomAliases: true, unitPrice: true, costPrice: true }
         });
 
-        // Build alias -> itemId map
+        // Build alias -> itemId map from all alias groups (deterministic: sorted by code, first wins)
         const aliasMap: Record<string, string> = {};
-        for (const item of inventoryItems) {
-            if (item.importAliases && item.importAliases.length > 0) {
-                for (const alias of item.importAliases) {
-                    aliasMap[alias.toUpperCase().trim()] = item.id;
+        const sortedItems = [...inventoryItems].sort((a, b) => a.code.localeCompare(b.code));
+        for (const item of sortedItems) {
+            const allAliases = [
+                ...(item.importAliases || []),
+                ...(item.scrapedAliases || []),
+                ...(item.bomAliases || [])
+            ];
+            for (const alias of allAliases) {
+                const key = alias.toUpperCase().trim();
+                if (!key) continue;
+                if (aliasMap[key] && aliasMap[key] !== item.id) {
+                    console.warn('[SOD Import] Alias collision:', key, 'kept', aliasMap[key], 'ignored', item.id);
+                    continue;
                 }
+                aliasMap[key] = item.id;
             }
         }
 

@@ -57,7 +57,7 @@ export class VirtualSwapService {
                     isMappable: !!match
                 };
             }
-            summary[cName].totalQty += s.quantity;
+            summary[cName].totalQty += Number(s.quantity);
             summary[cName].contractorCount += 1;
         }
 
@@ -185,7 +185,7 @@ export class VirtualSwapService {
                 const targetSltsItem = sltsItems.find((i: { commonName: string | null }) => i.commonName === cbs.item.commonName);
                 if (!targetSltsItem) continue;
 
-                const qty = cbs.quantity;
+                const qty = Number(cbs.quantity);
 
                 const vtBatchNumber = `VT-${targetSltsItem.code}`;
                 let vtBatch = await tx.inventoryBatch.findFirst({

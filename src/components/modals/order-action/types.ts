@@ -68,6 +68,8 @@ export interface InventoryItem {
     isWastageAllowed?: boolean;
     hasSerial?: boolean;
     importAliases?: string[];
+    scrapedAliases?: string[];
+    bomAliases?: string[];
 }
 
 export interface OrderCompletionData {

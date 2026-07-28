@@ -9,6 +9,7 @@ import { ROLE_GROUPS } from '@/config/sidebar-menu';
 import { Badge } from "@/components/ui/badge";
 import { Landmark, ArrowUpRight, ArrowDownRight, History } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ACCOUNTS } from '@/services/finance/account-codes';
 
 interface CashBookRow {
     id: string;
@@ -34,7 +35,7 @@ interface CashBookData {
 }
 
 export default function CashBookPage() {
-    const [accountCode, setAccountCode] = useState<string>('BANK-1000');
+    const [accountCode, setAccountCode] = useState<string>(ACCOUNTS.BANK);
 
     const { data, isLoading } = useQuery<CashBookData>({
         queryKey: ['cash-book-report', accountCode],
@@ -71,8 +72,8 @@ export default function CashBookPage() {
                                     <SelectValue placeholder="Select Account" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="BANK-1000">BANK-1000 (Main Operating Bank)</SelectItem>
-                                    <SelectItem value="PETTY-1020">PETTY-1020 (Petty Cash Account)</SelectItem>
+                                    <SelectItem value={ACCOUNTS.BANK}>{ACCOUNTS.BANK} (Main Operating Bank)</SelectItem>
+                                    <SelectItem value={ACCOUNTS.PETTY_CASH}>{ACCOUNTS.PETTY_CASH} (Petty Cash Account)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

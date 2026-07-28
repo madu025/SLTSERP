@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { ACCOUNTS } from './account-codes';
 
 export interface CashBookRow {
     id: string;
@@ -42,7 +43,7 @@ export class BankCashService {
     /**
      * Get Cash Book ledger with running balance for a given Bank or Cash GL Account Code.
      */
-    static async getCashBook(glAccountCode: string = 'BANK-1000', fromDate?: Date, toDate?: Date): Promise<CashBookReport> {
+    static async getCashBook(glAccountCode: string = ACCOUNTS.BANK, fromDate?: Date, toDate?: Date): Promise<CashBookReport> {
         const coa = await prisma.chartOfAccount.findUnique({
             where: { code: glAccountCode }
         });

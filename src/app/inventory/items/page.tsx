@@ -217,10 +217,10 @@ export default function ItemMasterPage() {
                         </DialogHeader>
                         <div className="px-8 py-8 space-y-4">
                             <p className="text-xs font-bold text-slate-600 leading-relaxed">
-                                Are you sure you want to delete this material? This action will permanently remove its record from the system.
+                                Are you sure you want to delete this material? Deletion is blocked if the item has stock balance, pre-ERP balances, or historical usage records.
                             </p>
                             <div className="p-3 bg-rose-100/30 rounded-xl border border-rose-100 text-[9px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-2">
-                                <AlertTriangleIcon className="w-4 h-4" /> Warning: Historical records and stock data will be lost.
+                                <AlertTriangleIcon className="w-4 h-4" /> Only items with no stock and no history can be deleted. Use Merge to consolidate instead.
                             </div>
                         </div>
                         <DialogFooter className="px-8 py-6 bg-slate-50 border-t flex justify-between items-center">

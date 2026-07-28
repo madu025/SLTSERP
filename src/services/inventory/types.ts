@@ -29,6 +29,8 @@ export interface CreateItemData {
     commonName?: string;
     sltCode?: string;
     importAliases?: string[];
+    scrapedAliases?: string[];
+    bomAliases?: string[];
 }
 
 export interface UpdateStoreData {

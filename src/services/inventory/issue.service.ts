@@ -290,7 +290,7 @@ export class IssueService {
                     await AuditLedgerService.recordEntry({
                         storeId,
                         itemId: item.itemId,
-                        transactionType: 'CONTRACTOR_RETURN',
+                        transactionType: 'MRN_APPROVAL',
                         referenceType: 'MRN',
                         referenceId: materialReturn.id,
                         quantityBefore,

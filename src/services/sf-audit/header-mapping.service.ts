@@ -31,6 +31,8 @@ export class HeaderMappingService {
                 commonName: true,
                 sltCode: true,
                 importAliases: true,
+                scrapedAliases: true,
+                bomAliases: true,
                 category: true,
                 type: true
             }
@@ -61,6 +63,8 @@ export class HeaderMappingService {
                 commonName: true,
                 sltCode: true,
                 importAliases: true,
+                scrapedAliases: true,
+                bomAliases: true,
                 category: true,
                 type: true
             }
@@ -116,11 +120,13 @@ export class HeaderMappingService {
                 (sltItems.length > 0 ? sltItems : groupItems).forEach(item => {
                     if (item.code) f1Terms.add(item.code.trim().toUpperCase());
                     if (item.sltCode) f1Terms.add(item.sltCode.trim().toUpperCase());
-                    if (Array.isArray(item.importAliases)) {
-                        item.importAliases.forEach(a => {
-                            if (a && a.trim()) f1Terms.add(a.trim().toUpperCase());
-                        });
-                    }
+                    [item.importAliases, item.scrapedAliases, item.bomAliases].forEach(arr => {
+                        if (Array.isArray(arr)) {
+                            arr.forEach(a => {
+                                if (a && a.trim()) f1Terms.add(a.trim().toUpperCase());
+                            });
+                        }
+                    });
                 });
 
                 resultColumns.push({
@@ -137,11 +143,13 @@ export class HeaderMappingService {
                 companyItems.forEach(item => {
                     if (item.code) g1Terms.add(item.code.trim().toUpperCase());
                     if (item.sltCode) g1Terms.add(item.sltCode.trim().toUpperCase());
-                    if (Array.isArray(item.importAliases)) {
-                        item.importAliases.forEach(a => {
-                            if (a && a.trim()) g1Terms.add(a.trim().toUpperCase());
-                        });
-                    }
+                    [item.importAliases, item.scrapedAliases, item.bomAliases].forEach(arr => {
+                        if (Array.isArray(arr)) {
+                            arr.forEach(a => {
+                                if (a && a.trim()) g1Terms.add(a.trim().toUpperCase());
+                            });
+                        }
+                    });
                 });
 
                 resultColumns.push({
@@ -164,14 +172,16 @@ export class HeaderMappingService {
                 if (!desc && item.description) desc = item.description;
                 if (!desc && item.name) desc = item.name;
 
-                // Add Item Code, SLT Code, and Admin/Settings importAliases
+                // Add Item Code, SLT Code, and Admin/Settings alias groups (scraped, BOM sheet, other)
                 if (item.code) combinedTerms.add(item.code.trim().toUpperCase());
                 if (item.sltCode) combinedTerms.add(item.sltCode.trim().toUpperCase());
-                if (Array.isArray(item.importAliases)) {
-                    item.importAliases.forEach(a => {
-                        if (a && a.trim()) combinedTerms.add(a.trim().toUpperCase());
-                    });
-                }
+                [item.importAliases, item.scrapedAliases, item.bomAliases].forEach(arr => {
+                    if (Array.isArray(arr)) {
+                        arr.forEach(a => {
+                            if (a && a.trim()) combinedTerms.add(a.trim().toUpperCase());
+                        });
+                    }
+                });
             });
 
             // If no terms were added from DB, add the category name as a term

@@ -5,6 +5,7 @@ import { LedgerReportService } from './ledger-report.service';
 import { FiscalPeriodStatus } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '../inventory/types';
+import { ACCOUNTS } from './account-codes';
 
 export interface CreditDebitNotePayload {
     noteNumber?: string;
@@ -54,17 +55,17 @@ export class PeriodCloseService {
 
             const netProfit = totalRevenue - totalExpense;
 
-            // Post Net Profit/Loss to Retained Earnings (EQU-RET-3010)
+            // Post Net Profit/Loss to Retained Earnings (EQUITY-3000)
             if (netProfit > 0) {
                 zeroingLines.push({
-                    accountCode: 'EQU-RET-3010',
+                    accountCode: ACCOUNTS.RETAINED_EARNINGS,
                     debit: 0,
                     credit: netProfit,
                     description: `Net Income Rollover to Retained Earnings FY ${year}`
                 });
             } else if (netProfit < 0) {
                 zeroingLines.push({
-                    accountCode: 'EQU-RET-3010',
+                    accountCode: ACCOUNTS.RETAINED_EARNINGS,
                     debit: Math.abs(netProfit),
                     credit: 0,
                     description: `Net Loss Rollover to Retained Earnings FY ${year}`
@@ -149,30 +150,30 @@ export class PeriodCloseService {
             }
 
             // 3. Post Double-Entry Journal:
-            // Credit Note: DR Revenue (REV-4010) / CR AR-1110
-            // Debit Note : DR AR-1110 / CR Revenue (REV-4010)
+            // Credit Note: DR Revenue / CR AR
+            // Debit Note : DR AR / CR Revenue
             const lines = noteType === 'CREDIT_NOTE' ? [
                 {
-                    accountCode: 'REV-4010',
+                    accountCode: ACCOUNTS.REVENUE,
                     debit: amount,
                     credit: 0,
                     description: `Credit Note #${noteNo} revenue adjustment`
                 },
                 {
-                    accountCode: 'AR-1110',
+                    accountCode: ACCOUNTS.AR_CLIENT,
                     debit: 0,
                     credit: amount,
                     description: `Credit Note #${noteNo} AR balance reduction`
                 }
             ] : [
                 {
-                    accountCode: 'AR-1110',
+                    accountCode: ACCOUNTS.AR_CLIENT,
                     debit: amount,
                     credit: 0,
                     description: `Debit Note #${noteNo} AR balance increase`
                 },
                 {
-                    accountCode: 'REV-4010',
+                    accountCode: ACCOUNTS.REVENUE,
                     debit: 0,
                     credit: amount,
                     description: `Debit Note #${noteNo} additional revenue charge`

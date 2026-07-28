@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { InventoryService } from '@/services/inventory.service';
+import { InventoryService } from '@/services/inventory';
 import { materialIssueSchema } from '@/lib/validations/inventory.schema';
 
 // POST: Issue materials to a contractor
@@ -9,7 +9,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 
     const issue = await InventoryService.issueMaterial({
         ...body,
-        items: body.items.map((i: any) => ({ ...i, quantity: i.quantity.toString() })),
+        items: body.items.map((i: { itemId: string; quantity: string | number; unit?: string }) => ({ ...i, quantity: i.quantity.toString() })),
         userId: userEmail || undefined
     });
 
@@ -33,6 +33,8 @@ export const GET = apiHandler(async (req) => {
     }
 
     return await InventoryService.getMaterialIssues(contractorId, month || undefined);
+}, {
+    roles: ROLE_GROUPS.STORES_ALL
 });
 
 export const dynamic = 'force-dynamic';

@@ -5,23 +5,23 @@ model Invoice {
   projectId         String?
   year              Int?
   month             Int?
-  totalAmount       Float                     @default(0)
-  amountA           Float                     @default(0)
+  totalAmount       Decimal                   @default(0)
+  amountA           Decimal                   @default(0)
   statusA           String                    @default("PENDING")
   paidDateA         DateTime?
-  amountB           Float                     @default(0)
+  amountB           Decimal                   @default(0)
   statusB           String                    @default("HOLD")
   paidDateB         DateTime?
-  amount            Float
+  amount            Decimal
   status            String                    @default("PENDING")
   approvalStatus    String                    @default("DRAFT")
   idempotencyKey    String?                   @unique
-  retentionAmount   Float                     @default(0)
-  advanceDeduction  Float                     @default(0)
+  retentionAmount   Decimal                   @default(0)
+  advanceDeduction  Decimal                   @default(0)
   description       String?
-  vatAmount         Float                     @default(0)
-  ssclAmount        Float                     @default(0)
-  whtAmount         Float                     @default(0)
+  vatAmount         Decimal                   @default(0)
+  ssclAmount        Decimal                   @default(0)
+  whtAmount         Decimal                   @default(0)
   vatPercent        Float                     @default(18)
   ssclPercent       Float                     @default(2.5)
   whtPercent        Float                     @default(5)
@@ -47,12 +47,12 @@ model Invoice {
 model InvoiceAmendmentRequest {
   id               String    @id @default(cuid())
   invoiceId        String
-  originalAmount   Float
-  requestedAmount  Float
-  originalAmountA  Float
-  requestedAmountA Float
-  originalAmountB  Float
-  requestedAmountB Float
+  originalAmount   Decimal
+  requestedAmount  Decimal
+  originalAmountA  Decimal
+  requestedAmountA Decimal
+  originalAmountB  Decimal
+  requestedAmountB Decimal
   reason           String
   status           String    @default("PENDING_SF_APPROVAL")
   requestedById    String
@@ -404,7 +404,7 @@ model PaymentVoucher {
   payeeName          String
   payeeId            String?
   invoiceId          String?
-  amount             Float           @default(0)
+  amount             Decimal         @default(0)
   paymentDate        DateTime?
   paymentMethod      String?
   bankName           String?
@@ -412,9 +412,9 @@ model PaymentVoucher {
   accountNumber      String?
   chequeNumber       String?
   referenceNumber    String?
-  taxWithheld        Float           @default(0)
-  netAmount          Float           @default(0)
-  retentionAmount    Float           @default(0)
+  taxWithheld        Decimal         @default(0)
+  netAmount          Decimal         @default(0)
+  retentionAmount    Decimal         @default(0)
   retentionReleaseId String?
   notes              String?
   createdById        String?

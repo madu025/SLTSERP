@@ -38,3 +38,21 @@ export const grnSchema = z.object({
         quantity: z.union([z.string(), z.number()]).transform(v => typeof v === 'string' ? parseFloat(v) : v)
     })).min(1)
 });
+
+export const materialReturnSchema = z.object({
+    contractorId: z.string().min(1, 'Contractor is required'),
+    storeId: z.string().min(1, 'Store is required'),
+    month: z.string().regex(/^\d{4}-\d{2}$/, 'Invalid month format (YYYY-MM)'),
+    reason: z.string().optional(),
+    items: z.array(z.object({
+        itemId: z.string().min(1, 'Item ID is required'),
+        quantity: z.union([z.string(), z.number()]).transform(val => {
+            const num = typeof val === 'string' ? parseFloat(val) : val;
+            if (isNaN(num)) throw new Error('Invalid quantity');
+            return num;
+        }).refine(val => val > 0, 'Quantity must be greater than zero'),
+        unit: z.string().optional(),
+        condition: z.enum(['GOOD', 'DAMAGED', 'FAULTY']).default('GOOD'),
+        serials: z.array(z.string()).optional()
+    })).min(1, 'At least one item is required')
+});
