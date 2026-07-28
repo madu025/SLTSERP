@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -27,7 +28,7 @@ export const POST = apiHandler(async (_req, params, body) => {
     const assignment = await ContractorService.assignTeamStore(teamId, data.storeId, data.isPrimary);
     return Response.json(assignment);
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.STORES_ALL,
     audit: { action: 'ASSIGN_TEAM_STORE', entity: 'ContractorTeam' }
 });
 
@@ -37,6 +38,6 @@ export const DELETE = apiHandler(async (_req, params, body) => {
     await ContractorService.removeTeamStore(teamId, data.storeId);
     return Response.json({ success: true });
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.STORES_ALL,
     audit: { action: 'REMOVE_TEAM_STORE', entity: 'ContractorTeam' }
 });

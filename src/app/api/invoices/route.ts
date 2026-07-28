@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice.service';
 import { createInvoiceSchema, updateInvoiceSchema, CreateInvoiceDTO, UpdateInvoiceDTO } from '@/lib/validations/invoice.schema';
@@ -26,7 +27,7 @@ export const POST = apiHandler(
     },
     {
         schema: createInvoiceSchema,
-        roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OSP_MANAGER']
+        roles: ROLE_GROUPS.PROJECT_MANAGERS
     }
 );
 
@@ -39,7 +40,7 @@ export const PATCH = apiHandler(
     },
     {
         schema: updateInvoiceSchema,
-        roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OSP_MANAGER']
+        roles: ROLE_GROUPS.PROJECT_MANAGERS
     }
 );
 
@@ -56,6 +57,6 @@ export const DELETE = apiHandler(
         return await InvoiceService.deleteInvoice(id);
     },
     {
-        roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OSP_MANAGER']
+        roles: ROLE_GROUPS.PROJECT_MANAGERS
     }
 );

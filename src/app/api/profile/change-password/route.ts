@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic';
 
 // POST /api/profile/change-password - Change user access password (rawResponse for compatibility)
 export const POST = apiHandler(async (req, _params, body) => {
-    const { currentPassword, newPassword } = body;
+    const currentPassword = body.currentPassword as string | undefined;
+    const newPassword = body.newPassword as string | undefined;
     const userId = req.headers.get('x-user-id');
 
     if (!userId || !currentPassword || !newPassword) {

@@ -7,8 +7,8 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     try {
         const result = await InventoryService.saveBalanceSheet({
-            ...body,
-            userId
+            ...(body as any),
+            userId: userId || 'SYSTEM'
         });
         return { message: 'Balance sheet saved successfully', id: result.id };
     } catch (error: unknown) {

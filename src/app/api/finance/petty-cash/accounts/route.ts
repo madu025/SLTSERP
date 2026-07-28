@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
@@ -12,21 +13,23 @@ export const GET = apiHandler(async () => {
 
 // POST /api/finance/petty-cash/accounts - Initialize new petty cash account
 export const POST = apiHandler(async (req, _params, body) => {
-    const { name, opmcId, imprestLimit } = body;
+    const name = body.name as string | undefined;
+    const opmcId = body.opmcId as string | undefined;
+    const imprestLimit = body.imprestLimit as string | number | undefined;
     const userId = req.headers.get("x-user-id");
 
-    if (!name || !opmcId || !imprestLimit || !userId) {
+    if (!name || !opmcId || imprestLimit === undefined || !userId) {
         throw new Error('name, opmcId, imprestLimit are required and user must be authenticated');
     }
 
     return await PettyCashService.createPettyCashAccount({
         name,
         opmcId,
-        imprestLimit: parseFloat(imprestLimit),
+        imprestLimit: parseFloat(String(imprestLimit)),
         createdById: userId
     });
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'PETTY_CASH_ACCOUNT' },
     rawResponse: true
 });

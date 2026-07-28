@@ -8,9 +8,8 @@ import { Trip } from '@/types/vehicle-management.types';
  * GET: Retrieve trip details by ID
  */
 export const GET = apiHandler<Trip, void>(
-    async (request: Request, params: { id: string }) => {
-        const { id } = params;
-        const trip = await TripService.getTrip(id);
+    async (_request, params) => {
+        const trip = await TripService.getTrip(params.id);
 
         if (!trip) {
             throw new Error('Trip not found');

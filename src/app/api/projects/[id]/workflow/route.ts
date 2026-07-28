@@ -6,8 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/projects/[id]/workflow
 export const GET = apiHandler(async (_request, params) => {
-    const { id } = await params;
-    const workflowInstance = await ProjectWorkflowService.getWorkflow(id);
+    const workflowInstance = await ProjectWorkflowService.getWorkflow(params.id);
 
     if (!workflowInstance) {
         throw AppError.notFound('No active workflow found and could not auto-initialize');
@@ -18,15 +17,14 @@ export const GET = apiHandler(async (_request, params) => {
 
 // POST /api/projects/[id]/workflow - Initialize workflow manually
 export const POST = apiHandler(async (_request, params, body) => {
-    const { id } = await params;
-    const { projectTypeId } = body || {};
+    const projectTypeId = body.projectTypeId as string | undefined;
 
     if (!projectTypeId) {
         throw AppError.badRequest('projectTypeId is required');
     }
 
     try {
-        const workflowInstance = await ProjectWorkflowService.initializeWorkflow(id, projectTypeId);
+        const workflowInstance = await ProjectWorkflowService.initializeWorkflow(params.id, projectTypeId);
         return { success: true, workflowInstance };
     } catch (error: unknown) {
         const err = error as { message?: string };

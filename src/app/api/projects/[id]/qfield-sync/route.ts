@@ -9,14 +9,13 @@ export const dynamic = 'force-dynamic';
  * GET: Get sync history and status
  */
 export const GET = apiHandler<unknown, void>(
-    async (request: Request, params: { id: string }) => {
-        const { id: projectId } = params;
+    async (request, params) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
             throw new Error('Unauthorized');
         }
 
-        const syncStatus = await QFieldCloudSyncService.getSyncStatus(projectId);
+        const syncStatus = await QFieldCloudSyncService.getSyncStatus(params.id);
         return syncStatus;
     }
 );
@@ -25,8 +24,7 @@ export const GET = apiHandler<unknown, void>(
  * POST: Trigger sync operations with QFieldCloud (create project, push layers, or full sync)
  */
 export const POST = apiHandler<unknown, QFieldSyncSchema>(
-    async (request: Request, params: { id: string }, body) => {
-        const { id: projectId } = params;
+    async (request, params, body) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
             throw new Error('Unauthorized');
@@ -37,7 +35,7 @@ export const POST = apiHandler<unknown, QFieldSyncSchema>(
         // ── Action: CREATE PROJECT ───────────────────────────────────────────
         if (action === 'create_project') {
             const result = await QFieldCloudSyncService.createQFieldProjectForProject(
-                projectId,
+                params.id,
                 qgisTemplate || undefined
             );
             return result;
@@ -50,7 +48,7 @@ export const POST = apiHandler<unknown, QFieldSyncSchema>(
 
         // ── Action: FULL SYNC ────────────────────────────────────────────────
         if (action === 'full_sync') {
-            const result = await QFieldCloudSyncService.fullSync(projectId, qfieldProjectId);
+            const result = await QFieldCloudSyncService.fullSync(params.id, qfieldProjectId);
             return {
                 message: 'Full sync completed',
                 result,

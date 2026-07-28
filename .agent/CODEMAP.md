@@ -473,13 +473,12 @@
 ### [ledger.service.ts](src/services/finance/ledger.service.ts)
 * **Class**: `LedgerService`
   * **Methods**:
-    * `logInvoiceApproval(tx: any, invoice: any): any`
     * `postTransaction(tx: TransactionClient, payload: PostTransactionInput): any`
     * `reverseTransaction(tx: TransactionClient, originalEntryId: string, reversalReason: string, createdById?: string): any`
     * `logGrnReceipt(tx: TransactionClient, grnId: string, totalCost: number, description?: string): any`
     * `logSodConsumption(tx: TransactionClient, sodId: string, totalCost: number, description?: string): any`
     * `logSodRevenue(tx: TransactionClient, sodId: string, revenueAmount: number, description?: string): any`
-    * `logInvoiceGeneration(tx: TransactionClient, invoiceId: string, invoiceNumber: string, totalRevenue: number, contractorAmountA: number, retentionAmount: number, description?: string): any`
+    * `logInvoiceGeneration(tx: TransactionClient, invoiceId: string, invoiceNumber: string, totalRevenue: number, contractorAmountA: number, retentionAmount: number, description?: string, vatAmount: number = 0, ssclAmount: number = 0): any`
     * `logWastage(tx: TransactionClient, wastageId: string, totalCost: number, description?: string): any`
     * `logCycleCountAdjustment(tx: TransactionClient, cycleCountId: string, cycleCountNumber: string, totalVarianceValue: number, description?: string): any`
     * `rollbackSodTransaction(tx: TransactionClient, sodId: string, description?: string): any`

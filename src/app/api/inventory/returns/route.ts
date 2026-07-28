@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { InventoryService } from '@/services/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
@@ -21,7 +22,7 @@ export const POST = apiHandler(async (request, _params, body) => {
         throw AppError.badRequest(validationErr.errors?.[0]?.message || 'Invalid data');
     }
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.STORES_ALL,
     audit: { action: 'CREATE', entity: 'MATERIAL_RETURN' },
     rawResponse: true
 });

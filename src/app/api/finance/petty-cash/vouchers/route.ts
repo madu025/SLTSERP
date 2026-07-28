@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
@@ -24,7 +25,13 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/finance/petty-cash/vouchers - Create a new voucher
 export const POST = apiHandler(async (req, _params, body) => {
-    const { accountId, title, amount, category, description, recipientName, receiptUrl } = body;
+    const accountId = body.accountId as string | undefined;
+    const title = body.title as string | undefined;
+    const amount = body.amount as string | number | undefined;
+    const category = body.category as string | undefined;
+    const description = body.description as string | null | undefined;
+    const recipientName = body.recipientName as string | null | undefined;
+    const receiptUrl = body.receiptUrl as string | null | undefined;
     const userId = req.headers.get("x-user-id");
 
     if (!accountId || !title || amount === undefined || !category || !userId) {
@@ -34,7 +41,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     return await PettyCashService.createVoucher({
         accountId,
         title,
-        amount: parseFloat(amount),
+        amount: parseFloat(String(amount)),
         category,
         description,
         recipientName,
@@ -48,7 +55,9 @@ export const POST = apiHandler(async (req, _params, body) => {
 
 // PATCH /api/finance/petty-cash/vouchers - Approve or reject a voucher
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, action, rejectionReason } = body;
+    const id = body.id as string | undefined;
+    const action = body.action as string | undefined;
+    const rejectionReason = body.rejectionReason as string | undefined;
     const userId = req.headers.get("x-user-id");
 
     if (!id || !action || !userId) {
@@ -63,7 +72,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
         throw new Error('Invalid action. Must be APPROVE or REJECT');
     }
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'UPDATE_STATUS', entity: 'PETTY_CASH_VOUCHER' },
     rawResponse: true
 });

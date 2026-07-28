@@ -25,7 +25,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         severity: body.severity as string | undefined,
         location: body.location as string | undefined,
         recordedById: recordedById as string,
-        attendees: body.attendees
+        attendees: body.attendees as any
     });
     return Response.json(safetyLog, { status: 201 });
 }, {

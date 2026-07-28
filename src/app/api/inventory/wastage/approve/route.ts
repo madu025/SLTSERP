@@ -5,16 +5,14 @@ import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (request, _params, body) => {
     const userId = request.headers.get('x-user-id') || '';
-    const { id, action } = body;
-    
+    const id = body.id as string | undefined;
+    const action = body.action as string | undefined;
+
     if (!id) throw AppError.badRequest('Missing ID');
 
-    let result;
-    if (action === 'REJECT') {
-        result = await InventoryService.rejectWastage(id, userId);
-    } else {
-        result = await InventoryService.approveWastage(id, userId);
-    }
+    const result = action === 'REJECT'
+        ? await InventoryService.rejectWastage(id, userId)
+        : await InventoryService.approveWastage(id, userId);
     return result;
 }, {
     roles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER'],

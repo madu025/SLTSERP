@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { PricingAuditService } from '@/services/sf-audit/pricing-audit.service';
 
@@ -7,5 +8,5 @@ export const GET = apiHandler(
     async () => {
         return await PricingAuditService.getPendingAmendmentRequests();
     },
-    { roles: ['SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER'] }
+    { roles: ROLE_GROUPS.SF_AUDITORS }
 );

@@ -48,7 +48,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         );
     }
 
-    const soNum = body.soNum;
+    const soNum = (body.soNum as string | undefined) ?? null;
 
     // Sanitize Materials (Replace GRID_MATERIAL dummy names with actual Types for UI/DB)
     if (Array.isArray(body.materialDetails)) {
@@ -90,7 +90,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     }
 
     try {
-        const log = await ServiceOrderService.saveExtensionRawData(soNum, body);
+        const log = await ServiceOrderService.saveExtensionRawData(soNum, body as any);
 
         // Automatically sync to ServiceOrder model if it has soNum
         if (soNum) {

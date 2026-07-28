@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { RoleService } from '@/services/admin/role.service';
 import { z } from 'zod';
@@ -19,7 +20,7 @@ export const PATCH = apiHandler(async (_req, params, body) => {
     const role = await RoleService.updateRole(roleId, data);
     return Response.json(role);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_ROLE', entity: 'Admin' }
 });
 
@@ -30,6 +31,6 @@ export const DELETE = apiHandler(async (_req, params) => {
     await RoleService.deleteRole(roleId);
     return Response.json({ message: 'Role deleted successfully' });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE_ROLE', entity: 'Admin' }
 });

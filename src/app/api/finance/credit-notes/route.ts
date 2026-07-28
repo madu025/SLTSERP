@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 
 import { PeriodCloseService } from '@/services/finance/period-close.service';
@@ -26,5 +27,5 @@ export const POST = apiHandler(async (req) => {
 
     return note;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
+    roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

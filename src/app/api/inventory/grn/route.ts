@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
 import { grnSchema } from '@/lib/validations/inventory.schema';
@@ -12,7 +13,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     });
 }, { 
     schema: grnSchema,
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.STORES_ALL,
     audit: { action: 'CREATE', entity: 'GRN' }
 });
 

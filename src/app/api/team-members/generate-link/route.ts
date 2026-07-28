@@ -3,7 +3,7 @@ import { TeamMemberService } from '@/services/team-member.service';
 import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (_request, _params, body) => {
-    const { memberId } = body || {};
+    const memberId = body.memberId as string | undefined;
 
     if (!memberId) {
         throw AppError.badRequest('Member ID is required');

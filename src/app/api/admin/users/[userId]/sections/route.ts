@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -17,7 +18,7 @@ export const GET = apiHandler(async (_req, params) => {
 
     return Response.json(assignments);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN']
+    roles: ROLE_GROUPS.ADMINS
 });
 
 // POST - Assign section/role to user
@@ -29,6 +30,6 @@ export const POST = apiHandler(async (_req, params, body) => {
 
     return Response.json(assignment, { status: 201 });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'ASSIGN_USER_SECTION', entity: 'User' }
 });

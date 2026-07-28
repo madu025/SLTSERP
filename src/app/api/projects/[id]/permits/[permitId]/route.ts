@@ -26,13 +26,13 @@ export const PATCH = apiHandler(async (_request, params, body) => {
     const updateData: Record<string, unknown> = {};
     if (body.status) updateData.status = body.status;
     if (body.permitNumber) updateData.permitNumber = body.permitNumber;
-    if (body.submittedDate) updateData.submittedDate = new Date(body.submittedDate);
-    if (body.approvedDate) updateData.approvedDate = new Date(body.approvedDate);
-    if (body.expiryDate) updateData.expiryDate = new Date(body.expiryDate);
+    if (body.submittedDate) updateData.submittedDate = new Date(body.submittedDate as string | number | Date);
+    if (body.approvedDate) updateData.approvedDate = new Date(body.approvedDate as string | number | Date);
+    if (body.expiryDate) updateData.expiryDate = new Date(body.expiryDate as string | number | Date);
     if (body.rejectionReason !== undefined) updateData.rejectionReason = body.rejectionReason;
     if (body.approvalDocument) updateData.approvalDocument = body.approvalDocument;
     if (body.approvedById) updateData.approvedById = body.approvedById;
-    if (body.cost) updateData.cost = parseFloat(body.cost);
+    if (body.cost) updateData.cost = parseFloat(String(body.cost));
     if (body.remarks !== undefined) updateData.remarks = body.remarks;
 
     return await ProjectPermitService.updatePermit(permitId, updateData);

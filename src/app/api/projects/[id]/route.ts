@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectService } from '@/services/project.service';
 import { AppError } from '@/lib/error';
@@ -37,7 +38,7 @@ export const DELETE = apiHandler(async (request, params) => {
         throw error;
     }
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE', entity: 'PROJECT' },
     rawResponse: true
 });

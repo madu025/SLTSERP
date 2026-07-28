@@ -11,15 +11,11 @@ const approveSchema = z.object({
 });
 
 export const POST = apiHandler(
-    async (req: Request, context: { params: Promise<{ id: string }> }, body: { status: 'APPROVED' | 'REJECTED'; rejectionReason?: string }) => {
-        const { id: requestId } = await context.params;
+    async (req, params, body) => {
         const userId = req.headers.get('x-user-id') || 'system';
-
-        if (!requestId) {
-            return NextResponse.json({ error: 'Amendment Request ID is required' }, { status: 400 });
-        }
-
-        const result = await PricingAuditService.processAmendmentRequest(requestId, body.status, userId, body.rejectionReason);
+        const result = await PricingAuditService.processAmendmentRequest(
+            params.id, body.status, userId, body.rejectionReason
+        );
 
         if (result.status === 'REJECTED') {
             return { message: 'Amendment request rejected.', amendmentRequest: result.amendmentRequest };

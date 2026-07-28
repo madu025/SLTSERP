@@ -1,40 +1,49 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
+import { z } from 'zod';
 
-type Params = Promise<{ id: string }>;
+const updatePVSchema = z.object({
+    title: z.string().optional(),
+    description: z.string().nullish(),
+    payeeName: z.string().optional(),
+    amount: z.number().optional(),
+    paymentDate: z.string().nullish(),
+    paymentMethod: z.string().nullish(),
+    bankName: z.string().nullish(),
+    bankBranch: z.string().nullish(),
+    accountNumber: z.string().nullish(),
+    chequeNumber: z.string().nullish(),
+    referenceNumber: z.string().nullish(),
+    notes: z.string().nullish(),
+});
 
-// GET /api/finance/payment-vouchers/[id] - Get payment voucher by ID
-export const GET = apiHandler(async (req, params) => {
-    const { id } = await (params as Params);
-    const voucher = await PaymentVoucherService.getPaymentVoucherById(id);
-    
-    if (!voucher) {
-        throw new Error("VOUCHER_NOT_FOUND");
-    }
-    
+// GET /api/finance/payment-vouchers/[id]
+export const GET = apiHandler(async (_req, params) => {
+    const voucher = await PaymentVoucherService.getPaymentVoucherById(params.id);
+    if (!voucher) throw new Error("VOUCHER_NOT_FOUND");
     return voucher;
 }, {
     rawResponse: true
 });
 
 // PUT /api/finance/payment-vouchers/[id] - Update payment voucher details (DRAFT only)
-export const PUT = apiHandler(async (req, params, body) => {
-    const { id } = await (params as Params);
-    return await PaymentVoucherService.updatePaymentVoucher(id, body);
+export const PUT = apiHandler(async (_req, params, body) => {
+    return await PaymentVoucherService.updatePaymentVoucher(params.id, body);
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    schema: updatePVSchema,
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'UPDATE', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });
 
 // DELETE /api/finance/payment-vouchers/[id] - Delete payment voucher (DRAFT only)
-export const DELETE = apiHandler(async (req, params) => {
-    const { id } = await (params as Params);
-    return await PaymentVoucherService.deletePaymentVoucher(id);
+export const DELETE = apiHandler(async (_req, params) => {
+    return await PaymentVoucherService.deletePaymentVoucher(params.id);
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'DELETE', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });

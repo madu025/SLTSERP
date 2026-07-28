@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import VehicleService from '@/services/VehicleService';
 import { VehicleStatusEnum } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
@@ -27,7 +28,7 @@ export const PUT = apiHandler(async (request, params, body) => {
 
     return await VehicleService.updateVehicle(id, data);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: { action: 'UPDATE', entity: 'VEHICLE' }
 });
 
@@ -37,7 +38,7 @@ export const DELETE = apiHandler(async (request, params) => {
     await VehicleService.deleteVehicle(id);
     return { message: 'Vehicle deleted' };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: { action: 'DELETE', entity: 'VEHICLE' }
 });
 

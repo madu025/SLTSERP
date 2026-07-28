@@ -23,7 +23,8 @@ export const POST = apiHandler(async (request, params, body) => {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    const { action, notes } = body || {};
+    const action = body.action as string | undefined;
+    const notes = body.notes as string | undefined;
 
     if (action === 'submit') {
         const result = await ProjectBOQApprovalService.submitForApproval(projectId, notes);
@@ -35,7 +36,7 @@ export const POST = apiHandler(async (request, params, body) => {
     }
 
     if (action === 'reject') {
-        return await ProjectBOQApprovalService.reject(projectId, notes);
+        return await ProjectBOQApprovalService.reject(projectId, notes ?? '');
     }
 
     if (action === 'revise') {

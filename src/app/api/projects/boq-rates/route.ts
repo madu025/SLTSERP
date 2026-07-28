@@ -41,7 +41,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.badRequest('itemCode and unitRate are required');
     }
 
-    const { rate, isNew } = await ProjectBOQService.saveBOQRate(body);
+    const { rate, isNew } = await ProjectBOQService.saveBOQRate(body as any);
     return Response.json(rate, { status: isNew ? 201 : 200 });
 }, {
     audit: { action: 'UPSERT_RATE', entity: 'PROJECT_BOQ' },

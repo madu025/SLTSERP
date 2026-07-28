@@ -6,7 +6,11 @@ export const dynamic = 'force-dynamic';
 
 export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId, taskId } = params;
-    const { fileName, fileUrl, photoType, latitude, longitude } = body || {};
+    const fileName = body.fileName as string | undefined;
+    const fileUrl = body.fileUrl as string | undefined;
+    const photoType = body.photoType as string | undefined;
+    const latitude = body.latitude as number | undefined;
+    const longitude = body.longitude as number | undefined;
 
     if (!fileName || !fileUrl || !photoType) {
         throw AppError.badRequest('fileName, fileUrl, and photoType are required');

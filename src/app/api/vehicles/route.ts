@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import VehicleService from '@/services/VehicleService';
 import { VehicleStatusEnum, OwnershipTypeEnum } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
@@ -35,9 +36,9 @@ export const POST = apiHandler(async (request, _params, body) => {
         throw AppError.badRequest('Missing required fields: registration_number, chassis_number, assigned_site_id');
     }
 
-    return await VehicleService.createVehicle(body);
+    return await VehicleService.createVehicle(body as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: { action: 'CREATE', entity: 'VEHICLE' }
 });
 

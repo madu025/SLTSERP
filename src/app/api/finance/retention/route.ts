@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { RetentionService } from "@/services/finance/retention.service";
 
@@ -16,8 +17,10 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/finance/retention - Release an amount from a project's retention balance
 export const POST = apiHandler(async (req, _params, body) => {
-    const { retentionId, releaseAmount, remarks } = body;
-    const userId = req.headers.get("x-user-id") || undefined;
+    const retentionId = body.retentionId as string | undefined;
+    const releaseAmount = body.releaseAmount as string | number | undefined;
+    const remarks = body.remarks as string | undefined;
+    const userId = req.headers.get("x-user-id") ?? undefined;
 
     if (!retentionId || releaseAmount === undefined) {
         throw new Error("retentionId and releaseAmount are required fields");
@@ -30,7 +33,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         remarks
     });
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'RELEASE', entity: 'PROJECT_RETENTION' },
     rawResponse: true
 });

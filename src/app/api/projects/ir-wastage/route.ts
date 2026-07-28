@@ -6,7 +6,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   const userId = req.headers.get('x-user-id') || 'SYSTEM';
 
   const result = await ProjectIRLedgerService.recordWastage({
-    ...body,
+    ...(body as any),
     userId
   });
   return result;

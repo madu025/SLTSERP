@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectMilestoneService } from '@/services/project-milestone.service';
 
@@ -19,30 +20,35 @@ export const GET = apiHandler(async (req) => {
 
 // POST create milestone
 export const POST = apiHandler(async (req, _params, body) => {
-    const { projectId, name, targetDate } = body;
+    const projectId = body.projectId as string | undefined;
+    const name = body.name as string | undefined;
+    const targetDate = body.targetDate as string | Date | undefined;
 
     if (!projectId || !name || !targetDate) {
         throw new Error('Project ID, Name and Target Date are required');
     }
 
-    return await ProjectMilestoneService.createMilestone(body);
+    return await ProjectMilestoneService.createMilestone(body as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_MILESTONE' },
     rawResponse: true
 });
 
 // PATCH update milestone
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, ...updateData } = body;
+    const id = body.id as string | undefined;
 
     if (!id) {
         throw new Error('Milestone ID required');
     }
 
-    return await ProjectMilestoneService.updateMilestone(id, updateData);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, ...updateData } = body;
+
+    return await ProjectMilestoneService.updateMilestone(id, updateData as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'PROJECT_MILESTONE' },
     rawResponse: true
 });
@@ -59,7 +65,7 @@ export const DELETE = apiHandler(async (req) => {
     await ProjectMilestoneService.deleteMilestone(id);
     return { success: true };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'DELETE', entity: 'PROJECT_MILESTONE' },
     rawResponse: true
 });

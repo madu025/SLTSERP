@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 
 import { ArApService } from '@/services/finance/ar-ap.service';
@@ -28,5 +29,5 @@ export const POST = apiHandler(async (req) => {
 
     return receipt;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
+    roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

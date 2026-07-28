@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskService } from "@/services/helpdesk.service";
 import { CreateITAssetUnitSchema, UpdateITAssetUnitSchema } from "@/lib/validations/helpdesk.schema";
@@ -24,7 +25,7 @@ export const POST = apiHandler(
   },
   {
     schema: CreateITAssetUnitSchema,
-    roles: ["SUPER_ADMIN", "ADMIN", "OFFICE_ADMIN", "ENGINEER"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
     audit: {
       action: "CREATE",
       entity: "ITAssetUnit"
@@ -42,7 +43,7 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateITAssetUnitSchema,
-    roles: ["SUPER_ADMIN", "ADMIN", "OFFICE_ADMIN", "ENGINEER"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
     audit: {
       action: "UPDATE",
       entity: "ITAssetUnit"
@@ -65,7 +66,7 @@ export const DELETE = apiHandler(
     return await HelpdeskService.deleteAssetUnit(userId, unitId, ipAddress, userAgent);
   },
   {
-    roles: ["SUPER_ADMIN", "ADMIN", "OFFICE_ADMIN", "ENGINEER"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
     audit: {
       action: "DELETE",
       entity: "ITAssetUnit"

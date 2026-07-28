@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -19,7 +20,7 @@ export const POST = apiHandler(
     },
     {
         schema: SyncSchema,
-        roles: ['SUPER_ADMIN', 'ADMIN'],
+        roles: ROLE_GROUPS.ADMINS,
         audit: {
             action: 'MANUAL_COMPLETED_SOD_SYNC',
             entity: 'ServiceOrder'

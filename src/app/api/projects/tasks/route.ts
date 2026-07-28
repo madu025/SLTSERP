@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectTaskService } from '@/services/project-task.service';
 
@@ -20,30 +21,34 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/projects/tasks
 export const POST = apiHandler(async (req, _params, body) => {
-    const { projectId, name, wbsCode } = body;
+    const projectId = body.projectId as string | undefined;
+    const name = body.name as string | undefined;
+    const wbsCode = body.wbsCode as string | undefined;
 
     if (!projectId || !name || !wbsCode) {
         throw new Error('projectId, name, and wbsCode are required');
     }
 
-    return await ProjectTaskService.createTask(body);
+    return await ProjectTaskService.createTask(body as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_TASK' },
     rawResponse: true
 });
 
 // PATCH /api/projects/tasks
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, ...updateData } = body;
+    const id = body.id as string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, ...updateData } = body;
 
     if (!id) {
         throw new Error('Task ID is required');
     }
 
-    return await ProjectTaskService.updateTask(id, updateData);
+    return await ProjectTaskService.updateTask(id, updateData as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'PROJECT_TASK' },
     rawResponse: true
 });
@@ -60,7 +65,7 @@ export const DELETE = apiHandler(async (req) => {
     await ProjectTaskService.deleteTask(id);
     return { success: true };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'DELETE', entity: 'PROJECT_TASK' },
     rawResponse: true
 });

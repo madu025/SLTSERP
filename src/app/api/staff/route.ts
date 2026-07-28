@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { StaffService } from '@/services/staff.service';
 import { AppError } from '@/lib/error';
@@ -12,7 +13,7 @@ export const GET = apiHandler(async () => {
 // POST create new staff member
 export const POST = apiHandler(async (_request, _params, body) => {
     try {
-        const staff = await StaffService.createStaff(body);
+        const staff = await StaffService.createStaff(body as any);
         return staff;
     } catch (error: any) {
         if (error?.code === 'P2002') {
@@ -21,18 +22,20 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STAFF_CREATE', entity: 'Staff' },
     rawResponse: true
 });
 
 // PUT to update staff details, hierarchy, or user assignment
 export const PUT = apiHandler(async (_request, _params, body) => {
-    const { id, ...updateFields } = body;
+    const id = body.id as string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, ...updateFields } = body;
     if (!id) throw AppError.badRequest('Staff ID required');
 
     try {
-        const updatedStaff = await StaffService.updateStaff(id, updateFields);
+        const updatedStaff = await StaffService.updateStaff(id, updateFields as any);
         return updatedStaff;
     } catch (error: any) {
         if (error?.message === 'CANNOT_REPORT_TO_SELF') {
@@ -41,7 +44,7 @@ export const PUT = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STAFF_UPDATE', entity: 'Staff' },
     rawResponse: true
 });

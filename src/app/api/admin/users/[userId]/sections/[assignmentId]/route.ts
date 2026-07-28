@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/user.service';
 
@@ -9,6 +10,6 @@ export const DELETE = apiHandler(async (_req, params) => {
 
     return Response.json({ message: 'Assignment removed successfully' });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'REMOVE_USER_SECTION', entity: 'User' }
 });

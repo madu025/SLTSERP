@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { PreErpReconciliationService } from '@/services/inventory/pre-erp-reconciliation.service';
@@ -23,7 +24,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   return { success: true, data: result };
 }, {
   schema: AdjustSchema,
-  roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT'],
+  roles: ROLE_GROUPS.STORES_ALL,
   audit: { action: 'SUBMIT_ADJUSTMENT', entity: 'MATERIAL_VARIANCE_ADJUSTMENT' },
   rawResponse: true,
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectService } from '@/services/project.service';
 
@@ -27,14 +28,12 @@ export const GET = apiHandler(async (req) => {
 
 // POST create new project
 export const POST = apiHandler(async (req, _params, body) => {
-    const {
-        projectCode,
-        name,
-        type,
-        contractorId,
-        opmcId,
-        projectTypeId
-    } = body;
+    const projectCode = body.projectCode as string | undefined;
+    const name = body.name as string | undefined;
+    const type = body.type as string | undefined;
+    const contractorId = body.contractorId as string | null | undefined;
+    const opmcId = body.opmcId as string | null | undefined;
+    const projectTypeId = body.projectTypeId as string | null | undefined;
 
     if (!projectCode || !name) {
         throw new Error('Project code and name are required');
@@ -43,28 +42,30 @@ export const POST = apiHandler(async (req, _params, body) => {
     return await ProjectService.createProject({
         projectCode,
         name,
-        type,
-        contractorId,
-        opmcId,
-        projectTypeId
+        type: type ?? undefined,
+        contractorId: contractorId ?? undefined,
+        opmcId: opmcId ?? undefined,
+        projectTypeId: projectTypeId ?? undefined
     });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT' },
     rawResponse: true
 });
 
 // PATCH update project
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, ...updateData } = body;
+    const id = body.id as string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, ...updateData } = body;
 
     if (!id) {
         throw new Error('Project ID required');
     }
 
-    return await ProjectService.updateProject(id, updateData);
+    return await ProjectService.updateProject(id, updateData as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'PROJECT' },
     rawResponse: true
 });
@@ -84,7 +85,7 @@ export const DELETE = apiHandler(async (req) => {
 
     return { success: true };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE', entity: 'PROJECT' },
     rawResponse: true
 });

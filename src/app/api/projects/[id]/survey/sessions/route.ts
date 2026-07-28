@@ -5,25 +5,25 @@ import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request, params) => {
-    const { id: projectId } = await params;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const supervisorId = searchParams.get('supervisorId');
 
-    return await ProjectSurveyService.getSessions(projectId, { status, supervisorId });
+    return await ProjectSurveyService.getSessions(params.id, { status, supervisorId });
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (request, params, body) => {
-    const { id: projectId } = await params;
     const userId = request.headers.get('x-user-id');
-    const { action, sessionId, notes } = body || {};
+    const action = body.action as string | undefined;
+    const sessionId = body.sessionId as string | undefined;
+    const notes = body.notes as string | undefined;
 
     if (action !== 'start' && action !== 'continue') {
         throw AppError.badRequest('Invalid action. Use "start" or "continue"');
     }
 
     try {
-        const result = await ProjectSurveyService.startOrContinueSession(projectId, userId!, action, sessionId, notes);
+        const result = await ProjectSurveyService.startOrContinueSession(params.id, userId!, action, sessionId, notes);
         const status = result.action === 'started' ? 201 : 200;
         return Response.json(result, { status });
     } catch (error: unknown) {
@@ -53,9 +53,10 @@ export const POST = apiHandler(async (request, params, body) => {
 });
 
 export const PATCH = apiHandler(async (request, params, body) => {
-    const { id: projectId } = await params;
     const userId = request.headers.get('x-user-id');
-    const { sessionId, action, notes } = body || {};
+    const sessionId = body.sessionId as string | undefined;
+    const action = body.action as string | undefined;
+    const notes = body.notes as string | undefined;
 
     if (!sessionId) {
         throw AppError.badRequest('sessionId is required');
@@ -66,7 +67,7 @@ export const PATCH = apiHandler(async (request, params, body) => {
     }
 
     try {
-        return await ProjectSurveyService.updateSessionStatus(projectId, userId!, sessionId, action, notes);
+        return await ProjectSurveyService.updateSessionStatus(params.id, userId!, sessionId, action as any, notes);
     } catch (error: unknown) {
         const err = error as { message?: string };
         const message = err?.message;

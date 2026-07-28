@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -17,7 +18,7 @@ export const GET = apiHandler(async (_req, params) => {
     const roles = await RoleService.getRolesBySection(id);
     return Response.json(roles);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN']
+    roles: ROLE_GROUPS.ADMINS
 });
 
 export const POST = apiHandler(async (_req, params, body) => {
@@ -31,6 +32,6 @@ export const POST = apiHandler(async (_req, params, body) => {
 
     return Response.json(role, { status: 201 });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CREATE_ROLE', entity: 'Admin' }
 });

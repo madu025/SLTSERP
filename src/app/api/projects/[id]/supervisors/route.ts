@@ -5,20 +5,19 @@ import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
-    const { id: projectId } = await params;
-    return await ProjectSupervisorService.getAssignments(projectId);
+    return await ProjectSupervisorService.getAssignments(params.id);
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {
-    const { id: projectId } = await params;
-    const { supervisorId, role } = body || {};
+    const supervisorId = body.supervisorId as string | undefined;
+    const role = body.role as string | undefined;
 
     if (!supervisorId) {
         throw AppError.badRequest('supervisorId is required');
     }
 
     try {
-        return await ProjectSupervisorService.assignSupervisor(projectId, supervisorId, role);
+        return await ProjectSupervisorService.assignSupervisor(params.id, supervisorId, role);
     } catch (error: unknown) {
         const err = error as { message?: string };
         const message = err?.message;
@@ -37,7 +36,6 @@ export const POST = apiHandler(async (_request, params, body) => {
 });
 
 export const DELETE = apiHandler(async (request, params) => {
-    const { id: projectId } = await params;
     const { searchParams } = new URL(request.url);
     const assignmentId = searchParams.get('assignmentId');
 
@@ -46,7 +44,7 @@ export const DELETE = apiHandler(async (request, params) => {
     }
 
     try {
-        await ProjectSupervisorService.removeAssignment(projectId, assignmentId);
+        await ProjectSupervisorService.removeAssignment(params.id, assignmentId);
         return { success: true };
     } catch (error: unknown) {
         const err = error as { message?: string };

@@ -3,9 +3,10 @@ import { MapApprovalService } from '@/services/map-approval.service';
 import { AppError } from '@/lib/error';
 
 export const PATCH = apiHandler(async (request, params, body) => {
-    const { pointId } = await params;
+    const pointId = params.pointId;
     const userId = request.headers.get('x-user-id');
-    const { action, reason } = body || {};
+    const action = body.action as string | undefined;
+    const reason = body.reason as string | undefined;
 
     try {
         switch (action) {
@@ -20,14 +21,15 @@ export const PATCH = apiHandler(async (request, params, body) => {
             case 'flag':
                 return await MapApprovalService.flagPoint({ pointId, userId: userId!, reason });
             case 'update_coordinates': {
-                const { latitude, longitude } = body;
+                const latitude = body.latitude as string | number | null | undefined;
+                const longitude = body.longitude as string | number | null | undefined;
                 if (latitude == null || longitude == null) {
                     throw AppError.badRequest('latitude and longitude are required for update_coordinates');
                 }
                 const updated = await MapApprovalService.updatePointCoordinates(
                     pointId,
-                    parseFloat(latitude),
-                    parseFloat(longitude),
+                    parseFloat(String(latitude)),
+                    parseFloat(String(longitude)),
                     userId!
                 );
                 return {

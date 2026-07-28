@@ -3,11 +3,13 @@ import { WorkflowEngine } from '@/services/WorkflowEngine';
 import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (_request, _params, body) => {
-    const { action } = body || {};
+    const action = body.action as string | undefined;
 
     try {
         if (action === 'update_task') {
-            const { taskId, status, progress } = body;
+            const taskId = body.taskId as string | undefined;
+            const status = body.status as string | undefined;
+            const progress = body.progress as number | undefined;
             if (!taskId || !status) {
                 throw AppError.badRequest('taskId and status are required');
             }
@@ -16,11 +18,13 @@ export const POST = apiHandler(async (_request, _params, body) => {
         }
 
         if (action === 'update_checklist') {
-            const { checklistId, isCompleted, photoUrl } = body;
+            const checklistId = body.checklistId as string | undefined;
+            const isCompleted = body.isCompleted as boolean | undefined;
+            const photoUrl = body.photoUrl as string | undefined;
             if (!checklistId) {
                 throw AppError.badRequest('checklistId is required');
             }
-            const updated = await WorkflowEngine.updateChecklistItem(checklistId, isCompleted, photoUrl);
+            const updated = await WorkflowEngine.updateChecklistItem(checklistId, isCompleted ?? false, photoUrl);
             return { success: true, checklist: updated };
         }
 

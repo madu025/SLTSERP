@@ -25,9 +25,9 @@ const saveMappingSchema = z.object({
 });
 
 export const POST = apiHandler(
-    async (_req: Request, _context: { params?: Record<string, string> }, body: { columns: MappingColumnDTO[] }) => {
+    async (_req, _params, body) => {
         const { columns } = body;
-        const result = await HeaderMappingService.saveMappingConfig(columns);
+        const result = await HeaderMappingService.saveMappingConfig(columns as MappingColumnDTO[]);
         return {
             message: 'SF Audit Invoice Material Header & Column Mapping saved successfully',
             columns: result.columns

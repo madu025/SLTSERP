@@ -17,7 +17,8 @@ export const GET = apiHandler(async (req) => {
 
 // PATCH /api/profile - Update user profile details (rawResponse for compatibility)
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { name, email } = body;
+    const name = body.name as string | undefined;
+    const email = body.email as string | undefined;
     const userId = req.headers.get('x-user-id');
 
     if (!userId) {

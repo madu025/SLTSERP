@@ -7,9 +7,8 @@ import TripService from '@/services/TripService';
  * GET: Retrieve trip metrics by ID
  */
 export const GET = apiHandler<unknown, void>(
-    async (request: Request, params: { id: string }) => {
-        const { id } = params;
-        const metrics = await TripService.getTripMetrics(id);
+    async (_request, params) => {
+        const metrics = await TripService.getTripMetrics(params.id);
 
         if (!metrics) {
             throw new Error('Trip metrics not found');

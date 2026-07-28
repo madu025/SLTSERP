@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { CapexOpexLedgerService } from '@/services/finance/capex-opex-ledger.service';
@@ -71,7 +72,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
   return { success: true, data: result };
 }, {
   schema: CreateLedgerEntrySchema,
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'CREATE', entity: 'CAPEX_OPEX_LEDGER_ENTRY' },
   rawResponse: true,
 });

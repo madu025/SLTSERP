@@ -5,22 +5,18 @@ import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
-    const { id: projectId } = await params;
-    return await ProjectChangeOrderService.getChangeOrders(projectId);
+    return await ProjectChangeOrderService.getChangeOrders(params.id);
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {
-    const { id: projectId } = await params;
-    const {
-        title,
-        description,
-        type,
-        reason,
-        costImpact,
-        timeImpact,
-        requestedById,
-        notes
-    } = body || {};
+    const title = body.title as string | undefined;
+    const description = body.description as string | undefined;
+    const type = body.type as string | undefined;
+    const reason = body.reason as string | undefined;
+    const costImpact = body.costImpact as number | undefined;
+    const timeImpact = body.timeImpact as number | undefined;
+    const requestedById = body.requestedById as string | undefined;
+    const notes = body.notes as string | undefined;
 
     if (!title || !type || !requestedById) {
         throw AppError.badRequest('Missing required fields: title, type, requestedById');
@@ -28,7 +24,7 @@ export const POST = apiHandler(async (_request, params, body) => {
 
     try {
         return await ProjectChangeOrderService.createChangeOrder({
-            projectId,
+            projectId: params.id,
             title,
             description,
             type,
@@ -51,7 +47,10 @@ export const POST = apiHandler(async (_request, params, body) => {
 });
 
 export const PATCH = apiHandler(async (_request, _params, body) => {
-    const { coId, status, approvedById, rejectionReason } = body || {};
+    const coId = body.coId as string | undefined;
+    const status = body.status as string | undefined;
+    const approvedById = body.approvedById as string | undefined;
+    const rejectionReason = body.rejectionReason as string | undefined;
 
     if (!coId) {
         throw AppError.badRequest('Change order ID is required');

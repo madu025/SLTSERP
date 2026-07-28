@@ -1,5 +1,8 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
+import { z } from 'zod';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -15,23 +18,38 @@ export const GET = apiHandler(async (req) => {
     rawResponse: true
 });
 
+const createPVSchema = z.object({
+    projectId: z.string(),
+    title: z.string(),
+    description: z.string().nullish(),
+    type: z.string().optional(),
+    payeeName: z.string(),
+    payeeId: z.string().nullish(),
+    invoiceId: z.string().nullish(),
+    amount: z.number(),
+    paymentDate: z.string().nullish(),
+    paymentMethod: z.string().nullish(),
+    bankName: z.string().nullish(),
+    bankBranch: z.string().nullish(),
+    accountNumber: z.string().nullish(),
+    chequeNumber: z.string().nullish(),
+    referenceNumber: z.string().nullish(),
+    taxWithheld: z.number().optional(),
+    netAmount: z.number().optional(),
+    retentionAmount: z.number().optional(),
+    retentionReleaseId: z.string().nullish(),
+    notes: z.string().nullish(),
+    contractorInvoiceId: z.string().nullish(),
+});
+
 // POST /api/finance/payment-vouchers - Create a new payment voucher
 export const POST = apiHandler(async (req, _params, body) => {
-    const { projectId, title, payeeName, amount } = body;
-    const userId = req.headers.get("x-user-id") || undefined;
-
-    if (!projectId || !title || !payeeName || amount === undefined) {
-        throw new Error("projectId, title, payeeName, and amount are required fields");
-    }
-
-    const payload = {
-        ...body,
-        createdById: userId
-    };
-
+    const userId = req.headers.get("x-user-id") ?? undefined;
+    const payload = { ...body, createdById: userId };
     return await PaymentVoucherService.createPaymentVoucher(payload);
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    schema: createPVSchema,
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });

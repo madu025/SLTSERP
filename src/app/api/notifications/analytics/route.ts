@@ -3,11 +3,14 @@ import { NotificationAnalyticsService } from '@/services/notification/analytics.
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request, context, { user }) => {
+export const GET = apiHandler(async (request, params) => {
+    const role = params._userRole || request.headers.get('x-user-role') || '';
+    const userId = params._userId || request.headers.get('x-user-id') || '';
+
     // Only admins or super admins can view global analytics
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) {
         // Normal users get personal stats
-        const personalStats = await NotificationAnalyticsService.getUserStats(user.id);
+        const personalStats = await NotificationAnalyticsService.getUserStats(userId);
         return { data: personalStats };
     }
 

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { JobService } from '@/services/job.service';
 
@@ -21,7 +22,7 @@ export const DELETE = apiHandler(async (_request, params) => {
     await JobService.deleteJob(id);
     return { success: true };
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'JOB_DELETE', entity: 'Job' },
     rawResponse: true
 });

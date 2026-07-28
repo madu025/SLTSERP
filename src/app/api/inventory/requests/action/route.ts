@@ -4,7 +4,10 @@ import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (request, _params, body) => {
     const userId = request.headers.get('x-user-id') || 'SYSTEM';
-    const { requestId, action, remarks, allocation } = body;
+    const requestId = body.requestId as string | undefined;
+    const action = body.action as string | undefined;
+    const remarks = body.remarks as string | undefined;
+    const allocation = body.allocation as { id: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }[] | undefined;
 
     if (!requestId || !action) {
         throw AppError.badRequest('Missing required fields');
@@ -12,7 +15,7 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     const result = await InventoryService.processStockRequestAction({
         requestId,
-        action,
+        action: action as any,
         userId,
         remarks,
         items: allocation

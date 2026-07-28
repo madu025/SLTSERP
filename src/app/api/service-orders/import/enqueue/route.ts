@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { sodImportQueue, addJob } from '@/lib/queue';
 import { AppError } from '@/lib/error';
@@ -24,7 +25,7 @@ export const POST = apiHandler(async (request, _params, body) => {
         message: 'Import task queued successfully'
     };
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'ENQUEUE_BULK_IMPORT', entity: 'ServiceOrder' },
     rawResponse: true
 });

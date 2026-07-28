@@ -6,8 +6,7 @@ import { Trip } from '@/types/vehicle-management.types';
  * PATCH: Start a trip
  */
 export const PATCH = apiHandler<Trip, void>(
-    async (request: Request, params: { id: string }) => {
-        const { id } = params;
+    async (request, params) => {
         let actualStartTime = new Date();
 
         try {
@@ -19,7 +18,7 @@ export const PATCH = apiHandler<Trip, void>(
             // Request body might be empty or invalid, default to now
         }
 
-        const trip = await TripService.startTrip(id, actualStartTime);
+        const trip = await TripService.startTrip(params.id, actualStartTime);
         return trip;
     }
 );

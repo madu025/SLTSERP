@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
 import { materialIssueSchema } from '@/lib/validations/inventory.schema';
@@ -18,7 +19,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     };
 }, {
     schema: materialIssueSchema,
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN']
+    roles: ROLE_GROUPS.STORES_ALL
 });
 
 // GET: Fetch Data

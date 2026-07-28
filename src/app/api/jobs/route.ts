@@ -1,4 +1,4 @@
-import { apiHandler } from '@/lib/api-handler';
+import { apiHandler, castBody } from '@/lib/api-handler';
 import { JobService } from '@/services/job.service';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,9 @@ export const GET = apiHandler(async (request) => {
 
 // POST create new job
 export const POST = apiHandler(async (_request, _params, body) => {
-    const job = await JobService.createJob(body);
+    const job = await JobService.createJob(
+        castBody<Parameters<typeof JobService.createJob>[0]>(body)
+    );
     return job;
 }, {
     audit: { action: 'JOB_CREATE', entity: 'Job' },

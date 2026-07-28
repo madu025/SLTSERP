@@ -19,7 +19,7 @@ const updateRateSchema = z.object({
 });
 
 export const PUT = apiHandler(
-    async (_req: Request, _ctx: { params?: Record<string, string> }, body: { id: string; rateAmount: number }) => {
+    async (_req, _params, body) => {
         const { id, rateAmount } = body;
         const updated = await PricingAuditService.updateRateRule(id, rateAmount);
         return { message: 'Rate amount updated successfully', updated };

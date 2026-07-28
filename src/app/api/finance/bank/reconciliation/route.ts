@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { BankCashService } from '@/services/finance/bank-cash.service';
 import { AppError } from '@/lib/error';
@@ -29,5 +30,5 @@ export const POST = apiHandler(async (req) => {
     const reconciled = await BankCashService.reconcileStatementLine(statementLineId, journalLineId);
     return reconciled;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
+    roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

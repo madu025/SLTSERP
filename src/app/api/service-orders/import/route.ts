@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
 import { AppError } from '@/lib/error';
@@ -18,7 +19,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
 
     const { successCount, errorCount, skippedNoOpmc, results } = await ServiceOrderService.bulkImportLegacyServiceOrders(
         rows,
-        skipMaterials
+        Boolean(skipMaterials)
     );
 
     return {
@@ -33,7 +34,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         results
     };
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'LEGACY_BULK_IMPORT', entity: 'ServiceOrder' },
     rawResponse: true
 });

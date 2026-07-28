@@ -6,17 +6,17 @@ import { CreateAssetHandoverSchema } from '@/lib/validations/helpdesk.schema';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (req, params, user) => {
-  const { id } = await params;
+export const POST = apiHandler(async (req, params) => {
   const body = await req.json();
   const parsed = CreateAssetHandoverSchema.parse(body);
 
-  const ipAddress = req.headers.get('x-forwarded-for') || (req as any).ip || 'unknown';
+  const userId = req.headers.get('x-user-id') || 'unknown';
+  const ipAddress = req.headers.get('x-forwarded-for') || 'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
   const log = await HelpdeskService.logAssetHandover(
-    user.id,
-    id,
+    userId,
+    params.id,
     parsed,
     ipAddress,
     userAgent
@@ -27,11 +27,8 @@ export const POST = apiHandler(async (req, params, user) => {
   roles: ['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'STORE_KEEPER']
 });
 
-export const GET = apiHandler(async (req, params) => {
-  const { id } = await params;
-  
-  const handovers = await HelpdeskService.getAssetHandovers(id);
-
+export const GET = apiHandler(async (_req, params) => {
+  const handovers = await HelpdeskService.getAssetHandovers(params.id);
   return handovers;
 }, {
   roles: ['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'STORE_KEEPER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']

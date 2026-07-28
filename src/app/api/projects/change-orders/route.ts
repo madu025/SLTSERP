@@ -23,7 +23,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
     }
 
     try {
-        const changeOrder = await ProjectChangeOrderService.createChangeOrder(body);
+        const changeOrder = await ProjectChangeOrderService.createChangeOrder(body as any);
         return Response.json(changeOrder, { status: 201 });
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
@@ -38,14 +38,20 @@ export const POST = apiHandler(async (_request, _params, body) => {
 });
 
 export const PATCH = apiHandler(async (_request, _params, body) => {
-    const { id, action, ...updateData } = body || {};
+    const coId = body.coId as string | undefined;
+    const status = body.status as string | undefined;
+    const approvedById = body.approvedById as string | undefined;
+    const rejectionReason = body.rejectionReason as string | undefined;
 
-    if (!id) {
+    if (!coId) {
         throw AppError.badRequest('id is required');
     }
 
     try {
-        return await ProjectChangeOrderService.updateChangeOrder(id, action, updateData);
+        return await ProjectChangeOrderService.updateChangeOrder(coId, status as any, {
+            approvedById,
+            rejectionReason
+        } as any);
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
         

@@ -4,17 +4,16 @@ import { ProjectService } from '@/services/project.service';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
-    const { id: projectId } = await params;
-    return await ProjectService.checkClosure(projectId);
+    return await ProjectService.checkClosure(params.id);
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (request, params, body) => {
-    const { id: projectId } = await params;
     const userId = request.headers.get('x-user-id') || '';
-    const { remarks, finalAsBuiltGenerated } = body || {};
+    const remarks = body.remarks as string | undefined;
+    const finalAsBuiltGenerated = body.finalAsBuiltGenerated as boolean | undefined;
 
     try {
-        return await ProjectService.closeProject(projectId, userId, remarks, finalAsBuiltGenerated);
+        return await ProjectService.closeProject(params.id, userId, remarks, finalAsBuiltGenerated);
     } catch (error: unknown) {
         const err = error as { code?: string; message?: string; openIssues?: Record<string, unknown> };
         if (err.code === 'OPEN_ISSUES_REMAIN') {

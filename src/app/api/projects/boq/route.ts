@@ -31,7 +31,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.badRequest('Missing required fields');
     }
 
-    return await ProjectBOQService.createBOQItem(body);
+    return await ProjectBOQService.createBOQItem(body as any);
 }, {
     audit: { action: 'CREATE', entity: 'PROJECT_BOQ' },
     rawResponse: true
@@ -39,13 +39,16 @@ export const POST = apiHandler(async (_request, _params, body) => {
 
 // PATCH update BOQ item
 export const PATCH = apiHandler(async (_request, _params, body) => {
-    const { id, ...updateData } = body || {};
+    const id = body.id as string | undefined;
 
     if (!id) {
         throw AppError.badRequest('BOQ item ID required');
     }
 
-    return await ProjectBOQService.updateBOQItem(id, updateData);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, ...updateData } = body;
+
+    return await ProjectBOQService.updateBOQItem(id, updateData as any);
 }, {
     audit: { action: 'UPDATE', entity: 'PROJECT_BOQ' },
     rawResponse: true

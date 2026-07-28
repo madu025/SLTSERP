@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { SoftwareLicenseService } from "@/services/software-license.service";
 import { UpdateSoftwareLicenseSchema } from "@/lib/validations/helpdesk.schema";
@@ -20,7 +21,7 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateSoftwareLicenseSchema,
-    roles: ["SUPER_ADMIN", "ADMIN", "OFFICE_ADMIN", "ENGINEER"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
     audit: {
       action: "UPDATE",
       entity: "SoftwareLicense"

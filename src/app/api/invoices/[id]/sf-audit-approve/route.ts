@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice.service';
 import { AppError } from '@/lib/error';
@@ -23,6 +24,6 @@ export const POST = apiHandler(
         };
     },
     {
-        roles: ['SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER']
+        roles: ROLE_GROUPS.SF_AUDITORS
     }
 );

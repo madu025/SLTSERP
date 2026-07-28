@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
 
@@ -16,6 +17,6 @@ export const POST = apiHandler(async () => {
         stats: result.stats
     });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'TRIGGER_MANUAL_SYNC', entity: 'Admin' }
 });

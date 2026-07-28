@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { PreErpReconciliationService } from '@/services/inventory/pre-erp-reconciliation.service';
@@ -37,7 +38,7 @@ export const GET = apiHandler(async (request) => {
 
   return PreErpReconciliationService.listBalances(params);
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER'],
+  roles: [...ROLE_GROUPS.STORES_ALL, "FINANCE_MANAGER"],
   rawResponse: true,
 });
 
@@ -64,7 +65,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     return { success: true, data: result };
   }
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT'],
+  roles: ROLE_GROUPS.STORES_ALL,
   audit: { action: 'UPSERT', entity: 'PRE_ERP_MATERIAL_BALANCE' },
   rawResponse: true,
 });

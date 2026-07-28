@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/user.service';
 import { AppError } from '@/lib/error';
@@ -14,7 +15,7 @@ export const GET = apiHandler(async (request) => {
     const result = await UserService.getUsers(page, limit, search);
     return result;
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     rawResponse: true
 });
 
@@ -23,7 +24,7 @@ export const POST = apiHandler(async (request, _params, body) => {
     const currentUserId = request.headers.get('x-user-id') || 'system';
 
     try {
-        const userWithoutPassword = await UserService.createUser(body, currentUserId);
+        const userWithoutPassword = await UserService.createUser(body as any, currentUserId);
         return userWithoutPassword;
     } catch (error: any) {
         const errorCode = error?.code;
@@ -37,20 +38,20 @@ export const POST = apiHandler(async (request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'USER_CREATE', entity: 'User' },
     rawResponse: true
 });
 
 // UPDATE user
 export const PUT = apiHandler(async (request, _params, body) => {
-    const { id } = body;
+    const id = body.id as string | undefined;
     if (!id) throw AppError.badRequest('ID required');
 
     const currentUserId = request.headers.get('x-user-id') || 'system';
 
     try {
-        const userWithoutPassword = await UserService.updateUser(id, body, currentUserId);
+        const userWithoutPassword = await UserService.updateUser(id, body as any, currentUserId);
         return userWithoutPassword;
     } catch (error: any) {
         const errorMsg = error?.message || '';
@@ -63,7 +64,7 @@ export const PUT = apiHandler(async (request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'USER_UPDATE', entity: 'User' },
     rawResponse: true
 });

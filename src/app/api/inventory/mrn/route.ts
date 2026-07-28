@@ -1,19 +1,22 @@
 import { InventoryService } from '@/services/inventory.service';
-import { apiHandler } from '@/lib/api-handler';
+import { apiHandler, castBody } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (request, _params, body) => {
+export const POST = apiHandler(async (_request, _params, body) => {
     try {
-        const result = await InventoryService.createMRN(body);
+        const result = await InventoryService.createMRN(
+            castBody<Parameters<typeof InventoryService.createMRN>[0]>(body)
+        );
         return result;
     } catch (error) {
         console.error("MRN Creation Error:", error);
         throw AppError.internal('Failed to create MRN');
     }
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.STORES_ALL,
     audit: { action: 'CREATE', entity: 'MRN' },
     rawResponse: true
 });
@@ -31,14 +34,19 @@ export const GET = apiHandler(async (request) => {
         throw AppError.internal('Failed to fetch MRNs');
     }
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.STORES_ALL,
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (request, _params, body) => {
+export const PATCH = apiHandler(async (_request, _params, body) => {
     try {
-        const { mrnId, action, approvedById } = body;
-        const result = await InventoryService.updateMRNStatus(mrnId, action, approvedById);
+        const mrnId = body.mrnId as string | undefined;
+        const action = body.action as string | undefined;
+        const approvedById = body.approvedById as string | undefined;
+        if (!mrnId || !action || !approvedById) {
+            throw AppError.badRequest('mrnId, action, and approvedById are required');
+        }
+        const result = await InventoryService.updateMRNStatus(mrnId, action as 'APPROVE' | 'REJECT', approvedById);
         return result;
     } catch (error: unknown) {
         const err = error as { message?: string };
@@ -52,7 +60,7 @@ export const PATCH = apiHandler(async (request, _params, body) => {
         throw AppError.internal('Failed to process MRN');
     }
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.STORES_ALL,
     audit: { action: 'UPDATE', entity: 'MRN' },
     rawResponse: true
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
 import { inventoryItemSchema } from '@/lib/validations/inventory.schema';
@@ -22,33 +23,35 @@ export const POST = apiHandler(async (req, _params, body) => {
     return await InventoryService.createItem(data);
 }, {
     schema: inventoryItemSchema,
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CREATE', entity: 'ITEM' },
     rawResponse: true
 });
 
 // PUT: Update an existing inventory item
-export const PUT = apiHandler(async (req, _params, body) => {
-    const { id, ...data } = body;
+export const PUT = apiHandler(async (_req, _params, body) => {
+    const id = body.id as string | undefined;
     if (!id) {
         throw new Error('ID_REQUIRED');
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, ...data } = body;
     return await InventoryService.updateItem(id, data);
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE', entity: 'ITEM' },
     rawResponse: true
 });
 
 // PATCH: Bulk items update
-export const PATCH = apiHandler(async (req, _params, body) => {
-    const { updates } = body;
+export const PATCH = apiHandler(async (_req, _params, body) => {
+    const updates = body.updates as unknown[] | undefined;
     if (!updates) {
         throw new Error('UPDATES_REQUIRED');
     }
     return await InventoryService.patchBulkItems(updates);
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'BULK_UPDATE', entity: 'ITEM' },
     rawResponse: true
 });
@@ -62,7 +65,7 @@ export const DELETE = apiHandler(async (req) => {
     }
     return await InventoryService.deleteItem(id);
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE', entity: 'ITEM' },
     rawResponse: true
 });

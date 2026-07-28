@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectPurchaseOrderService } from '@/services/project-purchase-order.service';
 
@@ -19,22 +20,27 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/projects/purchase-orders - Create a new PO with items
 export const POST = apiHandler(async (req, _params, body) => {
-    const { projectId, vendorId, title, items } = body;
+    const projectId = body.projectId as string | undefined;
+    const vendorId = body.vendorId as string | undefined;
+    const title = body.title as string | undefined;
+    const items = body.items as unknown[] | undefined;
 
     if (!projectId || !vendorId || !title || !items?.length) {
         throw new Error('projectId, vendorId, title, and items are required');
     }
 
-    return await ProjectPurchaseOrderService.createPurchaseOrder(body);
+    return await ProjectPurchaseOrderService.createPurchaseOrder(body as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE_MANAGER', 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_PURCHASE_ORDER' },
     rawResponse: true
 });
 
 // PATCH /api/projects/purchase-orders - Update PO status (secure userId mapping)
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, status, cancellationReason } = body;
+    const id = body.id as string | undefined;
+    const status = body.status as string | undefined;
+    const cancellationReason = body.cancellationReason as string | undefined;
     const userId = req.headers.get("x-user-id") || undefined;
 
     if (!id || !status) {
@@ -48,7 +54,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await ProjectPurchaseOrderService.updatePurchaseOrderStatus(id, status, payload);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE_MANAGER', 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE_STATUS', entity: 'PROJECT_PURCHASE_ORDER' },
     rawResponse: true
 });
@@ -65,7 +71,7 @@ export const DELETE = apiHandler(async (req) => {
     await ProjectPurchaseOrderService.deletePurchaseOrder(id);
     return { message: 'Purchase order deleted successfully' };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE_MANAGER', 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'DELETE', entity: 'PROJECT_PURCHASE_ORDER' },
     rawResponse: true
 });

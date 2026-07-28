@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -89,6 +90,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
 }, {
     // Typically any logged-in user can update their table settings if we separate by userId, 
     // but here it looks like a global setting. We will restrict to ADMIN.
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_TABLE_SETTINGS', entity: 'System' }
 });

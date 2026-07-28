@@ -8,9 +8,8 @@ import { updateGISRouteElementsSchema, UpdateGISRouteElementsSchema } from '@/li
  * GET: Fetch As-Planned vs As-Built progress for a GIS route
  */
 export const GET = apiHandler<unknown, void>(
-    async (request: Request, params: { id: string; routeId: string }) => {
-        const { id: projectId, routeId } = params;
-        const progress = await GISRouteService.getRouteProgress(projectId, routeId);
+    async (_request, params) => {
+        const progress = await GISRouteService.getRouteProgress(params.id, params.routeId);
         return progress;
     }
 );
@@ -19,9 +18,8 @@ export const GET = apiHandler<unknown, void>(
  * PATCH: Update status of individual GIS elements (bulk update)
  */
 export const PATCH = apiHandler<unknown, UpdateGISRouteElementsSchema>(
-    async (request: Request, params: { id: string; routeId: string }, body) => {
-        const { id: projectId, routeId } = params;
-        const result = await GISRouteService.updateGISRouteElements(projectId, routeId, body);
+    async (_request, params, body) => {
+        const result = await GISRouteService.updateGISRouteElements(params.id, params.routeId, body);
         return result;
     },
     { schema: updateGISRouteElementsSchema }

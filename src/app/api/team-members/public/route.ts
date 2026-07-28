@@ -28,14 +28,15 @@ export const GET = apiHandler(async (request) => {
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (_request, _params, body) => {
-    const { token, data } = body || {};
+    const token = body.token as string | undefined;
+    const data = body.data;
 
     if (!token) {
         throw AppError.badRequest('Missing token');
     }
 
     try {
-        await TeamMemberService.updateProfileByToken(token, data);
+        await TeamMemberService.updateProfileByToken(token, data as any);
         return { success: true };
     } catch (error: any) {
         const message = error?.message;

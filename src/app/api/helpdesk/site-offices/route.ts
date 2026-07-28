@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskService } from "@/services/helpdesk.service";
 
@@ -15,5 +16,5 @@ export const GET = apiHandler(async (req) => {
     search
   });
 }, {
-  roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"]
+  roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"]
 });

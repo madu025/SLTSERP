@@ -1,6 +1,7 @@
 import { VendorService } from "@/services/vendor.service";
 import { apiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/error";
+import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export const GET = apiHandler(async (request) => {
 // POST /api/vendors - Create a new vendor with auto-generated code
 export const POST = apiHandler(async (_request, _params, body) => {
     try {
-        const vendor = await VendorService.createVendor(body);
+        const vendor = await VendorService.createVendor(body as any);
         return vendor;
     } catch (error: unknown) {
         const err = error as { code?: string; message?: string };
@@ -37,7 +38,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'CREATE', entity: 'VENDOR' },
     rawResponse: true
 });

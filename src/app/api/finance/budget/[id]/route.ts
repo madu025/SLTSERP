@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { BudgetAllocationService } from '@/services/finance/budget-allocation.service';
@@ -15,7 +16,7 @@ const UpdateBudgetSchema = z.object({
 // ── GET — Get a single budget by ID ───────────────────────────────────────────
 
 export const GET = apiHandler(async (_req, params) => {
-  const id = (params as Record<string, string>)?.id;
+  const id = params.id;
   if (!id) throw AppError.badRequest('Budget ID required');
 
   const budget = await BudgetAllocationService.getBudgetById(id);
@@ -30,7 +31,7 @@ export const GET = apiHandler(async (_req, params) => {
 // ── PUT — Update a budget allocation ──────────────────────────────────────────
 
 export const PUT = apiHandler(async (req, params, body) => {
-  const id = (params as Record<string, string>)?.id;
+  const id = params.id;
   if (!id) throw AppError.badRequest('Budget ID required');
 
   const userId = req.headers.get('x-user-id') ?? undefined;
@@ -43,7 +44,7 @@ export const PUT = apiHandler(async (req, params, body) => {
   return { success: true, data: updated };
 }, {
   schema: UpdateBudgetSchema,
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'UPDATE', entity: 'FINANCE_BUDGET_ALLOCATION' },
   rawResponse: true,
 });
@@ -51,7 +52,7 @@ export const PUT = apiHandler(async (req, params, body) => {
 // ── DELETE — Soft-delete (freeze) a budget allocation ─────────────────────────
 
 export const DELETE = apiHandler(async (_req, params) => {
-  const id = (params as Record<string, string>)?.id;
+  const id = params.id;
   if (!id) throw AppError.badRequest('Budget ID required');
 
   try {
@@ -64,7 +65,7 @@ export const DELETE = apiHandler(async (_req, params) => {
     throw error;
   }
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'DELETE', entity: 'FINANCE_BUDGET_ALLOCATION' },
   rawResponse: true,
 });

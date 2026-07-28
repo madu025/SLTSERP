@@ -3,7 +3,10 @@ import { WorkflowEngine } from '@/services/WorkflowEngine';
 import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (_request, _params, body) => {
-    const { approvalId, status, userId, comments } = body || {};
+    const approvalId = body.approvalId as string | undefined;
+    const status = body.status as string | undefined;
+    const userId = body.userId as string | undefined;
+    const comments = body.comments as string | undefined;
 
     if (!approvalId || !status || !userId) {
         throw AppError.badRequest('approvalId, status, and userId are required');

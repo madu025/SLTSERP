@@ -3,7 +3,8 @@ import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (request, _params, body) => {
-    const { serialNumber, staffId } = body;
+    const serialNumber = body.serialNumber as string | undefined;
+    const staffId = body.staffId as string | undefined;
     const userId = request.headers.get('x-user-id') || 'SYSTEM';
 
     if (!serialNumber || !staffId) {

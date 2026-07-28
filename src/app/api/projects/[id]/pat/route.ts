@@ -17,7 +17,7 @@ export const POST = apiHandler(async (request, params, body) => {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    const { patType } = body || {};
+    const patType = body.patType as string | undefined;
 
     if (!patType || !['PRE_PAT', 'SLT_PAT'].includes(patType)) {
         throw AppError.badRequest('Invalid patType. Must be PRE_PAT or SLT_PAT');

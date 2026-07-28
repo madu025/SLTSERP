@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { MaterialExcelImportService } from '@/services/inventory/material-excel-import.service';
@@ -23,7 +24,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   return result;
 }, {
   schema: ImportSchema,
-  roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'],
+  roles: ROLE_GROUPS.STORES_MANAGERS,
   audit: { action: 'IMPORT', entity: 'PRE_ERP_MATERIAL_EXCEL' },
   rawResponse: true,
 });

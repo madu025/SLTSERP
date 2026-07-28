@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { MaterialAuditReportService } from '@/services/inventory/material-audit-report.service';
@@ -10,6 +11,6 @@ export const GET = apiHandler(async (request) => {
 
   return MaterialAuditReportService.getExecutiveAuditSummary(opmcId);
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER'],
+  roles: [...ROLE_GROUPS.STORES_ALL, "FINANCE_MANAGER"],
   rawResponse: true,
 });

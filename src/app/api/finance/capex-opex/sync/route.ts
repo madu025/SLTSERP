@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { CapexOpexLedgerService } from '@/services/finance/capex-opex-ledger.service';
@@ -29,7 +30,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
   };
 }, {
   schema: SyncSchema,
-  roles: ['SUPER_ADMIN', 'ADMIN'],
+  roles: ROLE_GROUPS.ADMINS,
   audit: { action: 'SYNC', entity: 'CAPEX_OPEX_LEDGER' },
   rawResponse: true,
 });

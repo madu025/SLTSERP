@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { buildGrafanaDashboard } from '@/services/admin/grafana-dashboard';
 
@@ -16,6 +17,6 @@ export const GET = apiHandler(async () => {
         }
     });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     rawResponse: true
 });

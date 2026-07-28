@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskAuditService } from "@/services/helpdesk-audit.service";
 import { z } from "zod";
@@ -31,7 +32,7 @@ export const GET = apiHandler(
     return await HelpdeskAuditService.getAudits();
   },
   {
-    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"]
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"]
   }
 );
 
@@ -70,7 +71,7 @@ export const PUT = apiHandler(
     return await HelpdeskAuditService.syncAuditToInventory(auditId, body || undefined, userId);
   },
   {
-    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
     audit: {
       action: "UPDATE",
       entity: "ITAssetAudit"
@@ -91,7 +92,7 @@ export const PATCH = apiHandler(
     return await HelpdeskAuditService.rejectAudit(auditId);
   },
   {
-    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
     audit: {
       action: "UPDATE",
       entity: "ITAssetAudit"
@@ -112,7 +113,7 @@ export const DELETE = apiHandler(
     return await HelpdeskAuditService.deleteAudit(auditId);
   },
   {
-    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
     audit: {
       action: "DELETE",
       entity: "ITAssetAudit"

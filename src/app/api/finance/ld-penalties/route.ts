@@ -1,5 +1,8 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { LDPenaltyService } from "@/services/finance/ld-penalty.service";
+import { z } from 'zod';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -14,39 +17,56 @@ export const GET = apiHandler(async (req) => {
     rawResponse: true
 });
 
+const proposePenaltySchema = z.object({
+    projectId: z.string(),
+    title: z.string(),
+    description: z.string().nullish(),
+    type: z.string().optional(),
+    category: z.string().optional(),
+    amount: z.number(),
+    percentage: z.number().nullish(),
+    referenceTable: z.string().nullish(),
+    referenceId: z.string().nullish(),
+    referenceDesc: z.string().nullish(),
+    remarks: z.string().nullish(),
+    leviedById: z.string().nullish(),
+});
+
+const updatePenaltyStatusSchema = z.object({
+    id: z.string(),
+    status: z.enum(['APPROVED', 'WAIVED', 'COLLECTED']),
+    waivedAmount: z.number().optional(),
+    remarks: z.string().optional(),
+});
+
 // POST /api/finance/ld-penalties - Propose a new LD / Penalty
-export const POST = apiHandler(async (req, _params, body) => {
-    const { projectId, title, amount } = body;
-
-    if (!projectId || !title || amount === undefined) {
-        throw new Error("projectId, title, and amount are required fields");
-    }
-
+export const POST = apiHandler(async (_req, _params, body) => {
     return await LDPenaltyService.proposePenalty(body);
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    schema: proposePenaltySchema,
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'PROPOSE', entity: 'LD_PENALTY' },
     rawResponse: true
 });
 
-// PATCH /api/finance/ld-penalties - Approve or Waive a penalty (secure userId context)
+// PATCH /api/finance/ld-penalties - Approve or Waive a penalty
 export const PATCH = apiHandler(async (req, _params, body) => {
     const { id, status, waivedAmount, remarks } = body;
     const userId = req.headers.get("x-user-id");
 
-    if (!id || !status || !userId) {
-        throw new Error("id, status, and authenticated user are required fields");
-    }
+    if (!userId) throw new Error('Authenticated user is required');
 
     return await LDPenaltyService.updatePenaltyStatus(id, status, userId, {
-        waivedAmount: waivedAmount !== undefined ? Number(waivedAmount) : undefined,
-        remarks
+        waivedAmount,
+        remarks: remarks ?? undefined,
     });
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    schema: updatePenaltyStatusSchema,
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'UPDATE_STATUS', entity: 'LD_PENALTY' },
     rawResponse: true
 });
+
 
 // DELETE /api/finance/ld-penalties - Delete a proposed penalty
 export const DELETE = apiHandler(async (req) => {
@@ -59,7 +79,7 @@ export const DELETE = apiHandler(async (req) => {
 
     return await LDPenaltyService.deletePenalty(id);
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'DELETE', entity: 'LD_PENALTY' },
     rawResponse: true
 });

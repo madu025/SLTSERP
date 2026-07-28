@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 
@@ -24,7 +25,7 @@ export const GET = apiHandler(async (req) => {
         search
     });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN']
+    roles: ROLE_GROUPS.ADMINS
 });
 
 // DELETE /api/admin/monitoring/errors - Bulk clear error logs

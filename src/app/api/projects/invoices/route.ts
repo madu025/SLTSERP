@@ -21,14 +21,16 @@ export const GET = apiHandler(async (request) => {
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (_request, _params, body) => {
-    const { projectId, title, items } = body || {};
+    const projectId = body.projectId as string | undefined;
+    const title = body.title as string | undefined;
+    const items = body.items as unknown[] | undefined;
 
     if (!projectId || !title || !items?.length) {
         throw AppError.badRequest('projectId, title, and items are required');
     }
 
     try {
-        const invoice = await ProjectInvoiceService.createInvoice(body);
+        const invoice = await ProjectInvoiceService.createInvoice(body as any);
         return Response.json(invoice, { status: 201 });
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
@@ -43,14 +45,16 @@ export const POST = apiHandler(async (_request, _params, body) => {
 });
 
 export const PATCH = apiHandler(async (_request, _params, body) => {
-    const { id, ...updateFields } = body || {};
+    const id = body.id as string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, ...updateFields } = body;
 
     if (!id) {
         throw AppError.badRequest('id is required');
     }
 
     try {
-        return await ProjectInvoiceService.updateInvoice(id, updateFields);
+        return await ProjectInvoiceService.updateInvoice(id, updateFields as any);
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'INVOICE_NOT_FOUND') {

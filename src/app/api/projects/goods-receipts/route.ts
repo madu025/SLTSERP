@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectGoodsReceiptService } from '@/services/project-goods-receipt.service';
 
@@ -20,7 +21,9 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/projects/goods-receipts - Create a new goods receipt
 export const POST = apiHandler(async (req, _params, body) => {
-    const { poId, projectId, items } = body;
+    const poId = body.poId as string | undefined;
+    const projectId = body.projectId as string | undefined;
+    const items = body.items as unknown[] | undefined;
     const userId = req.headers.get('x-user-id');
 
     if (!poId || !projectId || !userId || !items?.length) {
@@ -32,16 +35,17 @@ export const POST = apiHandler(async (req, _params, body) => {
         receivedById: userId
     };
 
-    return await ProjectGoodsReceiptService.createGoodsReceipt(payload);
+    return await ProjectGoodsReceiptService.createGoodsReceipt(payload as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORES_MANAGER'],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_GOODS_RECEIPT' },
     rawResponse: true
 });
 
 // PATCH /api/projects/goods-receipts - Approve/reject goods receipt
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, status } = body;
+    const id = body.id as string | undefined;
+    const status = body.status as string | undefined;
     const userId = req.headers.get('x-user-id') || undefined;
 
     if (!id || !status) {
@@ -50,7 +54,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await ProjectGoodsReceiptService.updateGoodsReceiptStatus(id, status, userId);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORES_MANAGER'],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     audit: { action: 'UPDATE_STATUS', entity: 'PROJECT_GOODS_RECEIPT' },
     rawResponse: true
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { BudgetAllocationService } from '@/services/finance/budget-allocation.service';
@@ -53,7 +54,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   return { success: true, data: budget };
 }, {
   schema: CreateBudgetSchema,
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'CREATE', entity: 'FINANCE_BUDGET_ALLOCATION' },
   rawResponse: true,
 });

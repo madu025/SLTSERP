@@ -7,11 +7,10 @@ import { generateBOQSchema, GenerateBOQSchema } from '@/lib/validations/gis.sche
  * GISGeneratedBOQ (for GIS tracking) AND ProjectBOQItems (for project BOQ tab / overview)
  */
 export const POST = apiHandler<unknown, GenerateBOQSchema>(
-    async (request: Request, params: { id: string; routeId: string }, body) => {
-        const { id: projectId, routeId } = params;
+    async (request, params, body) => {
         const userId = request.headers.get('x-user-id') || 'unknown';
 
-        const result = await GISRouteService.generateBOQFromRoute(projectId, routeId, body, userId);
+        const result = await GISRouteService.generateBOQFromRoute(params.id, params.routeId, body, userId);
         return result;
     },
     { schema: generateBOQSchema }

@@ -8,18 +8,18 @@ export const POST = apiHandler(async (req, _params, body) => {
 
   if (transactionType === 'PROJECT_ISSUE') {
     return await ProjectIRLedgerService.recordProjectIssue({
-      ...rest,
+      ...(rest as any),
       userId
     });
   } else if (transactionType === 'SLT_RETURN') {
     return await ProjectIRLedgerService.recordSLTReturn({
-      ...rest,
+      ...(rest as any),
       userId
     });
   } else {
     // Default to PROJECT_RETURN
     return await ProjectIRLedgerService.recordProjectReturn({
-      ...rest,
+      ...(rest as any),
       userId
     });
   }

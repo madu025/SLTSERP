@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { HelpdeskService } from "@/services/helpdesk.service";
 import { CreateAssetSchema } from "@/lib/validations/helpdesk.schema";
@@ -35,7 +36,7 @@ export const POST = apiHandler(
   },
   {
     schema: CreateAssetSchema,
-    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
     audit: {
       action: "CREATE",
       entity: "ITAsset"

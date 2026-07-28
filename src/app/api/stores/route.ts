@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
 import { AppError } from '@/lib/error';
@@ -30,10 +31,10 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.badRequest('Store name is required');
     }
 
-    const store = await InventoryService.createStore(body);
+    const store = await InventoryService.createStore(body as any);
     return store;
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STORE_CREATE', entity: 'Store' },
     rawResponse: true
 });

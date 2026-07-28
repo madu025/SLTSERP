@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -39,7 +40,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const config = await SodRevenueService.createConfig(data, userId);
     return Response.json({ success: true, data: config });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CREATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
 });
 
@@ -49,7 +50,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const config = await SodRevenueService.updateConfig(data.id, data);
     return Response.json({ success: true, data: config });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
 });
 
@@ -64,6 +65,6 @@ export const DELETE = apiHandler(async (req) => {
     await SodRevenueService.deleteConfig(id);
     return Response.json({ success: true, message: 'Configuration deleted successfully' });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE_SOD_REVENUE_CONFIG', entity: 'Admin' }
 });

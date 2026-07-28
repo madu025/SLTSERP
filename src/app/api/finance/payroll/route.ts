@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 
 import { PayrollExpenseService } from '@/services/finance/payroll-expense.service';
@@ -30,5 +31,5 @@ export const POST = apiHandler(async (req) => {
 
     return record;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
+    roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

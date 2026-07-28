@@ -11,7 +11,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.badRequest('Project ID, Type and Amount are required');
     }
 
-    return await ProjectExpenseService.createExpense(body);
+    return await ProjectExpenseService.createExpense(body as any);
 }, {
     audit: { action: 'CREATE', entity: 'PROJECT_EXPENSE' },
     rawResponse: true

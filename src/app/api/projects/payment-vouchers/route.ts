@@ -16,13 +16,16 @@ export const GET = apiHandler(async (request) => {
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (_request, _params, body) => {
-    const { projectId, title, payeeName, amount } = body || {};
+    const projectId = body.projectId as string | undefined;
+    const title = body.title as string | undefined;
+    const payeeName = body.payeeName as string | undefined;
+    const amount = body.amount as number | undefined;
 
     if (!projectId || !title || !payeeName || !amount) {
         throw AppError.badRequest('projectId, title, payeeName, and amount are required');
     }
 
-    const voucher = await PaymentVoucherService.createVoucher(body);
+    const voucher = await PaymentVoucherService.createVoucher(body as any);
     return Response.json(voucher, { status: 201 });
 }, {
     audit: { action: 'CREATE', entity: 'PAYMENT_VOUCHER' },
@@ -30,14 +33,17 @@ export const POST = apiHandler(async (_request, _params, body) => {
 });
 
 export const PATCH = apiHandler(async (_request, _params, body) => {
-    const { id, status, ...options } = body || {};
+    const id = body.id as string | undefined;
+    const status = body.status as string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id: _id, status: _st, ...options } = body;
 
     if (!id || !status) {
         throw AppError.badRequest('id and status are required');
     }
 
     try {
-        return await PaymentVoucherService.updateVoucherStatus(id, status, options);
+        return await PaymentVoucherService.updateVoucherStatus(id, status, options as any);
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'PAYMENT_VOUCHER_NOT_FOUND') {

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 import { requireAuth } from '@/lib/server-utils';
@@ -9,6 +10,6 @@ export const PATCH = apiHandler(async (_req, params) => {
 
     return await SystemMonitoringService.markResolved(id, user.id);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'MARK_ERROR_RESOLVED', entity: 'SystemErrorLog' }
 });

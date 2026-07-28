@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -42,7 +43,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const config = await ContractorPaymentService.createConfig(data, userId);
     return Response.json({ success: true, data: config });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CREATE_PAYMENT_CONFIG', entity: 'Admin' }
 });
 
@@ -52,7 +53,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const config = await ContractorPaymentService.updateConfig(data.id, data);
     return Response.json({ success: true, data: config });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_PAYMENT_CONFIG', entity: 'Admin' }
 });
 
@@ -67,6 +68,6 @@ export const DELETE = apiHandler(async (req) => {
     await ContractorPaymentService.deleteConfig(id);
     return Response.json({ success: true, message: 'Configuration deleted successfully' });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE_PAYMENT_CONFIG', entity: 'Admin' }
 });

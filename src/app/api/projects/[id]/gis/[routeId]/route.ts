@@ -9,9 +9,8 @@ export const dynamic = 'force-dynamic';
  * GET: Retrieve specific GIS route with elements
  */
 export const GET = apiHandler<unknown, void>(
-    async (request: Request, params: { id: string; routeId: string }) => {
-        const { routeId } = params;
-        const route = await GISRouteService.getRoute(routeId);
+    async (_request, params) => {
+        const route = await GISRouteService.getRoute(params.routeId);
         if (!route) {
             throw new Error('Route not found');
         }
@@ -23,14 +22,13 @@ export const GET = apiHandler<unknown, void>(
  * PATCH: Update specific GIS route
  */
 export const PATCH = apiHandler<GISRoute, UpdateGISRouteSchema>(
-    async (request: Request, params: { id: string; routeId: string }, body) => {
-        const { id: projectId, routeId } = params;
+    async (request, params, body) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
             throw new Error('Unauthorized');
         }
 
-        const route = await GISRouteService.updateRoute(projectId, routeId, body, userId);
+        const route = await GISRouteService.updateRoute(params.id, params.routeId, body, userId);
         return route;
     },
     { schema: updateGISRouteSchema }
@@ -40,14 +38,13 @@ export const PATCH = apiHandler<GISRoute, UpdateGISRouteSchema>(
  * DELETE: Delete GIS route and nested child elements transactionally
  */
 export const DELETE = apiHandler<unknown, void>(
-    async (request: Request, params: { id: string; routeId: string }) => {
-        const { id: projectId, routeId } = params;
+    async (request, params) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
             throw new Error('Unauthorized');
         }
 
-        const result = await GISRouteService.deleteRoute(projectId, routeId, userId);
+        const result = await GISRouteService.deleteRoute(params.id, params.routeId, userId);
         return result;
     }
 );

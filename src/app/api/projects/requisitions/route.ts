@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectRequisitionService } from '@/services/project-requisition.service';
 
@@ -19,7 +20,9 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/projects/requisitions - Create a new requisition with items
 export const POST = apiHandler(async (req, _params, body) => {
-    const { projectId, title, items } = body;
+    const projectId = body.projectId as string | undefined;
+    const title = body.title as string | undefined;
+    const items = body.items as unknown[] | undefined;
     const userId = req.headers.get('x-user-id');
 
     if (!projectId || !title || !userId || !items?.length) {
@@ -31,16 +34,18 @@ export const POST = apiHandler(async (req, _params, body) => {
         requestedById: userId
     };
 
-    return await ProjectRequisitionService.createRequisition(payload);
+    return await ProjectRequisitionService.createRequisition(payload as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_REQUISITION' },
     rawResponse: true
 });
 
 // PATCH /api/projects/requisitions - Update requisition status
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, status, rejectionReason } = body;
+    const id = body.id as string | undefined;
+    const status = body.status as string | undefined;
+    const rejectionReason = body.rejectionReason as string | undefined;
     const userId = req.headers.get('x-user-id') || undefined;
 
     if (!id || !status) {
@@ -49,7 +54,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await ProjectRequisitionService.updateRequisitionStatus(id, status, userId, rejectionReason);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE_STATUS', entity: 'PROJECT_REQUISITION' },
     rawResponse: true
 });
@@ -66,7 +71,7 @@ export const DELETE = apiHandler(async (req) => {
     await ProjectRequisitionService.deleteRequisition(id);
     return { message: 'Requisition deleted successfully' };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'DELETE', entity: 'PROJECT_REQUISITION' },
     rawResponse: true
 });

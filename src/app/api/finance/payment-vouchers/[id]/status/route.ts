@@ -1,24 +1,28 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
+import { z } from 'zod';
 
-type Params = Promise<{ id: string }>;
+const updateStatusSchema = z.object({
+    status: z.string(),
+    rejectionReason: z.string().optional(),
+    cancelledReason: z.string().optional(),
+});
 
 // PATCH /api/finance/payment-vouchers/[id]/status - Update payment voucher status
 export const PATCH = apiHandler(async (req, params, body) => {
-    const { id } = await (params as Params);
     const { status, rejectionReason, cancelledReason } = body;
     const userId = req.headers.get("x-user-id");
 
-    if (!status || !userId) {
-        throw new Error("status is required and user must be authenticated");
-    }
+    if (!userId) throw new Error('Authenticated user is required');
 
-    return await PaymentVoucherService.updatePaymentVoucherStatus(id, status, userId, {
+    return await PaymentVoucherService.updatePaymentVoucherStatus(params.id, status, userId, {
         rejectionReason,
         cancelledReason
     });
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    schema: updateStatusSchema,
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'UPDATE_STATUS', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });

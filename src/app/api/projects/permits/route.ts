@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectPermitService } from '@/services/project-permit.service';
 
@@ -21,9 +22,9 @@ export const POST = apiHandler(async (req, _params, body) => {
         throw new Error("Missing required fields: projectId, permitTypeId");
     }
 
-    return await ProjectPermitService.createPermit(body);
+    return await ProjectPermitService.createPermit(body as any);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_PERMIT' },
     rawResponse: true
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
 import { AppError } from '@/lib/error';
@@ -22,7 +23,7 @@ export const PUT = apiHandler(async (_request, params, body) => {
     const store = await InventoryService.updateStore(storeId, body);
     return store;
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STORE_UPDATE', entity: 'Store' },
     rawResponse: true
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from "@/lib/api-handler";
@@ -24,7 +25,7 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateAssetSchema,
-    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
+    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
     audit: {
       action: "UPDATE",
       entity: "ITAsset"

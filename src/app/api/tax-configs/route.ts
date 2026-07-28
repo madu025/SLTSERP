@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { TaxConfigService } from '@/services/tax-config.service';
 import { AppError } from '@/lib/error';
@@ -15,7 +16,7 @@ export const GET = apiHandler(async (request) => {
 
 export const POST = apiHandler(async (_request, _params, body) => {
     try {
-        const taxConfig = await TaxConfigService.createTaxConfig(body);
+        const taxConfig = await TaxConfigService.createTaxConfig(body as any);
         return taxConfig;
     } catch (error: any) {
         const message = error?.message;
@@ -28,6 +29,6 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'TAX_CONFIG_CREATE', entity: 'TaxConfig' }
 });

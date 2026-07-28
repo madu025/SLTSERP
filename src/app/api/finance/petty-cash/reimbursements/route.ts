@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
@@ -15,7 +16,7 @@ export const GET = apiHandler(async (req) => {
 
 // POST /api/finance/petty-cash/reimbursements - Submit reimbursement request
 export const POST = apiHandler(async (req, _params, body) => {
-    const { accountId } = body;
+    const accountId = body.accountId as string | undefined;
     const userId = req.headers.get("x-user-id");
 
     if (!accountId || !userId) {
@@ -30,7 +31,8 @@ export const POST = apiHandler(async (req, _params, body) => {
 
 // PATCH /api/finance/petty-cash/reimbursements - Complete reimbursement (reimbursed)
 export const PATCH = apiHandler(async (req, _params, body) => {
-    const { id, paymentVoucherId } = body;
+    const id = body.id as string | undefined;
+    const paymentVoucherId = body.paymentVoucherId as string | undefined;
     const userId = req.headers.get("x-user-id");
 
     if (!id || !paymentVoucherId || !userId) {
@@ -39,7 +41,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await PettyCashService.completeReimbursement(id, paymentVoucherId, userId);
 }, {
-    roles: ['FINANCE_MANAGER', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'COMPLETE_REIMBURSEMENT', entity: 'PETTY_CASH_REIMBURSEMENT' },
     rawResponse: true
 });

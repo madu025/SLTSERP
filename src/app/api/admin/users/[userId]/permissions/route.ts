@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -10,23 +11,19 @@ const updatePermissionsSchema = z.object({
 
 // GET - Fetch user's permissions
 export const GET = apiHandler(async (_req, params) => {
-    const { userId } = await params;
-    const permissions = await UserService.getUserPermissions(userId);
-    
+    const permissions = await UserService.getUserPermissions(params.userId);
     return Response.json(permissions);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN']
+    roles: ROLE_GROUPS.ADMINS
 });
 
 // PATCH - Update user's permissions
 export const PATCH = apiHandler(async (_req, params, body) => {
-    const { userId } = await params;
-    const { permissions } = updatePermissionsSchema.parse(body);
-
-    await UserService.updateUserPermissions(userId, permissions);
-
+    const { permissions } = body;
+    await UserService.updateUserPermissions(params.userId, permissions);
     return Response.json({ message: 'Permissions updated successfully' });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    schema: updatePermissionsSchema,
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_USER_PERMISSIONS', entity: 'User' }
 });

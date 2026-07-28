@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
  * GET: Retrieve 3-level payment summary and financial analysis for a project
  */
 export const GET = apiHandler<unknown, void>(
-    async (request: Request, params: { id: string }) => {
+    async (request, params) => {
         const { id: projectId } = params;
         const userId = request.headers.get('x-user-id');
         if (!userId) {

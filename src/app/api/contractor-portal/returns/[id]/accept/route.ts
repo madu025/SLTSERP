@@ -6,13 +6,17 @@ import { ContractorInventoryService } from '@/services/inventory/contractor-inve
 export const dynamic = 'force-dynamic';
 
 // POST /api/contractor-portal/returns/[id]/accept - Storekeeper fine-tunes & accepts MRN return request
-export const POST = apiHandler(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
-    const { id } = await params;
-    const body = await req.json();
+export const POST = apiHandler(async (req, params, body) => {
     const { acceptedQuantity, acceptedQuantities, storekeeperNotes } = body;
     const userId = req.headers.get('x-user-id');
 
-    return await ContractorInventoryService.acceptMaterialReturn(id, acceptedQuantity, storekeeperNotes, userId, acceptedQuantities);
+    return await ContractorInventoryService.acceptMaterialReturn(
+        params.id, 
+        acceptedQuantity !== undefined ? Number(acceptedQuantity) : undefined, 
+        storekeeperNotes as string | undefined, 
+        userId, 
+        acceptedQuantities as any
+    );
 }, {
     roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'CONTRACTOR_SUPERVISOR'],
 });

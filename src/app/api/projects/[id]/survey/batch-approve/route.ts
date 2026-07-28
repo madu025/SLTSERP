@@ -10,7 +10,8 @@ export const POST = apiHandler(async (request, _params, body) => {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    const { pointIds, action } = body || {};
+    const pointIds = body.pointIds as string[] | undefined;
+    const action = body.action as string | undefined;
 
     if (!pointIds || !Array.isArray(pointIds) || pointIds.length === 0) {
         throw AppError.badRequest('pointIds array is required');

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { PricingAuditService } from '@/services/sf-audit/pricing-audit.service';
@@ -11,23 +12,18 @@ const amendRequestSchema = z.object({
 });
 
 export const POST = apiHandler(
-    async (req: Request, context: { params: Promise<{ id: string }> }, body: { requestedAmount: number; reason: string }) => {
-        const { id: invoiceId } = await context.params;
+    async (req, params, body) => {
         const userId = req.headers.get('x-user-id') || 'system';
-
-        if (!invoiceId) {
-            return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
-        }
-
-        const amendmentRequest = await PricingAuditService.createAmendmentRequest(invoiceId, body.requestedAmount, body.reason, userId);
-
+        const amendmentRequest = await PricingAuditService.createAmendmentRequest(
+            params.id, body.requestedAmount, body.reason, userId
+        );
         return {
             message: 'Invoice amount amendment request submitted for SF Audit Manager approval.',
             amendmentRequest
         };
     },
     {
-        roles: ['SF_AUDIT', 'SF_AUDIT_OFFICER', 'ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER'],
+        roles: ROLE_GROUPS.SF_AUDITORS,
         schema: amendRequestSchema
     }
 );
