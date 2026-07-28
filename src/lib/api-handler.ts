@@ -113,14 +113,44 @@ export function castBody<T>(body: Record<string, unknown>): T {
 // ─── Core apiHandler ──────────────────────────────────────────────────────────
 
 /**
+ * Recursively redacts sensitive fields (passwords, tokens, secrets, credentials)
+ * before persisting payloads to Audit Logs.
+ */
+export function redactSensitiveFields(data: unknown): unknown {
+    if (!data || typeof data !== 'object') return data;
+    if (Array.isArray(data)) {
+        return data.map(redactSensitiveFields);
+    }
+    const sensitiveKeys = new Set([
+        'password', 'pass', 'token', 'secret', 'jwt',
+        'creditcard', 'cvv', 'authorization', 'apikey', 'pin',
+        'ssn', 'privatekey'
+    ]);
+    const redacted: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+        const lowerKey = key.toLowerCase();
+        if (sensitiveKeys.has(lowerKey) || lowerKey.includes('password') || lowerKey.includes('token') || lowerKey.includes('secret')) {
+            redacted[key] = '[REDACTED]';
+        } else if (typeof value === 'object' && value !== null) {
+            redacted[key] = redactSensitiveFields(value);
+        } else {
+            redacted[key] = value;
+        }
+    }
+    return redacted;
+}
+
+// ─── Core apiHandler ──────────────────────────────────────────────────────────
+
+/**
  * Enterprise API Handler — wraps every route with:
  *   1. RBAC enforcement (fail-closed)
  *   2. Redis rate limiting (optional)
- *   3. Financial write guard: idempotency header enforcement + advisory log
- *   4. Zod body validation
+ *   3. Financial write guard: idempotency header enforcement + Redis deduplication + advisory log
+ *   4. Zod body validation & strict malformed JSON error handling
  *   5. Structured logger with requestId + perf alerting (>500 ms)
  *   6. Typed error mapping (no `any` in catch blocks)
- *   7. Full audit trail with oldValue annotation
+ *   7. Full audit trail with sensitive data redaction & oldValue annotation
  *   8. 500-error system monitoring
  *   9. Standardised ApiResponse envelope (requestId, warnings, idempotencyKey)
  *
@@ -160,7 +190,7 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                     }
                 }
 
-                // ── 2. Financial Write Guard ───────────────────────────────
+                // ── 2. Financial Write Guard & Redis Idempotency Lock ────────
                 if (options?.financialWrite) {
                     if (!idempotencyKey) {
                         throw new AppError(
@@ -169,6 +199,32 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                             400
                         );
                     }
+
+                    try {
+                        const { redis } = await import('@/lib/redis');
+                        const urlPath = new URL(req.url).pathname;
+                        const redisIdempotencyKey = `idempotency:${urlPath}:${idempotencyKey}`;
+                        const acquired = await redis.set(redisIdempotencyKey, 'PROCESSING', 'EX', 86400, 'NX');
+
+                        if (!acquired) {
+                            const existingState = await redis.get(redisIdempotencyKey);
+                            logger.warn('[IDEMPOTENCY-REPLAY-PREVENTED]', {
+                                path: urlPath,
+                                userId,
+                                idempotencyKey,
+                                existingState
+                            });
+                            throw new AppError(
+                                'A request with this x-idempotency-key is already processing or completed.',
+                                ErrorCode.IDEMPOTENCY_CONFLICT,
+                                409
+                            );
+                        }
+                    } catch (e: unknown) {
+                        if (e instanceof AppError) throw e;
+                        logger.warn('[IDEMPOTENCY-REDIS-FAIL-OPEN]', { error: e, idempotencyKey });
+                    }
+
                     logger.warn('[FINANCIAL-WRITE]', {
                         path: req.url,
                         method: req.method,
@@ -178,35 +234,43 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                     });
                 }
 
-                // ── 3. Rate Limiting ───────────────────────────────────────
+                // ── 3. Unified Rate Limiting ───────────────────────────────
                 if (options?.rateLimit) {
-                    const ip    = req.headers.get('x-forwarded-for') ?? '127.0.0.1';
-                    const rlKey = `rate-limit:${req.url}:${ip}`;
-                    try {
-                        const { redis } = await import('@/lib/redis');
-                        const current = await redis.incr(rlKey);
-                        if (current === 1) {
-                            await redis.expire(rlKey, options.rateLimit.windowSecs);
-                        }
-                        if (current > options.rateLimit.max) {
-                            throw new AppError(
-                                'Too many requests, please try again later.',
-                                ErrorCode.RATE_LIMIT_EXCEEDED,
-                                429
-                            );
-                        }
-                    } catch (e: unknown) {
-                        if (e instanceof AppError) throw e;
-                        logger.warn('Rate limiter redis failure — bypassing', { error: e });
+                    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? req.headers.get('x-real-ip') ?? '127.0.0.1';
+                    const { checkRateLimit } = await import('@/lib/rate-limiter');
+                    const rlResult = await checkRateLimit(`${req.url}:${ip}`, {
+                        max: options.rateLimit.max,
+                        windowSecs: options.rateLimit.windowSecs,
+                        prefix: 'ratelimit:api',
+                    });
+                    if (!rlResult.allowed) {
+                        throw new AppError(
+                            'Too many requests, please try again later.',
+                            ErrorCode.RATE_LIMIT_EXCEEDED,
+                            429
+                        );
                     }
                 }
 
-                // ── 4. Body Parsing & Validation ───────────────────────────
+                // ── 4. Body Parsing & Strict Validation ────────────────────
                 let body: B = undefined as unknown as B;
 
                 if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+                    let rawText = '';
                     try {
-                        const rawBody: unknown = await req.clone().json();
+                        rawText = await req.clone().text();
+                    } catch {
+                        // Body stream unreadable
+                    }
+
+                    if (rawText.trim().length > 0) {
+                        let rawBody: unknown;
+                        try {
+                            rawBody = JSON.parse(rawText);
+                        } catch {
+                            throw AppError.badRequest('Malformed JSON payload in request body');
+                        }
+
                         if (options?.schema) {
                             const validation = options.schema.safeParse(rawBody);
                             if (!validation.success) {
@@ -217,12 +281,8 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                             }
                             body = validation.data;
                         } else {
-                            // No schema: caller is responsible for casting body to the correct type
                             body = rawBody as B;
                         }
-                    } catch (e: unknown) {
-                        if (e instanceof AppError) throw e;
-                        // Body is empty or non-JSON and no schema required — leave body undefined
                     }
                 }
 
@@ -246,7 +306,7 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 const durationMs = Date.now() - start;
                 logger.perf(`${req.method} ${req.url}`, durationMs, { userId, requestId });
 
-                // ── 8. Audit Log (fire-and-forget) ─────────────────────────
+                // ── 8. Audit Log with Redacted Sensitive Data ───────────────
                 if (options?.audit && userId) {
                     const meta     = result as ResultMeta;
                     const entityId = String(meta?.id ?? meta?.soNum ?? 'N/A');
@@ -257,14 +317,15 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                         entity: options.audit.entity,
                         entityId,
                         // Handlers pre-fetch oldValue and attach as result.__oldValue
-                        oldValue: meta?.__oldValue ?? null,
-                        newValue: body ?? result,
+                        oldValue: meta?.__oldValue ? redactSensitiveFields(meta.__oldValue) : null,
+                        newValue: redactSensitiveFields(body ?? result),
                         ipAddress: req.headers.get('x-real-ip') ?? undefined,
                         userAgent: req.headers.get('user-agent') ?? undefined,
                     }).catch((err: unknown) =>
                         logger.error('[AUDIT-LOG-FAIL]', { error: err, requestId })
                     );
                 }
+
 
                 // ── 9. Raw Response Passthrough ────────────────────────────
                 if (options?.rawResponse) {

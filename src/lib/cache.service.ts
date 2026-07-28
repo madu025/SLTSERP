@@ -1,8 +1,31 @@
 import { redis } from './redis';
+import { logger } from './logger';
+import { getRequestId } from './request-context';
+
+let cacheErrorCount = 0;
 
 export class CacheService {
     private static isReady(): boolean {
         return redis.status === 'ready';
+    }
+
+    private static logCacheWarn(op: string, key: string, error: unknown): void {
+        cacheErrorCount++;
+        const reqId = getRequestId();
+        const traceInfo = reqId ? `[ReqID: ${reqId}] ` : '';
+        logger.warn(`${traceInfo}[CACHE SERVICE FAIL-OPEN] ${op} failed for key/pattern: ${key}`, {
+            operation: op,
+            key,
+            cacheErrorCount,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
+
+    /**
+     * Total count of cache fail-open error occurrences since server startup
+     */
+    static getFailureMetrics() {
+        return { cacheErrorCount };
     }
 
     static async get<T>(key: string): Promise<T | null> {
@@ -12,7 +35,7 @@ export class CacheService {
             if (!data) return null;
             return JSON.parse(data) as T;
         } catch (e) {
-            console.warn(`[CACHE SERVICE ERROR] get failed for key ${key} (falling back):`, e);
+            CacheService.logCacheWarn('get', key, e);
             return null;
         }
     }
@@ -23,7 +46,7 @@ export class CacheService {
             const data = JSON.stringify(value);
             await redis.set(key, data, 'EX', ttlSeconds);
         } catch (e) {
-            console.warn(`[CACHE SERVICE ERROR] set failed for key ${key} (skipping cache write):`, e);
+            CacheService.logCacheWarn('set', key, e);
         }
     }
 
@@ -32,7 +55,7 @@ export class CacheService {
         try {
             await redis.del(key);
         } catch (e) {
-            console.warn(`[CACHE SERVICE ERROR] del failed for key ${key} (skipping cache invalidation):`, e);
+            CacheService.logCacheWarn('del', key, e);
         }
     }
 
@@ -44,7 +67,7 @@ export class CacheService {
                 await redis.del(...keys);
             }
         } catch (e) {
-            console.warn(`[CACHE SERVICE ERROR] delPattern failed for pattern ${pattern} (skipping cache invalidation):`, e);
+            CacheService.logCacheWarn('delPattern', pattern, e);
         }
     }
 }

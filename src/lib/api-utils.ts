@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 export class ApiError extends Error {
-    constructor(public message: string, public statusCode: number = 500, public errors?: any) {
+    constructor(public message: string, public statusCode: number = 500, public errors?: unknown) {
         super(message);
     }
 }
 
-export function handleApiError(error: any) {
+export function handleApiError(error: unknown) {
     console.error('[API_ERROR]:', error);
 
     if (error instanceof ApiError) {
@@ -24,12 +24,13 @@ export function handleApiError(error: any) {
         );
     }
 
-    // Default error
-    const message = error.message || 'Internal Server Error';
-    const status = error.name === 'PrismaClientKnownRequestError' ? 400 : 500;
+    // Default error handling
+    const errObj = error instanceof Error ? error : new Error(String(error));
+    const message = errObj.message || 'Internal Server Error';
+    const status = errObj.name === 'PrismaClientKnownRequestError' ? 400 : 500;
 
     return NextResponse.json(
-        { message, debug: process.env.NODE_ENV === 'development' ? error.stack : undefined },
+        { message, debug: process.env.NODE_ENV === 'development' ? errObj.stack : undefined },
         { status }
     );
 }

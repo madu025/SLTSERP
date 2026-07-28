@@ -24,7 +24,7 @@ export function getQueueProvider(): QueueProvider {
 const createQueueWrapper = (name: string) => {
     return {
         name,
-        add: async (jobName: string, data: unknown, opts?: any) => {
+        add: async (jobName: string, data: unknown, opts?: Record<string, unknown>) => {
             return await queueProvider.addJob(name, jobName, data, opts);
         },
         getJob: async (jobId: string) => {
@@ -58,7 +58,7 @@ export const statsUpdateQueue = createQueueWrapper(QUEUE_NAMES.STATS_UPDATE);
 export const sodSyncQueue = createQueueWrapper(QUEUE_NAMES.SOD_SYNC);
 export const systemQueue = createQueueWrapper(QUEUE_NAMES.SYSTEM);
 
-export async function addJob(queue: any, name: string, data: unknown, opts?: any) {
+export async function addJob(queue: string | { name: string }, name: string, data: unknown, opts?: Record<string, unknown>) {
     const queueName = typeof queue === 'string' ? queue : (queue?.name || String(queue));
     return await queueProvider.addJob(queueName, name, data, opts);
 }

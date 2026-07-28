@@ -1,5 +1,16 @@
-import { redis } from './redis';
+import crypto from 'crypto';
 import { verifyJWT } from './auth';
+import { checkRateLimit } from './rate-limiter';
+import { logger } from './logger';
+
+const isProduction = process.env.NODE_ENV === 'production';
+const rawAgentKey = process.env.AGENT_API_KEY;
+
+if (isProduction && (!rawAgentKey || rawAgentKey === 'slts-agent-secure-sync-key-2026')) {
+    throw new Error('[FATAL SECURITY CONFIG] AGENT_API_KEY must be set to a strong secret in production.');
+}
+
+const validApiKey = rawAgentKey || 'slts-agent-secure-sync-key-2026';
 
 /**
  * Resolves the client IP address from request headers.
@@ -13,32 +24,28 @@ export function getClientIp(req: Request): string {
 }
 
 /**
- * Basic rate-limiter using Redis. Fails open (allows request) if Redis is offline/unreachable.
+ * Delegated unified rate-limiter using Redis. Fails open on Redis error with alert tracking.
  */
 export async function rateLimit(ip: string, limit: number = 10, windowSeconds: number = 60): Promise<boolean> {
-    const key = `ratelimit:agent:${ip}`;
+    const result = await checkRateLimit(ip, {
+        max: limit,
+        windowSecs: windowSeconds,
+        prefix: 'ratelimit:agent',
+    });
+    return result.allowed;
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+function safeCompare(a: string, b: string): boolean {
     try {
-        const pipeline = redis.multi();
-        pipeline.incr(key);
-        pipeline.ttl(key);
-        const results = await pipeline.exec();
-        
-        if (!results) {
-            return true;
-        }
-        
-        // ioredis multi results are arrays of [err, result]
-        const count = results[0][1] as number;
-        let ttl = results[1][1] as number;
-        
-        if (count === 1 || ttl === -1) {
-            await redis.expire(key, windowSeconds);
-        }
-        
-        return count <= limit;
-    } catch (error) {
-        console.error('[RATELIMIT] Redis rate limit error:', error);
-        return true; // Fail open
+        const bufA = Buffer.from(a);
+        const bufB = Buffer.from(b);
+        if (bufA.length !== bufB.length) return false;
+        return crypto.timingSafeEqual(bufA, bufB);
+    } catch {
+        return false;
     }
 }
 
@@ -50,10 +57,8 @@ export async function validateAgentAuth(req: Request): Promise<{ success: boolea
     const apiKeyHeader = req.headers.get('x-api-key') || req.headers.get('X-API-Key');
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
     
-    const validApiKey = process.env.AGENT_API_KEY || 'slts-agent-secure-sync-key-2026';
-    
-    // 1. Check static API key
-    if (apiKeyHeader === validApiKey) {
+    // 1. Check static API key with timing-safe comparison
+    if (apiKeyHeader && safeCompare(apiKeyHeader, validApiKey)) {
         return { success: true };
     }
     
@@ -70,7 +75,7 @@ export async function validateAgentAuth(req: Request): Promise<{ success: boolea
     const ip = getClientIp(req);
     const method = req.method;
     const url = new URL(req.url).pathname;
-    console.warn(`[AGENT_AUTH_FAILED] Failed authentication attempt from IP: ${ip} for ${method} ${url}`);
+    logger.warn('[AGENT_AUTH_FAILED]', { ip, method, path: url });
     
     return {
         success: false,

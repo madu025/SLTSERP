@@ -49,9 +49,10 @@ export async function middleware(request: NextRequest) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-request-id', requestId);
 
-    // Sanitize incoming headers to prevent header spoofing
+    // Sanitize incoming headers to prevent header spoofing across all trust boundaries
     requestHeaders.delete('x-user-id');
     requestHeaders.delete('x-user-role');
+    requestHeaders.delete('x-contractor-id');
 
     // Check if the path is public
     const isPublicAuditSubmit = pathname === '/api/helpdesk/assets/audits' && request.method === 'POST';

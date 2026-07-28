@@ -39,7 +39,7 @@ export async function calculateProjectProgress(projectId: string): Promise<numbe
   ));
 
   // Auto-sync project status based on progress
-  const updateData: any = { progress };
+  const updateData: { progress: number; status?: string; endDate?: Date } = { progress };
   
   if (progress >= 100) {
     updateData.status = 'COMPLETED';

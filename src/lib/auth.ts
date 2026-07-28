@@ -1,9 +1,16 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, JWTPayload } from 'jose';
 
-const SECRET_KEY = process.env.JWT_SECRET || 'dev-secret-key-please-change-in-prod';
+const isProduction = process.env.NODE_ENV === 'production';
+const rawSecret = process.env.JWT_SECRET;
+
+if (isProduction && (!rawSecret || rawSecret === 'dev-secret-key-please-change-in-prod')) {
+    throw new Error('[FATAL SECURITY CONFIG] JWT_SECRET must be set to a strong secret in production.');
+}
+
+const SECRET_KEY = rawSecret || 'dev-secret-key-please-change-in-prod';
 const key = new TextEncoder().encode(SECRET_KEY);
 
-export async function signJWT(payload: any, expiresIn: string = '24h') {
+export async function signJWT(payload: Record<string, unknown>, expiresIn: string = '24h'): Promise<string> {
     return await new SignJWT(payload)
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
@@ -11,7 +18,7 @@ export async function signJWT(payload: any, expiresIn: string = '24h') {
         .sign(key);
 }
 
-export async function verifyJWT(token: string) {
+export async function verifyJWT(token: string): Promise<JWTPayload | null> {
     try {
         if (!token) return null;
 
@@ -19,8 +26,9 @@ export async function verifyJWT(token: string) {
             algorithms: ['HS256'],
         });
         return payload;
-    } catch (error: any) {
-        console.error('[AUTH] Token verification failed:', error.message);
+    } catch (error: unknown) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('[AUTH] Token verification failed:', errorMsg);
         return null;
     }
 }

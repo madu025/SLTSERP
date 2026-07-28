@@ -42,6 +42,7 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 const primaryClient = globalForPrisma.primaryClient ?? new PrismaClient({
+    datasources: primaryUrl ? { db: { url: primaryUrl } } : undefined,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 
@@ -54,8 +55,11 @@ const hasDistinctReplica = !!(
     process.env.READ_REPLICA_URL !== process.env.DATABASE_URL
 );
 
+const replicaUrl = hasDistinctReplica ? getSafeDatabaseUrl(process.env.READ_REPLICA_URL || '', isWorker) : '';
+
 const readClient = hasDistinctReplica
     ? (globalForPrisma.readClient ?? new PrismaClient({
+        datasources: replicaUrl ? { db: { url: replicaUrl } } : undefined,
         log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
       }))
     : primaryClient;
