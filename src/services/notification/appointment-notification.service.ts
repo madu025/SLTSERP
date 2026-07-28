@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from './index';
 import { Prisma } from '@prisma/client';
@@ -52,7 +53,7 @@ export class AppointmentNotificationService {
                 
                 // Filter appointments matching user OPMC visibility in-memory
                 const userAppointments = allAppointments.filter(sod => {
-                    if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
+                    if (ROLE_GROUPS.ADMINS.includes(user.role as any)) {
                         return true;
                     }
                     return sod.opmcId && opmcIds.has(sod.opmcId);

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { InvoiceQueryService } from './invoice/invoice.query.service';
@@ -19,7 +20,7 @@ export class InvoiceService {
         });
         const proposerName = user ? `${user.name || 'User'} (${user.role})` : 'System User';
 
-        const isApproverRole = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
+        const isApproverRole = userRole === 'AREA_MANAGER' || ROLE_GROUPS.ADMINS.includes(userRole as any);
         const status = isApproverRole ? 'APPROVED' : 'PENDING';
 
         const penalty = await primaryClient.$transaction(async (tx: any) => {
@@ -117,7 +118,7 @@ export class InvoiceService {
     static async deletePenalty(invoiceId: string, penaltyId: string, userRole: string | null) {
         const { primaryClient } = await import('@/lib/prisma');
         
-        const isApproverRole = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
+        const isApproverRole = userRole === 'AREA_MANAGER' || ROLE_GROUPS.ADMINS.includes(userRole as any);
 
         const penalty = await primaryClient.penalty.findUnique({
             where: { id: penaltyId }

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 
 /**
  * Domain Integration Notification Policies
@@ -177,7 +178,7 @@ export class DomainNotificationPolicies {
         const statusLabel = order.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
+            roles: ROLE_GROUPS.OPS,
             title: 'Service Order Status Updated',
             message: `SO #${order.soNum} for ${order.customerName || 'customer'} changed from ${order.previousStatus} to ${statusLabel}.`,
             type: 'PROJECT',
@@ -204,7 +205,7 @@ export class DomainNotificationPolicies {
         const detailStr = details.length > 0 ? ` (${details.join(', ')})` : '';
 
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
+            roles: ROLE_GROUPS.OPS,
             title: 'Service Order Completed',
             message: `SO #${order.soNum} for ${order.customerName || 'customer'} has been completed${detailStr}.`,
             type: 'PROJECT',
@@ -311,7 +312,7 @@ export class DomainNotificationPolicies {
         const urgency: NotificationPriority = project.budgetUtilization >= 95 ? 'CRITICAL' : project.budgetUtilization >= 80 ? 'HIGH' : 'MEDIUM';
 
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'PROJECT_MANAGER', 'FINANCE_MANAGER'],
+            roles: [...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE],
             title: 'Project Budget Alert',
             message: `Project "${project.name}" (${project.code}) has utilized ${project.budgetUtilization}% of budget (${project.spent.toLocaleString()} / ${project.totalBudget.toLocaleString()}).`,
             type: 'FINANCE',
@@ -331,7 +332,7 @@ export class DomainNotificationPolicies {
         status: string;
     }) {
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'PROJECT_MANAGER', 'FINANCE_MANAGER'],
+            roles: [...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE],
             title: 'New Variation Order',
             message: `VO #${vo.voNumber} created for "${vo.projectName}" (${vo.projectCode}): Amount ${vo.amount.toLocaleString()} LKR. Reason: ${vo.reason}`,
             type: 'FINANCE',
@@ -375,7 +376,7 @@ export class DomainNotificationPolicies {
         const projectRef = payment.projectName ? ` for ${payment.projectName}` : '';
 
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'ACCOUNTANT'],
+            roles: ROLE_GROUPS.FINANCE_ALL,
             title: 'Payment Received',
             message: `Payment of ${payment.amount.toLocaleString()} LKR received from ${payment.payer}${projectRef} (Invoice: ${payment.invoiceNumber}).`,
             type: 'FINANCE',
@@ -396,7 +397,7 @@ export class DomainNotificationPolicies {
         const urgency: NotificationPriority = invoice.daysOverdue > 7 ? 'CRITICAL' : invoice.daysOverdue > 3 ? 'HIGH' : 'MEDIUM';
 
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'ACCOUNTANT'],
+            roles: ROLE_GROUPS.FINANCE_ALL,
             title: 'Invoice Overdue',
             message: `Invoice #${invoice.invoiceNumber} for ${invoice.amount.toLocaleString()} LKR from ${invoice.clientName} is ${invoice.daysOverdue} day(s) overdue (Due: ${invoice.dueDate.toLocaleDateString()}).`,
             type: 'FINANCE',
@@ -551,7 +552,7 @@ export class DomainNotificationPolicies {
         for (const notification of escalated) {
             // Escalate to admins
             await NotificationService.notifyByRole({
-                roles: ['SUPER_ADMIN', 'ADMIN'],
+                roles: ROLE_GROUPS.ADMINS,
                 title: 'Escalated: Unread Notification',
                 message: `CRITICAL notification "${notification.title}" for user ${notification.userId} remains unread after ${notification.priority === 'CRITICAL' ? '1 hour' : '24 hours'}.`,
                 type: 'SYSTEM',

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
@@ -11,7 +12,7 @@ export class StoreService {
     private static readonly LOW_STOCK_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
     static async getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]> {
-        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
         let whereClause: Prisma.InventoryStoreWhereInput = {};
 
         if (!isAdmin) {

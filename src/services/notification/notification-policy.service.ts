@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NotificationService, NotificationPriority } from '../notification.service';
 import { EmailService } from './email.service';
 
@@ -45,7 +46,7 @@ export class NotificationPolicyService {
                 priority: 'MEDIUM'
             });
             await NotificationService.notifyByRole({
-                roles: ['OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+                roles: [...ROLE_GROUPS.ADMINS, "OSP_MANAGER"],
                 title: "New Contractor Pending Authorization",
                 message: `Contractor "${contractor.name}" is waiting for final authorization.`,
                 type: 'CONTRACTOR',
@@ -76,7 +77,7 @@ export class NotificationPolicyService {
 
     static async notifySODReturn(sod: { id: string; soNum: string; opmcId: string; returnReason: string | null }) {
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
+            roles: ROLE_GROUPS.OPS,
             title: 'SOD Returned/Rejected',
             message: `Service Order ${sod.soNum} has been marked as RETURN. Reason: ${sod.returnReason || 'No reason provided'}.`,
             type: 'PROJECT',
@@ -91,7 +92,7 @@ export class NotificationPolicyService {
 
     static async notifyLowStock(storeName: string, itemName: string, currentQty: number, minLevel: number) {
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
+            roles: ROLE_GROUPS.PROJECT_MANAGERS,
             title: 'Low Stock Alert',
             message: `Item "${itemName}" in ${storeName} is below minimum level. Current: ${currentQty}, Min: ${minLevel}`,
             type: 'INVENTORY',
@@ -257,7 +258,7 @@ export class NotificationPolicyService {
                 const message = `Batch "${batch.batchNumber}" of item "${batch.item.name}" in store "${bs.store.name}" is expiring on ${batch.expiryDate?.toLocaleDateString()}! Quantity remaining: ${bs.quantity}.`;
                 
                 await NotificationService.notifyByRole({
-                    roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'],
+                    roles: ROLE_GROUPS.STORES_MANAGERS,
                     title: 'Batch Expiry Warning (FEFO)',
                     message,
                     type: 'INVENTORY',

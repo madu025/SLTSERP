@@ -6,6 +6,7 @@ import { AppError } from '@/lib/error';
 import { redis } from '@/lib/redis';
 import { verifyJWT } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { ROLE_GROUPS } from '@/config/roles';
 
 async function checkAdminAuth() {
     try {
@@ -13,7 +14,7 @@ async function checkAdminAuth() {
         const token = cookieStore.get('token')?.value;
         if (!token) return false;
         const verified = await verifyJWT(token);
-        return !!verified && (verified.role === 'ADMIN' || verified.role === 'SUPER_ADMIN');
+        return !!verified && (ROLE_GROUPS.ADMINS as readonly string[]).includes(String(verified.role));
     } catch {
         return false;
     }
@@ -52,7 +53,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 
     // Sanitize Materials (Replace GRID_MATERIAL dummy names with actual Types for UI/DB)
     if (Array.isArray(body.materialDetails)) {
-        body.materialDetails = body.materialDetails.map((mat: any) => {
+        body.materialDetails = body.materialDetails.map((mat: Record<string, string | undefined>) => {
             if (mat.ITEM === 'GRID_MATERIAL' || mat.ITEM === 'TABLE_MAT') {
                 return { ...mat, ITEM: mat.TYPE || mat.ITEM, NAME: mat.TYPE || mat.NAME };
             }
@@ -84,13 +85,14 @@ export const POST = apiHandler(async (req, _params, body) => {
                 // Silently bypass lock if Redis is not connected to avoid terminal error spam
                 acquired = true; 
             }
-        } catch (redisErr: any) {
-            console.warn(`[EXTENSION-PUSH] Redis lock bypass (Status: ${redis.status}):`, redisErr.message || redisErr);
+        } catch (redisErr: unknown) {
+            const msg = redisErr instanceof Error ? redisErr.message : String(redisErr);
+            console.warn(`[EXTENSION-PUSH] Redis lock bypass (Status: ${redis.status}):`, msg);
         }
     }
 
     try {
-        const log = await ServiceOrderService.saveExtensionRawData(soNum, body as any);
+        const log = await ServiceOrderService.saveExtensionRawData(soNum, body as Record<string, unknown>);
 
         // Automatically sync to ServiceOrder model if it has soNum
         if (soNum) {

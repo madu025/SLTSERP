@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
@@ -59,7 +60,7 @@ export class ServiceOrderDashboardService {
             throw AppError.notFound('User not found');
         }
 
-        const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN';
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(user.role as any);
         const isManager = user.role === 'MANAGER' || user.role === 'SA_MANAGER' || user.role === 'OSP_MANAGER';
         const canFilterGlobally = isAdmin || isManager;
 

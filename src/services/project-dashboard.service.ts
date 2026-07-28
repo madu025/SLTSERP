@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { formatDistanceToNow } from 'date-fns';
 import { Prisma } from '@prisma/client';
@@ -6,7 +7,7 @@ export class ProjectDashboardService {
     
     // Internal helper to get accessible project IDs based on role
     private static async getAccessibleProjectIds(userId: string, userRole: string): Promise<string[]> {
-        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
         let accessibleOpmcIds: string[] = [];
 
         if (!isAdmin) {
@@ -33,7 +34,7 @@ export class ProjectDashboardService {
     }
 
     static async getProjectStats(userId: string, userRole: string) {
-        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
         const projectIds = await this.getAccessibleProjectIds(userId, userRole);
 
         const projectWhere: Prisma.ProjectWhereInput = {};
@@ -320,7 +321,7 @@ export class ProjectDashboardService {
     }
 
     static async getProjectOverview(userId: string, userRole: string) {
-        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
         const projectIds = await this.getAccessibleProjectIds(userId, userRole);
         
         const projectWhere: Prisma.ProjectWhereInput = {};

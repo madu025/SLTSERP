@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
 import { ServiceOrderService } from '@/services/sod.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export const GET = apiHandler(async (req: Request) => {
     const contractorId = context.contractorId;
 
     if (!contractorId) {
-        if (context.role === 'SUPER_ADMIN' || context.role === 'ADMIN') {
+        if (context.role && (ROLE_GROUPS.ADMINS as readonly string[]).includes(context.role)) {
              return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
         }
         throw AppError.forbidden('User does not have an assigned Contractor profile.');
@@ -33,7 +34,7 @@ export const GET = apiHandler(async (req: Request) => {
         limit
     });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],
+    roles: [...ROLE_GROUPS.ADMINS, 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],
 });
 
 /**
@@ -50,5 +51,5 @@ export const PATCH = apiHandler(async (req: Request) => {
 
     return await ServiceOrderService.patchServiceOrder(id, updateData, userId);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],
+    roles: [...ROLE_GROUPS.ADMINS, 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],
 });

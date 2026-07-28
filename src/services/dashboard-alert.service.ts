@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 
@@ -12,7 +13,7 @@ interface AlertItem {
 
 export class DashboardAlertService {
     static async getDashboardAlerts(userId: string, userRole: string): Promise<{ alerts: AlertItem[] }> {
-        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
         let storeIds: string[] = [];
 
         if (isAdmin) {
