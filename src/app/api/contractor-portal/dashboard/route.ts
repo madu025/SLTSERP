@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { verifyJWT } from '@/lib/auth';
 import { ContractorDashboardService } from '@/services/contractor-portal/dashboard.service';
+import { safe } from "@/utils/safe-await.util";
 
 export const dynamic = 'force-dynamic';
 
@@ -20,26 +21,17 @@ export const GET = apiHandler(async (req) => {
     let contractorId = req.headers.get('x-contractor-id') || undefined;
 
     if (token) {
-        try {
-            const payload = await verifyJWT(token);
-            if (payload && payload.contractorId) {
-                contractorId = payload.contractorId as string;
-            }
-        } catch {
-            // Ignore JWT verify errors
+        const [err, payload] = await safe(verifyJWT(token));
+        if (err) {
+            console.warn(`[ContractorDashboard] JWT verification failed:`, err.message);
+        } else if (payload && payload.contractorId) {
+            contractorId = payload.contractorId as string;
         }
     }
 
-    try {
-        const dashboardData = await ContractorDashboardService.getDashboardData(contractorId);
-        return Response.json({
-            success: true,
-            data: dashboardData
-        });
-    } catch (error: any) {
-        return Response.json({
-            success: false,
-            message: error.message || 'Failed to fetch dashboard data'
-        }, { status: 404 });
-    }
+    const dashboardData = await ContractorDashboardService.getDashboardData(contractorId);
+    return Response.json({
+        success: true,
+        data: dashboardData
+    });
 });

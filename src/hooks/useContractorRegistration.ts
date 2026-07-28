@@ -7,6 +7,8 @@ import { publicRegistrationSchema, PublicRegistrationSchema } from "@/lib/valida
 import { ContractorRegistrationApi } from "@/services/api/contractor-registration.api";
 import { toast } from "sonner";
 import { useOCR } from "./useOCR";
+import { safe } from "@/utils/safe-await.util";
+import { ErrorUtil } from "@/utils/error.util";
 
 export function useContractorRegistration(token: string) {
     const [loading, setLoading] = useState(true);
@@ -59,12 +61,12 @@ export function useContractorRegistration(token: string) {
         const timer = setTimeout(async () => {
             const currentDataStr = JSON.stringify(watchAllFields);
             if (currentDataStr !== lastSavedData.current && !loading && !submitting && !submitted && !error) {
-                try {
-                    await ContractorRegistrationApi.saveDraft(token, watchAllFields as Partial<PublicRegistrationSchema>);
+                const [err] = await safe(ContractorRegistrationApi.saveDraft(token, watchAllFields as Partial<PublicRegistrationSchema>));
+                if (err) {
+                    console.error("[AUTO-SAVE] Failed to save draft:", err);
+                } else {
                     lastSavedData.current = currentDataStr;
                     console.log("[AUTO-SAVE] Draft saved successfully");
-                } catch (err) {
-                    console.error("[AUTO-SAVE] Failed to save draft:", err);
                 }
             }
         }, 5000); // Auto-save after 5 seconds of inactivity
@@ -77,78 +79,82 @@ export function useContractorRegistration(token: string) {
         if (!token) return;
 
         const init = async () => {
-            try {
-                const [contractor, meta] = await Promise.all([
-                    ContractorRegistrationApi.getContractorByToken(token),
-                    ContractorRegistrationApi.getStaticData()
-                ]);
+            const [err, results] = await safe(Promise.all([
+                ContractorRegistrationApi.getContractorByToken(token),
+                ContractorRegistrationApi.getStaticData()
+            ]));
 
-                setStaticData(meta);
-                
-                // Prefill form
-                const draft = contractor.registrationDraft || {};
-                form.reset({
-                    ...form.getValues(),
-                    ...draft,
-                    name: contractor.name || draft.name || "",
-                    nic: contractor.nic || draft.nic || "",
-                    address: contractor.address || draft.address || "",
-                    contactNumber: contractor.contactNumber || draft.contactNumber || "",
-                    brNumber: contractor.brNumber || draft.brNumber || "",
-                    bankName: contractor.bankName || draft.bankName || "",
-                    bankBranch: contractor.bankBranch || draft.bankBranch || "",
-                    bankAccountNumber: contractor.bankAccountNumber || draft.bankAccountNumber || "",
-                    bankPassbookUrl: contractor.bankPassbookUrl || draft.bankPassbookUrl || "",
-                });
-                
-                lastSavedData.current = JSON.stringify(form.getValues());
-                if (contractor.registrationDraft) toast.info("Previous progress restored");
-
-            } catch (err: any) {
+            if (err || !results) {
                 console.error("[useContractorRegistration] Init failed:", err);
-                if (err.error === 'ALREADY_SUBMITTED') {
+                const parsedError = ErrorUtil.parseError(err)['error'];
+                if (parsedError === 'ALREADY_SUBMITTED') {
                     setSubmitted(true);
-                } else if (err.error === 'INVALID_TOKEN' || err.error === 'TOKEN_EXPIRED') {
-                    setError(err.error);
+                } else if (parsedError === 'INVALID_TOKEN' || parsedError === 'TOKEN_EXPIRED') {
+                    setError(parsedError as string);
                 } else {
                     setError('UNKNOWN_ERROR');
                 }
-            } finally {
                 setLoading(false);
+                return;
             }
+
+            const [contractor, meta] = results;
+            setStaticData(meta);
+            
+            // Prefill form
+            const draft = contractor.registrationDraft || {};
+            form.reset({
+                ...form.getValues(),
+                ...draft,
+                name: contractor.name || draft.name || "",
+                nic: contractor.nic || draft.nic || "",
+                address: contractor.address || draft.address || "",
+                contactNumber: contractor.contactNumber || draft.contactNumber || "",
+                brNumber: contractor.brNumber || draft.brNumber || "",
+                bankName: contractor.bankName || draft.bankName || "",
+                bankBranch: contractor.bankBranch || draft.bankBranch || "",
+                bankAccountNumber: contractor.bankAccountNumber || draft.bankAccountNumber || "",
+                bankPassbookUrl: contractor.bankPassbookUrl || draft.bankPassbookUrl || "",
+            });
+            
+            lastSavedData.current = JSON.stringify(form.getValues());
+            if (contractor.registrationDraft) toast.info("Previous progress restored");
+            setLoading(false);
         };
 
         init();
     }, [token, form]);
 
     const handleUpload = async (file: File, fieldName: string) => {
-        try {
-            const url = await ContractorRegistrationApi.uploadFile(file, fieldName, (p) => {
-                setUploadProgress(prev => ({ ...prev, [fieldName]: p }));
-            });
-            form.setValue(fieldName as keyof PublicRegistrationSchema, url, { shouldValidate: true });
-            toast.success(`${fieldName.replace('Url', '')} uploaded successfully`);
-
-            // Start OCR process using the existing useOCR hook pattern
-            if (fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl' || fieldName === 'bankPassbookUrl') {
-                const result = await scanImage(url, fieldName);
-                
-                if (result) {
-                    if (fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl') {
-                        form.setValue('nic', result as string, { shouldValidate: true });
-                        toast.success("NIC details updated from photo");
-                    } else if (fieldName === 'bankPassbookUrl') {
-                        form.setValue('bankAccountNumber', result as string, { shouldValidate: true });
-                        toast.success("Account details updated from photo");
-                    }
-                }
-            }
-
-            return url;
-        } catch {
+        const [err, url] = await safe(ContractorRegistrationApi.uploadFile(file, fieldName, (p: number) => {
+            setUploadProgress(prev => ({ ...prev, [fieldName]: p }));
+        }));
+        
+        if (err || !url) {
             toast.error(`Upload failed for ${fieldName}`);
             return null;
         }
+
+        form.setValue(fieldName as keyof PublicRegistrationSchema, url, { shouldValidate: true });
+        toast.success(`${fieldName.replace('Url', '')} uploaded successfully`);
+
+        // Start OCR process using the existing useOCR hook pattern
+        if (fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl' || fieldName === 'bankPassbookUrl') {
+            const [scanErr, result] = await safe(scanImage(url, fieldName));
+            if (scanErr) {
+                toast.error(`OCR failed for ${fieldName}`);
+            } else if (result) {
+                if (fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl') {
+                    form.setValue('nic', result as string, { shouldValidate: true });
+                    toast.success("NIC details updated from photo");
+                } else if (fieldName === 'bankPassbookUrl') {
+                    form.setValue('bankAccountNumber', result as string, { shouldValidate: true });
+                    toast.success("Account details updated from photo");
+                }
+            }
+        }
+
+        return url;
     };
 
     const nextStep = async () => {
@@ -164,15 +170,16 @@ export function useContractorRegistration(token: string) {
 
     const onSubmit = async (values: PublicRegistrationSchema) => {
         setSubmitting(true);
-        try {
-            await ContractorRegistrationApi.submitRegistration(token, values);
+        
+        const [err] = await safe(ContractorRegistrationApi.submitRegistration(token, values));
+        if (err) {
+            toast.error(err.message || "Failed to submit application");
+        } else {
             setSubmitted(true);
             toast.success("Application submitted successfully!");
-        } catch (err: any) {
-            toast.error(err.message || "Failed to submit application");
-        } finally {
-            setSubmitting(false);
         }
+        
+        setSubmitting(false);
     };
 
     return {

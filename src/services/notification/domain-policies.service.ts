@@ -485,18 +485,18 @@ export class DomainNotificationPolicies {
     static async sendDailyDigest(userId: string, userEmail: string): Promise<void> {
         try {
             const unreadNotifications = await NotificationService.getUserNotifications(userId, 20);
-            const unread = unreadNotifications.filter((n: any) => !n.isRead);
+            const unread = unreadNotifications.filter((n: Record<string, unknown>) => !n.isRead);
 
             if (unread.length === 0) return;
 
-            const criticalCount = unread.filter((n: any) => n.priority === 'CRITICAL').length;
-            const highCount = unread.filter((n: any) => n.priority === 'HIGH').length;
+            const criticalCount = unread.filter((n: Record<string, unknown>) => n.priority === 'CRITICAL').length;
+            const highCount = unread.filter((n: Record<string, unknown>) => n.priority === 'HIGH').length;
 
             const summary = `You have ${unread.length} unread notification(s) (${criticalCount} critical, ${highCount} high priority).`;
 
             // Send digest email
             const { EmailService } = await import('./email.service');
-            const htmlRows = unread.slice(0, 10).map((n: any) =>
+            const htmlRows = unread.slice(0, 10).map((n: Record<string, unknown>) =>
                 `<tr>
                     <td style="padding:8px;border-bottom:1px solid #e2e8f0;">
                         <span style="background:${n.priority === 'CRITICAL' ? '#fee2e2' : n.priority === 'HIGH' ? '#fef3c7' : '#f1f5f9'};padding:2px 8px;border-radius:4px;font-size:11px;">${n.priority}</span>
@@ -517,7 +517,7 @@ export class DomainNotificationPolicies {
                     <p style="font-size:12px;color:#94a3b8;">Login to <a href="${process.env.NEXT_PUBLIC_APP_URL}">SLTS NEXUS</a> to view all notifications.</p>
                 </div>`,
             });
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(`Daily digest failed for user ${userId}:`, error);
         }
     }
