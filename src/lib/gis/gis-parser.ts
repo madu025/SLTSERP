@@ -92,11 +92,12 @@ export class GISParser {
         const length = this.calculatePolylineLength(coords);
         totalLength += length;
 
-        const segmentCableType =
+        const segmentCableType = String(
           feature.properties?.cable_type ||
           feature.properties?.cableType ||
           feature.properties?.type ||
-          '';
+          ''
+        );
         const segmentFiberCount =
           Number(feature.properties?.fiber_count) ||
           Number(feature.properties?.fiberCount) ||
@@ -148,7 +149,7 @@ export class GISParser {
           number
         ];
     // Parse height from various possible property key formats
-    const rawHeight: string | number | undefined =
+    const rawHeight =
       feature.properties?.height ||
       feature.properties?.pole_height ||
       feature.properties?.['POLE HEIGHT'] ||
@@ -166,13 +167,15 @@ export class GISParser {
       index: index + 1,
       latitude,
       longitude,
-      elevation: feature.properties?.elevation || undefined,
+      elevation: feature.properties?.elevation ? Number(feature.properties.elevation) : undefined,
       poleType:
-        feature.properties?.pole_type ||
-        feature.properties?.poleType ||
-        feature.properties?.['POLE TYPE'] ||
-        feature.properties?.material ||
-        undefined,
+        String(
+          feature.properties?.pole_type ||
+          feature.properties?.poleType ||
+          feature.properties?.['POLE TYPE'] ||
+          feature.properties?.material ||
+          ''
+        ) || undefined,
       height: parsedHeight,
       properties: {
         ...(feature.properties || {}),
@@ -210,12 +213,14 @@ export class GISParser {
           latitude,
           longitude,
           fdpCode:
-            feature.properties?.fdp_code ||
-            feature.properties?.fdpCode ||
-            feature.properties?.['FDP NAME'] ||
-            feature.properties?.code ||
-            feature.properties?.name ||
-            undefined,
+            String(
+              feature.properties?.fdp_code ||
+              feature.properties?.fdpCode ||
+              feature.properties?.['FDP NAME'] ||
+              feature.properties?.code ||
+              feature.properties?.name ||
+              ''
+            ) || undefined,
           portCount:
             Number(feature.properties?.port_count) ||
             Number(feature.properties?.portCount) ||
@@ -258,10 +263,12 @@ export class GISParser {
           latitude,
           longitude,
           jointType:
-            feature.properties?.joint_type ||
-            feature.properties?.jointType ||
-            feature.properties?.type ||
-            undefined,
+            String(
+              feature.properties?.joint_type ||
+              feature.properties?.jointType ||
+              feature.properties?.type ||
+              ''
+            ) || undefined,
           capacity:
             Number(feature.properties?.capacity) ||
             Number(feature.properties?.splice_capacity) ||
@@ -301,24 +308,30 @@ export class GISParser {
         roadSegments.push({
           index: index + 1,
           roadName:
-            feature.properties?.road_name ||
-            feature.properties?.roadName ||
-            feature.properties?.['Road_Name'] ||
-            feature.properties?.['ROAD NAME'] ||
-            feature.properties?.name ||
-            feature.properties?.road ||
-            `Road ${index + 1}`,
+            String(
+              feature.properties?.road_name ||
+              feature.properties?.roadName ||
+              feature.properties?.['Road_Name'] ||
+              feature.properties?.['ROAD NAME'] ||
+              feature.properties?.name ||
+              feature.properties?.road ||
+              `Road ${index + 1}`
+            ),
           coordinates: coords,
           length,
           roadType:
-            feature.properties?.road_type ||
-            feature.properties?.roadType ||
-            feature.properties?.classification ||
-            undefined,
+            String(
+              feature.properties?.road_type ||
+              feature.properties?.roadType ||
+              feature.properties?.classification ||
+              ''
+            ) || undefined,
           authority:
-            feature.properties?.authority ||
-            feature.properties?.authority_name ||
-            undefined,
+            String(
+              feature.properties?.authority ||
+              feature.properties?.authority_name ||
+              ''
+            ) || undefined,
           properties: feature.properties || {},
         });
       }
@@ -354,16 +367,20 @@ export class GISParser {
           latitude,
           longitude,
           code:
-            feature.properties?.code ||
-            feature.properties?.name ||
-            feature.properties?.id ||
-            feature.properties?.asset_code ||
-            undefined,
+            String(
+              feature.properties?.code ||
+              feature.properties?.name ||
+              feature.properties?.id ||
+              feature.properties?.asset_code ||
+              ''
+            ) || undefined,
           type:
-            feature.properties?.type ||
-            feature.properties?.asset_type ||
-            feature.properties?.subtype ||
-            undefined,
+            String(
+              feature.properties?.type ||
+              feature.properties?.asset_type ||
+              feature.properties?.subtype ||
+              ''
+            ) || undefined,
           capacity:
             Number(feature.properties?.capacity) ||
             Number(feature.properties?.ports) ||

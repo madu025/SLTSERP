@@ -1103,7 +1103,7 @@ export class GISImportService {
             length: seg.length,
             cableType: seg.cableType || parsedLayers.cable?.cableType,
             fiberCount: seg.fiberCount || parsedLayers.cable?.fiberCount,
-            status: (session.isCompletedProject || GISImportService.checkIsExisting(seg.properties?._sourceFile || '', seg.properties)) ? 'INSTALLED' : 'PLANNED',
+            status: (session.isCompletedProject || GISImportService.checkIsExisting(String(seg.properties?._sourceFile || ''), seg.properties)) ? 'INSTALLED' : 'PLANNED',
             properties: {
               ...(seg.properties || {}),
               coordinates: seg.coordinates || [],
@@ -1119,7 +1119,7 @@ export class GISImportService {
         await prisma.gISPole.createMany({
           data: parsedLayers.pole.poles.map((pole) => {
             const props = pole.properties || {};
-            const sourceFile = props._sourceFile || '';
+            const sourceFile = String(props._sourceFile || '');
             const isExisting = GISImportService.checkIsExisting(sourceFile, props);
             
             return {
@@ -1152,7 +1152,7 @@ export class GISImportService {
         await prisma.gISClosure.createMany({
           data: parsedLayers.fdp.fdps.map((fdp, idx) => {
             const props = fdp.properties || {};
-            const sourceFile = props._sourceFile || '';
+            const sourceFile = String(props._sourceFile || '');
             const isExisting = GISImportService.checkIsExisting(sourceFile, props);
             return {
               routeId: route.id,
@@ -1184,7 +1184,7 @@ export class GISImportService {
         await prisma.gISClosure.createMany({
           data: parsedLayers.fiberJoint.joints.map((joint, idx) => {
             const props = joint.properties || {};
-            const sourceFile = props._sourceFile || '';
+            const sourceFile = String(props._sourceFile || '');
             const isExisting = GISImportService.checkIsExisting(sourceFile, props);
             return {
               routeId: route.id,
@@ -1218,7 +1218,7 @@ export class GISImportService {
       if (parsedLayers.manhole?.assets?.length) {
           for (const mh of parsedLayers.manhole.assets) {
             const props = mh.properties || {};
-            const sourceFile = props._sourceFile || '';
+            const sourceFile = String(props._sourceFile || '');
             const isExisting = GISImportService.checkIsExisting(sourceFile, props);
             chambersToCreate.push({
               routeId: route.id,
@@ -1235,7 +1235,7 @@ export class GISImportService {
         if (parsedLayers.handhole?.assets?.length) {
           for (const hh of parsedLayers.handhole.assets) {
             const props = hh.properties || {};
-            const sourceFile = props._sourceFile || '';
+            const sourceFile = String(props._sourceFile || '');
             const isExisting = GISImportService.checkIsExisting(sourceFile, props);
             chambersToCreate.push({
               routeId: route.id,

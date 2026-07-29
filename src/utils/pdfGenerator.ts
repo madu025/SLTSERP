@@ -4,7 +4,20 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 
-export const generateGRNPDF = (grn: any) => {
+interface GRNData {
+    grnNumber: string;
+    createdAt: string | Date;
+    store: { name: string };
+    sourceType: string;
+    supplier?: string;
+    receivedBy: { name: string };
+    items: {
+        quantity: number;
+        item: { code: string; name: string; unit: string };
+    }[];
+}
+
+export const generateGRNPDF = (grn: GRNData) => {
     const doc = new jsPDF();
 
     // Header
@@ -23,9 +36,9 @@ export const generateGRNPDF = (grn: any) => {
 
     // Table
     const tableColumn = ["#", "Item Code", "Item Name", "Unit", "Quantity"];
-    const tableRows: any[] = [];
+    const tableRows: (string | number)[][] = [];
 
-    grn.items.forEach((item: any, index: number) => {
+    grn.items.forEach((item, index: number) => {
         const itemData = [
             index + 1,
             item.item.code,
@@ -45,7 +58,7 @@ export const generateGRNPDF = (grn: any) => {
     });
 
     // Signatures
-    const finalY = (doc as any).lastAutoTable.finalY || 80;
+    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 80;
 
     doc.text("_______________________", 14, finalY + 30);
     doc.text("Store Keeper Signature", 14, finalY + 36);
@@ -57,7 +70,17 @@ export const generateGRNPDF = (grn: any) => {
     doc.save(`GRN_${grn.grnNumber}.pdf`);
 };
 
-export const generateGatePassPDF = (request: any) => {
+interface GatePassRequest {
+    id: string;
+    toStore?: { name: string };
+    fromStore?: { name: string };
+    items: {
+        approvedQty: number;
+        item: { code: string; name: string; unit: string };
+    }[];
+}
+
+export const generateGatePassPDF = (request: GatePassRequest) => {
     const doc = new jsPDF();
 
     // Header
@@ -80,9 +103,9 @@ export const generateGatePassPDF = (request: any) => {
 
     // Table
     const tableColumn = ["#", "Item Code", "Description", "Unit", "Issued Qty"];
-    const tableRows: any[] = [];
+    const tableRows: (string | number)[][] = [];
 
-    request.items.forEach((reqItem: any, index: number) => {
+    request.items.forEach((reqItem, index: number) => {
         if (reqItem.approvedQty > 0) {
             tableRows.push([
                 index + 1,
@@ -101,7 +124,7 @@ export const generateGatePassPDF = (request: any) => {
     });
 
     // Signatures
-    const finalY = (doc as any).lastAutoTable.finalY || 80;
+    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 80;
 
     doc.text("_______________________", 14, finalY + 30);
     doc.text("Issued By (Store)", 14, finalY + 36);
@@ -116,7 +139,17 @@ export const generateGatePassPDF = (request: any) => {
     doc.save(`GatePass_${request.id.slice(-8)}.pdf`);
 };
 
-export const generateDelaySheetPDF = (month: string, rtom: string, orders: any[]) => {
+interface DelaySheetOrder {
+    soNum: string;
+    voiceNumber: string;
+    rtom: string;
+    customerName: string;
+    receivedDate: string;
+    reasons: string[];
+    comments?: string;
+}
+
+export const generateDelaySheetPDF = (month: string, rtom: string, orders: DelaySheetOrder[]) => {
     const doc = new jsPDF('landscape');
 
     // Header
@@ -132,9 +165,9 @@ export const generateDelaySheetPDF = (month: string, rtom: string, orders: any[]
 
     // Table
     const tableColumn = ["#", "SO Number", "Voice Number", "RTOM", "Customer Name", "Received Date", "Delay Reasons", "Remarks / Comments"];
-    const tableRows: any[] = [];
+    const tableRows: (string | number)[][] = [];
 
-    orders.forEach((o: any, index: number) => {
+    orders.forEach((o, index: number) => {
         tableRows.push([
             index + 1,
             o.soNum,
@@ -160,7 +193,7 @@ export const generateDelaySheetPDF = (month: string, rtom: string, orders: any[]
     });
 
     // Signatures
-    const finalY = (doc as any).lastAutoTable.finalY || 40;
+    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || 40;
 
     let signY = finalY + 25;
     if (signY + 15 > doc.internal.pageSize.height) {
