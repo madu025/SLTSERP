@@ -8,7 +8,7 @@ export const GET = apiHandler(async () => {
     const summary = await InventoryService.getTransitionSummary();
     return summary;
 }, {
-    roles: [...ROLE_GROUPS.STORES, ...ROLE_GROUPS.ADMINS],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     rawResponse: true
 });
 
@@ -17,7 +17,7 @@ export const POST = apiHandler(async (request) => {
     const result = await InventoryService.executeBulkSwap(userId);
     return result;
 }, {
-    roles: [...ROLE_GROUPS.STORES, ...ROLE_GROUPS.ADMINS],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     audit: { action: 'POST_ACTION', entity: 'VIRTUAL_SWAP' },
     rawResponse: true
 });

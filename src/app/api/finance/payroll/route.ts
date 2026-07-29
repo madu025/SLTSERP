@@ -13,7 +13,7 @@ export const GET = apiHandler(async (req) => {
     const data = await PayrollExpenseService.getPayrollExpenses(opmcId, period);
     return data;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT']
+    roles: ROLE_GROUPS.FINANCE_ALL
 });
 
 export const POST = apiHandler(async (req) => {

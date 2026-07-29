@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankCashService } from '@/services/finance/bank-cash.service';
 import { ACCOUNTS } from '@/services/finance/account-codes';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,5 +17,5 @@ export const GET = apiHandler(async (req) => {
     const report = await BankCashService.getCashBook(glAccountCode, fromDate, toDate);
     return report;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT']
+    roles: ROLE_GROUPS.FINANCE_ALL
 });

@@ -7,44 +7,45 @@ import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
+import { ROLE_GROUPS } from "@/config/roles";
 
 // User Categories
 const USER_CATEGORIES = {
     OSP_PROJECTS: {
         name: 'OSP Projects',
-        roles: ['OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER']
+        roles: ROLE_GROUPS.OPS
     },
     NEW_CONNECTION: {
         name: 'New Connection',
-        roles: ['MANAGER']
+        roles: ROLE_GROUPS.ADMINS
     },
     SERVICE_ASSURANCE: {
         name: 'Service Assurance',
-        roles: ['SA_MANAGER', 'SA_ASSISTANT']
+        roles: ROLE_GROUPS.ADMINS
     },
     OFFICE_ADMIN: {
         name: 'Office Admin',
-        roles: ['OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
+        roles: ROLE_GROUPS.OFFICE_ADMINS
     },
     INVOICE: {
         name: 'Invoice Section',
-        roles: ['INVOICE_MANAGER', 'INVOICE_ASSISTANT']
+        roles: ROLE_GROUPS.INVOICE
     },
     STORES: {
         name: 'Stores',
-        roles: ['STORES_MANAGER', 'STORES_ASSISTANT']
+        roles: ROLE_GROUPS.STORES
     },
     PROCUREMENT: {
         name: 'Procurement',
-        roles: ['PROCUREMENT_OFFICER']
+        roles: ROLE_GROUPS.ADMINS
     },
     FINANCE: {
         name: 'Finance',
-        roles: ['FINANCE_MANAGER', 'FINANCE_ASSISTANT']
+        roles: ROLE_GROUPS.FINANCE
     },
     ADMIN: {
         name: 'Administration',
-        roles: ['SUPER_ADMIN', 'ADMIN']
+        roles: ROLE_GROUPS.ADMINS
     }
 };
 

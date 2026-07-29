@@ -1,4 +1,5 @@
 import { AppError } from '@/lib/error';
+import { safe } from '@/utils/safe-await.util';
 /**
  * Vehicle Service - Business logic for vehicle operations
  * Handles CRUD, status updates, location tracking, etc.
@@ -70,6 +71,9 @@ interface CustomPrismaClient {
   vMFuelLog: {
     findMany(args: unknown): Promise<unknown[]>;
   };
+  vMDriver: {
+    findMany(args: unknown): Promise<Array<{ id: string; first_name: string; last_name: string; phone?: string | null }>>;
+  };
 }
 
 const prisma = db as unknown as CustomPrismaClient;
@@ -84,68 +88,70 @@ export class VehicleService {
    * Get list of active drivers
    */
   async getActiveDrivers(): Promise<Array<{ id: string; first_name: string; last_name: string; phone: string }>> {
-    try {
-      const dbDrivers = await (db as any).vMDriver.findMany({
-        where: { employment_status: 'ACTIVE' },
-        orderBy: { first_name: 'asc' },
-      });
-      return dbDrivers.map((d: any) => ({
-        id: d.id,
-        first_name: d.first_name,
-        last_name: d.last_name,
-        phone: d.phone || '',
-      }));
-    } catch (error) {
-      throw AppError.badRequest(`Failed to fetch active drivers: ${getErrorMessage(error)}`);
+    const [err, dbDrivers] = await safe(prisma.vMDriver.findMany({
+      where: { employment_status: 'ACTIVE' },
+      orderBy: { first_name: 'asc' },
+    }));
+
+    if (err || !dbDrivers) {
+      throw AppError.badRequest(`Failed to fetch active drivers: ${getErrorMessage(err)}`);
     }
+
+    return dbDrivers.map((d) => ({
+      id: d.id,
+      first_name: d.first_name,
+      last_name: d.last_name,
+      phone: d.phone || '',
+    }));
   }
 
   /**
    * Create a new vehicle
    */
   async createVehicle(data: CreateVehicleDTO): Promise<Vehicle> {
-    try {
-      const vehicle = (await prisma.vMVehicle.create({
-        data: {
-          registration_number: data.registration_number,
-          chassis_number: data.chassis_number,
-          engine_number: data.engine_number,
-          make: data.make,
-          model: data.model,
-          year: data.year,
-          color: data.color,
-          vehicle_type: data.vehicle_type,
-          ownership: data.ownership,
-          status: 'AVAILABLE',
-          capacity_passengers: data.capacity_passengers,
-          capacity_cargo_weight_kg: data.capacity_cargo_weight_kg,
-          capacity_cargo_volume_m3: data.capacity_cargo_volume_m3,
-          site_id: data.assigned_site_id,
-          photo_url: data.photo_url || null,
-          registration_date: new Date(),
-        },
-        include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
-      })) as DbVehicle;
+    const [err, vehicle] = await safe<DbVehicle>(prisma.vMVehicle.create({
+      data: {
+        registration_number: data.registration_number,
+        chassis_number: data.chassis_number,
+        engine_number: data.engine_number,
+        make: data.make,
+        model: data.model,
+        year: data.year,
+        color: data.color,
+        vehicle_type: data.vehicle_type,
+        ownership: data.ownership,
+        status: 'AVAILABLE',
+        capacity_passengers: data.capacity_passengers,
+        capacity_cargo_weight_kg: data.capacity_cargo_weight_kg,
+        capacity_cargo_volume_m3: data.capacity_cargo_volume_m3,
+        site_id: data.assigned_site_id,
+        photo_url: data.photo_url || null,
+        registration_date: new Date(),
+      },
+      include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
+    }) as Promise<DbVehicle>);
 
-      return this.mapVehicleToDTO(vehicle);
-    } catch (error) {
-      throw AppError.badRequest(`Failed to create vehicle: ${getErrorMessage(error)}`);
+    if (err || !vehicle) {
+      throw AppError.badRequest(`Failed to create vehicle: ${getErrorMessage(err)}`);
     }
+
+    return this.mapVehicleToDTO(vehicle);
   }
 
   /**
    * Get vehicle by ID
    */
   async getVehicle(vehicleId: string): Promise<Vehicle | null> {
-    try {
-      const vehicle = (await prisma.vMVehicle.findUnique({
-        where: { id: vehicleId },
-        include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
-      })) as DbVehicle | null;
-      return vehicle ? this.mapVehicleToDTO(vehicle) : null;
-    } catch (error) {
-      throw AppError.badRequest(`Failed to fetch vehicle: ${getErrorMessage(error)}`);
+    const [err, vehicle] = await safe<DbVehicle | null>(prisma.vMVehicle.findUnique({
+      where: { id: vehicleId },
+      include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
+    }) as Promise<DbVehicle | null>);
+
+    if (err) {
+      throw AppError.badRequest(`Failed to fetch vehicle: ${getErrorMessage(err)}`);
     }
+
+    return vehicle ? this.mapVehicleToDTO(vehicle) : null;
   }
 
   /**
@@ -160,64 +166,68 @@ export class VehicleService {
       limit?: number;
     } = {}
   ): Promise<{ data: Vehicle[]; total: number }> {
-    try {
-      const { page = 1, limit = 20, ...where } = filters;
-      const skip = (page - 1) * limit;
+    const { page = 1, limit = 20, ...where } = filters;
+    const skip = (page - 1) * limit;
 
-      const [vehicles, total] = await Promise.all([
-        prisma.vMVehicle.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { createdAt: 'desc' },
-          include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
-        }) as Promise<DbVehicle[]>,
-        prisma.vMVehicle.count({ where }),
-      ]);
+    const [err, results] = await safe(Promise.all([
+      prisma.vMVehicle.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
+      }) as Promise<DbVehicle[]>,
+      prisma.vMVehicle.count({ where }),
+    ]));
 
-      return {
-        data: vehicles.map((v) => this.mapVehicleToDTO(v)),
-        total,
-      };
-    } catch (error) {
-      throw AppError.badRequest(`Failed to list vehicles: ${getErrorMessage(error)}`);
+    if (err || !results) {
+      throw AppError.badRequest(`Failed to list vehicles: ${getErrorMessage(err)}`);
     }
+
+    const [vehicles, total] = results;
+
+    return {
+      data: vehicles.map((v) => this.mapVehicleToDTO(v)),
+      total,
+    };
   }
 
   /**
    * Update vehicle
    */
   async updateVehicle(vehicleId: string, data: UpdateVehicleDTO): Promise<Vehicle> {
-    try {
-      const vehicle = (await prisma.vMVehicle.update({
-        where: { id: vehicleId },
-        data: {
-          ...(data.status && { status: data.status }),
-          ...(data.assigned_site_id && { site_id: data.assigned_site_id }),
-          ...(data.current_driver_id !== undefined && { current_driver_id: data.current_driver_id }),
-          ...(data.photo_url !== undefined && { photo_url: data.photo_url }),
-          ...(data.last_odometer !== undefined && { last_odometer: data.last_odometer }),
-        },
-        include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
-      })) as DbVehicle;
-      return this.mapVehicleToDTO(vehicle);
-    } catch (error) {
-      throw AppError.badRequest(`Failed to update vehicle: ${getErrorMessage(error)}`);
+    const [err, vehicle] = await safe<DbVehicle>(prisma.vMVehicle.update({
+      where: { id: vehicleId },
+      data: {
+        ...(data.status && { status: data.status }),
+        ...(data.assigned_site_id && { site_id: data.assigned_site_id }),
+        ...(data.current_driver_id !== undefined && { current_driver_id: data.current_driver_id }),
+        ...(data.photo_url !== undefined && { photo_url: data.photo_url }),
+        ...(data.last_odometer !== undefined && { last_odometer: data.last_odometer }),
+      },
+      include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
+    }) as Promise<DbVehicle>);
+
+    if (err || !vehicle) {
+      throw AppError.badRequest(`Failed to update vehicle: ${getErrorMessage(err)}`);
     }
+
+    return this.mapVehicleToDTO(vehicle);
   }
 
   /**
    * Delete a vehicle
    */
   async deleteVehicle(vehicleId: string): Promise<boolean> {
-    try {
-      await prisma.vMVehicle.delete({
-        where: { id: vehicleId },
-      });
-      return true;
-    } catch (error) {
-      throw AppError.badRequest(`Failed to delete vehicle: ${getErrorMessage(error)}`);
+    const [err] = await safe(prisma.vMVehicle.delete({
+      where: { id: vehicleId },
+    }));
+
+    if (err) {
+      throw AppError.badRequest(`Failed to delete vehicle: ${getErrorMessage(err)}`);
     }
+
+    return true;
   }
 
   /**
@@ -230,8 +240,8 @@ export class VehicleService {
     speed?: number,
     heading?: number
   ): Promise<Vehicle> {
-    try {
-      const vehicle = (await prisma.vMVehicle.update({
+    const [err, results] = await safe(Promise.all([
+      prisma.vMVehicle.update({
         where: { id: vehicleId },
         data: {
           latitude,
@@ -240,10 +250,8 @@ export class VehicleService {
           location_accuracy_meters: 10,
         },
         include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
-      })) as DbVehicle;
-
-      // Also log GPS location
-      await prisma.vMGPSLocation.create({
+      }) as Promise<DbVehicle>,
+      prisma.vMGPSLocation.create({
         data: {
           vehicle_id: vehicleId,
           latitude,
@@ -252,12 +260,15 @@ export class VehicleService {
           heading,
           recorded_at: new Date(),
         },
-      });
+      })
+    ]));
 
-      return this.mapVehicleToDTO(vehicle);
-    } catch (error) {
-      throw AppError.badRequest(`Failed to update vehicle location: ${getErrorMessage(error)}`);
+    if (err || !results) {
+      throw AppError.badRequest(`Failed to update vehicle location: ${getErrorMessage(err)}`);
     }
+
+    const [vehicle] = results;
+    return this.mapVehicleToDTO(vehicle);
   }
 
   /**
@@ -269,32 +280,32 @@ export class VehicleService {
     timestamp: Date;
     accuracy: number;
   } | null> {
-    try {
-      const vehicle = (await prisma.vMVehicle.findUnique({
-        where: { id: vehicleId },
-      })) as DbVehicle | null;
+    const [err, vehicle] = await safe<DbVehicle | null>(prisma.vMVehicle.findUnique({
+      where: { id: vehicleId },
+    }) as Promise<DbVehicle | null>);
 
-      if (!vehicle || !vehicle.latitude || !vehicle.longitude) {
-        return null;
-      }
-
-      return {
-        latitude: vehicle.latitude,
-        longitude: vehicle.longitude,
-        timestamp: vehicle.location_timestamp || new Date(),
-        accuracy: vehicle.location_accuracy_meters || 10,
-      };
-    } catch (error) {
-      throw AppError.badRequest(`Failed to get vehicle location: ${getErrorMessage(error)}`);
+    if (err) {
+      throw AppError.badRequest(`Failed to get vehicle location: ${getErrorMessage(err)}`);
     }
+
+    if (!vehicle || !vehicle.latitude || !vehicle.longitude) {
+      return null;
+    }
+
+    return {
+      latitude: vehicle.latitude,
+      longitude: vehicle.longitude,
+      timestamp: vehicle.location_timestamp || new Date(),
+      accuracy: vehicle.location_accuracy_meters || 10,
+    };
   }
 
   /**
    * Get vehicle utilization report
    */
   async getVehicleUtilization(vehicleId: string, fromDate: Date, toDate: Date) {
-    try {
-      const trips = (await prisma.vMTrip.findMany({
+    const [err, results] = await safe(Promise.all([
+      prisma.vMTrip.findMany({
         where: {
           vehicle_id: vehicleId,
           actual_start_time: {
@@ -303,9 +314,8 @@ export class VehicleService {
           },
           trip_status: 'COMPLETED',
         },
-      })) as DbTrip[];
-
-      const fuelLogs = (await prisma.vMFuelLog.findMany({
+      }) as Promise<DbTrip[]>,
+      prisma.vMFuelLog.findMany({
         where: {
           vehicle_id: vehicleId,
           fuel_date: {
@@ -313,25 +323,29 @@ export class VehicleService {
             lte: toDate,
           },
         },
-      })) as DbFuelLog[];
+      }) as Promise<DbFuelLog[]>
+    ]));
 
-      const totalDistance = trips.reduce((sum: number, trip: DbTrip) => sum + (trip.actual_distance_km || 0), 0);
-      const totalFuel = fuelLogs.reduce((sum: number, log: DbFuelLog) => sum + log.quantity_liters, 0);
-      const totalFuelCost = fuelLogs.reduce((sum: number, log: DbFuelLog) => sum + log.total_cost, 0);
-      const avgEfficiency = totalDistance > 0 ? totalDistance / totalFuel : 0;
-
-      return {
-        vehicle_id: vehicleId,
-        total_trips: trips.length,
-        total_distance_km: totalDistance,
-        total_fuel_consumed_liters: totalFuel,
-        average_efficiency_km_per_liter: parseFloat(avgEfficiency.toFixed(2)),
-        total_fuel_cost: parseFloat(totalFuelCost.toFixed(2)),
-        cost_per_km: parseFloat((totalFuelCost / totalDistance).toFixed(2)),
-      };
-    } catch (error) {
-      throw AppError.badRequest(`Failed to calculate vehicle utilization: ${getErrorMessage(error)}`);
+    if (err || !results) {
+      throw AppError.badRequest(`Failed to calculate vehicle utilization: ${getErrorMessage(err)}`);
     }
+
+    const [trips, fuelLogs] = results;
+
+    const totalDistance = trips.reduce((sum: number, trip: DbTrip) => sum + (trip.actual_distance_km || 0), 0);
+    const totalFuel = fuelLogs.reduce((sum: number, log: DbFuelLog) => sum + log.quantity_liters, 0);
+    const totalFuelCost = fuelLogs.reduce((sum: number, log: DbFuelLog) => sum + log.total_cost, 0);
+    const avgEfficiency = totalDistance > 0 ? totalDistance / totalFuel : 0;
+
+    return {
+      vehicle_id: vehicleId,
+      total_trips: trips.length,
+      total_distance_km: totalDistance,
+      total_fuel_consumed_liters: totalFuel,
+      average_efficiency_km_per_liter: parseFloat(avgEfficiency.toFixed(2)),
+      total_fuel_cost: parseFloat(totalFuelCost.toFixed(2)),
+      cost_per_km: parseFloat((totalFuelCost / totalDistance).toFixed(2)),
+    };
   }
 
   // ============================================================================

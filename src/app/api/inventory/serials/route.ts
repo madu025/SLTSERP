@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { InventoryService } from '@/services/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
@@ -18,6 +19,6 @@ export const GET = apiHandler(async (request) => {
     const serials = await InventoryService.getAllSerials({ storeId, itemId, search, staffId });
     return serials;
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     rawResponse: true
 });

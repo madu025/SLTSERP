@@ -5,6 +5,8 @@ import { SystemService } from '@/services/system.service';
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { Role, Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
+import { safe, safeSync } from '@/utils/safe-await.util';
+import { safeJsonParse } from '@/utils/safeJsonParse';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -13,7 +15,7 @@ interface LoginCredentials {
     password?: string;
 }
 
-interface CreateUserData {
+export interface CreateUserData {
     username: string;
     email: string;
     password?: string;
@@ -26,7 +28,7 @@ interface CreateUserData {
     status?: string;
 }
 
-interface UpdateUserData {
+export interface UpdateUserData {
     username: string;
     email: string;
     password?: string;
@@ -134,20 +136,12 @@ export class UserService {
 
         let permissions: string[] = [];
         if (user.permissions) {
-            try {
-                const parsed = JSON.parse(user.permissions);
-                permissions = Array.isArray(parsed) ? parsed : [];
-            } catch {
-                permissions = [];
-            }
+            const parsed = safeJsonParse<string[]>(user.permissions, []);
+            permissions = Array.isArray(parsed) ? parsed : [];
         } else if (isTestUser) {
             const perms: string[] = (user.sectionAssignments || []).flatMap((a) => {
-                try {
-                    const parsed = JSON.parse(a.role?.permissions || '[]');
-                    return Array.isArray(parsed) ? (parsed as string[]) : [];
-                } catch {
-                    return [];
-                }
+                const parsed = safeJsonParse<string[]>(a.role?.permissions || '[]', []);
+                return Array.isArray(parsed) ? parsed : [];
             });
             permissions = [...new Set(perms)];
             if (permissions.length === 0) {
@@ -488,24 +482,26 @@ export class UserService {
             throw new Error('CANNOT_DELETE_SUPER_ADMIN');
         }
 
-        try {
+        const [err] = await safe(prisma.$transaction(async (tx) => {
             // Delete cascade-safe related records to avoid blockages
-            await prisma.userSectionAssignment.deleteMany({ where: { userId: id } });
-            await prisma.notification.deleteMany({ where: { userId: id } });
-            await prisma.notificationPreference.deleteMany({ where: { userId: id } });
-            await prisma.pushSubscription.deleteMany({ where: { userId: id } });
+            await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
+            await tx.notification.deleteMany({ where: { userId: id } });
+            await tx.notificationPreference.deleteMany({ where: { userId: id } });
+            await tx.pushSubscription.deleteMany({ where: { userId: id } });
 
             // Attempt physical deletion
-            await prisma.user.delete({ where: { id } });
-        } catch (error: any) {
+            await tx.user.delete({ where: { id } });
+        }));
+
+        if (err) {
             // Fallback to soft delete if a foreign key constraint prevents physical deletion (Prisma Code P2003)
-            if (error?.code === 'P2003') {
+            if ((err as Prisma.PrismaClientKnownRequestError)?.code === 'P2003') {
                 await prisma.user.update({
                     where: { id },
                     data: { status: 'deleted' }
                 });
             } else {
-                throw error;
+                throw err;
             }
         }
         return { success: true };
@@ -553,10 +549,8 @@ export class UserService {
      * Verifies the answer of forgot password security question
      */
     static async forgotPasswordVerifyAnswer(token: string, answer: string) {
-        let decoded: string | JwtPayload;
-        try {
-            decoded = verify(token, JWT_SECRET);
-        } catch {
+        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, JWT_SECRET));
+        if (err || !decoded) {
             throw new Error('INVALID_TOKEN');
         }
 
@@ -602,10 +596,8 @@ export class UserService {
             throw new Error('PASSWORD_TOO_SHORT');
         }
 
-        let decoded: string | JwtPayload;
-        try {
-            decoded = verify(token, JWT_SECRET);
-        } catch {
+        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, JWT_SECRET));
+        if (err || !decoded) {
             throw new Error('INVALID_TOKEN');
         }
 
@@ -815,41 +807,44 @@ export class UserService {
             });
         }
 
-        try {
-            return await prisma.userSectionAssignment.create({
-                data: {
-                    userId: userId,
-                    sectionId: data.sectionId,
-                    roleId: data.roleId,
-                    isPrimary: data.isPrimary || false
-                },
-                include: {
-                    section: true,
-                    role: true
-                }
-            });
-        } catch (error: any) {
-            if (error.code === 'P2002') {
+        const [err, assignment] = await safe(prisma.userSectionAssignment.create({
+            data: {
+                userId: userId,
+                sectionId: data.sectionId,
+                roleId: data.roleId,
+                isPrimary: data.isPrimary || false
+            },
+            include: {
+                section: true,
+                role: true
+            }
+        }));
+
+        if (err) {
+            if ((err as Prisma.PrismaClientKnownRequestError).code === 'P2002') {
                 throw AppError.badRequest('User already assigned to this section');
             }
-            throw error;
+            throw err;
         }
+
+        return assignment;
     }
 
     /**
      * Remove section assignment
      */
     static async removeUserSection(assignmentId: string) {
-        try {
-            await prisma.userSectionAssignment.delete({
-                where: { id: assignmentId }
-            });
-            return { success: true };
-        } catch (error: any) {
-            if (error.code === 'P2025') {
+        const [err] = await safe(prisma.userSectionAssignment.delete({
+            where: { id: assignmentId }
+        }));
+
+        if (err) {
+            if ((err as Prisma.PrismaClientKnownRequestError).code === 'P2025') {
                 throw AppError.notFound('Assignment not found');
             }
-            throw error;
+            throw err;
         }
+
+        return { success: true };
     }
 }

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 
 
@@ -18,5 +19,5 @@ export const POST = apiHandler(async (req, params, body) => {
         acceptedQuantities as any
     );
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'CONTRACTOR_SUPERVISOR'],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
 });

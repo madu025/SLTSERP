@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { StaffService } from '@/services/staff.service';
+import { StaffService, CreateStaffInput, UpdateStaffInput } from '@/services/staff.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
@@ -13,10 +13,11 @@ export const GET = apiHandler(async () => {
 // POST create new staff member
 export const POST = apiHandler(async (_request, _params, body) => {
     try {
-        const staff = await StaffService.createStaff(body as any);
+        const staff = await StaffService.createStaff(body as unknown as CreateStaffInput);
         return staff;
-    } catch (error: any) {
-        if (error?.code === 'P2002') {
+    } catch (error: unknown) {
+        const err = error as { code?: string };
+        if (err?.code === 'P2002') {
             throw AppError.badRequest('Employee ID already exists');
         }
         throw error;
@@ -35,10 +36,10 @@ export const PUT = apiHandler(async (_request, _params, body) => {
     if (!id) throw AppError.badRequest('Staff ID required');
 
     try {
-        const updatedStaff = await StaffService.updateStaff(id, updateFields as any);
+        const updatedStaff = await StaffService.updateStaff(id, updateFields as UpdateStaffInput);
         return updatedStaff;
-    } catch (error: any) {
-        if (error?.message === 'CANNOT_REPORT_TO_SELF') {
+    } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'CANNOT_REPORT_TO_SELF') {
             throw AppError.badRequest('Cannot report to self');
         }
         throw error;
@@ -61,8 +62,8 @@ export const DELETE = apiHandler(async (request) => {
     try {
         await StaffService.deleteStaff(id);
         return { message: 'Staff deleted successfully' };
-    } catch (error: any) {
-        const msg = error?.message;
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : '';
         if (msg && msg.startsWith('HAS_SUBORDINATES_')) {
             const count = msg.replace('HAS_SUBORDINATES_', '');
             throw AppError.badRequest(`Cannot delete staff member with ${count} subordinates. Reassign them first.`);
@@ -73,7 +74,7 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ['SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STAFF_DELETE', entity: 'Staff' },
     rawResponse: true
 });

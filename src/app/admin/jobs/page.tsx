@@ -20,7 +20,7 @@ import { toast } from "sonner";
 interface JobFailure {
     id: string;
     name: string;
-    data: any;
+    data: Record<string, unknown>;
     failedReason: string;
     processedOn: number;
     finishedOn: number;
@@ -52,7 +52,7 @@ export default function JobsMonitoringPage() {
             } else {
                 toast.error("Failed to fetch job stats");
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
             toast.error("An error occurred while fetching job stats");
         } finally {

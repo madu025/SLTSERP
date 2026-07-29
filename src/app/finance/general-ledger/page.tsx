@@ -6,8 +6,26 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { format } from 'date-fns';
 
+interface LedgerLine {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  description?: string;
+  debit: number;
+  credit: number;
+}
+
+interface LedgerEntry {
+  id: string;
+  date: string;
+  description: string;
+  referenceType?: string;
+  referenceId?: string;
+  lines: LedgerLine[];
+}
+
 export default function GeneralLedgerPage() {
-  const [entries, setEntries] = useState<any[]>([]);
+  const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,7 +46,7 @@ export default function GeneralLedgerPage() {
   }, []);
 
   const flatLines = (Array.isArray(entries) ? entries : []).flatMap(entry => 
-    (entry.lines || []).map((line: any) => ({
+    (entry.lines || []).map((line: LedgerLine) => ({
       id: line.id,
       transactionDate: entry.date,
       account: { accountCode: line.accountCode, accountName: line.accountName },

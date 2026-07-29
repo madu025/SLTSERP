@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 
@@ -22,7 +23,7 @@ export const GET = apiHandler(async () => {
   const payments = await OSPAccountCrudService.getHiringPayments();
   return { data: payments };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const POST = apiHandler(async (request) => {
@@ -40,5 +41,5 @@ export const POST = apiHandler(async (request) => {
 
   return { message: 'Hiring Payment created successfully', data: result };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });

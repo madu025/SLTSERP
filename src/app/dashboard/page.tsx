@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
@@ -161,7 +162,7 @@ export default function DashboardPage() {
     }
 
     return (
-        <RoleGuard allowedRoles={['ALL']}>
+        <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS}>
             <div className="min-h-screen flex bg-background text-foreground">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full">

@@ -21,7 +21,7 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateSoftwareLicenseSchema,
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "SoftwareLicense"
@@ -39,7 +39,7 @@ export const DELETE = apiHandler(
     return await SoftwareLicenseService.deleteLicense(userId, id, ipAddress, userAgent);
   },
   {
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ROLE_GROUPS.ADMINS,
     audit: {
       action: "DELETE",
       entity: "SoftwareLicense"

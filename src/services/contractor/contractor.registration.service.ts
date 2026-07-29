@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 import crypto from 'crypto';
 import { Prisma, ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
@@ -17,59 +18,54 @@ export class ContractorRegistrationService {
 
         if (!type) type = 'SOD';
 
-        try {
-            const existing = await prisma.contractor.findFirst({
-                where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] } }
-            });
+        const existing = await prisma.contractor.findFirst({
+            where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] } }
+        });
 
-            const token = crypto.randomBytes(5).toString('hex').toUpperCase(); // 10 chars
-            const expiry = new Date();
-            expiry.setDate(expiry.getDate() + 7);
+        const token = crypto.randomBytes(5).toString('hex').toUpperCase(); // 10 chars
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 7);
 
-            if (existing) {
-                const updated = await prisma.contractor.update({
-                    where: { id: existing.id },
-                    data: {
-                        name,
-                        type: type as ContractorType,
-                        registrationToken: token,
-                        registrationTokenExpiry: expiry,
-                        registrationStartedAt: null,
-                        siteOfficeStaffId,
-                        opmcId: opmcId || null
-                    }
-                });
-                return {
-                    contractor: updated,
-                    registrationLink: `${origin}/contractor-registration/${token}`,
-                    isUpdate: true
-                };
-            }
-
-            await ContractorQueryService.validateUnique({ contactNumber });
-
-            const contractor = await prisma.contractor.create({
+        if (existing) {
+            const updated = await prisma.contractor.update({
+                where: { id: existing.id },
                 data: {
                     name,
-                    contactNumber,
-                    email,
                     type: type as ContractorType,
-                    status: 'PENDING',
                     registrationToken: token,
                     registrationTokenExpiry: expiry,
+                    registrationStartedAt: null,
                     siteOfficeStaffId,
                     opmcId: opmcId || null
                 }
             });
-
             return {
-                contractor,
-                registrationLink: `${origin}/contractor-registration/${token}`
+                contractor: updated,
+                registrationLink: `${origin}/contractor-registration/${token}`,
+                isUpdate: true
             };
-        } catch (error) {
-            console.error("[REG-SERVICE] generateRegistrationLink Error:", error);
-            throw error;
         }
+
+        await ContractorQueryService.validateUnique({ contactNumber });
+
+        const contractor = await prisma.contractor.create({
+            data: {
+                name,
+                contactNumber,
+                email,
+                type: type as ContractorType,
+                status: 'PENDING',
+                registrationToken: token,
+                registrationTokenExpiry: expiry,
+                siteOfficeStaffId,
+                opmcId: opmcId || null
+            }
+        });
+
+        return {
+            contractor,
+            registrationLink: `${origin}/contractor-registration/${token}`
+        };
     }
 
     /**
@@ -328,17 +324,17 @@ export class ContractorRegistrationService {
             timeout: 30000,
         });
 
-        try {
-            await eventBus.publish('contractor.registered', {
-                contractor: {
-                    id: result.id,
-                    name: result.name,
-                    siteOfficeStaffId: result.siteOfficeStaffId,
-                    opmcId: result.opmcId
-                },
-                siteOfficeStaffId: result.siteOfficeStaffId
-            });
-        } catch (nErr) {
+        const [nErr] = await safe(eventBus.publish('contractor.registered', {
+            contractor: {
+                id: result.id,
+                name: result.name,
+                siteOfficeStaffId: result.siteOfficeStaffId,
+                opmcId: result.opmcId
+            },
+            siteOfficeStaffId: result.siteOfficeStaffId
+        }));
+        
+        if (nErr) {
             console.error("[REG-SERVICE] Event Publish Failed:", nErr);
         }
 

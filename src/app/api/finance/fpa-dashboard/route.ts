@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { FPADashboardService } from '@/services/finance/fpa-dashboard.service';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,5 +17,5 @@ export const GET = apiHandler(async (req: Request) => {
   const metrics = await FPADashboardService.getPredictiveProfitability(year, quarter);
   return metrics;
 }, {
-  roles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'ADMIN']
+  roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

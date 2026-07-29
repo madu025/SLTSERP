@@ -52,7 +52,7 @@ export const GET = apiHandler(async (request) => {
 
   return CapexOpexLedgerService.getEntries(params);
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER'],
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   rawResponse: true,
 });
 

@@ -32,7 +32,7 @@ export const GET = apiHandler(
     return await HelpdeskAuditService.getAudits();
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"]
+    roles: ROLE_GROUPS.OFFICE_ADMINS
   }
 );
 
@@ -71,7 +71,7 @@ export const PUT = apiHandler(
     return await HelpdeskAuditService.syncAuditToInventory(auditId, body || undefined, userId);
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "ITAssetAudit"
@@ -92,7 +92,7 @@ export const PATCH = apiHandler(
     return await HelpdeskAuditService.rejectAudit(auditId);
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "ITAssetAudit"
@@ -113,7 +113,7 @@ export const DELETE = apiHandler(
     return await HelpdeskAuditService.deleteAudit(auditId);
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "DELETE",
       entity: "ITAssetAudit"

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 
 import { HelpdeskRepository } from '@/repositories/helpdesk.repository';
@@ -1061,7 +1062,7 @@ export class HelpdeskService {
 
     // Notify IT Staff / Engineers (Role ENGINEER, ADMIN)
     await NotificationService.notifyByRole({
-      roles: ['ENGINEER', 'ADMIN', 'SUPER_ADMIN'],
+      roles: ROLE_GROUPS.PROJECT_MANAGERS,
       title: 'New Help Desk Ticket',
       message: `A new ${ticket.priority} priority ticket (${ticket.ticketNumber}) has been submitted: "${ticket.description.substring(0, 50)}..."`,
       type: 'HELPDESK',

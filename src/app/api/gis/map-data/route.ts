@@ -3,18 +3,23 @@ import { GISRouteService } from '@/services/gis/GISRouteService';
 import { requireAuth } from '@/lib/server-utils';
 import { handleApiError } from '@/lib/api-utils';
 
+import { safe } from '@/utils/safe-await.util';
+
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  try {
-    // Secure endpoint
-    await requireAuth();
-
-    // Fetch active GIS routes and global stats
-    const data = await GISRouteService.getActiveRoutesAndStats();
-
-    return NextResponse.json(data);
-  } catch (error) {
-    return handleApiError(error);
+  // Secure endpoint
+  const [authErr] = await safe(requireAuth());
+  if (authErr) {
+    return handleApiError(authErr);
   }
+
+  // Fetch active GIS routes and global stats
+  const [dataErr, data] = await safe(GISRouteService.getActiveRoutesAndStats());
+
+  if (dataErr) {
+    return handleApiError(dataErr);
+  }
+
+  return NextResponse.json(data);
 }

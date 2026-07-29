@@ -36,7 +36,7 @@ export const GET = apiHandler(async (request) => {
 
   return BudgetAllocationService.listBudgets(params);
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'OSP_MANAGER'],
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   rawResponse: true,
 });
 

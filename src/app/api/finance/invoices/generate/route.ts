@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { BillingService } from '@/services/finance/billing.service';
@@ -21,7 +22,7 @@ export const POST = apiHandler(
     },
     {
         schema: generateInvoiceSchema,
-        roles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
+        roles: ROLE_GROUPS.PROJECT_MANAGERS,
         audit: {
             action: 'GENERATE_INVOICE',
             entity: 'Invoice'

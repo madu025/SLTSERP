@@ -51,7 +51,7 @@ export class InvoiceService {
 
         if (status === 'PENDING') {
             await NotificationService.notifyByRole({
-                roles: ['AREA_MANAGER', 'SUPER_ADMIN', 'ADMIN'],
+                roles: ROLE_GROUPS.ADMINS,
                 title: 'New Penalty Proposed',
                 message: `A penalty of LKR ${amount.toFixed(2)} has been proposed for Invoice ${invNum} by ${proposerName}. Reason: ${reason || 'MANUAL'}.`,
                 type: 'FINANCE',
@@ -93,7 +93,7 @@ export class InvoiceService {
         const invNum = invoice?.invoiceNumber || invoiceId;
 
         await NotificationService.notifyByRole({
-            roles: ['AREA_COORDINATOR', 'QC_OFFICER', 'MANAGER', 'OSP_MANAGER', 'SUPER_ADMIN', 'ADMIN'],
+            roles: ROLE_GROUPS.PROJECT_MANAGERS,
             title: `Penalty ${status.toLowerCase()}`,
             message: `A proposed penalty of LKR ${updatedPenalty.amount.toFixed(2)} for Invoice ${invNum} has been ${status.toLowerCase()} by an Area Manager.`,
             type: 'FINANCE',

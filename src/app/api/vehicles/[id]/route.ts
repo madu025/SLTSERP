@@ -21,7 +21,7 @@ export const PUT = apiHandler(async (request, params, body) => {
     const { id } = resolvedParams;
     const { status, assigned_site_id, current_driver_id } = body;
 
-    const data: any = {};
+    const data: Record<string, unknown> = {};
     if (status) data.status = status as VehicleStatusEnum;
     if (assigned_site_id) data.assigned_site_id = assigned_site_id;
     if (current_driver_id !== undefined) data.current_driver_id = current_driver_id;

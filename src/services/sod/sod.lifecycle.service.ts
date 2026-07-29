@@ -6,6 +6,7 @@ import { TransactionClient } from '../inventory/types';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { eventBus } from '@/lib/events/event-bus';
+import { safe } from '@/utils/safe-await.util';
 
 export class SODLifecycleService {
     /**
@@ -75,7 +76,7 @@ export class SODLifecycleService {
         if (otherData.techContact !== undefined) updateData.techContact = otherData.techContact;
         if (otherData.teamId !== undefined) updateData.teamId = otherData.teamId || null;
         if (otherData.directTeamName !== undefined) updateData.directTeam = otherData.directTeamName || null;
-        if ((otherData as any).directTeam !== undefined) updateData.directTeam = (otherData as any).directTeam || null;
+        if ((otherData as Record<string, unknown>).directTeam !== undefined) updateData.directTeam = (otherData as Record<string, unknown>).directTeam || null;
 
         // Auto-resolve teamId if contractorId is assigned without teamId
         const cIdStr = typeof updateData.contractorId === 'string' ? updateData.contractorId : null;
@@ -151,19 +152,21 @@ export class SODLifecycleService {
             }, tx || prisma);
         }
 
-        // Emit domain event for status changes
         if (serviceOrder.sltsStatus !== oldOrder.sltsStatus) {
-            eventBus.publish('sod.status_changed', {
-                serviceOrderId: serviceOrder.id,
-                soNum: serviceOrder.soNum,
-                opmcId: serviceOrder.opmcId,
-                oldStatus: oldOrder.sltsStatus || 'PENDING',
-                newStatus: serviceOrder.sltsStatus,
-                returnReason: serviceOrder.returnReason,
-                userId
-            }).catch(e => {
-                console.error('[LIFECYCLE-EVENT] Failed to publish status change event:', e);
-            });
+            void (async () => {
+                const [e] = await safe(eventBus.publish('sod.status_changed', {
+                    serviceOrderId: serviceOrder.id,
+                    soNum: serviceOrder.soNum,
+                    opmcId: serviceOrder.opmcId,
+                    oldStatus: oldOrder.sltsStatus || 'PENDING',
+                    newStatus: serviceOrder.sltsStatus,
+                    returnReason: serviceOrder.returnReason,
+                    userId
+                }));
+                if (e) {
+                    console.error('[LIFECYCLE-EVENT] Failed to publish status change event:', e);
+                }
+            })();
         }
     }
 

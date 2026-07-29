@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -68,7 +69,7 @@ export const POST = apiHandler(
     },
     {
         schema: contractorSchema,
-        roles: ['ADMIN', 'SUPER_ADMIN', 'OFFICE_ADMIN'],
+        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'CREATE',
             entity: 'Contractor'
@@ -87,7 +88,7 @@ export const PUT = apiHandler(
     },
     {
         schema: contractorSchema,
-        roles: ['ADMIN', 'SUPER_ADMIN', 'OFFICE_ADMIN', 'AREA_MANAGER'],
+        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'UPDATE',
             entity: 'Contractor'
@@ -111,7 +112,7 @@ export const DELETE = apiHandler(
         };
     },
     {
-        roles: ['ADMIN', 'SUPER_ADMIN', 'OFFICE_ADMIN'],
+        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'DELETE',
             entity: 'Contractor'

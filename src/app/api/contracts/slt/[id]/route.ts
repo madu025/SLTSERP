@@ -4,7 +4,7 @@ import { SLTContractService } from '@/services/slt-contract.service';
 export const dynamic = 'force-dynamic';
 
 export const DELETE = apiHandler(
-    async (req: Request, params: any) => {
+    async (req: Request, params: Record<string, unknown>) => {
         const resolvedParams = params instanceof Promise ? await params : params;
         const urlPathId = new URL(req.url).pathname.split('/').filter(Boolean).pop();
         const id = resolvedParams?.id || urlPathId;

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ShieldCheck, Check, X, AlertTriangle, RefreshCw } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
+import { ROLE_GROUPS } from "@/config/roles";
 
 interface AmendmentRequest {
     id: string;
@@ -196,7 +197,7 @@ export default function SFAuditGovernancePage() {
     };
 
     return (
-        <RoleGuard allowedRoles={['SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER']}>
+        <RoleGuard allowedRoles={ROLE_GROUPS.SF_AUDITORS}>
             <div className="flex h-screen bg-slate-900 text-slate-100 overflow-hidden font-sans">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">

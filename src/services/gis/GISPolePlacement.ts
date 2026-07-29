@@ -1,6 +1,7 @@
 import { PlannedCable, PlannedClosure, PlannedPole, RoadSegment } from './types';
 import { GISGeometry } from './GISGeometry';
 import { GISRoadNetwork } from './GISRoadNetwork';
+import { safeSync } from '@/utils/safe-await.util';
 
 export class GISPolePlacement {
   /**
@@ -20,8 +21,10 @@ export class GISPolePlacement {
     const roundaboutPoints: { lat: number; lon: number }[] = [];
 
     if (roads && roads.length > 0) {
-      try {
-        const topo = GISRoadNetwork.buildRoadTopology(roads);
+      const [topoErr, topo] = safeSync(() => GISRoadNetwork.buildRoadTopology(roads));
+      if (topoErr || !topo) {
+        console.error('[GISPolePlacement] Failed to build road topology for crossing check', topoErr);
+      } else {
         intersections.push(...topo.intersections);
 
         for (const road of roads) {
@@ -31,8 +34,6 @@ export class GISPolePlacement {
             }
           }
         }
-      } catch (e) {
-        console.error('[GISPolePlacement] Failed to build road topology for crossing check', e);
       }
     }
 

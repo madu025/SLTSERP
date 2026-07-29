@@ -24,7 +24,7 @@ export const GET = apiHandler(async (_req, params) => {
 
   return budget;
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT'],
+  roles: ROLE_GROUPS.FINANCE_ALL,
   rawResponse: true,
 });
 

@@ -47,7 +47,7 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string, f
             }
             toast.success(message);
         },
-        onError: (err: any) => {
+        onError: (err: Record<string, unknown>) => {
             const msg = err?.message || "Sync failed";
             toast.error(`Sync failed: ${msg}`);
         }

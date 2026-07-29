@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -7,5 +8,5 @@ export const GET = apiHandler(async () => {
     const auditReport = await AiAuditService.runSystemAudit();
     return Response.json({ success: true, data: auditReport });
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']
+    roles: ROLE_GROUPS.PROJECT_MANAGERS
 });

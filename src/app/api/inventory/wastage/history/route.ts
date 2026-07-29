@@ -13,6 +13,6 @@ export const GET = apiHandler(async (request) => {
     const data = await InventoryService.getWastageHistory({ storeId, contractorId, month });
     return data;
 }, {
-    roles: [...ROLE_GROUPS.STORES, ...ROLE_GROUPS.OPS, ...ROLE_GROUPS.ADMINS],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     rawResponse: true
 });

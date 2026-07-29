@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { GISAITrainingService } from '@/services/gis/GISAITrainingService';
 
@@ -8,6 +9,6 @@ export const GET = apiHandler(async () => {
   const metrics = await GISAITrainingService.getAITrainingMetrics();
   return metrics;
 }, {
-  roles: ['ENGINEER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   audit: { action: 'READ', entity: 'GIS_ROUTE' }
 });

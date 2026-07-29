@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -302,7 +303,7 @@ export default function AdminAuditReviewPage() {
   const discrepancies = audits.filter(a => !a.isSynced && !a.isMatched).length;
 
   return (
-    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']}>
+    <RoleGuard allowedRoles={ROLE_GROUPS.OFFICE_ADMINS}>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

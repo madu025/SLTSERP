@@ -8,13 +8,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GISImportService } from '@/services/GISImportService';
 import { logger } from '@/lib/logger';
+import { safe } from '@/utils/safe-await.util';
 
 export async function POST(request: NextRequest) {
   logger.info('[GIS-PROCESS] Received GIS processing request');
 
-  try {
-    const body = await request.json();
-    const { importId } = body;
+  const [jsonErr, body] = await safe<Record<string, unknown>>(request.json());
+  if (jsonErr || !body) {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { importId } = body as { importId: string };
 
     if (!importId) {
       return NextResponse.json(
@@ -48,7 +52,23 @@ export async function POST(request: NextRequest) {
 
     // Execute the full processing pipeline
     logger.info(`[GIS-PROCESS] Starting processing for session ${importId}`);
-    const result = await GISImportService.processImport(importId);
+    
+    const [processErr, result] = await safe(GISImportService.processImport(importId));
+
+    if (processErr || !result) {
+      logger.error('[GIS-PROCESS] Processing failed', {
+        error: processErr?.message,
+        stack: processErr?.stack,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'GIS processing failed',
+          message: processErr?.message || 'Internal server error',
+        },
+        { status: 500 }
+      );
+    }
 
     logger.info(
       `[GIS-PROCESS] Completed processing for ${importId}. ` +
@@ -56,18 +76,4 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json(result, { status: 200 });
-  } catch (err: any) {
-    logger.error('[GIS-PROCESS] Processing failed', {
-      error: err.message,
-      stack: err.stack,
-    });
-
-    return NextResponse.json(
-      {
-        error: 'GIS processing failed',
-        message: err.message || 'Internal server error',
-      },
-      { status: 500 }
-    );
-  }
 }

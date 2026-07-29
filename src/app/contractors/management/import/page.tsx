@@ -10,7 +10,7 @@ import readXlsxFile from 'read-excel-file';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export default function ContractorBulkImportPage() {
     const queryClient = useQueryClient();

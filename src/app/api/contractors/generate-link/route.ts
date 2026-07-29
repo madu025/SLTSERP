@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
 import { AppError, ErrorCode } from '@/lib/error';
@@ -39,7 +40,7 @@ export const POST = apiHandler<unknown, RegistrationInviteSchema>(
     },
     {
         schema: registrationInviteSchema,
-        roles: ['ADMIN', 'SUPER_ADMIN', 'OFFICE_ADMIN', 'SITE_OFFICE_STAFF', 'SA_MANAGER', 'SA_ASSISTANT', 'MANAGER', 'AREA_MANAGER'],
+        roles: ROLE_GROUPS.OFFICE_ADMINS,
         audit: {
             action: 'GENERATE_INVITE',
             entity: 'Contractor'

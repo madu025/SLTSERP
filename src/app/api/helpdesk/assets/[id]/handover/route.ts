@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { HelpdeskService } from '@/services/helpdesk.service';
@@ -24,12 +25,12 @@ export const POST = apiHandler(async (req, params) => {
 
   return { message: 'Asset handover recorded successfully', handover: log };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'STORE_KEEPER']
+  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const GET = apiHandler(async (_req, params) => {
   const handovers = await HelpdeskService.getAssetHandovers(params.id);
   return handovers;
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'ENGINEER', 'STORE_KEEPER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
+  roles: ROLE_GROUPS.OFFICE_ADMINS
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
@@ -19,9 +20,9 @@ export interface CreateChangeRequestInput {
  * ≥ 500K → Finance + Director (3 levels)
  */
 const APPROVAL_CHAIN = {
-  SECTION_MANAGER: { threshold: 100000, roles: ['SECTION_MANAGER'] },
-  AE_ENGINEER: { threshold: 500000, roles: ['SECTION_MANAGER', 'AE_ENGINEER'] },
-  FINANCE_DIRECTOR: { threshold: Infinity, roles: ['SECTION_MANAGER', 'AE_ENGINEER', 'FINANCE', 'DIRECTOR'] },
+  SECTION_MANAGER: { threshold: 100000, roles: ROLE_GROUPS.ADMINS },
+  AE_ENGINEER: { threshold: 500000, roles: ROLE_GROUPS.PROJECT_MANAGERS },
+  FINANCE_DIRECTOR: { threshold: Infinity, roles: ROLE_GROUPS.PROJECT_MANAGERS },
 };
 
 export class ChangeRequestService {

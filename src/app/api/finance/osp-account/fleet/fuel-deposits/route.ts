@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 
@@ -17,7 +18,7 @@ export const GET = apiHandler(async () => {
   const deposits = await OSPAccountCrudService.getFuelDeposits();
   return { data: deposits };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const POST = apiHandler(async (request) => {
@@ -28,5 +29,5 @@ export const POST = apiHandler(async (request) => {
 
   return { message: 'Fuel Deposit created successfully', data: result };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });

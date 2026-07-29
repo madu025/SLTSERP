@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorFinanceService } from '@/services/contractor-portal/finance.service';
 
@@ -10,5 +11,5 @@ export const GET = apiHandler(async (req: Request) => {
     const data = await ContractorFinanceService.getFinanceDashboard(userId, contractorId);
     return data;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -99,7 +100,7 @@ export default function DynamicRateMatrixPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER', 'AUDITOR', 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER']}>
+        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE_APPROVERS}>
             <div className="flex h-screen bg-slate-900 text-slate-100 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">

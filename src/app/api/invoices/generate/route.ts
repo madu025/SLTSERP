@@ -133,8 +133,8 @@ export const POST = apiHandler(async (req: Request) => {
             id: invoice.id,
             invoiceNumber: invoice.invoiceNumber,
             totalAmount: totalGrossAmount,
-            amountA: (invoice as any).amountA,
-            amountB: (invoice as any).amountB,
+            amountA: (invoice as Record<string, unknown>).amountA,
+            amountB: (invoice as Record<string, unknown>).amountB,
             sodCount: sods.length,
             publicUrl
         }

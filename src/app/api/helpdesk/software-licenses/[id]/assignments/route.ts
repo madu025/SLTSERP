@@ -16,7 +16,7 @@ export const POST = apiHandler(
   },
   {
     schema: CreateSoftwareLicenseAssignmentSchema,
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "CREATE",
       entity: "SoftwareLicenseAssignment"
@@ -39,7 +39,7 @@ export const DELETE = apiHandler(
     return await SoftwareLicenseService.revokeLicense(userId, assignmentId, ipAddress, userAgent);
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "DELETE",
       entity: "SoftwareLicenseAssignment"

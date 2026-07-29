@@ -11,6 +11,6 @@ export const GET = apiHandler(async (request) => {
 
   return MaterialAuditReportService.getExecutiveAuditSummary(opmcId);
 }, {
-  roles: [...ROLE_GROUPS.STORES_ALL, "FINANCE_MANAGER"],
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   rawResponse: true,
 });

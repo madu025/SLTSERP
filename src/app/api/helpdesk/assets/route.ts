@@ -36,7 +36,7 @@ export const POST = apiHandler(
   },
   {
     schema: CreateAssetSchema,
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "CREATE",
       entity: "ITAsset"

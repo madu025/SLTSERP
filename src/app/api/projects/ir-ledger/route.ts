@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectIRLedgerService } from '@/services/project-ir-ledger.service';
+import { ROLE_GROUPS } from "@/config/roles";
 
 // GET: Fetch IR Ledger entries
 export const GET = apiHandler(async (req) => {
@@ -38,6 +39,6 @@ export const POST = apiHandler(async (req, _params, body) => {
   });
   return result;
 }, {
-  roles: ['STORES_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+  roles: ROLE_GROUPS.STORES_MANAGERS,
   audit: { action: 'CREATE', entity: 'GRN' }
 });

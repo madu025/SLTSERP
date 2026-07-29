@@ -2,6 +2,7 @@ import RBush from 'rbush';
 import { MinPriorityQueue } from '@datastructures-js/priority-queue';
 import { RoadSegment, Building, RoadIndexItem } from './types';
 import { GISGeometry } from './GISGeometry';
+import { safeSync } from '@/utils/safe-await.util';
 
 /** Latitude-aware meters → degrees conversion helpers */
 const metersToLatDeg = (m: number): number => m / 111320.0;
@@ -543,11 +544,11 @@ export class GISRoadNetwork {
 
 
     const intersections: { lat: number; lon: number }[] = [];
-    try {
-      const topo = this.buildRoadTopology(roads);
+    const [topoErr, topo] = safeSync(() => this.buildRoadTopology(roads));
+    if (topoErr || !topo) {
+      console.error('[buildDualShoulderGraph] Failed to build topology', topoErr);
+    } else {
       intersections.push(...topo.intersections);
-    } catch (e) {
-      console.error('[buildDualShoulderGraph] Failed to build topology', e);
     }
 
     const addEdge = (u: string, v: string, weight: number) => {

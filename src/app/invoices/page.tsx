@@ -15,7 +15,7 @@ import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, S
 import { cn } from "@/lib/utils";
 import { downloadExcelInvoice } from '@/lib/excel-invoice';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
+import { ROLE_GROUPS } from "@/config/roles";
 
 interface Invoice {
     id: string;
@@ -749,7 +749,7 @@ export default function InvoicesPage() {
 
     return (
         <RoleGuard 
-            allowedRoles={[...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER']} 
+            allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS} 
             permissionId="invoices"
         >
             <div className="erp-page-wrapper flex-row overflow-hidden">

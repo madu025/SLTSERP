@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ConsumableAuditService } from '@/services/inventory/consumable-audit.service';
 import { AppError } from '@/lib/error';
@@ -20,6 +21,6 @@ export const GET = apiHandler(async (req) => {
         data: auditSummary,
     };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'STORES_MANAGER'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'AUDIT_CONSUMABLE_LEAKAGE', entity: 'Contractor' }
 });

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectIRLedgerService } from '@/services/project-ir-ledger.service';
 
@@ -11,6 +12,6 @@ export const POST = apiHandler(async (req, _params, body) => {
   });
   return result;
 }, {
-  roles: ['STORES_MANAGER', 'ENGINEER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   audit: { action: 'CREATE', entity: 'STOCK_MOVEMENT' }
 });

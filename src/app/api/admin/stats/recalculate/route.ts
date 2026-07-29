@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { StatsService } from '@/lib/stats.service';
 
@@ -10,6 +11,6 @@ export const POST = apiHandler(async () => {
         message: 'Global stats recalculation completed'
     });
 }, {
-    roles: ['SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'RECALCULATE_STATS', entity: 'Admin' }
 });

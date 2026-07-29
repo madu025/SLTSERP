@@ -63,7 +63,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
         throw new Error('Project ID required');
     }
 
-    return await ProjectService.updateProject(id, updateData as any);
+    return await ProjectService.updateProject(id, updateData as Record<string, unknown>);
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'PROJECT' },

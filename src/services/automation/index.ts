@@ -6,6 +6,7 @@ import { AuditRepository } from '@/repositories/audit.repository';
 import { NotificationRepository } from '@/repositories/notification.repository';
 import { NotificationService } from '../notification.service';
 import { startOfDay, endOfDay, subDays, subMonths } from 'date-fns';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export class AutomationService {
     /**
@@ -35,7 +36,7 @@ export class AutomationService {
 
             for (const [storeName, items] of Object.entries(storeGroups)) {
                 await NotificationService.notifyByRole({
-                    roles: ['STORES_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+                    roles: ROLE_GROUPS.STORES_MANAGERS,
                     title: 'Daily Low Stock Summary',
                     message: `Store "${storeName}" has ${(items as string[]).length} items below minimum level: ${(items as string[]).slice(0, 3).join(', ')}...`,
                     type: 'INVENTORY',
@@ -64,7 +65,7 @@ export class AutomationService {
 
         if (stalledContractors > 0) {
             await NotificationService.notifyByRole({
-                roles: ['OSP_MANAGER', 'AREA_MANAGER', 'ADMIN'],
+                roles: ROLE_GROUPS.PROJECT_MANAGERS,
                 title: 'Stalled Contractor Approvals',
                 message: `There are ${stalledContractors} contractor registrations pending for more than 24 hours.`,
                 type: 'CONTRACTOR',
@@ -83,7 +84,7 @@ export class AutomationService {
 
         if (stalledRequests.length > 0) {
             await NotificationService.notifyByRole({
-                roles: ['STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+                roles: ROLE_GROUPS.PROJECT_MANAGERS,
                 title: 'Stalled Material Requests',
                 message: `There are ${stalledRequests.length} material requests awaiting approval for over 24 hours.`,
                 type: 'INVENTORY',
@@ -110,7 +111,7 @@ export class AutomationService {
         ]);
 
         await NotificationService.notifyByRole({
-            roles: ['OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'OFFICE_ADMIN'],
+            roles: ROLE_GROUPS.OFFICE_ADMINS,
             title: 'Daily Operational Summary',
             message: `Performance for today: ${completed} SODs Completed successfully, ${returned} SODs Returned. Check reports for details.`,
             type: 'PROJECT',

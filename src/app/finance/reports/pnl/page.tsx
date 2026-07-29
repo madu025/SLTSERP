@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
+import { ROLE_GROUPS } from "@/config/roles";
 import { TrendingUp, TrendingDown, FileText } from "lucide-react";
 
 interface AccountBalanceSummary {

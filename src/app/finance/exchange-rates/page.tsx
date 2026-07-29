@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Globe, ArrowRightLeft, Loader2, Save } from 'lucide-react';
 import { format } from 'date-fns';
+import { ROLE_GROUPS } from "@/config/roles";
 
 interface CurrencyRate {
   id: string;
@@ -74,7 +75,7 @@ export default function ExchangeRatesPage() {
   };
 
   return (
-    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']}>
+    <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE_APPROVERS}>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

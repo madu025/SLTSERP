@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { apiHandler } from '@/lib/api-handler';
 
@@ -18,6 +19,6 @@ export const POST = apiHandler(async (req: Request, params: any, body: any) => {
 
     return await ContractorInventoryService.acceptMaterialIssue(issueId, signatureName, userId);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'STORES_MANAGER'],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     audit: { action: 'ACCEPT_CONTRACTOR_MATERIAL_ISSUE', entity: 'ContractorMaterialIssue' }
 });

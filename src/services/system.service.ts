@@ -1,12 +1,13 @@
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 
 export interface SystemEvent {
     userId: string;
     action: string;
     entity: string;
     entityId: string;
-    oldValue?: any;
-    newValue?: any;
+    oldValue?: unknown;
+    newValue?: unknown;
     ipAddress?: string;
     userAgent?: string;
     // Notification options
@@ -24,49 +25,50 @@ export class SystemService {
      * Use this to avoid duplicating logic across different API routes.
      */
     static async logEvent(event: SystemEvent) {
-        try {
-            return await prisma.$transaction(async (tx) => {
-                // 1. Create Audit Log
-                const auditLog = await tx.auditLog.create({
+        const [error, auditLog] = await safe(prisma.$transaction(async (tx) => {
+            // 1. Create Audit Log
+            const log = await tx.auditLog.create({
+                data: {
+                    userId: event.userId,
+                    action: event.action,
+                    entity: event.entity,
+                    entityId: event.entityId,
+                    oldValue: event.oldValue ? JSON.parse(JSON.stringify(event.oldValue)) : undefined,
+                    newValue: event.newValue ? JSON.parse(JSON.stringify(event.newValue)) : undefined,
+                    ipAddress: event.ipAddress,
+                    userAgent: event.userAgent,
+                }
+            });
+
+            // 2. Create Notification if requested
+            if (event.notify && event.notifyTitle && event.notifyMessage) {
+                await tx.notification.create({
                     data: {
                         userId: event.userId,
-                        action: event.action,
-                        entity: event.entity,
-                        entityId: event.entityId,
-                        oldValue: event.oldValue,
-                        newValue: event.newValue,
-                        ipAddress: event.ipAddress,
-                        userAgent: event.userAgent,
+                        title: event.notifyTitle,
+                        message: event.notifyMessage,
+                        type: event.notifyType || 'SYSTEM',
+                        priority: event.notifyPriority || 'MEDIUM',
+                        link: event.notifyLink,
                     }
                 });
+            }
 
-                // 2. Create Notification if requested
-                if (event.notify && event.notifyTitle && event.notifyMessage) {
-                    await tx.notification.create({
-                        data: {
-                            userId: event.userId,
-                            title: event.notifyTitle,
-                            message: event.notifyMessage,
-                            type: event.notifyType || 'SYSTEM',
-                            priority: event.notifyPriority || 'MEDIUM',
-                            link: event.notifyLink,
-                        }
-                    });
-                }
+            return log;
+        }));
 
-                return auditLog;
-            });
-        } catch (error) {
+        if (error) {
             console.error('Failed to log system event:', error);
-            // We don't want to break the main flow if auditing fails, but we should know about it.
         }
+
+        return auditLog;
     }
 
     /**
      * Mark that a user must change their password on next login.
      */
     static async forcePasswordChange(userId: string) {
-        return await (prisma.user as any).update({
+        return await prisma.user.update({
             where: { id: userId },
             data: { mustChangePassword: true }
         });

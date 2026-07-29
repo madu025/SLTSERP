@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { PreErpReconciliationService } from '@/services/inventory/pre-erp-reconciliation.service';
@@ -32,7 +33,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   }
 }, {
   schema: ApproveSchema,
-  roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'FINANCE_MANAGER'],
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   audit: { action: 'APPROVE_ADJUSTMENT', entity: 'MATERIAL_VARIANCE_ADJUSTMENT' },
   rawResponse: true,
 });

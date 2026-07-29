@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
 import { bulkImportSchema } from '@/lib/validations/service-order.schema';
@@ -13,6 +14,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
     };
 }, { 
     schema: bulkImportSchema,
-    roles: ['ADMIN', 'SUPER_ADMIN', 'AREA_MANAGER', 'ENGINEER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'BULK_IMPORT', entity: 'ServiceOrder' }
 });

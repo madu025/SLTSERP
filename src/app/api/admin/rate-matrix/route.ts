@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { PricingAuditService } from '@/services/sf-audit/pricing-audit.service';
 import { z } from 'zod';
@@ -9,7 +10,7 @@ export const GET = apiHandler(
     async () => {
         return await PricingAuditService.getRateRules();
     },
-    { roles: ['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER', 'AUDITOR', 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER'] }
+    { roles: ROLE_GROUPS.FINANCE_APPROVERS }
 );
 
 // PUT Handler: Update Rate Rule Amount
@@ -25,7 +26,7 @@ export const PUT = apiHandler(
         return { message: 'Rate amount updated successfully', updated };
     },
     {
-        roles: ['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER', 'AUDITOR', 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER'],
+        roles: ROLE_GROUPS.FINANCE_APPROVERS,
         schema: updateRateSchema
     }
 );

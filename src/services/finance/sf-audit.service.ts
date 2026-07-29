@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { safeJsonParse } from '@/utils/safeJsonParse';
 
 export interface PaymentSplitConfigData {
     splitMode: 'SINGLE_FULL' | 'SPLIT_AB' | 'SPLIT_ABC';
@@ -30,11 +31,7 @@ export class SfAuditService {
             return defaultConfig;
         }
 
-        try {
-            return JSON.parse(configRow.value) as PaymentSplitConfigData;
-        } catch {
-            return defaultConfig;
-        }
+        return safeJsonParse<PaymentSplitConfigData>(configRow.value, defaultConfig);
     }
 
     static async savePaymentSplitConfig(data: PaymentSplitConfigData): Promise<PaymentSplitConfigData> {

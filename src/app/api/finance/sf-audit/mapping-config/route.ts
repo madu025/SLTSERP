@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { HeaderMappingService, MappingColumnDTO } from '@/services/sf-audit/header-mapping.service';
 import { z } from 'zod';
@@ -8,7 +9,7 @@ export const GET = apiHandler(
     async () => {
         return await HeaderMappingService.getMappingConfig();
     },
-    { roles: ['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER', 'AUDITOR', 'ENGINEER', 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER'] }
+    { roles: ROLE_GROUPS.PROJECT_MANAGERS }
 );
 
 const columnSchema = z.object({
@@ -34,7 +35,7 @@ export const POST = apiHandler(
         };
     },
     {
-        roles: ['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER', 'AUDITOR', 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER'],
+        roles: ROLE_GROUPS.FINANCE_APPROVERS,
         schema: saveMappingSchema
     }
 );
@@ -48,6 +49,6 @@ export const DELETE = apiHandler(
         };
     },
     {
-        roles: ['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER', 'AUDITOR', 'SF_AUDIT_MANAGER']
+        roles: ROLE_GROUPS.FINANCE_APPROVERS
     }
 );

@@ -45,7 +45,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
 
 // PATCH: Bulk items update
 export const PATCH = apiHandler(async (_req, _params, body) => {
-    const updates = body.updates as unknown[] | undefined;
+    const updates = body.updates as Record<string, unknown>[] | undefined;
     if (!updates) {
         throw new Error('UPDATES_REQUIRED');
     }

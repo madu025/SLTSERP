@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { DynamicReportService, DynamicReportPayload } from '@/services/inventory/dynamic-report.service';
 import { z } from 'zod';
@@ -23,6 +24,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
     
     return Response.json({ success: true, data: report });
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'GENERATE_DYNAMIC_REPORT', entity: 'Reports' }
 });

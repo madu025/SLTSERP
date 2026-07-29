@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Upload, Download, CheckCircle2, XCircle, Loader2, Link2, Shield, User } from "lucide-react";
 import readXlsxFile from 'read-excel-file';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
+import { ROLE_GROUPS } from "@/config/roles";
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';

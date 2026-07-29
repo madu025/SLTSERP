@@ -18,8 +18,18 @@ const iouSchema = z.object({
 
 type IOUFormValues = z.infer<typeof iouSchema>;
 
+interface IOU {
+  id: string;
+  iouNumber: string;
+  staffName: string;
+  amount: number;
+  reason?: string;
+  status: string;
+  createdAt: string;
+}
+
 export default function IOUPage() {
-  const [ious, setIous] = useState<any[]>([]);
+  const [ious, setIous] = useState<IOU[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -46,7 +56,7 @@ export default function IOUPage() {
     fetchIOUs();
   }, []);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: IOUFormValues) => {
     try {
       const res = await fetch('/api/finance/osp-account/ious', {
         method: 'POST',
@@ -61,8 +71,8 @@ export default function IOUPage() {
       setIsModalOpen(false);
       reset();
       fetchIOUs();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed');
     }
   };
 
@@ -76,8 +86,8 @@ export default function IOUPage() {
       if (!res.ok) throw new Error('Approval failed');
       toast.success('IOU Approved');
       fetchIOUs();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Approval failed');
     }
   };
 

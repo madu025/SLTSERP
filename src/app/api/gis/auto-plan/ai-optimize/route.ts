@@ -3,31 +3,40 @@ import { GISAutoPlanService } from '@/services/GISAutoPlanService';
 import { GISDataExtractor } from '@/services/gis/GISDataExtractor';
 import { GISRoadNetwork } from '@/services/gis/GISRoadNetwork';
 import { GISGeometry } from '@/services/gis/GISGeometry';
+import { safe } from '@/utils/safe-await.util';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { polygon, customClosures, osmData, poles, cables } = body;
+  const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
+  
+  if (jsonErr || !body) {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
-    if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
-      return NextResponse.json({ error: 'Valid polygon coordinates are required' }, { status: 400 });
-    }
+  const { polygon, customClosures, osmData, poles, cables } = body;
+  
+  // Need to safely cast as arrays
+  const polygonArr = polygon as [number, number][];
+  const closuresArr = customClosures as Record<string, unknown>[];
 
-    if (!customClosures || !Array.isArray(customClosures) || customClosures.length === 0) {
-      return NextResponse.json({ warnings: ['No closures found to analyze. Please draw a plan first.'], suggestions: [] });
-    }
+  if (!polygonArr || !Array.isArray(polygonArr) || polygonArr.length < 3) {
+    return NextResponse.json({ error: 'Valid polygon coordinates are required' }, { status: 400 });
+  }
 
-    const inputPoles = poles || [];
-    const inputCables = cables || [];
+  if (!closuresArr || !Array.isArray(closuresArr) || closuresArr.length === 0) {
+    return NextResponse.json({ warnings: ['No closures found to analyze. Please draw a plan first.'], suggestions: [] });
+  }
 
-    let mapData = osmData;
+  const inputPoles = (poles as Record<string, unknown>[]) || [];
+  const inputCables = (cables as Record<string, unknown>[]) || [];
+
+  let mapData = osmData as Record<string, unknown> | null;
     // If OSM Data was not sent, fetch it dynamically based on the bounding box
     if (!mapData) {
       let minLat = Infinity, maxLat = -Infinity;
       let minLon = Infinity, maxLon = -Infinity;
-      for (const [lon, lat] of polygon) {
+      for (const [lon, lat] of polygonArr) {
         if (lat < minLat) minLat = lat;
         if (lat > maxLat) maxLat = lat;
         if (lon < minLon) minLon = lon;
@@ -51,19 +60,21 @@ export async function POST(req: NextRequest) {
     }
 
     const parsed = mapData && mapData.elements ? GISDataExtractor.parseOverpassElements(mapData) : null;
-    const roads = parsed ? GISDataExtractor.extractRoads(parsed.nodes, parsed.ways, polygon) : [];
+    const roads = parsed ? GISDataExtractor.extractRoads(parsed.nodes, parsed.ways, polygonArr) : [];
     const buildings = parsed ? GISDataExtractor.extractBuildings(parsed.nodes, parsed.ways) : [];
 
     // Pre-calculate spatial metadata context to pass to Gemini
-    const closureAuditContext = customClosures.map(c => {
-      const snap = GISRoadNetwork.snapToNearestRoad(c.latitude, c.longitude, roads);
-      const distToRoad = GISGeometry.getDistanceMeters(c.latitude, c.longitude, snap.lat, snap.lon);
+    const closureAuditContext = closuresArr.map(c => {
+      const lat = Number(c.latitude);
+      const lon = Number(c.longitude);
+      const snap = GISRoadNetwork.snapToNearestRoad(lat, lon, roads);
+      const distToRoad = GISGeometry.getDistanceMeters(lat, lon, snap.lat, snap.lon);
       
       // Find nearest building footprint
       let nearestBuildingName = 'unnamed building';
       let distToBuilding = Infinity;
       for (const b of buildings) {
-        const d = GISGeometry.getDistanceMeters(c.latitude, c.longitude, b.lat, b.lon);
+        const d = GISGeometry.getDistanceMeters(lat, lon, b.lat, b.lon);
         if (d < distToBuilding) {
           distToBuilding = d;
           nearestBuildingName = b.name || 'unnamed building';
@@ -71,10 +82,10 @@ export async function POST(req: NextRequest) {
       }
 
       return {
-        index: c.index,
-        type: c.closureType,
-        latitude: c.latitude,
-        longitude: c.longitude,
+        index: Number(c.index),
+        type: String(c.closureType || 'Closure'),
+        latitude: lat,
+        longitude: lon,
         distToRoadCenterlineMeters: Math.round(distToRoad),
         snappedLatitude: snap.lat,
         snappedLongitude: snap.lon,
@@ -89,13 +100,12 @@ export async function POST(req: NextRequest) {
     // Check for GEMINI_API_KEY
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
-      try {
-        const prompt = `
+      const prompt = `
 You are an expert Telecom Outside Plant (OSP) Engineering Auditor.
 Below is the draft FTTH layout data, compiled with pre-computed snapped road coordinates and building footprints:
 - Closures: ${JSON.stringify(closureAuditContext)}
-- Poles: ${JSON.stringify(inputPoles.map((p: any) => ({ index: p.poleNumber || p.index, lat: p.latitude, lon: p.longitude })))}
-- Cables: ${JSON.stringify(inputCables.map((c: any) => ({ index: c.index || c.segmentNumber, spans: c.coordinates?.length || 0 })))}
+- Poles: ${JSON.stringify(inputPoles.map((p: Record<string, unknown>) => ({ index: p.poleNumber || p.index, lat: p.latitude, lon: p.longitude })))}
+- Cables: ${JSON.stringify(inputCables.map((c: Record<string, unknown>) => ({ index: c.index || c.segmentNumber, spans: Array.isArray(c.coordinates) ? c.coordinates.length : 0 })))}
 
 Analyze these coordinates against general telecom safety and OSP engineering laws:
 1. Public Right-of-Way: Cables and poles MUST follow public roads. DPs must not be inside buildings (distance to building < 12m) or private property (distance to road centerline > 22m).
@@ -113,29 +123,30 @@ Return EXACTLY a JSON object matching this structure, with no markdown tags or o
   ]
 }
 `;
-        const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: prompt }] }]
-            })
-          }
-        );
-
-        if (geminiRes.ok) {
-          const rawData = await geminiRes.json();
-          const responseText = rawData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(cleanJson);
-          
-          if (parsed.warnings) warnings.push(...parsed.warnings);
-          if (parsed.suggestions) suggestions.push(...parsed.suggestions);
+      const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+      const [geminiErr, geminiRes] = await safe(fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+          })
         }
-      } catch (geminiError) {
-        console.error('[AI-Optimize] Gemini query failed, falling back to rule-based engine:', geminiError);
+      ));
+
+      if (geminiErr) {
+        console.error('[AI-Optimize] Gemini query failed, falling back to rule-based engine:', geminiErr);
+      } else if (geminiRes && geminiRes.ok) {
+        const rawData = await geminiRes.json();
+        const responseText = rawData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const [parseErr, parsed] = await safe<Record<string, unknown>>(Promise.resolve(JSON.parse(cleanJson)));
+        
+        if (!parseErr && parsed) {
+          if (Array.isArray(parsed.warnings)) warnings.push(...(parsed.warnings as string[]));
+          if (Array.isArray(parsed.suggestions)) suggestions.push(...(parsed.suggestions as typeof suggestions));
+        }
       }
     }
 
@@ -176,13 +187,19 @@ Return EXACTLY a JSON object matching this structure, with no markdown tags or o
       const p1 = inputPoles[i];
       for (let j = i + 1; j < inputPoles.length; j++) {
         const p2 = inputPoles[j];
-        const d = GISGeometry.getDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+        const p1Lat = Number(p1.latitude);
+        const p1Lon = Number(p1.longitude);
+        const p2Lat = Number(p2.latitude);
+        const p2Lon = Number(p2.longitude);
+        const d = GISGeometry.getDistanceMeters(p1Lat, p1Lon, p2Lat, p2Lon);
         if (d < 10) {
           // Check if either pole is near a closure (we expect a pole near a closure)
           let nearClosure = false;
-          for (const c of customClosures) {
-            const d1 = GISGeometry.getDistanceMeters(p1.latitude, p1.longitude, c.latitude, c.longitude);
-            const d2 = GISGeometry.getDistanceMeters(p2.latitude, p2.longitude, c.latitude, c.longitude);
+          for (const c of closuresArr) {
+            const clLat = Number(c.latitude);
+            const clLon = Number(c.longitude);
+            const d1 = GISGeometry.getDistanceMeters(p1Lat, p1Lon, clLat, clLon);
+            const d2 = GISGeometry.getDistanceMeters(p2Lat, p2Lon, clLat, clLon);
             if (d1 < 5 || d2 < 5) {
               nearClosure = true;
               break;
@@ -197,7 +214,7 @@ Return EXACTLY a JSON object matching this structure, with no markdown tags or o
 
     // 2. Audit Floating Cable Bends & Span Limits
     for (const cab of inputCables) {
-      const coords = cab.coordinates || [];
+      const coords = Array.isArray(cab.coordinates) ? cab.coordinates as [number, number][] : [];
       if (coords.length < 2) continue;
 
       const cabName = `Cable #${cab.index || cab.segmentNumber || ''}`;
@@ -208,11 +225,11 @@ Return EXACTLY a JSON object matching this structure, with no markdown tags or o
         // Audit Floating Bend (coordinate point must have a pole or closure within 5m)
         let minSupportDist = Infinity;
         for (const p of inputPoles) {
-          const d = GISGeometry.getDistanceMeters(lat, lon, p.latitude, p.longitude);
+          const d = GISGeometry.getDistanceMeters(lat, lon, Number(p.latitude), Number(p.longitude));
           if (d < minSupportDist) minSupportDist = d;
         }
-        for (const c of customClosures) {
-          const d = GISGeometry.getDistanceMeters(lat, lon, c.latitude, c.longitude);
+        for (const c of closuresArr) {
+          const d = GISGeometry.getDistanceMeters(lat, lon, Number(c.latitude), Number(c.longitude));
           if (d < minSupportDist) minSupportDist = d;
         }
 
@@ -239,12 +256,4 @@ Return EXACTLY a JSON object matching this structure, with no markdown tags or o
     }
 
     return NextResponse.json({ warnings: uniqueWarnings, suggestions });
-
-  } catch (error: unknown) {
-    console.error('AI-Optimize API Error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
-  }
 }

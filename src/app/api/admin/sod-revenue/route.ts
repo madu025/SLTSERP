@@ -30,7 +30,7 @@ export const GET = apiHandler(async () => {
     const configs = await SodRevenueService.getConfigs();
     return Response.json({ success: true, data: configs });
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER']
+    roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const POST = apiHandler(async (req, _params, body) => {

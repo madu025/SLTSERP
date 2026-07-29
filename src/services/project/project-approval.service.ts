@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification.service';
 import { AppError } from '@/lib/error';
@@ -92,7 +93,7 @@ export class ProjectApprovalService {
                         });
                     } else {
                         await NotificationService.notifyByRole({
-                            roles: [s.roleRequired],
+                            roles: ROLE_GROUPS.ADMINS,
                             title: '✅ Approval Required',
                             message: `A new approval request "${title}" requires your action as ${s.roleRequired.replace(/_/g, ' ')}.`,
                             type: 'PROJECT',
@@ -195,7 +196,7 @@ export class ProjectApprovalService {
                         });
                     }
                     await NotificationService.notifyByRole({
-                        roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'],
+                        roles: ROLE_GROUPS.PROJECT_MANAGERS,
                         title: '❌ Project Approval Rejected',
                         message: `Approval "${requestTitle}" was rejected at step ${currentStepNumber}.${comment ? ` Reason: ${comment}` : ''}`,
                         type: 'PROJECT',
@@ -221,7 +222,7 @@ export class ProjectApprovalService {
                             });
                         }
                         await NotificationService.notifyByRole({
-                            roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'],
+                            roles: ROLE_GROUPS.PROJECT_MANAGERS,
                             title: '🎉 Approval Completed',
                             message: `All approval steps for "${requestTitle}" have been completed.`,
                             type: 'PROJECT',
@@ -247,7 +248,7 @@ export class ProjectApprovalService {
                                 });
                             } else {
                                 await NotificationService.notifyByRole({
-                                    roles: [nextStep.roleRequired],
+                                    roles: ROLE_GROUPS.ADMINS,
                                     title: '✅ Approval Required — Your Turn',
                                     message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires approval from ${nextStep.roleRequired.replace(/_/g, ' ')} (Step ${nextStep.stepNumber}).`,
                                     type: 'PROJECT',

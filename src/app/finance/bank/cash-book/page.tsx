@@ -5,9 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
-import { Badge } from "@/components/ui/badge";
-import { Landmark, ArrowUpRight, ArrowDownRight, History } from "lucide-react";
+import { ROLE_GROUPS } from "@/config/roles";
+import { Landmark, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ACCOUNTS } from '@/services/finance/account-codes';
 

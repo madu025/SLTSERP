@@ -38,7 +38,7 @@ export const GET = apiHandler(async (request) => {
 
   return PreErpReconciliationService.listBalances(params);
 }, {
-  roles: [...ROLE_GROUPS.STORES_ALL, "FINANCE_MANAGER"],
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
   rawResponse: true,
 });
 
@@ -47,7 +47,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   if (!userId) throw AppError.unauthorized('Authentication required');
 
   if (Array.isArray((body as { items?: unknown[] }).items)) {
-    const bulkBody = body as z.infer<typeof BulkBalanceSchema>;
+    const bulkBody = BulkBalanceSchema.parse(body);
     const inputs = bulkBody.items.map((item) => ({
       ...item,
       opmcId: item.opmcId ?? '',
@@ -56,7 +56,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const result = await PreErpReconciliationService.bulkUpsertMonthBalances(inputs);
     return { success: true, ...result };
   } else {
-    const singleBody = body as z.infer<typeof SingleBalanceSchema>;
+    const singleBody = SingleBalanceSchema.parse(body);
     const result = await PreErpReconciliationService.upsertManualBalance({
       ...singleBody,
       opmcId: singleBody.opmcId ?? '',

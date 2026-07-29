@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler, castBody } from '@/lib/api-handler';
 import { SODAutoCompletionService } from '@/services/sod-auto-completion.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from "@/config/roles";
 
 /**
  * GET /api/automation/sod-auto-complete
@@ -11,7 +12,7 @@ import { AppError } from '@/lib/error';
 export const GET = apiHandler(async () => {
     return SODAutoCompletionService.getStatus();
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     rawResponse: true
 });
 
@@ -44,7 +45,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.badRequest('Invalid action. Use: start, stop, or run-now');
     }
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'EXECUTE', entity: 'AUTOMATION_SOD_AUTO_COMPLETE' },
     rawResponse: true
 });

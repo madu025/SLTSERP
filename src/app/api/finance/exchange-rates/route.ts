@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { FXService } from '@/services/finance/fx.service';
 import { z } from 'zod';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,7 @@ export const GET = apiHandler(async () => {
   const rates = await FXService.getAllLatestRates();
   return rates;
 }, {
-  roles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'ADMIN']
+  roles: ROLE_GROUPS.FINANCE_APPROVERS
 });
 
 const updateRateSchema = z.object({
@@ -27,5 +28,5 @@ export const POST = apiHandler(async (req: Request) => {
   
   return result;
 }, {
-  roles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'ADMIN']
+  roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

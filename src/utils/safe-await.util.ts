@@ -22,3 +22,17 @@ export function safe<T, E = Error>(promise: Promise<T>): Promise<[E, null] | [nu
             return [errorObj as unknown as E, null] as [E, null];
         });
 }
+
+/**
+ * Synchronous Safe Wrapper (Tuple Error Handling)
+ * @example
+ * const [err, data] = safeSync(() => JSON.parse(str));
+ */
+export function safeSync<T, E = Error>(fn: () => T): [E, null] | [null, T] {
+    try {
+        return [null, fn()];
+    } catch (err) {
+        const errorObj = err instanceof Error ? err : new Error(String(err));
+        return [errorObj as unknown as E, null] as [E, null];
+    }
+}

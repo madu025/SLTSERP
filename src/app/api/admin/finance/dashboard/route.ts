@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -8,5 +9,5 @@ export const GET = apiHandler(async () => {
     const data = await FinanceDashboardService.getDashboardMetrics();
     return Response.json(data);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE']
+    roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

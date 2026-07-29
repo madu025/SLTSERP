@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -93,7 +94,7 @@ export default function TelemetryDashboardPage() {
   if (!mounted) return null;
 
   return (
-    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'ENGINEER']}>
+    <RoleGuard allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS}>
       <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden font-sans">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

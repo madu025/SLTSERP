@@ -8,11 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GISImportService } from '@/services/GISImportService';
 import { logger } from '@/lib/logger';
 import type { GISUploadRequest, GISLayerType } from '@/types/gis';
+import { safe, safeSync } from '@/utils/safe-await.util';
 
 export async function POST(request: NextRequest) {
   logger.info('[GIS-UPLOAD] Received GIS file upload request');
-
-  try {
     const contentType = request.headers.get('content-type') || '';
 
     let body: GISUploadRequest;
@@ -29,12 +28,10 @@ export async function POST(request: NextRequest) {
       const layerTypesRaw = formData.get('layerTypes') as string | null;
       let clientLayerTypes: (GISLayerType | undefined)[] = [];
       if (layerTypesRaw) {
-        try {
-          const parsed = JSON.parse(layerTypesRaw);
-          if (Array.isArray(parsed)) {
-            clientLayerTypes = parsed as (GISLayerType | undefined)[];
-          }
-        } catch {
+        const [parseErr, parsed] = safeSync(() => JSON.parse(layerTypesRaw));
+        if (!parseErr && Array.isArray(parsed)) {
+          clientLayerTypes = parsed as (GISLayerType | undefined)[];
+        } else {
           logger.warn('[GIS-UPLOAD] Invalid layerTypes JSON, ignoring client overrides');
         }
       }
@@ -71,7 +68,14 @@ export async function POST(request: NextRequest) {
       };
     } else {
       // Handle JSON body (API-to-API)
-      body = await request.json();
+      const [jsonErr, jsonBody] = await safe<GISUploadRequest>(request.json());
+      if (jsonErr || !jsonBody) {
+        return NextResponse.json(
+          { error: 'Invalid JSON body' },
+          { status: 400 }
+        );
+      }
+      body = jsonBody;
     }
 
     if (!body.files || body.files.length === 0) {
@@ -99,26 +103,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await GISImportService.uploadFiles(body);
+    const [uploadErr, result] = await safe(GISImportService.uploadFiles(body));
+
+    if (uploadErr || !result) {
+      logger.error('[GIS-UPLOAD] Upload failed', {
+        error: uploadErr?.message,
+        stack: uploadErr?.stack,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'GIS upload failed',
+          message: uploadErr?.message || 'Internal server error',
+        },
+        { status: 500 }
+      );
+    }
 
     logger.info(
       `[GIS-UPLOAD] Session created: ${result.importId} with ${body.files.length} file(s)`
     );
 
     return NextResponse.json(result, { status: 201 });
-  } catch (err) {
-    const error = err as Error;
-    logger.error('[GIS-UPLOAD] Upload failed', {
-      error: error.message,
-      stack: error.stack,
-    });
-
-    return NextResponse.json(
-      {
-        error: 'GIS upload failed',
-        message: error.message || 'Internal server error',
-      },
-      { status: 500 }
-    );
-  }
 }

@@ -1,4 +1,5 @@
 import { AppError } from '@/lib/error';
+import { safe } from '@/utils/safe-await.util';
 import { StockRequest, Prisma, StockRequestItem } from '@prisma/client';
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
 import { InventoryRepository } from '@/repositories/inventory.repository';
@@ -103,18 +104,18 @@ export class StockRequestService {
             }
         });
 
-        try {
-            await eventBus.publish('inventory.stock_request_created', {
-                request: {
-                    id: req.id,
-                    requestNr: req.requestNr,
-                    fromStoreName: fromStore.name,
-                    opmcId: fromStore.opmcs?.[0]?.id,
-                    type: req.sourceType
-                },
-                stage: initialWorkflowStage
-            });
-        } catch (nErr) {
+        const [nErr] = await safe(eventBus.publish('inventory.stock_request_created', {
+            request: {
+                id: req.id,
+                requestNr: req.requestNr,
+                fromStoreName: fromStore.name,
+                opmcId: fromStore.opmcs?.[0]?.id,
+                type: req.sourceType
+            },
+            stage: initialWorkflowStage
+        }));
+        
+        if (nErr) {
             console.error("Failed to publish stock request created event:", nErr);
         }
 
@@ -351,7 +352,7 @@ export class StockRequestService {
             const transitBatchStocks = await prismaTx.inventoryBatchStock.findMany({
                 where: { storeId: transitStoreId, itemId: { in: itemIds } }
             });
-            const transitBatchStockMap = new Map(transitBatchStocks.map(bs => [bs.batchId, bs]));
+            const transitBatchStockMap = new Map<string, Record<string, unknown>>(transitBatchStocks.map(bs => [bs.batchId, bs as unknown as Record<string, unknown>]));
 
             const globalStocks = await prismaTx.inventoryStock.findMany({
                 where: {
@@ -361,8 +362,8 @@ export class StockRequestService {
             });
             const globalStockSet = new Set(globalStocks.map(gs => `${gs.storeId}:${gs.itemId}`));
 
-            const mainStoreTransactionItems: any[] = [];
-            const transitStoreTransactionItems: any[] = [];
+            const mainStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
+            const transitStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
 
             for (const item of items || []) {
                 const issuedQty = StockService.round(item.issuedQty || 0);
@@ -396,7 +397,7 @@ export class StockRequestService {
                                     quantity: picked.quantity
                                 }
                             });
-                            transitBatchStockMap.set(picked.batchId, { storeId: transitStoreId, batchId: picked.batchId, itemId: reqItem.itemId, quantity: picked.quantity } as any);
+                            transitBatchStockMap.set(picked.batchId, { storeId: transitStoreId, batchId: picked.batchId, itemId: reqItem.itemId, quantity: picked.quantity });
                         }
                     }
                 }
@@ -423,16 +424,18 @@ export class StockRequestService {
                 }
 
                 for (const p of pickedBatches) {
-                    mainStoreTransactionItems.push({
-                        itemId: reqItem.itemId,
-                        batchId: p.batchId,
-                        quantity: -p.quantity
-                    });
-                    transitStoreTransactionItems.push({
-                        itemId: reqItem.itemId,
-                        batchId: p.batchId,
-                        quantity: p.quantity
-                    });
+                    if (p.batchId) {
+                        mainStoreTransactionItems.push({
+                            itemId: reqItem.itemId,
+                            batchId: p.batchId,
+                            quantity: -p.quantity
+                        });
+                        transitStoreTransactionItems.push({
+                            itemId: reqItem.itemId,
+                            batchId: p.batchId,
+                            quantity: p.quantity
+                        });
+                    }
                 }
             }
 
@@ -502,7 +505,7 @@ export class StockRequestService {
             });
 
             // Group movements by itemId
-            const movementsMap = new Map<string, any[]>();
+            const movementsMap = new Map<string, typeof allMovements>();
             for (const m of allMovements) {
                 const list = movementsMap.get(m.itemId) || [];
                 list.push(m);
@@ -516,7 +519,7 @@ export class StockRequestService {
                     itemId: { in: itemIds }
                 }
             });
-            const batchStockMap = new Map(batchStocks.map(bs => [`${bs.storeId}:${bs.batchId}`, bs]));
+            const batchStockMap = new Map<string, Record<string, unknown>>(batchStocks.map(bs => [`${bs.storeId}:${bs.batchId}`, bs as unknown as Record<string, unknown>]));
 
             const globalStocks = await prismaTx.inventoryStock.findMany({
                 where: {
@@ -529,8 +532,8 @@ export class StockRequestService {
             let totalIssued = 0;
             let totalReceived = 0;
 
-            const transitStoreTransactionItems: any[] = [];
-            const subStoreTransactionItems: any[] = [];
+            const transitStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
+            const subStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
 
             for (const item of items || []) {
                 const receivedQty = StockService.round(item.receivedQty || 0);
@@ -580,7 +583,7 @@ export class StockRequestService {
                                 quantity: take
                             }
                         });
-                        batchStockMap.set(destBSKey, { storeId: stockReq.fromStoreId!, batchId, itemId: reqItem.itemId, quantity: take } as any);
+                        batchStockMap.set(destBSKey, { storeId: stockReq.fromStoreId!, batchId, itemId: reqItem.itemId, quantity: take });
                     }
 
                     transactionItems.push({ itemId: reqItem.itemId, batchId, quantity: take });
@@ -588,7 +591,6 @@ export class StockRequestService {
                 }
 
                 // Decrement from Transit Store, Increment into Destination Store
-                const transitStockKey = `${transitStoreId}:${reqItem.itemId}`;
                 await InventoryRepository.decrementStockAtomic(transitStoreId, reqItem.itemId, receivedQty, prismaTx);
 
                 const destStockKey = `${stockReq.fromStoreId}:${reqItem.itemId}`;
@@ -661,25 +663,23 @@ export class StockRequestService {
     // --- HELPER NOTIFICATION METHODS ---
 
     private static async safeNotifyStageChange(req: StockRequest, stage: string, roles: string[]) {
-        try {
-            await eventBus.publish('inventory.stock_request_stage_changed', {
-                request: { id: req.id, requestNr: req.requestNr },
-                stage,
-                roles
-            });
-        } catch (nErr) {
+        const [nErr] = await safe(eventBus.publish('inventory.stock_request_stage_changed', {
+            request: { id: req.id, requestNr: req.requestNr },
+            stage,
+            roles
+        }));
+        if (nErr) {
             console.error(`Failed to publish stage change event [${stage}]:`, nErr);
         }
     }
 
     private static async safeNotifyFinalAction(req: StockRequest, action: string, remarks?: string) {
-        try {
-            await eventBus.publish('inventory.stock_request_finalized', {
-                request: { id: req.id, requestNr: req.requestNr, requestedById: req.requestedById },
-                action,
-                remarks
-            });
-        } catch (nErr) {
+        const [nErr] = await safe(eventBus.publish('inventory.stock_request_finalized', {
+            request: { id: req.id, requestNr: req.requestNr, requestedById: req.requestedById },
+            action,
+            remarks
+        }));
+        if (nErr) {
             console.error(`Failed to publish final action event [${action}]:`, nErr);
         }
     }

@@ -53,43 +53,7 @@ import {
 } from 'lucide-react';
 
 
-// Define Role Groups based on 7 Department Categories under Manager OSP
-export const ROLE_GROUPS = {
-    // Executive Leadership Tier
-    EXECUTIVES: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'],
-    ADMINS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'],
-
-    // Section 1: SOD Project Section (Service Order Delivery / New Connections)
-    SOD_PROJECT: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
-
-    // Section 2: SA Project Section (Service Assurance / Repairs)
-    SA_PROJECT: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN'],
-
-    // Section 3: OSP Infrastructure Project Section (Fiber/Civil)
-    OSP_PROJECTS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER', 'ENGINEER'],
-
-    // Section 4: Finance Section (Corporate Accounting & GL)
-    FINANCE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER'],
-
-    // Section 5: Stores & Logistics Section (Stock/MIN/GRN)
-    STORES: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'],
-
-    // Section 6: SF Project Invoicing Section (SLT Corporate Invoices)
-    SF_INVOICING: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER'],
-    INVOICE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER'],
-
-    // Section 7: SF Project Auditing Section (Contractor Invoices & Rates Audit)
-    SF_AUDITING: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER', 'RATE_AUDITOR', 'FINANCE_MANAGER'],
-
-    // Legacy Aliases for Backward Compatibility
-    PROCUREMENT: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'STORES_MANAGER'],
-    OFFICE_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
-    NEW_CONNECTION: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
-    SERVICE_ASSURANCE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'SA_MANAGER', 'SA_ASSISTANT'],
-
-    // Combined Operations Group
-    ALL_OPS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT', 'OSP_ENGINEER']
-};
+import { ROLE_GROUPS } from "@/config/roles";
 
 export interface MenuItem {
     title: string;

@@ -1,5 +1,4 @@
-'use client';
-
+"use client";
 import React, { useState, useEffect } from 'react';
 import RoleGuard from '@/components/RoleGuard';
 import Sidebar from '@/components/Sidebar';
@@ -14,10 +13,20 @@ import { Input } from '@/components/ui/input';
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(amount);
 
+interface InvoiceRecord {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: number;
+    approvalStatus: string;
+    createdAt: string;
+    contractor: { name: string };
+    project?: { name: string };
+}
+
 export default function InvoiceApprovalPage() {
     const userRole = typeof window !== 'undefined' ? localStorage.getItem('role') : null;
     
-    const [invoices, setInvoices] = useState<any[]>([]);
+    const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [actionId, setActionId] = useState<string | null>(null);
@@ -40,6 +49,7 @@ export default function InvoiceApprovalPage() {
     useEffect(() => {
         const timer = setTimeout(() => fetchInvoices(), 500);
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
     const handleApprove = async (id: string, amount: number) => {
@@ -62,8 +72,8 @@ export default function InvoiceApprovalPage() {
             } else {
                 toast.error(data.error?.message || 'Approval Failed');
             }
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Approval failed');
         } finally {
             setActionId(null);
         }
@@ -136,7 +146,6 @@ export default function InvoiceApprovalPage() {
                                                     <tr key={invoice.id} className="hover:bg-slate-50/50 transition-colors">
                                                         <td className="px-6 py-4 font-medium text-indigo-600">{invoice.invoiceNumber}</td>
                                                         <td className="px-6 py-4 font-medium text-slate-900">{invoice.contractor?.name}</td>
-                                                        <td className="px-6 py-4 text-right text-slate-500">{formatCurrency(invoice.amount)}</td>
                                                         <td className="px-6 py-4 text-right font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)}</td>
                                                         <td className="px-6 py-4 text-center">{getStatusBadge(invoice.approvalStatus)}</td>
                                                         <td className="px-6 py-4 text-right">

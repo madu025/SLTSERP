@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { CapexOpexDashboardService } from '@/services/finance/capex-opex-dashboard.service';
@@ -32,6 +33,6 @@ export const GET = apiHandler(async (request) => {
 
   return { ...summary, kpi, topExpenses };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER'],
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
   rawResponse: true,
 });

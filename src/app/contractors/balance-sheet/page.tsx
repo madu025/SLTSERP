@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RefreshCw, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { ErrorUtil } from "../../../utils/error.util";
 
 interface BalanceSheetItem {
     id: string;
@@ -85,7 +86,7 @@ export default function ContractorBalanceSheetPage() {
     );
 
     // Fetch contractors with teams
-    const { data: contractorsData } = useQuery<any>({
+    const { data: contractorsData } = useQuery<Record<string, unknown>>({
         queryKey: ["contractors"],
         queryFn: async () => {
             const res = await fetch("/api/contractors?page=1&limit=1000");
@@ -187,15 +188,15 @@ export default function ContractorBalanceSheetPage() {
 
             toast.success("Balance sheet generated successfully");
             refetch();
-        } catch (error: any) {
-            toast.error(error.message || "Failed to generate balance sheet");
+        } catch (error: unknown) {
+            toast.error(ErrorUtil.getMessage(error) || "Failed to generate balance sheet");
         }
     };
 
     const handleExport = () => {
         if (!balanceSheet) return;
 
-        let csvRows = [
+        const csvRows = [
             ["Contractor", balanceSheet.contractor.name],
             ["Registration No", balanceSheet.contractor.registrationNumber || 'N/A'],
             ["Store", balanceSheet.store.name],
@@ -382,7 +383,7 @@ export default function ContractorBalanceSheetPage() {
                                         </div>
                                     </div>
                                     <div className="text-xs text-blue-700 bg-blue-50/70 p-2 rounded border border-blue-100/50">
-                                        ℹ️ Click "Generate" to create the balance sheet with these transactions
+                                        ℹ️ Click &quot;Generate&quot; to create the balance sheet with these transactions
                                     </div>
                                 </CardContent>
                             </Card>
@@ -551,7 +552,7 @@ export default function ContractorBalanceSheetPage() {
                         {!isLoading && !balanceSheet && selectedContractorId && selectedStoreId && (
                             <Card className="print:hidden border-slate-200 shadow-sm">
                                 <CardContent className="py-12 text-center text-xs text-slate-400 italic">
-                                    No balance sheet found. Click "Generate" to create one.
+                                    No balance sheet found. Click &quot;Generate&quot; to create one.
                                 </CardContent>
                             </Card>
                         )}

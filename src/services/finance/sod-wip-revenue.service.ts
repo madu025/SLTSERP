@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
+import { safeJsonParse } from '@/utils/safeJsonParse';
 import { SODInvoicingService } from '../sod/sod.invoicing.service';
 import { LedgerService, JournalPostingLineInput } from './ledger.service';
 import { ACCOUNTS } from './account-codes';
@@ -96,21 +98,25 @@ export class SODWipRevenueService {
             claimCPercent: 0
         };
 
-        try {
-            const configRow = await prisma.systemConfig.findUnique({
-                where: { key: CONFIG_KEY }
-            });
-            if (!configRow) return defaultConfig;
-            const parsed = JSON.parse(configRow.value);
-            return {
-                splitMode: parsed.splitMode || 'SPLIT_AB',
-                claimAPercent: Number(parsed.claimAPercent ?? 90),
-                claimBPercent: Number(parsed.claimBPercent ?? 10),
-                claimCPercent: Number(parsed.claimCPercent ?? 0)
-            };
-        } catch {
-            return defaultConfig;
-        }
+        const [err, configRow] = await safe(prisma.systemConfig.findUnique({
+            where: { key: CONFIG_KEY }
+        }));
+        
+        if (err || !configRow) return defaultConfig;
+        
+        const parsed = safeJsonParse<{
+            splitMode?: string;
+            claimAPercent?: number | string;
+            claimBPercent?: number | string;
+            claimCPercent?: number | string;
+        }>(configRow.value, {});
+        
+        return {
+            splitMode: parsed.splitMode || 'SPLIT_AB',
+            claimAPercent: Number(parsed.claimAPercent ?? 90),
+            claimBPercent: Number(parsed.claimBPercent ?? 10),
+            claimCPercent: Number(parsed.claimCPercent ?? 0)
+        };
     }
 
     /**
@@ -166,16 +172,18 @@ export class SODWipRevenueService {
         });
 
         // 2. Fetch Additional Operational Overhead Expenses (Vehicle, Site Office, Payroll)
-        const [pettyCashMemos, payrollExpenses] = await Promise.all([
-            prisma.costAllocationMemo.findMany({
+        const [[, rawPettyCashMemos], [, rawPayrollExpenses]] = await Promise.all([
+            safe(prisma.costAllocationMemo.findMany({
                 select: { totalCost: true }
-            }).catch(() => []),
-
-            prisma.payrollExpense.findMany({
+            })),
+            safe(prisma.payrollExpense.findMany({
                 where: { status: 'POSTED' },
                 select: { amount: true }
-            }).catch(() => [])
+            }))
         ]);
+
+        const pettyCashMemos = rawPettyCashMemos || [];
+        const payrollExpenses = rawPayrollExpenses || [];
 
         const totalVehicleExpenses = 0; // Fleet vehicle logistics expense total
         const totalSiteOfficeExpenses = pettyCashMemos.reduce((sum, item) => sum + Number(item.totalCost || 0), 0);

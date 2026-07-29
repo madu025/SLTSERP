@@ -10,6 +10,6 @@ export const GET = apiHandler(
     return await HelpdeskAuditService.getAuditGaps();
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"]
+    roles: ROLE_GROUPS.OFFICE_ADMINS
   }
 );

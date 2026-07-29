@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 
 
@@ -16,7 +17,7 @@ export const GET = apiHandler(async (req: Request) => {
 
     return await ContractorInventoryService.getMaterialReturns(contractorId);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
 });
 
 // POST /api/contractor-portal/returns - Create a new Material Return Note (MRN) request
@@ -33,5 +34,5 @@ export const POST = apiHandler(async (req: Request) => {
 
     return await ContractorInventoryService.createMaterialReturn(contractorId, body);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
 });

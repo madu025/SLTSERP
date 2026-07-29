@@ -1,9 +1,11 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 import { Prisma } from '@prisma/client';
 
 export interface CreateVendorInput {
   name: string;
+  code?: string | null;
   contactPerson?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -147,7 +149,7 @@ export class VendorService {
   /**
    * Import bulk vendors
    */
-  static async importBulk(vendorsData: any[]) {
+  static async importBulk(vendorsData: CreateVendorInput[]) {
       let successCount = 0;
       let failedCount = 0;
       const errors: { row: number; error: string }[] = [];
@@ -163,40 +165,48 @@ export class VendorService {
               continue;
           }
 
-          try {
-              // Ensure unique code
-              const existing = await prisma.vendor.findFirst({
-                  where: { OR: [{ code: data.code }, { name: data.name }] }
-              });
-
-              if (existing) {
-                  failedCount++;
-                  errors.push({ row: i + 1, error: `Vendor with code '${data.code}' or name '${data.name}' already exists.` });
-                  continue;
-              }
-
-              await prisma.vendor.create({
-                  data: {
-                      code: data.code,
-                      name: data.name,
-                      contactPerson: data.contactPerson || null,
-                      email: data.email || null,
-                      phone: data.phone || null,
-                      address: data.address || null,
-                      registrationNo: data.registrationNo || null,
-                      brNumber: data.brNumber || null,
-                      bankName: data.bankName || null,
-                      bankBranch: data.bankBranch || null,
-                      bankAccountNo: data.bankAccountNo || null,
-                      status: data.status || "ACTIVE",
-                      type: data.type || "SUPPLIER",
-                  }
-              });
-              successCount++;
-          } catch (err: unknown) {
+          // Ensure unique code
+          const [errFind, existing] = await safe(prisma.vendor.findFirst({
+              where: { OR: [{ code: data.code }, { name: data.name }] }
+          }));
+          
+          if (errFind) {
               failedCount++;
-              const errorMsg = err instanceof Error ? err.message : "Failed to insert";
+              const errorMsg = errFind instanceof Error ? errFind.message : "Failed to query";
               errors.push({ row: i + 1, error: errorMsg });
+              continue;
+          }
+
+          if (existing) {
+              failedCount++;
+              errors.push({ row: i + 1, error: `Vendor with code '${data.code}' or name '${data.name}' already exists.` });
+              continue;
+          }
+
+          const [errCreate] = await safe(prisma.vendor.create({
+              data: {
+                  code: data.code,
+                  name: data.name,
+                  contactPerson: data.contactPerson || null,
+                  email: data.email || null,
+                  phone: data.phone || null,
+                  address: data.address || null,
+                  registrationNo: data.registrationNo || null,
+                  brNumber: data.brNumber || null,
+                  bankName: data.bankName || null,
+                  bankBranch: data.bankBranch || null,
+                  bankAccountNo: data.bankAccountNo || null,
+                  status: data.status || "ACTIVE",
+                  type: data.type || "SUPPLIER",
+              }
+          }));
+
+          if (errCreate) {
+              failedCount++;
+              const errorMsg = errCreate instanceof Error ? errCreate.message : "Failed to insert";
+              errors.push({ row: i + 1, error: errorMsg });
+          } else {
+              successCount++;
           }
       }
 

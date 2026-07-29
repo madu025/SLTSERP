@@ -1,5 +1,7 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 import { MRN, Prisma } from '@prisma/client';
 import { NotificationService } from '../notification.service';
 import { emitSystemEvent } from '@/lib/events';
@@ -43,16 +45,15 @@ export class MRNService {
             }
         });
 
-        try {
-            await NotificationService.notifyByRole({
-                roles: ['STORES_MANAGER', 'ADMIN'],
-                title: 'New MRN Created',
-                message: `New Material Return Note ${mrn.mrnNumber} has been created and requires approval.`,
-                type: 'INVENTORY',
-                priority: 'MEDIUM',
-                link: '/admin/inventory/mrns'
-            });
-        } catch (nErr) {
+        const [nErr] = await safe(NotificationService.notifyByRole({
+            roles: ROLE_GROUPS.STORES_MANAGERS,
+            title: 'New MRN Created',
+            message: `New Material Return Note ${mrn.mrnNumber} has been created and requires approval.`,
+            type: 'INVENTORY',
+            priority: 'MEDIUM',
+            link: '/admin/inventory/mrns'
+        }));
+        if (nErr) {
             console.error("Failed to notify for MRN:", nErr);
         }
 
@@ -89,16 +90,16 @@ export class MRNService {
                 include: { returnedBy: true }
             });
 
-            try {
-                await NotificationService.send({
-                    userId: updated.returnedById,
-                    title: 'MRN Rejected',
-                    message: `Your Material Return Note ${updated.mrnNumber} has been rejected.`,
-                    type: 'INVENTORY',
-                    priority: 'HIGH',
-                    link: '/admin/inventory/mrns'
-                });
-            } catch (nErr) {
+            const [nErr] = await safe(NotificationService.send({
+                userId: updated.returnedById,
+                title: 'MRN Rejected',
+                message: `Your Material Return Note ${updated.mrnNumber} has been rejected.`,
+                type: 'INVENTORY',
+                priority: 'HIGH',
+                link: '/admin/inventory/mrns'
+            }));
+            
+            if (nErr) {
                 console.error("Failed to notify MRN rejection:", nErr);
             }
             return updated;
@@ -106,16 +107,16 @@ export class MRNService {
 
         if (action === 'APPROVE') {
             return await prisma.$transaction(async (tx: TransactionClient) => {
-                
-                const mrn = await (tx as any).mRN.findUnique({
+                const mrn = await tx.mRN.findUnique({
                     where: { id: mrnId },
                     include: { items: true }
                 });
 
                 if (!mrn) throw AppError.badRequest("MRN_NOT_FOUND");
+                if (!mrn.storeId) throw AppError.badRequest("MRN_STORE_REQUIRED");
+                const storeId = mrn.storeId;
 
-                
-                const updatedMrn = await (tx as any).mRN.update({
+                const updatedMrn = await tx.mRN.update({
                     where: { id: mrnId },
                     data: {
                         status: 'COMPLETED',
@@ -133,27 +134,26 @@ export class MRNService {
                     const costPrice = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
                     totalMrnCost += costPrice * item.quantity;
 
-                    const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, mrn.storeId, item.itemId, item.quantity);
+                    const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, item.quantity);
 
                     for (const picked of pickedBatches) {
-                        
-                        await (tx as any).inventoryBatchStock.update({
-                            where: { storeId_batchId: { storeId: mrn.storeId, batchId: picked.batchId } },
+                        if (!picked.batchId) continue;
+                        await tx.inventoryBatchStock.update({
+                            where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                             data: { quantity: { decrement: picked.quantity } }
                         });
                     }
 
-                    
-                    const updatedStoreStock = await (tx as any).inventoryStock.upsert({
-                        where: { storeId_itemId: { storeId: mrn.storeId, itemId: item.itemId } },
+                    const updatedStoreStock = await tx.inventoryStock.upsert({
+                        where: { storeId_itemId: { storeId, itemId: item.itemId } },
                         update: { quantity: { decrement: item.quantity } },
-                        create: { storeId: mrn.storeId, itemId: item.itemId, quantity: -item.quantity }
+                        create: { storeId, itemId: item.itemId, quantity: -item.quantity }
                     });
 
                     // Write Immutable Inventory Ledger Entry
                     const currentQtyAfter = updatedStoreStock?.quantity ? Number(updatedStoreStock.quantity) : 0;
                     await AuditLedgerService.recordEntry({
-                        storeId: mrn.storeId,
+                        storeId,
                         itemId: item.itemId,
                         transactionType: 'MRN_APPROVAL',
                         referenceType: 'MRN',
@@ -170,11 +170,10 @@ export class MRNService {
                     });
                 }
 
-                
-                await (tx as any).inventoryTransaction.create({
+                await tx.inventoryTransaction.create({
                     data: {
                         type: 'RETURN',
-                        storeId: mrn.storeId,
+                        storeId,
                         referenceId: mrn.id,
                         userId: approvedById,
                         notes: `MRN ${mrn.mrnNumber} - ${mrn.returnType}`,
@@ -186,16 +185,16 @@ export class MRNService {
 
                 await LedgerService.logMrnReturn(tx, mrn.id, totalMrnCost);
 
-                try {
-                    await NotificationService.send({
-                        userId: updatedMrn.returnedById,
-                        title: 'MRN Completed',
-                        message: `Your Material Return Note ${updatedMrn.mrnNumber} has been approved and stock updated.`,
-                        type: 'INVENTORY',
-                        priority: 'MEDIUM',
-                        link: '/admin/inventory/mrns'
-                    });
-                } catch (nErr) {
+                const [nErr] = await safe(NotificationService.send({
+                    userId: updatedMrn.returnedById,
+                    title: 'MRN Completed',
+                    message: `Your Material Return Note ${updatedMrn.mrnNumber} has been approved and stock updated.`,
+                    type: 'INVENTORY',
+                    priority: 'MEDIUM',
+                    link: '/admin/inventory/mrns'
+                }));
+                
+                if (nErr) {
                     console.error("Failed to notify MRN completion:", nErr);
                 }
 

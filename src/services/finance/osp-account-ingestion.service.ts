@@ -3,6 +3,7 @@ import path from 'path';
 import * as XLSX from 'xlsx';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { safe } from '@/utils/safe-await.util';
 
 export interface IngestionResult {
   pettyCashCount: number;
@@ -87,41 +88,43 @@ export class OSPAccountIngestionService {
     const defaultOpmcId = opmcs.length > 0 ? opmcs[0].id : null;
 
     // 1. Ingest Petty Cash Reimbursement Reports (Anuradhapura, Gampaha, Cancel Vouchers)
-    try {
-      result.pettyCashCount = await this.ingestPettyCash(defaultOpmcId);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+    const [pcErr, pcCount] = await safe(this.ingestPettyCash(defaultOpmcId));
+    if (pcErr) {
+      const msg = pcErr instanceof Error ? pcErr.message : String(pcErr);
       result.errors.push(`Petty Cash Ingestion Error: ${msg}`);
+    } else if (pcCount !== null) {
+      result.pettyCashCount = pcCount;
     }
 
     // 2. Ingest Fixed Assets Verification
-    try {
-      result.fixedAssetCount = await this.ingestFixedAssets();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+    const [faErr, faCount] = await safe(this.ingestFixedAssets());
+    if (faErr) {
+      const msg = faErr instanceof Error ? faErr.message : String(faErr);
       result.errors.push(`Fixed Asset Ingestion Error: ${msg}`);
+    } else if (faCount !== null) {
+      result.fixedAssetCount = faCount;
     }
 
     // 3. Ingest Fleet Vehicles, Hiring Payments & Fuel Deposits
-    try {
-      const vehicleStats = await this.ingestVehiclesAndDeposits(defaultOpmcId);
+    const [vehErr, vehicleStats] = await safe(this.ingestVehiclesAndDeposits(defaultOpmcId));
+    if (vehErr) {
+      const msg = vehErr instanceof Error ? vehErr.message : String(vehErr);
+      result.errors.push(`Vehicle Fleet Ingestion Error: ${msg}`);
+    } else if (vehicleStats) {
       result.vehicleCount = vehicleStats.vehicleCount;
       result.vehiclePaymentCount = vehicleStats.paymentCount;
       result.fuelDepositCount = vehicleStats.depositCount;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      result.errors.push(`Vehicle Fleet Ingestion Error: ${msg}`);
     }
 
     // 4. Ingest Project Advances, IOUs & Property Rent
-    try {
-      const advanceStats = await this.ingestAdvancesAndIOUs(defaultOpmcId);
+    const [advErr, advanceStats] = await safe(this.ingestAdvancesAndIOUs(defaultOpmcId));
+    if (advErr) {
+      const msg = advErr instanceof Error ? advErr.message : String(advErr);
+      result.errors.push(`Advances & IOU Ingestion Error: ${msg}`);
+    } else if (advanceStats) {
       result.projectAdvanceCount = advanceStats.advanceCount;
       result.iouCount = advanceStats.iouCount;
       result.propertyRentCount = advanceStats.rentCount;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      result.errors.push(`Advances & IOU Ingestion Error: ${msg}`);
     }
 
     return result;

@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { BankReconciliationService } from '@/services/finance/bank-reconciliation.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from "@/config/roles";
 
 const rowSchema = z.object({
   date: z.string(),
@@ -32,5 +33,5 @@ export const POST = apiHandler(async (req: Request) => {
   const result = await BankReconciliationService.autoReconcileStatement(mappedRows);
   return result;
 }, {
-  roles: ['SUPER_ADMIN', 'FINANCE_MANAGER', 'ADMIN']
+  roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

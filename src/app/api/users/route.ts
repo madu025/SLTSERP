@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { UserService } from '@/services/user.service';
+import { UserService, CreateUserData, UpdateUserData } from '@/services/user.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
@@ -24,11 +24,11 @@ export const POST = apiHandler(async (request, _params, body) => {
     const currentUserId = request.headers.get('x-user-id') || 'system';
 
     try {
-        const userWithoutPassword = await UserService.createUser(body as any, currentUserId);
+        const userWithoutPassword = await UserService.createUser(body as unknown as CreateUserData, currentUserId);
         return userWithoutPassword;
-    } catch (error: any) {
-        const errorCode = error?.code;
-        const errorMsg = error?.message || '';
+    } catch (error: unknown) {
+        const errorCode = (error as { code?: string })?.code;
+        const errorMsg = error instanceof Error ? error.message : '';
         if (errorCode === 'P2002') {
             throw AppError.badRequest('Username, Email, or Employee ID already exists');
         }
@@ -51,10 +51,10 @@ export const PUT = apiHandler(async (request, _params, body) => {
     const currentUserId = request.headers.get('x-user-id') || 'system';
 
     try {
-        const userWithoutPassword = await UserService.updateUser(id, body as any, currentUserId);
+        const userWithoutPassword = await UserService.updateUser(id, body as unknown as UpdateUserData, currentUserId);
         return userWithoutPassword;
-    } catch (error: any) {
-        const errorMsg = error?.message || '';
+    } catch (error: unknown) {
+        const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'USER_NOT_FOUND') {
             throw AppError.notFound('User not found');
         }
@@ -79,8 +79,8 @@ export const DELETE = apiHandler(async (request) => {
     try {
         await UserService.deleteUser(id);
         return { message: 'User deleted successfully' };
-    } catch (error: any) {
-        const errorMsg = error?.message || '';
+    } catch (error: unknown) {
+        const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'USER_NOT_FOUND') {
             throw AppError.notFound('User not found');
         }
@@ -90,7 +90,7 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ['SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'USER_DELETE', entity: 'User' },
     rawResponse: true
 });

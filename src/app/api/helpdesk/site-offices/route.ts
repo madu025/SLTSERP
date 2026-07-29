@@ -16,5 +16,5 @@ export const GET = apiHandler(async (req) => {
     search
   });
 }, {
-  roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"]
+  roles: ROLE_GROUPS.OFFICE_ADMINS
 });

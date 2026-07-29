@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { StoreVarianceReconciliationService } from '@/services/inventory/store-variance-reconciliation.service';
 import { AppError } from '@/lib/error';
@@ -22,6 +23,6 @@ export const GET = apiHandler(async (req) => {
         data: report,
     };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'STORES_MANAGER'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'GENERATE_STORE_VARIANCE_REPORT', entity: 'InventoryStore' }
 });

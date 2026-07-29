@@ -18,6 +18,7 @@ import { permitGenerator } from '@/lib/gis/permit-generator';
 import { gisAnalyticsEngine } from '@/lib/gis/gis-analytics-engine';
 import { getWorkflowForProjectType } from '@/lib/gis/workflow-definitions';
 import { logger } from '@/lib/logger';
+import { safe, safeSync } from '@/utils/safe-await.util';
 
 import type {
   GISUploadRequest,
@@ -283,7 +284,7 @@ export class GISImportService {
     const auditLog: GISAuditEntry[] = [];
     const startTime = Date.now();
 
-    try {
+    const [processErr, processResp] = await safe((async () => {
       session.status = 'PARSING';
       session.updatedAt = new Date();
 
@@ -294,217 +295,17 @@ export class GISImportService {
       const layerResults: GISLayerResult[] = [];
 
       for (const file of session.files) {
-        try {
-          // Decode base64 content to raw GeoJSON string before parsing
+        const [parseErr, parsed] = safeSync(() => {
           const rawContent = Buffer.from(file.content, 'base64').toString('utf-8');
-          // Pass the client-selected layer type override (stored in the session entry)
-          const parsed = gisParser.autoParseLayer(
+          return gisParser.autoParseLayer(
             file.fileName,
             rawContent,
             file.layerType
           );
-          const layerType = parsed.layerType;
+        });
 
-          // Store parsed data by type (and merge if multiple files of the same type exist)
-          switch (layerType) {
-            case 'CABLE':
-              if (parsedLayers.cable) {
-                const existing = parsedLayers.cable;
-                const incoming = parsed.parsedData as ParsedCableData;
-                existing.featureCount += incoming.featureCount;
-                existing.totalLength += incoming.totalLength;
-                const startIdx = existing.segments.length;
-                existing.segments.push(
-                  ...incoming.segments.map((s, idx) => ({ ...s, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.cable = parsed.parsedData as ParsedCableData;
-              }
-              break;
-            case 'POLE':
-              if (parsedLayers.pole) {
-                const existing = parsedLayers.pole;
-                const incoming = parsed.parsedData as ParsedPoleData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.poles.length;
-                existing.poles.push(
-                  ...incoming.poles.map((p, idx) => ({ ...p, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.pole = parsed.parsedData as ParsedPoleData;
-              }
-              break;
-            case 'FDP':
-              if (parsedLayers.fdp) {
-                const existing = parsedLayers.fdp;
-                const incoming = parsed.parsedData as ParsedFDPData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.fdps.length;
-                existing.fdps.push(
-                  ...incoming.fdps.map((f, idx) => ({ ...f, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.fdp = parsed.parsedData as ParsedFDPData;
-              }
-              break;
-            case 'FIBER_JOINT':
-              if (parsedLayers.fiberJoint) {
-                const existing = parsedLayers.fiberJoint;
-                const incoming = parsed.parsedData as ParsedFiberJointData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.joints.length;
-                existing.joints.push(
-                  ...incoming.joints.map((j, idx) => ({ ...j, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.fiberJoint = parsed.parsedData as ParsedFiberJointData;
-              }
-              break;
-            case 'ROAD_EOP':
-              if (parsedLayers.road) {
-                const existing = parsedLayers.road;
-                const incoming = parsed.parsedData as ParsedRoadData;
-                existing.featureCount += incoming.featureCount;
-                existing.totalLength += incoming.totalLength;
-                const startIdx = existing.roadSegments.length;
-                existing.roadSegments.push(
-                  ...incoming.roadSegments.map((r, idx) => ({ ...r, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.road = parsed.parsedData as ParsedRoadData;
-              }
-              break;
-            case 'DUCT':
-              if (parsedLayers.duct) {
-                const existing = parsedLayers.duct;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.duct = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-            case 'HANDHOLE':
-              if (parsedLayers.handhole) {
-                const existing = parsedLayers.handhole;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.handhole = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-            case 'MANHOLE':
-              if (parsedLayers.manhole) {
-                const existing = parsedLayers.manhole;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.manhole = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-            case 'ODF':
-              if (parsedLayers.odf) {
-                const existing = parsedLayers.odf;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.odf = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-            case 'RISER':
-              if (parsedLayers.riser) {
-                const existing = parsedLayers.riser;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.riser = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-            case 'FTC':
-              if (parsedLayers.ftc) {
-                const existing = parsedLayers.ftc;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.ftc = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-            case 'TEST_POINT':
-              if (parsedLayers.testPoint) {
-                const existing = parsedLayers.testPoint;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.testPoint = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-            case 'BUILDING':
-              if (parsedLayers.building) {
-                const existing = parsedLayers.building;
-                const incoming = parsed.parsedData as ParsedPointAssetData;
-                existing.featureCount += incoming.featureCount;
-                const startIdx = existing.assets.length;
-                existing.assets.push(
-                  ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
-                );
-              } else {
-                parsedLayers.building = parsed.parsedData as ParsedPointAssetData;
-              }
-              break;
-          }
-
-          let featureCount = 0;
-          if ('featureCount' in parsed.parsedData) {
-            featureCount = parsed.parsedData.featureCount;
-          } else if ('segments' in parsed.parsedData) {
-            featureCount = (parsed.parsedData as ParsedCableData).segments.length;
-          }
-
-          layerResults.push({
-            layerName: file.fileName,
-            layerType,
-            featureCount,
-            status: 'PARSED',
-            errors: [],
-            warnings: [],
-          });
-
-          auditLog.push({
-            timestamp: new Date().toISOString(),
-            action: 'LAYER_PARSED',
-            entity: layerType,
-            entityId: file.fileName,
-            details: `Parsed ${file.fileName} as ${layerType} (${featureCount} features)`,
-          });
-        } catch (err) {
-          const error = err as Error;
+        if (parseErr || !parsed) {
+          const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
           layerResults.push({
             layerName: file.fileName,
             layerType: 'UNKNOWN',
@@ -521,7 +322,209 @@ export class GISImportService {
             entityId: file.fileName,
             details: `Failed to parse ${file.fileName}: ${error.message}`,
           });
+          continue;
         }
+
+        const layerType = parsed.layerType;
+
+        // Store parsed data by type (and merge if multiple files of the same type exist)
+        switch (layerType) {
+          case 'CABLE':
+            if (parsedLayers.cable) {
+              const existing = parsedLayers.cable;
+              const incoming = parsed.parsedData as ParsedCableData;
+              existing.featureCount += incoming.featureCount;
+              existing.totalLength += incoming.totalLength;
+              const startIdx = existing.segments.length;
+              existing.segments.push(
+                ...incoming.segments.map((s, idx) => ({ ...s, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.cable = parsed.parsedData as ParsedCableData;
+            }
+            break;
+          case 'POLE':
+            if (parsedLayers.pole) {
+              const existing = parsedLayers.pole;
+              const incoming = parsed.parsedData as ParsedPoleData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.poles.length;
+              existing.poles.push(
+                ...incoming.poles.map((p, idx) => ({ ...p, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.pole = parsed.parsedData as ParsedPoleData;
+            }
+            break;
+          case 'FDP':
+            if (parsedLayers.fdp) {
+              const existing = parsedLayers.fdp;
+              const incoming = parsed.parsedData as ParsedFDPData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.fdps.length;
+              existing.fdps.push(
+                ...incoming.fdps.map((f, idx) => ({ ...f, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.fdp = parsed.parsedData as ParsedFDPData;
+            }
+            break;
+          case 'FIBER_JOINT':
+            if (parsedLayers.fiberJoint) {
+              const existing = parsedLayers.fiberJoint;
+              const incoming = parsed.parsedData as ParsedFiberJointData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.joints.length;
+              existing.joints.push(
+                ...incoming.joints.map((j, idx) => ({ ...j, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.fiberJoint = parsed.parsedData as ParsedFiberJointData;
+            }
+            break;
+          case 'ROAD_EOP':
+            if (parsedLayers.road) {
+              const existing = parsedLayers.road;
+              const incoming = parsed.parsedData as ParsedRoadData;
+              existing.featureCount += incoming.featureCount;
+              existing.totalLength += incoming.totalLength;
+              const startIdx = existing.roadSegments.length;
+              existing.roadSegments.push(
+                ...incoming.roadSegments.map((r, idx) => ({ ...r, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.road = parsed.parsedData as ParsedRoadData;
+            }
+            break;
+          case 'DUCT':
+            if (parsedLayers.duct) {
+              const existing = parsedLayers.duct;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.duct = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+          case 'HANDHOLE':
+            if (parsedLayers.handhole) {
+              const existing = parsedLayers.handhole;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.handhole = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+          case 'MANHOLE':
+            if (parsedLayers.manhole) {
+              const existing = parsedLayers.manhole;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.manhole = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+          case 'ODF':
+            if (parsedLayers.odf) {
+              const existing = parsedLayers.odf;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.odf = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+          case 'RISER':
+            if (parsedLayers.riser) {
+              const existing = parsedLayers.riser;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.riser = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+          case 'FTC':
+            if (parsedLayers.ftc) {
+              const existing = parsedLayers.ftc;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.ftc = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+          case 'TEST_POINT':
+            if (parsedLayers.testPoint) {
+              const existing = parsedLayers.testPoint;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.testPoint = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+          case 'BUILDING':
+            if (parsedLayers.building) {
+              const existing = parsedLayers.building;
+              const incoming = parsed.parsedData as ParsedPointAssetData;
+              existing.featureCount += incoming.featureCount;
+              const startIdx = existing.assets.length;
+              existing.assets.push(
+                ...incoming.assets.map((a, idx) => ({ ...a, index: startIdx + idx + 1 }))
+              );
+            } else {
+              parsedLayers.building = parsed.parsedData as ParsedPointAssetData;
+            }
+            break;
+        }
+
+        let featureCount = 0;
+        if ('featureCount' in parsed.parsedData) {
+          featureCount = parsed.parsedData.featureCount;
+        } else if ('segments' in parsed.parsedData) {
+          featureCount = (parsed.parsedData as ParsedCableData).segments.length;
+        }
+
+        layerResults.push({
+          layerName: file.fileName,
+          layerType,
+          featureCount,
+          status: 'PARSED',
+          errors: [],
+          warnings: [],
+        });
+
+        auditLog.push({
+          timestamp: new Date().toISOString(),
+          action: 'LAYER_PARSED',
+          entity: layerType,
+          entityId: file.fileName,
+          details: `Parsed ${file.fileName} as ${layerType} (${featureCount} features)`,
+        });
       }
 
       session.status = 'PARSED';
@@ -815,8 +818,10 @@ export class GISImportService {
         result,
         message: `GIS import completed successfully. Project ${result.projectCode} created with ${result.assetsCreated} assets, ${result.surveyTasksCreated} survey tasks, and ${result.permitsCreated} permits.`,
       };
-    } catch (err) {
-      const error = err as Error;
+    })());
+
+    if (processErr || !processResp) {
+      const error = processErr instanceof Error ? processErr : new Error(String(processErr));
       session.status = 'FAILED';
       session.updatedAt = new Date();
 
@@ -829,9 +834,10 @@ export class GISImportService {
       });
 
       logger.error(`GIS Import ${importId} failed: ${error.message}`, error);
-
-      throw err;
+      throw error;
     }
+
+    return processResp;
   }
 
   /**
@@ -1532,7 +1538,7 @@ export class GISImportService {
     let tasksCreated = 0;
 
     if (!session.isCompletedProject && !isUpgrade) {
-      try {
+      const [wfErr] = await safe((async () => {
         // Get or create ProjectType for workflow template mapping
         let projectTypeRecord = await prisma.projectType.findFirst({
           where: {
@@ -1743,8 +1749,10 @@ export class GISImportService {
           entityId: projectWorkflow.id,
           details: `Workflow instantiated: ${stagesCreated} stages, ${tasksCreated} tasks`,
         });
-      } catch (wfErr) {
-        const wfError = wfErr as Error;
+      })());
+
+      if (wfErr) {
+        const wfError = wfErr instanceof Error ? wfErr : new Error(String(wfErr));
         logger.warn(`Workflow instantiation failed for project ${projectCode}: ${wfError.message}`);
         auditLog.push({
           timestamp: new Date().toISOString(),

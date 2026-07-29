@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BillingService } from '@/services/finance/billing.service';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,5 +12,5 @@ export const GET = apiHandler(async (req) => {
     // Let's pass it cleanly.
     return await BillingService.getUnbilledSods(contractorId as string);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT']
+    roles: ROLE_GROUPS.FINANCE_ALL
 });

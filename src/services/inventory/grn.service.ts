@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 import { GRN, Prisma } from '@prisma/client';
 import { NotificationService } from '../notification.service';
 import { emitSystemEvent } from '@/lib/events';
@@ -60,7 +61,7 @@ export class GRNService {
 
             // 1. Create GRN with an atomic document number
             const grnNumber = await AuditLedgerService.getNextDocumentNumber('GRN', tx);
-            const grn = await (tx as any).gRN.create({
+            const grn = await tx.gRN.create({
                 data: {
                     grnNumber,
                     storeId,
@@ -70,8 +71,7 @@ export class GRNService {
                     requestId: requestId || null,
                     reference: sltReferenceId || null,
                     items: {
-                        
-                        create: items.map((i: any) => ({
+                        create: items.map((i) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity.toString())
                         }))
@@ -81,10 +81,9 @@ export class GRNService {
             });
 
             // 2. Fetch Item Metadata for Pricing
+            const itemIds = items.map((i) => i.itemId);
             
-            const itemIds = items.map((i: any) => i.itemId);
-            
-            const itemMetadata = await (tx as any).inventoryItem.findMany({
+            const itemMetadata = await tx.inventoryItem.findMany({
                 where: { id: { in: itemIds } },
                 select: { id: true, costPrice: true, unitPrice: true }
             });
@@ -96,14 +95,13 @@ export class GRNService {
             for (const item of items) {
                 const qty = StockService.round(parseFloat(item.quantity.toString()));
                 
-                const meta = itemMetadata.find((m: any) => m.id === item.itemId);
+                const meta = itemMetadata.find((m) => m.id === item.itemId);
                 const costPrice = meta?.costPrice || 0;
                 totalGrnCost += Number(costPrice) * qty;
                 const unitPrice = meta?.unitPrice || 0;
 
                 // A. Create Batch
-                
-                const batch = await (tx as any).inventoryBatch.create({
+                const batch = await tx.inventoryBatch.create({
                     data: {
                         batchNumber: `BAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
                         itemId: item.itemId,
@@ -116,31 +114,27 @@ export class GRNService {
                 });
 
                 // B. Link GRN Item to Batch
-                
-                const grnLine = grn.items.find((gi: any) => gi.itemId === item.itemId);
+                const grnLine = grn.items.find((gi) => gi.itemId === item.itemId);
                 if (grnLine) {
-                    
-                    await (tx as any).gRNItem.update({
+                    await tx.gRNItem.update({
                         where: { id: grnLine.id },
                         data: { batchId: batch.id }
                     });
                 }
 
                 // C. Initialize Batch Stock in Store
-                
-                await (tx as any).inventoryBatchStock.create({
+                await tx.inventoryBatchStock.create({
                     data: {
                         storeId,
                         batchId: batch.id,
                         itemId: item.itemId,
                         quantity: qty,
-                        locator: item.locator || null
+                        ...(item.locator ? { locatorId: item.locator } : {})
                     }
                 });
 
                 // D. Update Store Stock Total
-                
-                const updatedStoreStock = await (tx as any).inventoryStock.upsert({
+                const updatedStoreStock = await tx.inventoryStock.upsert({
                     where: {
                         storeId_itemId: {
                             storeId,
@@ -186,7 +180,7 @@ export class GRNService {
                         const existingSerials = await tx.inventoryItemSerial.findMany({
                             where: { serialNumber: { in: snList } }
                         });
-                        const existingMap = new Map(existingSerials.map((s: any) => [s.serialNumber, s]));
+                        const existingMap = new Map(existingSerials.map((s) => [s.serialNumber, s]));
 
                         const toUpdateIds: string[] = [];
                         const toCreateData: Prisma.InventoryItemSerialUncheckedCreateInput[] = [];
@@ -194,14 +188,14 @@ export class GRNService {
                         for (const sn of snList) {
                             const existing = existingMap.get(sn);
                             if (existing) {
-                                toUpdateIds.push((existing as any).id);
+                                toUpdateIds.push(existing.id);
                             } else {
                                 toCreateData.push({
                                     itemId: item.itemId,
                                     serialNumber: sn,
                                     status: 'IN_STORE',
                                     storeId,
-                                    locator: item.locator || null
+                                    locator: item.locator || undefined
                                 } as Prisma.InventoryItemSerialUncheckedCreateInput);
                             }
                         }
@@ -229,8 +223,7 @@ export class GRNService {
             }
 
             // 4. Create Transaction Log
-            
-            await (tx as any).inventoryTransaction.create({
+            await tx.inventoryTransaction.create({
                 data: {
                     type: 'GRN_IN',
                     storeId,
@@ -251,8 +244,7 @@ export class GRNService {
                 // Lock the StockRequest row to prevent concurrent race conditions
                 await tx.$executeRaw`SELECT id FROM "StockRequest" WHERE id = ${requestId} FOR UPDATE`;
 
-                
-                const request = await (tx as any).stockRequest.findUnique({
+                const request = await tx.stockRequest.findUnique({
                     where: { id: requestId },
                     include: { items: true }
                 });
@@ -266,8 +258,7 @@ export class GRNService {
 
                     // Update received quantities for each item
                     for (const reqItem of request.items) {
-                        
-                        const grnItem = items.find((gi: any) => gi.itemId === reqItem.itemId);
+                        const grnItem = items.find((gi) => gi.itemId === reqItem.itemId);
                         if (grnItem) {
                             const newReceivedQty = reqItem.receivedQty + parseFloat(grnItem.quantity.toString());
                             const limitQty = reqItem.approvedQty;
@@ -275,8 +266,7 @@ export class GRNService {
                                 throw AppError.badRequest(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
                             }
 
-                            
-                            await (tx as any).stockRequestItem.update({
+                            await tx.stockRequestItem.update({
                                 where: { id: reqItem.id },
                                 data: { receivedQty: newReceivedQty }
                             });
@@ -293,8 +283,7 @@ export class GRNService {
 
                     const newStatus = allItemsCompleted ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
 
-                    
-                    const updatedReq = await (tx as any).stockRequest.update({
+                    const updatedReq = await tx.stockRequest.update({
                         where: { id: requestId },
                         data: {
                             status: newStatus,
@@ -303,17 +292,16 @@ export class GRNService {
                     });
 
                     // Notify Requester that stock has arrived
-                    try {
-                        await NotificationService.send({
-                            userId: updatedReq.requestedById,
-                            title: newStatus === 'COMPLETED' ? 'Stock Fully Received' : 'Stock Partially Received',
-                            message: `Materials for request ${updatedReq.requestNr} have arrived at the store via GRN ${grn.grnNumber}.`,
-                            type: 'INVENTORY',
-                            priority: 'HIGH',
-                            link: '/inventory/requests',
-                            metadata: { requestId: updatedReq.id, grnNumber: grn.grnNumber, status: newStatus }
-                        });
-                    } catch (nErr) {
+                    const [nErr] = await safe(NotificationService.send({
+                        userId: updatedReq.requestedById,
+                        title: newStatus === 'COMPLETED' ? 'Stock Fully Received' : 'Stock Partially Received',
+                        message: `Materials for request ${updatedReq.requestNr} have arrived at the store via GRN ${grn.grnNumber}.`,
+                        type: 'INVENTORY',
+                        priority: 'HIGH',
+                        link: '/inventory/requests',
+                        metadata: { requestId: updatedReq.id, grnNumber: grn.grnNumber, status: newStatus }
+                    }));
+                    if (nErr) {
                         console.error("Failed to notify stock arrival:", nErr);
                     }
                 }

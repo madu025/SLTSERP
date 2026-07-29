@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { ROLE_GROUPS } from "@/config/roles";
+import { CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BankReconciliationSummary {
@@ -23,7 +22,7 @@ interface BankReconciliationSummary {
 }
 
 export default function BankReconciliationPage() {
-    const { data, isLoading, refetch } = useQuery<BankReconciliationSummary>({
+    const { data, refetch } = useQuery<BankReconciliationSummary>({
         queryKey: ['bank-reconciliation-summary'],
         queryFn: async () => {
             const res = await fetch(`/api/finance/bank/reconciliation?bankAccountId=default&_t=${Date.now()}`, { cache: 'no-store' });

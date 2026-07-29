@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 
+import { safe } from '@/utils/safe-await.util';
+
 export const dynamic = 'force-dynamic';
 
 export async function PATCH(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { segmentId, coordinates, length } = body;
+  const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
+  
+  if (jsonErr || !body) {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { segmentId, coordinates, length } = body as { segmentId: string; coordinates: [number, number][]; length?: number };
 
     if (!segmentId) {
       return NextResponse.json({ error: 'Segment ID is required' }, { status: 400 });
@@ -27,16 +33,17 @@ export async function PATCH(req: NextRequest) {
       computedLength = dist;
     }
 
-    const updatedSegment = await GISRouteService.updateCableSegment(segmentId, coordinates, computedLength);
+    const [updateErr, updatedSegment] = await safe(GISRouteService.updateCableSegment(segmentId, coordinates, computedLength));
+
+    if (updateErr || !updatedSegment) {
+      console.error('Error updating cable segment:', updateErr);
+      return NextResponse.json({ error: updateErr?.message || 'Failed to update segment' }, { status: 500 });
+    }
 
     return NextResponse.json({
       message: 'Cable segment updated successfully',
       segment: updatedSegment
     });
-  } catch (error: any) {
-    console.error('Error updating cable segment:', error);
-    return NextResponse.json({ error: error.message || 'Failed to update segment' }, { status: 500 });
-  }
 }
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

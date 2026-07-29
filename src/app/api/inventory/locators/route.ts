@@ -21,7 +21,7 @@ export const GET = apiHandler(async (request: Request) => {
     return await InventoryService.getLocatorsByStore(storeId);
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (_request: Request, _params: any, body: any) => {
+export const POST = apiHandler(async (_request: Request, _params: Record<string, unknown>, body: Record<string, unknown>) => {
     const data = createLocatorSchema.parse(body);
     return await InventoryService.createLocator(data);
 }, {

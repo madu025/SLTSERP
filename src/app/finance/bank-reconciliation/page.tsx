@@ -9,9 +9,19 @@ import { Button } from '@/components/ui/button';
 import { Upload, CheckCircle2, XCircle, FileSpreadsheet } from 'lucide-react';
 import { format } from 'date-fns';
 
+interface ReconResult {
+  matches: {
+    statementRow: { date: string; description: string; amount: number };
+    journalReference: string;
+  }[];
+  unmatchedRows: { date: string; description: string; amount: number }[];
+  matchedCount: number;
+  unmatchedCount: number;
+}
+
 export default function BankReconciliationPage() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ReconResult | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -145,7 +155,7 @@ export default function BankReconciliationPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {result.matches.map((m: any, idx: number) => (
+                          {result.matches.map((m: ReconResult['matches'][0], idx: number) => (
                             <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                               <td className="px-6 py-4">{format(new Date(m.statementRow.date), 'MMM dd, yyyy')}</td>
                               <td className="px-6 py-4">{m.statementRow.description}</td>

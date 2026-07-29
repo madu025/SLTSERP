@@ -2,6 +2,7 @@ import { AppError } from '@/lib/error';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { Prisma, InventoryItem } from '@prisma/client';
+import { safe } from '@/utils/safe-await.util';
 import { emitSystemEvent } from '@/lib/events';
 import { CreateItemData, TransactionClient } from './types';
 import { prisma } from '@/lib/prisma';
@@ -39,37 +40,42 @@ export class ItemService {
             throw AppError.badRequest('CODE_NAME_AND_GENERIC_NAME_REQUIRED');
         }
 
-        try {
-            const item = await InventoryRepository.createItem({
-                code: data.code,
-                name: data.name,
-                description: data.description,
-                unit: data.unit || 'Nos',
-                type: (data.type as any) || 'SLTS',
-                category: data.category || 'OTHERS',
-                commonFor: data.commonFor || ['FTTH', 'PSTN', 'OSP', 'OTHERS'],
-                minLevel: data.minLevel ? parseFloat(data.minLevel.toString()) : 0,
-                unitPrice: data.unitPrice ? parseFloat(data.unitPrice.toString()) : 0,
-                costPrice: data.costPrice ? parseFloat(data.costPrice.toString()) : 0,
-                isWastageAllowed: data.isWastageAllowed !== undefined ? data.isWastageAllowed : true,
-                maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : 0,
-                isOspFtth: data.isOspFtth || false,
-                hasSerial: data.hasSerial || false,
-                commonName: data.commonName,
-                sltCode: data.sltCode,
-                importAliases: normalizeAliases(data.importAliases) || [],
-                scrapedAliases: normalizeAliases(data.scrapedAliases) || [],
-                bomAliases: normalizeAliases(data.bomAliases) || []
-            });
+        const [error, item] = await safe(InventoryRepository.createItem({
+            code: data.code,
+            name: data.name,
+            description: data.description,
+            unit: data.unit || 'Nos',
+            type: (data.type as unknown as Prisma.InventoryItemCreateInput['type']) || 'SLTS',
+            category: data.category || 'OTHERS',
+            commonFor: data.commonFor || ['FTTH', 'PSTN', 'OSP', 'OTHERS'],
+            minLevel: data.minLevel ? parseFloat(data.minLevel.toString()) : 0,
+            unitPrice: data.unitPrice ? parseFloat(data.unitPrice.toString()) : 0,
+            costPrice: data.costPrice ? parseFloat(data.costPrice.toString()) : 0,
+            isWastageAllowed: data.isWastageAllowed !== undefined ? data.isWastageAllowed : true,
 
-            emitSystemEvent('INVENTORY_UPDATE');
-            return item;
-        } catch (error: any) {
+            maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : 0,
+            isOspFtth: data.isOspFtth || false,
+            hasSerial: data.hasSerial || false,
+            commonName: data.commonName,
+            sltCode: data.sltCode,
+            importAliases: normalizeAliases(data.importAliases) || [],
+            scrapedAliases: normalizeAliases(data.scrapedAliases) || [],
+            bomAliases: normalizeAliases(data.bomAliases) || []
+        }));
+
+        if (error) {
             if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
                 throw AppError.badRequest('ITEM_EXISTS');
             }
             throw error;
         }
+
+        if (item) {
+            emitSystemEvent('INVENTORY_UPDATE');
+            return item;
+        }
+        
+        throw AppError.internal('Failed to create item');
     }
 
     static async updateItem(id: string, data: Partial<CreateItemData>): Promise<InventoryItem> {
@@ -79,7 +85,7 @@ export class ItemService {
             name: data.name,
             description: data.description,
             unit: data.unit,
-            type: data.type as any,
+            type: data.type as unknown as Prisma.InventoryItemUpdateInput['type'],
             category: data.category,
             commonFor: data.commonFor,
             minLevel: data.minLevel ? parseFloat(data.minLevel.toString()) : undefined,
@@ -100,24 +106,24 @@ export class ItemService {
         return updated;
     }
 
-    static async patchBulkItems(updates: any[]): Promise<boolean> {
+    static async patchBulkItems(updates: Record<string, unknown>[]): Promise<boolean> {
         if (!Array.isArray(updates)) throw AppError.badRequest('UPDATES_MUST_BE_ARRAY');
 
         await prisma.$transaction(async (tx: TransactionClient) => {
             for (const u of updates) {
-                const itemId = u.id;
-                const source = u.data ? u.data : u;
+                const itemId = u.id as string | undefined;
+                const source = (u.data ? u.data : u) as Record<string, unknown>;
                 // Whitelist allowed bulk-patch fields (no raw pass-through)
-                const updateData: Record<string, any> = {
+                const updateData: Record<string, unknown> = {
                     isOspFtth: source.isOspFtth,
                     type: source.type,
                     category: source.category,
                     commonName: source.commonName,
                     commonFor: source.tags || source.commonFor
                 };
-                if (source.importAliases !== undefined) updateData.importAliases = normalizeAliases(source.importAliases);
-                if (source.scrapedAliases !== undefined) updateData.scrapedAliases = normalizeAliases(source.scrapedAliases);
-                if (source.bomAliases !== undefined) updateData.bomAliases = normalizeAliases(source.bomAliases);
+                if (source.importAliases !== undefined && source.importAliases !== null) updateData.importAliases = normalizeAliases(source.importAliases as string[]);
+                if (source.scrapedAliases !== undefined && source.scrapedAliases !== null) updateData.scrapedAliases = normalizeAliases(source.scrapedAliases as string[]);
+                if (source.bomAliases !== undefined && source.bomAliases !== null) updateData.bomAliases = normalizeAliases(source.bomAliases as string[]);
 
                 if (itemId) {
                     await tx.inventoryItem.update({
@@ -221,9 +227,8 @@ export class ItemService {
             );
         }
 
-        try {
-            await InventoryRepository.deleteItem(id);
-        } catch (error: unknown) {
+        const [error] = await safe(InventoryRepository.deleteItem(id));
+        if (error) {
             const msg = error instanceof Error ? error.message : String(error);
             if (msg.includes('Foreign key constraint violated') || msg.includes('fkey')) {
                 throw AppError.badRequest(

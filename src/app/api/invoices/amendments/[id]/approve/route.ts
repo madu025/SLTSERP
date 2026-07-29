@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { PricingAuditService } from '@/services/sf-audit/pricing-audit.service';
@@ -28,7 +29,7 @@ export const POST = apiHandler(
         };
     },
     {
-        roles: ['SF_AUDIT_MANAGER', 'FINANCE_DIRECTOR', 'SUPER_ADMIN', 'ADMIN'],
+        roles: ROLE_GROUPS.FINANCE_APPROVERS,
         schema: approveSchema
     }
 );

@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 import { ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
 import { ContractorUpdateData, TeamInput, TeamMemberInput } from './contractor-types';
@@ -176,13 +177,12 @@ export class ContractorLifecycleService {
      * Handle notifications on status changes
      */
     private static async handleStatusChangeNotifications(contractor: { id: string; name: string; siteOfficeStaffId: string | null; opmcId: string | null }, data: ContractorUpdateData) {
-        try {
-            await eventBus.publish('contractor.status_changed', {
-                contractor,
-                status: data.status as string,
-                rejectionReason: data.rejectionReason
-            });
-        } catch (err) {
+        const [err] = await safe(eventBus.publish('contractor.status_changed', {
+            contractor,
+            status: data.status as string,
+            rejectionReason: data.rejectionReason
+        }));
+        if (err) {
             console.error("[LIFECYCLE] Event Publish Failed:", err);
         }
     }
@@ -648,25 +648,26 @@ export class ContractorLifecycleService {
         }
 
         // 3. Auto-create contractor registered for this RTOM/OPMC
-        try {
-            const regNo = `AUTO-${opmcId.substring(0, 4)}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-            const newContractor = await client.contractor.create({
-                data: {
-                    name: cleanName,
-                    registrationNumber: regNo,
-                    status: 'ACTIVE',
-                    type: 'SOD',
-                    address: `Auto-registered via Portal Data Sync`,
-                    opmcId: opmcId
-                },
-                select: { id: true }
-            });
-            console.log(`[PORTAL_AUTO_CONTRACTOR] Registered '${cleanName}' for OPMC '${opmcId}'`);
-            emitSystemEvent('CONTRACTOR_UPDATE');
-            return newContractor.id;
-        } catch (err) {
+        const regNo = `AUTO-${opmcId.substring(0, 4)}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        const [err, newContractor] = await safe(client.contractor.create({
+            data: {
+                name: cleanName,
+                registrationNumber: regNo,
+                status: 'ACTIVE',
+                type: 'SOD',
+                address: `Auto-registered via Portal Data Sync`,
+                opmcId: opmcId
+            },
+            select: { id: true }
+        }));
+        
+        if (err || !newContractor) {
             console.error(`[PORTAL_AUTO_CONTRACTOR_ERR] Failed to auto-create contractor '${cleanName}':`, err);
             return null;
         }
+
+        console.log(`[PORTAL_AUTO_CONTRACTOR] Registered '${cleanName}' for OPMC '${opmcId}'`);
+        emitSystemEvent('CONTRACTOR_UPDATE');
+        return newContractor.id;
     }
 }

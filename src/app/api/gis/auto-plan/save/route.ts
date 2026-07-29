@@ -3,11 +3,26 @@ import { primaryClient } from '@/lib/prisma';
 import { ProjectSurveyService } from '@/services/project-survey.service';
 import { type PlannedPole, type PlannedClosure, type PlannedCable } from '@/services/GISAutoPlanService';
 
+import { safe } from '@/utils/safe-await.util';
+
 // Cache buster to force Next.js module re-evaluation: 1783209330
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { projectId, routeName, poles, closures, cables, polygon, osmData, metadata } = body;
+  const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
+  
+  if (jsonErr || !body) {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { projectId, routeName, poles, closures, cables, polygon, osmData, metadata } = body as {
+    projectId: string;
+    routeName: string;
+    poles: unknown;
+    closures: unknown;
+    cables: unknown;
+    polygon: unknown;
+    osmData: unknown;
+    metadata: unknown;
+  };
 
     if (!projectId || !routeName) {
       return NextResponse.json(
@@ -74,7 +89,7 @@ export async function POST(req: NextRequest) {
     };
 
     // Save plan using a database transaction
-    const result = await primaryClient.$transaction(async (tx) => {
+    const [txErr, result] = await safe(primaryClient.$transaction(async (tx) => {
       // 1. Create Route record
       const totalCableLength = Array.isArray(cables) 
         ? (cables as PlannedCable[]).reduce((sum, cb) => sum + cb.length, 0)
@@ -172,13 +187,20 @@ export async function POST(req: NextRequest) {
       }
 
       return route;
-    });
+    }));
+
+    if (txErr || !result) {
+      console.error('Save AI Plan Route Error:', txErr);
+      return NextResponse.json(
+        { error: txErr?.message || 'Failed to save AI planning route' },
+        { status: 500 }
+      );
+    }
 
     // Automatically trigger BOQ recalculation for the newly saved AI plan
-    try {
-      await ProjectSurveyService.completeSurveyAndGenerateBOQ(projectId, {});
-    } catch (boqError) {
-      console.error('Error generating BOQ from AI plan:', boqError);
+    const [boqErr] = await safe(ProjectSurveyService.completeSurveyAndGenerateBOQ(projectId, {}));
+    if (boqErr) {
+      console.error('Error generating BOQ from AI plan:', boqErr.message);
     }
 
     return NextResponse.json({
@@ -186,13 +208,4 @@ export async function POST(req: NextRequest) {
       message: `AI Route Plan "${routeName}" saved and BOQ recalculated successfully.`,
       routeId: result.id,
     });
-
-  } catch (error: unknown) {
-    console.error('Save AI Plan Route Error:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { error: msg || 'Failed to save AI planning route' },
-      { status: 500 }
-    );
-  }
 }

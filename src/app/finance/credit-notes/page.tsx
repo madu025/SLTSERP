@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
+import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ArrowRightLeft } from "lucide-react";
 

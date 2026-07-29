@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -153,7 +154,7 @@ export default function CreateTicketPage() {
   if (!mounted) return null;
 
   return (
-    <RoleGuard allowedRoles={['ALL']}>
+    <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS}>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

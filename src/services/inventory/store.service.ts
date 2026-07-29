@@ -4,6 +4,7 @@ import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
 import { eventBus } from '@/lib/events/event-bus';
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 import { StoreWithDetails } from './types';
 
 export class StoreService {
@@ -12,7 +13,7 @@ export class StoreService {
     private static readonly LOW_STOCK_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
     static async getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]> {
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
+        const isAdmin = (ROLE_GROUPS.ADMINS as readonly string[]).includes(userRole);
         let whereClause: Prisma.InventoryStoreWhereInput = {};
 
         if (!isAdmin) {
@@ -165,39 +166,47 @@ export class StoreService {
      * Check if item stock is below minimum level and notify
      */
     static async checkLowStock(storeId: string, itemId: string): Promise<void> {
-        try {
-            const stocks = await InventoryRepository.findManyStocks(
-                { storeId, itemId },
-                {
-                    item: true,
-                    store: {
-                        include: {
-                            manager: { select: { id: true, name: true } }
-                        }
+        const [error, stocks] = await safe(InventoryRepository.findManyStocks(
+            { storeId, itemId },
+            {
+                item: true,
+                store: {
+                    include: {
+                        manager: { select: { id: true, name: true } }
                     }
                 }
-            );
-            const stock = stocks[0];
-            if (!stock || !stock.item || !stock.store) return;
-
-            if (stock.quantity <= stock.minLevel) {
-                // Anti-spam: skip if same item+store alerted within cooldown window
-                const cooldownKey = `${storeId}:${itemId}`;
-                const lastAlert = StoreService.lowStockCooldown.get(cooldownKey);
-                if (lastAlert && (Date.now() - lastAlert) < StoreService.LOW_STOCK_COOLDOWN_MS) {
-                    return; // Still in cooldown, skip
-                }
-                StoreService.lowStockCooldown.set(cooldownKey, Date.now());
-
-                await eventBus.publish('inventory.low_stock_detected', {
-                    store: stock.store.name,
-                    item: stock.item.name || stock.item.code,
-                    currentStock: stock.quantity,
-                    minStock: stock.minLevel
-                });
             }
-        } catch (error) {
-            console.error('Failed to check low stock:', error);
+        ));
+
+        if (error) {
+            console.error('Failed to check low stock (DB Error):', error);
+            return;
+        }
+
+        if (!stocks || stocks.length === 0) return;
+        
+        const stock = stocks[0];
+        if (!stock || !stock.item || !stock.store) return;
+
+        if (stock.quantity <= stock.minLevel) {
+            // Anti-spam: skip if same item+store alerted within cooldown window
+            const cooldownKey = `${storeId}:${itemId}`;
+            const lastAlert = StoreService.lowStockCooldown.get(cooldownKey);
+            if (lastAlert && (Date.now() - lastAlert) < StoreService.LOW_STOCK_COOLDOWN_MS) {
+                return; // Still in cooldown, skip
+            }
+            StoreService.lowStockCooldown.set(cooldownKey, Date.now());
+
+            const [evtErr] = await safe(eventBus.publish('inventory.low_stock_detected', {
+                store: stock.store.name,
+                item: stock.item.name || stock.item.code,
+                currentStock: stock.quantity,
+                minStock: stock.minLevel
+            }));
+
+            if (evtErr) {
+                console.error('Failed to publish low stock event:', evtErr);
+            }
         }
     }
 

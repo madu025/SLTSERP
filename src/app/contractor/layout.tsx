@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -149,7 +150,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
 
     return (
         <RoleGuard
-            allowedRoles={['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'STORES_MANAGER', 'OSP_MANAGER']}
+            allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS}
             fallbackLoginPath="/contractor/login"
         >
             <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans pb-20 md:pb-6 selection:bg-amber-500/30">

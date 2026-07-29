@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory';
 
@@ -9,7 +10,7 @@ export const POST = apiHandler(async (request: Request, params: any) => {
 
     return await InventoryService.approveCycleCount(id, userId);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'FINANCE_MANAGER'],
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'APPROVE', entity: 'CycleCount' },
     rawResponse: true
 });

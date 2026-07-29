@@ -22,7 +22,7 @@ export class NotificationPolicyService {
         }
 
         await NotificationService.notifyByRole({
-            roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OSP_MANAGER', 'MANAGER', 'OFFICE_ADMIN', 'ENGINEER'],
+            roles: ROLE_GROUPS.OFFICE_ADMINS,
             title: "Contractor Pending Review",
             message,
             type: 'CONTRACTOR',
@@ -46,7 +46,7 @@ export class NotificationPolicyService {
                 priority: 'MEDIUM'
             });
             await NotificationService.notifyByRole({
-                roles: [...ROLE_GROUPS.ADMINS, "OSP_MANAGER"],
+                roles: ROLE_GROUPS.PROJECT_MANAGERS,
                 title: "New Contractor Pending Authorization",
                 message: `Contractor "${contractor.name}" is waiting for final authorization.`,
                 type: 'CONTRACTOR',

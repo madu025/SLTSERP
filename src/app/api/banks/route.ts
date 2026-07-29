@@ -13,7 +13,7 @@ export const GET = apiHandler(async () => {
     return await BankService.getBanks();
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (_request: Request, _params: any, body: any) => {
+export const POST = apiHandler(async (_request: Request, _params: Record<string, unknown>, body: Record<string, unknown>) => {
     const data = createBankSchema.parse(body);
     return await BankService.createBank(data);
 }, {

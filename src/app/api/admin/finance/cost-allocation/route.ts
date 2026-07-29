@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
@@ -22,7 +23,7 @@ export const GET = apiHandler(async () => {
     const memos = await CostAllocationService.getAllocationMemos();
     return Response.json({ success: true, data: memos });
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']
+    roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const POST = apiHandler(async (_req, _params, body) => {
@@ -30,6 +31,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
     const memo = await CostAllocationService.createAllocationMemo(payload);
     return Response.json({ success: true, data: memo });
 }, {
-    roles: ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE_COST_ALLOCATION_MEMO', entity: 'Finance' }
 });

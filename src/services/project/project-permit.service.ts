@@ -155,7 +155,7 @@ export class ProjectPermitService {
         });
     }
 
-    static async updatePermit(permitId: string, data: any) {
+    static async updatePermit(permitId: string, data: Record<string, unknown>) {
         return await prisma.projectPermit.update({
             where: { id: permitId },
             data,

@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { addJob, statsUpdateQueue } from '../../lib/queue';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
+import { ErrorUtil } from "../../utils/error.util";
+import { safe } from '@/utils/safe-await.util';
 
 export class SODImportService {
     /**
@@ -39,12 +41,12 @@ export class SODImportService {
         const { SODLifecycleService } = await import('./sod.lifecycle.service');
 
         const toCreate: Prisma.ServiceOrderCreateManyInput[] = [];
-        const toUpdate: { existing: typeof existingSods[0], updateData: any }[] = [];
+        const toUpdate: { existing: typeof existingSods[0], updateData: Prisma.ServiceOrderUncheckedUpdateInput }[] = [];
 
         for (const item of data) {
-            try {
+            const [err] = await safe((async () => {
                 const soNum = String(item['SO Number'] || item['SO_NUM'] || item['SOD'] || '').trim();
-                if (!soNum) continue;
+                if (!soNum) return;
 
                 const existing = existingMap.get(soNum);
 
@@ -101,20 +103,21 @@ export class SODImportService {
                         comments: isReturned ? `[AI_CLASSIFIED] Reason: ${cleanStatus || 'Returned in Excel Import'}` : null
                     });
                 }
-            } catch (err) {
+            })());
+            if (err) {
                 failed++;
-                errors.push(err instanceof Error ? err.message : String(err));
+                errors.push(err instanceof Error ? ErrorUtil.getMessage(err) : String(err));
             }
         }
 
         // Batch Insert
         if (toCreate.length > 0) {
-            try {
-                const res = await prisma.serviceOrder.createMany({ data: toCreate, skipDuplicates: true });
-                created += res.count;
-            } catch (err) {
+            const [err, res] = await safe(prisma.serviceOrder.createMany({ data: toCreate, skipDuplicates: true }));
+            if (err || !res) {
                 failed += toCreate.length;
                 errors.push(`Failed to batch create: ${String(err)}`);
+            } else {
+                created += res.count;
             }
         }
 
@@ -129,19 +132,19 @@ export class SODImportService {
 
         for (const chunk of updateChunks) {
             await Promise.all(chunk.map(async ({ existing, updateData }) => {
-                try {
+                const [err] = await safe(prisma.$transaction(async (tx) => {
                     const isReturning = (updateData.sltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
-                    await prisma.$transaction(async (tx) => {
-                        await tx.serviceOrder.update({ where: { id: existing.id }, data: updateData });
-                        if (isReturning) {
-                            await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'EXCEL_IMPORT');
-                            await LedgerService.rollbackSodTransaction(tx, existing.id);
-                        }
-                    });
-                    created++;
-                } catch (err) {
+                    await tx.serviceOrder.update({ where: { id: existing.id }, data: updateData });
+                    if (isReturning) {
+                        await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'EXCEL_IMPORT');
+                        await LedgerService.rollbackSodTransaction(tx, existing.id);
+                    }
+                }));
+                if (err) {
                     failed++;
-                    errors.push(err instanceof Error ? err.message : String(err));
+                    errors.push(err instanceof Error ? ErrorUtil.getMessage(err) : String(err));
+                } else {
+                    created++;
                 }
             }));
         }
@@ -276,7 +279,7 @@ export class SODImportService {
             const batch = rows.slice(i, i + BATCH_SIZE);
 
             for (const row of batch) {
-                try {
+                const [err] = await safe((async () => {
                     const rtomKey = (row.rtom || '').toUpperCase().trim();
                     const opmc = opmcMap[rtomKey];
 
@@ -291,7 +294,7 @@ export class SODImportService {
                         });
                         skippedNoOpmc++;
                         errorCount++;
-                        continue;
+                        return;
                     }
 
                     const realVoiceNumber = (row.voiceNumber || '').trim();
@@ -336,15 +339,33 @@ export class SODImportService {
                         costPrice: number;
                     }> = [];
 
-                    if (!skipMaterials && row.materials) {
-                        for (const [idOrAlias, quantity] of Object.entries(row.materials)) {
-                            const qtyVal = Number(quantity);
-                            if (qtyVal && qtyVal > 0) {
-                                let item = inventoryItemMap.get(idOrAlias);
-                                if (!item) {
-                                    const mappedId = aliasMap[idOrAlias.toUpperCase().trim()];
-                                    if (mappedId) item = inventoryItemMap.get(mappedId);
+                    if (!skipMaterials && row.materials && typeof row.materials === 'object') {
+                        const mats = row.materials as Record<string, unknown>;
+                        for (const [key, val] of Object.entries(mats)) {
+                            const rawQty = Number(val);
+                            if (isNaN(rawQty) || rawQty <= 0) continue;
+                            const qtyVal = Math.floor(rawQty);
+
+                            const aliasKey = key.toUpperCase().trim();
+                            const mappedItemId = aliasMap[aliasKey];
+
+                            if (mappedItemId) {
+                                const item = inventoryItemMap.get(mappedItemId);
+                                if (item) {
+                                    materialUsageData.push({
+                                        itemId: item.id,
+                                        quantity: qtyVal,
+                                        unit: 'Nos',
+                                        usageType: 'USED',
+                                        unitPrice: Number(item.unitPrice || 0),
+                                        costPrice: Number(item.costPrice || 0)
+                                    });
                                 }
+                            } else {
+                                const item = inventoryItems.find(i => 
+                                    i.code.toUpperCase() === aliasKey || 
+                                    i.name.toUpperCase().includes(aliasKey)
+                                );
                                 if (item) {
                                     materialUsageData.push({
                                         itemId: item.id,
@@ -398,8 +419,9 @@ export class SODImportService {
                         soNumSource: isAutoGenerated ? 'LEGACY' : 'PAT'
                     });
                     successCount++;
-                } catch (err) {
-                    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+                })());
+                if (err) {
+                    const errorMsg = err instanceof Error ? ErrorUtil.getMessage(err) : 'Unknown error';
                     results.push({
                         success: false,
                         soNum: '',

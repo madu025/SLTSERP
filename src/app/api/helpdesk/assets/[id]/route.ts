@@ -25,7 +25,7 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateAssetSchema,
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "UPDATE",
       entity: "ITAsset"
@@ -43,7 +43,7 @@ export const DELETE = apiHandler(
     return await HelpdeskService.deleteAsset(userId, id, ipAddress, userAgent);
   },
   {
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ROLE_GROUPS.ADMINS,
     audit: {
       action: "DELETE",
       entity: "ITAsset"

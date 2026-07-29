@@ -9,6 +9,6 @@ export const GET = apiHandler(
     return await HelpdeskService.getDashboardReports();
   },
   {
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER", "OFFICE_ADMIN_ASSISTANT"]
+    roles: ROLE_GROUPS.OFFICE_ADMINS
   }
 );

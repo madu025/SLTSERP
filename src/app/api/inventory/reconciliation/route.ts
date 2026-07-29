@@ -18,7 +18,7 @@ export const GET = apiHandler(async (request) => {
     const data = await MaterialService.getReconciliation({ contractorId, storeId, month });
     return { success: true, data };
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     rawResponse: true
 });
 

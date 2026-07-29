@@ -15,6 +15,7 @@ import { GISPolePlacement } from './GISPolePlacement';
 import { GISGeoPackageService } from './GISGeoPackageService';
 import { GISDataExtractor } from './GISDataExtractor';
 import { GISPlanValidator } from './GISPlanValidator';
+import { safe } from '@/utils/safe-await.util';
 
 // Re-export type definitions for other modules that consume them from here
 export type { PlannedPole, PlannedClosure, PlannedCable, AutoPlanResult };
@@ -119,7 +120,7 @@ export class GISAutoPlanService {
     let nodes = new Map<number, OSMNode>();
     let ways: OSMWay[] = [];
 
-    try {
+    const [parseErr] = await safe((async () => {
       if (overpassData) {
         const parsed = GISDataExtractor.parseOverpassElements(overpassData);
         nodes = parsed.nodes;
@@ -175,13 +176,14 @@ export class GISAutoPlanService {
         nodes.set(id, node);
       }
       ways.push(...uniqueAiWays);
-      
-    } catch (error) {
+    })());
+
+    if (parseErr) {
       // Don't swallow parsing failures silently: an empty road network below
       // would surface as a misleading "No mapped roads found" error.
-      console.error('[GISAutoPlanService] Failed to parse Overpass data:', error);
+      console.error('[GISAutoPlanService] Failed to parse Overpass data:', parseErr);
       throw new Error(
-        `Failed to parse map data from Overpass: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to parse map data from Overpass: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`
       );
     }
 

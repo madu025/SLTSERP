@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 import * as XLSX from 'xlsx';
 import path from 'path';
 
@@ -64,10 +65,9 @@ export class MaterialExcelImportService {
       ? filePath
       : path.join(process.cwd(), filePath);
 
-    let workbook: XLSX.WorkBook;
-    try {
-      workbook = XLSX.readFile(absolutePath);
-    } catch (err: unknown) {
+    const [err, workbook] = await safe(Promise.resolve(XLSX.readFile(absolutePath)));
+    
+    if (err || !workbook) {
       const msg = err instanceof Error ? err.message : 'Unknown file error';
       throw new Error(`Failed to read Excel file at ${absolutePath}: ${msg}`);
     }

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { SystemService } from '@/services/system.service';
+import { safe } from '@/utils/safe-await.util';
 
 export interface FinanceSystemConfig {
     vatPercent: number;
@@ -45,12 +46,19 @@ export class SystemConfigService {
      * Fetch all system configs as a key-value map with defaults fallback.
      */
     static async getConfigs(): Promise<Record<string, string>> {
-        try {
-            const configs: { key: string, value: string }[] = await prisma.$queryRaw`SELECT * FROM "SystemConfig"`;
-            const map = configs.reduce((acc: Record<string, string>, curr) => {
-                acc[curr.key] = curr.value;
-                return acc;
-            }, {} as Record<string, string>);
+        const [err, configs] = await safe<{ key: string, value: string }[]>(
+            prisma.$queryRaw`SELECT * FROM "SystemConfig"`
+        );
+
+        if (err || !configs) {
+            console.error('[SYSTEM-CONFIG-FETCH-FAIL]', err);
+            return {};
+        }
+
+        const map = configs.reduce((acc: Record<string, string>, curr: { key: string, value: string }) => {
+            acc[curr.key] = curr.value;
+            return acc;
+        }, {} as Record<string, string>);
 
             return {
                 // Finance Defaults
@@ -92,78 +100,78 @@ export class SystemConfigService {
                 INVENTORY_MATERIAL_RETURN_GRACE_DAYS: map.INVENTORY_MATERIAL_RETURN_GRACE_DAYS || '7',
                 INVENTORY_STORE_TRANSFER_AUTO_APPROVE_LIMIT: map.INVENTORY_STORE_TRANSFER_AUTO_APPROVE_LIMIT || '50000',
                 INVENTORY_STOCK_AUDIT_DISCREPANCY_TOLERANCE_PERCENT: map.INVENTORY_STOCK_AUDIT_DISCREPANCY_TOLERANCE_PERCENT || '1',
-                OSP_MATERIAL_SOURCE: map.OSP_MATERIAL_SOURCE || 'SLT',
-                ...map
-            };
-        } catch (e) {
-            console.error('[SYSTEM-CONFIG-FETCH-FAIL]', e);
-            return {};
-        }
+            OSP_MATERIAL_SOURCE: map.OSP_MATERIAL_SOURCE || 'SLT',
+            ...map
+        };
     }
 
     /**
      * Get OSP Material Source as of a target date or order completion date
      */
     static async getOspMaterialSourceAsOfDate(targetDate: Date = new Date()): Promise<'SLT' | 'COMPANY'> {
-        try {
-            const versions: Array<{ key: string; value: string }> = await prisma.$queryRaw`
+        const [err, versions] = await safe<Array<{ key: string; value: string }>>(
+            prisma.$queryRaw`
                 SELECT DISTINCT ON ("key") "key", "value"
                 FROM "SystemConfigVersion"
                 WHERE "key" = 'OSP_MATERIAL_SOURCE'
                   AND "effectiveFrom" <= ${targetDate}
                   AND ("effectiveTo" IS NULL OR "effectiveTo" >= ${targetDate})
                 ORDER BY "key", "effectiveFrom" DESC
-            `;
+            `
+        );
 
-            if (versions.length > 0 && (versions[0].value === 'COMPANY' || versions[0].value === 'SLT')) {
-                return versions[0].value as 'SLT' | 'COMPANY';
-            }
-
-            const liveConfigs = await this.getConfigs();
-            const liveSource = liveConfigs.OSP_MATERIAL_SOURCE;
-            return (liveSource === 'COMPANY' ? 'COMPANY' : 'SLT');
-        } catch (e) {
-            console.error('[TIME-SERIES-OSP-SOURCE-FAIL]', e);
+        if (err || !versions) {
+            console.error('[TIME-SERIES-OSP-SOURCE-FAIL]', err);
             return 'SLT';
         }
+
+        if (versions.length > 0 && (versions[0].value === 'COMPANY' || versions[0].value === 'SLT')) {
+            return versions[0].value as 'SLT' | 'COMPANY';
+        }
+
+        const liveConfigs = await this.getConfigs();
+        const liveSource = liveConfigs.OSP_MATERIAL_SOURCE;
+        return (liveSource === 'COMPANY' ? 'COMPANY' : 'SLT');
     }
 
     /**
      * Get Finance Configuration as of a specific historical date
      */
     static async getFinanceConfigAsOfDate(targetDate: Date = new Date()): Promise<FinanceSystemConfig> {
-        try {
-            const versions: Array<{ key: string; value: string }> = await prisma.$queryRaw`
+        const [err, versions] = await safe<Array<{ key: string; value: string }>>(
+            prisma.$queryRaw`
                 SELECT DISTINCT ON ("key") "key", "value"
                 FROM "SystemConfigVersion"
                 WHERE "effectiveFrom" <= ${targetDate}
                   AND ("effectiveTo" IS NULL OR "effectiveTo" >= ${targetDate})
                 ORDER BY "key", "effectiveFrom" DESC
-            `;
+            `
+        );
 
-            const map = versions.reduce((acc, curr) => {
-                acc[curr.key] = curr.value;
-                return acc;
-            }, {} as Record<string, string>);
-
-            const liveConfigs = await this.getConfigs();
-
-            return {
-                vatPercent: Number(map.FINANCE_VAT_PERCENT || liveConfigs.FINANCE_VAT_PERCENT || 18.0),
-                ssclPercent: Number(map.FINANCE_SSCL_PERCENT || liveConfigs.FINANCE_SSCL_PERCENT || 2.5),
-                whtPercent: Number(map.FINANCE_WHT_PERCENT || liveConfigs.FINANCE_WHT_PERCENT || 5.0),
-                retentionPercent: Number(map.FINANCE_RETENTION_PERCENT || liveConfigs.FINANCE_RETENTION_PERCENT || 10.0),
-                lateInvoicePenaltyPercent: Number(map.FINANCE_LATE_INVOICE_PENALTY_PERCENT || liveConfigs.FINANCE_LATE_INVOICE_PENALTY_PERCENT || 2.0),
-                qcRejectionPenaltyAmount: Number(map.FINANCE_QC_REJECTION_PENALTY_AMOUNT || liveConfigs.FINANCE_QC_REJECTION_PENALTY_AMOUNT || 1500),
-                approvalLimitManager: Number(map.FINANCE_APPROVAL_LIMIT_MANAGER || liveConfigs.FINANCE_APPROVAL_LIMIT_MANAGER || 100000),
-                approvalLimitGM: Number(map.FINANCE_APPROVAL_LIMIT_GM || liveConfigs.FINANCE_APPROVAL_LIMIT_GM || 1000000),
-                approvalLimitDirector: Number(map.FINANCE_APPROVAL_LIMIT_DIRECTOR || liveConfigs.FINANCE_APPROVAL_LIMIT_DIRECTOR || 5000000),
-                minInvoiceBatchAmount: Number(map.FINANCE_MIN_INVOICE_BATCH_AMOUNT || liveConfigs.FINANCE_MIN_INVOICE_BATCH_AMOUNT || 25000)
-            };
-        } catch (e) {
-            console.error('[TIME-SERIES-CONFIG-FETCH-FAIL]', e);
+        if (err || !versions) {
+            console.error('[TIME-SERIES-CONFIG-FETCH-FAIL]', err);
             return this.getFinanceConfig();
         }
+
+        const map = versions.reduce((acc: Record<string, string>, curr: { key: string, value: string }) => {
+            acc[curr.key] = curr.value;
+            return acc;
+        }, {} as Record<string, string>);
+
+        const liveConfigs = await this.getConfigs();
+
+        return {
+            vatPercent: Number(map.FINANCE_VAT_PERCENT || liveConfigs.FINANCE_VAT_PERCENT || 18.0),
+            ssclPercent: Number(map.FINANCE_SSCL_PERCENT || liveConfigs.FINANCE_SSCL_PERCENT || 2.5),
+            whtPercent: Number(map.FINANCE_WHT_PERCENT || liveConfigs.FINANCE_WHT_PERCENT || 5.0),
+            retentionPercent: Number(map.FINANCE_RETENTION_PERCENT || liveConfigs.FINANCE_RETENTION_PERCENT || 10.0),
+            lateInvoicePenaltyPercent: Number(map.FINANCE_LATE_INVOICE_PENALTY_PERCENT || liveConfigs.FINANCE_LATE_INVOICE_PENALTY_PERCENT || 2.0),
+            qcRejectionPenaltyAmount: Number(map.FINANCE_QC_REJECTION_PENALTY_AMOUNT || liveConfigs.FINANCE_QC_REJECTION_PENALTY_AMOUNT || 1500),
+            approvalLimitManager: Number(map.FINANCE_APPROVAL_LIMIT_MANAGER || liveConfigs.FINANCE_APPROVAL_LIMIT_MANAGER || 100000),
+            approvalLimitGM: Number(map.FINANCE_APPROVAL_LIMIT_GM || liveConfigs.FINANCE_APPROVAL_LIMIT_GM || 1000000),
+            approvalLimitDirector: Number(map.FINANCE_APPROVAL_LIMIT_DIRECTOR || liveConfigs.FINANCE_APPROVAL_LIMIT_DIRECTOR || 5000000),
+            minInvoiceBatchAmount: Number(map.FINANCE_MIN_INVOICE_BATCH_AMOUNT || liveConfigs.FINANCE_MIN_INVOICE_BATCH_AMOUNT || 25000)
+        };
     }
 
     /**

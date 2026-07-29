@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Calculator, RefreshCw, Save, Check, MapPin, Search, AlertCircle, CheckCircle2, XCircle, FileText } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
+import { ROLE_GROUPS } from "@/config/roles";
 
 interface AmendmentRequest {
     id: string;
@@ -246,7 +247,7 @@ function SFAuditPricingAuditContent() {
     };
 
     return (
-        <RoleGuard allowedRoles={['SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER']}>
+        <RoleGuard allowedRoles={ROLE_GROUPS.SF_AUDITORS}>
             <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">

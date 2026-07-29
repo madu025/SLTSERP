@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from '@/config/sidebar-menu';
-import { Badge } from "@/components/ui/badge";
-import { Lock, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { ROLE_GROUPS } from "@/config/roles";
+import { Lock, CheckCircle2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -19,7 +17,7 @@ interface YearEndResult {
 }
 
 export default function PeriodClosePage() {
-    const [year, setYear] = useState<number>(2026);
+    const [year] = useState<number>(2026);
     const [isExecuting, setIsExecuting] = useState<boolean>(false);
     const [lastClose, setLastClose] = useState<YearEndResult | null>(null);
 
@@ -35,8 +33,8 @@ export default function PeriodClosePage() {
             if (!res.ok) throw new Error(json.error?.message || 'Failed to execute Year-End Close');
             setLastClose(json.data);
             toast.success(`Formal Year-End Close FY ${year} executed! Retained Earnings updated & periods locked.`);
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to execute period close');
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to execute period close');
         } finally {
             setIsExecuting(false);
         }

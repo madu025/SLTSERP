@@ -15,7 +15,7 @@ export const POST = apiHandler(async (request, _params, body) => {
         : await InventoryService.approveWastage(id, userId);
     return result;
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'POST_ACTION', entity: 'WASTAGE' },
     rawResponse: true
 });

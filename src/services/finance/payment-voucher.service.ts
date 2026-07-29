@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { safe } from '@/utils/safe-await.util';
 
 export interface CreatePVInput {
   projectId: string;
@@ -342,18 +343,17 @@ export class PaymentVoucherService {
         // Sync with monthly Contractor Invoice if BOM-based
         if (existing.description && existing.description.startsWith('BOM_INVOICING_REF:')) {
           const bomInvoiceId = existing.description.split(':')[1];
-          try {
-            await tx.invoice.update({
-              where: { id: bomInvoiceId },
-              data: {
-                status: 'PAID',
-                statusA: 'PAID',
-                statusB: 'PAID',
-                paidDateA: new Date(),
-                paidDateB: new Date()
-              }
-            });
-          } catch (err) {
+          const [err] = await safe(tx.invoice.update({
+            where: { id: bomInvoiceId },
+            data: {
+              status: 'PAID',
+              statusA: 'PAID',
+              statusB: 'PAID',
+              paidDateA: new Date(),
+              paidDateB: new Date()
+            }
+          }));
+          if (err) {
             console.error('Failed to sync monthly Contractor Invoice status from BOM PV:', err);
           }
         }
@@ -467,10 +467,8 @@ export class PaymentVoucherService {
    * Delete payment voucher (DRAFT only - Backwards Compatibility)
    */
   static async deleteVoucher(id: string) {
-    try {
-      await this.deletePaymentVoucher(id);
-      return { success: true };
-    } catch (error) {
+    const [error] = await safe(this.deletePaymentVoucher(id));
+    if (error) {
       if (error instanceof Error && error.message === 'VOUCHER_NOT_FOUND') {
         throw AppError.badRequest('PAYMENT_VOUCHER_NOT_FOUND');
       }
@@ -479,5 +477,6 @@ export class PaymentVoucherService {
       }
       throw error;
     }
+    return { success: true };
   }
 }

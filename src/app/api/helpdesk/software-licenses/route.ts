@@ -31,7 +31,7 @@ export const POST = apiHandler(
   },
   {
     schema: CreateSoftwareLicenseSchema,
-    roles: [...ROLE_GROUPS.OFFICE_ADMINS, "ENGINEER"],
+    roles: ROLE_GROUPS.OFFICE_ADMINS,
     audit: {
       action: "CREATE",
       entity: "SoftwareLicense"

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
 import { createStockRequest, processStockRequestAction } from '@/actions/inventory-actions';
@@ -28,7 +29,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    roles: ['AREA_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'ENGINEER', 'AREA_COORDINATOR', 'STORES_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });
@@ -41,7 +42,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    roles: ['STORES_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE_STATUS', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });

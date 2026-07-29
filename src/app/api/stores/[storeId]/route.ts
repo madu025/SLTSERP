@@ -42,7 +42,7 @@ export const DELETE = apiHandler(async (_request, params) => {
         throw error;
     }
 }, {
-    roles: ['SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'STORE_DELETE', entity: 'Store' },
     rawResponse: true
 });

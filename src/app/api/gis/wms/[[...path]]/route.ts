@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { safe } from '@/utils/safe-await.util';
 
 const GEOSERVER_BASE_URL = process.env.GEOSERVER_URL || 'http://geoserver:8080/geoserver';
 const GEOSERVER_USER = process.env.GEOSERVER_USER || 'admin';
@@ -26,52 +27,59 @@ export async function GET(
   const queryStr = searchParams.toString();
   const targetUrl = `${GEOSERVER_BASE_URL}/${WORKSPACE}${pathStr ? `/${pathStr}` : ''}${queryStr ? `?${queryStr}` : ''}`;
 
-  try {
-    const headers: HeadersInit = {
-      'Content-Type': req.headers.get('Content-Type') || 'application/xml',
-    };
+  const headers: HeadersInit = {
+    'Content-Type': req.headers.get('Content-Type') || 'application/xml',
+  };
 
-    // Add Basic Auth for GeoServer
-    if (GEOSERVER_USER && GEOSERVER_PASS) {
-      const basicAuth = Buffer.from(`${GEOSERVER_USER}:${GEOSERVER_PASS}`).toString('base64');
-      headers['Authorization'] = `Basic ${basicAuth}`;
-    }
+  // Add Basic Auth for GeoServer
+  if (GEOSERVER_USER && GEOSERVER_PASS) {
+    const basicAuth = Buffer.from(`${GEOSERVER_USER}:${GEOSERVER_PASS}`).toString('base64');
+    headers['Authorization'] = `Basic ${basicAuth}`;
+  }
 
-    const response = await fetch(targetUrl, { headers });
+  const [fetchErr, response] = await safe(fetch(targetUrl, { headers }));
 
-    // Determine content type from response
-    const contentType = response.headers.get('content-type') || 'application/xml';
-
-    // For WMS image tiles, return the raw image
-    if (contentType.includes('image/')) {
-      const buffer = await response.arrayBuffer();
-      return new NextResponse(buffer, {
-        status: response.status,
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=86400',
-          'Access-Control-Allow-Origin': '*',
-        },
-      });
-    }
-
-    // For WFS/WMS text responses (XML, JSON, GeoJSON)
-    const text = await response.text();
-    return new NextResponse(text, {
-      status: response.status,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=300',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
-  } catch (error: any) {
-    console.error('GeoServer proxy error:', error);
+  if (fetchErr || !response) {
+    console.error('GeoServer proxy error:', fetchErr);
     return NextResponse.json(
-      { error: 'GeoServer request failed', details: error.message },
+      { error: 'GeoServer request failed', details: fetchErr?.message },
       { status: 502 }
     );
   }
+
+  // Determine content type from response
+  const contentType = response.headers.get('content-type') || 'application/xml';
+
+  // For WMS image tiles, return the raw image
+  if (contentType.includes('image/')) {
+    const [bufErr, buffer] = await safe(response.arrayBuffer());
+    if (bufErr || !buffer) {
+      return NextResponse.json({ error: 'Failed to read image buffer' }, { status: 500 });
+    }
+    return new NextResponse(buffer, {
+      status: response.status,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+
+  // For WFS/WMS text responses (XML, JSON, GeoJSON)
+  const [textErr, text] = await safe(response.text());
+  if (textErr) {
+    return NextResponse.json({ error: 'Failed to read response text' }, { status: 500 });
+  }
+
+  return new NextResponse(text || '', {
+    status: response.status,
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=300',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 export async function POST(
@@ -85,41 +93,44 @@ export async function POST(
   const queryStr = searchParams.toString();
   const targetUrl = `${GEOSERVER_BASE_URL}/${WORKSPACE}${pathStr ? `/${pathStr}` : ''}${queryStr ? `?${queryStr}` : ''}`;
 
-  try {
-    const body = await req.text();
+  const [bodyErr, body] = await safe(req.text());
+  if (bodyErr) {
+    return NextResponse.json({ error: 'Failed to read request body' }, { status: 400 });
+  }
 
-    const headers: HeadersInit = {
-      'Content-Type': req.headers.get('Content-Type') || 'application/xml',
-    };
+  const headers: HeadersInit = {
+    'Content-Type': req.headers.get('Content-Type') || 'application/xml',
+  };
 
-    if (GEOSERVER_USER && GEOSERVER_PASS) {
-      const basicAuth = Buffer.from(`${GEOSERVER_USER}:${GEOSERVER_PASS}`).toString('base64');
-      headers['Authorization'] = `Basic ${basicAuth}`;
-    }
+  if (GEOSERVER_USER && GEOSERVER_PASS) {
+    const basicAuth = Buffer.from(`${GEOSERVER_USER}:${GEOSERVER_PASS}`).toString('base64');
+    headers['Authorization'] = `Basic ${basicAuth}`;
+  }
 
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers,
-      body,
-    });
+  const [fetchErr, response] = await safe(fetch(targetUrl, {
+    method: 'POST',
+    headers,
+    body: body || '',
+  }));
 
-    const contentType = response.headers.get('content-type') || 'application/xml';
-    const text = await response.text();
-
-    return new NextResponse(text, {
-      status: response.status,
-      headers: {
-        'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
-  } catch (error: any) {
-    console.error('GeoServer proxy error:', error);
+  if (fetchErr || !response) {
+    console.error('GeoServer proxy error:', fetchErr);
     return NextResponse.json(
-      { error: 'GeoServer request failed', details: error.message },
+      { error: 'GeoServer request failed', details: fetchErr?.message },
       { status: 502 }
     );
   }
+
+  const contentType = response.headers.get('content-type') || 'application/xml';
+  const [textErr, text] = await safe(response.text());
+
+  return new NextResponse(text || '', {
+    status: response.status,
+    headers: {
+      'Content-Type': contentType,
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 export async function OPTIONS() {

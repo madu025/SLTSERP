@@ -7,13 +7,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { logger } from '@/lib/logger';
+import { safe } from '@/utils/safe-await.util';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   logger.info('[GIS-API] Received GIS status request');
-
-  try {
     const { searchParams } = new URL(request.url);
     const importId = searchParams.get('importId');
     const projectId = searchParams.get('projectId');
@@ -52,7 +51,19 @@ export async function GET(request: NextRequest) {
 
     // Return GIS data for a specific project
     if (projectId) {
-      const data = await GISRouteService.getProjectGISData(projectId);
+      const [gisErr, data] = await safe(GISRouteService.getProjectGISData(projectId));
+      if (gisErr || !data) {
+        logger.error('[GIS-API] Status request failed', {
+          error: gisErr?.message || 'Failed to retrieve GIS status',
+        });
+        return NextResponse.json(
+          {
+            error: 'Failed to retrieve GIS status',
+            message: gisErr?.message || 'Internal server error',
+          },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(data);
     }
 
@@ -70,17 +81,4 @@ export async function GET(request: NextRequest) {
       sessions,
       total: sessions.length,
     });
-  } catch (err) {
-    logger.error('[GIS-API] Status request failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-
-    return NextResponse.json(
-      {
-        error: 'Failed to retrieve GIS status',
-        message: err instanceof Error ? err.message : 'Internal server error',
-      },
-      { status: 500 }
-    );
-  }
 }

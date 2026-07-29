@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 
@@ -21,7 +22,7 @@ export const GET = apiHandler(async () => {
   const advances = await OSPAccountCrudService.getAdvances();
   return { data: advances };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
 
 export const POST = apiHandler(async (request) => {
@@ -32,5 +33,5 @@ export const POST = apiHandler(async (request) => {
 
   return { message: 'Project Advance created successfully', data: result };
 }, {
-  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+  roles: ROLE_GROUPS.PROJECT_MANAGERS
 });

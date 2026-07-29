@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 
 import { ContractorInventoryService } from '@/services/inventory/contractor-inventory.service';
@@ -16,5 +17,5 @@ export const GET = apiHandler(async (req: Request) => {
     const data = await ContractorInventoryService.getContractorStockDashboard(contractorId, userId, teamId, month, year);
     return data;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],
+    roles: ROLE_GROUPS.ADMINS,
 });

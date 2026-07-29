@@ -45,7 +45,7 @@ export const DELETE = apiHandler(async (request) => {
     await OpmcService.deleteOPMC(id);
     return { message: 'OPMC deleted successfully' };
 }, {
-    roles: ['SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'OPMC_DELETE', entity: 'OPMC' },
     rawResponse: true
 });

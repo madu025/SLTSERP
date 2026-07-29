@@ -35,6 +35,6 @@ export const DELETE = apiHandler(async (req) => {
 
     return await SystemMonitoringService.clearLogs(daysToKeep);
 }, {
-    roles: ['SUPER_ADMIN'],
+    roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CLEAR_SYSTEM_ERROR_LOGS', entity: 'SystemErrorLog' }
 });

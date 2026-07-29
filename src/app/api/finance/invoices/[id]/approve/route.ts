@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { InvoiceApprovalService } from '@/services/finance/invoice-approval.service';
@@ -24,7 +25,7 @@ export const POST = apiHandler(
     },
     {
         schema: approveInvoiceSchema,
-        roles: ['SUPER_ADMIN', 'FINANCE_MANAGER'],
+        roles: ROLE_GROUPS.FINANCE_APPROVERS,
         audit: {
             action: 'APPROVE_INVOICE',
             entity: 'Invoice'

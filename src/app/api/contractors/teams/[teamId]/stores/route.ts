@@ -19,7 +19,7 @@ export const GET = apiHandler(async (_req, params) => {
     const team = await ContractorService.getTeamStores(teamId);
     return Response.json(team);
 }, {
-    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN']
+    roles: ROLE_GROUPS.STORES_MANAGERS
 });
 
 export const POST = apiHandler(async (_req, params, body) => {

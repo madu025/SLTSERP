@@ -23,7 +23,7 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     return result;
 }, {
-    roles: [...ROLE_GROUPS.STORES_ALL, 'QC_OFFICER'],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     audit: { action: 'CREATE', entity: 'WASTAGE' },
     rawResponse: true
 });

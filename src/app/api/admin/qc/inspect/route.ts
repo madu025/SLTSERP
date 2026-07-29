@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { QCInspectionService } from '@/services/qc/qc-inspection.service';
@@ -24,5 +25,5 @@ export const POST = apiHandler(async (req) => {
 
     return result;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'QUALITY_CONTROL', 'OSP_MANAGER'],
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
 });

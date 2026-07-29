@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 "use client";
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
@@ -214,7 +215,7 @@ function InvoicableServiceOrdersContent() {
     const filteredSods = sods.filter(s => selectedContractorId === 'ALL' || !selectedContractorId || s.contractorId === selectedContractorId || selectedContractorId === 'c-default');
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'FINANCE_MANAGER', 'FIELD_ENGINEER', 'MANAGER']}>
+        <RoleGuard allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

@@ -1,3 +1,4 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { QCInspectionService } from '@/services/qc/qc-inspection.service';
@@ -18,7 +19,7 @@ export const GET = apiHandler(async (req) => {
 
     return result;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],
+    roles: ROLE_GROUPS.ADMINS,
 });
 
 export const PATCH = apiHandler(async (req) => {
@@ -41,5 +42,5 @@ export const PATCH = apiHandler(async (req) => {
     const updated = await QCInspectionService.markNotificationAsRead(id);
     return updated;
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN'],
+    roles: ROLE_GROUPS.ADMINS,
 });

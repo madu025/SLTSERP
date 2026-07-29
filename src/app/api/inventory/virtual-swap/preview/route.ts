@@ -8,6 +8,6 @@ export const GET = apiHandler(async () => {
     const data = await InventoryService.getTransitionPreview();
     return data;
 }, {
-    roles: [...ROLE_GROUPS.STORES, ...ROLE_GROUPS.ADMINS],
+    roles: ROLE_GROUPS.STORES_MANAGERS,
     rawResponse: true
 });

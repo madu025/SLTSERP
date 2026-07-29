@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { LedgerService } from '@/services/finance/ledger.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from "@/config/roles";
 
 export const dynamic = 'force-dynamic';
 
@@ -19,5 +20,5 @@ export const GET = apiHandler(async (req) => {
 
     return await LedgerService.getGlDrilldown(accountCode, fromDate, toDate);
 }, {
-    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT']
+    roles: ROLE_GROUPS.FINANCE_ALL
 });
