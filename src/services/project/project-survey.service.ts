@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 import { updateProgressOnBOQGenerate } from '@/lib/project-progress';
 
@@ -294,7 +295,7 @@ export class ProjectSurveyService {
       where: { projectId, remarks: { contains: 'GIS survey' } }
     });
 
-    const allPboqItems: any[] = [];
+    const allPboqItems: Prisma.ProjectBOQItemCreateManyInput[] = [];
 
     for (const gisRoute of routes) {
       const poleCount = gisRoute.poles.length;

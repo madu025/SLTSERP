@@ -1,5 +1,8 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+
+type PrismaTx = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 import { StockService } from '../inventory/stock.service';
 import { AuditLedgerService } from '../inventory/audit-ledger.service';
 
@@ -131,7 +134,7 @@ export class ProjectIRLedgerService {
    * Helper to verify project status inside a transaction context.
    */
   
-  static async verifyProjectStatus(tx: any, projectId: string) {
+  static async verifyProjectStatus(tx: PrismaTx, projectId: string) {
     const proj = await tx.project.findUnique({
       where: { id: projectId },
       select: { name: true, status: true }
@@ -149,7 +152,7 @@ export class ProjectIRLedgerService {
    */
   static async verifyProjectLeftover(
     
-    tx: any,
+    tx: PrismaTx,
     projectId: string,
     itemId: string,
     batchId: string,

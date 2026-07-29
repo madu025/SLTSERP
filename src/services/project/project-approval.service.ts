@@ -207,7 +207,7 @@ export class ProjectApprovalService {
 
                 } else if (action === 'APPROVED') {
                     const allSteps = updatedRequest?.steps || [];
-                    const allApproved = allSteps.every((s: any) => s.status === 'APPROVED');
+                    const allApproved = allSteps.every((s: { status?: string }) => s.status === 'APPROVED');
 
                     if (allApproved) {
                         if (project?.areaManagerId) {
@@ -232,8 +232,8 @@ export class ProjectApprovalService {
                         });
                     } else {
                         const nextStep = (updatedRequest?.steps || []).find(
-                            (s: any) => s.stepNumber === currentStepNumber + 1
-                        ) as any;
+                            (s: { stepNumber?: number; assignedUserId?: string | null }) => s.stepNumber === currentStepNumber + 1
+                        ) as { stepNumber?: number; assignedUserId?: string | null; roleRequired?: string | null } | undefined;
 
                         if (nextStep) {
                             if (nextStep.assignedUserId) {
@@ -250,7 +250,7 @@ export class ProjectApprovalService {
                                 await NotificationService.notifyByRole({
                                     roles: ROLE_GROUPS.ADMINS,
                                     title: '✅ Approval Required — Your Turn',
-                                    message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires approval from ${nextStep.roleRequired.replace(/_/g, ' ')} (Step ${nextStep.stepNumber}).`,
+                                    message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires approval from ${String(nextStep.roleRequired || 'ADMIN').replace(/_/g, ' ')} (Step ${nextStep.stepNumber}).`,
                                     type: 'PROJECT',
                                     priority: 'HIGH',
                                     link: approvalLink,

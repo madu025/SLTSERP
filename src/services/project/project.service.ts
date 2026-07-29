@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { WorkflowEngine } from '@/services/WorkflowEngine';
 import { calculateProjectProgress } from '@/lib/project-progress';
 
@@ -48,7 +49,7 @@ export class ProjectService {
         const { page = 1, limit = 50, isPaginated = false } = pagination;
         const skip = (page - 1) * limit;
 
-        const where: Record<string, any> = {};
+        const where: Prisma.ProjectWhereInput = {};
 
         if (status && status !== 'ALL') {
             where.status = status;
@@ -515,7 +516,7 @@ export class ProjectService {
 
         const totalOpen = openIssues.reduce((sum, count) => sum + count, 0);
         if (totalOpen > 0) {
-            const error: any = new Error(`Cannot close: ${totalOpen} open items remain (PAT, invoices, CRs, tasks, expenses)`);
+            const error = new Error(`Cannot close: ${totalOpen} open items remain (PAT, invoices, CRs, tasks, expenses)`) as Error & { code?: string; openIssues?: Record<string, number> };
             error.code = 'OPEN_ISSUES_REMAIN';
             error.openIssues = {
                 patPending: openIssues[0],

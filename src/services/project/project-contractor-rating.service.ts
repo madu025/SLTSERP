@@ -94,8 +94,8 @@ export class ProjectContractorRatingService {
                     }
                 }
             });
-        } catch (error: any) {
-            if (error.code === 'P2002') {
+        } catch (error: unknown) {
+            if (error instanceof Error && (error as { code?: string }).code === 'P2002') {
                 throw AppError.badRequest('Performance score already exists for this contractor and month');
             }
             throw error;
