@@ -415,7 +415,8 @@ export class GISParser {
       | ParsedFDPData
       | ParsedFiberJointData
       | ParsedRoadData
-      | ParsedPointAssetData;
+      | ParsedPointAssetData
+      | { layerName: string; featureCount: number };
   } {
     // Use client-provided override if valid; otherwise detect from filename
     const layerType =
@@ -480,7 +481,14 @@ export class GISParser {
     fileName: string
   ): {
     layerType: GISLayerType;
-    parsedData: any;
+    parsedData:
+      | ParsedCableData
+      | ParsedPoleData
+      | ParsedFDPData
+      | ParsedFiberJointData
+      | ParsedRoadData
+      | ParsedPointAssetData
+      | { layerName: string; featureCount: number };
   } {
     if (features.length === 0) {
       return {

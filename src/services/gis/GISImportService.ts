@@ -1631,7 +1631,7 @@ export class GISImportService {
           const stageTemplatesToBackfillApproval: { id: string; name: string }[] = [];
 
           for (const stageDef of workflowDef.stages) {
-            let stageTemplate = stageTemplateByName.get(stageDef.name) || stageTemplateBySeq.get(stageDef.sequence);
+            const stageTemplate = stageTemplateByName.get(stageDef.name) || stageTemplateBySeq.get(stageDef.sequence);
 
             if (!stageTemplate) {
               const generatedId = randomUUID();
