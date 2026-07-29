@@ -107,14 +107,12 @@ const MONTH_NAMES = [
     'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-function getPrismaInstance(): any {
-    const p = prisma as any;
+function getPrismaInstance(): Record<string, unknown> {
+    const p = prisma as unknown as Record<string, unknown>;
     if (!p.sLTContract && !p.SLTContract) {
         try {
-            const { PrismaClient } = require('@prisma/client');
-            const freshPrisma = new PrismaClient();
-            (globalThis as any).prisma = freshPrisma;
-            return freshPrisma;
+            (globalThis as Record<string, unknown>).prisma = prisma;
+            return prisma as unknown as Record<string, unknown>;
         } catch (e) {
             console.error('[PRISMA-REFRESH-FAIL]', e);
         }
@@ -417,7 +415,7 @@ export class SLTContractService {
 
             for (let m = 1; m <= 12; m++) {
                 const monthName = MONTH_NAMES[m - 1];
-                const target = c.targets.find((t: any) => t.month === m);
+                const target = c.targets.find((t: { month: number; targetVolume?: number; baseUnitRate?: number; poleRate?: number; perMeterRate?: number; distanceThresholdMeters?: number; customSurcharges?: Record<string, number> | null }) => t.month === m);
                 const baseTargetVolume = target?.targetVolume || 0;
                 const baseUnitRate = target?.baseUnitRate || 10000;
                 const basePoleRate = target?.poleRate || 4500;

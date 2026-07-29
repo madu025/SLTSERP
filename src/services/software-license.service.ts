@@ -49,7 +49,7 @@ export class SoftwareLicenseService {
     await AuditService.log({
       userId,
       action: 'CREATE',
-      entity: 'SoftwareLicense' as any,
+      entity: 'SoftwareLicense',
       entityId: license.id,
       newValue: license,
       ipAddress,
@@ -97,7 +97,7 @@ export class SoftwareLicenseService {
     await AuditService.log({
       userId,
       action: 'UPDATE',
-      entity: 'SoftwareLicense' as any,
+      entity: 'SoftwareLicense',
       entityId: id,
       oldValue: old,
       newValue: updated,
@@ -120,7 +120,7 @@ export class SoftwareLicenseService {
     await AuditService.log({
       userId,
       action: 'DELETE',
-      entity: 'SoftwareLicense' as any,
+      entity: 'SoftwareLicense',
       entityId: id,
       oldValue: old,
       ipAddress,
@@ -169,7 +169,7 @@ export class SoftwareLicenseService {
     await AuditService.log({
       userId,
       action: 'CREATE',
-      entity: 'SoftwareLicenseAssignment' as any,
+      entity: 'SoftwareLicenseAssignment',
       entityId: assignment.id,
       newValue: assignment,
       ipAddress,
@@ -191,7 +191,7 @@ export class SoftwareLicenseService {
     await AuditService.log({
       userId,
       action: 'DELETE',
-      entity: 'SoftwareLicenseAssignment' as any,
+      entity: 'SoftwareLicenseAssignment',
       entityId: assignmentId,
       oldValue: old,
       ipAddress,

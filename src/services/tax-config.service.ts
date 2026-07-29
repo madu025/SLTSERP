@@ -8,7 +8,7 @@ export interface CreateTaxConfigInput {
   tax_rate_percent: string | number;
   effective_from_date: string | Date;
   effective_to_date?: string | Date | null;
-  applicable_to?: any;
+  applicable_to?: Record<string, unknown> | string | null;
   tax_inclusive?: boolean;
   tax_exempt_items?: string | null;
   status?: string;
