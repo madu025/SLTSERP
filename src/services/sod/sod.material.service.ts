@@ -17,7 +17,10 @@ export class SODMaterialService {
         opmcId: string,
         contractorId: string | null,
         materialUsage: MaterialUsageInput[],
-        inventoryService: any,
+        inventoryService: {
+            pickContractorBatchesFIFO: (tx: TransactionClient, contractorId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
+            pickStoreBatchesFIFO: (tx: TransactionClient, storeId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
+        },
         userId: string = 'SYSTEM'
     ) {
         // Essential for idempotency on re-patching
@@ -119,7 +122,7 @@ export class SODMaterialService {
     /**
      * Map input to Prisma create record
      */
-    private static mapToUsageRecord(m: MaterialUsageInput, qty: number, batchId: string | null, batchOrItem: any) {
+    private static mapToUsageRecord(m: MaterialUsageInput, qty: number, batchId: string | null, batchOrItem: { unit?: string; item?: { unit?: string }; costPrice?: string | number | null; unitPrice?: string | number | null } | null) {
         return {
             itemId: m.itemId,
             quantity: qty,

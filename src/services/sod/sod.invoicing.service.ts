@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { SodRevenueService } from '../admin/sod-revenue.service';
 
 export class SODInvoicingService {
@@ -79,7 +80,7 @@ export class SODInvoicingService {
         // 1. Resolve OPMC / RTOM region and Dynamic Revenue Rate from SODRevenueConfig table
         let rtomCode = opmcIdOrRtom;
         let rtomId = opmcIdOrRtom;
-        const opmcModel = (prisma as any).oPMC || (prisma as any).OPMC;
+        const opmcModel = (prisma as unknown as Record<string, { findFirst: (args: Prisma.OPMCFindFirstArgs) => Promise<{ id: string; rtom: string } | null> }>).oPMC || (prisma as unknown as Record<string, { findFirst: (args: Prisma.OPMCFindFirstArgs) => Promise<{ id: string; rtom: string } | null> }>).OPMC;
         if (opmcModel) {
             const opmc = await opmcModel.findFirst({
                 where: { OR: [{ id: opmcIdOrRtom }, { rtom: opmcIdOrRtom }] }
@@ -99,8 +100,8 @@ export class SODInvoicingService {
         const workType = serviceTypeStr.includes('DATA') ? 'DATA' : serviceTypeStr.includes('PSTN') ? 'PSTN' : serviceTypeStr.includes('IPTV') ? 'IPTV' : 'FTTH';
 
         // 2. Query Dynamic ContractorRateRule table from PostgreSQL
-        const ruleModel = (prisma as any).contractorRateRule || (prisma as any).ContractorRateRule;
-        let matchingRule: any = null;
+        const ruleModel = (prisma as unknown as Record<string, { findFirst: (args: Prisma.ContractorRateRuleFindFirstArgs) => Promise<Prisma.ContractorRateRuleGetPayload<Prisma.ContractorRateRuleDefaultArgs> | null> }>).contractorRateRule || (prisma as unknown as Record<string, { findFirst: (args: Prisma.ContractorRateRuleFindFirstArgs) => Promise<Prisma.ContractorRateRuleGetPayload<Prisma.ContractorRateRuleDefaultArgs> | null> }>).ContractorRateRule;
+        let matchingRule: Prisma.ContractorRateRuleGetPayload<Prisma.ContractorRateRuleDefaultArgs> | null = null;
         if (ruleModel) {
             matchingRule = await ruleModel.findFirst({
                 where: {
