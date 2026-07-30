@@ -192,7 +192,7 @@ export default function ProjectKPIs({ project }: ProjectKPIsProps) {
 }
 
 // Simple Icon wrapper for Info
-function Info(props: any) {
+function Info(props: Record<string, unknown>) {
     return (
         <svg
             {...props}

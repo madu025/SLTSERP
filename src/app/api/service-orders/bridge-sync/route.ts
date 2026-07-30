@@ -33,7 +33,7 @@ export const GET = apiHandler(async (request: Request) => {
     }
 
     const scraped = rawData.scrapedData as Record<string, unknown>;
-    const details = (scraped?.details || {}) as Record<string, any>;
+    const details = (scraped?.details || {}) as Record<string, unknown>;
     const poleSerials: string[] = [];
     Object.keys(details).forEach(key => {
         if ((key.includes('SRLNO') || key.includes('SERIAL')) && details[key] && typeof details[key] === 'string' && /^\d+$/.test(details[key].trim())) {
@@ -44,7 +44,7 @@ export const GET = apiHandler(async (request: Request) => {
         }
     });
 
-    const rawMaterials = (scraped?.materialDetails || []) as Array<any>;
+    const rawMaterials = (scraped?.materialDetails || []) as Array<Record<string, unknown>>;
     const processedMaterials = rawMaterials.map(m => {
         const itemStr = String(m.ITEM || m.TYPE || '').toUpperCase();
         if (itemStr.includes('POLE') || itemStr.includes('PL-C')) {

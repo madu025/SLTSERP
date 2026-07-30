@@ -10,7 +10,7 @@ export const POST = apiHandler(async () => {
             message: 'Dynamic Safety Stocks and Reorder Points updated successfully.',
             data: results
         };
-    } catch (err: any) {
-        throw AppError.internal(err.message || String(err));
+    } catch (err: unknown) {
+        throw AppError.internal((err instanceof Error ? err.message : "Unknown error") || String(err));
     }
 }, { rawResponse: true });

@@ -50,7 +50,7 @@ export class RoleService {
                 }
             });
         } catch (error: unknown) {
-            if (error.code === 'P2002') {
+            if ((error as any).code === 'P2002') {
                 throw AppError.badRequest('Role with this code already exists');
             }
             throw error;
@@ -69,7 +69,7 @@ export class RoleService {
                 }
             });
         } catch (error: unknown) {
-            if (error.code === 'P2025') {
+            if ((error as any).code === 'P2025') {
                 throw AppError.notFound('Role not found');
             }
             throw error;
@@ -91,7 +91,7 @@ export class RoleService {
             });
             return { success: true };
         } catch (error: unknown) {
-            if (error.code === 'P2025') {
+            if ((error as any).code === 'P2025') {
                 throw AppError.notFound('Role not found');
             }
             throw error;

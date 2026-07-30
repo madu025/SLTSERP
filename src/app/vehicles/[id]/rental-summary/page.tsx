@@ -345,8 +345,8 @@ export default function RentalSummaryPage() {
             } else {
                 fetchRentalVehicleDetails(vehicleId);
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError((err instanceof Error ? err.message : "Unknown error"));
             setLoadingVehicle(false);
         }
     }, [vehicleId]);
@@ -426,7 +426,7 @@ export default function RentalSummaryPage() {
 
             if (!res.ok) {
                 const errData = await res.json();
-                throw new Error(errData.error?.message || 'Failed to calculate preview');
+                throw new Error(errData.error || 'Failed to calculate preview');
             }
 
             const json = await res.json();
@@ -442,8 +442,8 @@ export default function RentalSummaryPage() {
                     setCurrentSummary(existingJson.data);
                 }
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError((err instanceof Error ? err.message : "Unknown error"));
         } finally {
             setLoadingPreview(false);
         }
@@ -471,7 +471,7 @@ export default function RentalSummaryPage() {
 
             if (!res.ok) {
                 const errData = await res.json();
-                throw new Error(errData.error?.message || 'Failed to create summary');
+                throw new Error(errData.error || 'Failed to create summary');
             }
 
             const json = await res.json();
@@ -484,8 +484,8 @@ export default function RentalSummaryPage() {
                 const listJson = await listRes.json();
                 setSummariesList(listJson.data || []);
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError((err instanceof Error ? err.message : "Unknown error"));
         } finally {
             setLoadingAction(false);
         }
@@ -515,7 +515,7 @@ export default function RentalSummaryPage() {
 
             if (!res.ok) {
                 const errData = await res.json();
-                throw new Error(errData.error?.message || `Failed to ${action} summary`);
+                throw new Error(errData.error || `Failed to ${action} summary`);
             }
 
             const json = await res.json();
@@ -528,8 +528,8 @@ export default function RentalSummaryPage() {
                 const listJson = await listRes.json();
                 setSummariesList(listJson.data || []);
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError((err instanceof Error ? err.message : "Unknown error"));
         } finally {
             setLoadingAction(false);
         }
@@ -552,7 +552,7 @@ export default function RentalSummaryPage() {
 
             if (!res.ok) {
                 const errData = await res.json();
-                throw new Error(errData.error?.message || 'Failed to save agreement details');
+                throw new Error(errData.error || 'Failed to save agreement details');
             }
 
             const json = await res.json();
@@ -564,8 +564,8 @@ export default function RentalSummaryPage() {
             setAgreementDialogOpen(false);
             setSuccessMessage('Agreement and bank details saved successfully!');
             fetchRentalVehicle();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError((err instanceof Error ? err.message : "Unknown error"));
         } finally {
             setLoadingAction(false);
         }
@@ -593,7 +593,7 @@ export default function RentalSummaryPage() {
 
             if (!res.ok) {
                 const errData = await res.json();
-                throw new Error(errData.error?.message || `Failed to ${action} summary`);
+                throw new Error(errData.error || `Failed to ${action} summary`);
             }
 
             const json = await res.json();
@@ -605,8 +605,8 @@ export default function RentalSummaryPage() {
                 const listJson = await listRes.json();
                 setSummariesList(listJson.data || []);
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError((err instanceof Error ? err.message : "Unknown error"));
         } finally {
             setLoadingAction(false);
         }
@@ -626,7 +626,7 @@ export default function RentalSummaryPage() {
 
             if (!res.ok) {
                 const errData = await res.json();
-                throw new Error(errData.error?.message || 'Failed to delete summary');
+                throw new Error(errData.error || 'Failed to delete summary');
             }
 
             setCurrentSummary(null);
@@ -638,8 +638,8 @@ export default function RentalSummaryPage() {
                 const listJson = await listRes.json();
                 setSummariesList(listJson.data || []);
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError((err instanceof Error ? err.message : "Unknown error"));
         } finally {
             setLoadingAction(false);
         }

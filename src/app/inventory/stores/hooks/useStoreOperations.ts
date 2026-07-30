@@ -8,7 +8,7 @@ export function useStoreOperations() {
     const queryClient = useQueryClient();
 
     const upsertMutation = useMutation({
-        mutationFn: async ({ id, data }: { id?: string; data: any }) => {
+        mutationFn: async ({ id, data }: { id?: string; data: Record<string, unknown> }) => {
             if (id) return await updateStore(id, data);
             return await createStore(data);
         },
@@ -20,7 +20,7 @@ export function useStoreOperations() {
                 toast.error(result.error || "Operation failed");
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const removeMutation = useMutation({
@@ -33,7 +33,7 @@ export function useStoreOperations() {
                 toast.error(result.error || "Deletion failed");
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     return {

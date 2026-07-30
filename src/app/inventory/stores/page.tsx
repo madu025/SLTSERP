@@ -90,7 +90,7 @@ export default function StoresManagementPage() {
     };
 
     const onFormSubmit = async (values: StoreFormValues) => {
-        await upsertMutation.mutateAsync({ id: activeStore?.id, data: values });
+        await upsertMutation.mutateAsync({ id: activeStore?.id, data: values as unknown as Record<string, unknown> });
         setShowFormModal(false);
     };
 

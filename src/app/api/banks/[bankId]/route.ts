@@ -9,7 +9,7 @@ const updateBankSchema = z.object({
     name: z.string().min(1, "Bank name is required")
 });
 
-export const PUT = apiHandler(async (_request: Request, params: any, body: any) => {
+export const PUT = apiHandler(async (uestreq$3: Request, params: Record<string, string>, body: import("@prisma/client").Prisma.JsonObject) => {
     const { bankId } = params;
     const data = updateBankSchema.parse(body);
     return await BankService.updateBank(bankId, data);
@@ -18,7 +18,7 @@ export const PUT = apiHandler(async (_request: Request, params: any, body: any) 
     rawResponse: true
 });
 
-export const DELETE = apiHandler(async (_request: Request, params: any) => {
+export const DELETE = apiHandler(async (uestreq$3: Request, params: Record<string, string>) => {
     const { bankId } = params;
     await BankService.deleteBank(bankId);
     return { message: "Bank deleted successfully" };

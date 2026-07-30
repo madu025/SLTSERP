@@ -41,7 +41,7 @@ export default function FixedAssetsPage() {
         queryFn: async () => {
             const res = await fetch(`/api/finance/fixed-assets?_t=${Date.now()}`, { cache: 'no-store' });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error?.message || 'Failed to fetch Fixed Asset Register');
+            if (!res.ok) throw new Error(json.error || 'Failed to fetch Fixed Asset Register');
             return json.data;
         }
     });
@@ -59,11 +59,11 @@ export default function FixedAssetsPage() {
                 })
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error?.message || 'Failed to run depreciation');
+            if (!res.ok) throw new Error(json.error || 'Failed to run depreciation');
             toast.success(`Monthly depreciation run complete! Charged LKR ${json.data.batchDepreciationTotal.toLocaleString()}`);
             queryClient.invalidateQueries({ queryKey: ['fixed-assets-register'] });
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to execute depreciation run');
+        } catch (err: unknown) {
+            toast.error((err instanceof Error ? err.message : "Unknown error") || 'Failed to execute depreciation run');
         } finally {
             setIsRunningDep(false);
         }

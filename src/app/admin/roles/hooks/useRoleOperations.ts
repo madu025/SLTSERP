@@ -7,7 +7,7 @@ export function useRoleOperations(sectionId: string) {
     const queryClient = useQueryClient();
 
     const upsertMutation = useMutation({
-        mutationFn: async ({ id, data }: { id?: string; data: any }) => {
+        mutationFn: async ({ id, data }: { id?: string; data: Record<string, unknown> }) => {
             const url = id
                 ? `/api/admin/sections/${sectionId}/roles/${id}`
                 : `/api/admin/sections/${sectionId}/roles`;
@@ -25,7 +25,7 @@ export function useRoleOperations(sectionId: string) {
             toast.success("Role saved successfully");
             queryClient.invalidateQueries({ queryKey: ['section-roles', sectionId] });
         },
-        onError: (error: any) => toast.error(error.message || "Error saving role")
+        onError: (error: Error) => toast.error(error.message || "Error saving role")
     });
 
     const removeMutation = useMutation({
@@ -40,7 +40,7 @@ export function useRoleOperations(sectionId: string) {
             toast.success("Role deleted successfully");
             queryClient.invalidateQueries({ queryKey: ['section-roles', sectionId] });
         },
-        onError: (error: any) => toast.error(error.message || "Error deleting role")
+        onError: (error: Error) => toast.error(error.message || "Error deleting role")
     });
 
     return {

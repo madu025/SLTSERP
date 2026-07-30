@@ -9,12 +9,12 @@ const createBranchSchema = z.object({
     name: z.string().min(1, "Branch name is required")
 });
 
-export const GET = apiHandler(async (_request: Request, params: any) => {
+export const GET = apiHandler(async (uestreq$3: Request, params: Record<string, string>) => {
     const { bankId } = params;
     return await BankService.getBranches(bankId);
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (_request: Request, params: any, body: any) => {
+export const POST = apiHandler(async (uestreq$3: Request, params: Record<string, string>, body: import("@prisma/client").Prisma.JsonObject) => {
     const { bankId } = params;
     const data = createBranchSchema.parse(body);
     return await BankService.createBranch(bankId, data);

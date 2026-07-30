@@ -34,7 +34,7 @@ export const GET = apiHandler(async (req, _params) => {
             // A fallback dummy sha256 hash (SHA-256 of empty file)
             sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
         }
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('[AUTO-UPDATER] Failed to read agent executable hash:', err);
         sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
     }

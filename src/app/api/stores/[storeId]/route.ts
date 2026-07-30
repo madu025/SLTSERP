@@ -35,8 +35,8 @@ export const DELETE = apiHandler(async (_request, params) => {
     try {
         await InventoryService.deleteStore(storeId);
         return { success: true };
-    } catch (error: any) {
-        if (error?.message === 'STORE_HAS_STOCK' || error?.message === 'STORE_HAS_TRANSACTIONS') {
+    } catch (error: unknown) {
+        if ((error instanceof Error ? error.message : undefined) === 'STORE_HAS_STOCK' || (error instanceof Error ? error.message : undefined) === 'STORE_HAS_TRANSACTIONS') {
             throw AppError.badRequest('Store cannot be deleted as it has associated stock or transactions');
         }
         throw error;

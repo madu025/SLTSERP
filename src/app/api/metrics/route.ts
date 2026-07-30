@@ -23,8 +23,8 @@ export async function GET(req: Request) {
                 'Cache-Control': 'no-cache, no-store, must-revalidate'
             }
         });
-    } catch (error: any) {
-        return new Response(JSON.stringify({ error: error.message || 'Failed to generate metrics' }), {
+    } catch (error: unknown) {
+        return new Response(JSON.stringify({ error: (error instanceof Error ? error.message : "Unknown error") || 'Failed to generate metrics' }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
         });

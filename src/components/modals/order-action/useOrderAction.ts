@@ -5,6 +5,15 @@ import { toast } from "sonner";
 import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData } from "./types";
 import { formatMaterialUsage } from "./utils";
 
+interface BridgeMaterialDetail {
+    ITEM?: string;
+    TYPE?: string;
+    NAME?: string;
+    CODE?: string;
+    QTY?: number | string;
+    SERIAL?: string;
+}
+
 export function useOrderAction(
     isOpen: boolean,
     orderData: OrderActionData | undefined,
@@ -82,7 +91,7 @@ export function useOrderAction(
         const rows: MaterialUsageRow[] = [];
         if (orderData.materialUsage) {
             orderData.materialUsage.forEach(m => {
-                const targetItemId = m.itemId || (m as any).item?.id || "";
+                const targetItemId = m.itemId || (m as { item?: { id?: string } }).item?.id || "";
                 if (!targetItemId) return;
                 const qtyStr = String(m.quantity);
                 const existing = rows.find(r => r.itemId === targetItemId);
@@ -183,12 +192,12 @@ export function useOrderAction(
                 const materialDetails = payload.materialDetails || [];
                 if (payload.success && materialDetails.length > 0) {
                     const newRows: MaterialUsageRow[] = [];
-                    const hasSpecificPoleSpec = materialDetails.some((m: any) => {
+                    const hasSpecificPoleSpec = materialDetails.some((m: BridgeMaterialDetail) => {
                         const str = String(m.ITEM || m.TYPE || m.NAME || "").toUpperCase();
                         return str.includes("PL-C") || str.includes("6.7") || str.includes("5.6") || str.includes("8.0") || str.includes("L18") || str.includes("L22") || str.includes("L26");
                     });
 
-                    const filteredMaterials = materialDetails.filter((m: any) => {
+                    const filteredMaterials = materialDetails.filter((m: BridgeMaterialDetail) => {
                         const itemStr = String(m.ITEM || "").toUpperCase().trim();
                         const typeStr = String(m.TYPE || "").toUpperCase().trim();
                         const isGenericPoleHeader = itemStr === 'POLES' || itemStr === 'NUMBER OF POLES' || itemStr === 'GRID_MATERIAL' || typeStr === 'NUMBER OF POLES';
@@ -196,7 +205,7 @@ export function useOrderAction(
                         return true;
                     });
 
-                    filteredMaterials.forEach((pm: any) => {
+                    filteredMaterials.forEach((pm: BridgeMaterialDetail) => {
                         const itemKey = (pm.ITEM || "").toUpperCase().trim();
                         const typeKey = (pm.TYPE || "").toUpperCase().trim();
                         const codeKey = (pm.CODE || "").toUpperCase().trim();
@@ -245,7 +254,7 @@ export function useOrderAction(
 
                             let finalQty = qty;
                             if (lowerName.includes("pole") && materialDetails) {
-                                const totalPolesObj = materialDetails.find((d: any) => (d.ITEM === 'POLES' || d.TYPE === 'NUMBER OF POLES'));
+                                const totalPolesObj = materialDetails.find((d: BridgeMaterialDetail) => (d.ITEM === 'POLES' || d.TYPE === 'NUMBER OF POLES'));
                                 if (totalPolesObj && totalPolesObj.QTY) {
                                     finalQty = String(totalPolesObj.QTY);
                                 }
@@ -306,12 +315,12 @@ export function useOrderAction(
             
             if (data.success && materialDetails.length > 0) {
                 const newRows: MaterialUsageRow[] = [];
-                const hasSpecificPoleSpec = materialDetails.some((m: any) => {
+                const hasSpecificPoleSpec = materialDetails.some((m: BridgeMaterialDetail) => {
                     const str = String(m.ITEM || m.TYPE || m.NAME || "").toUpperCase();
                     return str.includes("PL-C") || str.includes("6.7") || str.includes("5.6") || str.includes("8.0") || str.includes("L18") || str.includes("L22") || str.includes("L26");
                 });
 
-                const filteredMaterials = materialDetails.filter((m: any) => {
+                const filteredMaterials = materialDetails.filter((m: BridgeMaterialDetail) => {
                     const itemStr = String(m.ITEM || "").toUpperCase().trim();
                     const typeStr = String(m.TYPE || "").toUpperCase().trim();
                     const isGenericPoleHeader = itemStr === 'POLES' || itemStr === 'NUMBER OF POLES' || itemStr === 'GRID_MATERIAL' || typeStr === 'NUMBER OF POLES';
@@ -319,7 +328,7 @@ export function useOrderAction(
                     return true;
                 });
 
-                filteredMaterials.forEach((pm: any) => {
+                filteredMaterials.forEach((pm: BridgeMaterialDetail) => {
                     const itemKey = (pm.ITEM || "").toUpperCase().trim();
                     const typeKey = (pm.TYPE || "").toUpperCase().trim();
                     const codeKey = (pm.CODE || "").toUpperCase().trim();
@@ -372,7 +381,7 @@ export function useOrderAction(
                         // If portal sent total POLES quantity in raw details, use total POLES count for Pole item
                         let finalQty = qty;
                         if (lowerName.includes("pole") && data.materialDetails) {
-                            const totalPolesObj = data.materialDetails.find((d: any) => (d.ITEM === 'POLES' || d.TYPE === 'NUMBER OF POLES'));
+                            const totalPolesObj = data.materialDetails.find((d: BridgeMaterialDetail) => (d.ITEM === 'POLES' || d.TYPE === 'NUMBER OF POLES'));
                             if (totalPolesObj && totalPolesObj.QTY) {
                                 finalQty = String(totalPolesObj.QTY);
                             }

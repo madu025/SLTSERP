@@ -28,8 +28,8 @@ export default function ResponsiveTable({ children, className = '' }: Responsive
  * Alternative mobile-friendly view for table data
  */
 interface MobileCardProps {
-    data: Array<Record<string, any>>;
-    renderCard: (item: any, index: number) => React.ReactNode;
+    data: Array<Record<string, unknown>>;
+    renderCard: (item: Record<string, unknown>, index: number) => React.ReactNode;
     className?: string;
 }
 

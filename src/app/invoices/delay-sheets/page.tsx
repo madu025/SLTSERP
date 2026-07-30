@@ -92,8 +92,8 @@ export default function DelaySheetsPage() {
             setOrders(data.orders || []);
             setStats(data.stats || { total: 0, ontShortage: 0, stbShortage: 0, cxDelay: 0, other: 0 });
             setRtoms(data.rtoms || []);
-        } catch (err: any) {
-            toast.error(err.message || 'Error fetching delay sheets');
+        } catch (err: unknown) {
+            toast.error((err instanceof Error ? err.message : "Unknown error") || 'Error fetching delay sheets');
         } finally {
             setLoading(false);
         }

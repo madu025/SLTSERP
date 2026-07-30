@@ -8,7 +8,7 @@ export function useItemOperations() {
     const queryClient = useQueryClient();
 
     const upsertMutation = useMutation({
-        mutationFn: async ({ id, data }: { id?: string; data: any }) => {
+        mutationFn: async ({ id, data }: { id?: string; data: Record<string, unknown> }) => {
             if (id) return await updateItem(id, data);
             return await createItem(data);
         },
@@ -20,7 +20,7 @@ export function useItemOperations() {
                 toast.error(result.error || "Operation failed");
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const removeMutation = useMutation({
@@ -33,7 +33,7 @@ export function useItemOperations() {
                 toast.error(result.error || "Deletion failed");
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const bulkUpdateMutation = useMutation({
@@ -46,7 +46,7 @@ export function useItemOperations() {
                 toast.error(result.error || "Bulk update failed");
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const mergeMutation = useMutation({
@@ -59,7 +59,7 @@ export function useItemOperations() {
                 toast.error(result.error || "Merge failed");
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     return {

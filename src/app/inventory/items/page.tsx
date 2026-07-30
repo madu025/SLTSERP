@@ -93,7 +93,7 @@ export default function ItemMasterPage() {
     };
 
     const onFormSubmit = async (values: ItemFormValues) => {
-        await upsertMutation.mutateAsync({ id: activeItem?.id, data: values });
+        await upsertMutation.mutateAsync({ id: activeItem?.id, data: values as unknown as Record<string, unknown> });
         setShowFormModal(false);
     };
 

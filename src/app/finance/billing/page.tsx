@@ -52,10 +52,10 @@ export default function ContractorBillingPage() {
                     setUnbilledSods(data.data.sods);
                     setGrossAmount(data.data.totalAmount);
                 } else {
-                    toast.error(data.error?.message || 'Error fetching SODs');
+                    toast.error(data.error || 'Error fetching SODs');
                 }
             })
-            .catch(err => toast.error(err.message))
+            .catch(err => toast.error((err instanceof Error ? err.message : "Unknown error")))
             .finally(() => setIsLoading(false));
     }, [selectedContractor]);
 
@@ -84,10 +84,10 @@ export default function ContractorBillingPage() {
                 setGrossAmount(0);
                 setTimeout(() => router.push('/finance/invoices'), 1500);
             } else {
-                toast.error(data.error?.message || 'Generation failed');
+                toast.error(data.error || 'Generation failed');
             }
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error((error instanceof Error ? error.message : "Unknown error"));
         } finally {
             setIsGenerating(false);
         }

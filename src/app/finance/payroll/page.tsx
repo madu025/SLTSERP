@@ -40,7 +40,7 @@ export default function PayrollExpensePage() {
         queryFn: async () => {
             const res = await fetch(`/api/finance/payroll?_t=${Date.now()}`, { cache: 'no-store' });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error?.message || 'Failed to fetch Payroll Expenses');
+            if (!res.ok) throw new Error(json.error || 'Failed to fetch Payroll Expenses');
             return json.data;
         }
     });
@@ -63,13 +63,13 @@ export default function PayrollExpensePage() {
                 })
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error?.message || 'Failed to record allocation');
+            if (!res.ok) throw new Error(json.error || 'Failed to record allocation');
             toast.success(`Head Office Payroll allocation for period ${period} posted successfully!`);
             setAmount('');
             setNotes('');
             queryClient.invalidateQueries({ queryKey: ['payroll-expense-records'] });
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to post payroll allocation');
+        } catch (err: unknown) {
+            toast.error((err instanceof Error ? err.message : "Unknown error") || 'Failed to post payroll allocation');
         } finally {
             setIsPosting(false);
         }

@@ -11,8 +11,14 @@ import { Plus, Edit2, Trash2, Save, X, Package, ShoppingCart, Wand2, Loader2 } f
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 import { toast } from 'sonner';
+import { Prisma } from '@prisma/client';
+
+type ProjectWithBOQ = Prisma.ProjectGetPayload<{
+    include: { boqItems: true }
+}>;
+
 interface ProjectBOQProps {
-    project: any;
+    project: ProjectWithBOQ;
     refreshProject: () => void;
 }
 
@@ -20,7 +26,7 @@ type SourceFilter = 'ALL' | 'NEW' | 'EXISTING';
 
 export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<any>(null);
+    const [editingItem, setEditingItem] = useState<import('@prisma/client').ProjectBOQItem | null>(null);
     const [loading, setLoading] = useState(false);
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
     const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
@@ -46,17 +52,17 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
 
     // Compute source-based summaries
     const boqItems = project.boqItems || [];
-    const existingItems = useMemo(() => boqItems.filter((i: any) => i.source === 'EXISTING'), [boqItems]);
-    const newItems = useMemo(() => boqItems.filter((i: any) => i.source === 'NEW'), [boqItems]);
-    const existingValue = useMemo(() => existingItems.reduce((s: number, i: any) => s + i.amount, 0), [existingItems]);
-    const newValue = useMemo(() => newItems.reduce((s: number, i: any) => s + i.amount, 0), [newItems]);
+    const existingItems = useMemo(() => boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === 'EXISTING'), [boqItems]);
+    const newItems = useMemo(() => boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === 'NEW'), [boqItems]);
+    const existingValue = useMemo(() => existingItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.amount || 0), 0), [existingItems]);
+    const newValue = useMemo(() => newItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.amount || 0), 0), [newItems]);
 
     const filteredItems = useMemo(() => {
         if (sourceFilter === 'ALL') return boqItems;
-        return boqItems.filter((i: any) => i.source === sourceFilter);
+        return boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === sourceFilter);
     }, [boqItems, sourceFilter]);
 
-    const handleEdit = (item: any) => {
+    const handleEdit = (item: import('@prisma/client').ProjectBOQItem) => {
         setEditingItem(item);
         setSelectedInventoryItem(null);
         setFormData({
@@ -145,7 +151,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
         try {
             const endpoint = '/api/projects/boq';
             const method = editingItem ? 'PATCH' : 'POST';
-            const body: any = editingItem
+            const body: Record<string, unknown> = editingItem
                 ? { id: editingItem.id, ...formData }
                 : { projectId: project.id, ...formData };
 
@@ -173,8 +179,8 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
         }
     };
 
-    const totalBOQValue = boqItems.reduce((sum: number, item: any) => sum + item.amount, 0);
-    const totalActualCost = boqItems.reduce((sum: number, item: any) => sum + item.actualCost, 0);
+    const totalBOQValue = boqItems.reduce((sum: number, item: import('@prisma/client').ProjectBOQItem) => sum + (item.amount || 0), 0);
+    const totalActualCost = boqItems.reduce((sum: number, item: import('@prisma/client').ProjectBOQItem) => sum + (item.actualCost || 0), 0);
 
     return (
         <div className="space-y-6">
@@ -303,7 +309,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
                             {filteredItems.length > 0 ? (
-                                filteredItems.map((item: any) => (
+                                filteredItems.map((item: import('@prisma/client').ProjectBOQItem) => (
                                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                                             {item.itemCode}
@@ -384,10 +390,10 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                                         Total{sourceFilter !== 'ALL' ? ` (${sourceFilter})` : ''}
                                     </td>
                                     <td className="px-6 py-4 text-right text-sm text-slate-900">
-                                        {formatCurrency(filteredItems.reduce((s: number, i: any) => s + i.amount, 0))}
+                                        {formatCurrency(filteredItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.amount || 0), 0))}
                                     </td>
                                     <td className="px-6 py-4 text-right text-sm text-slate-900">
-                                        {formatCurrency(filteredItems.reduce((s: number, i: any) => s + i.actualCost, 0))}
+                                        {formatCurrency(filteredItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.actualCost || 0), 0))}
                                     </td>
                                     <td></td>
                                 </tr>

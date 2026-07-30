@@ -9,8 +9,8 @@ export const GET = apiHandler(async () => {
             success: true,
             data: report
         };
-    } catch (err: any) {
-        throw AppError.internal(err.message || String(err));
+    } catch (err: unknown) {
+        throw AppError.internal((err instanceof Error ? err.message : "Unknown error") || String(err));
     }
 }, { rawResponse: true });
 

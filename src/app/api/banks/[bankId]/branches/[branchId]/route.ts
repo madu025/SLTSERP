@@ -9,7 +9,7 @@ const updateBranchSchema = z.object({
     name: z.string().min(1, "Branch name is required")
 });
 
-export const PUT = apiHandler(async (_request: Request, params: any, body: any) => {
+export const PUT = apiHandler(async (uestreq$3: Request, params: Record<string, string>, body: import("@prisma/client").Prisma.JsonObject) => {
     const { bankId, branchId } = params;
     const data = updateBranchSchema.parse(body);
     return await BankService.updateBranch(bankId, branchId, data);
@@ -18,7 +18,7 @@ export const PUT = apiHandler(async (_request: Request, params: any, body: any) 
     rawResponse: true
 });
 
-export const DELETE = apiHandler(async (_request: Request, params: any) => {
+export const DELETE = apiHandler(async (uestreq$3: Request, params: Record<string, string>) => {
     const { branchId } = params;
     await BankService.deleteBranch(branchId);
     return { message: "Branch deleted successfully" };

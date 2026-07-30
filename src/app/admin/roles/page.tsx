@@ -80,7 +80,7 @@ export default function SectionRolesPage() {
     const handleFormSubmit = async (data: RoleFormData) => {
         await upsertMutation.mutateAsync({
             id: editingRole?.id,
-            data
+            data: data as unknown as Record<string, unknown>
         });
         setShowDialog(false);
         setEditingRole(null);

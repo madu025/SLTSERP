@@ -47,7 +47,7 @@ export default function ArAgingPage() {
         queryFn: async () => {
             const res = await fetch(`/api/finance/ar/aging?_t=${Date.now()}`, { cache: 'no-store' });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error?.message || 'Failed to fetch AR Aging');
+            if (!res.ok) throw new Error(json.error || 'Failed to fetch AR Aging');
             return json.data;
         }
     });
@@ -70,13 +70,13 @@ export default function ArAgingPage() {
                 })
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error?.message || 'Failed to record receipt');
+            if (!res.ok) throw new Error(json.error || 'Failed to record receipt');
             toast.success('Customer receipt recorded successfully!');
             setAmount('');
             setInvoiceId('');
             queryClient.invalidateQueries({ queryKey: ['ar-aging-report'] });
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to record receipt');
+        } catch (err: unknown) {
+            toast.error((err instanceof Error ? err.message : "Unknown error") || 'Failed to record receipt');
         } finally {
             setIsRecording(false);
         }

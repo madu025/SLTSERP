@@ -1299,7 +1299,7 @@ export function GISMapView({
             : `${icon} ${typeName} #${closure.closureNumber || '?'}`;
           
           const html = isFeedPoint
-            ? getPlannedFeedPointPopupHtml({ ...closure, index: closure.closureNumber })
+            ? getPlannedFeedPointPopupHtml({ ...closure, index: closure.closureNumber ? Number(closure.closureNumber) : 0 })
             : getClosurePopupHtml(closure, lat, lng, titleText, dpName);
           
           let customStyle: Style | undefined = undefined;

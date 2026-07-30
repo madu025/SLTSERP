@@ -4,7 +4,7 @@ import { InventoryService } from '@/services/inventory';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (request: Request, params: any) => {
+export const POST = apiHandler(async (request: Request, params: Record<string, string>) => {
     const { id } = params;
     const userId = request.headers.get('x-user-id') || 'system';
 
