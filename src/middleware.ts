@@ -38,7 +38,8 @@ const publicPaths = [
     '/api/agent/version',
     '/api/contracts',
     '/public/invoices',
-    '/api/public/invoices'
+    '/api/public/invoices',
+    '/api/approvals/webhook'
 ];
 
 export async function middleware(request: NextRequest) {
