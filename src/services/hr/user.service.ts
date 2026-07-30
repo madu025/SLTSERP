@@ -41,53 +41,7 @@ export interface UpdateUserData {
     status?: string;
 }
 
-const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
-    SUPER_ADMIN: ['dashboard', 'service-orders', 'contractors', 'restore-requests', 'invoices', 'inventory', 'procurement', 'administration'],
-    ADMIN: ['dashboard', 'service-orders', 'contractors', 'restore-requests', 'invoices', 'inventory', 'procurement', 'administration'],
-    OSP_MANAGER: ['dashboard', 'service-orders', 'contractors'],
-    AREA_MANAGER: ['dashboard', 'service-orders', 'contractors'],
-    ENGINEER: ['dashboard', 'service-orders', 'contractors'],
-    ASSISTANT_ENGINEER: ['dashboard', 'service-orders', 'contractors'],
-    AREA_COORDINATOR: ['dashboard', 'service-orders', 'contractors'],
-    QC_OFFICER: ['dashboard', 'service-orders', 'contractors'],
-    MANAGER: ['dashboard', 'service-orders', 'contractors'],
-    STORES_MANAGER: ['dashboard', 'inventory'],
-    STORES_ASSISTANT: ['dashboard', 'inventory'],
-    PROCUREMENT_OFFICER: ['dashboard', 'procurement', 'inventory'],
-    FINANCE_MANAGER: ['dashboard', 'invoices'],
-    FINANCE_ASSISTANT: ['dashboard', 'invoices'],
-    INVOICE_MANAGER: ['dashboard', 'invoices'],
-    INVOICE_ASSISTANT: ['dashboard', 'invoices'],
-    SA_MANAGER: ['dashboard', 'restore-requests'],
-    SA_ASSISTANT: ['dashboard', 'restore-requests'],
-    OFFICE_ADMIN: ['dashboard', 'contractors', 'administration'],
-    OFFICE_ADMIN_ASSISTANT: ['dashboard', 'contractors', 'administration'],
-    SITE_OFFICE_STAFF: ['dashboard', 'contractors']
-};
-
-const SECTION_MAPPING: Record<string, string[]> = {
-    'OSP_MANAGER': ['PROJECTS'],
-    'AREA_MANAGER': ['PROJECTS'],
-    'ENGINEER': ['PROJECTS'],
-    'ASSISTANT_ENGINEER': ['PROJECTS'],
-    'AREA_COORDINATOR': ['PROJECTS'],
-    'QC_OFFICER': ['PROJECTS'],
-    'MANAGER': ['NEW_CONNECTION'],
-    'SA_MANAGER': ['SERVICE_ASSURANCE'],
-    'SA_ASSISTANT': ['SERVICE_ASSURANCE'],
-    'STORES_MANAGER': ['STORES'],
-    'STORES_ASSISTANT': ['STORES'],
-    'PROCUREMENT_OFFICER': ['PROCUREMENT', 'STORES'],
-    'FINANCE_MANAGER': ['FINANCE'],
-    'FINANCE_ASSISTANT': ['FINANCE'],
-    'INVOICE_MANAGER': ['INVOICE'],
-    'INVOICE_ASSISTANT': ['INVOICE'],
-    'OFFICE_ADMIN': ['OFFICE_ADMIN'],
-    'OFFICE_ADMIN_ASSISTANT': ['OFFICE_ADMIN'],
-    'SITE_OFFICE_STAFF': ['OFFICE_ADMIN'],
-    'SUPER_ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN'],
-    'ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN']
-};
+import { DEFAULT_ROLE_PERMISSIONS, SECTION_MAPPING, TEST_USERS } from '@/config/auth-defaults';
 
 export class UserService {
     /**
@@ -113,7 +67,7 @@ export class UserService {
             }
         });
 
-        if (!user || user.status !== 'active') {
+        if (!user || user.status?.toLowerCase() !== 'active') {
             throw new Error('INVALID_CREDENTIALS');
         }
 
@@ -131,8 +85,8 @@ export class UserService {
             contractorId: user.contractorId || undefined,
         });
 
-        const TEST_USERS = ['admin', 'testadmin', 'ospmanager', 'areamanager', 'storesmanager', 'coordinator', 'qcofficer', 'finance', 'stores', 'engineer'];
-        const isTestUser = TEST_USERS.includes(username.toLowerCase());
+        const testUsersConfig = await SystemService.getConfig('TEST_USERS', TEST_USERS);
+        const isTestUser = testUsersConfig.includes(username.toLowerCase());
 
         let permissions: string[] = [];
         if (user.permissions) {
@@ -145,7 +99,8 @@ export class UserService {
             });
             permissions = [...new Set(perms)];
             if (permissions.length === 0) {
-                permissions = DEFAULT_ROLE_PERMISSIONS[user.role] || [];
+                const defaultRolePermissionsConfig = await SystemService.getConfig('DEFAULT_ROLE_PERMISSIONS', DEFAULT_ROLE_PERMISSIONS);
+                permissions = defaultRolePermissionsConfig[user.role] || [];
             }
         } else {
             // Basic users get empty permissions to hide all sections and fallback to helpdesk tickets only
@@ -242,6 +197,9 @@ export class UserService {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const sectionMappingConfig = await SystemService.getConfig<Record<string, string[]>>('SECTION_MAPPING', SECTION_MAPPING);
+        const defaultRolePermissionsConfig = await SystemService.getConfig<Record<string, string[]>>('DEFAULT_ROLE_PERMISSIONS', DEFAULT_ROLE_PERMISSIONS);
+
         const result = await prisma.$transaction(async (tx) => {
             // 1. Create Staff record if employeeId is present
             let staffId = undefined;
@@ -286,7 +244,7 @@ export class UserService {
                 }
             });
             // 3. Auto-assign to Sections based on Role (Multi-section support)
-            const sectionCodes = SECTION_MAPPING[role] || [];
+            const sectionCodes = sectionMappingConfig[role] || [];
             
             // Optimize with Promise.all and upsert to avoid O(M) blocking sequential queries
             await Promise.all(sectionCodes.map(async (sectionCode) => {
@@ -303,10 +261,10 @@ export class UserService {
                         name: role.replace(/_/g, ' '),
                         code: roleCode,
                         sectionId: section.id,
-                        permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                        permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
                     },
                     update: {
-                        permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                        permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
                     }
                 });
 
@@ -380,6 +338,9 @@ export class UserService {
             dataToUpdate.mustChangePassword = true;
         }
 
+        const sectionMappingConfig = await SystemService.getConfig<Record<string, string[]>>('SECTION_MAPPING', SECTION_MAPPING);
+        const defaultRolePermissionsConfig = await SystemService.getConfig<Record<string, string[]>>('DEFAULT_ROLE_PERMISSIONS', DEFAULT_ROLE_PERMISSIONS);
+
         const result = await prisma.$transaction(async (tx) => {
             let staffId = existingUser.staffId;
             if (employeeId) {
@@ -404,7 +365,7 @@ export class UserService {
             if (existingUser.role !== role) {
                 await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
 
-                const sectionCodes = SECTION_MAPPING[role] || [];
+                const sectionCodes = sectionMappingConfig[role] || [];
                 
                 await Promise.all(sectionCodes.map(async (sectionCode) => {
                     const section = await tx.section.upsert({
@@ -420,10 +381,10 @@ export class UserService {
                             name: role.replace(/_/g, ' '),
                             code: roleCode,
                             sectionId: section.id,
-                            permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                            permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
                         },
                         update: {
-                            permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                            permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
                         }
                     });
 

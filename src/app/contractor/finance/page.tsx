@@ -66,8 +66,9 @@ export default function ContractorFinancePage() {
     const [selectedClaim, setSelectedClaim] = useState<ContractorClaim | null>(null);
 
     const getAuthHeaders = () => {
-        const contractorUser = typeof window !== 'undefined' ? localStorage.getItem('contractor_user') : null;
-        const contractorToken = typeof window !== 'undefined' ? localStorage.getItem('contractor_token') : null;
+        const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
+        const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
+        const selectedContractorId = typeof window !== 'undefined' ? localStorage.getItem('selected_contractor_id') : null;
 
         const headers: Record<string, string> = {
             'Cache-Control': 'no-cache',
@@ -83,6 +84,9 @@ export default function ContractorFinancePage() {
                 if (u.role) headers['x-user-role'] = u.role;
                 if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
             } catch {}
+        }
+        if (selectedContractorId) {
+            headers['x-contractor-id'] = selectedContractorId;
         }
         return headers;
     };

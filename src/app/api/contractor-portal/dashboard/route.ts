@@ -30,8 +30,5 @@ export const GET = apiHandler(async (req) => {
     }
 
     const dashboardData = await ContractorDashboardService.getDashboardData(contractorId);
-    return Response.json({
-        success: true,
-        data: dashboardData
-    });
+    return dashboardData;
 });

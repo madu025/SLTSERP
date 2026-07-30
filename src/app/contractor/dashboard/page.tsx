@@ -18,7 +18,6 @@ import {
     Building2,
     Store,
     UserCheck,
-    Truck,
     CheckCircle2
 } from 'lucide-react';
 
@@ -47,8 +46,9 @@ interface ContractorTeam {
 
 export default function ContractorDashboardPage() {
     const getAuthHeaders = () => {
-        const contractorUser = typeof window !== 'undefined' ? localStorage.getItem('contractor_user') : null;
-        const contractorToken = typeof window !== 'undefined' ? localStorage.getItem('contractor_token') : null;
+        const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
+        const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
+        const selectedContractorId = typeof window !== 'undefined' ? localStorage.getItem('selected_contractor_id') : null;
 
         const headers: Record<string, string> = {
             'Cache-Control': 'no-cache',
@@ -64,6 +64,9 @@ export default function ContractorDashboardPage() {
                 if (u.role) headers['x-user-role'] = u.role;
                 if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
             } catch {}
+        }
+        if (selectedContractorId) {
+            headers['x-contractor-id'] = selectedContractorId;
         }
         return headers;
     };
@@ -98,7 +101,7 @@ export default function ContractorDashboardPage() {
                         <h2 className="text-lg font-black text-white">
                             {new Date().getHours() < 12 ? '☀️' : new Date().getHours() < 17 ? '🌤️' : '🌙'} Hello, {(contractorDetails?.name || 'Contractor').split(' ')[0]}!
                         </h2>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Dual-custody van stock, material issue notes &amp; field SODs</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Dual-custody in-hand stock, material issue notes &amp; field SODs</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
                         <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
@@ -133,7 +136,7 @@ export default function ContractorDashboardPage() {
                     </CardHeader>
                     <CardContent className="p-3 pt-0">
                         <div className="text-xl font-black text-white font-mono">{isLoading ? '—' : (stats.dropWireMeters ?? 0)} m</div>
-                        <p className="text-[10px] text-slate-400 mt-0.5 mb-1.5">Available in Van</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 mb-1.5">Available In-Hand</p>
                         <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                             <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((stats.dropWireMeters ?? 0) / 500) * 100)}%` }} />
                         </div>
@@ -194,7 +197,7 @@ export default function ContractorDashboardPage() {
                 <div className="flex items-center justify-between px-1">
                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-amber-400" /> 
-                        Assigned Field Teams 
+                        Assigned Field Teams
                         <Badge variant="secondary" className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] ml-1">
                             {teams.length} Teams Registered
                         </Badge>
@@ -202,14 +205,14 @@ export default function ContractorDashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {teams.map((t: ContractorTeam) => (
-                        <Card key={t.id} className="bg-slate-900/80 border-slate-800/80 hover:border-amber-500/40 transition-all shadow-md">
+                    {teams.map((tItem: ContractorTeam) => (
+                        <Card key={tItem.id} className="bg-slate-900/80 border-slate-800/80 hover:border-amber-500/40 transition-all shadow-md">
                             <CardHeader className="p-3.5 pb-2 border-b border-slate-800/60">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-black text-amber-400 font-mono">{t.name}</span>
+                                        <span className="text-sm font-black text-amber-400 font-mono">{tItem.name}</span>
                                         <Badge variant="outline" className="bg-slate-800 text-slate-300 border-slate-700 text-[9px] font-mono">
-                                            {t.sltCode || t.name}
+                                            {tItem.sltCode || tItem.name}
                                         </Badge>
                                     </div>
                                     <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
@@ -223,11 +226,11 @@ export default function ContractorDashboardPage() {
                                     <div className="flex items-center gap-1.5 text-slate-400">
                                         <Building2 className="w-3.5 h-3.5 text-slate-500" />
                                         <span>RTOM:</span>
-                                        <span className="font-bold text-slate-200">{t.opmc?.name || 'OPMC R-KX'}</span>
+                                        <span className="font-bold text-slate-200">{tItem.opmc?.name || 'Not Assigned'}</span>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-slate-400">
                                         <Store className="w-3.5 h-3.5 text-amber-500" />
-                                        <span className="font-semibold text-amber-300">{t.storeAssignments?.[0]?.store?.name || 'Colombo Central Main Store'}</span>
+                                        <span className="font-semibold text-amber-300">{tItem.storeAssignments?.[0]?.store?.name || 'Not Assigned'}</span>
                                     </div>
                                 </div>
 
@@ -236,8 +239,8 @@ export default function ContractorDashboardPage() {
                                         <UserCheck className="w-3 h-3 text-blue-400" /> Technician:
                                     </span>
                                     <div className="flex flex-wrap gap-1">
-                                        {t.members && t.members.length > 0 ? (
-                                            t.members.map((m: TeamMember, mIdx: number) => (
+                                        {tItem.members && tItem.members.length > 0 ? (
+                                            tItem.members.map((m: TeamMember, mIdx: number) => (
                                                 <span key={mIdx} className="text-[11px] font-medium text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 inline-flex items-center gap-1">
                                                     <span>{m.name}</span>
                                                     {m.contactNumber && (
@@ -266,8 +269,8 @@ export default function ContractorDashboardPage() {
                                     <Package className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-xs font-bold text-white uppercase tracking-wider">Van Stock & Dispatches</CardTitle>
-                                    <p className="text-[11px] text-slate-400 mt-0.5">Accept store issues with digital signature</p>
+                                    <CardTitle className="text-xs font-bold text-white uppercase tracking-wider">In-Hand Stock & Dispatches</CardTitle>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">Accept store dispatches with digital signature</p>
                                 </div>
                             </div>
                             <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
@@ -284,7 +287,7 @@ export default function ContractorDashboardPage() {
                                 </div>
                                 <div>
                                     <CardTitle className="text-xs font-bold text-white uppercase tracking-wider">Field SOD Execution</CardTitle>
-                                    <p className="text-[11px] text-slate-400 mt-0.5">Scan ONTs & log drop wire meters ({stats.activeSodsCount || 0} active)</p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">Scan ONTs & log drop wire meters</p>
                                 </div>
                             </div>
                             <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
@@ -300,7 +303,7 @@ export default function ContractorDashboardPage() {
                                     <Banknote className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-xs font-bold text-white uppercase tracking-wider">Claims & Retention</CardTitle>
+                                    <CardTitle className="text-xs font-bold text-white uppercase tracking-wider">Invoices & Claims</CardTitle>
                                     <p className="text-[11px] text-slate-400 mt-0.5">Track monthly claim vouchers & payments</p>
                                 </div>
                             </div>

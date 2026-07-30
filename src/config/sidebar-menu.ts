@@ -79,7 +79,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
             },
             {
-                title: 'My Van Stock',
+                title: 'My In-Hand Stock',
                 path: '/contractor/inventory',
                 icon: Package,
                 allowedRoles: ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE']
@@ -917,11 +917,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
-                title: 'Access Rules',
-                path: '/admin/access-rules',
+                title: 'Global Roles Defaults',
+                path: '/admin/global-roles',
                 icon: Settings,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
+
             {
                 title: 'System Audit Log',
                 path: '/admin/audit-logs',

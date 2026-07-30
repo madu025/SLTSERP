@@ -1,0 +1,51 @@
+{
+	"info": {
+		"_postman_id": "12345678-1234-1234-1234-123456789012",
+		"name": "SLTSERP QA Master Collection",
+		"description": "API collection for testing SLTSERP routes",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "Login - Super Admin",
+					"request": {
+						"method": "POST",
+						"header": [ { "key": "Content-Type", "value": "application/json" } ],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"qa_admin\",\n    \"password\": \"Test@123\"\n}"
+						},
+						"url": { "raw": "{{BASE_URL}}/api/login", "host": ["{{BASE_URL}}"], "path": ["api", "login"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Telemetry & Security",
+			"item": [
+				{
+					"name": "Run Cryptographic SHA-256 Audit",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{BASE_URL}}/api/admin/monitoring/audit-ledger", "host": ["{{BASE_URL}}"], "path": ["api", "admin", "monitoring", "audit-ledger"] }
+					}
+				},
+				{
+					"name": "Purge Legacy Error Logs",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": { "raw": "{{BASE_URL}}/api/admin/monitoring/errors?clearAll=true", "host": ["{{BASE_URL}}"], "path": ["api", "admin", "monitoring", "errors"], "query": [ { "key": "clearAll", "value": "true" } ] }
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{ "key": "BASE_URL", "value": "http://localhost:3000", "type": "string" }
+	]
+}

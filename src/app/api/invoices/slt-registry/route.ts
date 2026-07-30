@@ -1,15 +1,16 @@
 import { apiHandler } from '@/lib/api-handler';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
-import { requestContext } from '@/lib/request-context';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 const REGISTRY_FILE = path.join(process.cwd(), 'src/data/slt-boms.json');
-const CONFIG_FILE = path.join(process.cwd(), 'src/data/slt-config.json');
+const TMP_REGISTRY_FILE = path.join(os.tmpdir(), 'slt-boms.json');
 
 interface BOMItem {
     bomRef: string;
@@ -51,25 +52,58 @@ function parseBOMHtml(html: string): BOMItem[] {
     return boms;
 }
 
-export const GET = apiHandler(async () => {
-    let cachedBoms: BOMItem[] = [];
-    let cookieSaved = false;
-    let sltCookie = '';
+async function getCachedBoms(): Promise<BOMItem[]> {
+    try {
+        const setting = await prisma.systemSetting.findUnique({
+            where: { key: 'SLT_BOMS_REGISTRY' }
+        });
+        if (setting && Array.isArray(setting.value)) {
+            return setting.value as unknown as BOMItem[];
+        }
+    } catch (dbErr) {
+        console.warn('[SLT-REGISTRY] Failed to read BOMs from DB:', dbErr);
+    }
 
-    if (fs.existsSync(REGISTRY_FILE)) {
+    const targetFile = fs.existsSync(REGISTRY_FILE) ? REGISTRY_FILE : TMP_REGISTRY_FILE;
+    if (fs.existsSync(targetFile)) {
         try {
-            cachedBoms = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf-8'));
+            return JSON.parse(fs.readFileSync(targetFile, 'utf-8'));
         } catch (e) {
-            console.error('Failed to read cached BOM registry:', e);
+            console.error('[SLT-REGISTRY] Failed to read cached BOM registry file:', e);
         }
     }
+    return [];
+}
+
+async function saveBomsToStore(boms: BOMItem[]) {
+    try {
+        await prisma.systemSetting.upsert({
+            where: { key: 'SLT_BOMS_REGISTRY' },
+            update: { value: boms as unknown as object },
+            create: { key: 'SLT_BOMS_REGISTRY', value: boms as unknown as object }
+        });
+    } catch (dbErr) {
+        console.warn('[SLT-REGISTRY] Could not save BOMs to DB:', dbErr);
+    }
+
+    try {
+        fs.writeFileSync(TMP_REGISTRY_FILE, JSON.stringify(boms, null, 2), 'utf-8');
+    } catch {
+        // Ignore read-only file system on Vercel
+    }
+}
+
+export const GET = apiHandler(async () => {
+    const cachedBoms: BOMItem[] = await getCachedBoms();
+    let cookieSaved = false;
+    let sltCookie = '';
 
     sltCookie = await SLTPortalAuthService.getOrRefreshCookie();
     cookieSaved = !!sltCookie;
 
     if (sltCookie) {
         try {
-            console.log('Fetching live BOM list from SLT service portal...');
+            console.log('[SLT-REGISTRY] Fetching live BOM list from SLT service portal...');
             const res = await fetch('https://serviceportal.slt.lk/iShamp/contr/dynamic_load?x=ftthbomload&z=SLTS', {
                 headers: {
                     'Cookie': sltCookie,
@@ -92,17 +126,12 @@ export const GET = apiHandler(async () => {
             const liveBoms = parseBOMHtml(html);
 
             if (liveBoms.length > 0) {
-                const dir = path.dirname(REGISTRY_FILE);
-                if (!fs.existsSync(dir)) {
-                    fs.mkdirSync(dir, { recursive: true });
-                }
-
-                fs.writeFileSync(REGISTRY_FILE, JSON.stringify(liveBoms, null, 2), 'utf-8');
+                await saveBomsToStore(liveBoms);
                 return Response.json({ success: true, boms: liveBoms, cookieSaved, source: 'live' });
             }
         } catch (error: unknown) {
             const err = error as Error;
-            console.error('Live BOM fetch failed, falling back to cache:', err.message);
+            console.error('[SLT-REGISTRY] Live BOM fetch failed, falling back to cache:', err.message);
             return Response.json({
                 success: true,
                 boms: cachedBoms,
@@ -148,24 +177,29 @@ export const POST = apiHandler(async (req, _params, body) => {
 
     const data = postSchema.parse(body);
 
-    const dir = path.dirname(REGISTRY_FILE);
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-
     if (data.action === 'save-cookie') {
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify({ cookie: data.cookie }, null, 2), 'utf-8');
+        if (data.cookie) {
+            try {
+                await prisma.systemSetting.upsert({
+                    where: { key: 'SLT_PORTAL_COOKIE' },
+                    update: { value: { cookie: data.cookie } },
+                    create: { key: 'SLT_PORTAL_COOKIE', value: { cookie: data.cookie } }
+                });
+            } catch (dbErr) {
+                console.warn('[SLT-REGISTRY] Could not save cookie to DB:', dbErr);
+            }
+        }
         return Response.json({ success: true, message: 'SLT cookie configuration saved successfully' }, {
             headers: { 'Access-Control-Allow-Origin': '*' }
         });
     }
 
-    const listToSave = data.boms || body;
+    const listToSave = (data.boms || body) as BOMItem[];
     if (!listToSave || !Array.isArray(listToSave)) {
         throw AppError.badRequest('Invalid payload: boms must be an array');
     }
 
-    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(listToSave, null, 2), 'utf-8');
+    await saveBomsToStore(listToSave);
     return Response.json({ success: true, count: listToSave.length }, {
         headers: { 'Access-Control-Allow-Origin': '*' }
     });

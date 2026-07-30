@@ -56,10 +56,10 @@ const modules = [
         color: 'text-rose-600', bgColor: 'bg-rose-50', borderColor: 'border-rose-100'
     },
     {
-        title: 'Access Rules',
-        description: 'Set access restrictions and override policies',
-        href: '/admin/access-rules',
-        icon: ClipboardList,
+        title: 'Global Roles Defaults',
+        description: 'Configure default permissions and sections for user roles',
+        href: '/admin/global-roles',
+        icon: Settings,
         color: 'text-cyan-600', bgColor: 'bg-cyan-50', borderColor: 'border-cyan-100'
     },
     {

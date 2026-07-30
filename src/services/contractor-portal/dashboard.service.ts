@@ -91,9 +91,9 @@ export class ContractorDashboardService {
             },
             teams: contractor.teams,
             stats: {
-                dropWireMeters: dropWireMeters || 450, // default fallbacks for demo
-                ontCount: ontCount || 12,
-                facCount: facCount || 35,
+                dropWireMeters: dropWireMeters || 0,
+                ontCount: ontCount || 0,
+                facCount: facCount || 0,
                 pendingAcceptances: pendingDispatchesCount,
                 activeSodsCount: sodCount,
                 totalTeamsCount: contractor.teams.length

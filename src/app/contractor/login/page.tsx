@@ -36,22 +36,31 @@ export default function ContractorLoginPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.message || data.error || 'Contractor login failed');
+                const errorMsg = data.error?.message || data.message || (typeof data.error === 'string' ? data.error : null) || 'Contractor login failed';
+                throw new Error(errorMsg);
+            }
+
+            const payload = data.data || data;
+            const user = payload.user;
+            const token = payload.token;
+
+            if (!user) {
+                throw new Error('User details not returned from server');
             }
 
             // Store contractor user session in localStorage
-            localStorage.setItem('contractor_user', JSON.stringify(data.user));
-            if (data.token) {
-                localStorage.setItem('contractor_token', data.token);
+            localStorage.setItem('contractor_user', JSON.stringify(user));
+            if (token) {
+                localStorage.setItem('contractor_token', token);
             }
 
             // Fallback for general session if no admin user is currently logged in
             if (!localStorage.getItem('user')) {
-                localStorage.setItem('user', JSON.stringify(data.user));
-                if (data.token) localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(user));
+                if (token) localStorage.setItem('token', token);
             }
 
-            toast.success(`Welcome back, ${data.user.name || 'Contractor'}!`);
+            toast.success(`Welcome back, ${user.name || 'Contractor'}!`);
             router.push('/contractor/dashboard');
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check credentials.';
@@ -74,7 +83,7 @@ export default function ContractorLoginPage() {
                     CONTRACTOR FIELD APP
                 </div>
                 <h1 className="text-3xl font-black tracking-tight text-white">SLTSERP Contractor</h1>
-                <p className="text-xs text-slate-400 max-w-xs mx-auto">Standalone Field Access for Van Stock, Dual-Custody Dispatches & SOD Logging</p>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">Standalone Field Access for In-Hand Stock, Dual-Custody Dispatches & SOD Logging</p>
             </div>
 
             {/* Login Card Form */}

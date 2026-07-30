@@ -68,8 +68,9 @@ export default function ContractorInventoryPage() {
     const [returnReason, setReturnReason] = useState('');
 
     const getAuthHeaders = () => {
-        const contractorUser = typeof window !== 'undefined' ? localStorage.getItem('contractor_user') : null;
-        const contractorToken = typeof window !== 'undefined' ? localStorage.getItem('contractor_token') : null;
+        const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
+        const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
+        const selectedContractorId = typeof window !== 'undefined' ? localStorage.getItem('selected_contractor_id') : null;
 
         const headers: Record<string, string> = {
             'Cache-Control': 'no-cache',
@@ -85,6 +86,9 @@ export default function ContractorInventoryPage() {
                 if (u.role) headers['x-user-role'] = u.role;
                 if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
             } catch {}
+        }
+        if (selectedContractorId) {
+            headers['x-contractor-id'] = selectedContractorId;
         }
         return headers;
     };
@@ -569,7 +573,7 @@ export default function ContractorInventoryPage() {
                                 <ShieldCheck className="w-4 h-4 text-amber-400" />
                                 Team-Wise Material Reconciliation Balance Sheet
                             </h2>
-                            <p className="text-[10px] text-slate-400 mt-0.5">Audit Formula: Opening Stock + Store Receipts - SOD Consumptions - 5% Wastage = Closing Van Stock</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Audit Formula: Opening Stock + Store Receipts - SOD Consumptions - 5% Wastage = Closing In-Hand Stock</p>
                         </div>
 
                         {/* Team & Period Filter Toolbar */}
@@ -820,7 +824,7 @@ export default function ContractorInventoryPage() {
                                 <option value="">-- Choose Stock Item --</option>
                                 {rawStockItems.map((s: StockItemRecord) => (
                                     <option key={s.item?.id || s.id} value={s.item?.id || s.id}>
-                                        {s.item?.code} - {s.item?.name} (Van Stock: {s.quantity} {s.item?.unit})
+                                        {s.item?.code} - {s.item?.name} (In-Hand Stock: {s.quantity} {s.item?.unit})
                                     </option>
                                 ))}
                             </select>

@@ -1,18 +1,37 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { prisma } from '@/lib/prisma';
 
 const CONFIG_FILE = path.join(process.cwd(), 'src/data/slt-config.json');
+const TMP_CONFIG_FILE = path.join(os.tmpdir(), 'slt-config.json');
 
 export class SLTPortalAuthService {
     static async getOrRefreshCookie(): Promise<string> {
-        // 1. Check if we have a saved cookie
+        // 1. Check if we have a saved cookie from DB or file
         let sltCookie = '';
-        if (fs.existsSync(CONFIG_FILE)) {
-            try {
-                const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-                sltCookie = config.cookie || '';
-            } catch (e) {
-                console.error('Failed to read slt-config:', e);
+
+        try {
+            const setting = await prisma.systemSetting.findUnique({
+                where: { key: 'SLT_PORTAL_COOKIE' }
+            });
+            if (setting && typeof setting.value === 'object' && setting.value !== null) {
+                sltCookie = (setting.value as { cookie?: string }).cookie || '';
+            }
+        } catch (dbErr) {
+            console.warn('[SLT-AUTH] Failed to read cookie from DB:', dbErr);
+        }
+
+        if (!sltCookie) {
+            // Fallback to local or /tmp file
+            const targetFile = fs.existsSync(CONFIG_FILE) ? CONFIG_FILE : TMP_CONFIG_FILE;
+            if (fs.existsSync(targetFile)) {
+                try {
+                    const config = JSON.parse(fs.readFileSync(targetFile, 'utf-8'));
+                    sltCookie = config.cookie || '';
+                } catch (e) {
+                    console.error('[SLT-AUTH] Failed to read slt-config file:', e);
+                }
             }
         }
 
@@ -22,7 +41,7 @@ export class SLTPortalAuthService {
             if (isCookieActive) {
                 return sltCookie;
             }
-            console.log('Saved SLT cookie has expired. Attempting auto-login...');
+            console.log('[SLT-AUTH] Saved SLT cookie has expired. Attempting auto-login...');
         }
 
         // 3. Cookie is expired or missing. Attempt auto-login using .env credentials
@@ -31,12 +50,12 @@ export class SLTPortalAuthService {
         const usertype = process.env.SLT_PORTAL_USERTYPE || 'contr';
 
         if (!username || !password) {
-            console.log('No SLT portal credentials in .env. Auto-login skipped.');
-            return sltCookie; // Fallback to whatever expired cookie we have
+            console.log('[SLT-AUTH] No SLT portal credentials in .env. Auto-login skipped.');
+            return sltCookie;
         }
 
         try {
-            console.log(`Logging in to SLT Portal as ${username}...`);
+            console.log(`[SLT-AUTH] Logging in to SLT Portal as ${username}...`);
             const params = new URLSearchParams();
             params.append('username', username);
             params.append('password', password);
@@ -55,7 +74,7 @@ export class SLTPortalAuthService {
             // Parse Set-Cookie header using Next.js Headers.getSetCookie() method
             const setCookieHeaders = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
             let sessionCookie = '';
-            
+
             for (const c of setCookieHeaders) {
                 if (c.startsWith('PHPSESSID=')) {
                     sessionCookie = c.split(';')[0];
@@ -63,7 +82,6 @@ export class SLTPortalAuthService {
                 }
             }
 
-            // Fallback for older environments or direct headers parsing
             if (!sessionCookie) {
                 const rawCookie = res.headers.get('set-cookie');
                 if (rawCookie) {
@@ -75,22 +93,32 @@ export class SLTPortalAuthService {
             }
 
             if (sessionCookie) {
-                console.log('Successfully logged in! New PHPSESSID obtained.');
-                
-                // Ensure directory exists
-                const dir = path.dirname(CONFIG_FILE);
-                if (!fs.existsSync(dir)) {
-                    fs.mkdirSync(dir, { recursive: true });
+                console.log('[SLT-AUTH] Successfully logged in! New PHPSESSID obtained.');
+
+                // Save to Database (Serverless safe)
+                try {
+                    await prisma.systemSetting.upsert({
+                        where: { key: 'SLT_PORTAL_COOKIE' },
+                        update: { value: { cookie: sessionCookie } },
+                        create: { key: 'SLT_PORTAL_COOKIE', value: { cookie: sessionCookie } }
+                    });
+                } catch (dbSaveErr) {
+                    console.warn('[SLT-AUTH] Could not save cookie to DB:', dbSaveErr);
                 }
 
-                // Save new cookie
-                fs.writeFileSync(CONFIG_FILE, JSON.stringify({ cookie: sessionCookie }, null, 2), 'utf-8');
+                // Best-effort file save to /tmp if writable
+                try {
+                    fs.writeFileSync(TMP_CONFIG_FILE, JSON.stringify({ cookie: sessionCookie }, null, 2), 'utf-8');
+                } catch {
+                    // Ignore EROFS in serverless environments
+                }
+
                 return sessionCookie;
             } else {
-                console.error('Login request completed but no PHPSESSID cookie was returned.');
+                console.error('[SLT-AUTH] Login request completed but no PHPSESSID cookie was returned.');
             }
         } catch (error) {
-            console.error('SLT Portal Auto-Login Failed:', error);
+            console.error('[SLT-AUTH] SLT Portal Auto-Login Failed:', error);
         }
 
         return sltCookie;

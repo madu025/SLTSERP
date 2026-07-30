@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "QA Mock Fiber Route - Main Link",
+        "distance": "1200m",
+        "type": "FIBER_CORE"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [79.8612, 6.9271],
+          [79.8632, 6.9281],
+          [79.8652, 6.9295]
+        ]
+      }
+    }
+  ]
+}

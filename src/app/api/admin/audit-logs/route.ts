@@ -6,7 +6,7 @@ import { AuditService } from '@/services/audit/audit.service';
 
 export const GET = apiHandler(async () => {
     const logs = await AuditService.getRecentLogs(200);
-    return Response.json(logs);
+    return logs;
 }, {
     roles: ROLE_GROUPS.ADMINS
 });

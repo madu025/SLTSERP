@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import ContractorSwitcher from '@/components/contractor/ContractorSwitcher';
 
 interface ContractorLayoutProps {
     children: React.ReactNode;
@@ -29,10 +30,12 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
     const [user, setUser] = useState<{ name?: string; role?: string } | null>(null);
     const [contractorDetails, setContractorDetails] = useState<{ name?: string; registrationNumber?: string } | null>(null);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+    const [mounted, setMounted] = useState(false);
 
     const buildHeaders = useCallback((): Record<string, string> => {
         const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
         const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
+        const selectedContractorId = typeof window !== 'undefined' ? localStorage.getItem('selected_contractor_id') : null;
 
         const headers: Record<string, string> = {
             'Cache-Control': 'no-cache',
@@ -49,11 +52,15 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                 if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
             } catch {}
         }
+        if (selectedContractorId) {
+            headers['x-contractor-id'] = selectedContractorId;
+        }
         return headers;
     }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {
+            setMounted(true);
             const stored = localStorage.getItem('contractor_user') || localStorage.getItem('user');
             if (stored) {
                 try {
@@ -98,6 +105,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
     const handleLogout = () => {
         localStorage.removeItem('contractor_user');
         localStorage.removeItem('contractor_token');
+        localStorage.removeItem('selected_contractor_id');
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             try {
@@ -148,36 +156,41 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
         );
     }
 
+    if (!mounted) return null;
+
     return (
         <RoleGuard
-            allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS}
+            allowedRoles={ROLE_GROUPS.CONTRACTORS}
             fallbackLoginPath="/contractor/login"
         >
             <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans pb-20 md:pb-6 selection:bg-amber-500/30">
                 {/* Standalone Native Mobile Header */}
-                <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 h-14 flex items-center justify-between shadow-xl">
+                <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-4 h-14 flex items-center justify-between shadow-xl">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 shadow-md">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 shadow-md shrink-0">
                             <Truck className="w-4 h-4 font-black" />
                         </div>
-                        <div>
+                        <div className="max-w-[130px] sm:max-w-none truncate">
                             <div className="flex items-center gap-1.5">
-                                <h1 className="text-xs font-black text-white tracking-wider uppercase leading-none">
+                                <h1 className="text-xs font-black text-white tracking-wider uppercase leading-none truncate">
                                     {displayName}
                                 </h1>
-                                <span className="flex h-2 w-2 relative">
+                                <span className="flex h-2 w-2 relative shrink-0">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                 </span>
                             </div>
-                            <p className="text-[10px] text-amber-400 font-mono font-bold leading-tight mt-0.5">
+                            <p className="text-[10px] text-amber-400 font-mono font-bold leading-tight mt-0.5 truncate">
                                 {contractorDetails?.registrationNumber || 'SLTS/OSP/CONTRACTOR'}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
-                        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-[10px] font-bold text-slate-300">
+                    <div className="flex items-center gap-2 sm:gap-2.5">
+                        {/* Dynamic Contractor Switcher for Admins */}
+                        <ContractorSwitcher />
+
+                        <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-[10px] font-bold text-slate-300">
                             <Wifi className="w-3 h-3 text-emerald-400" />
                             <span>PWA ONLINE</span>
                         </div>
@@ -196,7 +209,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                             )}
                         </Link>
 
-                        <div className="h-7 w-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-[11px] font-black uppercase">
+                        <div className="h-7 w-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-[11px] font-black uppercase shrink-0">
                             {displayName.charAt(0)}
                         </div>
 

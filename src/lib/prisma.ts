@@ -24,6 +24,10 @@ const getSafeDatabaseUrl = (url: string, isWorker: boolean = false) => {
             if (!urlObj.searchParams.has('connection_limit')) {
                 urlObj.searchParams.set('connection_limit', '10'); // Optimize serverless connections per container
             }
+        } else {
+            // Local Development: Force low connection pool to prevent Supabase Dev DB exhaustion (EMAXCONNSESSION)
+            urlObj.searchParams.set('connection_limit', '3');
+            urlObj.searchParams.set('pool_timeout', '10');
         }
         return urlObj.toString();
     } catch {

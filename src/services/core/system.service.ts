@@ -86,6 +86,22 @@ export class SystemService {
     }
 
     /**
+     * Get system config value with fallback to default
+     */
+    static async getConfig<T>(key: string, defaultValue: T): Promise<T> {
+        try {
+            const config = await prisma.systemConfig.findUnique({ where: { key } });
+            if (config && config.value) {
+                return JSON.parse(config.value) as T;
+            }
+            return defaultValue;
+        } catch (error) {
+            console.error(`Failed to load config ${key}`, error);
+            return defaultValue;
+        }
+    }
+
+    /**
      * Check database connectivity and optionally fetch pool metrics
      */
     static async checkDatabaseHealth() {

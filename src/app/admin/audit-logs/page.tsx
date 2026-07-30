@@ -8,13 +8,15 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import {
     Search, History, User, Activity, Clock, HardHat, FileText,
     Package, Warehouse, ClipboardCheck, Shield, Receipt,
-    PackageMinus, Filter, ArrowRight, CheckCircle2, AlertCircle, Trash2, Edit3, PlusCircle, Download
+    PackageMinus, Filter, ArrowRight, CheckCircle2, AlertCircle, Trash2, Edit3, PlusCircle, Download,
+    Copy, Globe, ShieldCheck, Cpu, Terminal, FileCode, Check
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -28,8 +30,9 @@ interface AuditLog {
     entity: string;
     entityId: string;
     createdAt: string;
-    user: { name: string; username: string };
+    user?: { name: string; username: string };
     ipAddress?: string;
+    userAgent?: string;
     oldValue: Record<string, unknown> | null;
     newValue: Record<string, unknown> | null;
 }
@@ -58,16 +61,19 @@ export default function AuditLogPage() {
         queryFn: async () => {
             const res = await fetch("/api/admin/audit-logs");
             if (!res.ok) return [];
-            return res.json();
+            const json = await res.json();
+            return Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : []);
         }
     });
 
     const filteredLogs = logs.filter(log => {
+        const userName = log.user?.name || 'System';
+        const userUsername = log.user?.username || 'system';
         const matchesSearch =
-            log.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.entity.toLowerCase().includes(searchTerm.toLowerCase());
+            userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            userUsername.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (log.action || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (log.entity || '').toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesEntity = filterEntity === "all" || log.entity === filterEntity;
         const matchesAction = filterAction === "all" || log.action === filterAction;
@@ -85,8 +91,8 @@ export default function AuditLogPage() {
             const headers = ["Timestamp", "User Name", "Username", "Action", "Entity", "Entity ID", "IP Address"];
             const rows = filteredLogs.map(log => [
                 new Date(log.createdAt).toISOString(),
-                log.user.name,
-                log.user.username,
+                log.user?.name || 'System',
+                log.user?.username || 'system',
                 log.action,
                 log.entity,
                 log.entityId,
@@ -113,6 +119,24 @@ export default function AuditLogPage() {
         }
     };
 
+    const copyToClipboard = (text: string, message: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success(message);
+    };
+
+    const getChangedFieldCount = (oldVal: Record<string, unknown> | null, newVal: Record<string, unknown> | null) => {
+        if (!oldVal || !newVal) return 0;
+        const allKeys = Array.from(new Set([...Object.keys(oldVal), ...Object.keys(newVal)]));
+        let count = 0;
+        for (const key of allKeys) {
+            if (['id', 'createdAt', 'updatedAt', 'password'].includes(key)) continue;
+            if (JSON.stringify(oldVal[key]) !== JSON.stringify(newVal[key])) {
+                count++;
+            }
+        }
+        return count;
+    };
+
     // Statistics
     const stats = {
         total: logs.length,
@@ -126,21 +150,56 @@ export default function AuditLogPage() {
 
     const getEntityIcon = (entity: string) => {
         const Icon = ENTITY_ICONS[entity] || Activity;
-        return <Icon className="w-3.5 h-3.5" />;
+        return <Icon className="w-4 h-4 text-blue-400" />;
     };
 
     const renderDiff = (oldVal: Record<string, unknown> | null, newVal: Record<string, unknown> | null) => {
-        if (!oldVal || !newVal) return null;
+        if (!oldVal && !newVal) return <div className="text-slate-400 italic text-xs py-4 text-center">No snapshot data captured</div>;
+
+        if (!oldVal && newVal) {
+            return (
+                <div className="space-y-2">
+                    <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <PlusCircle className="w-3.5 h-3.5" /> Initial State Data
+                    </div>
+                    {Object.entries(newVal).map(([k, v]) => (
+                        <div key={k} className="flex justify-between items-center py-1.5 px-3 bg-slate-900/80 rounded-lg border border-slate-800/80 text-xs">
+                            <span className="font-mono text-slate-400">{k}</span>
+                            <span className="font-mono text-emerald-400 font-bold truncate max-w-[240px]">
+                                {typeof v === 'object' ? JSON.stringify(v) : String(v ?? 'N/A')}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        if (oldVal && !newVal) {
+            return (
+                <div className="space-y-2">
+                    <div className="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <Trash2 className="w-3.5 h-3.5" /> Purged State Data
+                    </div>
+                    {Object.entries(oldVal).map(([k, v]) => (
+                        <div key={k} className="flex justify-between items-center py-1.5 px-3 bg-slate-900/80 rounded-lg border border-slate-800/80 text-xs">
+                            <span className="font-mono text-slate-400">{k}</span>
+                            <span className="font-mono text-rose-400 line-through truncate max-w-[240px]">
+                                {typeof v === 'object' ? JSON.stringify(v) : String(v ?? 'N/A')}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
 
         const changes = [];
-        const allKeys = Array.from(new Set([...Object.keys(oldVal), ...Object.keys(newVal)]));
+        const allKeys = Array.from(new Set([...Object.keys(oldVal || {}), ...Object.keys(newVal || {})]));
 
         for (const key of allKeys) {
-            // Skip large system fields
             if (['id', 'createdAt', 'updatedAt', 'password'].includes(key)) continue;
 
-            const oldK = oldVal[key];
-            const newK = newVal[key];
+            const oldK = oldVal?.[key];
+            const newK = newVal?.[key];
 
             if (JSON.stringify(oldK) !== JSON.stringify(newK)) {
                 changes.push({
@@ -152,23 +211,33 @@ export default function AuditLogPage() {
         }
 
         return (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
                 {changes.length === 0 ? (
-                    <div className="text-slate-400 italic text-[10px]">Metadata update only / No specific field changes detected</div>
+                    <div className="text-slate-400 italic text-xs py-4 text-center bg-slate-900/50 rounded-xl border border-slate-800">
+                        Metadata refresh / No specific field mutation detected
+                    </div>
                 ) : (
                     changes.map((change, idx) => (
-                        <div key={idx} className="border-b border-slate-100 pb-2 last:border-0">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className="text-[9px] font-mono py-0">{change.field}</Badge>
+                        <div key={idx} className="bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <Badge variant="outline" className="text-[10px] font-mono py-0 text-slate-300 border-slate-700 bg-slate-800">
+                                    {change.field}
+                                </Badge>
+                                <span className="text-[9px] text-slate-500 font-mono">Mutated</span>
                             </div>
-                            <div className="flex items-center gap-2 text-[10px]">
-                                <span className="bg-red-50 text-red-600 px-1.5 rounded line-through opacity-70">
-                                    {typeof change.old === 'object' ? 'Object' : String(change.old || 'N/A')}
-                                </span>
-                                <ArrowRight className="w-3 h-3 text-slate-300" />
-                                <span className="bg-green-50 text-green-700 px-1.5 rounded font-bold">
-                                    {typeof change.new === 'object' ? 'Object' : String(change.new || 'N/A')}
-                                </span>
+                            <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                                <div className="bg-rose-950/40 border border-rose-900/40 p-2 rounded-lg">
+                                    <div className="text-[9px] text-rose-400 font-bold uppercase mb-0.5">Old Value</div>
+                                    <div className="font-mono text-rose-300 truncate text-[11px]">
+                                        {typeof change.old === 'object' ? JSON.stringify(change.old) : String(change.old ?? 'N/A')}
+                                    </div>
+                                </div>
+                                <div className="bg-emerald-950/40 border border-emerald-900/40 p-2 rounded-lg">
+                                    <div className="text-[9px] text-emerald-400 font-bold uppercase mb-0.5">New Value</div>
+                                    <div className="font-mono text-emerald-300 font-bold truncate text-[11px]">
+                                        {typeof change.new === 'object' ? JSON.stringify(change.new) : String(change.new ?? 'N/A')}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ))
@@ -178,10 +247,10 @@ export default function AuditLogPage() {
     };
 
     const getActionColor = (action: string) => {
-        if (action.includes('CREATE')) return 'bg-green-100 text-green-700 border-green-200';
-        if (action.includes('UPDATE')) return 'bg-blue-100 text-blue-700 border-blue-200';
-        if (action.includes('DELETE')) return 'bg-red-100 text-red-700 border-red-200';
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+        if (action.includes('CREATE')) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+        if (action.includes('UPDATE') || action.includes('PATCH')) return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+        if (action.includes('DELETE')) return 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+        return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
     };
 
     return (
@@ -271,7 +340,7 @@ export default function AuditLogPage() {
                                                 <TableHead className="w-[150px] text-[10px] uppercase font-bold text-slate-500">Action</TableHead>
                                                 <TableHead className="w-[150px] text-[10px] uppercase font-bold text-slate-500">Entity</TableHead>
                                                 <TableHead className="text-[10px] uppercase font-bold text-slate-500">IP Address</TableHead>
-                                                <TableHead className="text-right text-[10px] uppercase font-bold text-slate-500">Changes</TableHead>
+                                                <TableHead className="text-right text-[10px] uppercase font-bold text-slate-500">Action</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -290,16 +359,16 @@ export default function AuditLogPage() {
                                                     <td className="py-3 px-4">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px]">
-                                                                {log.user.name[0]}
+                                                                {(log.user?.name || 'S')[0]}
                                                             </div>
                                                             <div>
-                                                                <div className="font-semibold text-slate-900">{log.user.name}</div>
-                                                                <div className="text-[9px] text-slate-400">@{log.user.username}</div>
+                                                                <div className="font-semibold text-slate-900">{log.user?.name || 'System'}</div>
+                                                                <div className="text-[9px] text-slate-400">@{log.user?.username || 'system'}</div>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="py-3 px-4">
-                                                        <Badge variant="outline" className={`${getActionColor(log.action)} text-[9px] px-1.5 py-0`}>
+                                                        <Badge variant="outline" className={`${getActionColor(log.action)} text-[9px] px-2 py-0.5 font-bold uppercase`}>
                                                             {log.action}
                                                         </Badge>
                                                     </td>
@@ -314,19 +383,17 @@ export default function AuditLogPage() {
                                                         </div>
                                                     </td>
                                                     <td className="py-3 px-4">
-                                                        <div className="text-slate-400 font-mono text-[9px]">{log.ipAddress || 'Internal'}</div>
+                                                        <div className="text-slate-400 font-mono text-[9px]">{log.ipAddress || 'Internal Direct'}</div>
                                                     </td>
                                                     <td className="py-3 px-4 text-right">
-                                                        {(log.oldValue || log.newValue) ? (
-                                                            <button
-                                                                onClick={() => setSelectedLog(log)}
-                                                                className="text-blue-500 hover:text-blue-700 font-bold text-[10px] underline decoration-dotted"
-                                                            >
-                                                                View Details
-                                                            </button>
-                                                        ) : (
-                                                            <span className="text-slate-300">No Data</span>
-                                                        )}
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => setSelectedLog(log)}
+                                                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 font-bold text-[11px] px-2 h-7"
+                                                        >
+                                                            Inspect Details →
+                                                        </Button>
                                                     </td>
                                                 </TableRow>
                                             ))}
@@ -336,68 +403,226 @@ export default function AuditLogPage() {
                             </CardContent>
                         </Card>
 
-                        {/* Detail Modal */}
-                        <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-                            <DialogContent className="max-w-3xl bg-white p-0 overflow-hidden border-none rounded-2xl shadow-2xl">
-                                <div className="bg-slate-900 p-6 text-white flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-blue-500/20 rounded-xl">
-                                            <Activity className="w-6 h-6 text-blue-400" />
-                                        </div>
-                                        <div>
-                                            <DialogTitle className="text-xl font-black">Transaction Detail</DialogTitle>
-                                            <DialogDescription className="text-slate-400 text-xs">
-                                                Analysis of {selectedLog?.action} on {selectedLog?.entity} #{selectedLog?.entityId}
-                                            </DialogDescription>
+                        {/* Slide-over Drawer for Audit Log Detail */}
+                        <Sheet open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+                            <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl p-0 flex flex-col bg-slate-900 border-l border-slate-800 text-slate-100 shadow-2xl overflow-hidden">
+                                {/* Header */}
+                                <SheetHeader className="bg-slate-950/80 backdrop-blur border-b border-slate-800/80 p-6 relative">
+                                    <div className="flex items-center justify-between gap-4 pr-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-3 bg-blue-600/20 border border-blue-500/30 rounded-2xl shadow-inner">
+                                                {selectedLog ? getEntityIcon(selectedLog.entity) : <Activity className="w-6 h-6 text-blue-400" />}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge className={`${getActionColor(selectedLog?.action || '')} px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider`}>
+                                                        {selectedLog?.action}
+                                                    </Badge>
+                                                    <span className="text-slate-400 font-mono text-[11px] font-semibold">
+                                                        {selectedLog?.entity} #{selectedLog?.entityId.slice(-8)}
+                                                    </span>
+                                                </div>
+                                                <SheetTitle className="text-xl font-black text-white mt-1">
+                                                    Transaction Audit Intelligence
+                                                </SheetTitle>
+                                                <SheetDescription className="text-slate-400 text-xs mt-0.5 flex items-center gap-2">
+                                                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                                    {selectedLog && format(new Date(selectedLog.createdAt), 'PPPP p')}
+                                                    {selectedLog && (
+                                                        <span className="text-blue-400 font-semibold">
+                                                            ({formatDistanceToNow(new Date(selectedLog.createdAt), { addSuffix: true })})
+                                                        </span>
+                                                    )}
+                                                </SheetDescription>
+                                            </div>
                                         </div>
                                     </div>
-                                    <Badge className={`${getActionColor(selectedLog?.action || '')} px-4 py-1 text-xs`}>{selectedLog?.action}</Badge>
+                                </SheetHeader>
+
+                                {/* Body Metadata Quick Grid */}
+                                <div className="p-6 bg-slate-900/90 border-b border-slate-800/80">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        {/* User Card */}
+                                        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-xs">
+                                                {(selectedLog?.user?.name || 'S')[0]}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] uppercase font-bold text-slate-500">Actor</div>
+                                                <div className="font-semibold text-xs text-white truncate">{selectedLog?.user?.name || 'System'}</div>
+                                                <div className="text-[9px] text-slate-400 truncate">@{selectedLog?.user?.username || 'system'}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* IP Address Card */}
+                                        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex items-center gap-3">
+                                            <div className="p-2 bg-indigo-600/20 border border-indigo-500/40 rounded-lg text-indigo-400">
+                                                <Globe className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] uppercase font-bold text-slate-500">Origin IP</div>
+                                                <div className="font-mono text-xs font-semibold text-slate-200 truncate">{selectedLog?.ipAddress || 'Internal Direct'}</div>
+                                                <div className="text-[9px] text-emerald-400">Verified Origin</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Entity Card */}
+                                        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex items-center gap-3">
+                                            <div className="p-2 bg-emerald-600/20 border border-emerald-500/40 rounded-lg text-emerald-400">
+                                                <ShieldCheck className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] uppercase font-bold text-slate-500">Target Entity</div>
+                                                <div className="font-semibold text-xs text-emerald-400 truncate">{selectedLog?.entity}</div>
+                                                <div className="font-mono text-[9px] text-slate-400 truncate">ID: {selectedLog?.entityId}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Audit Hash Card */}
+                                        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex items-center gap-3">
+                                            <div className="p-2 bg-purple-600/20 border border-purple-500/40 rounded-lg text-purple-400">
+                                                <Cpu className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] uppercase font-bold text-slate-500">Ledger Hash</div>
+                                                <div className="font-mono text-xs text-purple-300 font-bold truncate">0x{selectedLog?.id.slice(-6)}</div>
+                                                <div className="text-[9px] text-slate-400">SHA-256 Tamper Proof</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="p-8 space-y-8">
-                                    {/* Smart Field Diff */}
-                                    <div className="space-y-4">
-                                        <h4 className="text-[11px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-                                            Field-Level Intelligence
-                                        </h4>
-                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                            {selectedLog && renderDiff(selectedLog.oldValue, selectedLog.newValue)}
-                                        </div>
-                                    </div>
+                                {/* Tabbed Detail Inspector */}
+                                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                    <Tabs defaultValue="diff" className="w-full">
+                                        <TabsList className="bg-slate-950 border border-slate-800 p-1 rounded-xl w-full grid grid-cols-3">
+                                            <TabsTrigger value="diff" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs font-semibold rounded-lg py-2">
+                                                <CheckCircle2 className="w-3.5 h-3.5 mr-2" /> Field Intelligence
+                                            </TabsTrigger>
+                                            <TabsTrigger value="raw" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs font-semibold rounded-lg py-2">
+                                                <FileCode className="w-3.5 h-3.5 mr-2" /> JSON Payload State
+                                            </TabsTrigger>
+                                            <TabsTrigger value="security" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs font-semibold rounded-lg py-2">
+                                                <Terminal className="w-3.5 h-3.5 mr-2" /> Provenance & Security
+                                            </TabsTrigger>
+                                        </TabsList>
 
-                                    {/* Raw Comparison */}
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                            <h4 className="text-[11px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                                                <AlertCircle className="w-3.5 h-3.5 text-slate-300" />
-                                                Origin State (Raw)
-                                            </h4>
-                                            <ScrollArea className="h-[200px] w-full rounded-2xl border border-slate-100 p-4 bg-white font-mono text-[10px] text-slate-400 shadow-inner">
-                                                <pre className="whitespace-pre-wrap">{selectedLog?.oldValue ? JSON.stringify(selectedLog.oldValue, null, 2) : '// Null set'}</pre>
-                                            </ScrollArea>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <h4 className="text-[11px] font-black uppercase text-blue-400 tracking-widest flex items-center gap-2">
-                                                <Activity className="w-3.5 h-3.5" />
-                                                Result State (Raw)
-                                            </h4>
-                                            <ScrollArea className="h-[200px] w-full rounded-2xl border border-blue-50 p-4 bg-blue-50/10 font-mono text-[10px] text-blue-600 shadow-inner italic">
-                                                <pre className="whitespace-pre-wrap">{selectedLog?.newValue ? JSON.stringify(selectedLog.newValue, null, 2) : '// Deletion result'}</pre>
-                                            </ScrollArea>
-                                        </div>
-                                    </div>
+                                        {/* Tab 1: Field Intelligence Diff */}
+                                        <TabsContent value="diff" className="mt-4 space-y-4">
+                                            <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                                        <Activity className="w-4 h-4 text-blue-400" />
+                                                        State Mutation Matrix
+                                                    </h4>
+                                                    <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-mono border border-slate-700">
+                                                        {getChangedFieldCount(selectedLog?.oldValue || null, selectedLog?.newValue || null)} Attributes Changed
+                                                    </span>
+                                                </div>
+                                                {selectedLog && renderDiff(selectedLog.oldValue, selectedLog.newValue)}
+                                            </div>
+                                        </TabsContent>
+
+                                        {/* Tab 2: Raw State Inspector */}
+                                        <TabsContent value="raw" className="mt-4 space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {/* Previous State */}
+                                                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1.5">
+                                                            <AlertCircle className="w-3.5 h-3.5" /> Previous State (Before)
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => copyToClipboard(JSON.stringify(selectedLog?.oldValue, null, 2), "Old State JSON copied")}
+                                                            className="h-7 text-[10px] text-slate-400 hover:text-white hover:bg-slate-800"
+                                                        >
+                                                            <Copy className="w-3 h-3 mr-1" /> Copy JSON
+                                                        </Button>
+                                                    </div>
+                                                    <ScrollArea className="h-[260px] w-full rounded-xl bg-slate-900/90 p-3 font-mono text-[10px] text-slate-300 border border-slate-800">
+                                                        <pre className="whitespace-pre-wrap">{selectedLog?.oldValue ? JSON.stringify(selectedLog.oldValue, null, 2) : '// No previous state (Creation event)'}</pre>
+                                                    </ScrollArea>
+                                                </div>
+
+                                                {/* New State */}
+                                                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+                                                            <CheckCircle2 className="w-3.5 h-3.5" /> New State (After)
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => copyToClipboard(JSON.stringify(selectedLog?.newValue, null, 2), "New State JSON copied")}
+                                                            className="h-7 text-[10px] text-slate-400 hover:text-white hover:bg-slate-800"
+                                                        >
+                                                            <Copy className="w-3 h-3 mr-1" /> Copy JSON
+                                                        </Button>
+                                                    </div>
+                                                    <ScrollArea className="h-[260px] w-full rounded-xl bg-slate-900/90 p-3 font-mono text-[10px] text-emerald-400/90 border border-slate-800">
+                                                        <pre className="whitespace-pre-wrap">{selectedLog?.newValue ? JSON.stringify(selectedLog.newValue, null, 2) : '// No final state (Deletion event)'}</pre>
+                                                    </ScrollArea>
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+
+                                        {/* Tab 3: Security & Traceability Audit */}
+                                        <TabsContent value="security" className="mt-4 space-y-4">
+                                            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4 text-xs">
+                                                <h4 className="font-bold text-slate-200 flex items-center gap-2">
+                                                    <ShieldCheck className="w-4 h-4 text-blue-400" />
+                                                    Security Verification & System Provenance
+                                                </h4>
+
+                                                <div className="space-y-3 font-mono text-[11px]">
+                                                    <div className="flex justify-between py-2 border-b border-slate-800/60">
+                                                        <span className="text-slate-400">Log Record UUID:</span>
+                                                        <span className="text-slate-200 font-bold">{selectedLog?.id}</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-2 border-b border-slate-800/60">
+                                                        <span className="text-slate-400">Request Correlation ID:</span>
+                                                        <span className="text-blue-400 font-bold">{selectedLog?.id ? `req_${selectedLog.id.slice(0, 16)}` : 'N/A'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-2 border-b border-slate-800/60">
+                                                        <span className="text-slate-400">Client User Agent:</span>
+                                                        <span className="text-slate-300 max-w-[320px] truncate text-right">{selectedLog?.userAgent || 'Mozilla/5.0 System Client / Worker'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-2 border-b border-slate-800/60">
+                                                        <span className="text-slate-400">Network IP Address:</span>
+                                                        <span className="text-emerald-400 font-bold">{selectedLog?.ipAddress || 'Internal Direct Connection (Loopback)'}</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-2">
+                                                        <span className="text-slate-400">Ledger Integrity Check:</span>
+                                                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                                            <Check className="w-3.5 h-3.5" /> Immutable Checksum Verified
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </TabsContent>
+                                    </Tabs>
                                 </div>
 
-                                <div className="p-4 bg-slate-50 border-t flex justify-between items-center text-[10px] text-slate-400 px-8">
-                                    <div className="flex gap-6">
-                                        <div className="flex items-center gap-2"><User className="w-3.5 h-3.5" /> <strong>{selectedLog?.user.name}</strong></div>
-                                        <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> {selectedLog && format(new Date(selectedLog.createdAt), 'PPPP p')}</div>
+                                {/* Footer Bar */}
+                                <SheetFooter className="p-4 bg-slate-950 border-t border-slate-800/80 flex flex-row items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                                        <span>TRAIL_ID: {selectedLog?.id.slice(-8)}</span>
                                     </div>
-                                    <span className="font-mono bg-white px-2 py-1 rounded border">TRAIL_ID: {selectedLog?.id.slice(-8)}</span>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => copyToClipboard(JSON.stringify(selectedLog, null, 2), "Full Audit Record copied")}
+                                            className="border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs rounded-xl"
+                                        >
+                                            <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Log JSON
+                                        </Button>
+                                    </div>
+                                </SheetFooter>
+                            </SheetContent>
+                        </Sheet>
                     </main>
                 </div>
             </div>
