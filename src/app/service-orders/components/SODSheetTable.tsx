@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
-import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar, ChevronDown, Tag, WifiOff, Zap } from "lucide-react";
+import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar, ChevronDown, WifiOff, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {

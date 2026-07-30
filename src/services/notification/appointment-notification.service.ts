@@ -1,7 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from './index';
-import { Prisma } from '@prisma/client';
 
 export class AppointmentNotificationService {
     static async checkAndNotify(userId?: string) {
@@ -20,12 +19,17 @@ export class AppointmentNotificationService {
 
             if (users.length === 0) return;
 
-            // 2. Fetch all active scheduled appointments for today in a single query
+            const tomorrowStart = new Date(todayStart);
+            tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+            const tomorrowEnd = new Date(todayEnd);
+            tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+
+            // 2. Fetch all active scheduled appointments for today and tomorrow
             const allAppointments = await prisma.serviceOrder.findMany({
                 where: {
                     scheduledDate: {
                         gte: todayStart,
-                        lt: todayEnd
+                        lt: tomorrowEnd
                     },
                     sltsStatus: { notIn: ["COMPLETED", "RETURN"] }
                 }
@@ -61,59 +65,86 @@ export class AppointmentNotificationService {
                 });
 
                 for (const sod of userAppointments) {
-                    // A. Daily Appointment Announcement
-                    const todayTitle = `Today Appointment: ${sod.soNum}`;
-                    const todayMsg = `Appointment scheduled today for Customer: ${sod.customerName || 'N/A'}${sod.scheduledTime ? ` at ${sod.scheduledTime}` : ''}. DP: ${sod.dp || '-'}`;
-                    
-                    const todayKey = `${user.id}:${todayTitle}`;
-                    if (!sentSet.has(todayKey)) {
-                        await NotificationService.send({
-                            userId: user.id,
-                            title: todayTitle,
-                            message: todayMsg,
-                            type: 'SYSTEM',
-                            priority: 'MEDIUM',
-                            link: `/service-orders?search=${sod.soNum}`
-                        });
-                        sentSet.add(todayKey);
-                    }
+                    if (!sod.scheduledDate) continue;
 
-                    // B. Proactive timing reminders
-                    if (sod.scheduledDate && sod.scheduledTime) {
-                        const [hoursStr, minutesStr] = sod.scheduledTime.split(':');
-                        const hours = parseInt(hoursStr, 10);
-                        const minutes = parseInt(minutesStr, 10);
+                    const isToday = sod.scheduledDate >= todayStart && sod.scheduledDate < todayEnd;
+                    const isTomorrow = sod.scheduledDate >= tomorrowStart && sod.scheduledDate < tomorrowEnd;
 
-                        if (!isNaN(hours) && !isNaN(minutes)) {
-                            const appointmentTime = new Date(sod.scheduledDate);
-                            appointmentTime.setHours(hours, minutes, 0, 0);
+                    if (isToday) {
+                        // A. Daily Appointment Announcement (Today)
+                        const todayTitle = `Today Appointment: ${sod.soNum}`;
+                        const todayMsg = `Appointment scheduled today for Customer: ${sod.customerName || 'N/A'}${sod.scheduledTime ? ` at ${sod.scheduledTime}` : ''}. DP: ${sod.dp || '-'}`;
+                        
+                        const todayKey = `${user.id}:${todayTitle}`;
+                        if (!sentSet.has(todayKey)) {
+                            await NotificationService.send({
+                                userId: user.id,
+                                title: todayTitle,
+                                message: todayMsg,
+                                type: 'SYSTEM',
+                                priority: 'MEDIUM',
+                                link: `/service-orders?search=${sod.soNum}`
+                            });
+                            sentSet.add(todayKey);
+                        }
 
-                            const diffMs = appointmentTime.getTime() - now.getTime();
-                            const diffMinutes = Math.round(diffMs / 60000);
+                        // B. Proactive timing reminders (3h, 2h, 1h before)
+                        if (sod.scheduledDate && sod.scheduledTime) {
+                            const [hoursStr, minutesStr] = sod.scheduledTime.split(':');
+                            const hours = parseInt(hoursStr, 10);
+                            const minutes = parseInt(minutesStr, 10);
 
-                            const checkAndSendReminder = async (label: string, minLimit: number, maxLimit: number, text: string) => {
-                                if (diffMinutes >= minLimit && diffMinutes <= maxLimit) {
-                                    const reminderTitle = `${label} Reminder: ${sod.soNum}`;
-                                    const reminderKey = `${user.id}:${reminderTitle}`;
+                            if (!isNaN(hours) && !isNaN(minutes)) {
+                                const appointmentTime = new Date(sod.scheduledDate);
+                                appointmentTime.setHours(hours, minutes, 0, 0);
 
-                                    if (!sentSet.has(reminderKey)) {
-                                        await NotificationService.send({
-                                            userId: user.id,
-                                            title: reminderTitle,
-                                            message: `Appointment in ${text} for Customer: ${sod.customerName || 'N/A'} at ${sod.scheduledTime}. DP: ${sod.dp || '-'}`,
-                                            type: 'SYSTEM',
-                                            priority: 'HIGH',
-                                            link: `/service-orders?search=${sod.soNum}`
-                                        });
-                                        sentSet.add(reminderKey);
+                                const diffMs = appointmentTime.getTime() - now.getTime();
+                                const diffMinutes = Math.round(diffMs / 60000);
+
+                                const checkAndSendReminder = async (label: string, minLimit: number, maxLimit: number, text: string) => {
+                                    if (diffMinutes >= minLimit && diffMinutes <= maxLimit) {
+                                        const reminderTitle = `${label} Reminder: ${sod.soNum}`;
+                                        const reminderKey = `${user.id}:${reminderTitle}`;
+
+                                        if (!sentSet.has(reminderKey)) {
+                                            await NotificationService.send({
+                                                userId: user.id,
+                                                title: reminderTitle,
+                                                message: `Appointment in ${text} for Customer: ${sod.customerName || 'N/A'} at ${sod.scheduledTime}. DP: ${sod.dp || '-'}`,
+                                                type: 'SYSTEM',
+                                                priority: 'HIGH',
+                                                link: `/service-orders?search=${sod.soNum}`
+                                            });
+                                            sentSet.add(reminderKey);
+                                        }
                                     }
-                                }
-                            };
+                                };
 
-                            // Proactive reminder windows
-                            await checkAndSendReminder("2h", 90, 130, "2 hours");
-                            await checkAndSendReminder("1h", 45, 75, "1 hour");
-                            await checkAndSendReminder("30m", 15, 40, "30 minutes");
+                                // Proactive reminder windows (1h, 2h, 3h before)
+                                await checkAndSendReminder("3h", 165, 195, "3 hours");
+                                await checkAndSendReminder("2h", 105, 135, "2 hours");
+                                await checkAndSendReminder("1h", 45, 75, "1 hour");
+                            }
+                        }
+                    } else if (isTomorrow) {
+                        // C. Tomorrow Appointment Announcement (sent between 8 AM and 5 PM)
+                        const currentHour = now.getHours();
+                        if (currentHour >= 8 && currentHour < 17) {
+                            const tomorrowTitle = `Tomorrow Appointment: ${sod.soNum}`;
+                            const tomorrowMsg = `Appointment scheduled tomorrow for Customer: ${sod.customerName || 'N/A'}${sod.scheduledTime ? ` at ${sod.scheduledTime}` : ''}. DP: ${sod.dp || '-'}`;
+                            
+                            const tomorrowKey = `${user.id}:${tomorrowTitle}`;
+                            if (!sentSet.has(tomorrowKey)) {
+                                await NotificationService.send({
+                                    userId: user.id,
+                                    title: tomorrowTitle,
+                                    message: tomorrowMsg,
+                                    type: 'SYSTEM',
+                                    priority: 'MEDIUM',
+                                    link: `/service-orders?search=${sod.soNum}`
+                                });
+                                sentSet.add(tomorrowKey);
+                            }
                         }
                     }
                 }
