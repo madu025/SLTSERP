@@ -196,6 +196,8 @@ enum ServiceOrderStatus {
   OFFLINE
   RETURN
   RETURN_PENDING
+  PAT_REJECTED
+  OPMC_PAT_SKIP
 }
 
 enum JobStatus {
