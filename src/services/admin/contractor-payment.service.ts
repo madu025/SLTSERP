@@ -4,7 +4,7 @@ import { AppError } from '@/lib/error';
 
 export class ContractorPaymentService {
     static async getConfigs() {
-        return (prisma as any).contractorPaymentConfig.findMany({
+        return prisma.contractorPaymentConfig.findMany({
             include: {
                 rtom: {
                     select: {
@@ -27,7 +27,7 @@ export class ContractorPaymentService {
             throw AppError.badRequest('Pricing tiers are required');
         }
 
-        return (prisma as any).contractorPaymentConfig.create({
+        return prisma.contractorPaymentConfig.create({
             data: {
                 rtomId: data.rtomId || null,
                 notes: data.notes,
@@ -54,7 +54,7 @@ export class ContractorPaymentService {
     }
 
     static async updateConfig(id: string, data: any) {
-        return (prisma as any).$transaction(async (tx: any) => {
+        return prisma.$transaction(async (tx: any) => {
             if (data.tiers) {
                 // Delete existing tiers
                 await tx.contractorPaymentTier.deleteMany({
@@ -92,7 +92,7 @@ export class ContractorPaymentService {
     }
 
     static async deleteConfig(id: string) {
-        return (prisma as any).contractorPaymentConfig.delete({
+        return prisma.contractorPaymentConfig.delete({
             where: { id }
         });
     }

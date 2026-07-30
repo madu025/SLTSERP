@@ -77,8 +77,7 @@ export class NotificationAnalyticsService {
         const readRate = totalSent > 0 ? (totalRead / totalSent) * 100 : 0;
 
         // Build byType map with read rates
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const byType: Record<string, any> = {};
+        const byType: Record<string, import("@prisma/client").Prisma.JsonObject> = {};
         for (const g of byTypeRaw) {
             const readCount = byTypeRead.find(r => r.type === g.type)?._count.id || 0;
             byType[g.type] = {
@@ -89,8 +88,7 @@ export class NotificationAnalyticsService {
         }
 
         // Build byPriority map with read rates
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const byPriority: Record<string, any> = {};
+        const byPriority: Record<string, import("@prisma/client").Prisma.JsonObject> = {};
         for (const g of byPriorityRaw) {
             const readCount = byPriorityRead.find(r => r.priority === g.priority)?._count.id || 0;
             byPriority[g.priority] = {
@@ -163,8 +161,7 @@ export class NotificationAnalyticsService {
             _count: { id: true },
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const byType: Record<string, any> = {};
+        const byType: Record<string, import("@prisma/client").Prisma.JsonObject> = {};
         for (const g of byTypeRaw) {
             const readCount = byTypeRead.find(r => r.type === g.type)?._count.id || 0;
             byType[g.type] = {

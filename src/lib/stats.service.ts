@@ -11,8 +11,7 @@ export class StatsService {
             const opmc = await prisma.oPMC.findUnique({ where: { id: opmcId }, select: { rtom: true } });
             if (!opmc) return;
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (prisma as any).dashboardStat.upsert({
+            await prisma.dashboardStat.upsert({
                 where: { opmcId },
                 create: {
                     opmcId,
@@ -82,8 +81,7 @@ export class StatsService {
             prisma.serviceOrder.count({ where: { opmcId, sltsPatStatus: 'REJECTED', statusDate: { gte: currentYearStart, lt: nextYearStart } } }),
         ]);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (prisma as any).dashboardStat.upsert({
+        await prisma.dashboardStat.upsert({
             where: { opmcId },
             create: {
                 opmcId,
@@ -165,11 +163,9 @@ export class StatsService {
         let correctedCount = 0;
 
         for (const opmc of opmcs) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const before = await (prisma as any).dashboardStat.findUnique({ where: { opmcId: opmc.id } });
+            const before = await prisma.dashboardStat.findUnique({ where: { opmcId: opmc.id } });
             await this.syncOpmcStats(opmc.id);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const after = await (prisma as any).dashboardStat.findUnique({ where: { opmcId: opmc.id } });
+            const after = await prisma.dashboardStat.findUnique({ where: { opmcId: opmc.id } });
 
             // Check if any field changed (ignoring updatedTime etc)
             const b = { ...before }; delete b.lastUpdated; delete b.id;

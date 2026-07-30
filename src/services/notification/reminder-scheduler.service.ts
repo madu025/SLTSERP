@@ -183,8 +183,7 @@ export class ReminderSchedulerService {
             const fortyEightHoursFromNow = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
             // Find project tasks due in next 48 hours
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const dueTasks = await (prisma as any).projectTask.findMany({
+            const dueTasks = await prisma.projectTask.findMany({
                 where: {
                     dueDate: {
                         gte: now,
@@ -242,8 +241,7 @@ export class ReminderSchedulerService {
             const now = new Date();
             const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const dueMilestones = await (prisma as any).projectMilestone.findMany({
+            const dueMilestones = await prisma.projectMilestone.findMany({
                 where: {
                     dueDate: {
                         gte: now,

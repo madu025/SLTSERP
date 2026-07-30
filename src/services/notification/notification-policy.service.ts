@@ -105,8 +105,7 @@ export class NotificationPolicyService {
             const prisma = (await import('@/lib/prisma')).primaryClient;
             const admins = await prisma.user.findMany({
                 where: {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    role: { in: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] as any }
+                    role: { in: ["SUPER_ADMIN", "ADMIN", "STORES_MANAGER"] as import("@prisma/client").Role[] }
                 },
                 select: { email: true }
             });

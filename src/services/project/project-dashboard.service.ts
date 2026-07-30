@@ -7,7 +7,7 @@ export class ProjectDashboardService {
     
     // Internal helper to get accessible project IDs based on role
     private static async getAccessibleProjectIds(userId: string, userRole: string): Promise<string[]> {
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as import("@prisma/client").Role);
         let accessibleOpmcIds: string[] = [];
 
         if (!isAdmin) {
@@ -34,7 +34,7 @@ export class ProjectDashboardService {
     }
 
     static async getProjectStats(userId: string, userRole: string) {
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as import("@prisma/client").Role);
         const projectIds = await this.getAccessibleProjectIds(userId, userRole);
 
         const projectWhere: Prisma.ProjectWhereInput = {};
@@ -321,7 +321,7 @@ export class ProjectDashboardService {
     }
 
     static async getProjectOverview(userId: string, userRole: string) {
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as import("@prisma/client").Role);
         const projectIds = await this.getAccessibleProjectIds(userId, userRole);
         
         const projectWhere: Prisma.ProjectWhereInput = {};

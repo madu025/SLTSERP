@@ -12,8 +12,7 @@ import { EmailService } from './email.service';
 interface RetryTask {
     id: string;
     type: 'IN_APP' | 'PUSH' | 'EMAIL';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    payload: any;
+    payload: import("@prisma/client").Prisma.JsonObject;
     attempts: number;
     maxAttempts: number;
     nextRetryAt: number;
@@ -60,9 +59,8 @@ export class NotificationRetryService {
                     };
                 }
                 lastError = 'Delivery returned false';
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (error: any) {
-                lastError = error?.message || 'Unknown error';
+            } catch (error: unknown) {
+                lastError = (error instanceof Error ? error.message : "Unknown error") || 'Unknown error';
                 console.warn(`[Retry] Attempt ${attempts}/${maxAttempts} failed for ${deliveryId}:`, lastError);
             }
 
@@ -89,13 +87,10 @@ export class NotificationRetryService {
         userId: string;
         title: string;
         message: string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        type?: any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        priority?: any;
+        type?: string;
+        priority?: string;
         link?: string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        metadata?: any;
+        metadata?: import("@prisma/client").Prisma.JsonObject;
         channels?: ('IN_APP' | 'PUSH' | 'EMAIL')[];
         userEmail?: string;
     }): Promise<DeliveryResult[]> {
@@ -224,10 +219,9 @@ export class NotificationRetryService {
 
                     // Task succeeded - remove from queue
                     this.queue.delete(task.id);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } catch (error: any) {
+                } catch (error: unknown) {
                     task.attempts++;
-                    task.lastError = error?.message;
+                    task.lastError = (error instanceof Error ? error.message : "Unknown error");
                     // Exponential backoff
                     task.nextRetryAt = Date.now() + Math.pow(2, task.attempts) * 5000;
 

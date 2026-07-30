@@ -73,9 +73,8 @@ export class OpmcService {
 
             await this.invalidateCache();
             return opmc;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (error: any) {
-            if (error?.code === 'P2002') {
+        } catch (error: unknown) {
+            if ((error as { code?: string })?.code === 'P2002') {
                 throw AppError.badRequest('OPMC RTOM already exists');
             }
             throw error;
@@ -97,9 +96,8 @@ export class OpmcService {
 
             await this.invalidateCache();
             return opmc;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (error: any) {
-            if (error?.code === 'P2002') {
+        } catch (error: unknown) {
+            if ((error as { code?: string })?.code === 'P2002') {
                 throw AppError.badRequest('RTOM already exists');
             }
             throw error;

@@ -1,0 +1,336 @@
+﻿
+D:\MyProject\SLTSERP\src\services\admin\role.service.ts
+  52:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  71:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  93:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\admin\system.service.ts
+  107:44   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:42   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:94   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:47   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  161:46   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:38   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  165:50   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  180:115  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  189:43   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\audit\index.ts
+  8:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  9:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\automation\index.ts
+  27:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:92  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\core\WorkflowEngine.ts
+    3:10  warning  'ProjectStageInstance' is defined but never used  @typescript-eslint/no-unused-vars
+   71:22  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+   72:27  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+   73:26  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+  324:17  error    Unexpected any. Specify a different type          @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\core\dashboard-alert.service.ts
+   3:10  warning  'AppError' is defined but never used      @typescript-eslint/no-unused-vars
+  16:65  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:30  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\core\report.service.ts
+    3:10  warning  'startOfMonth' is defined but never used  @typescript-eslint/no-unused-vars
+    3:24  warning  'endOfMonth' is defined but never used    @typescript-eslint/no-unused-vars
+  728:18  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\finance\PaymentService.ts
+  11:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\finance\ar-ap.service.ts
+  4:10  warning  'TransactionClient' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\bank-cash.service.ts
+  71:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\finance\billing.service.ts
+  5:10  warning  'LedgerService' is defined but never used  @typescript-eslint/no-unused-vars
+  6:8   warning  'crypto' is defined but never used         @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\bom-invoice.service.ts
+    3:10  warning  'InvoiceGeneratorService' is defined but never used  @typescript-eslint/no-unused-vars
+  327:15  warning  'totalAmount' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\capex-opex-ledger.service.ts
+  2:37  warning  'FinanceBudgetAllocation' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\fx.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\ledger-report.service.ts
+  65:27  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  80:15  warning  'coaMap' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\ledger.service.ts
+   45:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  811:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\finance\osp-ledger.service.ts
+   1:10  warning  'Prisma' is defined but never used        @typescript-eslint/no-unused-vars
+  10:9   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\finance\payroll-expense.service.ts
+  4:10  warning  'TransactionClient' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\period-close.service.ts
+  7:10  warning  'TransactionClient' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\petty-cash.service.ts
+  263:89  warning  'userId' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\finance\tax.service.ts
+  4:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\fleet\RentalPaymentService.ts
+   19:10  warning  'SummaryStatus' is defined but never used  @typescript-eslint/no-unused-vars
+  611:54  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\fleet\TripService.ts
+  300:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\fleet\VehicleLogService.ts
+  211:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  212:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  213:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  253:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  254:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  261:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\gis\GISCandidateScoring.ts
+  253:12  error    Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  592:15  warning  'coveredCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\gis\GISPlanValidator.ts
+  312:11  warning  'excessiveDropSpanCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\gis\GISReconciliationService.ts
+  181:73  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  182:13  error  'coords' is never reassigned. Use 'const' instead  prefer-const
+  213:43  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\gis\GISRoadNetwork.ts
+    45:76  error    Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+    70:11  warning  'centers' is assigned a value but never used   @typescript-eslint/no-unused-vars
+   724:26  warning  'connList' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   770:17  warning  'clKey' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  1080:11  warning  'centers' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\gis\GISRouteService.ts
+    16:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+    17:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   452:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   712:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   861:73  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   902:73  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   990:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1008:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1143:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1200:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\gis\gis-ai.service.ts
+  143:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:67  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\gis\gis-optimizer.service.ts
+   98:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  142:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\gis\route-version.service.ts
+  55:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\gis\types.ts
+  96:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\helpdesk\asset-depreciation.service.ts
+  5:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\helpdesk\helpdesk.service.ts
+    90:19   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   219:101  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   220:53   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   522:50   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   546:48   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1021:14   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1686:76   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1704:66   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1736:103  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1750:70   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1778:80   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1795:70   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1826:79   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1844:69   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\inventory\audit-ledger.service.ts
+  42:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  61:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  68:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  75:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\inventory\cycle-count.service.ts
+   4:10  warning  'Prisma' is defined but never used        @typescript-eslint/no-unused-vars
+  33:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  84:22  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\inventory\dynamic-report.service.ts
+   24:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   24:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   59:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  102:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  134:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  182:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\inventory\material.service.ts
+  2:10  warning  'Prisma' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\inventory\serial-tracking.service.ts
+  41:75  warning  'performedById' is defined but never used  @typescript-eslint/no-unused-vars
+  61:86  warning  'performedById' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\inventory\stock.service.ts
+   66:95   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   88:62   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  101:55   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  128:62   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:101  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  165:62   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  178:60   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  203:62   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  278:59   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  448:46   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  502:22   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\inventory\store-variance-reconciliation.service.ts
+  2:10  warning  'Prisma' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\inventory\transaction.service.ts
+  144:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\inventory\types.ts
+  5:5  warning  'PrismaClient' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\inventory\wastage.service.ts
+   35:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  229:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  270:55  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  274:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  342:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  346:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\invoice.service.ts
+   23:103  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   26:69   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   79:76   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:103  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:53   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  435:61   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  435:91   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\notification\analytics.service.ts
+   80:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\notification\appointment-notification.service.ts
+   4:10  warning  'Prisma' is defined but never used        @typescript-eslint/no-unused-vars
+  56:66  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\notification\notification-policy.service.ts
+  108:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:92  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\notification\push\push.service.ts
+   41:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\notification\reminder-scheduler.service.ts
+  186:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  244:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\notification\retry.service.ts
+   15:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\project\job.service.ts
+    7:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   85:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\project\project-commissioning.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\project\project-dashboard.service.ts
+   10:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  324:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\project\project-hse.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\project\project-inspection.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\project\project-ir-ledger.service.ts
+  3:10  warning  'Prisma' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\project\project-otdr.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\project\project-progress.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\project\project-resource.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\project\project-risk.service.ts
+  2:10  warning  'AppError' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\sf-audit\pricing-audit.service.ts
+  85:13  error  'count' is never reassigned. Use 'const' instead  prefer-const
+
+D:\MyProject\SLTSERP\src\services\slt\opmc.service.ts
+  76:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  99:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\sod\completed-sod-sync.service.ts
+  6:44  warning  'subMonths' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\MyProject\SLTSERP\src\services\sod\sod-dashboard.service.ts
+   37:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  250:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  251:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  252:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  253:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  254:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  368:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\MyProject\SLTSERP\src\services\sod\sod.sync.service.ts
+  15:16  warning  'safeSync' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 198 problems (156 errors, 42 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

@@ -407,3 +407,7 @@ To ensure maximum agent autonomy, flawless execution, and enterprise-grade outpu
       budget. If it's clear the goal cannot be completed in the current session, it must save 
       progress to the checkpoint file (Rule 8) and clearly tell the user how much is left, 
       rather than rushing the remainder with lower quality.
+
+## ?? Strict Type Generation Standard
+1. **Zero ny Workaround Tolerance**: The use of ny or unknown as a lazy fallback is strictly prohibited. If a specific Prisma generated type (e.g. Prisma.UserGetPayload<{...}>) or a custom interface (e.g. DTO) is missing, the agent MUST explicitly create it or import it from @prisma/client.
+2. **Proactive Type Creation**: Never suppress type errors with @typescript-eslint/no-explicit-any. Instead, stop and define the exact interface required for the payload. If you encounter a complex Prisma relation, use Prisma's Prisma.PromiseReturnType<typeof function> or Prisma.ModelGetPayload utility types to dynamically infer the shape.

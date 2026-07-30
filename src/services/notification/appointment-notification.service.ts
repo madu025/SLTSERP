@@ -53,8 +53,7 @@ export class AppointmentNotificationService {
                 
                 // Filter appointments matching user OPMC visibility in-memory
                 const userAppointments = allAppointments.filter(sod => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    if (ROLE_GROUPS.ADMINS.includes(user.role as any)) {
+                    if (ROLE_GROUPS.ADMINS.includes(user.role as import("@prisma/client").Role)) {
                         return true;
                     }
                     return sod.opmcId && opmcIds.has(sod.opmcId);

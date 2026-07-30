@@ -86,8 +86,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
+                    batch: { unitPrice: 0, costPrice: 0 } as import("@prisma/client").InventoryBatch
                 });
             } else {
                 throw AppError.badRequest(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
@@ -100,8 +99,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available store batches list in-memory using FIFO
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static pickStoreBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickStoreBatchesFIFOBulk(availableBatches: import("@prisma/client").InventoryBatch[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         // Filter batches for this itemId in memory
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
@@ -128,8 +126,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
+                    batch: { unitPrice: 0, costPrice: 0 } as import("@prisma/client").InventoryBatch
                 });
             } else {
                 throw AppError.badRequest(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
@@ -144,8 +141,7 @@ export class StockService {
      */
     static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const batches = await ContractorRepository.findAvailableBatches(contractorId, itemId, tx as any);
+        const batches = await ContractorRepository.findAvailableBatches(contractorId, itemId, tx as import("@prisma/client").Prisma.TransactionClient);
 
         const pickedBatches: PickedBatch[] = [];
         let remainingToPick = qtyToPick;
@@ -167,8 +163,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
+                    batch: { unitPrice: 0, costPrice: 0 } as import("@prisma/client").InventoryBatch
                 });
             } else {
                 throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
@@ -181,8 +176,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available contractor batches list in-memory using FIFO
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static pickContractorBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickContractorBatchesFIFOBulk(availableBatches: import("@prisma/client").ContractorMaterialBatch[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
 
@@ -207,8 +201,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
+                    batch: { unitPrice: 0, costPrice: 0 } as import("@prisma/client").InventoryBatch
                 });
             } else {
                 throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
@@ -283,8 +276,7 @@ export class StockService {
                     referenceId: `INIT-STOCK-${Date.now()}`,
                     notes: reason || 'Initial Stock Setup',
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        create: transactionItems.map((ti: any) => ({
+                        create: transactionItems.map((ti: import("@prisma/client").InventoryTransactionItem) => ({
                             itemId: ti.itemId,
                             quantity: ti.quantity
                         }))
@@ -454,8 +446,7 @@ export class StockService {
                 recipientName,
                 remarks: remarks || null,
                 items: {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    create: items.map((item: any) => ({
+                    create: items.map((item: { itemId: string, quantity: number, unitPrice: number, costPrice: number }) => ({
                         itemId: item.itemId,
                         quantity: parseFloat(item.quantity.toString()),
                         remarks: item.remarks || null
@@ -509,8 +500,7 @@ export class StockService {
     static async getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }) {
         const { storeId, itemId, search, staffId } = filters;
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const where: any = {};
+        const where: import("@prisma/client").Prisma.ContractorMaterialIssueWhereInput = {};
         
         if (storeId) where.storeId = storeId;
         if (itemId) where.itemId = itemId;

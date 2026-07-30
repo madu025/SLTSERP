@@ -104,8 +104,7 @@ export class AdminSystemService {
      * Get system sync stats
      */
     static async getSyncStats() {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const syncStats = await (prisma as any).systemSetting.findUnique({
+        const syncStats = await prisma.systemSetting.findUnique({
             where: { key: 'LAST_SYNC_STATS' }
         });
 
@@ -118,8 +117,7 @@ export class AdminSystemService {
             };
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const stats = syncStats.value as any;
+        const stats = syncStats.value as { lastSyncTriggered?: string; lastSync?: string };
         const lastSync = stats.lastSyncTriggered || stats.lastSync || new Date().toISOString();
         const lastSyncDate = new Date(lastSync);
         const nextSyncDate = new Date(lastSyncDate.getTime() + 30 * 60 * 1000); // 30 minutes later
@@ -144,11 +142,9 @@ export class AdminSystemService {
     /**
      * Get table column settings
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static async getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, any[]> = {}) {
+    static async getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, { key: string; required?: boolean }[]> = {}) {
         if (tableName) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const settings = await (prisma as any).tableColumnSettings.findUnique({
+            const settings = await prisma.tableColumnSettings.findUnique({
                 where: { tableName }
             });
 
@@ -162,14 +158,11 @@ export class AdminSystemService {
             };
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const allSettings = await (prisma as any).tableColumnSettings.findMany();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result: Record<string, any> = {};
+        const allSettings = await prisma.tableColumnSettings.findMany();
+        const result: Record<string, { columns: string[]; available: { key: string; required?: boolean }[] }> = {};
 
         for (const tableKey of Object.keys(tableColumnsDef)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const setting = allSettings.find((s: any) => s.tableName === tableKey);
+            const setting = allSettings.find((s: import("@prisma/client").TableColumnSettings) => s.tableName === tableKey);
             const availableColumns = tableColumnsDef[tableKey];
             result[tableKey] = {
                 tableName: tableKey,
@@ -184,8 +177,7 @@ export class AdminSystemService {
     /**
      * Update table column settings
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static async updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, any[]>) {
+    static async updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, { key: string; required?: boolean }[]>) {
         const tableColumns = tableColumnsDef[tableName];
         if (!tableColumns) {
             throw AppError.badRequest('Invalid table name');
@@ -194,8 +186,7 @@ export class AdminSystemService {
         const requiredColumns = tableColumns.filter(c => c.required).map(c => c.key);
         const finalColumns = [...new Set([...requiredColumns, ...visibleColumns])];
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const settings = await (prisma as any).tableColumnSettings.upsert({
+        const settings = await prisma.tableColumnSettings.upsert({
             where: { tableName },
             update: { columns: JSON.stringify(finalColumns) },
             create: { tableName, columns: JSON.stringify(finalColumns) }

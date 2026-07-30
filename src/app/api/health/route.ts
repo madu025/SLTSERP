@@ -27,7 +27,7 @@ export const GET = apiHandler(async () => {
         // Collect Pool Metrics (Prisma Metrics if enabled)
         try {
             if ('$metrics' in prisma) {
-                const metrics = await (prisma as any).$metrics.json();
+                const metrics = await prisma.$metrics.json();
                 const counters = metrics?.counters || [];
                 health.monitoring.pool = {
                     active: counters.find((c: any) => c.name === 'prisma_client_queries_active')?.value || 0,

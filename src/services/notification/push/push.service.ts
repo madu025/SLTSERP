@@ -38,8 +38,7 @@ export interface PushNotificationPayload {
         url?: string;
         notificationId?: string;
         type?: string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        [key: string]: any;
+        [key: string]: unknown;
     };
     actions?: Array<{ action: string; title: string; icon?: string }>;
     requireInteraction?: boolean;
@@ -136,8 +135,7 @@ export class PushNotificationService {
                         pushPayload,
                     );
                     success++;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } catch (error: any) {
+                } catch (error: unknown) {
                     // If subscription is expired/unsubscribed, remove it
                     if (error.statusCode === 410 || error.statusCode === 404) {
                         await this.removeSubscription(userId, sub.endpoint);
