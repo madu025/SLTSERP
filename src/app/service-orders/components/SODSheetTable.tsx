@@ -804,7 +804,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                 <tbody className="divide-y divide-border/25">
                     {filteredAndSortedOrders.length > 0 ? (
                         filteredAndSortedOrders.map((order, index) => {
-                            const sla = filterType === "pending" ? getSlaAgingBadge(order.receivedDate) : null;
+                            const sla = (filterType === "pending" || filterType === "disappeared") ? getSlaAgingBadge(order.receivedDate) : null;
                             const rowBg = sla?.rowClassName || '';
                             const stickyBg = sla?.rowClassName ? 'bg-inherit' : 'bg-card';
                             
@@ -1040,7 +1040,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 )}
 
                                 {/* PENDING / DISPATCH VIEW */}
-                                {filterType === "pending" && (
+                                {(filterType === "pending" || filterType === "disappeared") && (
                                     <>
                                         {/* Customer Details */}
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
