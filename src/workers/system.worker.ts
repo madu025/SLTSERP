@@ -3,7 +3,7 @@ process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
 import { QUEUE_NAMES } from '../lib/queue';
-import { AutomationService } from '../services/automation.service';
+import { AutomationService } from '../services/automation/automation.service';
 
 /**
  * System Worker

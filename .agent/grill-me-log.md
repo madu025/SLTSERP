@@ -16,3 +16,19 @@
 | **7** | 🔵 **Future Roadmap** | Automated multi-tier retention release schedule linked to DLP milestones | 📊 CFO | SAP S/4HANA Contract Liabilities | High (~3-5 days). Out of scope for initial release. | **Logged for Future** |
 
 ---
+
+## Grill-Me Session Log — Full-Project Hardcode Audit & Automated CLI Scanner
+
+**Date**: 2026-07-29  
+**Scope**: Complete Codebase Hardcode Detection, Fallback Credential Elimination & Automated Hardcode Audit CLI (`npm run audit:hardcode`)
+
+### Consolidated 5-Perspective Review Table
+
+| # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | 🔴 **Must-Have** | Build automated CLI Hardcode Audit Script (`scripts/audit-hardcode.ts` + `npm run audit:hardcode`) to scan `src/` for 5 key categories (credentials, localhost URLs, magic enums, hardcoded IDs, financial constants) | 👨💻 Architect & ⚡ DevOps | SonarQube / ESLint Security AST rules | Low (~30 mins). Negligible runtime overhead; runs on-demand or pre-commit. | **Auto-Adopted** |
+| **2** | 🔴 **Must-Have** | Remove hardcoded fallback credentials (`'admin'`/`'admin'`) in `qfieldcloud-sync.service.ts` and require strict env variables via Zod env validator | 🧪 QA & Security | OWASP Top 10 Hardcoded Credentials Prevention | Low (~10 mins). Requires `.env` to be populated in dev. | **Auto-Adopted** |
+| **3** | 🔴 **Must-Have** | Replace hardcoded `http://localhost:3000` / `8100` fallback strings in workers & services with centralized `getAppUrl()` environment helper | ⚡ DevOps Eng. | 12-Factor App Config Standard | Low (~10 mins). Prevents broken URLs in Vercel/Docker production. | **Auto-Adopted** |
+| **4** | 🟡 **Should-Have** | Enforce AST-level ESLint custom rule (`no-hardcoded-strings-in-services`) in CI build pipeline | 👨💻 Architect | Enterprise Monorepo Governance | Medium (~45 mins). Slightly increases CI build lint duration (+2s). | **Pending User Approval** |
+| **5** | 🔵 **Future Roadmap** | Real-time Git pre-commit hook enforcing zero-hardcode policy via Husky/lint-staged | ⚡ DevOps Eng. | GitHub Enterprise Security Shield | Medium (~1 hour). Requires local developer workstation Git hook configuration. | **Logged for Future** |
+

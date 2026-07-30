@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ContractorKPIService } from '@/services/contractor-kpi.service';
+import { ContractorKPIService } from '@/services/contractor/contractor-kpi.service';
 
 import { AppError } from '@/lib/error';
 import { z } from 'zod';

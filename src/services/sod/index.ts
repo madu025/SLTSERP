@@ -254,7 +254,7 @@ export class ServiceOrderService {
         // 6. Audit Logging
         if (userId) {
             try {
-                const { AuditService } = await import('../audit.service');
+                const { AuditService } = await import('@/services/audit/audit.service');
                 await AuditService.log({
                     userId,
                     action: 'PATCH_UPDATE',

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GISAutoPlanService, PlannedClosure } from '@/services/GISAutoPlanService';
+import { GISAutoPlanService, PlannedClosure } from '@/services/gis/GISAutoPlanService';
 import { safe } from '@/utils/safe-await.util';
 
 export async function POST(req: NextRequest) {

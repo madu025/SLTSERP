@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectSupervisorService } from '@/services/project-supervisor.service';
+import { ProjectSupervisorService } from '@/services/project/project-supervisor.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

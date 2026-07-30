@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectIRLedgerService } from '@/services/project-ir-ledger.service';
+import { ProjectIRLedgerService } from '@/services/project/project-ir-ledger.service';
 import { ROLE_GROUPS } from "@/config/roles";
 
 // GET: Fetch IR Ledger entries

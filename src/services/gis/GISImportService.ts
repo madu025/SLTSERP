@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { prisma } from '@/lib/prisma';
-import { WorkflowEngine } from '../WorkflowEngine';
+import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { randomUUID } from 'crypto';
 import { gisParser } from '@/lib/gis/gis-parser';
 import { gisValidator } from '@/lib/gis/gis-validator';
@@ -133,7 +133,7 @@ function getDefaultApprovals(): DefaultApprovalLevel[] {
 // ============================================================================
 
 // Global session store using globalThis to survive Turbopack HMR
-const _global = globalThis as typeof globalThis & { __gisSessions?: Map<string, import('./GISImportService').GISUploadSession> };
+const _global = globalThis as typeof globalThis & { __gisSessions?: Map<string, import('@/services/gis/GISImportService').GISUploadSession> };
 if (!_global.__gisSessions) _global.__gisSessions = new Map();
 
 export class GISImportService {

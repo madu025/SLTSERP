@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
-import { SoftwareLicenseService } from "@/services/software-license.service";
+import { SoftwareLicenseService } from "@/services/core/software-license.service";
 import { CreateSoftwareLicenseAssignmentSchema } from "@/lib/validations/helpdesk.schema";
 
 export const dynamic = 'force-dynamic';

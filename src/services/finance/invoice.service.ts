@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
-import { AuditService } from '@/services/audit.service';
+import { AuditService } from '@/services/audit/audit.service';
 
 export interface GetInvoicesParams {
     page?: number;

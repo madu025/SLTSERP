@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
-import { NotificationService, AppointmentNotificationService } from '@/services/notification.service';
-import { OpmcService } from '@/services/opmc.service';
+import { NotificationService, AppointmentNotificationService } from '@/services/notification/notification.service';
+import { OpmcService } from '@/services/slt/opmc.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

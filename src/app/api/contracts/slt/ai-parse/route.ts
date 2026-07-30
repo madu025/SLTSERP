@@ -1,4 +1,4 @@
-import { extractContractDataFromPdfText } from '@/services/slt-contract-pdf-parser';
+import { extractContractDataFromPdfText } from '@/services/slt/slt-contract-pdf-parser';
 import { apiHandler } from '@/lib/api-handler';
 import { ROLE_GROUPS } from '@/config/roles';
 import fs from 'fs';

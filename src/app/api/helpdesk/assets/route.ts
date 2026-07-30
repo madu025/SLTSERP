@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
-import { HelpdeskService } from "@/services/helpdesk.service";
+import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { CreateAssetSchema } from "@/lib/validations/helpdesk.schema";
 import { ITDeviceType, ITAssetStatus } from "@prisma/client";
 

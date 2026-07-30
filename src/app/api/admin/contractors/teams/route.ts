@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ContractorService } from '@/services/contractor.service';
+import { ContractorService } from '@/services/contractor/contractor.service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

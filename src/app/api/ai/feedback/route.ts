@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { NexusClassifierService } from '@/services/nexus-classifier.service';
+import { NexusClassifierService } from '@/services/ai/nexus-classifier.service';
 import { z } from 'zod';
 
 const feedbackSchema = z.object({

@@ -1,0 +1,61 @@
+model ProcessGatePolicy {
+  id         String  @id @default(cuid())
+  entityType String // "SOD", "PROJECT", "INVOICE", "STOCK_TRANSFER", "MRN", "GRN", "PURCHASE_ORDER"
+  fromStatus String // "COMPLETED", "DRAFT", "PENDING"
+  toStatus   String // "INVOICABLE", "APPROVED", "ISSUED"
+  label      String // e.g. "SOD Invoicable Verification Gate"
+  isEnabled  Boolean @default(true)
+
+  // Dynamic Verification Checkboxes
+  reqOpmcPat     Boolean @default(false)
+  reqHoPat       Boolean @default(false)
+  reqSltsPat     Boolean @default(false)
+  reqPhotoProof  Boolean @default(false)
+  reqGpsLocation Boolean @default(false)
+  reqDocUpload   Boolean @default(false)
+
+  // Audit & Ledger Rules
+  writeAuditLedger  Boolean @default(true)
+  generateIssueNote Boolean @default(false)
+
+  approvalLevels ProcessApprovalLevel[]
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityType, fromStatus, toStatus])
+}
+
+model ProcessApprovalLevel {
+  id             String   @id @default(cuid())
+  gatePolicyId   String
+  level          Int // 1, 2, 3...
+  requiredRole   String // e.g. "ENGINEER", "AREA_MANAGER", "FINANCE_MANAGER"
+  specificUserId String? // Optional specific user assignment
+  description    String? // Instructions for approver
+  minAmount      Decimal? // Condition: Only apply if amount >= X
+  maxAmount      Decimal? // Condition: Only apply if amount <= X
+
+  gatePolicy   ProcessGatePolicy @relation(fields: [gatePolicyId], references: [id], onDelete: Cascade)
+  specificUser User?             @relation(fields: [specificUserId], references: [id])
+
+  @@index([gatePolicyId, level])
+}
+
+model UniversalApprovalInstance {
+  id             String    @id @default(cuid())
+  entityType     String // "SOD", "INVOICE", "STOCK_ISSUE"
+  entityId       String // The ID of the SOD, Invoice, etc.
+  level          Int
+  requiredRole   String
+  assignedUserId String?
+  status         String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  actionedById   String?
+  actionedAt     DateTime?
+  comments       String?
+  createdAt      DateTime  @default(now())
+
+  assignedUser User? @relation("UniversalApprovalAssignee", fields: [assignedUserId], references: [id])
+  actionedBy   User? @relation("UniversalApprovalActioner", fields: [actionedById], references: [id])
+
+  @@index([entityType, entityId])
+}

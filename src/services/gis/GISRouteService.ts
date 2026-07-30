@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { GISAuditService } from './gis-audit.service';
+import { GISAuditService } from '@/services/gis/gis-audit.service';
 import { updateProgressOnBOQGenerate } from '@/lib/project-progress';
 import { BOQEngine } from '@/lib/gis/boq-engine';
 import { GISAIService } from '@/services/gis/gis-ai.service';

@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { SLTContractService } from '@/services/slt-contract.service';
+import { SLTContractService } from '@/services/slt/slt-contract.service';
 
 export const dynamic = 'force-dynamic';
 

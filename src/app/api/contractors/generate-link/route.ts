@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { ContractorService } from '@/services/contractor.service';
+import { ContractorService } from '@/services/contractor/contractor.service';
 import { AppError, ErrorCode } from '@/lib/error';
 import { registrationInviteSchema, RegistrationInviteSchema } from '@/lib/validations/contractor.schema';
 

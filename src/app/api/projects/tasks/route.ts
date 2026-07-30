@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectTaskService } from '@/services/project-task.service';
+import { ProjectTaskService } from '@/services/project/project-task.service';
 
 export const dynamic = 'force-dynamic';
 

@@ -3,7 +3,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { MRN, Prisma } from '@prisma/client';
-import { NotificationService } from '../notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 import { emitSystemEvent } from '@/lib/events';
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';

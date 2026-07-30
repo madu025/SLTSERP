@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GISAutoPlanService } from '@/services/GISAutoPlanService';
+import { GISAutoPlanService } from '@/services/gis/GISAutoPlanService';
 import { GISDataExtractor } from '@/services/gis/GISDataExtractor';
 import { GISRoadNetwork } from '@/services/gis/GISRoadNetwork';
 import { GISGeometry } from '@/services/gis/GISGeometry';

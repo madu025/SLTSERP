@@ -1,6 +1,6 @@
 'use server';
 
-import { ContractorService, ContractorUpdateData } from '@/services/contractor.service';
+import { ContractorService, ContractorUpdateData } from '@/services/contractor/contractor.service';
 import { requireAuth } from '@/lib/server-utils';
 import { revalidatePath } from 'next/cache';
 

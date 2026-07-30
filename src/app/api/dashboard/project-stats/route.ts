@@ -1,4 +1,4 @@
-import { ProjectDashboardService } from '@/services/project-dashboard.service';
+import { ProjectDashboardService } from '@/services/project/project-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 

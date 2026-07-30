@@ -2,7 +2,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { CompletedSODSyncService } from '@/services/completed-sod-sync.service';
+import { CompletedSODSyncService } from '@/services/sod/completed-sod-sync.service';
 import { z } from 'zod';
 
 const SyncSchema = z.object({

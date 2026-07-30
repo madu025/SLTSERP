@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { rateLimit, getClientIp } from '@/lib/agent-auth';
-import { AgentSyncService } from '@/services/agent-sync.service';
+import { AgentSyncService } from '@/services/core/agent-sync.service';
 import { z } from 'zod';
 import { NextResponse } from 'next/server';
 

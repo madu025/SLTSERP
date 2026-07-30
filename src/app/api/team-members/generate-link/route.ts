@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { TeamMemberService } from '@/services/team-member.service';
+import { TeamMemberService } from '@/services/hr/team-member.service';
 import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (_request, _params, body) => {

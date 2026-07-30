@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { BankService } from '@/services/bank.service';
+import { BankService } from '@/services/finance/bank.service';
 
 export const GET = apiHandler(async () => {
     const branches = await BankService.getAllBranches();

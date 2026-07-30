@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectChangeOrderService } from '@/services/project-change-order.service';
+import { ProjectChangeOrderService } from '@/services/project/project-change-order.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

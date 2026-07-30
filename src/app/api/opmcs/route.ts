@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler, castBody } from '@/lib/api-handler';
-import { OpmcService } from '@/services/opmc.service';
+import { OpmcService } from '@/services/slt/opmc.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

@@ -1,4 +1,4 @@
-import { prisma, primaryClient } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 
 export interface LogErrorInput {
@@ -30,7 +30,7 @@ export class SystemMonitoringService {
      */
     static async logError(input: LogErrorInput) {
         try {
-            return await (primaryClient as any).systemErrorLog.create({
+            return await prisma.systemErrorLog.create({
                 data: {
                     statusCode: input.statusCode || 500,
                     errorCode: input.errorCode || 'INTERNAL_ERROR',
@@ -83,13 +83,13 @@ export class SystemMonitoringService {
         }
 
         const [logs, total] = await prisma.$transaction([
-            (primaryClient as any).systemErrorLog.findMany({
+            prisma.systemErrorLog.findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit
             }),
-            (primaryClient as any).systemErrorLog.count({ where })
+            prisma.systemErrorLog.count({ where })
         ]);
 
         return {
@@ -108,7 +108,7 @@ export class SystemMonitoringService {
      */
     static async markResolved(errorId: string, userId: string) {
         try {
-            return await (primaryClient as any).systemErrorLog.update({
+            return await prisma.systemErrorLog.update({
                 where: { id: errorId },
                 data: {
                     resolved: true,
@@ -131,7 +131,7 @@ export class SystemMonitoringService {
         const thresholdDate = new Date();
         thresholdDate.setDate(thresholdDate.getDate() - daysToKeep);
 
-        const result = await (primaryClient as any).systemErrorLog.deleteMany({
+        const result = await prisma.systemErrorLog.deleteMany({
             where: {
                 OR: [
                     { resolved: true },
@@ -171,13 +171,13 @@ export class SystemMonitoringService {
         const past24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
         const [totalErrors24h, unresolvedCount, topFailingEndpoints] = await Promise.all([
-            (primaryClient as any).systemErrorLog.count({
+            prisma.systemErrorLog.count({
                 where: { createdAt: { gte: past24Hours } }
             }),
-            (primaryClient as any).systemErrorLog.count({
+            prisma.systemErrorLog.count({
                 where: { resolved: false }
             }),
-            (primaryClient as any).systemErrorLog.groupBy({
+            prisma.systemErrorLog.groupBy({
                 by: ['path'],
                 where: { createdAt: { gte: past24Hours } },
                 _count: { _all: true },

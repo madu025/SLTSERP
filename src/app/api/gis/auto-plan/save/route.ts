@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { primaryClient } from '@/lib/prisma';
-import { ProjectSurveyService } from '@/services/project-survey.service';
-import { type PlannedPole, type PlannedClosure, type PlannedCable } from '@/services/GISAutoPlanService';
+import { ProjectSurveyService } from '@/services/project/project-survey.service';
+import { type PlannedPole, type PlannedClosure, type PlannedCable } from '@/services/gis/GISAutoPlanService';
 
 import { safe } from '@/utils/safe-await.util';
 

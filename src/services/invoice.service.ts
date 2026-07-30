@@ -664,7 +664,7 @@ export class InvoiceService {
      * Approve invoice by SF Audit section
      */
     static async approveBySfAudit(invoiceId: string, userId: string) {
-        const { AuditService } = await import('@/services/audit.service');
+        const { AuditService } = await import('@/services/audit/audit.service');
 
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import { AutoBOQService } from '@/services/auto-boq.service';
+import { AutoBOQService } from '@/services/project/auto-boq.service';
 
 export class ProjectBOQApprovalService {
     /**

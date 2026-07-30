@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod.service';
+import { ServiceOrderService } from '@/services/sod/sod.service';
 import { AppError } from '@/lib/error';
 
 /**
@@ -28,7 +28,7 @@ export const GET = apiHandler(async (req) => {
     const runDailyTasks = searchParams.get('tasks') === 'daily';
 
     if (runDailyTasks) {
-        const { AutomationService } = await import('@/services/automation.service');
+        const { AutomationService } = await import('@/services/automation/automation.service');
         automationResults = await AutomationService.runAllDailyTasks();
     }
 

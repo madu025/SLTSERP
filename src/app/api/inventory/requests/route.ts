@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { InventoryService } from '@/services/inventory.service';
+import { InventoryService } from '@/services/inventory/inventory.service';
 import { createStockRequest, processStockRequestAction } from '@/actions/inventory-actions';
 
 export const dynamic = 'force-dynamic';

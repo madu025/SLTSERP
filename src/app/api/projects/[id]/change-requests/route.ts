@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ChangeRequestService } from '@/services/change-request.service';
+import { ChangeRequestService } from '@/services/project/change-request.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 

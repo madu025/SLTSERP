@@ -2,7 +2,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { UserService } from '@/services/user.service';
+import { UserService } from '@/services/hr/user.service';
 import { z } from 'zod';
 
 const assignSectionSchema = z.object({

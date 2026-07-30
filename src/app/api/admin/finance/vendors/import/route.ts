@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { VendorService } from '@/services/vendor.service';
+import { VendorService } from '@/services/finance/vendor.service';
 import { z } from 'zod';
 
 const importVendorSchema = z.array(z.object({

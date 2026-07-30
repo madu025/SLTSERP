@@ -1,4 +1,4 @@
-import VehicleService from '@/services/VehicleService';
+import VehicleService from '@/services/fleet/VehicleService';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 

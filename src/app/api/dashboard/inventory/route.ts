@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
-import { DashboardService } from '@/services/dashboard.service';
+import { DashboardService } from '@/services/core/dashboard.service';
 
 export const dynamic = 'force-dynamic';
 

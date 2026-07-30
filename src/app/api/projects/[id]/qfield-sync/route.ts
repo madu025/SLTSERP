@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { QFieldCloudSyncService } from '@/services/qfieldcloud-sync.service';
+import { QFieldCloudSyncService } from '@/services/gis/qfieldcloud-sync.service';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 import { qfieldSyncSchema, QFieldSyncSchema } from '@/lib/validations/gis.schema';
 

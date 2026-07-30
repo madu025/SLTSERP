@@ -1,4 +1,4 @@
-import { SODDetailsScraper } from '@/services/sod-scraper.service';
+import { SODDetailsScraper } from '@/services/sod/sod-scraper.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 

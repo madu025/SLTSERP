@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import VehicleLogService from '@/services/VehicleLogService';
-import VehicleService from '@/services/VehicleService';
+import VehicleLogService from '@/services/fleet/VehicleLogService';
+import VehicleService from '@/services/fleet/VehicleService';
 import { startLogSchema, endLogSchema, StartLogSchema, EndLogSchema } from '@/lib/validations/vehicle.schema';
 import { VehicleLog } from '@/types/vehicle-management.types';
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodSchema } from 'zod';
 import { AppError, ErrorCode } from './error';
-import { AuditService } from '@/services/audit.service';
+import { AuditService } from '@/services/audit/audit.service';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 import { requestContext } from './request-context';
 import { logger } from './logger';

@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
-import { AuditService } from '../audit.service';
+import { AuditService } from '@/services/audit/audit.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { TransactionClient } from './types';
 import { LedgerService } from '../finance/ledger.service';

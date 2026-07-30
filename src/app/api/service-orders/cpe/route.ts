@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { CpeService } from '@/services/cpe.service';
+import { CpeService } from '@/services/inventory/cpe.service';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

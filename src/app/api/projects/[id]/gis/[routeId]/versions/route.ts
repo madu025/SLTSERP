@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { RouteVersionService } from '@/services/route-version.service';
+import { RouteVersionService } from '@/services/gis/route-version.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 

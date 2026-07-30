@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import PaymentService from '@/services/PaymentService';
+import PaymentService from '@/services/finance/PaymentService';
 import { z } from 'zod';
 
 const receiptSchema = z.object({

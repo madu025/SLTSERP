@@ -1,6 +1,6 @@
 'use server';
 
-import { InventoryService } from '@/services/inventory.service';
+import { InventoryService } from '@/services/inventory/inventory.service';
 import { requireAuth } from '@/lib/server-utils';
 import { revalidatePath } from 'next/cache';
 

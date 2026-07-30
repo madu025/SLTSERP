@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { NexusAlertsService } from '@/services/nexus-alerts.service';
+import { NexusAlertsService } from '@/services/ai/nexus-alerts.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 

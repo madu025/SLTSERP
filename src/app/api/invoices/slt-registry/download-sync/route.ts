@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
-import { SLTPortalAuthService } from '@/services/slt-portal-auth.service';
+import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 import { requestContext } from '@/lib/request-context';

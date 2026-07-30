@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { InventoryService } from '@/services/inventory.service';
+import { InventoryService } from '@/services/inventory/inventory.service';
 import { grnSchema } from '@/lib/validations/inventory.schema';
 
 // POST: Create a new GRN

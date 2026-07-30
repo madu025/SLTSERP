@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { MaterialService } from '@/services/material.service';
+import { MaterialService } from '@/services/inventory/material.service';
 import { z } from 'zod';
 
 const generateSchema = z.object({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { primaryClient } from '@/lib/prisma';
-import { GISAutoPlanService } from '@/services/GISAutoPlanService';
-import { ProjectSurveyService } from '@/services/project-survey.service';
+import { GISAutoPlanService } from '@/services/gis/GISAutoPlanService';
+import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { requireAuth } from '@/lib/server-utils';
 
 import { safe } from '@/utils/safe-await.util';

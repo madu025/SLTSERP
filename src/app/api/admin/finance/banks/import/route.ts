@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { BankService } from '@/services/bank.service';
+import { BankService } from '@/services/finance/bank.service';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

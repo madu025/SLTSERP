@@ -11,7 +11,7 @@ import {
   Info,
   BrainCircuit
 } from 'lucide-react';
-import { type AutoPlanResult } from '@/services/GISAutoPlanService';
+import { type AutoPlanResult } from '@/services/gis/GISAutoPlanService';
 import { type ComplianceReport, type OSPReasoningStep, type AuditViolation } from '../utils/mapAuditor';
 
 interface OSPLayoutSummary {

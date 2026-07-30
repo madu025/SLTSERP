@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { SLTContractService, CreateAmendmentInput } from '@/services/slt-contract.service';
+import { SLTContractService, CreateAmendmentInput } from '@/services/slt/slt-contract.service';
 import { z } from 'zod';
 
 const createAmendmentSchema = z.object({

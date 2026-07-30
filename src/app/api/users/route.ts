@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { UserService, CreateUserData, UpdateUserData } from '@/services/user.service';
+import { UserService, CreateUserData, UpdateUserData } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

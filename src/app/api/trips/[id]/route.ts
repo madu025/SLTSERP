@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import TripService from '@/services/TripService';
+import TripService from '@/services/fleet/TripService';
 import { Trip } from '@/types/vehicle-management.types';
 
 /**

@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { WorkflowEngine } from '@/services/WorkflowEngine';
+import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { calculateProjectProgress } from '@/lib/project-progress';
 
 interface ProjectFilters {
@@ -361,7 +361,7 @@ export class ProjectService {
             const qfieldProjectId = gisMapping?.qfieldProjectId as string;
             if (qfieldProjectId) {
                 try {
-                    const { QFieldCloudSyncService } = await import('@/services/qfieldcloud-sync.service');
+                    const { QFieldCloudSyncService } = await import('@/services/gis/qfieldcloud-sync.service');
                     const syncService = new QFieldCloudSyncService();
                     await syncService.deleteQFieldProject(qfieldProjectId);
                     console.log(`✅ Automatically removed QFieldCloud project ${qfieldProjectId} because project ${id} was marked as COMPLETED.`);
@@ -395,7 +395,7 @@ export class ProjectService {
             const qfieldProjectId = gisMapping?.qfieldProjectId as string;
             if (qfieldProjectId) {
                 try {
-                    const { QFieldCloudSyncService } = await import('@/services/qfieldcloud-sync.service');
+                    const { QFieldCloudSyncService } = await import('@/services/gis/qfieldcloud-sync.service');
                     const syncService = new QFieldCloudSyncService();
                     await syncService.deleteQFieldProject(qfieldProjectId);
                     console.log(`✅ Deleted QFieldCloud project ${qfieldProjectId} for deleted project ${id}`);
@@ -540,7 +540,7 @@ export class ProjectService {
         // Generate final as-built automatically
         if (finalAsBuiltGenerated !== false) {
             try {
-                const { AsBuiltService } = await import('@/services/as-built.service');
+                const { AsBuiltService } = await import('@/services/project/as-built.service');
                 await AsBuiltService.generateQGIS(projectId);
             } catch (e) {
                 console.warn('Final as-built generation skipped:', e);
@@ -550,7 +550,7 @@ export class ProjectService {
         // Calculate final KPI for contractor
         if (project.contractorId) {
             try {
-                const { ContractorKPIService } = await import('@/services/contractor-kpi.service');
+                const { ContractorKPIService } = await import('@/services/contractor/contractor-kpi.service');
                 await ContractorKPIService.calculateMonthlyScore(
                     project.contractorId,
                     new Date().toISOString().substring(0, 7),

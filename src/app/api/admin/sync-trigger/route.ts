@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod.service';
+import { ServiceOrderService } from '@/services/sod/sod.service';
 
 // This endpoint allows admins to manually trigger the sync process
 export const POST = apiHandler(async () => {

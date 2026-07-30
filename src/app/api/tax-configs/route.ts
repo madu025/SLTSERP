@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { TaxConfigService } from '@/services/tax-config.service';
+import { TaxConfigService } from '@/services/finance/tax-config.service';
 import { AppError } from '@/lib/error';
 import { TaxTypeEnum } from '@prisma/client';
 

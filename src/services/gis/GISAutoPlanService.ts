@@ -12,7 +12,7 @@ import { GISGeometry } from './GISGeometry';
 import { GISRoadNetwork } from './GISRoadNetwork';
 import { GISCandidateScoring } from './GISCandidateScoring';
 import { GISPolePlacement } from './GISPolePlacement';
-import { GISGeoPackageService } from './GISGeoPackageService';
+import { GISGeoPackageService } from '@/services/gis/GISGeoPackageService';
 import { GISDataExtractor } from './GISDataExtractor';
 import { GISPlanValidator } from './GISPlanValidator';
 import { safe } from '@/utils/safe-await.util';

@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { GISAuditService } from '@/services/gis-audit.service';
+import { GISAuditService } from '@/services/gis/gis-audit.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

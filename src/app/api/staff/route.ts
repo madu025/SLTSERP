@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { StaffService, CreateStaffInput, UpdateStaffInput } from '@/services/staff.service';
+import { StaffService, CreateStaffInput, UpdateStaffInput } from '@/services/hr/staff.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

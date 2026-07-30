@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectPurchaseOrderService } from '@/services/project-purchase-order.service';
+import { ProjectPurchaseOrderService } from '@/services/project/project-purchase-order.service';
 
 export const dynamic = 'force-dynamic';
 

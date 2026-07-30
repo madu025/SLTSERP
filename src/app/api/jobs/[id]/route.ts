@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { JobService } from '@/services/job.service';
+import { JobService } from '@/services/project/job.service';
 
 export const dynamic = 'force-dynamic';
 

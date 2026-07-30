@@ -3,7 +3,7 @@ import { apiHandler } from "@/lib/api-handler";
 import { rateLimit, getClientIp } from "@/lib/agent-auth";
 import { NextResponse } from "next/server";
 
-import { HelpdeskService } from "@/services/helpdesk.service";
+import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 
 export const dynamic = 'force-dynamic';
 

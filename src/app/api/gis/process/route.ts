@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GISImportService } from '@/services/GISImportService';
+import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import { safe } from '@/utils/safe-await.util';
 

@@ -2,7 +2,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { ContractorService } from '@/services/contractor.service';
+import { ContractorService } from '@/services/contractor/contractor.service';
 import { z } from 'zod';
 
 const assignStoreSchema = z.object({

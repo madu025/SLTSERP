@@ -28,6 +28,37 @@
   * **Methods**:
     * `getQueueStats(): any`
 
+### [process-gate.service.ts](src/services/admin/process-gate.service.ts)
+* **Class**: `ProcessGateAdminService`
+  * **Methods**:
+    * `getAllGates(): any`
+    * `getGateById(id: string): any`
+    * `createGate(data: {
+    entityType: string;
+    fromStatus: string;
+    toStatus: string;
+    label: string;
+    isEnabled?: boolean;
+    reqOpmcPat?: boolean;
+    reqHoPat?: boolean;
+    reqSltsPat?: boolean;
+    reqPhotoProof?: boolean;
+    reqGpsLocation?: boolean;
+    reqDocUpload?: boolean;
+    writeAuditLedger?: boolean;
+    generateIssueNote?: boolean;
+  }): any`
+    * `updateGate(id: string, data: Prisma.ProcessGatePolicyUpdateInput): any`
+    * `deleteGate(id: string): any`
+    * `addApprovalLevel(gatePolicyId: string, data: {
+    requiredRole: string;
+    specificUserId?: string;
+    description?: string;
+    minAmount?: number;
+    maxAmount?: number;
+  }): any`
+    * `deleteApprovalLevel(gatePolicyId: string, levelId: string): any`
+
 ### [prometheus.service.ts](src/services/admin/prometheus.service.ts)
 * **Class**: `PrometheusService`
   * **Methods**:
@@ -69,16 +100,7 @@
     * `getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, any[]> = {}): any`
     * `updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, any[]>): any`
 
-### [agent-sync.service.ts](src/services/agent-sync.service.ts)
-* **Class**: `AgentSyncService`
-  * **Methods**:
-    * `authenticateAgent(apiKey: string): Promise<{ success: boolean; token?: string; expiresIn?: number } | null>`
-    * `syncAsset(data: SyncAssetPayload, clientIp: string): any`
-    * `registerAsset(data: RegisterAssetPayload): any`
-* **Exported Functions**:
-  * `generateAssetId(serialNumber: string): string`
-
-### [ai-prediction.service.ts](src/services/ai-prediction.service.ts)
+### [ai-prediction.service.ts](src/services/ai/ai-prediction.service.ts)
 * **Class**: `AiPredictionService`
   * **Methods**:
     * `predictDelay(projectId: string): any`
@@ -87,6 +109,58 @@
     * `predictMaterialShortage(): any`
     * `getAllPredictions(projectId: string): any`
     * `getSavedPredictions(projectId: string): any`
+
+### [nexus-agent.service.ts](src/services/ai/nexus-agent.service.ts)
+* **Class**: `NexusAgentService`
+  * **Methods**:
+    * `selectAIModel(message: string, contextData: Record<string, unknown>, userRole: string): string`
+    * `getSystemContext(): any`
+    * `getSelfHealingProposals(): Promise<NexusAction[]>`
+    * `executeAction(action: NexusAction, userId: string): any`
+    * `lookupAssetCustody(serialNumber: string, staffNameOrCode: string): Promise<NexusAction | null>`
+    * `lookupStockTransfer(itemCodeOrName: string, fromStoreName: string, toStoreName: string, quantity: number): Promise<NexusAction | null>`
+    * `lookupCreateUser(username: string, name: string, password: string, role: string, rtomCode?: string): Promise<NexusAction | null>`
+    * `ask(message: string, userId: string): Promise<NexusResponse>`
+
+### [nexus-alerts.service.ts](src/services/ai/nexus-alerts.service.ts)
+* **Class**: `NexusAlertsService`
+  * **Methods**:
+    * `checkAndGenerateAlerts(): any`
+    * `getUnreadAlerts(): any`
+    * `markAlertAsRead(id: string): any`
+    * `markAllAsRead(): any`
+
+### [nexus-classifier.service.ts](src/services/ai/nexus-classifier.service.ts)
+* **Class**: `NexusClassifierService`
+  * **Methods**:
+    * `addTrainingExample(intent: string, text: string): Promise<void>`
+    * `startContinuousTraining(intervalMs: number = 3600000): void`
+    * `train(): Promise<void>`
+    * `predict(message: string): string`
+
+### [nexus-context.service.ts](src/services/ai/nexus-context.service.ts)
+* **Class**: `NexusContextService`
+  * **Methods**:
+    * `getContext(): any`
+    * `getFinanceContext(): any`
+    * `getProjectsContext(): any`
+    * `getInventoryLowStockContext(): any`
+    * `getContractorsContext(): any`
+    * `getStoresContext(): any`
+    * `getInventoryItemsContext(): any`
+    * `getProcurementContext(): any`
+    * `getVouchersContext(): any`
+    * `getBOMInvoicesContext(): any`
+    * `getRTOMMismatchesContext(): any`
+    * `getSummaryContext(): any`
+
+### [nexus-memory.service.ts](src/services/ai/nexus-memory.service.ts)
+* **Class**: `NexusMemoryService`
+  * **Methods**:
+    * `getConversation(userId: string): Promise<ChatMessage[]>`
+    * `saveMessage(userId: string, role: 'user' | 'model', text: string): any`
+    * `clearConversation(userId: string): any`
+    * `getFrequentSuggestions(userId: string): Promise<string[]>`
 
 ### [contractor-registration.api.ts](src/services/api/contractor-registration.api.ts)
 * **Class**: `ContractorRegistrationApi`
@@ -97,14 +171,6 @@
     * `getStaticData(): any`
     * `uploadFile(file: File, fieldName: string, onProgress?: (p: number) => void): any`
 
-### [as-built.service.ts](src/services/as-built.service.ts)
-* **Class**: `AsBuiltService`
-  * **Methods**:
-    * `generateQGIS(projectId: string): Promise<AsBuiltExport>`
-    * `exportLayerGeoJSON(projectId: string, layerId: string): Promise<GeoJSON.FeatureCollection>`
-    * `exportCAD(projectId: string): Promise<Record<string, unknown>>`
-    * `getAsBuiltComparison(projectId: string): any`
-
 ### [index.ts](src/services/audit/index.ts)
 * **Class**: `AuditService`
   * **Methods**:
@@ -112,13 +178,6 @@
     * `getEntityLogs(entity: string, entityId: string): any`
     * `getUserLogs(userId: string): any`
     * `getRecentLogs(take: number = 200): any`
-
-### [auto-boq.service.ts](src/services/auto-boq.service.ts)
-* **Class**: `AutoBOQService`
-  * **Methods**:
-    * `generateBOQ(projectId: string, cableConfigOverride?: Partial<BOQConfig>): Promise<{ boq: BOQItem[]; summary: Record<string, number>; cableConfig: BOQConfig }>`
-    * `saveGeneratedBOQ(projectId: string, boq: BOQItem[]): any`
-    * `calculateCableLength(section: CableSection): number`
 
 ### [index.ts](src/services/automation/index.ts)
 * **Class**: `AutomationService`
@@ -129,46 +188,13 @@
     * `runAuditLogCleanup(): any`
     * `runAllDailyTasks(): any`
 
-### [bank.service.ts](src/services/bank.service.ts)
-* **Class**: `BankService`
+### [contractor-kpi.service.ts](src/services/contractor/contractor-kpi.service.ts)
+* **Class**: `ContractorKPIService`
   * **Methods**:
-    * `getBanks(): any`
-    * `createBank(data: { code: string; name: string }): any`
-    * `updateBank(bankId: string, data: { name: string; code: string }): any`
-    * `deleteBank(bankId: string): any`
-    * `getBranches(bankId: string): any`
-    * `getAllBranches(): any`
-    * `createBranch(bankId: string, data: { code: string; name: string }): any`
-    * `updateBranch(bankId: string, branchId: string, data: { name: string; code: string }): any`
-    * `deleteBranch(branchId: string): any`
-    * `importBulk(banksData: Array<{ bankCode: string; bankName: string; branchCode?: string; branchName?: string }>): any`
-
-### [budget-tracking.service.ts](src/services/budget-tracking.service.ts)
-* **Class**: `BudgetTrackingService`
-  * **Methods**:
-    * `initializeBudget(projectId: string): any`
-    * `syncActualCost(projectId: string): any`
-    * `getBudgetDashboard(projectId: string): any`
-
-### [change-request.service.ts](src/services/change-request.service.ts)
-* **Class**: `ChangeRequestService`
-  * **Methods**:
-    * `create(input: CreateChangeRequestInput): any`
-    * `approveStep(approvalId: string, userId: string, remarks?: string): any`
-    * `reject(changeRequestId: string, userId: string, reason: string): any`
-    * `submit(changeRequestId: string): any`
+    * `getProjectContractorId(projectId: string): Promise<string | null>`
+    * `calculateMonthlyScore(contractorId: string, month: string, projectId?: string): any`
+    * `getContractorRanking(limit = 10): any`
     * `getForProject(projectId: string): any`
-
-### [completed-sod-sync.service.ts](src/services/completed-sod-sync.service.ts)
-* **Class**: `CompletedSODSyncService`
-  * **Methods**:
-    * `syncCompletedSODs(customStartDate?: string): Promise<{
-        checked: number;
-        completed: number;
-        errors: string[];
-    }>`
-    * `startPeriodicSync(): void`
-    * `stopPeriodicSync(): void`
 
 ### [contractor.lifecycle.service.ts](src/services/contractor/contractor.lifecycle.service.ts)
 * **Class**: `ContractorLifecycleService`
@@ -206,25 +232,7 @@
     * `verifyUploadToken(token: string): any`
     * `submitPublicDocuments(token: string, documents: Record<string, string | undefined>): any`
 
-### [contractor-kpi.service.ts](src/services/contractor-kpi.service.ts)
-* **Class**: `ContractorKPIService`
-  * **Methods**:
-    * `getProjectContractorId(projectId: string): Promise<string | null>`
-    * `calculateMonthlyScore(contractorId: string, month: string, projectId?: string): any`
-    * `getContractorRanking(limit = 10): any`
-    * `getForProject(projectId: string): any`
-
-### [dashboard.service.ts](src/services/contractor-portal/dashboard.service.ts)
-* **Class**: `ContractorDashboardService`
-  * **Methods**:
-    * `getDashboardData(contractorId?: string): any`
-
-### [finance.service.ts](src/services/contractor-portal/finance.service.ts)
-* **Class**: `ContractorFinanceService`
-  * **Methods**:
-    * `getFinanceDashboard(userId: string | null, contractorId: string | null): any`
-
-### [contractor.service.ts](src/services/contractor.service.ts)
+### [contractor.service.ts](src/services/contractor/contractor.service.ts)
 * **Class**: `ContractorService`
   * **Methods**:
     * `resolveContractorContext(userId: string | null | undefined, providedContractorId: string | null | undefined): Promise<{ contractorId: string | null, role: string | null }>`
@@ -249,38 +257,139 @@
     * `assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean): any`
     * `removeTeamStore(teamId: string, storeId: string): any`
 
-### [cpe.service.ts](src/services/cpe.service.ts)
-* **Class**: `CpeService`
+### [dashboard.service.ts](src/services/contractor-portal/dashboard.service.ts)
+* **Class**: `ContractorDashboardService`
   * **Methods**:
-    * `getCollectedCPEs(params: { contractorId?: string; status?: string; deviceType?: string }): any`
-    * `submitHandback(ids: string[], handbackReference: string): any`
+    * `getDashboardData(contractorId?: string): any`
 
-### [dashboard-alert.service.ts](src/services/dashboard-alert.service.ts)
+### [finance.service.ts](src/services/contractor-portal/finance.service.ts)
+* **Class**: `ContractorFinanceService`
+  * **Methods**:
+    * `getFinanceDashboard(userId: string | null, contractorId: string | null): any`
+
+### [agent-sync.service.ts](src/services/core/agent-sync.service.ts)
+* **Class**: `AgentSyncService`
+  * **Methods**:
+    * `authenticateAgent(apiKey: string): Promise<{ success: boolean; token?: string; expiresIn?: number } | null>`
+    * `syncAsset(data: SyncAssetPayload, clientIp: string): any`
+    * `registerAsset(data: RegisterAssetPayload): any`
+* **Exported Functions**:
+  * `generateAssetId(serialNumber: string): string`
+
+### [dashboard-alert.service.ts](src/services/core/dashboard-alert.service.ts)
 * **Class**: `DashboardAlertService`
   * **Methods**:
     * `getDashboardAlerts(userId: string, userRole: string): Promise<{ alerts: AlertItem[] }>`
 
-### [dashboard.service.ts](src/services/dashboard.service.ts)
+### [dashboard.service.ts](src/services/core/dashboard.service.ts)
 * **Class**: `DashboardService`
   * **Methods**:
     * `getFinanceMetrics(rtom: string = 'ALL'): any`
     * `getInventoryMetrics(rtom: string = 'ALL'): any`
 
-### [executive-dashboard.service.ts](src/services/executive-dashboard.service.ts)
+### [executive-dashboard.service.ts](src/services/core/executive-dashboard.service.ts)
 * **Class**: `ExecutiveDashboardService`
   * **Methods**:
     * `getDashboardData(opmcIds?: string[]): any`
 
-### [field-task.service.ts](src/services/field-task.service.ts)
-* **Class**: `FieldTaskService`
+### [report.service.ts](src/services/core/report.service.ts)
+* **Class**: `ReportService`
   * **Methods**:
-    * `getFieldTasks(projectId: string): any`
-    * `getFieldTask(projectId: string, taskId: string): any`
-    * `createFieldTask(projectId: string, data: CreateFieldTaskInput): any`
-    * `updateFieldTask(projectId: string, taskId: string, data: UpdateFieldTaskInput): any`
-    * `deleteFieldTask(projectId: string, taskId: string): any`
-    * `syncFieldTasks(projectId: string, tasks: SyncFieldTaskInput[], deviceId?: string, appVersion?: string): any`
-    * `getSyncStatus(projectId: string): any`
+    * `getAnalyticsReport(view: string, period: string, options: AnalyticsReportOptions): any`
+    * `getDailyOperationalReport(options: DailyOperationalReportOptions): any`
+    * `getPaymentsReport(options: PaymentsReportOptions): any`
+
+### [section.service.ts](src/services/core/section.service.ts)
+* **Class**: `SectionService`
+  * **Methods**:
+    * `getSections(): any`
+    * `createSection(data: { name: string, code: string, description?: string, icon?: string, color?: string }, userId: string): any`
+    * `updateSection(id: string, data: { name?: string, code?: string, description?: string, icon?: string, color?: string, isActive?: boolean }, userId: string): any`
+    * `deleteSection(id: string, userId: string): any`
+
+### [software-license.service.ts](src/services/core/software-license.service.ts)
+* **Class**: `SoftwareLicenseService`
+  * **Methods**:
+    * `getLicenses(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }): any`
+    * `getLicenseById(id: string): any`
+    * `createLicense(userId: string, data: {
+      name: string;
+      key?: string | null;
+      vendor?: string | null;
+      purchaseDate?: string | Date | null;
+      expiryDate?: string | Date | null;
+      purchaseCost?: number | null;
+      totalLicenses?: number;
+      status?: string;
+      remarks?: string | null;
+    }, ipAddress?: string, userAgent?: string): any`
+    * `updateLicense(userId: string, id: string, data: {
+      name?: string;
+      key?: string | null;
+      vendor?: string | null;
+      purchaseDate?: string | Date | null;
+      expiryDate?: string | Date | null;
+      purchaseCost?: number | null;
+      totalLicenses?: number;
+      status?: string;
+      remarks?: string | null;
+    }, ipAddress?: string, userAgent?: string): any`
+    * `deleteLicense(userId: string, id: string, ipAddress?: string, userAgent?: string): any`
+    * `assignLicense(userId: string, licenseId: string, data: {
+      assignedUserId?: string | null;
+      assignedAssetId?: string | null;
+      assignedEmail?: string | null;
+      remarks?: string | null;
+    }, ipAddress?: string, userAgent?: string): any`
+    * `revokeLicense(userId: string, assignmentId: string, ipAddress?: string, userAgent?: string): any`
+
+### [system-config.service.ts](src/services/core/system-config.service.ts)
+* **Class**: `SystemConfigService`
+  * **Methods**:
+    * `getConfigs(): Promise<Record<string, string>>`
+    * `getOspMaterialSourceAsOfDate(targetDate: Date = new Date()): Promise<'SLT' | 'COMPANY'>`
+    * `getFinanceConfigAsOfDate(targetDate: Date = new Date()): Promise<FinanceSystemConfig>`
+    * `getFinanceConfig(): Promise<FinanceSystemConfig>`
+    * `getSODConfig(): Promise<SODSystemConfig>`
+    * `getInventoryConfig(): Promise<InventorySystemConfig>`
+    * `createConfigVersion(input: {
+        category: string;
+        key: string;
+        value: string;
+        effectiveFrom: Date;
+        effectiveTo?: Date;
+        description?: string;
+        createdBy?: string;
+    }): any`
+    * `updateConfig(key: string, value: string, description: string | undefined, userId: string): any`
+
+### [system-setting.service.ts](src/services/core/system-setting.service.ts)
+* **Class**: `SystemSettingService`
+  * **Methods**:
+    * `getSetting(key: string): any`
+    * `upsertSetting(key: string, value: Prisma.InputJsonValue): any`
+
+### [system.service.ts](src/services/core/system.service.ts)
+* **Class**: `SystemService`
+  * **Methods**:
+    * `logEvent(event: SystemEvent): any`
+    * `forcePasswordChange(userId: string): any`
+    * `getRecentAuditLogs(limit = 100): any`
+
+### [WorkflowEngine.ts](src/services/core/WorkflowEngine.ts)
+* **Class**: `WorkflowEngine`
+  * **Methods**:
+    * `initializeProjectWorkflow(projectId: string, projectTypeId: string): any`
+    * `validateStageCompletion(stageId: string): Promise<{ success: boolean; errors: string[] }>`
+    * `transitionStage(stageId: string, nextStatus: string, userId: string): any`
+    * `updateChecklistItem(checklistId: string, isCompleted: boolean, photoUrl?: string): any`
+    * `updateTaskStatus(taskId: string, status: string, progress: number = 0): any`
+    * `submitApproval(approvalId: string, status: string, userId: string, comments?: string): any`
 
 ### [accounting-posting-registry.service.ts](src/services/finance/accounting-posting-registry.service.ts)
 * **Class**: `AccountingPostingRegistry`
@@ -309,6 +418,20 @@
 * **Class**: `BankReconciliationService`
   * **Methods**:
     * `autoReconcileStatement(rows: BankStatementRow[]): Promise<ReconciliationResult>`
+
+### [bank.service.ts](src/services/finance/bank.service.ts)
+* **Class**: `BankService`
+  * **Methods**:
+    * `getBanks(): any`
+    * `createBank(data: { code: string; name: string }): any`
+    * `updateBank(bankId: string, data: { name: string; code: string }): any`
+    * `deleteBank(bankId: string): any`
+    * `getBranches(bankId: string): any`
+    * `getAllBranches(): any`
+    * `createBranch(bankId: string, data: { code: string; name: string }): any`
+    * `updateBranch(bankId: string, branchId: string, data: { name: string; code: string }): any`
+    * `deleteBranch(branchId: string): any`
+    * `importBulk(banksData: Array<{ bankCode: string; bankName: string; branchCode?: string; branchName?: string }>): any`
 
 ### [billing.service.ts](src/services/finance/billing.service.ts)
 * **Class**: `BillingService`
@@ -339,6 +462,13 @@
     * `getBudgetById(id: string): Promise<BudgetDTO | null>`
     * `getBudgetVsActual(opmcId: string, fiscalYear: number, quarter?: number): Promise<BudgetVsActualItem[]>`
     * `getCrossOpmcSummary(fiscalYear: number): Promise<{ opmcId: string; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }[]>`
+
+### [budget-tracking.service.ts](src/services/finance/budget-tracking.service.ts)
+* **Class**: `BudgetTrackingService`
+  * **Methods**:
+    * `initializeBudget(projectId: string): any`
+    * `syncActualCost(projectId: string): any`
+    * `getBudgetDashboard(projectId: string): any`
 
 ### [capex-opex-dashboard.service.ts](src/services/finance/capex-opex-dashboard.service.ts)
 * **Class**: `CapexOpexDashboardService`
@@ -602,6 +732,31 @@
     * `deletePaymentVoucher(id: string): any`
     * `deleteVoucher(id: string): any`
 
+### [PaymentService.ts](src/services/finance/PaymentService.ts)
+* **Class**: `PaymentService`
+  * **Methods**:
+    * `createInvoice(data: CreateInvoiceDTO): Promise<Invoice>`
+    * `getInvoice(id: string): Promise<Invoice | null>`
+    * `createPayment(data: CreatePaymentDTO): Promise<Payment>`
+    * `processFullPaymentReceipt(paymentId: string, paymentDate: Date, paymentRefNumber?: string): Promise<Payment>`
+    * `recordPaymentReceipt(paymentId: string, amount: number, paymentDate: Date, paymentRefNumber?: string): Promise<Payment>`
+    * `listPayments(filters: {
+    payment_type?: PaymentType;
+    status?: PaymentStatus;
+    invoice_id?: string;
+    from_date?: Date;
+    to_date?: Date;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<{ data: Payment[]; total: number }>`
+    * `ensureTaxConfig(taxName: string, taxRate: number, taxType: string): Promise<string>`
+    * `getPaymentReport(filters: {
+    from_date: Date;
+    to_date: Date;
+    payment_type?: PaymentType;
+    site_id?: string;
+  }): any`
+
 ### [payroll-expense.service.ts](src/services/finance/payroll-expense.service.ts)
 * **Class**: `PayrollExpenseService`
   * **Methods**:
@@ -642,6 +797,13 @@
     * `completeReimbursement(reimbursementId: string, paymentVoucherId: string, userId: string): any`
     * `getReimbursements(accountId?: string): any`
 
+### [quotation.service.ts](src/services/finance/quotation.service.ts)
+* **Class**: `QuotationService`
+  * **Methods**:
+    * `getQuotations(requisitionId: string): any`
+    * `createQuotation(data: CreateQuotationInput): any`
+    * `updateQuotationStatus(id: string, status: string, acceptedById?: string | null): any`
+
 ### [retention.service.ts](src/services/finance/retention.service.ts)
 * **Class**: `RetentionService`
   * **Methods**:
@@ -672,12 +834,78 @@
     * `getWipSummary(opmcId?: string): Promise<{ metrics: WipSummaryMetrics; items: WipSodItem[] }>`
     * `postWipAccrualJournal(createdById?: string): any`
 
+### [tax-config.service.ts](src/services/finance/tax-config.service.ts)
+* **Class**: `TaxConfigService`
+  * **Methods**:
+    * `getTaxConfigs(status: string = 'ACTIVE'): any`
+    * `createTaxConfig(data: CreateTaxConfigInput): any`
+
 ### [tax.service.ts](src/services/finance/tax.service.ts)
 * **Class**: `TaxService`
   * **Methods**:
     * `logInvoiceTaxPosting(tx: TransactionClient, payload: InvoiceTaxPostingPayload): any`
     * `getVatReturnReport(fromDate?: Date, toDate?: Date): Promise<VatReturnReport>`
     * `getWhtRegister(fromDate?: Date, toDate?: Date): Promise<WhtRegisterReport>`
+
+### [vendor.service.ts](src/services/finance/vendor.service.ts)
+* **Class**: `VendorService`
+  * **Methods**:
+    * `getVendors(search?: string | null): any`
+    * `createVendor(data: CreateVendorInput): any`
+    * `getVendorById(id: string): any`
+    * `updateVendor(id: string, data: Partial<CreateVendorInput>): any`
+    * `deleteVendor(id: string): any`
+    * `importBulk(vendorsData: CreateVendorInput[]): any`
+
+### [TripService.ts](src/services/fleet/TripService.ts)
+* **Class**: `TripService`
+  * **Methods**:
+    * `createTrip(data: CreateTripDTO): Promise<Trip>`
+    * `getTrip(tripId: string): Promise<Trip | null>`
+    * `listTrips(filters: {
+    vehicle_id?: string;
+    driver_id?: string;
+    trip_status?: TripStatusEnum;
+    from_date?: Date;
+    to_date?: Date;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<{ data: Trip[]; total: number }>`
+    * `startTrip(tripId: string, actualStartTime: Date): Promise<Trip>`
+    * `endTrip(tripId: string, actualEndTime: Date, actualDistanceKm?: number, fuelConsumedLiters?: number): Promise<Trip>`
+    * `getDriverDailyTrips(driverId: string, date: Date): any`
+    * `getTripMetrics(tripId: string): any`
+
+### [VehicleLogService.ts](src/services/fleet/VehicleLogService.ts)
+* **Class**: `VehicleLogService`
+  * **Methods**:
+    * `getActiveLog(vehicleId: string): Promise<VehicleLog | null>`
+    * `startUsageLog(data: CreateVehicleLogDTO): Promise<VehicleLog>`
+    * `endUsageLog(vehicleId: string, data: EndVehicleLogDTO): Promise<VehicleLog>`
+
+### [VehicleService.ts](src/services/fleet/VehicleService.ts)
+* **Class**: `VehicleService`
+  * **Methods**:
+    * `getActiveDrivers(): Promise<Array<{ id: string; first_name: string; last_name: string; phone: string }>>`
+    * `createVehicle(data: CreateVehicleDTO): Promise<Vehicle>`
+    * `getVehicle(vehicleId: string): Promise<Vehicle | null>`
+    * `listVehicles(filters: {
+      site_id?: string;
+      status?: string;
+      ownership?: string;
+      page?: number;
+      limit?: number;
+    } = {}): Promise<{ data: Vehicle[]; total: number }>`
+    * `updateVehicle(vehicleId: string, data: UpdateVehicleDTO): Promise<Vehicle>`
+    * `deleteVehicle(vehicleId: string): Promise<boolean>`
+    * `updateVehicleLocation(vehicleId: string, latitude: number, longitude: number, speed?: number, heading?: number): Promise<Vehicle>`
+    * `getVehicleLocation(vehicleId: string): Promise<{
+    latitude: number;
+    longitude: number;
+    timestamp: Date;
+    accuracy: number;
+  } | null>`
+    * `getVehicleUtilization(vehicleId: string, fromDate: Date, toDate: Date): any`
 
 ### [gis-ai.service.ts](src/services/gis/gis-ai.service.ts)
 * **Class**: `GISAIService`
@@ -863,6 +1091,40 @@
             fiberCount?: number;
         }, userId: string): any`
 
+### [map-approval.service.ts](src/services/gis/map-approval.service.ts)
+* **Class**: `MapApprovalService`
+  * **Methods**:
+    * `verifyPoint({ pointId, userId }: SurveyPointApprovalInput): any`
+    * `confirmPoint({ pointId, userId }: SurveyPointApprovalInput): any`
+    * `approvePoint({ pointId, userId }: SurveyPointApprovalInput): any`
+    * `rejectPoint({ pointId, userId, reason }: SurveyPointApprovalInput): any`
+    * `flagPoint({ pointId, userId, reason }: SurveyPointApprovalInput): any`
+    * `batchApprove(pointIds: string[], userId: string): any`
+    * `batchVerify(pointIds: string[], userId: string): any`
+    * `getApprovalSummary(projectId: string): any`
+    * `getSurveyPoints(projectId: string, options: { layerId?: string; status?: string; page?: number; limit?: number }): any`
+    * `updatePointCoordinates(pointId: string, latitude: number, longitude: number, userId: string): any`
+
+### [qfieldcloud-sync.service.ts](src/services/gis/qfieldcloud-sync.service.ts)
+* **Class**: `QFieldCloudSyncService`
+  * **Methods**:
+    * `createQFieldProject(sltProjectId: string, qgisTemplatePath: string): Promise<QFieldProject>`
+    * `deleteQFieldProject(qfieldProjectId: string): Promise<void>`
+    * `pushSurveyLayers(qfieldProjectId: string): Promise<void>`
+    * `pullSurveyPoints(sltProjectId: string, qfieldProjectId: string): Promise<SyncResult>`
+    * `fullSync(sltProjectId: string, qfieldProjectId: string): Promise<SyncResult>`
+    * `getSyncHistory(projectId: string): any`
+    * `getSyncStatus(projectId: string): any`
+    * `createQFieldProjectForProject(projectId: string, template?: string): any`
+
+### [route-version.service.ts](src/services/gis/route-version.service.ts)
+* **Class**: `RouteVersionService`
+  * **Methods**:
+    * `createNewVersion(input: CreateVersionInput): any`
+    * `rollback(routeId: string): any`
+    * `getVersionHistory(routeId: string): any`
+    * `getVersionDiff(versionAId: string, versionBId: string): any`
+
 ### [asset-depreciation.service.ts](src/services/helpdesk/asset-depreciation.service.ts)
 * **Class**: `ITAssetDepreciationService`
   * **Methods**:
@@ -876,20 +1138,7 @@
     * `createDisposalRequest(userId: string, data: { assetId: string; reason: DisposalReason; salvageValue?: number }): any`
     * `processDisposalApproval(userId: string, data: { requestId: string; action: 'APPROVE' | 'REJECT' }): any`
 
-### [sla-worker.service.ts](src/services/helpdesk/sla-worker.service.ts)
-* **Class**: `SLABreachWorkerService`
-  * **Methods**:
-    * `processSLA(job: Job<SLAJobData>): any`
-    * `getSLAStats(): any`
-
-### [telemetry.service.ts](src/services/helpdesk/telemetry.service.ts)
-* **Class**: `TelemetryService`
-  * **Methods**:
-    * `ingestTelemetry(payload: AgentTelemetryPayload): Promise<void>`
-    * `syncTelemetryToDB(): Promise<number>`
-    * `getRegisteredDevices(): any`
-
-### [helpdesk-audit.service.ts](src/services/helpdesk-audit.service.ts)
+### [helpdesk-audit.service.ts](src/services/helpdesk/helpdesk-audit.service.ts)
 * **Class**: `HelpdeskAuditService`
   * **Methods**:
     * `submitAudit(data: {
@@ -926,7 +1175,7 @@
   }, adminUserId?: string | null): any`
     * `getAuditGaps(): any`
 
-### [helpdesk.service.ts](src/services/helpdesk.service.ts)
+### [helpdesk.service.ts](src/services/helpdesk/helpdesk.service.ts)
 * **Class**: `HelpdeskService`
   * **Methods**:
     * `searchAssetBySerial(serial: string): any`
@@ -1087,6 +1336,55 @@
     * `updateOfficeTender(userId: string, id: string, data: any, ipAddress?: string, userAgent?: string): any`
     * `deleteOfficeTender(userId: string, id: string, ipAddress?: string, userAgent?: string): any`
 
+### [sla-worker.service.ts](src/services/helpdesk/sla-worker.service.ts)
+* **Class**: `SLABreachWorkerService`
+  * **Methods**:
+    * `processSLA(job: Job<SLAJobData>): any`
+    * `getSLAStats(): any`
+
+### [telemetry.service.ts](src/services/helpdesk/telemetry.service.ts)
+* **Class**: `TelemetryService`
+  * **Methods**:
+    * `ingestTelemetry(payload: AgentTelemetryPayload): Promise<void>`
+    * `syncTelemetryToDB(): Promise<number>`
+    * `getRegisteredDevices(): any`
+
+### [staff.service.ts](src/services/hr/staff.service.ts)
+* **Class**: `StaffService`
+  * **Methods**:
+    * `getStaff(): any`
+    * `createStaff(data: CreateStaffInput): any`
+    * `updateStaff(id: string, data: UpdateStaffInput): any`
+    * `deleteStaff(id: string): any`
+    * `findPublicStaffByEmployeeId(employeeNo: string): any`
+
+### [team-member.service.ts](src/services/hr/team-member.service.ts)
+* **Class**: `TeamMemberService`
+  * **Methods**:
+    * `generateUploadLink(memberId: string): any`
+    * `verifyUploadToken(token: string): any`
+    * `updateProfileByToken(token: string, data: UpdateTeamMemberProfileInput): any`
+
+### [user.service.ts](src/services/hr/user.service.ts)
+* **Class**: `UserService`
+  * **Methods**:
+    * `login({ username, password }: LoginCredentials): any`
+    * `getUsers(page: number, limit: number, search?: string): any`
+    * `createUser(data: CreateUserData, currentUserId: string): any`
+    * `updateUser(id: string, data: UpdateUserData, currentUserId: string): any`
+    * `deleteUser(id: string): any`
+    * `forgotPasswordVerify(username: string, employeeId: string): any`
+    * `forgotPasswordVerifyAnswer(token: string, answer: string): any`
+    * `forgotPasswordReset(token: string, newPassword: string): any`
+    * `getProfile(userId: string): any`
+    * `changePassword(userId: string, currentPassword: string, newPassword: string): any`
+    * `updateProfile(userId: string, data: { name?: string; email?: string }): any`
+    * `getUserPermissions(userId: string): any`
+    * `updateUserPermissions(userId: string, permissions: string[]): any`
+    * `getUserSections(userId: string): any`
+    * `assignUserSection(userId: string, data: { sectionId: string; roleId: string; isPrimary?: boolean }): any`
+    * `removeUserSection(assignmentId: string): any`
+
 ### [abc.service.ts](src/services/inventory/abc.service.ts)
 * **Class**: `AbcService`
   * **Methods**:
@@ -1136,6 +1434,12 @@
     * `createMaterialReturn(contractorId: string, data: { itemId: string, quantity: number, condition?: string, reason?: string }): any`
     * `getContractorStockDashboard(contractorId: string | null, userId: string | null, teamId?: string, month?: string, year?: string): any`
     * `getTeamWiseMaterialBalance(params: TeamMaterialBalanceParams): any`
+
+### [cpe.service.ts](src/services/inventory/cpe.service.ts)
+* **Class**: `CpeService`
+  * **Methods**:
+    * `getCollectedCPEs(params: { contractorId?: string; status?: string; deviceType?: string }): any`
+    * `submitHandback(ids: string[], handbackReference: string): any`
 
 ### [cycle-count.service.ts](src/services/inventory/cycle-count.service.ts)
 * **Class**: `CycleCountService`
@@ -1207,7 +1511,7 @@
     * `getItems(context?: string): Promise<InventoryItem[]>`
     * `createItem(data: CreateItemData): Promise<InventoryItem>`
     * `updateItem(id: string, data: Partial<CreateItemData>): Promise<InventoryItem>`
-    * `patchBulkItems(updates: any[]): Promise<boolean>`
+    * `patchBulkItems(updates: Record<string, unknown>[]): Promise<boolean>`
     * `mergeItems(sourceId: string, targetId: string): Promise<boolean>`
     * `deleteItem(id: string): Promise<boolean>`
 
@@ -1227,6 +1531,25 @@
 * **Class**: `MaterialExcelImportService`
   * **Methods**:
     * `importMaterialReport(filePath: string, opmcId: string | null = null, createdById: string = 'system-import'): Promise<ImportResult>`
+
+### [material.service.ts](src/services/inventory/material.service.ts)
+* **Class**: `MaterialService`
+  * **Methods**:
+    * `getReconciliation(params: {
+        contractorId: string;
+        storeId: string;
+        month: string; // "2025-01"
+    }): any`
+    * `issueMaterials(data: {
+        contractorId: string;
+        storeId: string;
+        month: string;
+        items: { itemId: string; quantity: number; unit: string }[];
+        issuedBy?: string;
+    }, userId?: string): any`
+    * `generateBalanceSheet(contractorId: string, storeId: string, month: string, userId?: string): any`
+    * `getBalanceSheet(contractorId: string, storeId: string, month: string): any`
+    * `previewBalanceSheet(contractorId: string, storeId: string, month: string): any`
 
 ### [mrn.service.ts](src/services/inventory/mrn.service.ts)
 * **Class**: `MRNService`
@@ -1439,6 +1762,11 @@
   * **Methods**:
     * `processAutoReleases(): Promise<RetentionReleaseResult[]>`
 
+### [public.invoice.service.ts](src/services/invoice/public.invoice.service.ts)
+* **Class**: `PublicInvoiceService`
+  * **Methods**:
+    * `getPublicInvoiceDetails(id: string): any`
+
 ### [invoice.service.ts](src/services/invoice.service.ts)
 * **Class**: `InvoiceService`
   * **Methods**:
@@ -1454,117 +1782,6 @@
     * `updateInvoice(data: UpdateInvoiceDTO): any`
     * `deleteInvoice(id: string): any`
     * `approveBySfAudit(invoiceId: string, userId: string): any`
-
-### [job.service.ts](src/services/job.service.ts)
-* **Class**: `JobService`
-  * **Methods**:
-    * `getJobs(params: { status?: string; region?: string; assigneeId?: string }): any`
-    * `createJob(data: {
-        jobCode: string;
-        name: string;
-        description?: string;
-        customerName?: string;
-        customerContact?: string;
-        location?: string;
-        region?: string;
-        district?: string;
-        priority?: string;
-        assignedToId?: string;
-    }): any`
-    * `getJobById(id: string): any`
-    * `updateJob(id: string, data: any): any`
-    * `deleteJob(id: string): any`
-    * `assignJobToSurvey(jobId: string, data: {
-        areaManagerId?: string;
-        contractorId?: string;
-        opmcId?: string;
-        projectTypeId?: string;
-    }): any`
-
-### [map-approval.service.ts](src/services/map-approval.service.ts)
-* **Class**: `MapApprovalService`
-  * **Methods**:
-    * `verifyPoint({ pointId, userId }: SurveyPointApprovalInput): any`
-    * `confirmPoint({ pointId, userId }: SurveyPointApprovalInput): any`
-    * `approvePoint({ pointId, userId }: SurveyPointApprovalInput): any`
-    * `rejectPoint({ pointId, userId, reason }: SurveyPointApprovalInput): any`
-    * `flagPoint({ pointId, userId, reason }: SurveyPointApprovalInput): any`
-    * `batchApprove(pointIds: string[], userId: string): any`
-    * `batchVerify(pointIds: string[], userId: string): any`
-    * `getApprovalSummary(projectId: string): any`
-    * `getSurveyPoints(projectId: string, options: { layerId?: string; status?: string; page?: number; limit?: number }): any`
-    * `updatePointCoordinates(pointId: string, latitude: number, longitude: number, userId: string): any`
-
-### [material.service.ts](src/services/material.service.ts)
-* **Class**: `MaterialService`
-  * **Methods**:
-    * `getReconciliation(params: {
-        contractorId: string;
-        storeId: string;
-        month: string; // "2025-01"
-    }): any`
-    * `issueMaterials(data: {
-        contractorId: string;
-        storeId: string;
-        month: string;
-        items: { itemId: string; quantity: number; unit: string }[];
-        issuedBy?: string;
-    }, userId?: string): any`
-    * `generateBalanceSheet(contractorId: string, storeId: string, month: string, userId?: string): any`
-    * `getBalanceSheet(contractorId: string, storeId: string, month: string): any`
-    * `previewBalanceSheet(contractorId: string, storeId: string, month: string): any`
-
-### [nexus-agent.service.ts](src/services/nexus-agent.service.ts)
-* **Class**: `NexusAgentService`
-  * **Methods**:
-    * `selectAIModel(message: string, contextData: Record<string, unknown>, userRole: string): string`
-    * `getSystemContext(): any`
-    * `getSelfHealingProposals(): Promise<NexusAction[]>`
-    * `executeAction(action: NexusAction, userId: string): any`
-    * `lookupAssetCustody(serialNumber: string, staffNameOrCode: string): Promise<NexusAction | null>`
-    * `lookupStockTransfer(itemCodeOrName: string, fromStoreName: string, toStoreName: string, quantity: number): Promise<NexusAction | null>`
-    * `lookupCreateUser(username: string, name: string, password: string, role: string, rtomCode?: string): Promise<NexusAction | null>`
-    * `ask(message: string, userId: string): Promise<NexusResponse>`
-
-### [nexus-alerts.service.ts](src/services/nexus-alerts.service.ts)
-* **Class**: `NexusAlertsService`
-  * **Methods**:
-    * `checkAndGenerateAlerts(): any`
-    * `getUnreadAlerts(): any`
-    * `markAlertAsRead(id: string): any`
-    * `markAllAsRead(): any`
-
-### [nexus-classifier.service.ts](src/services/nexus-classifier.service.ts)
-* **Class**: `NexusClassifierService`
-  * **Methods**:
-    * `addTrainingExample(intent: string, text: string): Promise<void>`
-    * `startContinuousTraining(intervalMs: number = 3600000): void`
-    * `train(): Promise<void>`
-    * `predict(message: string): string`
-
-### [nexus-context.service.ts](src/services/nexus-context.service.ts)
-* **Class**: `NexusContextService`
-  * **Methods**:
-    * `getContext(): any`
-    * `getFinanceContext(): any`
-    * `getProjectsContext(): any`
-    * `getInventoryLowStockContext(): any`
-    * `getContractorsContext(): any`
-    * `getStoresContext(): any`
-    * `getInventoryItemsContext(): any`
-    * `getProcurementContext(): any`
-    * `getVouchersContext(): any`
-    * `getBOMInvoicesContext(): any`
-    * `getRTOMMismatchesContext(): any`
-    * `getSummaryContext(): any`
-
-### [nexus-memory.service.ts](src/services/nexus-memory.service.ts)
-* **Class**: `NexusMemoryService`
-  * **Methods**:
-    * `getConversation(userId: string): Promise<ChatMessage[]>`
-    * `saveMessage(userId: string, role: 'user' | 'model', text: string): any`
-    * `clearConversation(userId: string): any`
-    * `getFrequentSuggestions(userId: string): Promise<string[]>`
 
 ### [analytics.service.ts](src/services/notification/analytics.service.ts)
 * **Class**: `NotificationAnalyticsService`
@@ -1899,15 +2116,68 @@
     * `renderTemplate(templateStr: string, variables: Record<string, string | number | boolean | undefined>): string`
     * `renderByCode(code: string, variables: Record<string, string | number | boolean | undefined>): Promise<{ title: string; message: string; channels: string[] } | null>`
 
-### [opmc.service.ts](src/services/opmc.service.ts)
-* **Class**: `OpmcService`
+### [as-built.service.ts](src/services/project/as-built.service.ts)
+* **Class**: `AsBuiltService`
   * **Methods**:
-    * `getAllOPMCs(): any`
-    * `createOPMC(data: { name: string; rtom: string; region: string; province: string; storeId?: string | null }): any`
-    * `updateOPMC(data: { id: string; name: string; rtom: string; region: string; province: string; storeId?: string | null }): any`
-    * `deleteOPMC(id: string): any`
+    * `generateQGIS(projectId: string): Promise<AsBuiltExport>`
+    * `exportLayerGeoJSON(projectId: string, layerId: string): Promise<GeoJSON.FeatureCollection>`
+    * `exportCAD(projectId: string): Promise<Record<string, unknown>>`
+    * `getAsBuiltComparison(projectId: string): any`
 
-### [pat.service.ts](src/services/pat.service.ts)
+### [auto-boq.service.ts](src/services/project/auto-boq.service.ts)
+* **Class**: `AutoBOQService`
+  * **Methods**:
+    * `generateBOQ(projectId: string, cableConfigOverride?: Partial<BOQConfig>): Promise<{ boq: BOQItem[]; summary: Record<string, number>; cableConfig: BOQConfig }>`
+    * `saveGeneratedBOQ(projectId: string, boq: BOQItem[]): any`
+    * `calculateCableLength(section: CableSection): number`
+
+### [change-request.service.ts](src/services/project/change-request.service.ts)
+* **Class**: `ChangeRequestService`
+  * **Methods**:
+    * `create(input: CreateChangeRequestInput): any`
+    * `approveStep(approvalId: string, userId: string, remarks?: string): any`
+    * `reject(changeRequestId: string, userId: string, reason: string): any`
+    * `submit(changeRequestId: string): any`
+    * `getForProject(projectId: string): any`
+
+### [field-task.service.ts](src/services/project/field-task.service.ts)
+* **Class**: `FieldTaskService`
+  * **Methods**:
+    * `getFieldTasks(projectId: string): any`
+    * `getFieldTask(projectId: string, taskId: string): any`
+    * `createFieldTask(projectId: string, data: CreateFieldTaskInput): any`
+    * `updateFieldTask(projectId: string, taskId: string, data: UpdateFieldTaskInput): any`
+    * `deleteFieldTask(projectId: string, taskId: string): any`
+    * `syncFieldTasks(projectId: string, tasks: SyncFieldTaskInput[], deviceId?: string, appVersion?: string): any`
+    * `getSyncStatus(projectId: string): any`
+
+### [job.service.ts](src/services/project/job.service.ts)
+* **Class**: `JobService`
+  * **Methods**:
+    * `getJobs(params: { status?: string; region?: string; assigneeId?: string }): any`
+    * `createJob(data: {
+        jobCode: string;
+        name: string;
+        description?: string;
+        customerName?: string;
+        customerContact?: string;
+        location?: string;
+        region?: string;
+        district?: string;
+        priority?: string;
+        assignedToId?: string;
+    }): any`
+    * `getJobById(id: string): any`
+    * `updateJob(id: string, data: any): any`
+    * `deleteJob(id: string): any`
+    * `assignJobToSurvey(jobId: string, data: {
+        areaManagerId?: string;
+        contractorId?: string;
+        opmcId?: string;
+        projectTypeId?: string;
+    }): any`
+
+### [pat.service.ts](src/services/project/pat.service.ts)
 * **Class**: `PATService`
   * **Methods**:
     * `startSession(projectId: string, patType: 'PRE_PAT' | 'SLT_PAT', conductedById: string): any`
@@ -1924,31 +2194,6 @@
     }): any`
     * `completeSession(sessionId: string, sltOfficers?: object): any`
     * `getProjectSessions(projectId: string): any`
-
-### [PaymentService.ts](src/services/PaymentService.ts)
-* **Class**: `PaymentService`
-  * **Methods**:
-    * `createInvoice(data: CreateInvoiceDTO): Promise<Invoice>`
-    * `getInvoice(id: string): Promise<Invoice | null>`
-    * `createPayment(data: CreatePaymentDTO): Promise<Payment>`
-    * `processFullPaymentReceipt(paymentId: string, paymentDate: Date, paymentRefNumber?: string): Promise<Payment>`
-    * `recordPaymentReceipt(paymentId: string, amount: number, paymentDate: Date, paymentRefNumber?: string): Promise<Payment>`
-    * `listPayments(filters: {
-    payment_type?: PaymentType;
-    status?: PaymentStatus;
-    invoice_id?: string;
-    from_date?: Date;
-    to_date?: Date;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{ data: Payment[]; total: number }>`
-    * `ensureTaxConfig(taxName: string, taxRate: number, taxType: string): Promise<string>`
-    * `getPaymentReport(filters: {
-    from_date: Date;
-    to_date: Date;
-    payment_type?: PaymentType;
-    site_id?: string;
-  }): any`
 
 ### [project-ai.service.ts](src/services/project/project-ai.service.ts)
 * **Class**: `ProjectAIService`
@@ -2023,6 +2268,12 @@
     * `getRatings(projectId: string, evaluationMonth?: string | null): any`
     * `saveRating(data: SaveContractorRatingInput): any`
 
+### [project-dashboard.service.ts](src/services/project/project-dashboard.service.ts)
+* **Class**: `ProjectDashboardService`
+  * **Methods**:
+    * `getProjectStats(userId: string, userRole: string): any`
+    * `getProjectOverview(userId: string, userRole: string): any`
+
 ### [project-document.service.ts](src/services/project/project-document.service.ts)
 * **Class**: `ProjectDocumentService`
   * **Methods**:
@@ -2091,8 +2342,8 @@
   * **Methods**:
     * `getIRLedgerHistory(irNumber: string): any`
     * `getIRLedgerMeta(): any`
-    * `verifyProjectStatus(tx: any, projectId: string): any`
-    * `verifyProjectLeftover(tx: any, projectId: string, itemId: string, batchId: string, requiredQty: number): Promise<number>`
+    * `verifyProjectStatus(tx: PrismaTx, projectId: string): any`
+    * `verifyProjectLeftover(tx: PrismaTx, projectId: string, itemId: string, batchId: string, requiredQty: number): Promise<number>`
     * `getIRLedger(projectId?: string): Promise<IRLedgerEntry[]>`
     * `recordIRReceipt(data: {
     irNumber: string;
@@ -2184,7 +2435,7 @@
     * `createPermit(data: CreatePermitInput): any`
     * `getPermitTypes(isActive?: boolean | null, authorityId?: string | null): any`
     * `getPermit(projectId: string, permitId: string): any`
-    * `updatePermit(permitId: string, data: any): any`
+    * `updatePermit(permitId: string, data: Record<string, unknown>): any`
     * `deletePermit(permitId: string): any`
 
 ### [project-progress.service.ts](src/services/project/project-progress.service.ts)
@@ -2300,6 +2551,12 @@
     * `createTimesheet(data: CreateTimesheetInput): any`
     * `updateTimesheetStatus(id: string, status: string, verifiedById?: string | null): any`
 
+### [project-type.service.ts](src/services/project/project-type.service.ts)
+* **Class**: `ProjectTypeService`
+  * **Methods**:
+    * `getProjectTypes(): any`
+    * `createProjectType(name: string, description?: string): any`
+
 ### [project-workflow.service.ts](src/services/project/project-workflow.service.ts)
 * **Class**: `ProjectWorkflowService`
   * **Methods**:
@@ -2317,18 +2574,6 @@
     * `checkClosure(projectId: string): any`
     * `closeProject(projectId: string, userId: string, remarks?: string, finalAsBuiltGenerated?: boolean): any`
 
-### [project-dashboard.service.ts](src/services/project-dashboard.service.ts)
-* **Class**: `ProjectDashboardService`
-  * **Methods**:
-    * `getProjectStats(userId: string, userRole: string): any`
-    * `getProjectOverview(userId: string, userRole: string): any`
-
-### [project-type.service.ts](src/services/project-type.service.ts)
-* **Class**: `ProjectTypeService`
-  * **Methods**:
-    * `getProjectTypes(): any`
-    * `createProjectType(name: string, description?: string): any`
-
 ### [qc-inspection.service.ts](src/services/qc/qc-inspection.service.ts)
 * **Class**: `QCInspectionService`
   * **Methods**:
@@ -2342,48 +2587,6 @@
     }): any`
     * `markNotificationAsRead(id: string): any`
     * `markAllNotificationsAsRead(params: { contractorId?: string; teamId?: string }): any`
-
-### [qfieldcloud-sync.service.ts](src/services/qfieldcloud-sync.service.ts)
-* **Class**: `QFieldCloudSyncService`
-  * **Methods**:
-    * `createQFieldProject(sltProjectId: string, qgisTemplatePath: string): Promise<QFieldProject>`
-    * `deleteQFieldProject(qfieldProjectId: string): Promise<void>`
-    * `pushSurveyLayers(qfieldProjectId: string): Promise<void>`
-    * `pullSurveyPoints(sltProjectId: string, qfieldProjectId: string): Promise<SyncResult>`
-    * `fullSync(sltProjectId: string, qfieldProjectId: string): Promise<SyncResult>`
-    * `getSyncHistory(projectId: string): any`
-    * `getSyncStatus(projectId: string): any`
-    * `createQFieldProjectForProject(projectId: string, template?: string): any`
-
-### [quotation.service.ts](src/services/quotation.service.ts)
-* **Class**: `QuotationService`
-  * **Methods**:
-    * `getQuotations(requisitionId: string): any`
-    * `createQuotation(data: CreateQuotationInput): any`
-    * `updateQuotationStatus(id: string, status: string, acceptedById?: string | null): any`
-
-### [report.service.ts](src/services/report.service.ts)
-* **Class**: `ReportService`
-  * **Methods**:
-    * `getAnalyticsReport(view: string, period: string, options: AnalyticsReportOptions): any`
-    * `getDailyOperationalReport(options: DailyOperationalReportOptions): any`
-    * `getPaymentsReport(options: PaymentsReportOptions): any`
-
-### [route-version.service.ts](src/services/route-version.service.ts)
-* **Class**: `RouteVersionService`
-  * **Methods**:
-    * `createNewVersion(input: CreateVersionInput): any`
-    * `rollback(routeId: string): any`
-    * `getVersionHistory(routeId: string): any`
-    * `getVersionDiff(versionAId: string, versionBId: string): any`
-
-### [section.service.ts](src/services/section.service.ts)
-* **Class**: `SectionService`
-  * **Methods**:
-    * `getSections(): any`
-    * `createSection(data: { name: string, code: string, description?: string, icon?: string, color?: string }, userId: string): any`
-    * `updateSection(id: string, data: { name?: string, code?: string, description?: string, icon?: string, color?: string, isActive?: boolean }, userId: string): any`
-    * `deleteSection(id: string, userId: string): any`
 
 ### [header-mapping.service.ts](src/services/sf-audit/header-mapping.service.ts)
 * **Class**: `HeaderMappingService`
@@ -2401,7 +2604,15 @@
     * `createAmendmentRequest(invoiceId: string, requestedAmount: number, reason: string, userId: string): any`
     * `processAmendmentRequest(requestId: string, status: 'APPROVED' | 'REJECTED', userId: string, rejectionReason?: string): any`
 
-### [slt-api.service.ts](src/services/slt-api.service.ts)
+### [opmc.service.ts](src/services/slt/opmc.service.ts)
+* **Class**: `OpmcService`
+  * **Methods**:
+    * `getAllOPMCs(): any`
+    * `createOPMC(data: { name: string; rtom: string; region: string; province: string; storeId?: string | null }): any`
+    * `updateOPMC(data: { id: string; name: string; rtom: string; region: string; province: string; storeId?: string | null }): any`
+    * `deleteOPMC(id: string): any`
+
+### [slt-api.service.ts](src/services/slt/slt-api.service.ts)
 * **Class**: `SLTApiService`
   * **Methods**:
     * `fetchCompletedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]>`
@@ -2413,11 +2624,11 @@
     * `fetchHORejected(dateStr?: string): Promise<SLTPATData[]>`
     * `parseStatusDate(dateStr: string | null): Date | null`
 
-### [slt-contract-pdf-parser.ts](src/services/slt-contract-pdf-parser.ts)
+### [slt-contract-pdf-parser.ts](src/services/slt/slt-contract-pdf-parser.ts)
 * **Exported Functions**:
   * `extractContractDataFromPdfText(rawText: string, pages = 1): ExtractedContract`
 
-### [slt-contract.service.ts](src/services/slt-contract.service.ts)
+### [slt-contract.service.ts](src/services/slt/slt-contract.service.ts)
 * **Class**: `SLTContractService`
   * **Methods**:
     * `calculateSODRevenue(order: {
@@ -2435,10 +2646,21 @@
     * `createAmendment(input: CreateAmendmentInput, performedBy: string = 'Commercial Manager'): any`
     * `getAnnual12MonthPerformance(year: number): Promise<Annual12MonthPerformanceSummary[]>`
 
-### [slt-portal-auth.service.ts](src/services/slt-portal-auth.service.ts)
+### [slt-portal-auth.service.ts](src/services/slt/slt-portal-auth.service.ts)
 * **Class**: `SLTPortalAuthService`
   * **Methods**:
     * `getOrRefreshCookie(): Promise<string>`
+
+### [completed-sod-sync.service.ts](src/services/sod/completed-sod-sync.service.ts)
+* **Class**: `CompletedSODSyncService`
+  * **Methods**:
+    * `syncCompletedSODs(customStartDate?: string): Promise<{
+        checked: number;
+        completed: number;
+        errors: string[];
+    }>`
+    * `startPeriodicSync(): void`
+    * `stopPeriodicSync(): void`
 
 ### [index.ts](src/services/sod/index.ts)
 * **Class**: `ServiceOrderService`
@@ -2487,10 +2709,35 @@
     * `clearExtensionLogs(): any`
     * `verifyInvoicable(sodIds: string[], userId: string, notes?: string): any`
 
+### [sod-auto-completion.service.ts](src/services/sod/sod-auto-completion.service.ts)
+* **Class**: `SODAutoCompletionService`
+  * **Methods**:
+    * `fetchCompletedSODsFromSLT(rtom: string, startDate: string, endDate: string): Promise<SLTCompletedSOD[]>`
+    * `processCompletedSODs(): Promise<{
+        checked: number;
+        completed: number;
+        errors: string[];
+    }>`
+    * `startBackgroundProcess(): void`
+    * `stopBackgroundProcess(): void`
+    * `getStatus(): { isRunning: boolean; hasInterval: boolean }`
+
+### [sod-dashboard.service.ts](src/services/sod/sod-dashboard.service.ts)
+* **Class**: `ServiceOrderDashboardService`
+  * **Methods**:
+    * `getServiceOrderStats(params: { userId: string, filterRegion: string, filterRtom: string }): any`
+
 ### [sod-return-classifier.service.ts](src/services/sod/sod-return-classifier.service.ts)
 * **Class**: `SODReturnClassifierService`
   * **Methods**:
     * `classify(comment: string): { category: string; originalComment: string }`
+
+### [sod-scraper.service.ts](src/services/sod/sod-scraper.service.ts)
+* **Class**: `SODDetailsScraper`
+  * **Methods**:
+    * `fetchSODDetails(soNum: string, status: string = 'COMPLETED', workOrderId: string = '', serviceType: string = 'FTTH'): Promise<SODDetailsData | null>`
+    * `extractTableData(html: string): Record<string, string>[]`
+    * `saveHTMLForAnalysis(soNum: string): Promise<void>`
 
 ### [sod.import.service.ts](src/services/sod/sod.import.service.ts)
 * **Class**: `SODImportService`
@@ -2538,7 +2785,10 @@
 ### [sod.material.service.ts](src/services/sod/sod.material.service.ts)
 * **Class**: `SODMaterialService`
   * **Methods**:
-    * `processMaterialUsage(tx: TransactionClient, serviceOrderId: string, opmcId: string, contractorId: string | null, materialUsage: MaterialUsageInput[], inventoryService: any, userId: string = 'SYSTEM'): any`
+    * `processMaterialUsage(tx: TransactionClient, serviceOrderId: string, opmcId: string, contractorId: string | null, materialUsage: MaterialUsageInput[], inventoryService: {
+            pickContractorBatchesFIFO: (tx: TransactionClient, contractorId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
+            pickStoreBatchesFIFO: (tx: TransactionClient, storeId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
+        }, userId: string = 'SYSTEM'): any`
     * `rollbackMaterialUsage(tx: TransactionClient, serviceOrderId: string, userId: string = 'SYSTEM'): any`
 
 ### [sod.query.service.ts](src/services/sod/sod.query.service.ts)
@@ -2594,215 +2844,11 @@
     * `deepParse(masterData: Record<string, string>): Record<string, string>`
     * `safeParseDate(dateStr: string | Date | undefined | null): Date | undefined`
 
-### [sod-auto-completion.service.ts](src/services/sod-auto-completion.service.ts)
-* **Class**: `SODAutoCompletionService`
-  * **Methods**:
-    * `fetchCompletedSODsFromSLT(rtom: string, startDate: string, endDate: string): Promise<SLTCompletedSOD[]>`
-    * `processCompletedSODs(): Promise<{
-        checked: number;
-        completed: number;
-        errors: string[];
-    }>`
-    * `startBackgroundProcess(): void`
-    * `stopBackgroundProcess(): void`
-    * `getStatus(): { isRunning: boolean; hasInterval: boolean }`
-
-### [sod-dashboard.service.ts](src/services/sod-dashboard.service.ts)
-* **Class**: `ServiceOrderDashboardService`
-  * **Methods**:
-    * `getServiceOrderStats(params: { userId: string, filterRegion: string, filterRtom: string }): any`
-
-### [sod-scraper.service.ts](src/services/sod-scraper.service.ts)
-* **Class**: `SODDetailsScraper`
-  * **Methods**:
-    * `fetchSODDetails(soNum: string, status: string = 'COMPLETED', workOrderId: string = '', serviceType: string = 'FTTH'): Promise<SODDetailsData | null>`
-    * `extractTableData(html: string): Record<string, string>[]`
-    * `saveHTMLForAnalysis(soNum: string): Promise<void>`
-
-### [software-license.service.ts](src/services/software-license.service.ts)
-* **Class**: `SoftwareLicenseService`
-  * **Methods**:
-    * `getLicenses(params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    status?: string;
-  }): any`
-    * `getLicenseById(id: string): any`
-    * `createLicense(userId: string, data: {
-      name: string;
-      key?: string | null;
-      vendor?: string | null;
-      purchaseDate?: string | Date | null;
-      expiryDate?: string | Date | null;
-      purchaseCost?: number | null;
-      totalLicenses?: number;
-      status?: string;
-      remarks?: string | null;
-    }, ipAddress?: string, userAgent?: string): any`
-    * `updateLicense(userId: string, id: string, data: {
-      name?: string;
-      key?: string | null;
-      vendor?: string | null;
-      purchaseDate?: string | Date | null;
-      expiryDate?: string | Date | null;
-      purchaseCost?: number | null;
-      totalLicenses?: number;
-      status?: string;
-      remarks?: string | null;
-    }, ipAddress?: string, userAgent?: string): any`
-    * `deleteLicense(userId: string, id: string, ipAddress?: string, userAgent?: string): any`
-    * `assignLicense(userId: string, licenseId: string, data: {
-      assignedUserId?: string | null;
-      assignedAssetId?: string | null;
-      assignedEmail?: string | null;
-      remarks?: string | null;
-    }, ipAddress?: string, userAgent?: string): any`
-    * `revokeLicense(userId: string, assignmentId: string, ipAddress?: string, userAgent?: string): any`
-
-### [staff.service.ts](src/services/staff.service.ts)
-* **Class**: `StaffService`
-  * **Methods**:
-    * `getStaff(): any`
-    * `createStaff(data: CreateStaffInput): any`
-    * `updateStaff(id: string, data: UpdateStaffInput): any`
-    * `deleteStaff(id: string): any`
-    * `findPublicStaffByEmployeeId(employeeNo: string): any`
-
-### [system-config.service.ts](src/services/system-config.service.ts)
-* **Class**: `SystemConfigService`
-  * **Methods**:
-    * `getConfigs(): Promise<Record<string, string>>`
-    * `getOspMaterialSourceAsOfDate(targetDate: Date = new Date()): Promise<'SLT' | 'COMPANY'>`
-    * `getFinanceConfigAsOfDate(targetDate: Date = new Date()): Promise<FinanceSystemConfig>`
-    * `getFinanceConfig(): Promise<FinanceSystemConfig>`
-    * `getSODConfig(): Promise<SODSystemConfig>`
-    * `getInventoryConfig(): Promise<InventorySystemConfig>`
-    * `createConfigVersion(input: {
-        category: string;
-        key: string;
-        value: string;
-        effectiveFrom: Date;
-        effectiveTo?: Date;
-        description?: string;
-        createdBy?: string;
-    }): any`
-    * `updateConfig(key: string, value: string, description: string | undefined, userId: string): any`
-
-### [system.service.ts](src/services/system.service.ts)
-* **Class**: `SystemService`
-  * **Methods**:
-    * `logEvent(event: SystemEvent): any`
-    * `forcePasswordChange(userId: string): any`
-    * `getRecentAuditLogs(limit = 100): any`
-
-### [tax-config.service.ts](src/services/tax-config.service.ts)
-* **Class**: `TaxConfigService`
-  * **Methods**:
-    * `getTaxConfigs(status: string = 'ACTIVE'): any`
-    * `createTaxConfig(data: CreateTaxConfigInput): any`
-
-### [team-member.service.ts](src/services/team-member.service.ts)
-* **Class**: `TeamMemberService`
-  * **Methods**:
-    * `generateUploadLink(memberId: string): any`
-    * `verifyUploadToken(token: string): any`
-    * `updateProfileByToken(token: string, data: UpdateTeamMemberProfileInput): any`
-
-### [TripService.ts](src/services/TripService.ts)
-* **Class**: `TripService`
-  * **Methods**:
-    * `createTrip(data: CreateTripDTO): Promise<Trip>`
-    * `getTrip(tripId: string): Promise<Trip | null>`
-    * `listTrips(filters: {
-    vehicle_id?: string;
-    driver_id?: string;
-    trip_status?: TripStatusEnum;
-    from_date?: Date;
-    to_date?: Date;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{ data: Trip[]; total: number }>`
-    * `startTrip(tripId: string, actualStartTime: Date): Promise<Trip>`
-    * `endTrip(tripId: string, actualEndTime: Date, actualDistanceKm?: number, fuelConsumedLiters?: number): Promise<Trip>`
-    * `getDriverDailyTrips(driverId: string, date: Date): any`
-    * `getTripMetrics(tripId: string): any`
-
-### [user.service.ts](src/services/user.service.ts)
-* **Class**: `UserService`
-  * **Methods**:
-    * `login({ username, password }: LoginCredentials): any`
-    * `getUsers(page: number, limit: number, search?: string): any`
-    * `createUser(data: CreateUserData, currentUserId: string): any`
-    * `updateUser(id: string, data: UpdateUserData, currentUserId: string): any`
-    * `deleteUser(id: string): any`
-    * `forgotPasswordVerify(username: string, employeeId: string): any`
-    * `forgotPasswordVerifyAnswer(token: string, answer: string): any`
-    * `forgotPasswordReset(token: string, newPassword: string): any`
-    * `getProfile(userId: string): any`
-    * `changePassword(userId: string, currentPassword: string, newPassword: string): any`
-    * `updateProfile(userId: string, data: { name?: string; email?: string }): any`
-    * `getUserPermissions(userId: string): any`
-    * `updateUserPermissions(userId: string, permissions: string[]): any`
-    * `getUserSections(userId: string): any`
-    * `assignUserSection(userId: string, data: { sectionId: string; roleId: string; isPrimary?: boolean }): any`
-    * `removeUserSection(assignmentId: string): any`
-
-### [VehicleLogService.ts](src/services/VehicleLogService.ts)
-* **Class**: `VehicleLogService`
-  * **Methods**:
-    * `getActiveLog(vehicleId: string): Promise<VehicleLog | null>`
-    * `startUsageLog(data: CreateVehicleLogDTO): Promise<VehicleLog>`
-    * `endUsageLog(vehicleId: string, data: EndVehicleLogDTO): Promise<VehicleLog>`
-
-### [VehicleService.ts](src/services/VehicleService.ts)
-* **Class**: `VehicleService`
-  * **Methods**:
-    * `getActiveDrivers(): Promise<Array<{ id: string; first_name: string; last_name: string; phone: string }>>`
-    * `createVehicle(data: CreateVehicleDTO): Promise<Vehicle>`
-    * `getVehicle(vehicleId: string): Promise<Vehicle | null>`
-    * `listVehicles(filters: {
-      site_id?: string;
-      status?: string;
-      ownership?: string;
-      page?: number;
-      limit?: number;
-    } = {}): Promise<{ data: Vehicle[]; total: number }>`
-    * `updateVehicle(vehicleId: string, data: UpdateVehicleDTO): Promise<Vehicle>`
-    * `deleteVehicle(vehicleId: string): Promise<boolean>`
-    * `updateVehicleLocation(vehicleId: string, latitude: number, longitude: number, speed?: number, heading?: number): Promise<Vehicle>`
-    * `getVehicleLocation(vehicleId: string): Promise<{
-    latitude: number;
-    longitude: number;
-    timestamp: Date;
-    accuracy: number;
-  } | null>`
-    * `getVehicleUtilization(vehicleId: string, fromDate: Date, toDate: Date): any`
-
-### [vendor.service.ts](src/services/vendor.service.ts)
-* **Class**: `VendorService`
-  * **Methods**:
-    * `getVendors(search?: string | null): any`
-    * `createVendor(data: CreateVendorInput): any`
-    * `getVendorById(id: string): any`
-    * `updateVendor(id: string, data: Partial<CreateVendorInput>): any`
-    * `deleteVendor(id: string): any`
-    * `importBulk(vendorsData: any[]): any`
-
-### [WorkflowEngine.ts](src/services/WorkflowEngine.ts)
-* **Class**: `WorkflowEngine`
-  * **Methods**:
-    * `initializeProjectWorkflow(projectId: string, projectTypeId: string): any`
-    * `validateStageCompletion(stageId: string): Promise<{ success: boolean; errors: string[] }>`
-    * `transitionStage(stageId: string, nextStatus: string, userId: string): any`
-    * `updateChecklistItem(checklistId: string, isCompleted: boolean, photoUrl?: string): any`
-    * `updateTaskStatus(taskId: string, status: string, progress: number = 0): any`
-    * `submitApproval(approvalId: string, status: string, userId: string, comments?: string): any`
-
 ## 2. Next.js API Routes (src/app/api)
 
 | Route Path | File Location | Supported Methods |
 | :--- | :--- | :--- |
+| `/api/admin/access-policies` | [route.ts](src/app/api/admin/access-policies/route.ts) | `GET`, `POST` |
 | `/api/admin/audit-logs` | [route.ts](src/app/api/admin/audit-logs/route.ts) | `GET` |
 | `/api/admin/clear-service-orders` | [route.ts](src/app/api/admin/clear-service-orders/route.ts) | `POST` |
 | `/api/admin/contractor-payment` | [route.ts](src/app/api/admin/contractor-payment/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
@@ -2819,6 +2865,10 @@
 | `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `DELETE` |
 | `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
+| `/api/admin/process-gates` | [route.ts](src/app/api/admin/process-gates/route.ts) | `GET`, `POST` |
+| `/api/admin/process-gates/[id]/levels` | [route.ts](src/app/api/admin/process-gates/[id]/levels/route.ts) | `POST` |
+| `/api/admin/process-gates/[id]/levels/[levelId]` | [route.ts](src/app/api/admin/process-gates/[id]/levels/[levelId]/route.ts) | `DELETE` |
+| `/api/admin/process-gates/[id]` | [route.ts](src/app/api/admin/process-gates/[id]/route.ts) | `PUT`, `DELETE` |
 | `/api/admin/qc/inspect` | [route.ts](src/app/api/admin/qc/inspect/route.ts) | `POST` |
 | `/api/admin/rate-matrix` | [route.ts](src/app/api/admin/rate-matrix/route.ts) | `GET`, `PUT` |
 | `/api/admin/reports/dynamic` | [route.ts](src/app/api/admin/reports/dynamic/route.ts) | `POST` |
@@ -3689,6 +3739,54 @@
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+
+### [ProcessGatePolicy](prisma/schema/dynamic-policy.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `entityType: String` `[// "SOD", "PROJECT", "INVOICE", "STOCK_TRANSFER", "MRN", "GRN", "PURCHASE_ORDER"]`
+  * `fromStatus: String` `[// "COMPLETED", "DRAFT", "PENDING"]`
+  * `toStatus: String` `[// "INVOICABLE", "APPROVED", "ISSUED"]`
+  * `label: String` `[// e.g. "SOD Invoicable Verification Gate"]`
+  * `isEnabled: Boolean` `[@default(true)]`
+  * `reqOpmcPat: Boolean` `[@default(false)]`
+  * `reqHoPat: Boolean` `[@default(false)]`
+  * `reqSltsPat: Boolean` `[@default(false)]`
+  * `reqPhotoProof: Boolean` `[@default(false)]`
+  * `reqGpsLocation: Boolean` `[@default(false)]`
+  * `reqDocUpload: Boolean` `[@default(false)]`
+  * `writeAuditLedger: Boolean` `[@default(true)]`
+  * `generateIssueNote: Boolean` `[@default(false)]`
+  * `approvalLevels: ProcessApprovalLevel[]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [ProcessApprovalLevel](prisma/schema/dynamic-policy.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `gatePolicyId: String`
+  * `level: Int` `[// 1, 2, 3...]`
+  * `requiredRole: String` `[// e.g. "ENGINEER", "AREA_MANAGER", "FINANCE_MANAGER"]`
+  * `specificUserId: String?` `[// Optional specific user assignment]`
+  * `description: String?` `[// Instructions for approver]`
+  * `minAmount: Decimal?` `[// Condition: Only apply if amount >= X]`
+  * `maxAmount: Decimal?` `[// Condition: Only apply if amount <= X]`
+  * `gatePolicy: ProcessGatePolicy` `[@relation(fields: [gatePolicyId], references: [id], onDelete: Cascade)]`
+  * `specificUser: User?` `[@relation(fields: [specificUserId], references: [id])]`
+
+### [UniversalApprovalInstance](prisma/schema/dynamic-policy.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `entityType: String` `[// "SOD", "INVOICE", "STOCK_ISSUE"]`
+  * `entityId: String` `[// The ID of the SOD, Invoice, etc.]`
+  * `level: Int`
+  * `requiredRole: String`
+  * `assignedUserId: String?`
+  * `status: String` `[@default("PENDING") // "PENDING", "APPROVED", "REJECTED"]`
+  * `actionedById: String?`
+  * `actionedAt: DateTime?`
+  * `comments: String?`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `assignedUser: User?` `[@relation("UniversalApprovalAssignee", fields: [assignedUserId], references: [id])]`
+  * `actionedBy: User?` `[@relation("UniversalApprovalActioner", fields: [actionedById], references: [id])]`
 
 ### [GISRoute](prisma/schema/gis.prisma)
 * **Fields**:
@@ -7219,6 +7317,9 @@
   * `inventoryLedgers: InventoryLedger[]`
   * `disposalsRequested: AssetDisposalRequest[]` `[@relation("DisposalRequestedBy")]`
   * `disposalsApproved: AssetDisposalRequest[]` `[@relation("DisposalApprovedBy")]`
+  * `universalApprovalAssignments: UniversalApprovalInstance[]` `[@relation("UniversalApprovalAssignee")]`
+  * `universalApprovalActions: UniversalApprovalInstance[]` `[@relation("UniversalApprovalActioner")]`
+  * `processApprovalLevels: ProcessApprovalLevel[]`
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:

@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { AutoBOQService } from '@/services/auto-boq.service';
+import { AutoBOQService } from '@/services/project/auto-boq.service';
 
 export const dynamic = 'force-dynamic';
 

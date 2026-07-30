@@ -1,6 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { WorkflowEngine } from '@/services/WorkflowEngine';
+import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 
 export class ProjectWorkflowService {
   /**

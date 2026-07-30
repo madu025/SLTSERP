@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ROLE_GROUPS } from '@/config/roles';
-import { ProjectIRLedgerService } from '@/services/project-ir-ledger.service';
+import { ProjectIRLedgerService } from '@/services/project/project-ir-ledger.service';
 
 interface IRTransactionBody {
   transactionType: 'PROJECT_ISSUE' | 'SLT_RETURN' | 'PROJECT_RETURN';

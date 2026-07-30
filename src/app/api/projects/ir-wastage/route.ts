@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectIRLedgerService } from '@/services/project-ir-ledger.service';
+import { ProjectIRLedgerService } from '@/services/project/project-ir-ledger.service';
 
 // POST: Record project material wastage
 export const POST = apiHandler(async (req, _params, body) => {

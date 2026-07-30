@@ -77,7 +77,7 @@ export class SodRevenueService {
             }
         }
 
-        const updateData: any = {};
+        const updateData: import('@prisma/client').Prisma.SODRevenueConfigUpdateInput = {};
         if (data.revenuePerSOD !== undefined) updateData.revenuePerSOD = Number(data.revenuePerSOD);
         if (data.effectiveFrom !== undefined) updateData.effectiveFrom = data.effectiveFrom ? new Date(data.effectiveFrom) : null;
         if (data.effectiveTo !== undefined) updateData.effectiveTo = data.effectiveTo ? new Date(data.effectiveTo) : null;
@@ -99,8 +99,8 @@ export class SodRevenueService {
                     }
                 }
             });
-        } catch (error: any) {
-            if (error.code === 'P2025') throw AppError.notFound('Configuration not found');
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'code' in error && (error as {code: string}).code === 'P2025') throw AppError.notFound('Configuration not found');
             throw error;
         }
     }
@@ -111,8 +111,8 @@ export class SodRevenueService {
                 where: { id }
             });
             return { success: true };
-        } catch (error: any) {
-            if (error.code === 'P2025') throw AppError.notFound('Configuration not found');
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'code' in error && (error as {code: string}).code === 'P2025') throw AppError.notFound('Configuration not found');
             throw error;
         }
     }

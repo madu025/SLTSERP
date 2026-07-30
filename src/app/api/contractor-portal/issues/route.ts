@@ -3,7 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 
 
 import { ContractorInventoryService } from '@/services/inventory/contractor-inventory.service';
-import { ContractorService } from '@/services/contractor.service';
+import { ContractorService } from '@/services/contractor/contractor.service';
 
 export const dynamic = 'force-dynamic';
 

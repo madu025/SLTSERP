@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { AppointmentNotificationService } from '@/services/notification.service';
+import { AppointmentNotificationService } from '@/services/notification/notification.service';
 import { AppError } from '@/lib/error';
 
 export const GET = apiHandler(async (req) => {

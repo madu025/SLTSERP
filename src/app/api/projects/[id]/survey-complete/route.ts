@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectSurveyService } from '@/services/project-survey.service';
+import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (_request, params, body) => {

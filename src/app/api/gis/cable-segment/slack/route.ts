@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GISRouteService } from '@/services/gis/GISRouteService';
-import { ProjectSurveyService } from '@/services/project-survey.service';
+import { ProjectSurveyService } from '@/services/project/project-survey.service';
 
 import { safe } from '@/utils/safe-await.util';
 

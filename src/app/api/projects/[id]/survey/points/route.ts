@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { MapApprovalService } from '@/services/map-approval.service';
+import { MapApprovalService } from '@/services/gis/map-approval.service';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { AppError } from '@/lib/error';
 

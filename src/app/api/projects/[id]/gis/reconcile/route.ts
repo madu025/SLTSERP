@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { GISReconciliationService } from '@/services/GISReconciliationService';
+import { GISReconciliationService } from '@/services/gis/GISReconciliationService';
 
 export const dynamic = 'force-dynamic';
 

@@ -1,5 +1,5 @@
 import { apiHandler } from "@/lib/api-handler";
-import { HelpdeskService } from "@/services/helpdesk.service";
+import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { CreateTicketSchema } from "@/lib/validations/helpdesk.schema";
 import { TicketStatus, TicketPriority, IssueCategory } from "@prisma/client";
 

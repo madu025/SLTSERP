@@ -12,12 +12,15 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:sync": "node scripts/db-sync.js",
+    "test": "playwright test",
+    "test:agentic": "npx ts-node scripts/agent-test-runner.ts",
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:debug": "npx playwright test --debug",
     "test:types": "tsc --noEmit",
     "worker:start": "npx tsx scripts/run-worker.ts",
-    "codemap:update": "tsx scripts/generate-codemap.ts"
+    "codemap:update": "tsx scripts/generate-codemap.ts",
+    "audit:hardcode": "tsx scripts/audit-hardcode.ts"
   },
   "dependencies": {
     "@datastructures-js/priority-queue": "^6.3.5",

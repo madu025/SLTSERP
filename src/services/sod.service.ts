@@ -1,1 +1,0 @@
-export { ServiceOrderService } from './sod';

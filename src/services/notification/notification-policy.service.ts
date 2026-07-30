@@ -1,5 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
-import { NotificationService, NotificationPriority } from '../notification.service';
+import { NotificationService, NotificationPriority } from '@/services/notification/notification.service';
 import { EmailService } from './email.service';
 
 export class NotificationPolicyService {

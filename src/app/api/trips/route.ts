@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import TripService from '@/services/TripService';
+import TripService from '@/services/fleet/TripService';
 import { TripStatusEnum } from '@prisma/client';
 import { createTripSchema, CreateTripSchema } from '@/lib/validations/trip.schema';
 import { Trip } from '@/types/vehicle-management.types';

@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { AiPredictionService } from '@/services/ai-prediction.service';
+import { AiPredictionService } from '@/services/ai/ai-prediction.service';
 
 export const dynamic = 'force-dynamic';
 

@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
-import { HelpdeskAuditService } from "@/services/helpdesk-audit.service";
+import { HelpdeskAuditService } from "@/services/helpdesk/helpdesk-audit.service";
 
 export const dynamic = 'force-dynamic';
 

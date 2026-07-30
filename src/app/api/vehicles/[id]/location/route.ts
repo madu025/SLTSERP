@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import VehicleService from '@/services/VehicleService';
+import VehicleService from '@/services/fleet/VehicleService';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

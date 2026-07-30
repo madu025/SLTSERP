@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectPermitService } from '@/services/project-permit.service';
+import { ProjectPermitService } from '@/services/project/project-permit.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

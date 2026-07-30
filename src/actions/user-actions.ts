@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/server-utils';
 import bcrypt from 'bcryptjs';
-import { SystemService } from '@/services/system.service';
+import { SystemService } from '@/services/core/system.service';
 import { revalidatePath } from 'next/cache';
 
 export async function createUser(data: any) {

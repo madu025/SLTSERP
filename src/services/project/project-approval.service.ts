@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
-import { NotificationService } from '@/services/notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 import { AppError } from '@/lib/error';
 
 interface CreateApprovalStepInput {

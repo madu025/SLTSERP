@@ -2,7 +2,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { GRN, Prisma } from '@prisma/client';
-import { NotificationService } from '../notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 import { emitSystemEvent } from '@/lib/events';
 import { CreateGRNData, TransactionClient } from './types';
 import { StockService } from './stock.service';

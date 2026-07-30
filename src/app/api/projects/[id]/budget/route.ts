@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { BudgetTrackingService } from '@/services/budget-tracking.service';
+import { BudgetTrackingService } from '@/services/finance/budget-tracking.service';
 
 export const dynamic = 'force-dynamic';
 

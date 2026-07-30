@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { AuditService } from '@/services/audit.service';
+import { AuditService } from '@/services/audit/audit.service';
 import { InvoiceCalculatorService } from '@/services/invoice/invoice.calculator.service';
 
 export interface RateRuleDTO {

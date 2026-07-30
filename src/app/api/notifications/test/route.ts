@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { NotificationService } from '@/services/notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 
 export const GET = apiHandler(async (req) => {
     const userId = req.headers.get('x-user-id');

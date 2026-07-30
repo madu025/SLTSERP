@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { FieldTaskService } from '@/services/field-task.service';
+import { FieldTaskService } from '@/services/project/field-task.service';
 
 export const dynamic = 'force-dynamic';
 

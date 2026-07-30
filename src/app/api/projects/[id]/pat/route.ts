@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { PATService } from '@/services/pat.service';
+import { PATService } from '@/services/project/pat.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

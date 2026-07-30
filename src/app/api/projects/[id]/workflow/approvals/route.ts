@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { WorkflowEngine } from '@/services/WorkflowEngine';
+import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';
 
 export const POST = apiHandler(async (_request, _params, body) => {

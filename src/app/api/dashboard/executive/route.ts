@@ -1,4 +1,4 @@
-import { ExecutiveDashboardService } from '@/services/executive-dashboard.service';
+import { ExecutiveDashboardService } from '@/services/core/executive-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
 
 export const dynamic = 'force-dynamic';

@@ -1,4 +1,4 @@
-import { DashboardAlertService } from '@/services/dashboard-alert.service';
+import { DashboardAlertService } from '@/services/core/dashboard-alert.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 

@@ -1,1 +1,0 @@
-export { InventoryService } from './inventory';

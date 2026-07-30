@@ -4,7 +4,7 @@ import { ServiceOrderRepository } from '@/repositories/service-order.repository'
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
 import { AuditRepository } from '@/repositories/audit.repository';
 import { NotificationRepository } from '@/repositories/notification.repository';
-import { NotificationService } from '../notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 import { startOfDay, endOfDay, subDays, subMonths } from 'date-fns';
 import { ROLE_GROUPS } from "@/config/roles";
 

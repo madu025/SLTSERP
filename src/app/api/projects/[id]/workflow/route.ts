@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectWorkflowService } from '@/services/project-workflow.service';
+import { ProjectWorkflowService } from '@/services/project/project-workflow.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

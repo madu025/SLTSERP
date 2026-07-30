@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
-import { NotificationService } from '@/services/notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 

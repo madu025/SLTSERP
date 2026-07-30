@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import PaymentService from '@/services/PaymentService';
+import PaymentService from '@/services/finance/PaymentService';
 import { PaymentTypeEnum, PaymentStatusEnum } from '@prisma/client';
 import { PaymentType } from '@/types/vehicle-management.types';
 import { createPaymentSchema, CreatePaymentSchema } from '@/lib/validations/payment.schema';

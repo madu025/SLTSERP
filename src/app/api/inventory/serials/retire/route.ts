@@ -1,4 +1,4 @@
-import { InventoryService } from '@/services/inventory.service';
+import { InventoryService } from '@/services/inventory/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 

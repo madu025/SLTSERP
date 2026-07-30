@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { NotificationService } from '@/services/notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 
 export const PATCH = apiHandler(async (_req, params) => {
     const { id } = params;

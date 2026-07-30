@@ -1,5 +1,5 @@
 import { apiHandler } from "@/lib/api-handler";
-import { StaffService } from "@/services/staff.service";
+import { StaffService } from "@/services/hr/staff.service";
 import { rateLimit, getClientIp } from "@/lib/agent-auth";
 import { NextResponse } from "next/server";
 

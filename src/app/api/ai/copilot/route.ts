@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { NexusAgentService } from '@/services/nexus-agent.service';
+import { NexusAgentService } from '@/services/ai/nexus-agent.service';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
@@ -19,7 +19,7 @@ export const GET = apiHandler(async () => {
     // Enforce session check
     const user = await requireAuth();
 
-    const { NexusMemoryService } = await import('@/services/nexus-memory.service');
+    const { NexusMemoryService } = await import('@/services/ai/nexus-memory.service');
     const [history, suggestions] = await Promise.all([
         NexusMemoryService.getConversation(user.id),
         NexusMemoryService.getFrequentSuggestions(user.id)
@@ -43,7 +43,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
 
     // Handle clear chat history request
     if (clear) {
-        const { NexusMemoryService } = await import('@/services/nexus-memory.service');
+        const { NexusMemoryService } = await import('@/services/ai/nexus-memory.service');
         await NexusMemoryService.clearConversation(user.id);
         return Response.json({ success: true, message: 'Chat history cleared' });
     }

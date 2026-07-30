@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { cookies } from 'next/headers';
-import { UserService } from '@/services/user.service';
+import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 

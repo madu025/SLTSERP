@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ReportService } from '@/services/report.service';
+import { ReportService } from '@/services/core/report.service';
 
 export const dynamic = 'force-dynamic';
 

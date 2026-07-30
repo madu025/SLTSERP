@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { MaterialService } from '@/services/material.service';
+import { MaterialService } from '@/services/inventory/material.service';
 import { AppError } from '@/lib/error';
 
 // GET - Preview balance sheet data before generation

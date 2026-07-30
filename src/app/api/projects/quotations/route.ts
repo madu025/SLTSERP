@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { QuotationService } from '@/services/quotation.service';
+import { QuotationService } from '@/services/finance/quotation.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 

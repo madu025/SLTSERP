@@ -172,7 +172,7 @@ export class InvoiceGeneratorService {
                             proposedBy: 'SYSTEM'
                         }))
                     }
-                } as any
+                } as import('@prisma/client').Prisma.InvoiceUncheckedCreateInput
             });
 
             await tx.serviceOrder.updateMany({
@@ -188,12 +188,12 @@ export class InvoiceGeneratorService {
                 tx,
                 invoice.id,
                 invoice.invoiceNumber,
-                invoice.totalAmount, // Total Revenue (relieving WIP)
+                Number(invoice.totalAmount), // Total Revenue (relieving WIP)
                 amountA,             // Contractor Payable
                 amountB,             // Retention Liability
                 `Enterprise Ledger GL Posting for Invoice: ${invoice.invoiceNumber}`,
-                invoice.vatAmount,   // Output VAT (0 unless statutory breakdown applied)
-                invoice.ssclAmount   // SSCL (0 unless statutory breakdown applied)
+                Number(invoice.vatAmount), // Output VAT (0 unless statutory breakdown applied)
+                Number(invoice.ssclAmount) // SSCL (0 unless statutory breakdown applied)
             );
 
             return invoice;
@@ -203,8 +203,8 @@ export class InvoiceGeneratorService {
     /**
      * Recalculate splits (amountA / amountB) for an invoice based on its associated Penalty records
      */
-    static async recalculateInvoiceSplits(invoiceId: string, tx?: any) {
-        const db = tx || prisma;
+    static async recalculateInvoiceSplits(invoiceId: string, tx?: import('@prisma/client').Prisma.TransactionClient) {
+        const db = (tx as unknown as import('@prisma/client').PrismaClient) || prisma;
         const invoice = await db.invoice.findUnique({
             where: { id: invoiceId },
             include: { penalties: true }
@@ -212,9 +212,9 @@ export class InvoiceGeneratorService {
         if (!invoice) throw AppError.badRequest('Invoice not found');
 
         const penaltyTotal = invoice.penalties
-            .filter((p: any) => p.status === 'APPROVED')
-            .reduce((sum: number, p: any) => sum + p.amount, 0);
-        const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(invoice.totalAmount, penaltyTotal);
+            .filter((p: import('@prisma/client').Penalty) => p.status === 'APPROVED')
+            .reduce((sum: number, p: import('@prisma/client').Penalty) => sum + Number(p.amount), 0);
+        const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(Number(invoice.totalAmount), penaltyTotal);
 
         return await db.invoice.update({
             where: { id: invoiceId },

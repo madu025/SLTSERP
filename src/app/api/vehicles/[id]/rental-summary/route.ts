@@ -1,5 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
-import { rentalPaymentService } from '@/services/RentalPaymentService';
+import { rentalPaymentService } from '@/services/fleet/RentalPaymentService';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 

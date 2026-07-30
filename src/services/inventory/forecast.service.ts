@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
-import { ProjectPurchaseOrderService } from '../project-purchase-order.service';
+import { ProjectPurchaseOrderService } from '@/services/project/project-purchase-order.service';
 
 export class ForecastService {
     /**

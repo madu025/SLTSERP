@@ -1,5 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
-import { InventoryService } from '@/services/inventory.service';
+import { InventoryService } from '@/services/inventory/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
 import { materialReturnSchema } from '@/lib/validations/inventory.schema';
 

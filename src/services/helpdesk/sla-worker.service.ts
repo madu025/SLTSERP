@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import { prisma } from '@/lib/prisma';
-import { NotificationService } from '@/services/notification.service';
+import { NotificationService } from '@/services/notification/notification.service';
 import { TicketStatus } from '@prisma/client';
 
 interface SLAJobData {

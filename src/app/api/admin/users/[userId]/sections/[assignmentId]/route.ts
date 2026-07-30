@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { UserService } from '@/services/user.service';
+import { UserService } from '@/services/hr/user.service';
 
 // DELETE - Remove section assignment
 export const DELETE = apiHandler(async (_req, params) => {

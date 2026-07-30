@@ -31,7 +31,7 @@ import Draw from 'ol/interaction/Draw';
 import Translate from 'ol/interaction/Translate';
 import Modify from 'ol/interaction/Modify';
 import Collection from 'ol/Collection';
-import { type AutoPlanResult, type PlannedClosure } from '@/services/GISAutoPlanService';
+import { type AutoPlanResult, type PlannedClosure } from '@/services/gis/GISAutoPlanService';
 import {
   LAYER_COLORS,
   LAYER_LABELS,

@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { GISRouteOptimizerService } from '@/services/gis-optimizer.service';
+import { GISRouteOptimizerService } from '@/services/gis/gis-optimizer.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

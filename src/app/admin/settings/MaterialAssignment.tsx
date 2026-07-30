@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { Search, Save, Loader2, Plus, X, Edit2, GripVertical, Info, LayoutGrid, List, Layers, ChevronUp, ChevronDown, Link2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
     Table,
@@ -17,13 +16,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -188,14 +180,7 @@ export function MaterialAssignment() {
     }, [mappedPairsMatrix, categoryOrder, search]);
 
 
-    const activeItems = items.filter(item => {
-        const isActive = changes[item.id]?.isOspFtth ?? item.isOspFtth;
-        return isActive;
-    }).filter(item =>
-        item.code.toLowerCase().includes(search.toLowerCase()) ||
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        (item.commonName && item.commonName.toLowerCase().includes(search.toLowerCase()))
-    );
+
 
     const inactiveItems = items.filter(item => {
         const isActive = changes[item.id]?.isOspFtth ?? item.isOspFtth;
@@ -906,7 +891,7 @@ export function MaterialAssignment() {
                             <div className="grid gap-2">
                                 <Label htmlFor="commonName" className="text-xs font-bold text-slate-700">
                                     Common Group Name
-                                    <span className="text-[11px] text-slate-400 font-normal ml-2">(e.g. "Drop Wire Cable", "ONT Router")</span>
+                                    <span className="text-[11px] text-slate-400 font-normal ml-2">(e.g. &quot;Drop Wire Cable&quot;, &quot;ONT Router&quot;)</span>
                                 </Label>
                                 <Input
                                     id="commonName"
@@ -928,7 +913,7 @@ export function MaterialAssignment() {
                                     <Info className="w-4 h-4 text-blue-600" /> Mapping Tip:
                                 </p>
                                 <p className="text-[11px] text-blue-800 leading-normal">
-                                    Giving the EXACT SAME Common Group Name (e.g. "Drop Wire Cable") to both an SLT Code and an SLTS Code links them as a <strong>Mapped Pair ✅</strong> in SOD Completion reports!
+                                    Giving the EXACT SAME Common Group Name (e.g. &quot;Drop Wire Cable&quot;) to both an SLT Code and an SLTS Code links them as a <strong>Mapped Pair ✅</strong> in SOD Completion reports!
                                 </p>
                             </div>
                         </div>

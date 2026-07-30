@@ -1,4 +1,4 @@
-import { ServiceOrderService } from '@/services/sod.service';
+import { ServiceOrderService } from '@/services/sod/sod.service';
 import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError, ErrorCode } from '@/lib/error';

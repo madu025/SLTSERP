@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { UserService } from '@/services/user.service';
+import { UserService } from '@/services/hr/user.service';
 import { z } from 'zod';
 
 const verifyAnswerSchema = z.object({

@@ -1,7 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import fs from 'fs';
 import path from 'path';
-import { SLTPortalAuthService } from '@/services/slt-portal-auth.service';
+import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 import { requestContext } from '@/lib/request-context';

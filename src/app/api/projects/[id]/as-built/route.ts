@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { AsBuiltService } from '@/services/as-built.service';
+import { AsBuiltService } from '@/services/project/as-built.service';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';

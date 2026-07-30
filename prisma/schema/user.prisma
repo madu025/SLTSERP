@@ -67,6 +67,9 @@ model User {
   inventoryLedgers              InventoryLedger[]
   disposalsRequested            AssetDisposalRequest[]        @relation("DisposalRequestedBy")
   disposalsApproved             AssetDisposalRequest[]        @relation("DisposalApprovedBy")
+  universalApprovalAssignments  UniversalApprovalInstance[]   @relation("UniversalApprovalAssignee")
+  universalApprovalActions      UniversalApprovalInstance[]   @relation("UniversalApprovalActioner")
+  processApprovalLevels         ProcessApprovalLevel[]
 
   @@index([role])
   @@index([supervisorId])

@@ -1,5 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
-import { MaterialService } from '@/services/material.service';
+import { MaterialService } from '@/services/inventory/material.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 

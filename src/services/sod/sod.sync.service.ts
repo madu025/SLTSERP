@@ -1,14 +1,14 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrder } from '@prisma/client';
-import { sltApiService, SLTServiceOrderData, SLTPATData } from '../slt-api.service';
+import { sltApiService, SLTServiceOrderData, SLTPATData } from '@/services/slt/slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
 import { SODLifecycleService } from './sod.lifecycle.service';
 import { SodUtils } from './sod.utils';
-import { SystemConfigService } from '../system-config.service';
+import { SystemConfigService } from '@/services/core/system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
 import { MaterialUsageInput } from './sod-types';
 import { format, subMonths } from 'date-fns';
@@ -868,7 +868,7 @@ export class SODSyncService {
 
         if (created > 0 || updated > 0) {
             const [err] = await safe((async () => {
-                const { NotificationService } = await import('@/services/notification.service');
+                const { NotificationService } = await import('@/services/notification/notification.service');
 
                 let title = 'Service Orders Synced';
                 let message = '';
@@ -1405,7 +1405,7 @@ export class SODSyncService {
                 await StatsService.handleStatusChange(syncedOrder.opmcId, oldStatus, syncedOrder.sltsStatus);
 
                 if (syncedOrder.sltsStatus === 'RETURN') {
-                    const { NotificationService } = await import('@/services/notification.service');
+                    const { NotificationService } = await import('@/services/notification/notification.service');
                     await NotificationService.notifyByRole({
                         roles: ROLE_GROUPS.PROJECT_MANAGERS,
                         title: 'SOD Returned (Bridge Sync)',

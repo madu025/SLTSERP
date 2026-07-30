@@ -1,4 +1,4 @@
-import { VendorService } from "@/services/vendor.service";
+import { VendorService } from "@/services/finance/vendor.service";
 import { apiHandler } from "@/lib/api-handler";
 import { AppError } from "@/lib/error";
 import { ROLE_GROUPS } from "@/config/roles";
