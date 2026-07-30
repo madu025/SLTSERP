@@ -86,7 +86,7 @@ export class ServiceOrderService {
         if (updateData.sltsStatus && updateData.sltsStatus !== oldOrder.sltsStatus) {
             const { ProcessGateEngine } = await import('../approval/process-gate-engine');
             const gateResult = await ProcessGateEngine.startGate({
-                entityType: 'SOD',
+                entityType: 'SERVICE_ORDER',
                 entityId: id,
                 currentStatus: oldOrder.sltsStatus as string,
                 entityPayload: updateData

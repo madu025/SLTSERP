@@ -177,11 +177,17 @@ export class InvoiceGeneratorService {
         bomNumber?: string | null;
         rtomArea?: string | null;
         description?: string;
+        idempotencyKey?: string;
     }) {
-        const { totalAmount, penaltyTotal = 0, penaltiesList = [], ...other } = data;
+        const { totalAmount, penaltyTotal = 0, penaltiesList = [], idempotencyKey, ...other } = data;
         const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount, penaltyTotal);
 
         return await prisma.$transaction(async (tx) => {
+            if (idempotencyKey) {
+                const existingLog = await tx.idempotencyLog.findUnique({ where: { idempotencyKey } });
+                if (existingLog) throw AppError.badRequest('Duplicate request');
+                await tx.idempotencyLog.create({ data: { idempotencyKey, actionType: 'GENERATE_INVOICE', status: 'SUCCESS' } });
+            }
             let bomNumber = other.bomNumber;
             let projectId = null;
             let projectNumber = null;

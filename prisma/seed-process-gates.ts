@@ -95,6 +95,72 @@ async function main() {
     },
   });
 
+  
+  // SOD Gate 1: PENDING to INPROGRESS (Engineer Assignment)
+  await prisma.processGatePolicy.upsert({
+    where: {
+      entityType_fromStatus_toStatus: {
+        entityType: 'SERVICE_ORDER',
+        fromStatus: 'PENDING',
+        toStatus: 'INPROGRESS',
+      }
+    },
+    update: {},
+    create: {
+      entityType: 'SERVICE_ORDER',
+      fromStatus: 'PENDING',
+      toStatus: 'INPROGRESS',
+      label: 'SOD Assignment',
+      isEnabled: true,
+      rolesToNotify: ['CONTRACTOR'],
+      domainAction: 'HANDLE_SOD_ASSIGNED',
+      approvalLevels: {
+        create: [
+          {
+            level: 1,
+            requiredRole: 'ENGINEER',
+            description: 'Assign SOD to Contractor',
+          }
+        ]
+      }
+    },
+  });
+
+  // SOD Gate 2: INPROGRESS to COMPLETED (PAT Approval)
+  await prisma.processGatePolicy.upsert({
+    where: {
+      entityType_fromStatus_toStatus: {
+        entityType: 'SERVICE_ORDER',
+        fromStatus: 'INPROGRESS',
+        toStatus: 'COMPLETED',
+      }
+    },
+    update: {},
+    create: {
+      entityType: 'SERVICE_ORDER',
+      fromStatus: 'INPROGRESS',
+      toStatus: 'COMPLETED',
+      label: 'SOD Completion (PAT)',
+      isEnabled: true,
+      rolesToNotify: ['OSP_MANAGER'],
+      domainAction: 'HANDLE_SOD_COMPLETED',
+      approvalLevels: {
+        create: [
+          {
+            level: 1,
+            requiredRole: 'CONTRACTOR',
+            description: 'Contractor submits work',
+          },
+          {
+            level: 2,
+            requiredRole: 'ENGINEER',
+            description: 'Engineer verifies PAT',
+          }
+        ]
+      }
+    },
+  });
+
   console.log('Process Gate Policies seeded successfully.');
 }
 

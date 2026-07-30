@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-
+export const maxDuration = 300; // Allow up to 5 minutes on Vercel Pro (60s on Hobby)
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod/sod.service';
 import { AppointmentNotificationService } from '@/services/notification/notification.service';
@@ -18,33 +18,36 @@ export const GET = apiHandler(async (req) => {
         throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
     }
 
-    console.log('[CRON] Starting Master Cron Job...');
+    console.log('[CRON] Starting Master Cron Job (Enqueueing to Background Workers)...');
     const startTime = Date.now();
 
-    // 1. SOD Sync (Runs every 15 mins)
-    const sodResults = await ServiceOrderService.syncAllOpmcs();
+    const { addJob, sodSyncQueue, notificationsQueue } = await import('@/lib/queue');
 
-    // 2. Appointment Reminders (Runs every 15 mins)
+    // 1. SOD Sync (Runs every 15 mins) - Enqueue to BullMQ
+    await addJob(sodSyncQueue, 'periodic-pending-sync', { type: 'PERIODIC_PENDING_SYNC' });
+    console.log('[CRON] Enqueued SOD Sync Job');
+
+    // 2. Appointment Reminders (Runs every 15 mins) - Note: If this is synchronous, consider offloading too.
+    // For now we'll keep it as is if it's fast, but ideally it should also be enqueued if it takes long.
     await AppointmentNotificationService.checkAndNotify();
 
     // 3. PAT Sync (Runs ONLY once an hour around the 30-minute mark)
     const currentMinute = new Date().getMinutes();
-    let patResults = null;
+    let patSyncEnqueued = false;
     if (currentMinute >= 25 && currentMinute <= 40) {
-        console.log('[CRON] Executing Hourly PAT Sync...');
-        const approvedResult = await ServiceOrderService.syncHoApprovedResults();
-        const rejectedResult = await ServiceOrderService.syncHoRejectedResults();
-        patResults = { approvedResult, rejectedResult };
+        console.log('[CRON] Enqueueing Hourly PAT Sync...');
+        await addJob(sodSyncQueue, 'periodic-global-sync', { type: 'PERIODIC_GLOBAL_SYNC' });
+        patSyncEnqueued = true;
     }
 
     const duration = (Date.now() - startTime) / 1000;
-    console.log(`[CRON] Master Cron completed in ${duration}s`);
+    console.log(`[CRON] Master Cron enqueued tasks in ${duration}s`);
 
     return Response.json({
         success: true,
-        message: 'Master cron completed',
+        message: 'Master cron tasks successfully enqueued to background workers',
         duration: `${duration}s`,
-        stats: sodResults?.stats,
-        patSyncRan: !!patResults
+        patSyncEnqueued
+
     });
 });

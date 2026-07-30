@@ -61,6 +61,12 @@ export class DomainActionDispatcher {
             case 'ACCRUE_WIP':
                 await this.handleAccrueWIP(payload, tx);
                 break;
+                        case 'HANDLE_SOD_ASSIGNED':
+                await this.handleSodAssigned(payload, tx);
+                break;
+            case 'HANDLE_SOD_COMPLETED':
+                await this.handleSodCompleted(payload, tx);
+                break;
             default:
                 console.warn(`[DomainActionDispatcher] Unhandled domain action: ${actionId}`);
         }
@@ -114,4 +120,53 @@ export class DomainActionDispatcher {
         const { LedgerService } = await import('@/services/finance/ledger.service');
         await LedgerService.accrueWipLiability(payload.entityId, tx);
     }
+    // ==========================================
+    // SOD Module Side-Effects (Zero-Hardcoded)
+    // ==========================================
+
+    private static async handleSodAssigned(payload: ActionPayload, tx: TransactionClient) {
+        // Update SOD status to INPROGRESS without hardcoded rules in the API
+        await tx.serviceOrder.update({
+            where: { id: payload.entityId },
+            data: { 
+                status: 'INPROGRESS',
+                sltsStatus: 'INPROGRESS',
+                statusDate: new Date()
+            }
+        });
+        
+        await tx.serviceOrderStatusHistory.create({
+            data: {
+                serviceOrderId: payload.entityId,
+                status: 'INPROGRESS',
+                statusDate: new Date()
+            }
+        });
+        
+        console.log(`[DomainActionDispatcher] SOD ${payload.entityId} assigned and updated to INPROGRESS`);
+    }
+
+    private static async handleSodCompleted(payload: ActionPayload, tx: TransactionClient) {
+        // Update SOD status to COMPLETED
+        await tx.serviceOrder.update({
+            where: { id: payload.entityId },
+            data: { 
+                status: 'COMPLETED',
+                sltsStatus: 'COMPLETED',
+                statusDate: new Date(),
+                completedDate: new Date()
+            }
+        });
+
+        await tx.serviceOrderStatusHistory.create({
+            data: {
+                serviceOrderId: payload.entityId,
+                status: 'COMPLETED',
+                statusDate: new Date()
+            }
+        });
+        
+        console.log(`[DomainActionDispatcher] SOD ${payload.entityId} marked as COMPLETED (PAT Approved)`);
+    }
+
 }

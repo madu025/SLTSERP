@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { DynamicApprovalService } from '@/services/approval/dynamic-approval.service';
 import { AppError } from '@/lib/error';

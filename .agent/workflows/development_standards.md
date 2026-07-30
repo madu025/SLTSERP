@@ -187,3 +187,9 @@ if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
 ### B. Selectivity for Performance
 - **Standard**: NEVER fetch entire rows if only specific fields are needed.
 - **Implementation**: Use Prisma's `select` to minimize the payload size sent over the network.
+
+
+## The 100% Zero-Hardcoding FSM Mandate (Final Architecture)
+1. **Module-by-Module FSM Migration**: The entire SLTSERP architecture is strictly moving to a **100% Zero-Hardcoded Finite State Machine (FSM)** pattern.
+2. **No Hardcoded Status Checks**: Never hardcode status values inside service logic. All conditions MUST be driven by the database (e.g., `ApprovalMatrix`, `ProcessGatePolicy`).
+3. **IDE Development Coding Standard**: From this point forward, all code generated must strictly conform to this final architecture. New modules, UI components, and API routes must integrate into the `ProcessGateEngine` and `DomainActionDispatcher` via the Saga pattern.
