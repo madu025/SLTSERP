@@ -46,14 +46,8 @@ export const PUT = apiHandler(
         }
         
         const userId = request.headers.get('x-user-id') || undefined;
-        try {
-            const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
-            return serviceOrder;
-        } catch (error: unknown) {
-            const err = error as Error;
-            if (err?.message === 'ID_REQUIRED') throw AppError.badRequest('Service Order ID required');
-            throw error;
-        }
+        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+        return serviceOrder;
     },
     { schema: serviceOrderUpdateSchema, rawResponse: true }
 );
@@ -67,16 +61,8 @@ export const PATCH = apiHandler(
         }
 
         const userId = request.headers.get('x-user-id') || undefined;
-        try {
-            const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
-            return serviceOrder;
-        } catch (error: unknown) {
-            const err = error as Error;
-            if (err?.message === 'ID_REQUIRED') throw AppError.badRequest('Service Order ID required');
-            if (err?.message === 'INVALID_STATUS') throw AppError.badRequest('Invalid SLTS Status');
-            if (err?.message === 'COMPLETED_DATE_REQUIRED') throw AppError.badRequest('Completed date is required for COMPLETED or RETURN status');
-            throw error;
-        }
+        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+        return serviceOrder;
     },
     { schema: serviceOrderPatchSchema, rawResponse: true }
 );

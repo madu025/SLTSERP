@@ -7,18 +7,7 @@ export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = await params;
 
-    try {
-        return await ProjectBOQService.analyzeBOQ(projectId);
-    } catch (error: unknown) {
-        const err = error as { message?: string };
-        if (err.message === 'PROJECT_NOT_FOUND') {
-            throw AppError.notFound('Project not found');
-        }
-        if (err.message === 'NO_STORE_FOUND') {
-            throw AppError.badRequest('No inventory store found to analyze against.');
-        }
-        throw error;
-    }
+    return await ProjectBOQService.analyzeBOQ(projectId);
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {

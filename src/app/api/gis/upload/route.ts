@@ -5,12 +5,13 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import type { GISUploadRequest, GISLayerType } from '@/types/gis';
 import { safe, safeSync } from '@/utils/safe-await.util';
 
-export async function POST(request: NextRequest) {
+export const POST = apiHandler(async (request) => {
   logger.info('[GIS-UPLOAD] Received GIS file upload request');
     const contentType = request.headers.get('content-type') || '';
 
@@ -125,4 +126,4 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json(result, { status: 201 });
-}
+}, { rawResponse: true });

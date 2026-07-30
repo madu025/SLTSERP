@@ -85,9 +85,13 @@
 * **Class**: `SystemMonitoringService`
   * **Methods**:
     * `logError(input: LogErrorInput): any`
+    * `runLedgerSecurityAudit(): any`
+    * `getSecurityThreats(): any`
+    * `getContractorSyncTelemetry(): any`
     * `getErrorLogs(filter: ErrorLogsFilter): any`
     * `markResolved(errorId: string, userId: string): any`
-    * `clearLogs(daysToKeep = 14): any`
+    * `resolveAllUnresolved(userId: string): any`
+    * `clearLogs(options?: { daysToKeep?: number; clearAll?: boolean } | number): any`
     * `getHealthStats(): any`
 
 ### [system.service.ts](src/services/admin/system.service.ts)
@@ -170,6 +174,40 @@
     * `submitRegistration(token: string, data: PublicRegistrationSchema): any`
     * `getStaticData(): any`
     * `uploadFile(file: File, fieldName: string, onProgress?: (p: number) => void): any`
+
+### [domain-dispatcher.service.ts](src/services/approval/domain-dispatcher.service.ts)
+* **Class**: `DomainActionDispatcher`
+  * **Methods**:
+    * `dispatch(actionId: string, payload: any, tx: TransactionClient, instanceId?: string): any`
+
+### [dynamic-approval.service.ts](src/services/approval/dynamic-approval.service.ts)
+* **Class**: `DynamicApprovalService`
+  * **Methods**:
+    * `generateActionToken(instanceId: string, action: 'APPROVED' | 'REJECTED', userId: string): any`
+    * `sendActionableEmail(instanceId: string, entityType: string, entityId: string, approverEmail: string, userId: string, amount?: number): any`
+    * `sendMaterialRequestEmail(instanceId: string, stockRequestId: string, approverEmail: string, userId: string, requiredRole: string): any`
+    * `processApprovalWebhook(token: string): any`
+
+### [process-gate-engine.ts](src/services/approval/process-gate-engine.ts)
+* **Class**: `ProcessGateEngine`
+  * **Methods**:
+    * `startGate(params: {
+        entityType: string;
+        entityId: string;
+        currentStatus: string;
+        entityPayload?: Record<string, any>;
+    }): any`
+    * `advanceGate(params: {
+        instanceId: string;
+        action: 'APPROVED' | 'REJECTED';
+        userId: string;
+        remarks?: string;
+    }): any`
+
+### [rule-engine.ts](src/services/approval/rule-engine.ts)
+* **Class**: `RuleEngine`
+  * **Methods**:
+    * `evaluate(condition: RuleCondition | RuleCondition[] | null | undefined, payload: Record<string, any>): boolean`
 
 ### [index.ts](src/services/audit/index.ts)
 * **Class**: `AuditService`
@@ -380,6 +418,8 @@
     * `logEvent(event: SystemEvent): any`
     * `forcePasswordChange(userId: string): any`
     * `getRecentAuditLogs(limit = 100): any`
+    * `getConfig(key: string, defaultValue: T): Promise<T>`
+    * `checkDatabaseHealth(): any`
 
 ### [WorkflowEngine.ts](src/services/core/WorkflowEngine.ts)
 * **Class**: `WorkflowEngine`
@@ -1064,6 +1104,7 @@
             routeLength?: string | number | null;
             poleSpacing?: string | number | null;
             status?: string;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             geojsonData?: any;
             isActive?: boolean;
         }, userId: string): any`
@@ -1734,6 +1775,12 @@
 ### [invoice.generator.service.ts](src/services/invoice/invoice.generator.service.ts)
 * **Class**: `InvoiceGeneratorService`
   * **Methods**:
+    * `generateContractorMonthlyInvoice(data: {
+        contractorId: string;
+        month?: string | number;
+        year?: string | number;
+        sodIds?: string[];
+    }, userId: string = 'system-billing-officer'): any`
     * `generateUniqueNumber(contractorPrefix: string, regionName: string, year: number, month: number): Promise<string>`
     * `createRegionalInvoice(data: {
         invoiceNumber: string;
@@ -1749,7 +1796,7 @@
         rtomArea?: string | null;
         description?: string;
     }): any`
-    * `recalculateInvoiceSplits(invoiceId: string, tx?: any): any`
+    * `recalculateInvoiceSplits(invoiceId: string, tx?: import('@prisma/client').Prisma.TransactionClient): any`
 
 ### [invoice.query.service.ts](src/services/invoice/invoice.query.service.ts)
 * **Class**: `InvoiceQueryService`
@@ -2095,9 +2142,12 @@
         userId: string;
         title: string;
         message: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         type?: any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         priority?: any;
         link?: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         metadata?: any;
         channels?: ('IN_APP' | 'PUSH' | 'EMAIL')[];
         userEmail?: string;
@@ -2168,7 +2218,7 @@
         assignedToId?: string;
     }): any`
     * `getJobById(id: string): any`
-    * `updateJob(id: string, data: any): any`
+    * `updateJob(id: string, data: import("@prisma/client").Prisma.JobUpdateInput): any`
     * `deleteJob(id: string): any`
     * `assignJobToSurvey(jobId: string, data: {
         areaManagerId?: string;
@@ -2780,6 +2830,23 @@
     * `prepareStatusTransition(oldOrder: { sltsStatus: string; status: string | null; statusDate: Date | null; comments: string | null; returnReason: string | null; sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isInvoicable?: boolean }, data: ServiceOrderUpdateData): Promise<Prisma.ServiceOrderUncheckedUpdateInput>`
     * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
     * `toggleOfflineWorkOrder(id: string, isOffline: boolean, offlineReference?: string, reason?: string): any`
+    * `getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null): any`
+    * `registerOfflineOrder(data: {
+        soNum: string;
+        rtom: string;
+        opmcId: string;
+        customerName?: string;
+        voiceNumber?: string;
+        serviceType: string;
+        orderType: string;
+        sltsStatus: ServiceOrderStatus;
+        dropWireDistance: number;
+        contractorId?: string;
+        teamId?: string;
+        offlineReference?: string;
+        comments?: string;
+        completedDate?: Date;
+    }): any`
     * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN'`
 
 ### [sod.material.service.ts](src/services/sod/sod.material.service.ts)
@@ -2861,8 +2928,9 @@
 | `/api/admin/finance/vendors/import` | [route.ts](src/app/api/admin/finance/vendors/import/route.ts) | `POST` |
 | `/api/admin/inventory/ai-audit` | [route.ts](src/app/api/admin/inventory/ai-audit/route.ts) | `GET` |
 | `/api/admin/jobs` | [route.ts](src/app/api/admin/jobs/route.ts) | `GET` |
+| `/api/admin/monitoring/audit-ledger` | [route.ts](src/app/api/admin/monitoring/audit-ledger/route.ts) | `GET` |
 | `/api/admin/monitoring/dashboard` | [route.ts](src/app/api/admin/monitoring/dashboard/route.ts) | `GET` |
-| `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `DELETE` |
+| `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `PATCH`, `DELETE` |
 | `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
 | `/api/admin/process-gates` | [route.ts](src/app/api/admin/process-gates/route.ts) | `GET`, `POST` |
@@ -2884,6 +2952,7 @@
 | `/api/admin/sync-trigger` | [route.ts](src/app/api/admin/sync-trigger/route.ts) | `POST` |
 | `/api/admin/system/recalculate-stats` | [route.ts](src/app/api/admin/system/recalculate-stats/route.ts) | `POST` |
 | `/api/admin/system/reset-sods` | [route.ts](src/app/api/admin/system/reset-sods/route.ts) | `POST` |
+| `/api/admin/system/smtp` | [route.ts](src/app/api/admin/system/smtp/route.ts) | `GET`, `PUT` |
 | `/api/admin/system-config` | [route.ts](src/app/api/admin/system-config/route.ts) | `GET`, `POST` |
 | `/api/admin/table-settings` | [route.ts](src/app/api/admin/table-settings/route.ts) | `GET`, `POST` |
 | `/api/admin/users/[userId]/permissions` | [route.ts](src/app/api/admin/users/[userId]/permissions/route.ts) | `GET`, `PATCH` |
@@ -2894,6 +2963,7 @@
 | `/api/ai/alerts` | [route.ts](src/app/api/ai/alerts/route.ts) | `GET`, `PATCH` |
 | `/api/ai/copilot` | [route.ts](src/app/api/ai/copilot/route.ts) | `GET`, `POST` |
 | `/api/ai/feedback` | [route.ts](src/app/api/ai/feedback/route.ts) | `POST` |
+| `/api/approvals/webhook` | [route.ts](src/app/api/approvals/webhook/route.ts) | `GET`, `POST` |
 | `/api/assets/register` | [route.ts](src/app/api/assets/register/route.ts) | `POST` |
 | `/api/assets/sync` | [route.ts](src/app/api/assets/sync/route.ts) | `POST` |
 | `/api/auth/agent-login` | [route.ts](src/app/api/auth/agent-login/route.ts) | `POST` |
@@ -3242,6 +3312,7 @@
 | `/api/team-members/public` | [route.ts](src/app/api/team-members/public/route.ts) | `GET`, `POST` |
 | `/api/test/debug-sync` | [route.ts](src/app/api/test/debug-sync/route.ts) | `GET` |
 | `/api/test/extension-push` | [route.ts](src/app/api/test/extension-push/route.ts) | `OPTIONS`, `POST`, `GET`, `DELETE` |
+| `/api/test-approval-simulation` | [route.ts](src/app/api/test-approval-simulation/route.ts) | `GET` |
 | `/api/trips` | [route.ts](src/app/api/trips/route.ts) | `GET`, `POST` |
 | `/api/trips/[id]/end` | [route.ts](src/app/api/trips/[id]/end/route.ts) | `PATCH` |
 | `/api/trips/[id]/metrics` | [route.ts](src/app/api/trips/[id]/metrics/route.ts) | `GET` |
@@ -3756,8 +3827,9 @@
   * `reqDocUpload: Boolean` `[@default(false)]`
   * `writeAuditLedger: Boolean` `[@default(true)]`
   * `generateIssueNote: Boolean` `[@default(false)]`
-  * `approvalLevels: ProcessApprovalLevel[]`
-  * `updatedAt: DateTime` `[@updatedAt]`
+  * `rolesToNotify: Json?` `[// e.g. ["STORES_MANAGER", "OSP_MANAGER"]]`
+  * `domainAction: String?` `[// e.g. "RESERVE_STOCK_MAIN"]`
+  * `conditions: Json?` `[// e.g. {"field": "totalValue", "operator": ">=", "value": 500000]`
 
 ### [ProcessApprovalLevel](prisma/schema/dynamic-policy.prisma)
 * **Fields**:
@@ -3787,6 +3859,14 @@
   * `createdAt: DateTime` `[@default(now())]`
   * `assignedUser: User?` `[@relation("UniversalApprovalAssignee", fields: [assignedUserId], references: [id])]`
   * `actionedBy: User?` `[@relation("UniversalApprovalActioner", fields: [actionedById], references: [id])]`
+
+### [IdempotencyLog](prisma/schema/dynamic-policy.prisma)
+* **Fields**:
+  * `idempotencyKey: String` `[@id]`
+  * `actionType: String` `[// e.g. "FSM_TRANSITION", "DOMAIN_ACTION"]`
+  * `status: String` `[// e.g. "SUCCESS", "FAILED"]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [GISRoute](prisma/schema/gis.prisma)
 * **Fields**:
@@ -5144,8 +5224,8 @@
   * `location: String?`
   * `region: String?`
   * `district: String?`
-  * `status: String` `[@default("PENDING_SURVEY")]`
-  * `priority: String` `[@default("MEDIUM")]`
+  * `status: JobStatus` `[@default(PENDING_SURVEY)]`
+  * `priority: TaskPriority` `[@default(MEDIUM)]`
   * `assignedToId: String?`
   * `projectId: String?` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5161,7 +5241,7 @@
   * `description: String?`
   * `type: String` `[@default("OSP_FTTH")]`
   * `location: String?`
-  * `status: String` `[@default("PLANNING")]`
+  * `status: ProjectStatus` `[@default(PLANNING)]`
   * `progress: Float` `[@default(0)]`
   * `jobId: String?`
   * `budget: Float?`
@@ -5262,7 +5342,7 @@
   * `description: String?`
   * `targetDate: DateTime`
   * `completedDate: DateTime?`
-  * `status: String` `[@default("PENDING")]`
+  * `status: TaskStatus` `[@default(PENDING)]`
   * `progress: Float` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5479,13 +5559,13 @@
   * `month: Int?`
   * `totalAmount: Decimal` `[@default(0)]`
   * `amountA: Decimal` `[@default(0)]`
-  * `statusA: String` `[@default("PENDING")]`
+  * `statusA: InvoiceStatus` `[@default(PENDING)]`
   * `paidDateA: DateTime?`
   * `amountB: Decimal` `[@default(0)]`
-  * `statusB: String` `[@default("HOLD")]`
+  * `statusB: InvoiceStatus` `[@default(HOLD)]`
   * `paidDateB: DateTime?`
   * `amount: Decimal`
-  * `status: String` `[@default("PENDING")]`
+  * `status: InvoiceStatus` `[@default(PENDING)]`
   * `approvalStatus: String` `[@default("DRAFT")]`
   * `idempotencyKey: String?` `[@unique]`
   * `retentionAmount: Decimal` `[@default(0)]`
@@ -6217,7 +6297,7 @@
   * `serviceType: String?`
   * `customerName: String?`
   * `techContact: String?`
-  * `status: String`
+  * `status: ServiceOrderStatus`
   * `statusDate: DateTime?`
   * `receivedDate: DateTime?`
   * `address: String?`
@@ -6231,7 +6311,7 @@
   * `woroSeit: String?`
   * `ftthInstSeit: String?`
   * `ftthWifi: String?`
-  * `sltsStatus: String` `[@default("INPROGRESS")]`
+  * `sltsStatus: ServiceOrderStatus` `[@default(INPROGRESS)]`
   * `scheduledDate: DateTime?`
   * `scheduledTime: String?`
   * `comments: String?`
@@ -6249,7 +6329,8 @@
   * `invoiced: Boolean` `[@default(false)]`
   * `invoiceId: String?`
   * `wiredOnly: Boolean` `[@default(false)]`
-  * `delayReasons: Json?`
+  * `delayReasonsRaw: Json?` `[@map("delayReasons")]`
+  * `delayReasons: ServiceOrderDelayReason[]`
   * `stbShortage: Boolean` `[@default(false)]`
   * `ontShortage: Boolean` `[@default(false)]`
   * `ontType: String?`
@@ -6316,7 +6397,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `serviceOrderId: String`
-  * `status: String`
+  * `status: ServiceOrderStatus`
   * `statusDate: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
@@ -6477,6 +6558,14 @@
   * `serialNumber: String` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
+
+### [ServiceOrderDelayReason](prisma/schema/service-order.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `serviceOrderId: String`
+  * `reason: String`
+  * `createdAt: DateTime` `[@default(now())]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
 ### [SLTContract](prisma/schema/slt-contract.prisma)
@@ -7969,7 +8058,7 @@
   * `serviceType: String?`
   * `customerName: String?`
   * `techContact: String?`
-  * `status: String`
+  * `status: ServiceOrderStatus`
   * `statusDate: DateTime?`
   * `receivedDate: DateTime?`
   * `address: String?`
@@ -7983,7 +8072,7 @@
   * `woroSeit: String?`
   * `ftthInstSeit: String?`
   * `ftthWifi: String?`
-  * `sltsStatus: String` `[@default("INPROGRESS")]`
+  * `sltsStatus: ServiceOrderStatus` `[@default(INPROGRESS)]`
   * `scheduledDate: DateTime?`
   * `scheduledTime: String?`
   * `comments: String?`
@@ -8002,7 +8091,8 @@
   * `invoiced: Boolean` `[@default(false)]`
   * `invoiceId: String?`
   * `wiredOnly: Boolean` `[@default(false)]`
-  * `delayReasons: Json?`
+  * `delayReasonsRaw: Json?` `[@map("delayReasons")]`
+  * `delayReasons: ServiceOrderDelayReason[]`
   * `stbShortage: Boolean` `[@default(false)]`
   * `ontShortage: Boolean` `[@default(false)]`
   * `ontType: String?`
@@ -8059,7 +8149,7 @@
   * `id: String` `[@id @default(cuid())]`
   * `serviceOrderId: String`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
-  * `status: String`
+  * `status: ServiceOrderStatus`
   * `statusDate: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
 
@@ -8200,7 +8290,7 @@
   * `location: String?`
   * `region: String?`
   * `district: String?`
-  * `status: String` `[@default("PENDING_SURVEY")]`
+  * `status: JobStatus` `[@default(PENDING_SURVEY)]`
   * `priority: String` `[@default("MEDIUM")]`
   * `assignedToId: String?`
   * `projectId: String?` `[@unique]`
@@ -8217,7 +8307,7 @@
   * `description: String?`
   * `type: String` `[@default("OSP_FTTH")]`
   * `location: String?`
-  * `status: String` `[@default("PLANNING")]`
+  * `status: ProjectStatus` `[@default(PLANNING)]`
   * `progress: Float` `[@default(0)]`
   * `jobId: String?`
   * `job: Job?`
@@ -8553,13 +8643,13 @@
   * `month: Int?`
   * `totalAmount: Float` `[@default(0)]`
   * `amountA: Float` `[@default(0)]`
-  * `statusA: String` `[@default("PENDING")]`
+  * `statusA: InvoiceStatus` `[@default(PENDING)]`
   * `paidDateA: DateTime?`
   * `amountB: Float` `[@default(0)]`
-  * `statusB: String` `[@default("HOLD")]`
+  * `statusB: InvoiceStatus` `[@default(HOLD)]`
   * `paidDateB: DateTime?`
   * `amount: Float`
-  * `status: String` `[@default("PENDING")]`
+  * `status: InvoiceStatus` `[@default(PENDING)]`
   * `description: String?`
   * `dueDate: DateTime?`
   * `date: DateTime` `[@default(now())]`
@@ -11538,4 +11628,12 @@
   * `opmcId: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+
+### [ServiceOrderDelayReason](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `serviceOrderId: String`
+  * `reason: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 

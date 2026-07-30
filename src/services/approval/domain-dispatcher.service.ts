@@ -55,6 +55,12 @@ export class DomainActionDispatcher {
             case 'PAY_CONTRACTOR':
                 await this.handlePayContractor(payload, tx);
                 break;
+            case 'RETURN_MATERIAL':
+                await this.handleReturnMaterial(payload, tx);
+                break;
+            case 'ACCRUE_WIP':
+                await this.handleAccrueWIP(payload, tx);
+                break;
             default:
                 console.warn(`[DomainActionDispatcher] Unhandled domain action: ${actionId}`);
         }
@@ -96,5 +102,16 @@ export class DomainActionDispatcher {
     private static async handlePayContractor(payload: ActionPayload, tx: TransactionClient) {
         console.log(`[DomainActionDispatcher] Stub: Paying Contractor for Invoice ${payload.entityId}`);
         // TODO: Implement ContractorPaymentService.process(payload.entityId, tx);
+    }
+
+    private static async handleReturnMaterial(payload: ActionPayload, tx: TransactionClient) {
+        console.log(`[DomainActionDispatcher] Stub: Returning Material for SOD ${payload.entityId}`);
+        // TODO: Implement SODMaterialService.returnDefectiveMaterials(payload.entityId, tx);
+    }
+
+    private static async handleAccrueWIP(payload: ActionPayload, tx: TransactionClient) {
+        console.log(`[DomainActionDispatcher] Accruing WIP for completed SOD ${payload.entityId}`);
+        const { LedgerService } = await import('@/services/finance/ledger.service');
+        await LedgerService.accrueWipLiability(payload.entityId, tx);
     }
 }

@@ -684,6 +684,34 @@ export class SODSyncService {
             await Promise.all(chunk.map(async ({ existing, updatePayload, initialSltsStatus }) => {
                 const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
                 const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
+                const isStatusChange = updatePayload.sltsStatus && updatePayload.sltsStatus !== existing.sltsStatus;
+
+                let blockStatusUpdate = false;
+
+                if (isStatusChange) {
+                    const { ProcessGateEngine } = await import('../approval/process-gate-engine');
+                    try {
+                        const gateResult = await ProcessGateEngine.startGate({
+                            entityType: 'SOD',
+                            entityId: existing.id,
+                            currentStatus: existing.sltsStatus,
+                            entityPayload: updatePayload as Record<string, any>
+                        });
+
+                        if (gateResult.status === 'GATE_STARTED') {
+                            blockStatusUpdate = true;
+                            console.log(`[SYNC] FSM Intercepted transition for ${existing.soNum}. Halting sync-driven status update.`);
+                        }
+                    } catch (gateErr: any) {
+                        console.warn(`[SYNC] FSM blocked transition for ${existing.soNum}:`, gateErr.message);
+                        blockStatusUpdate = true;
+                    }
+                }
+
+                if (blockStatusUpdate) {
+                    delete updatePayload.sltsStatus;
+                    delete updatePayload.completedDate;
+                }
 
                 const [err] = await safe(prisma.$transaction(async (tx) => {
                     await tx.serviceOrder.update({

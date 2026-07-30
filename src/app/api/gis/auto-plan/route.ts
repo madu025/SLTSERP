@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISAutoPlanService, PlannedClosure } from '@/services/gis/GISAutoPlanService';
 import { safe } from '@/utils/safe-await.util';
 
-export async function POST(req: NextRequest) {
+export const POST = apiHandler(async (req) => {
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
   
   if (jsonErr || !body) {
@@ -129,4 +130,4 @@ out skel qt;
   }
 
   return NextResponse.json({ ...plan, osmData: data });
-}
+}, { rawResponse: true });

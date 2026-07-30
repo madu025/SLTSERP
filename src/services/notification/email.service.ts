@@ -1,25 +1,72 @@
 import nodemailer from 'nodemailer';
+import { prisma } from '@/lib/prisma';
+
+interface SmtpConfig {
+    host: string;
+    port: number;
+    user: string;
+    pass: string;
+    from: string;
+}
 
 export class EmailService {
-    private static getTransporter() {
+    private static async getSmtpConfig(): Promise<SmtpConfig | null> {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const setting = await (prisma as any).systemSetting.findUnique({
+                where: { key: 'SMTP_CONFIG' }
+            });
+
+            if (setting && setting.value) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const config = setting.value as any;
+                if (config.host && config.user && config.pass) {
+                    return {
+                        host: config.host,
+                        port: parseInt(config.port || '587', 10),
+                        user: config.user,
+                        pass: config.pass,
+                        from: config.from || '"SLTS Nexus ERP" <noreply@slt.lk>'
+                    };
+                }
+            }
+        } catch (error) {
+            console.error('[EMAIL-SERVICE-ERROR] Failed to fetch SMTP config from DB:', error);
+        }
+
+        // Fallback to .env
         const host = process.env.SMTP_HOST;
         const port = parseInt(process.env.SMTP_PORT || '587', 10);
         const user = process.env.SMTP_USER;
         const pass = process.env.SMTP_PASSWORD;
+        const from = process.env.SMTP_FROM || '"SLTS Nexus ERP" <noreply@slt.lk>';
 
         if (!host || !user || !pass) {
             return null;
         }
 
-        return nodemailer.createTransport({
-            host,
-            port,
-            secure: port === 465,
+        return { host, port, user, pass, from };
+    }
+
+    private static async getTransporter() {
+        const config = await this.getSmtpConfig();
+        if (!config) return { transporter: null, config: null };
+
+        const transporter = nodemailer.createTransport({
+            host: config.host,
+            port: config.port,
+            secure: config.port === 465,
             auth: {
-                user,
-                pass
+                user: config.user,
+                pass: config.pass
+            },
+            tls: {
+                // Do not fail on invalid certs (useful for corporate proxies intercepting SSL)
+                rejectUnauthorized: false
             }
         });
+
+        return { transporter, config };
     }
 
     /**
@@ -31,10 +78,9 @@ export class EmailService {
         text: string;
         html?: string;
     }) {
-        const from = process.env.SMTP_FROM || '"SLTS Nexus ERP" <noreply@slt.lk>';
-        const transporter = this.getTransporter();
+        const { transporter, config } = await this.getTransporter();
 
-        if (!transporter) {
+        if (!transporter || !config) {
             console.warn(`[EMAIL-SERVICE-WARN] SMTP credentials are not configured. Logging email instead:
 To: ${options.to}
 Subject: ${options.subject}
@@ -44,7 +90,7 @@ Body: ${options.text}`);
 
         try {
             const info = await transporter.sendMail({
-                from,
+                from: config.from,
                 to: options.to,
                 subject: options.subject,
                 text: options.text,

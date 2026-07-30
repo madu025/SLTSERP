@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { primaryClient } from '@/lib/prisma';
 import { GISAutoPlanService } from '@/services/gis/GISAutoPlanService';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
@@ -9,7 +10,7 @@ import { safe } from '@/utils/safe-await.util';
 export const dynamic = 'force-dynamic';
 // Cache buster comment to force Next.js route re-evaluation: 1783209356
 
-export async function GET(request: NextRequest) {
+export const GET = apiHandler(async (request) => {
   const [authErr] = await safe(requireAuth(['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']));
   if (authErr) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -207,4 +208,4 @@ export async function GET(request: NextRequest) {
       debugLogs: plan.debugLogs,
       message: `Route updated successfully in place! Quality Score: ${plan.summary.engineeringQualityScore}`
     });
-}
+}, { rawResponse: true });

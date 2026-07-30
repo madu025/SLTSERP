@@ -45,6 +45,22 @@ export class ProcessGateEngine {
             return { status: 'GATE_PASSED', policyToStatus: undefined };
         }
 
+        // Dynamic Evidence Gating (PAT & Photos)
+        if (entityType === 'SOD') {
+            const sod = await prisma.serviceOrder.findUnique({ where: { id: entityId }, select: { photoUrls: true, opmcPatStatus: true, hoPatStatus: true } });
+            if (!sod) throw AppError.notFound('Service Order not found for gating.');
+
+            if (policy.reqPhotoProof && (!sod.photoUrls || sod.photoUrls.length === 0)) {
+                throw AppError.badRequest('Transition Blocked: Photo evidence is required by the workflow policy.');
+            }
+            if (policy.reqOpmcPat && sod.opmcPatStatus !== 'ACCEPTED') {
+                throw AppError.badRequest('Transition Blocked: OPMC PAT Acceptance is required by the workflow policy.');
+            }
+            if (policy.reqHoPat && sod.hoPatStatus !== 'ACCEPTED') {
+                throw AppError.badRequest('Transition Blocked: HO PAT Acceptance is required by the workflow policy.');
+            }
+        }
+
         // 2. Start at Level 1
         const firstLevel = policy.approvalLevels[0];
 

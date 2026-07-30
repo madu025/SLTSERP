@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { logger } from '@/lib/logger';
@@ -11,7 +12,7 @@ import { safe } from '@/utils/safe-await.util';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+export const GET = apiHandler(async (request) => {
   logger.info('[GIS-API] Received GIS status request');
     const { searchParams } = new URL(request.url);
     const importId = searchParams.get('importId');
@@ -81,4 +82,4 @@ export async function GET(request: NextRequest) {
       sessions,
       total: sessions.length,
     });
-}
+}, { rawResponse: true });

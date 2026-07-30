@@ -83,9 +83,10 @@ export interface MrnActionData {
 
 export interface StockRequestActionData {
     requestId: string;
-    action: 'APPROVE' | 'REJECT' | 'RELEASE' | 'RECEIVE' | 'RETURN' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'PROCUREMENT_COMPLETE';
+    action: 'APPROVE' | 'REJECT' | 'RELEASE' | 'RECEIVE' | 'RETURN' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'PROCUREMENT_COMPLETE' | 'GATE_PASSED';
     userId: string;
     remarks?: string;
+    instanceId?: string;
     items?: {
         id: string;
         approvedQty?: number;

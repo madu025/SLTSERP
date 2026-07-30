@@ -801,6 +801,10 @@ model Invoice {
   projectNumber    Int?
   bomNumber        String?
   rtomArea         String?
+  
+  idempotencyKey   String?        @unique
+  checksum         String?
+
   contractor    Contractor     @relation(fields: [contractorId], references: [id])
   project       Project?       @relation(fields: [projectId], references: [id])
   sods          ServiceOrder[]

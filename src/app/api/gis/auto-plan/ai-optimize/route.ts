@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISAutoPlanService } from '@/services/gis/GISAutoPlanService';
 import { GISDataExtractor } from '@/services/gis/GISDataExtractor';
 import { GISRoadNetwork } from '@/services/gis/GISRoadNetwork';
@@ -7,7 +8,7 @@ import { safe } from '@/utils/safe-await.util';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
+export const POST = apiHandler(async (req) => {
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
   
   if (jsonErr || !body) {
@@ -121,7 +122,7 @@ Return EXACTLY a JSON object matching this structure, with no markdown tags or o
   "suggestions": [
     { "index": 2, "latitude": 7.48512, "longitude": 80.36412, "reason": "Relocated Terminal #2 to Kumaranatunga Mawatha road boundary to avoid bank building footprint." }
   ]
-}
+}, { rawResponse: true });
 `;
       const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
       const [geminiErr, geminiRes] = await safe(fetch(
@@ -256,4 +257,4 @@ Return EXACTLY a JSON object matching this structure, with no markdown tags or o
     }
 
     return NextResponse.json({ warnings: uniqueWarnings, suggestions });
-}
+}, { rawResponse: true });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { primaryClient } from '@/lib/prisma';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { type PlannedPole, type PlannedClosure, type PlannedCable } from '@/services/gis/GISAutoPlanService';
@@ -6,7 +7,7 @@ import { type PlannedPole, type PlannedClosure, type PlannedCable } from '@/serv
 import { safe } from '@/utils/safe-await.util';
 
 // Cache buster to force Next.js module re-evaluation: 1783209330
-export async function POST(req: NextRequest) {
+export const POST = apiHandler(async (req) => {
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
   
   if (jsonErr || !body) {
@@ -208,4 +209,4 @@ export async function POST(req: NextRequest) {
       message: `AI Route Plan "${routeName}" saved and BOQ recalculated successfully.`,
       routeId: result.id,
     });
-}
+}, { rawResponse: true });

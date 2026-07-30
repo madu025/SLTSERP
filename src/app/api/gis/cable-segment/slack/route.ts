@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 
@@ -6,7 +7,7 @@ import { safe } from '@/utils/safe-await.util';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
+export const POST = apiHandler(async (req) => {
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
   
   if (jsonErr || !body) {
@@ -41,4 +42,4 @@ export async function POST(req: NextRequest) {
       success: true,
       segment: updatedSegment,
     });
-}
+}, { rawResponse: true });

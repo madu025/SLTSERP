@@ -82,6 +82,23 @@ export class ServiceOrderService {
         // 2. Prepare Update Data
         const updateData = await SODLifecycleService.prepareStatusTransition(oldOrder, data);
 
+        // 2.5 FSM Workflow Engine Interception
+        if (updateData.sltsStatus && updateData.sltsStatus !== oldOrder.sltsStatus) {
+            const { ProcessGateEngine } = await import('../approval/process-gate-engine');
+            const gateResult = await ProcessGateEngine.startGate({
+                entityType: 'SOD',
+                entityId: id,
+                currentStatus: oldOrder.sltsStatus as string,
+                entityPayload: updateData
+            });
+
+            if (gateResult.status === 'GATE_STARTED') {
+                // FSM intercepted this transition. Block the immediate status change and wait for approval.
+                delete updateData.sltsStatus;
+                delete updateData.completedDate;
+            }
+        }
+
         // 3. Financial calculations
         const isCompleting = updateData.sltsStatus === 'COMPLETED' || (oldOrder.sltsStatus !== 'COMPLETED' && data.sltsStatus === 'COMPLETED');
         if (isCompleting) {

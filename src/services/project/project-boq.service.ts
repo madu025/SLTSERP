@@ -283,7 +283,7 @@ export class ProjectBOQService {
             include: { opmc: true }
         });
 
-        if (!project) throw AppError.badRequest('PROJECT_NOT_FOUND');
+        if (!project) throw AppError.notFound('Project not found');
 
         const boqItems = await prisma.projectBOQItem.findMany({
             where: {
@@ -307,7 +307,7 @@ export class ProjectBOQService {
         }
 
         if (!store) {
-            throw AppError.badRequest('NO_STORE_FOUND');
+            throw AppError.badRequest('No inventory store found to analyze against.');
         }
 
         const materialIds = boqItems.map(i => i.materialId).filter((id): id is string => id !== null);

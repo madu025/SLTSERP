@@ -6,11 +6,12 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import { safe } from '@/utils/safe-await.util';
 
-export async function POST(request: NextRequest) {
+export const POST = apiHandler(async (request) => {
   logger.info('[GIS-PROCESS] Received GIS processing request');
 
   const [jsonErr, body] = await safe<Record<string, unknown>>(request.json());
@@ -76,4 +77,4 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json(result, { status: 200 });
-}
+}, { rawResponse: true });

@@ -8,11 +8,18 @@ import Link from 'next/link';
 import {
     Users, Briefcase, Settings, Building2, HardHat, ChevronRight,
     Warehouse, Receipt, Shield, HistoryIcon, UserCog, Upload, Terminal,
-    Network, ClipboardList, Layers
+    Network, ClipboardList, Layers, FileText
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const modules = [
+    {
+        title: 'User Guide & Documentation',
+        description: 'Complete system manual and feature documentation for admins',
+        href: '/admin/guide',
+        icon: FileText,
+        color: 'text-pink-600', bgColor: 'bg-pink-50', borderColor: 'border-pink-100'
+    },
     {
         title: 'User Management',
         description: 'Manage system user accounts, roles and passwords',

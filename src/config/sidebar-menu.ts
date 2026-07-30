@@ -1,6 +1,7 @@
 import React from 'react';
 import {
     Activity,
+    Mail,
     LayoutDashboard,
     FileText,
     Users,
@@ -899,6 +900,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
         permissionId: 'administration',
         submenu: [
             {
+                title: 'User Guide & Docs',
+                path: '/admin/guide',
+                icon: FileText,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
                 title: 'User Management',
                 path: '/admin/users',
                 icon: Users,
@@ -953,6 +960,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/settings',
                 icon: Settings,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS]
+            },
+            {
+                title: 'SMTP Email Config',
+                path: '/admin/settings/smtp',
+                icon: Mail,
+                allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
                 title: 'SOD Import',

@@ -234,11 +234,20 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                     });
                 }
 
-                // ── 3. Unified Rate Limiting ───────────────────────────────
-                if (options?.rateLimit) {
-                    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? req.headers.get('x-real-ip') ?? '127.0.0.1';
-                    const { checkRateLimit } = await import('@/lib/rate-limiter');
-                    const rlResult = await checkRateLimit(`${req.url}:${ip}`, {
+                // 🚨 3. Traffic Inspector Blacklist & Rate Limiting 🚨
+                  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? req.headers.get('x-real-ip') ?? '127.0.0.1';
+                  
+                  const { TrafficService } = await import('@/services/system/traffic.service');
+                  if (userId && await TrafficService.isBlocked(userId)) {
+                      throw new AppError('Access Denied. User is blacklisted.', ErrorCode.FORBIDDEN, 403);
+                  }
+                  if (await TrafficService.isBlocked(ip)) {
+                      throw new AppError('Access Denied. IP is blacklisted.', ErrorCode.FORBIDDEN, 403);
+                  }
+
+                  if (options?.rateLimit) {
+                      const { checkRateLimit } = await import('@/lib/rate-limiter');
+                      const rlResult = await checkRateLimit(`${req.url}:${ip}`, {
                         max: options.rateLimit.max,
                         windowSecs: options.rateLimit.windowSecs,
                         prefix: 'ratelimit:api',
