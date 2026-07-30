@@ -6,7 +6,7 @@ import { AppError } from '@/lib/error';
 
 import { prisma as db } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
-import { VehicleLog, CreateVehicleLogDTO, EndVehicleLogDTO } from '@/types/vehicle-management.types';
+import { VehicleLog, CreateVehicleLogDTO, EndVehicleLogDTO } from '@/types/fleet/vehicle.types';
 
 interface CustomPrismaClient {
   vMVehicleLog: {

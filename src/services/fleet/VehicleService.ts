@@ -5,7 +5,7 @@ import { safe } from '@/utils/safe-await.util';
  * Handles CRUD, status updates, location tracking, etc.
  */
 
-import { CreateVehicleDTO, UpdateVehicleDTO, Vehicle, VehicleType, OwnershipType, VehicleStatus } from '@/types/vehicle-management.types';
+import { CreateVehicleDTO, UpdateVehicleDTO, Vehicle, VehicleType, OwnershipType, VehicleStatus } from '@/types/fleet/vehicle.types';
 import { prisma as db } from '@/lib/prisma';
 
 // Type-safe definitions for database rows to bypass stale IDE Prisma client generation issues.

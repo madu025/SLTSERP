@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/fleet/TripService';
-import { Trip } from '@/types/vehicle-management.types';
+import { Trip } from '@/types/fleet/trip.types';
 
 /**
  * GET: Retrieve trip details by ID

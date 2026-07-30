@@ -3,7 +3,8 @@ import { AppError } from '@/lib/error';
  * Payment Service - Business logic for payments and invoicing with tax/VAT support
  */
 
-import { Payment, CreatePaymentDTO, Invoice, CreateInvoiceDTO, PaymentStatus, PaymentType } from '@/types/vehicle-management.types';
+import { Payment, CreatePaymentDTO, PaymentStatus, PaymentType } from '@/types/finance/payment.types';
+import { Invoice, CreateInvoiceDTO } from '@/types/finance/invoice.types';
 import { prisma as db } from '@/lib/prisma';
 
 // Workaround for IDE/Language Server caching issues with dynamic extended PrismaClient types.

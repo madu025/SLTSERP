@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/fleet/TripService';
-import { Trip } from '@/types/vehicle-management.types';
+import { Trip } from '@/types/fleet/trip.types';
 
 /**
  * PATCH: Start a trip

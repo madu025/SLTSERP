@@ -1,7 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/fleet/TripService';
 import { endTripSchema, EndTripSchema } from '@/lib/validations/trip.schema';
-import { Trip } from '@/types/vehicle-management.types';
+import { Trip } from '@/types/fleet/trip.types';
 
 /**
  * PATCH: End a trip

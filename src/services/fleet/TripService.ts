@@ -5,7 +5,7 @@ import { AppError } from '@/lib/error';
  */
 
 import { TripStatusEnum, Prisma } from '@prisma/client';
-import { CreateTripDTO, Trip } from '@/types/vehicle-management.types';
+import { CreateTripDTO, Trip } from '@/types/fleet/trip.types';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 
@@ -296,7 +296,7 @@ export class TripService {
       actual_distance_km: (trip.actual_distance_km as number) || undefined,
       planned_duration_minutes: (trip.planned_duration_minutes as number) || undefined,
       actual_duration_minutes: (trip.actual_duration_minutes as number) || undefined,
-      trip_status: trip.trip_status as unknown as import('@/types/vehicle-management.types').TripStatus,
+      trip_status: trip.trip_status as unknown as import('@/types/fleet/trip.types').TripStatus,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       trip_type: trip.trip_type as any,
       fuel_consumed_liters: (trip.fuel_consumed_liters as number) || undefined,

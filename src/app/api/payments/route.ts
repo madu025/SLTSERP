@@ -1,7 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import PaymentService from '@/services/finance/PaymentService';
 import { PaymentTypeEnum, PaymentStatusEnum } from '@prisma/client';
-import { PaymentType } from '@/types/vehicle-management.types';
+import { PaymentType } from '@/types/finance/payment.types';
 import { createPaymentSchema, CreatePaymentSchema } from '@/lib/validations/payment.schema';
 
 export const dynamic = 'force-dynamic';

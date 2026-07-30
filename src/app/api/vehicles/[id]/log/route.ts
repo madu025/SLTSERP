@@ -4,7 +4,7 @@ import { apiHandler } from '@/lib/api-handler';
 import VehicleLogService from '@/services/fleet/VehicleLogService';
 import VehicleService from '@/services/fleet/VehicleService';
 import { startLogSchema, endLogSchema, StartLogSchema, EndLogSchema } from '@/lib/validations/vehicle.schema';
-import { VehicleLog } from '@/types/vehicle-management.types';
+import { VehicleLog } from '@/types/fleet/vehicle.types';
 
 /**
  * GET: Get active log status, last odometer, and active driver list
