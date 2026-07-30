@@ -1,6 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, ServiceOrderStatus } from '@prisma/client';
 import { ServiceOrderUpdateData } from './sod-types';
 import { TransactionClient } from '../inventory/types';
 import { SODInvoicingService } from './sod.invoicing.service';
@@ -15,7 +15,7 @@ export class SODLifecycleService {
     static async validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string) {
         if (newStatus && newStatus !== oldStatus) {
             const collision = await ServiceOrderRepository.findFirst({
-                where: { soNum, status: newStatus },
+                where: { soNum, status: newStatus as ServiceOrderStatus },
                 select: { id: true }
             });
             if (collision && collision.id !== id) {
@@ -39,7 +39,7 @@ export class SODLifecycleService {
             if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'OFFLINE', 'INSTALL_CLOSED'].includes(sltsStatus)) {
                 throw AppError.badRequest('INVALID_STATUS');
             }
-            updateData.sltsStatus = sltsStatus;
+            updateData.sltsStatus = sltsStatus as ServiceOrderStatus;
             if (sltsStatus === 'COMPLETED' && !completedDate) {
                 updateData.completedDate = new Date();
             }
@@ -60,7 +60,7 @@ export class SODLifecycleService {
         if (otherData.wiredOnly !== undefined) updateData.wiredOnly = otherData.wiredOnly;
 
         // SLT Status fields mapping
-        if (status) updateData.status = status;
+        if (status) updateData.status = status as ServiceOrderStatus;
         if (statusDate) updateData.statusDate = new Date(statusDate);
         if (receivedDate) updateData.receivedDate = new Date(receivedDate);
 
@@ -145,7 +145,7 @@ export class SODLifecycleService {
         if (serviceOrder.status && serviceOrder.status !== oldOrder.status) {
             await ServiceOrderRepository.createStatusHistory({
                 serviceOrderId: serviceOrder.id,
-                status: serviceOrder.status,
+                status: serviceOrder.status as ServiceOrderStatus,
                 statusDate: updateData.statusDate 
                     ? new Date(updateData.statusDate as string | Date) 
                     : (oldOrder.statusDate || new Date())
@@ -186,6 +186,103 @@ export class SODLifecycleService {
 
         return updated;
     }
+
+    /**
+     * Get paginated offline work orders
+     */
+    static async getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null) {
+        const whereClause: Record<string, unknown> = {
+            isOfflineWorkOrder: true
+        };
+
+        if (opmcId && opmcId !== 'ALL') {
+            whereClause.opmcId = opmcId;
+        }
+
+        if (status && status !== 'ALL') {
+            whereClause.sltsStatus = status;
+        }
+
+        const [total, orders] = await prisma.$transaction([
+            prisma.serviceOrder.count({ where: whereClause }),
+            prisma.serviceOrder.findMany({
+                where: whereClause,
+                include: {
+                    opmc: { select: { id: true, rtom: true, name: true } },
+                    contractor: { select: { id: true, name: true } },
+                    team: { select: { id: true, name: true } },
+                    materialUsage: {
+                        select: {
+                            id: true,
+                            itemId: true,
+                            quantity: true,
+                            unitPrice: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit
+            })
+        ]);
+
+        return { total, orders, page, limit, totalPages: Math.ceil(total / limit) };
+    }
+
+    /**
+     * Register a new manual offline order
+     */
+    static async registerOfflineOrder(data: {
+        soNum: string;
+        rtom: string;
+        opmcId: string;
+        customerName?: string;
+        voiceNumber?: string;
+        serviceType: string;
+        orderType: string;
+        sltsStatus: ServiceOrderStatus;
+        dropWireDistance: number;
+        contractorId?: string;
+        teamId?: string;
+        offlineReference?: string;
+        comments?: string;
+        completedDate?: Date;
+    }) {
+        const compDate = data.completedDate || new Date();
+
+        // Compute Rates using Rate Matrix & SODRevenueConfig
+        const rates = await SODInvoicingService.calculateAmounts(data.rtom, data.dropWireDistance, {
+            serviceType: data.serviceType,
+            completedDate: compDate
+        });
+
+        const order = await prisma.serviceOrder.create({
+            data: {
+                soNum: data.soNum,
+                rtom: data.rtom,
+                opmcId: data.opmcId,
+                customerName: data.customerName || 'Offline Contractor Entry',
+                voiceNumber: data.voiceNumber,
+                serviceType: data.serviceType,
+                orderType: data.orderType,
+                status: data.sltsStatus,
+                sltsStatus: data.sltsStatus,
+                completedDate: compDate,
+                dropWireDistance: data.dropWireDistance,
+                revenueAmount: rates.revenueAmount,
+                contractorAmount: rates.contractorAmount,
+                contractorId: data.contractorId || null,
+                teamId: data.teamId || null,
+                comments: data.comments || 'Registered via Offline Work Order Entry Portal',
+                isOfflineWorkOrder: true,
+                isManualEntry: true,
+                offlineReference: data.offlineReference || `OFFLINE-WO-${Date.now()}`
+            }
+        });
+
+        return order;
+    }
+
     /**
      * Centralized mapper for External Status (ISHAMP/Excel) to Internal SLTS Status
      */

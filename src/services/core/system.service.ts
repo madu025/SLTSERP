@@ -84,4 +84,30 @@ export class SystemService {
             include: { user: { select: { name: true, username: true } } }
         });
     }
+
+    /**
+     * Check database connectivity and optionally fetch pool metrics
+     */
+    static async checkDatabaseHealth() {
+        // Check DB
+        await prisma.$queryRaw`SELECT 1`;
+
+        let poolMetrics = null;
+        // Collect Pool Metrics (Prisma Metrics if enabled)
+        try {
+            if ('$metrics' in prisma) {
+                const metrics = await ((prisma as any).$metrics).json();
+                const counters = metrics?.counters || [];
+                poolMetrics = {
+                    active: counters.find((c: Record<string, unknown>) => c.name === 'prisma_client_queries_active')?.value || 0,
+                    idle: counters.find((c: Record<string, unknown>) => c.name === 'prisma_client_queries_idle')?.value || 0,
+                    wait: counters.find((c: Record<string, unknown>) => c.name === 'prisma_client_queries_wait_count')?.value || 0
+                };
+            }
+        } catch {
+            // Metrics feature not enabled in schema or client, skip gracefully
+        }
+
+        return poolMetrics;
+    }
 }

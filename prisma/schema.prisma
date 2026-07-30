@@ -3,6 +3,52 @@ generator client {
   binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
+
+enum ServiceOrderStatus {
+  PENDING
+  INPROGRESS
+  COMPLETED
+  RETURNED
+  CANCELLED
+}
+
+enum JobStatus {
+  PENDING_SURVEY
+  SURVEYED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum InvoiceStatus {
+  PENDING
+  HOLD
+  PAID
+  CANCELLED
+}
+
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
@@ -40,7 +86,7 @@ model ServiceOrder {
   serviceType       String?
   customerName      String?
   techContact       String?
-  status            String
+  status            ServiceOrderStatus
   statusDate        DateTime?
   receivedDate      DateTime?
   address           String?
@@ -54,7 +100,7 @@ model ServiceOrder {
   woroSeit          String?
   ftthInstSeit      String?
   ftthWifi          String?
-  sltsStatus        String             @default("INPROGRESS")
+  sltsStatus        ServiceOrderStatus             @default(INPROGRESS)
   scheduledDate     DateTime?
   scheduledTime     String?
   comments          String?
@@ -73,7 +119,8 @@ model ServiceOrder {
   invoiced          Boolean            @default(false)
   invoiceId         String?
   wiredOnly         Boolean            @default(false)
-  delayReasons      Json?
+  delayReasonsRaw      Json? @map("delayReasons")
+  delayReasons      ServiceOrderDelayReason[]
   stbShortage       Boolean            @default(false)
   ontShortage       Boolean            @default(false)
   ontType           String?
@@ -157,7 +204,7 @@ model ServiceOrderStatusHistory {
   id              String       @id @default(cuid())
   serviceOrderId  String
   serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
-  status          String
+  status          ServiceOrderStatus
   statusDate      DateTime
   createdAt       DateTime     @default(now())
 
@@ -327,7 +374,7 @@ model Job {
   location          String?
   region            String?
   district          String?
-  status            String      @default("PENDING_SURVEY")
+  status            JobStatus      @default(PENDING_SURVEY)
   priority          String      @default("MEDIUM")
   assignedToId      String?
   projectId         String?     @unique
@@ -348,7 +395,7 @@ model Project {
   description       String?
   type              String                  @default("OSP_FTTH")
   location          String?
-  status            String                  @default("PLANNING")
+  status            ProjectStatus                  @default(PLANNING)
   progress          Float                   @default(0)
   jobId             String?
   job               Job?
@@ -737,13 +784,13 @@ model Invoice {
   month         Int?
   totalAmount   Float          @default(0)
   amountA       Float          @default(0)
-  statusA       String         @default("PENDING")
+  statusA       InvoiceStatus         @default(PENDING)
   paidDateA     DateTime?
   amountB       Float          @default(0)
-  statusB       String         @default("HOLD")
+  statusB       InvoiceStatus         @default(HOLD)
   paidDateB     DateTime?
   amount        Float
-  status        String         @default("PENDING")
+  status        InvoiceStatus         @default(PENDING)
   description   String?
   dueDate       DateTime?
   date          DateTime       @default(now())
@@ -4675,3 +4722,16 @@ model OspVehicleHiringPayment {
 
 
 
+
+
+model ServiceOrderDelayReason {
+  id              String       @id @default(cuid())
+  serviceOrderId  String
+  reason          String
+  createdAt       DateTime     @default(now())
+
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  
+  @@index([serviceOrderId])
+  @@unique([serviceOrderId, reason])
+}

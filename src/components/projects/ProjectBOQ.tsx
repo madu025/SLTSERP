@@ -1,13 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import React, { useMemo, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import ResponsiveTable from '@/components/ResponsiveTable';
-import { Plus, Edit2, Trash2, Save, X, Package, ShoppingCart, Wand2, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, ShoppingCart, Wand2, Loader2 } from 'lucide-react';
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 import { toast } from 'sonner';
@@ -51,7 +50,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
     };
 
     // Compute source-based summaries
-    const boqItems = project.boqItems || [];
+    const boqItems = useMemo(() => project.boqItems || [], [project.boqItems]);
     const existingItems = useMemo(() => boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === 'EXISTING'), [boqItems]);
     const newItems = useMemo(() => boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === 'NEW'), [boqItems]);
     const existingValue = useMemo(() => existingItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.amount || 0), 0), [existingItems]);
@@ -104,6 +103,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                 toast.error(data.error || data.message || 'Failed to generate BOQ');
             }
         } catch (error) {
+            console.error('Auto-BOQ generation error:', error);
             toast.error('Auto-BOQ generation request failed');
         } finally {
             setAutoBoqLoading(false);
@@ -138,7 +138,9 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                 toast.error('Failed to delete item');
             }
         } catch (error) {
-}
+            console.error('Delete error:', error);
+            toast.error('Delete request failed');
+        }
     };
 
     const handleSubmit = async () => {
@@ -174,13 +176,14 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                 toast.error(error.error || 'Operation failed');
             }
         } catch (error) {
-} finally {
+            console.error('Submit error:', error);
+            toast.error('Submit request failed');
+        } finally {
             setLoading(false);
         }
     };
 
     const totalBOQValue = boqItems.reduce((sum: number, item: import('@prisma/client').ProjectBOQItem) => sum + (item.amount || 0), 0);
-    const totalActualCost = boqItems.reduce((sum: number, item: import('@prisma/client').ProjectBOQItem) => sum + (item.actualCost || 0), 0);
 
     return (
         <div className="space-y-6">

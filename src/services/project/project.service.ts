@@ -52,7 +52,7 @@ export class ProjectService {
         const where: Prisma.ProjectWhereInput = {};
 
         if (status && status !== 'ALL') {
-            where.status = status;
+            where.status = status as import("@prisma/client").ProjectStatus;
         } else {
             where.status = { not: 'COMPLETED' };
         }

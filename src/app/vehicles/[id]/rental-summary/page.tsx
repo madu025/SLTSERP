@@ -17,21 +17,18 @@ import {
     FileText, 
     CheckCircle2, 
     XCircle, 
-    Clock, 
-    Send,
-    Loader2,
-    DollarSign,
-    Fuel,
-    Gauge,
     Calendar,
     User,
-    Building2,
-    Ban,
     TrendingUp,
     TrendingDown,
     AlertCircle,
     Printer,
     History,
+    Send,
+    Loader2,
+    DollarSign,
+    Fuel,
+    Gauge
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -145,6 +142,8 @@ interface RentalVehicleInfo {
     fuel_supplying: string | null;
     mileage_limit_monthly: number | null;
     fuel_efficiency: number | null;
+    excess_mileage_cost_per_km?: number | null;
+    contract_terms?: string | null;
     bank_name: string | null;
     bank_account_number: string | null;
     bank_branch: string | null;
@@ -281,7 +280,7 @@ export default function RentalSummaryPage() {
     // Data Fetching
     // ========================================================================
 
-    const populateAgreementForm = (rv: any) => {
+    const populateAgreementForm = useCallback((rv: RentalVehicleInfo) => {
         setAgreementForm({
             supplier_id: rv.supplier_id || '',
             supplier_contact: rv.supplier_contact || '',
@@ -306,7 +305,59 @@ export default function RentalSummaryPage() {
             bank_branch_code: rv.bank_branch_code || '',
             document_url: rv.document_url || '',
         });
-    };
+    }, []);
+
+    const fetchRentalVehicleDetails = useCallback(async (vid: string) => {
+        try {
+            // Fetch vehicle info via API
+            const res = await fetch(`/api/vehicles/${vid}`);
+            const json = await res.json();
+            if (json.data) {
+                // Check ownership type to confirm it's rental
+                if (json.data.ownership === 'RENTAL') {
+                    // Set some basic info from the vehicle
+                    const defaultRV: RentalVehicleInfo = {
+                        id: vid,
+                        vehicle_id: vid,
+                        supplier_id: 'SUPPLIER-' + vid.slice(0, 5),
+                        supplier_contact: '',
+                        rental_contract_id: 'CONTRACT-' + vid.slice(0, 5),
+                        rental_start_date: new Date().toISOString().split('T')[0],
+                        rental_end_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+                        rental_cost_monthly: 0,
+                        rental_cost_daily: 0,
+                        fuel_included: false,
+                        driver_portion_monthly: 0,
+                        expected_working_days: 26,
+                        absent_deduction_rate: 1500,
+                        fuel_allowance_per_km: 25,
+                        fuel_supplying: 'COMPANY',
+                        mileage_limit_monthly: 3000,
+                        fuel_efficiency: 10,
+                        bank_name: '',
+                        bank_account_number: '',
+                        bank_branch: '',
+                        bank_branch_code: '',
+                        document_url: '',
+                        vehicle: {
+                            id: json.data.id,
+                            registration_number: json.data.registration_number,
+                            make: json.data.make,
+                            model: json.data.model,
+                            year: json.data.year,
+                            site: json.data.site,
+                        },
+                    };
+                    setRentalVehicle(defaultRV);
+                    populateAgreementForm(defaultRV);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch rental details:', err);
+        } finally {
+            setLoadingVehicle(false);
+        }
+    }, [populateAgreementForm]);
 
     const fetchRentalVehicle = useCallback(async () => {
         try {
@@ -349,59 +400,7 @@ export default function RentalSummaryPage() {
             setError((err instanceof Error ? err.message : "Unknown error"));
             setLoadingVehicle(false);
         }
-    }, [vehicleId]);
-
-    const fetchRentalVehicleDetails = async (vid: string) => {
-        try {
-            // Fetch vehicle info via API
-            const res = await fetch(`/api/vehicles/${vid}`);
-            const json = await res.json();
-            if (json.data) {
-                // Check ownership type to confirm it's rental
-                if (json.data.ownership === 'RENTAL') {
-                    // Set some basic info from the vehicle
-                    const defaultRV = {
-                        id: vid,
-                        vehicle_id: vid,
-                        supplier_id: 'SUPPLIER-' + vid.slice(0, 5),
-                        supplier_contact: '',
-                        rental_contract_id: 'CONTRACT-' + vid.slice(0, 5),
-                        rental_start_date: new Date().toISOString().split('T')[0],
-                        rental_end_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-                        rental_cost_monthly: 0,
-                        rental_cost_daily: 0,
-                        fuel_included: false,
-                        driver_portion_monthly: 0,
-                        expected_working_days: 26,
-                        absent_deduction_rate: 1500,
-                        fuel_allowance_per_km: 25,
-                        fuel_supplying: 'COMPANY',
-                        mileage_limit_monthly: 3000,
-                        fuel_efficiency: 10,
-                        bank_name: '',
-                        bank_account_number: '',
-                        bank_branch: '',
-                        bank_branch_code: '',
-                        document_url: '',
-                        vehicle: {
-                            id: json.data.id,
-                            registration_number: json.data.registration_number,
-                            make: json.data.make,
-                            model: json.data.model,
-                            year: json.data.year,
-                            site: json.data.site,
-                        },
-                    };
-                    setRentalVehicle(defaultRV);
-                    populateAgreementForm(defaultRV);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to fetch rental details:', err);
-        } finally {
-            setLoadingVehicle(false);
-        }
-    };
+    }, [vehicleId, fetchRentalVehicleDetails, populateAgreementForm]);
 
     useEffect(() => {
         if (vehicleId) {
@@ -668,7 +667,7 @@ export default function RentalSummaryPage() {
 
     const statusBadge = (status: string) => {
         const cfg = STATUS_BADGE[status] || { label: status, variant: 'secondary' };
-        return <Badge variant={cfg.variant as any}>{cfg.label}</Badge>;
+        return <Badge variant={cfg.variant as "default" | "secondary" | "destructive" | "outline"}>{cfg.label}</Badge>;
     };
 
     // ========================================================================
@@ -1227,7 +1226,7 @@ export default function RentalSummaryPage() {
                                 <Card>
                                     <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                                         <Calculator className="w-12 h-12 text-muted-foreground/50 mb-3" />
-                                        <p className="text-muted-foreground">Select a period and click "Calculate Preview" to generate the monthly rental payment summary.</p>
+                                        <p className="text-muted-foreground">Select a period and click &quot;Calculate Preview&quot; to generate the monthly rental payment summary.</p>
                                     </CardContent>
                                 </Card>
                             )}

@@ -36,7 +36,7 @@ export class InvoiceApprovalService {
                 where: { id: invoiceId },
                 data: {
                     approvalStatus: 'APPROVED',
-                    status: 'APPROVED', // Assuming standard status is synced
+                    status: 'APPROVED' as import('@prisma/client').InvoiceStatus as import('@prisma/client').InvoiceStatus, // Assuming standard status is synced
                 }
             });
 
@@ -49,7 +49,7 @@ export class InvoiceApprovalService {
             where: { id: invoiceId },
             data: {
                 approvalStatus: 'REJECTED',
-                status: 'REJECTED',
+                status: 'REJECTED' as import('@prisma/client').InvoiceStatus as import('@prisma/client').InvoiceStatus,
                 description: reason
             }
         });

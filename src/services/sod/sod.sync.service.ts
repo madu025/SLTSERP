@@ -626,7 +626,7 @@ export class SODSyncService {
 
             const existing = existingMap.get(item.SO_NUM);
             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                status: item.CON_STATUS,
+                status: item.CON_STATUS as import("@prisma/client").ServiceOrderStatus,
                 lea: item.LEA,
                 voiceNumber: item.VOICENUMBER,
                 orderType: item.ORDER_TYPE,
@@ -690,7 +690,7 @@ export class SODSyncService {
                         where: { id: existing.id },
                         data: {
                             ...updatePayload,
-                            sltsStatus: isRestoring ? 'INPROGRESS' : (updatePayload.sltsStatus as string),
+                            sltsStatus: isRestoring ? 'INPROGRESS' : (updatePayload.sltsStatus as import("@prisma/client").ServiceOrderStatus),
                             receivedDate: isRestoring ? new Date() : undefined,
                             comments: isRestoring
                                 ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
@@ -786,9 +786,9 @@ export class SODSyncService {
                     if (nextSltsStatus !== 'INPROGRESS') {
                         const [disError] = await safe(prisma.$transaction(async (tx) => {
                             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                                status: extStatus.status,
+                                status: extStatus.status as import("@prisma/client").ServiceOrderStatus,
                                 statusDate,
-                                sltsStatus: nextSltsStatus,
+                                sltsStatus: nextSltsStatus as import("@prisma/client").ServiceOrderStatus,
                                 completionMode: isOfflineType ? 'OFFLINE' : undefined,
                                 completedDate: nextSltsStatus === 'COMPLETED' ? statusDate : undefined,
                                 returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined
@@ -957,7 +957,7 @@ export class SODSyncService {
             customerName: masterData['CON_CUS_NAME'] || masterData['CUS_NAME'] || masterData['CUSTOMER NAME'] || deepData['CUSTOMER NAME'],
             techContact: masterData['CON_TEC_CONTACT'] || masterData['CONTACT NO'] || masterData['CONTACT NUMBER'] || deepData['CONTACT NO'],
             address: masterData['ADDRE'] || masterData['ADDRESS'] || deepData['ADDRESS'],
-            status: masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'],
+            status: (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS']) as import("@prisma/client").ServiceOrderStatus,
             package: masterData['PKG'] || masterData['PACKAGE'] || deepData['PACKAGE'],
             iptv: masterData['IPTV'],
             dpDetails: masterData['DP'] || masterData['DP LOOP'] || deepData['DP LOOP'] || masterData['DP_DETAILS'] || masterData['CONNECTION POINT (DP)'],

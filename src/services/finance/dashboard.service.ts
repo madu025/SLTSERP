@@ -96,7 +96,7 @@ export class FinanceDashboardService {
 
     return {
       metrics: {
-        outstandingInvoices: outstandingInvoicesSum._sum.totalAmount || 0,
+        outstandingInvoices: (outstandingInvoicesSum._sum as any).totalAmount || 0,
         pendingPVs: pendingPVCount,
         totalRetentionHeld: totalRetentionSum._sum.balanceAmount || 0,
         activePenalties: activePenaltiesSum._sum.netAmount || 0

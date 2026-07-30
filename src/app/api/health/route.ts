@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { apiHandler } from '@/lib/api-handler';
-import { prisma } from '@/lib/prisma';
+import { SystemService } from '@/services/core/system.service';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 
@@ -21,22 +21,10 @@ export const GET = apiHandler(async () => {
 
     try {
         // Check DB
-        await prisma.$queryRaw`SELECT 1`;
+        const poolMetrics = await SystemService.checkDatabaseHealth();
         health.services.database = 'healthy';
-
-        // Collect Pool Metrics (Prisma Metrics if enabled)
-        try {
-            if ('$metrics' in prisma) {
-                const metrics = await (prisma as Record<string, any>).$metrics.json();
-                const counters = metrics?.counters || [];
-                health.monitoring.pool = {
-                    active: counters.find((c: any) => c.name === 'prisma_client_queries_active')?.value || 0,
-                    idle: counters.find((c: any) => c.name === 'prisma_client_queries_idle')?.value || 0,
-                    wait: counters.find((c: any) => c.name === 'prisma_client_queries_wait_count')?.value || 0
-                };
-            }
-        } catch {
-            // Metrics feature not enabled in schema or client, skip gracefully
+        if (poolMetrics) {
+            health.monitoring.pool = poolMetrics;
         }
     } catch (e) {
         health.status = 'error';

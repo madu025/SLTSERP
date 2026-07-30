@@ -8,7 +8,7 @@ model ServiceOrder {
   serviceType        String?
   customerName       String?
   techContact        String?
-  status             String
+  status             ServiceOrderStatus
   statusDate         DateTime?
   receivedDate       DateTime?
   address            String?
@@ -22,7 +22,7 @@ model ServiceOrder {
   woroSeit           String?
   ftthInstSeit       String?
   ftthWifi           String?
-  sltsStatus         String                      @default("INPROGRESS")
+  sltsStatus         ServiceOrderStatus          @default(INPROGRESS)
   scheduledDate      DateTime?
   scheduledTime      String?
   comments           String?
@@ -40,7 +40,8 @@ model ServiceOrder {
   invoiced           Boolean                     @default(false)
   invoiceId          String?
   wiredOnly          Boolean                     @default(false)
-  delayReasons       Json?
+  delayReasonsRaw    Json?                       @map("delayReasons")
+  delayReasons       ServiceOrderDelayReason[]
   stbShortage        Boolean                     @default(false)
   ontShortage        Boolean                     @default(false)
   ontType            String?
@@ -132,12 +133,12 @@ model ExtensionRawData {
 }
 
 model ServiceOrderStatusHistory {
-  id             String       @id @default(cuid())
+  id             String             @id @default(cuid())
   serviceOrderId String
-  status         String
+  status         ServiceOrderStatus
   statusDate     DateTime
-  createdAt      DateTime     @default(now())
-  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  serviceOrder   ServiceOrder       @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
   @@index([serviceOrderId])
   @@index([statusDate])
@@ -334,5 +335,17 @@ model SODIptvSerial {
   updatedAt      DateTime     @updatedAt
   serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
+  @@index([serviceOrderId])
+}
+
+model ServiceOrderDelayReason {
+  id             String   @id @default(cuid())
+  serviceOrderId String
+  reason         String
+  createdAt      DateTime @default(now())
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceOrderId, reason])
   @@index([serviceOrderId])
 }

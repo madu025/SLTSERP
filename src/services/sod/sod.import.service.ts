@@ -84,8 +84,8 @@ export class SODImportService {
 
                 if (existing) {
                     const updateData = {
-                        status: cleanStatus,
-                        sltsStatus: sltsStatusVal,
+                        status: cleanStatus as import("@prisma/client").ServiceOrderStatus,
+                        sltsStatus: sltsStatusVal as import("@prisma/client").ServiceOrderStatus,
                         contractorId: contractorId,
                         completedDate: isCompleted ? new Date() : (isReturned ? null : undefined),
                         returnReason: isReturned ? SODReturnClassifierService.classify(cleanStatus || 'Returned in Excel Import').category : (isCompleted ? null : undefined),
@@ -95,7 +95,7 @@ export class SODImportService {
                     toUpdate.push({ existing, updateData });
                 } else {
                     toCreate.push({
-                        soNum, rtom, opmcId, contractorId, status: cleanStatus, sltsStatus: sltsStatusVal,
+                        soNum, rtom, opmcId, contractorId, status: cleanStatus as import("@prisma/client").ServiceOrderStatus, sltsStatus: sltsStatusVal as import("@prisma/client").ServiceOrderStatus,
                         voiceNumber, orderType, serviceType, customerName, address, dp, package: pkg, lea, woroTaskName, techContact, sales,
                         receivedDate: new Date(),
                         completedDate: isCompleted ? new Date() : null,

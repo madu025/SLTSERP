@@ -240,7 +240,7 @@ export class AiPredictionService {
     const boqDemand = await prisma.projectBOQItem.groupBy({
       by: ['materialId'],
       where: {
-        project: { status: { in: ['PLANNING', 'IN_PROGRESS', 'APPROVED'] } },
+        project: { status: { in: ['PLANNING', 'IN_PROGRESS', 'APPROVED' as import('@prisma/client').ProjectStatus] } },
         materialId: { not: null },
       },
       _sum: { quantity: true, actualQuantity: true },

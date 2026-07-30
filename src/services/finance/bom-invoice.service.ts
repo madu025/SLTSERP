@@ -149,7 +149,7 @@ export class BOMInvoiceService {
 
             if (stubsToCreate.length > 0) {
                 await prisma.serviceOrder.createMany({
-                    data: stubsToCreate,
+                    data: stubsToCreate as any,
                     skipDuplicates: true
                 });
 

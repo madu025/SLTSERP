@@ -60,7 +60,7 @@ export class InvoiceService {
         const updatedInvoice = await prisma.invoice.update({
             where: { id: invoiceId },
             data: {
-                status: 'SF_AUDIT_APPROVED',
+                status: 'SF_AUDIT_APPROVED' as import('@prisma/client').InvoiceStatus as import('@prisma/client').InvoiceStatus,
                 statusA: 'SF_AUDIT_APPROVED'
             }
         });

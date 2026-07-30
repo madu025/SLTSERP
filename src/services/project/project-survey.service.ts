@@ -223,7 +223,7 @@ export class ProjectSurveyService {
       if (incompleteSessions === 0) {
         await prisma.project.update({
           where: { id: projectId },
-          data: { status: 'SURVEY_COMPLETE' },
+          data: { status: 'SURVEY_COMPLETE' as any as any },
         });
       }
 

@@ -5,7 +5,7 @@ import { AppError } from '@/lib/error';
 export class JobService {
     static async getJobs(params: { status?: string; region?: string; assigneeId?: string }) {
         const where: import("@prisma/client").Prisma.JobWhereInput = {};
-        if (params.status) where.status = params.status;
+        if (params.status) where.status = params.status as import("@prisma/client").JobStatus;
         if (params.region) where.region = params.region;
         if (params.assigneeId) where.assignedToId = params.assigneeId;
 
@@ -68,7 +68,7 @@ export class JobService {
                     location: data.location || null,
                     region: data.region || null,
                     district: data.district || null,
-                    priority: data.priority || 'MEDIUM',
+                    priority: data.priority as any as any || 'MEDIUM',
                     assignedToId: data.assignedToId || null,
                     status: 'PENDING_SURVEY'
                 },

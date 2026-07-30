@@ -15,49 +15,16 @@ export const GET = apiHandler(async (req) => {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    const whereClause: Record<string, unknown> = {
-        isOfflineWorkOrder: true
-    };
-
-    if (opmcId && opmcId !== 'ALL') {
-        whereClause.opmcId = opmcId;
-    }
-
-    if (status && status !== 'ALL') {
-        whereClause.sltsStatus = status;
-    }
-
-    const [total, orders] = await prisma.$transaction([
-        prisma.serviceOrder.count({ where: whereClause }),
-        prisma.serviceOrder.findMany({
-            where: whereClause,
-            include: {
-                opmc: { select: { id: true, rtom: true, name: true } },
-                contractor: { select: { id: true, name: true } },
-                team: { select: { id: true, name: true } },
-                materialUsage: {
-                    select: {
-                        id: true,
-                        itemId: true,
-                        quantity: true,
-                        unitPrice: true
-                    }
-                }
-            },
-            orderBy: { createdAt: 'desc' },
-            skip: (page - 1) * limit,
-            take: limit
-        })
-    ]);
+    const result = await SODLifecycleService.getOfflineOrders(page, limit, opmcId, status);
 
     return {
         success: true,
-        count: orders.length,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        items: orders
+        count: result.orders.length,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        items: result.orders
     };
 });
 
@@ -115,34 +82,9 @@ export const POST = apiHandler(async (req) => {
 
     const compDate = validated.completedDate ? new Date(validated.completedDate) : new Date();
 
-    // Compute Rates using Rate Matrix & SODRevenueConfig
-    const rates = await SODInvoicingService.calculateAmounts(validated.rtom, validated.dropWireDistance, {
-        serviceType: validated.serviceType,
+    const order = await SODLifecycleService.registerOfflineOrder({
+        ...validated,
         completedDate: compDate
-    });
-
-    const order = await prisma.serviceOrder.create({
-        data: {
-            soNum: validated.soNum,
-            rtom: validated.rtom,
-            opmcId: validated.opmcId,
-            customerName: validated.customerName || 'Offline Contractor Entry',
-            voiceNumber: validated.voiceNumber,
-            serviceType: validated.serviceType,
-            orderType: validated.orderType,
-            status: validated.sltsStatus,
-            sltsStatus: validated.sltsStatus,
-            completedDate: compDate,
-            dropWireDistance: validated.dropWireDistance,
-            revenueAmount: rates.revenueAmount,
-            contractorAmount: rates.contractorAmount,
-            contractorId: validated.contractorId || null,
-            teamId: validated.teamId || null,
-            comments: validated.comments || 'Registered via Offline Work Order Entry Portal',
-            isOfflineWorkOrder: true,
-            isManualEntry: true,
-            offlineReference: validated.offlineReference || `OFFLINE-WO-${Date.now()}`
-        }
     });
 
     return {

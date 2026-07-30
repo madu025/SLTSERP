@@ -1,6 +1,6 @@
 model Job {
-  id              String   @id @default(cuid())
-  jobCode         String   @unique
+  id              String       @id @default(cuid())
+  jobCode         String       @unique
   name            String
   description     String?
   customerName    String?
@@ -8,14 +8,14 @@ model Job {
   location        String?
   region          String?
   district        String?
-  status          String   @default("PENDING_SURVEY")
-  priority        String   @default("MEDIUM")
+  status          JobStatus    @default(PENDING_SURVEY)
+  priority        TaskPriority @default(MEDIUM)
   assignedToId    String?
-  projectId       String?  @unique
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  assignedTo      Staff?   @relation(fields: [assignedToId], references: [id])
-  project         Project? @relation(fields: [projectId], references: [id])
+  projectId       String?      @unique
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  assignedTo      Staff?       @relation(fields: [assignedToId], references: [id])
+  project         Project?     @relation(fields: [projectId], references: [id])
 
   @@index([status])
   @@index([projectId])
@@ -29,7 +29,7 @@ model Project {
   description           String?
   type                  String                        @default("OSP_FTTH")
   location              String?
-  status                String                        @default("PLANNING")
+  status                ProjectStatus                 @default(PLANNING)
   progress              Float                         @default(0)
   jobId                 String?
   budget                Float?
@@ -135,17 +135,17 @@ model ProjectBOQItem {
 }
 
 model ProjectMilestone {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   projectId     String
   name          String
   description   String?
   targetDate    DateTime
   completedDate DateTime?
-  status        String    @default("PENDING")
-  progress      Float     @default(0)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status        TaskStatus @default(PENDING)
+  progress      Float      @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([status])

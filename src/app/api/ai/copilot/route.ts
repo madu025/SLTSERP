@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
 import { NexusAgentService } from '@/services/ai/nexus-agent.service';
-import { prisma } from '@/lib/prisma';
+import { SystemService } from '@/services/core/system.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
 import { requireAuth } from '@/lib/server-utils';
@@ -66,21 +66,19 @@ export const POST = apiHandler(async (_req, _params, body) => {
 
         if (!isAuthorized) {
             // Log unauthorized attempt to Database Audit Logs
-            await prisma.auditLog.create({
-                data: {
-                    userId: user.id,
-                    action: 'UNAUTHORIZED_AI_TRANSACTION',
-                    entity: 'NexusAgent',
-                    entityId: action.type,
-                    newValue: {
-                        actionType: action.type,
-                        itemName: action.itemName || null,
-                        itemCode: action.itemCode || null,
-                        fromStoreName: action.fromStoreName || null,
-                        toStoreName: action.toStoreName || null,
-                        userRole: user.role,
-                        attemptedAt: new Date().toISOString()
-                    }
+            await SystemService.logEvent({
+                userId: user.id,
+                action: 'UNAUTHORIZED_AI_TRANSACTION',
+                entity: 'NexusAgent',
+                entityId: action.type,
+                newValue: {
+                    actionType: action.type,
+                    itemName: action.itemName || null,
+                    itemCode: action.itemCode || null,
+                    fromStoreName: action.fromStoreName || null,
+                    toStoreName: action.toStoreName || null,
+                    userRole: user.role,
+                    attemptedAt: new Date().toISOString()
                 }
             });
 

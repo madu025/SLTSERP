@@ -157,8 +157,8 @@ export class SODQueryService {
                 andFilters.push({ sltsStatus: 'RETURN' });
             } else {
                 andFilters.push({
-                    sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN', 'DISAPPEARED'] },
-                    status: { notIn: completionStatuses }
+                    sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN', 'DISAPPEARED'] as any },
+                    status: { notIn: completionStatuses as any }
                 });
             }
         } else if (filter === 'install_closed') {
@@ -202,7 +202,7 @@ export class SODQueryService {
             if (statusFilter === 'ASSIGNED') {
                 andFilters.push({ status: { in: ['ASSIGNED', 'ASSIGN'] } });
             } else {
-                andFilters.push({ status: statusFilter });
+                andFilters.push({ status: statusFilter as import("@prisma/client").ServiceOrderStatus });
             }
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
             andFilters.push({ status: { in: ["ASSIGNED", "ASSIGN", "INPROGRESS", "PROV_CLOSED", "OFFLINE"] } });
@@ -743,7 +743,7 @@ export class SODQueryService {
                     ]
                 });
             } else {
-                andConditions.push({ sltsStatus: sltsStatus });
+                andConditions.push({ sltsStatus: sltsStatus as import("@prisma/client").ServiceOrderStatus });
             }
         }
 

@@ -7,13 +7,13 @@ model Invoice {
   month             Int?
   totalAmount       Decimal                   @default(0)
   amountA           Decimal                   @default(0)
-  statusA           String                    @default("PENDING")
+  statusA           InvoiceStatus             @default(PENDING)
   paidDateA         DateTime?
   amountB           Decimal                   @default(0)
-  statusB           String                    @default("HOLD")
+  statusB           InvoiceStatus             @default(HOLD)
   paidDateB         DateTime?
   amount            Decimal
-  status            String                    @default("PENDING")
+  status            InvoiceStatus             @default(PENDING)
   approvalStatus    String                    @default("DRAFT")
   idempotencyKey    String?                   @unique
   retentionAmount   Decimal                   @default(0)

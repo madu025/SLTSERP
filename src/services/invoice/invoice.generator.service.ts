@@ -4,6 +4,125 @@ import { InvoiceCalculatorService } from './invoice.calculator.service';
 import { LedgerService } from '../finance/ledger.service';
 
 export class InvoiceGeneratorService {
+    /**
+     * Generate a Contractor Monthly Invoice
+     */
+    static async generateContractorMonthlyInvoice(data: {
+        contractorId: string;
+        month?: string | number;
+        year?: string | number;
+        sodIds?: string[];
+    }, userId: string = 'system-billing-officer') {
+        const now = new Date();
+        const currentYear = data.year ? Number(data.year) : now.getFullYear();
+        const currentMonth = data.month ? Number(data.month) : now.getMonth() + 1;
+
+        let sodWhere: Record<string, unknown> = {
+            contractorId: data.contractorId,
+            OR: [
+                { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
+                { sltsStatus: 'COMPLETED' }
+            ],
+            isInvoicable: true,
+            invoiced: false
+        };
+
+        if (data.sodIds && data.sodIds.length > 0) {
+            sodWhere = {
+                id: { in: data.sodIds },
+                contractorId: data.contractorId,
+                OR: [
+                    { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
+                    { sltsStatus: 'COMPLETED' }
+                ],
+                isInvoicable: true,
+                invoiced: false
+            };
+        }
+
+        const sods = await prisma.serviceOrder.findMany({
+            where: sodWhere,
+            include: {
+                materialUsage: { include: { item: true } }
+            }
+        });
+
+        if (sods.length === 0) {
+            throw AppError.badRequest('No verified invoicable SODs found for this contractor. Ensure SODs are completed and marked Invoicable by an Engineer first.');
+        }
+
+        const contractor = await prisma.contractor.findUnique({
+            where: { id: data.contractorId },
+            include: { opmc: true }
+        });
+
+        if (!contractor) {
+            throw AppError.notFound('Contractor not found');
+        }
+
+        const regionName = contractor.opmc?.rtom || 'METRO';
+        const contractorPrefix = contractor.registrationNumber ? contractor.registrationNumber.slice(-4) : 'LOTS';
+
+        const invoiceNumber = await this.generateUniqueNumber(
+            contractorPrefix,
+            regionName,
+            currentYear,
+            currentMonth
+        );
+
+        let totalGrossAmount = 0;
+        // Import SODInvoicingService dynamically to prevent circular dependencies if they exist
+        const { SODInvoicingService } = await import('../sod/sod.invoicing.service');
+        
+        for (const sod of sods) {
+            const dwUsage = sod.materialUsage.find((m) => {
+                const itemCode = (m.item?.code || '').toUpperCase();
+                const itemName = (m.item?.name || '').toUpperCase();
+                return itemCode === 'OSP-HC-CBL-DW' || itemName.includes('DROP CABLE') || itemName.includes('DROP WIRE');
+            });
+            const dwLength = dwUsage ? parseFloat(dwUsage.quantity.toString()) : 150;
+            const calc = await SODInvoicingService.calculateAmounts(sod.rtom, dwLength, { serviceType: sod.serviceType });
+            totalGrossAmount += calc.contractorAmount;
+        }
+
+        const sodIdsList = sods.map(s => s.id);
+        const invoice = await this.createRegionalInvoice({
+            invoiceNumber,
+            contractorId: contractor.id,
+            year: currentYear,
+            month: currentMonth,
+            totalAmount: totalGrossAmount,
+            regionName,
+            sodIds: sodIdsList,
+            rtomArea: regionName,
+            description: `Contractor Monthly Invoice for ${contractor.name} - ${regionName} (${currentMonth}/${currentYear})`
+        });
+
+        const { AuditService } = await import('../audit');
+        await AuditService.log({
+            action: 'CONTRACTOR_INVOICE_GENERATED',
+            entity: 'Invoice',
+            entityId: invoice.id,
+            userId: userId,
+            newValue: {
+                invoiceNumber: invoice.invoiceNumber,
+                contractorName: contractor.name,
+                sodCount: sods.length,
+                totalAmount: totalGrossAmount,
+                generatedBy: userId
+            }
+        });
+
+        const publicUrl = `/public/invoices/${invoice.id}`;
+
+        return {
+            invoice,
+            sods,
+            totalGrossAmount,
+            publicUrl
+        };
+    }
+
     
     /**
      * Generate a unique invoice number using sequential logic

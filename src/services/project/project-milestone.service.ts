@@ -41,7 +41,7 @@ export class ProjectMilestoneService {
                 name,
                 description: description || null,
                 targetDate: new Date(targetDate),
-                status: status || 'PENDING',
+                status: status as any || 'PENDING',
                 progress: 0
             }
         });

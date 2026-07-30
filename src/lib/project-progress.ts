@@ -52,7 +52,7 @@ export async function calculateProjectProgress(projectId: string): Promise<numbe
 
   await prisma.project.update({
     where: { id: projectId },
-    data: updateData
+    data: updateData as any
   });
 
   return progress;

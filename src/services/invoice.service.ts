@@ -296,8 +296,8 @@ export class InvoiceService {
             }
 
             const hasShortage = order.stbShortage || order.ontShortage;
-            const hasDelayReasons = order.delayReasons && typeof order.delayReasons === 'object' &&
-                Object.values(order.delayReasons as Record<string, boolean>).some(Boolean);
+            const hasDelayReasons = order.delayReasonsRaw && typeof order.delayReasonsRaw === 'object' &&
+                Object.values(order.delayReasonsRaw as Record<string, boolean>).some(Boolean);
 
             if (isCompleted) {
                 return hasShortage || hasDelayReasons;
@@ -307,7 +307,7 @@ export class InvoiceService {
         });
 
         const formattedOrders = delayedOrders.map(o => {
-            const reasonsObj = (o.delayReasons as Record<string, boolean>) || {};
+            const reasonsObj = (o.delayReasonsRaw as Record<string, boolean>) || {};
             const activeReasons: string[] = [];
             
             if (reasonsObj.cxDelay) activeReasons.push('Customer Delay');
@@ -520,7 +520,7 @@ export class InvoiceService {
      */
     static async getInvoices(filters: { status?: string; contractorId?: string; projectId?: string }) {
         const where: Prisma.InvoiceWhereInput = {};
-        if (filters.status) where.status = filters.status;
+        if (filters.status) where.status = filters.status as import("@prisma/client").InvoiceStatus;
         if (filters.contractorId) where.contractorId = filters.contractorId;
         if (filters.projectId) where.projectId = filters.projectId;
 
@@ -612,7 +612,7 @@ export class InvoiceService {
         }
 
         const updateData: Prisma.InvoiceUpdateInput & Record<string, unknown> = {};
-        if (data.status !== undefined) updateData.status = data.status;
+        if (data.status !== undefined) updateData.status = data.status as import("@prisma/client").InvoiceStatus;
         if (data.amount !== undefined) updateData.amount = data.amount;
         if (data.description !== undefined) updateData.description = data.description;
         if (data.connectionTitle !== undefined) updateData.connectionTitle = data.connectionTitle;
@@ -684,7 +684,7 @@ export class InvoiceService {
         const updatedInvoice = await prisma.invoice.update({
             where: { id: invoiceId },
             data: {
-                status: 'SF_AUDIT_APPROVED',
+                status: 'SF_AUDIT_APPROVED' as import('@prisma/client').InvoiceStatus as import('@prisma/client').InvoiceStatus,
                 statusA: 'SF_AUDIT_APPROVED'
             }
         });
