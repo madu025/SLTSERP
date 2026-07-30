@@ -119,6 +119,26 @@ export class StockRequestService {
             console.error("Failed to publish stock request created event:", nErr);
         }
 
+        // --- DYNAMIC PROCESS GATE ENGINE INTEGRATION ---
+        try {
+            const { ProcessGateEngine } = await import('@/services/approval/process-gate-engine');
+            const gateResult = await ProcessGateEngine.startGate({
+                entityType: 'MATERIAL_REQUEST',
+                entityId: req.id,
+                currentStatus: initialWorkflowStage
+            });
+
+            if (gateResult.status === 'GATE_PASSED') {
+                // If there's no gate policy, we can automatically mark it as approved
+                // For safety, let's leave it pending for manual intervention or we can call domain action
+                console.log(`[ProcessGateEngine] Gate automatically passed for MRN ${req.requestNr}. No active policy found.`);
+            } else {
+                console.log(`[ProcessGateEngine] Gate started for MRN ${req.requestNr}, instance: ${gateResult.instanceId}`);
+            }
+        } catch (gateErr) {
+            console.error("[ProcessGateEngine] Failed to initiate gate for MRN:", gateErr);
+        }
+
         return req;
     }
 
@@ -182,15 +202,14 @@ export class StockRequestService {
 
         switch (action) {
             case 'ARM_APPROVE':
-                return this.handleArmApproval(data);
+            case 'STORES_MANAGER_APPROVE':
+            case 'APPROVE':
+            case 'GATE_PASSED':
+                return this.handleGatePassed(data);
             case 'RETURN':
                 return this.handleReturn(data);
-            case 'STORES_MANAGER_APPROVE':
-                return this.handleStoresManagerApproval(data);
             case 'REJECT':
                 return this.handleReject(data);
-            case 'APPROVE':
-                return this.handleOspManagerApproval(data);
             case 'PROCUREMENT_COMPLETE':
                 return this.handleProcurementComplete(data);
             case 'RELEASE':
@@ -202,18 +221,62 @@ export class StockRequestService {
         }
     }
 
-    private static async handleArmApproval(data: StockRequestActionData) {
-        const { requestId, userId, remarks } = data;
-        const updated = await StockRequestRepository.update(requestId, {
-            workflowStage: 'STORES_MANAGER_APPROVAL',
-            armAction: 'APPROVED',
-            armDate: new Date(),
-            armApprovedById: userId,
-            armRemarks: remarks
-        });
+    private static async handleGatePassed(data: StockRequestActionData) {
+        const { requestId, userId, remarks, items } = data;
+        
+        return await prisma.$transaction(async (tx: TransactionClient) => {
+            const stockReq = await StockRequestRepository.findById(requestId, { items: true, fromStore: true, toStore: true }, tx);
+            if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
 
-        this.safeNotifyStageChange(updated, 'STORES_MANAGER_APPROVAL', ['STORES_MANAGER']);
-        return updated;
+            // Find the active policy for the current stage
+            const policy = await (tx as unknown as typeof prisma).processGatePolicy.findFirst({
+                where: { entityType: 'MATERIAL_REQUEST', fromStatus: stockReq.workflowStage }
+            });
+
+            if (!policy) throw AppError.badRequest(`No active Process Gate Policy for stage ${stockReq.workflowStage}`);
+
+            let nextStage = policy.toStatus;
+
+            // Condition-Based Domain Routing (Zero-Hardcoding via Event Bus Pattern)
+            let rolesToNotify: string[] = Array.isArray((policy as any).rolesToNotify) ? (policy as any).rolesToNotify : [];
+            const domainAction = (policy as any).domainAction;
+
+            if (domainAction) {
+                const { DomainActionDispatcher } = await import('@/services/approval/domain-dispatcher.service');
+                await DomainActionDispatcher.dispatch({
+                    action: domainAction,
+                    entityId: stockReq.id,
+                    entityType: 'MATERIAL_REQUEST',
+                    userId: data.userId,
+                    instanceId: data.instanceId,
+                    stockReq,
+                    items
+                }, tx);
+                
+                // Adjust nextStage for specific domain actions if needed, though ideally this should be handled generically
+                if (domainAction === 'TRIGGER_PROCUREMENT') {
+                    if (stockReq.sourceType === 'MAIN_STORE' && stockReq.toStoreId) {
+                        nextStage = 'MAIN_STORE_RELEASE';
+                    } else if (stockReq.sourceType === 'SLT') {
+                        nextStage = 'GRN_PENDING';
+                    }
+                }
+            }
+
+            // Perform dynamic update using StockRequestRepository
+            const updated = await StockRequestRepository.update(requestId, {
+                workflowStage: nextStage,
+                // Status is upgraded to APPROVED if we reach the final stage or beyond
+                ...(nextStage === 'PROCUREMENT' || nextStage === 'MAIN_STORE_RELEASE' || nextStage === 'GRN_PENDING' 
+                    ? { status: 'APPROVED', approvedById: userId } 
+                    : {})
+            }, tx);
+
+            // Event-Driven Side Effect triggers
+            this.safeNotifyStageChange(updated, nextStage, rolesToNotify);
+            
+            return updated;
+        });
     }
 
     private static async handleReturn(data: StockRequestActionData) {
@@ -221,27 +284,10 @@ export class StockRequestService {
         const updated = await StockRequestRepository.update(requestId, {
             workflowStage: 'RETURNED',
             status: 'RETURNED',
-            armAction: 'REJECTED',
-            armDate: new Date(),
-            armApprovedById: userId,
-            armRemarks: remarks
+            remarks: remarks
         });
 
         this.safeNotifyFinalAction(updated, 'RETURNED', remarks);
-        return updated;
-    }
-
-    private static async handleStoresManagerApproval(data: StockRequestActionData) {
-        const { requestId, userId, remarks } = data;
-        const updated = await StockRequestRepository.update(requestId, {
-            workflowStage: 'OSP_MANAGER_APPROVAL',
-            storesManagerAction: 'APPROVED',
-            storesManagerDate: new Date(),
-            storesManagerApprovedById: userId,
-            storesManagerRemarks: remarks
-        });
-
-        this.safeNotifyStageChange(updated, 'OSP_MANAGER_APPROVAL', ['OSP_MANAGER']);
         return updated;
     }
 
@@ -255,49 +301,6 @@ export class StockRequestService {
 
         this.safeNotifyFinalAction(updated, 'REJECTED');
         return updated;
-    }
-
-    private static async handleOspManagerApproval(data: StockRequestActionData) {
-        const { requestId, userId, remarks, items } = data;
-        return await prisma.$transaction(async (tx: TransactionClient) => {
-            const stockReq = await StockRequestRepository.findById(requestId, { items: true, fromStore: true, toStore: true }, tx);
-            if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
-
-            if (items && Array.isArray(items)) {
-                for (const item of items) {
-                    await StockRequestRepository.updateItem(item.id, { approvedQty: item.approvedQty || 0 }, tx);
-                }
-            }
-
-            let nextWorkflowStage = 'PROCUREMENT';
-            let rolesToNotify = ['STORES_MANAGER'];
-            if (stockReq.sourceType === 'MAIN_STORE' && stockReq.toStoreId) {
-                nextWorkflowStage = 'MAIN_STORE_RELEASE';
-                rolesToNotify = ['STORES_ASSISTANT'];
-                
-                // ATP: Reserve stock in the provider store (toStoreId)
-                for (const item of (items || stockReq.items)) {
-                    const qtyToReserve = item.approvedQty || item.requestedQty;
-                    if (qtyToReserve > 0) {
-                        await InventoryRepository.reserveStock(stockReq.toStoreId, item.itemId, Number(qtyToReserve), tx);
-                    }
-                }
-            } else if (stockReq.sourceType === 'SLT') {
-                nextWorkflowStage = 'GRN_PENDING';
-            }
-
-            const updated = await StockRequestRepository.update(requestId, {
-                status: 'APPROVED',
-                workflowStage: nextWorkflowStage,
-                approvedById: userId,
-                managerAction: 'APPROVED',
-                managerDate: new Date(),
-                remarks: remarks || null
-            }, tx);
-
-            this.safeNotifyStageChange(updated, nextWorkflowStage, rolesToNotify);
-            return updated;
-        });
     }
 
     private static async handleProcurementComplete(data: StockRequestActionData) {
@@ -670,6 +673,26 @@ export class StockRequestService {
         }));
         if (nErr) {
             console.error(`Failed to publish stage change event [${stage}]:`, nErr);
+        }
+
+        // --- DYNAMIC PROCESS GATE ENGINE INTEGRATION ---
+        try {
+            const { ProcessGateEngine } = await import('@/services/approval/process-gate-engine');
+            
+            const gateResult = await ProcessGateEngine.startGate({
+                entityType: 'MATERIAL_REQUEST',
+                entityId: req.id,
+                currentStatus: stage,
+                entityPayload: req
+            });
+
+            if (gateResult.status === 'GATE_PASSED') {
+                console.log(`[ProcessGateEngine] Gate automatically passed for stage ${stage}. No active policy found.`);
+            } else {
+                console.log(`[ProcessGateEngine] Gate started for stage ${stage}, instance: ${gateResult.instanceId}`);
+            }
+        } catch (gateErr) {
+            console.error(`[ProcessGateEngine] Failed to initiate gate for stage ${stage}:`, gateErr);
         }
     }
 
