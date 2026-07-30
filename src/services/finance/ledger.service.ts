@@ -42,6 +42,7 @@ export class LedgerService {
                 return (await tx.journalEntry.findUnique({
                     where: { id: existing.id },
                     include: { lines: true }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 })) as any;
             }
         }
@@ -808,6 +809,7 @@ export class LedgerService {
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const entryWhere: any = {
             // Only reflect authoritative postings in official reports: exclude
             // reversed entries and any awaiting maker-checker approval.

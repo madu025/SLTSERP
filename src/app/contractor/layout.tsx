@@ -1,5 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
 "use client";
+import { ROLE_GROUPS } from '@/config/roles';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';

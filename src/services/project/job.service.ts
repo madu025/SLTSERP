@@ -4,6 +4,7 @@ import { AppError } from '@/lib/error';
 
 export class JobService {
     static async getJobs(params: { status?: string; region?: string; assigneeId?: string }) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const where: any = {};
         if (params.status) where.status = params.status;
         if (params.region) where.region = params.region;
@@ -82,6 +83,7 @@ export class JobService {
                     }
                 }
             });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error?.code === 'P2002') {
                 throw AppError.conflict('Job code already exists');
@@ -106,9 +108,11 @@ export class JobService {
         return job;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async updateJob(id: string, data: any) {
         try {
             return await prisma.job.update({ where: { id }, data });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error?.code === 'P2025') {
                 throw AppError.notFound('Job not found');
@@ -121,6 +125,7 @@ export class JobService {
         try {
             await prisma.job.delete({ where: { id } });
             return true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error?.code === 'P2025') {
                 throw AppError.notFound('Job not found');

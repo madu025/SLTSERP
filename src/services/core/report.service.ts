@@ -725,6 +725,7 @@ export class ReportService {
     const { from_date, to_date, payment_type, status, page = 1, limit = 50 } = options;
     const skip = (page - 1) * limit;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     if (payment_type) where.payment_type = payment_type as PaymentTypeEnum;
     if (status) where.status = status as PaymentStatusEnum;

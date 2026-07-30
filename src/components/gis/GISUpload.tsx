@@ -1,3 +1,4 @@
+'use client';
 // ============================================================================
 // GISUpload Component - Drag-and-drop GIS file upload
 // ============================================================================
@@ -5,7 +6,6 @@
 // Supports per-file layer type detection and manual override for all 12 layers
 // ============================================================================
 
-'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';

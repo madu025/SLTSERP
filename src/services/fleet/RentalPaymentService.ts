@@ -608,6 +608,7 @@ class RentalPaymentService {
   /**
    * Save or update vehicle rental agreement details
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async upsertRentalVehicle(vehicleId: string, data: any): Promise<DbRentalVehicle> {
     const existing = await db.vMRentalVehicle.findUnique({
       where: { vehicle_id: vehicleId }

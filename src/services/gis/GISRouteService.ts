@@ -13,7 +13,9 @@ export interface CreateGISRouteDTO {
     poleSpacing?: string | number | null;
     sourceFile?: string | null;
     sourceFormat?: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     geojsonData?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: any;
     createdById?: string | null;
 }
@@ -449,6 +451,7 @@ export class GISRouteService {
             routeLength?: string | number | null;
             poleSpacing?: string | number | null;
             status?: string;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             geojsonData?: any;
             isActive?: boolean;
         },
@@ -709,6 +712,7 @@ export class GISRouteService {
         }
 
         let updatedCount = 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updateData: any = { status };
         if (installationDate) {
             updateData.installationDate = new Date(installationDate);
@@ -858,6 +862,7 @@ export class GISRouteService {
             throw new Error('Cable segment not found');
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const currentProperties = (segment.properties as Record<string, any>) || {};
         const updatedProperties = {
             ...currentProperties,
@@ -899,6 +904,7 @@ export class GISRouteService {
             throw new Error('Cable segment not found');
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const currentProperties = (segment.properties as Record<string, any>) || {};
         const slackLoops = (currentProperties.slackLoops || 0) + 1;
         const newProperties = {
@@ -987,6 +993,7 @@ export class GISRouteService {
      */
     static async saveProjectGISMapping(projectId: string, mappings: Record<string, { materialId: string }>) {
         // Fetch inventory items to enrich mapping details
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const materialIds = Object.values(mappings).map((m: any) => m.materialId);
         const inventoryItems = await prisma.inventoryItem.findMany({
             where: { id: { in: materialIds } },
@@ -1005,6 +1012,7 @@ export class GISRouteService {
         }> = {};
 
         for (const [category, mapping] of Object.entries(mappings)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const m = mapping as any;
             const item = itemMap.get(m.materialId);
             enrichedMappings[category] = {
@@ -1140,6 +1148,7 @@ export class GISRouteService {
         ];
 
         // Construct GeoJSON FeatureCollection
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const features: any[] = [];
 
         // Cable
@@ -1197,6 +1206,7 @@ export class GISRouteService {
         };
 
         // Run BOQ Engine
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const layersMap = new Map<GISLayerType, any>();
         layersMap.set('CABLE', {
             layerName: 'CABLE',

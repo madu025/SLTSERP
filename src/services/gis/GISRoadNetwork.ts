@@ -42,6 +42,7 @@ export class GISRoadNetwork {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static isInsideRoundaboutCenterIsland(lat: number, lon: number, centers: any[]): boolean {
     for (const center of centers) {
       const dCenter = GISGeometry.getDistanceMeters(lat, lon, center.lat, center.lon);

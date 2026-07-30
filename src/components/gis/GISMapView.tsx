@@ -1,3 +1,4 @@
+'use client';
 // ============================================================================
 // GISMapView Component — OpenLayers map visualization for GIS layers
 // ============================================================================
@@ -7,7 +8,6 @@
 // Built on OpenLayers 10 for Vector Tiles, WMS/WFS, PostGIS-ready architecture.
 // ============================================================================
 
-'use client';
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import 'ol/ol.css';

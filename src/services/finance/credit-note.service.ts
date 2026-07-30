@@ -23,7 +23,7 @@ export class CreditNoteService {
                 throw AppError.badRequest('Credit Notes can only be issued against APPROVED invoices.');
             }
 
-            if (data.amount > invoice.totalAmount) {
+            if (data.amount > Number(invoice.totalAmount)) {
                 throw AppError.badRequest('Credit Note amount cannot exceed the original invoice total amount.');
             }
 
@@ -32,7 +32,7 @@ export class CreditNoteService {
                 data: {
                     invoiceId: invoice.id,
                     originalAmount: invoice.totalAmount,
-                    requestedAmount: invoice.totalAmount - data.amount, // Reduced amount
+                    requestedAmount: Number(invoice.totalAmount) - data.amount, // Reduced amount
                     originalAmountA: invoice.amountA,
                     requestedAmountA: invoice.amountA, // Simplified
                     originalAmountB: invoice.amountB,
@@ -49,7 +49,7 @@ export class CreditNoteService {
             await tx.invoice.update({
                 where: { id: invoice.id },
                 data: {
-                    totalAmount: invoice.totalAmount - data.amount
+                    totalAmount: Number(invoice.totalAmount) - data.amount
                 }
             });
 

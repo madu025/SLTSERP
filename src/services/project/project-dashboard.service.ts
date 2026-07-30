@@ -134,14 +134,14 @@ export class ProjectDashboardService {
                 date: i.invoiceDate ? new Date(i.invoiceDate).toISOString().split('T')[0] : '',
                 desc: `Invoice ${i.invoiceNumber}`,
                 type: 'Invoice',
-                amount: i.totalAmount,
+                amount: Number(i.totalAmount),
                 status: i.status
             })),
             ...recentPayments.map(p => ({
                 date: p.paymentDate ? new Date(p.paymentDate).toISOString().split('T')[0] : '',
                 desc: p.title || `PV ${p.pvNumber}`,
                 type: 'Payment',
-                amount: p.amount,
+                amount: Number(p.amount),
                 status: p.status
             }))
         ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);

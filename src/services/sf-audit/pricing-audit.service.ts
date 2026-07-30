@@ -82,7 +82,7 @@ export class PricingAuditService {
      * Fetch all rate rules from database. Auto-seeds default matrix if table is empty.
      */
     static async getRateRules(): Promise<{ count: number; rules: RateRuleDTO[] }> {
-        let count = await prisma.contractorRateRule.count();
+        const count = await prisma.contractorRateRule.count();
         if (count === 0) {
             await prisma.contractorRateRule.createMany({
                 data: DEFAULT_RATE_RULES
@@ -169,7 +169,22 @@ export class PricingAuditService {
             orderBy: { createdAt: 'desc' }
         });
 
-        return { count: requests.length, requests };
+        return { 
+            count: requests.length, 
+            requests: requests.map(req => ({
+                ...req,
+                originalAmount: Number(req.originalAmount),
+                requestedAmount: Number(req.requestedAmount),
+                originalAmountA: req.originalAmountA !== null ? Number(req.originalAmountA) : 0,
+                requestedAmountA: req.requestedAmountA !== null ? Number(req.requestedAmountA) : 0,
+                originalAmountB: req.originalAmountB !== null ? Number(req.originalAmountB) : 0,
+                requestedAmountB: req.requestedAmountB !== null ? Number(req.requestedAmountB) : 0,
+                invoice: {
+                    ...req.invoice,
+                    totalAmount: Number(req.invoice.totalAmount)
+                }
+            }))
+        };
     }
 
     /**

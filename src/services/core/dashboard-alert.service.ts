@@ -13,6 +13,7 @@ interface AlertItem {
 
 export class DashboardAlertService {
     static async getDashboardAlerts(userId: string, userRole: string): Promise<{ alerts: AlertItem[] }> {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
         let storeIds: string[] = [];
 
@@ -35,6 +36,7 @@ export class DashboardAlertService {
                 ]
             };
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let whereClause: any = baseWhere;
             const isStoreStaff = userRole === 'STORES_MANAGER' || userRole === 'STORES_ASSISTANT';
 

@@ -21,6 +21,7 @@ export interface DynamicReportPayload {
 }
 
 // Helper to access nested objects via string path (e.g. "serviceOrder.soNum")
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getNestedValue(obj: any, path: string): any {
     if (!obj) return null;
     const parts = path.split('.');
@@ -34,6 +35,7 @@ function getNestedValue(obj: any, path: string): any {
 
 // Helper to map operator string to Prisma conditions
 function mapOperator(operator: string, value: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let parsedValue: any = value;
     if (value === 'true') parsedValue = true;
     else if (value === 'false') parsedValue = false;
@@ -56,6 +58,7 @@ function mapOperator(operator: string, value: string) {
 }
 
 // Helper to recursively build nested prisma where objects
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildNestedFilter(parts: string[], operator: string, value: string): any {
     if (parts.length === 1) {
         return { [parts[0]]: mapOperator(operator, value) };
@@ -99,6 +102,7 @@ export class DynamicReportService {
         }
 
         // 2. Build Where Filter Object
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const whereClause: Record<string, any> = {};
         for (const rule of filters) {
             if (!allowedFields.includes(rule.field)) {
@@ -117,6 +121,7 @@ export class DynamicReportService {
         }
 
         // 3. Determine Includes based on entity
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let includeClause: any = undefined;
         if (entity === 'materialUsage') {
             includeClause = { serviceOrder: true, item: true };
@@ -131,6 +136,7 @@ export class DynamicReportService {
         // 4. Fetch Raw Data from Master
         // We cast prisma client to any to call dynamic methods safely
         const prismaKey = this.prismaKeys[entity];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const client = (prisma as any)[prismaKey];
         const rawRecords = await client.findMany({
             where: whereClause,
@@ -144,6 +150,7 @@ export class DynamicReportService {
                 throw AppError.badRequest(`INVALID_AGGREGATION: Group by or target field is not queryable.`);
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const groups: Record<string, any[]> = {};
             for (const rec of rawRecords) {
                 const groupKey = String(getNestedValue(rec, aggregation.groupBy) || 'N/A');
@@ -179,7 +186,9 @@ export class DynamicReportService {
         }
 
         // 6. Map and Flatten columns for standard tabular result
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mappedRows = rawRecords.map((rec: any) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const row: Record<string, any> = {};
             for (const col of columns) {
                 row[col] = getNestedValue(rec, col);

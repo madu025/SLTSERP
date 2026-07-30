@@ -178,8 +178,9 @@ export class GISReconciliationService {
 
       // 7. Update Cable Segment coordinates and lengths
       for (const segment of activeRoute.cableSegments) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const properties = (segment.properties || {}) as Record<string, any>;
-        let coords = (properties.coordinates || []) as [number, number][];
+        const coords = (properties.coordinates || []) as [number, number][];
 
         if (coords.length >= 2) {
           let coordsChanged = false;
@@ -210,6 +211,7 @@ export class GISReconciliationService {
             await tx.gISCableSegment.update({
               where: { id: segment.id },
               data: {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 properties: properties as any,
                 length: length,
               },

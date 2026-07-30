@@ -49,6 +49,7 @@ export class RoleService {
                     permissions: data.permissions || '[]'
                 }
             });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.code === 'P2002') {
                 throw AppError.badRequest('Role with this code already exists');
@@ -68,6 +69,7 @@ export class RoleService {
                     ...(data.permissions !== undefined && { permissions: data.permissions })
                 }
             });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.code === 'P2025') {
                 throw AppError.notFound('Role not found');
@@ -90,6 +92,7 @@ export class RoleService {
                 where: { id: roleId }
             });
             return { success: true };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             if (error.code === 'P2025') {
                 throw AppError.notFound('Role not found');

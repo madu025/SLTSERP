@@ -208,8 +208,11 @@ export class VehicleLogService {
         model: v.model as string,
         year: Number(v.year || 0),
         color: v.color as string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         vehicle_type: v.vehicle_type as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ownership: v.ownership as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         status: v.status as any,
         capacity_passengers: Number(v.capacity_passengers || 0),
         capacity_cargo_weight_kg: Number(v.capacity_cargo_weight_kg || 0),
@@ -250,7 +253,9 @@ export class VehicleLogService {
         license_number: d.license_number as string,
         license_issue_date: d.license_issue_date as Date,
         license_expiry_date: d.license_expiry_date as Date,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         license_class: d.license_class as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         medical_fitness_status: d.medical_fitness_status as any,
         medical_fitness_expiry: (d.medical_fitness_expiry as Date) || undefined,
         certifications: d.certifications ? (d.certifications as string).split(',') : [],
@@ -258,6 +263,7 @@ export class VehicleLogService {
         safety_incidents_count: Number(d.safety_incidents_count || 0),
         trips_completed: Number(d.trips_completed || 0),
         employment_date: d.employment_date as Date,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         employment_status: d.employment_status as any,
         assigned_site_id: (d.site_id as string) || undefined,
         base_hourly_rate: Number(d.base_hourly_rate || 0),

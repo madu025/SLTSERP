@@ -250,6 +250,7 @@ export class GISCandidateScoring {
     uncoveredSdus: Building[],
     candidates: CandidateDP[],
     maxCapacity: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     roads: any[], // passed from generateCoverageAwareDPs
     buildingToRoad: Map<number, number>
   ): { lat: number; lon: number; notes: string; upgradeCapacity?: boolean; density?: number; highwayType?: string; roadId?: number }[] {

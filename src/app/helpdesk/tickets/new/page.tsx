@@ -1,5 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
 "use client";
+import { ROLE_GROUPS } from '@/config/roles';
 
 import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";

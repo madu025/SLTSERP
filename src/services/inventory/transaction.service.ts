@@ -141,6 +141,7 @@ export class TransactionService {
         const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const prevSheet = await (prisma as any).contractorMaterialBalanceSheet.findUnique({
             where: {
                 contractorId_storeId_month: {
@@ -155,6 +156,7 @@ export class TransactionService {
         const openingMap = new Map<string, number>();
         if (prevSheet) {
             
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             prevSheet.items.forEach((item: any) => {
                 openingMap.set(item.itemId, item.closingBalance);
             });

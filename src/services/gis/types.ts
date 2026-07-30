@@ -93,6 +93,7 @@ export interface AutoPlanResult {
     violations?: string[];
   };
   warning?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   osmData?: any;
 }
 

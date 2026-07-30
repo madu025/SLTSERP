@@ -90,7 +90,7 @@ export class ContractorFinanceService {
 
             totalClaimedLkr += gross;
             if (inv.status === 'PAID' || inv.statusA === 'PAID') {
-                totalPaidLkr += (inv.amountA || net);
+                totalPaidLkr += Number(inv.amountA || net);
             }
             retentionHeldLkr += retention;
 

@@ -1,5 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
 'use client';
+import { ROLE_GROUPS } from '@/config/roles';
 
 import React, { useState, useEffect } from 'react';
 import RoleGuard from '@/components/RoleGuard';

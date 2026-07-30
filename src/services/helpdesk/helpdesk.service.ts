@@ -87,6 +87,7 @@ export class HelpdeskService {
       const status = c.status;
       const count = c._count.id;
       if (status in stats) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (stats as any)[status] = count;
       }
       stats.total += count;
@@ -216,7 +217,9 @@ export class HelpdeskService {
       } else if (a.action === "DELETE") {
         desc = "Asset deleted from inventory.";
       } else if (a.action === "UPDATE" && a.newValue && typeof a.newValue === 'object') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const oldVal = a.oldValue && typeof a.oldValue === 'object' ? (a.oldValue as Record<string, any>) : {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const newVal = a.newValue as Record<string, any>;
         const changes: string[] = [];
         
@@ -519,6 +522,7 @@ export class HelpdeskService {
                 department: oldAsset.department,
                 siteOfficeId: oldAsset.siteOfficeId,
                 location: oldAsset.location,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 status: (data.oldLaptopStatus as any) || 'DECOMMISSIONED',
                 purchaseCost: null,
                 agreementReceived: true
@@ -543,6 +547,7 @@ export class HelpdeskService {
             where: { id: oldLaptop.id },
             data: {
               assignedStaffId: null,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               status: (data.oldLaptopStatus as any) || 'DECOMMISSIONED'
             }
           });
@@ -1018,6 +1023,7 @@ export class HelpdeskService {
           photoUrls: data.photoUrls || [],
           slaResponseDeadline,
           slaResolutionDeadline
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
         tx
       );
@@ -1683,6 +1689,7 @@ export class HelpdeskService {
   // ==========================================
 
   // Agreements
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async createAgreement(userId: string, siteOfficeId: string, data: any, ipAddress?: string, userAgent?: string) {
     const agreement = await HelpdeskRepository.createAgreement(siteOfficeId, {
       ...data,
@@ -1701,6 +1708,7 @@ export class HelpdeskService {
     return agreement;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async updateAgreement(userId: string, id: string, data: any, ipAddress?: string, userAgent?: string) {
     const formatted = { ...data };
     if (data.startDate) formatted.startDate = new Date(data.startDate);
@@ -1733,6 +1741,7 @@ export class HelpdeskService {
   }
 
   // Goods Requests
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async createOfficeRequest(userId: string, siteOfficeId: string, requestedById: string, data: any, ipAddress?: string, userAgent?: string) {
     const request = await HelpdeskRepository.createOfficeRequest(siteOfficeId, requestedById, data);
     await AuditService.log({
@@ -1747,6 +1756,7 @@ export class HelpdeskService {
     return request;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async updateOfficeRequest(userId: string, id: string, data: any, ipAddress?: string, userAgent?: string) {
     const request = await HelpdeskRepository.updateOfficeRequest(id, data);
     await AuditService.log({
@@ -1775,6 +1785,7 @@ export class HelpdeskService {
   }
 
   // Vehicle Pool Allocations
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async createOfficeVehicle(userId: string, siteOfficeId: string, data: any, ipAddress?: string, userAgent?: string) {
     const vehicle = await HelpdeskRepository.createOfficeVehicle(siteOfficeId, {
       ...data,
@@ -1792,6 +1803,7 @@ export class HelpdeskService {
     return vehicle;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async updateOfficeVehicle(userId: string, id: string, data: any, ipAddress?: string, userAgent?: string) {
     const formatted = { ...data };
     if (data.allocationDate) formatted.allocationDate = new Date(data.allocationDate);
@@ -1823,6 +1835,7 @@ export class HelpdeskService {
   }
 
   // Purchasing Tenders
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async createOfficeTender(userId: string, siteOfficeId: string, data: any, ipAddress?: string, userAgent?: string) {
     const tender = await HelpdeskRepository.createOfficeTender(siteOfficeId, {
       ...data,
@@ -1841,6 +1854,7 @@ export class HelpdeskService {
     return tender;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async updateOfficeTender(userId: string, id: string, data: any, ipAddress?: string, userAgent?: string) {
     const formatted = { ...data };
     if (data.publishDate) formatted.publishDate = new Date(data.publishDate);

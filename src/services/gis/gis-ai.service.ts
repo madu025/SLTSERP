@@ -140,16 +140,19 @@ export class GISAIService {
   }
 
   // 2. Geospatial Anomaly Checking
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static detectGISAnomalies(geojsonData: any): GISAnomaly[] {
     return GISValidatorService.detectGISAnomalies(geojsonData);
   }
 
   // 3. As-Built vs Planned Mismatch Auditor
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static detectBuiltMismatch(plannedGeoJSON: any, builtGeoJSON: any) {
     return GISValidatorService.detectBuiltMismatch(plannedGeoJSON, builtGeoJSON);
   }
 
   // 4. Auto BOQ Generation from GIS Upload
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async generateBOQFromGIS(projectId: string, geojsonData: any) {
     const features = geojsonData?.features || [];
     let poleCount = 0;

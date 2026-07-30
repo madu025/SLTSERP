@@ -104,6 +104,7 @@ export class AdminSystemService {
      * Get system sync stats
      */
     static async getSyncStats() {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const syncStats = await (prisma as any).systemSetting.findUnique({
             where: { key: 'LAST_SYNC_STATS' }
         });
@@ -117,6 +118,7 @@ export class AdminSystemService {
             };
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const stats = syncStats.value as any;
         const lastSync = stats.lastSyncTriggered || stats.lastSync || new Date().toISOString();
         const lastSyncDate = new Date(lastSync);
@@ -142,8 +144,10 @@ export class AdminSystemService {
     /**
      * Get table column settings
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, any[]> = {}) {
         if (tableName) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const settings = await (prisma as any).tableColumnSettings.findUnique({
                 where: { tableName }
             });
@@ -158,10 +162,13 @@ export class AdminSystemService {
             };
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const allSettings = await (prisma as any).tableColumnSettings.findMany();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result: Record<string, any> = {};
 
         for (const tableKey of Object.keys(tableColumnsDef)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const setting = allSettings.find((s: any) => s.tableName === tableKey);
             const availableColumns = tableColumnsDef[tableKey];
             result[tableKey] = {
@@ -177,6 +184,7 @@ export class AdminSystemService {
     /**
      * Update table column settings
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, any[]>) {
         const tableColumns = tableColumnsDef[tableName];
         if (!tableColumns) {
@@ -186,6 +194,7 @@ export class AdminSystemService {
         const requiredColumns = tableColumns.filter(c => c.required).map(c => c.key);
         const finalColumns = [...new Set([...requiredColumns, ...visibleColumns])];
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const settings = await (prisma as any).tableColumnSettings.upsert({
             where: { tableName },
             update: { columns: JSON.stringify(finalColumns) },

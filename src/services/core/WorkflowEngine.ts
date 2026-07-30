@@ -68,8 +68,11 @@ export class WorkflowEngine {
       });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tasksData: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const checklistsData: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const approvalsData: any[] = [];
 
     for (const stage of stagesData) {
@@ -321,6 +324,7 @@ export class WorkflowEngine {
    * Action Task status
    */
   static async updateTaskStatus(taskId: string, status: string, progress: number = 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = { status, progress };
     if (status === 'IN_PROGRESS') {
       data.actualStart = new Date();

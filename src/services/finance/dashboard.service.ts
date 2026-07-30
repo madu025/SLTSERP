@@ -85,7 +85,7 @@ export class FinanceDashboardService {
       if (pv.paymentDate) {
         const key = pv.paymentDate.toLocaleString('default', { month: 'short', year: '2-digit' });
         if (monthlyTrendMap.has(key)) {
-          monthlyTrendMap.set(key, (monthlyTrendMap.get(key) || 0) + pv.amount);
+          monthlyTrendMap.set(key, (monthlyTrendMap.get(key) || 0) + Number(pv.amount));
         }
       }
     });

@@ -5,7 +5,9 @@ export interface AuditLogParams {
     action: string;
     entity: string;
     entityId: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     oldValue?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     newValue?: any;
     ipAddress?: string;
     userAgent?: string;

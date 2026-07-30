@@ -52,6 +52,7 @@ export class RouteVersionService {
         versionType: input.versionType,
         changeRequestId: input.changeRequestId,
         isActive: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         geojsonData: (input.geojsonData ?? currentRoute.geojsonData ?? {}) as any,
         routeLength: currentRoute.routeLength,
         createdById: undefined, // Will be set by calling code

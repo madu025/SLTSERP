@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export class DashboardService {
     static async getFinanceMetrics(rtom: string = 'ALL') {
-        let whereClause: Record<string, unknown> = {};
+        const whereClause: Record<string, unknown> = {};
         
         if (rtom !== 'ALL') {
             whereClause.rtom = rtom;
@@ -26,7 +27,7 @@ export class DashboardService {
         const unbilledContractorPayout = wipSods._sum.contractorAmount || 0;
 
         // 2. Invoice Aging & Contractor Payouts (From Invoices)
-        let invoiceWhere: Record<string, unknown> = {};
+        const invoiceWhere: Record<string, unknown> = {};
         if (rtom !== 'ALL') {
             invoiceWhere.rtomArea = rtom;
         }
@@ -51,10 +52,10 @@ export class DashboardService {
             }
         });
 
-        const pendingPayoutA = pendingInvoicesA._sum.amountA || 0;
-        const pendingPayoutB = pendingInvoicesB._sum.amountB || 0;
+        const pendingPayoutA = Number(pendingInvoicesA._sum.amountA || 0);
+        const pendingPayoutB = Number(pendingInvoicesB._sum.amountB || 0);
 
-        const totalPendingPayouts = pendingPayoutA + pendingPayoutB + unbilledContractorPayout;
+        const totalPendingPayouts = pendingPayoutA + pendingPayoutB + Number(unbilledContractorPayout);
 
         return {
             unbilledRevenue,
@@ -68,7 +69,7 @@ export class DashboardService {
 
     static async getInventoryMetrics(rtom: string = 'ALL') {
         // Get Stores matching Region/RTOM logic
-        let storeWhere: any = {};
+        const storeWhere: Prisma.InventoryStoreWhereInput = {};
         if (rtom !== 'ALL') {
             storeWhere.opmcs = { some: { rtom: rtom } };
         }

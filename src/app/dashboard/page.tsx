@@ -1,5 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
 "use client";
+import { ROLE_GROUPS } from '@/config/roles';
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';

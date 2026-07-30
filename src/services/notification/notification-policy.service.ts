@@ -105,6 +105,7 @@ export class NotificationPolicyService {
             const prisma = (await import('@/lib/prisma')).primaryClient;
             const admins = await prisma.user.findMany({
                 where: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     role: { in: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] as any }
                 },
                 select: { email: true }
@@ -270,6 +271,7 @@ export class NotificationPolicyService {
                 // Send email alert for expiring batch
                 try {
                     const admins = await (await import('@/lib/prisma')).primaryClient.user.findMany({
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] as any } },
                         select: { email: true }
                     });

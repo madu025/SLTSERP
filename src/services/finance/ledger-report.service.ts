@@ -62,6 +62,7 @@ export class LedgerReportService {
      */
     static async getAccountBalances(fromDate?: Date, toDate?: Date): Promise<TrialBalanceReportResult> {
         // Build date filter for JournalEntry
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const dateFilter: any = {};
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;

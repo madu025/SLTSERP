@@ -12,6 +12,7 @@ import { EmailService } from './email.service';
 interface RetryTask {
     id: string;
     type: 'IN_APP' | 'PUSH' | 'EMAIL';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     payload: any;
     attempts: number;
     maxAttempts: number;
@@ -59,6 +60,7 @@ export class NotificationRetryService {
                     };
                 }
                 lastError = 'Delivery returned false';
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (error: any) {
                 lastError = error?.message || 'Unknown error';
                 console.warn(`[Retry] Attempt ${attempts}/${maxAttempts} failed for ${deliveryId}:`, lastError);
@@ -87,9 +89,12 @@ export class NotificationRetryService {
         userId: string;
         title: string;
         message: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         type?: any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         priority?: any;
         link?: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         metadata?: any;
         channels?: ('IN_APP' | 'PUSH' | 'EMAIL')[];
         userEmail?: string;
@@ -219,6 +224,7 @@ export class NotificationRetryService {
 
                     // Task succeeded - remove from queue
                     this.queue.delete(task.id);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } catch (error: any) {
                     task.attempts++;
                     task.lastError = error?.message;

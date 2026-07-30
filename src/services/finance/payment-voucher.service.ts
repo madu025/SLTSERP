@@ -119,7 +119,7 @@ export class PaymentVoucherService {
           },
           select: { amount: true }
         });
-        const currentPaidSum = existingPVs.reduce((sum, pv) => sum + pv.amount, 0);
+        const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
         if (currentPaidSum + data.amount > invoice.totalAmount) {
           throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
         }
@@ -214,7 +214,7 @@ export class PaymentVoucherService {
     const amount = data.amount !== undefined ? data.amount : existing.amount;
     const taxWithheld = data.taxWithheld !== undefined ? data.taxWithheld : existing.taxWithheld;
     const retentionAmount = data.retentionAmount !== undefined ? data.retentionAmount : existing.retentionAmount;
-    const calculatedNetAmount = amount - taxWithheld - retentionAmount;
+    const calculatedNetAmount = Number(amount) - Number(taxWithheld) - Number(retentionAmount);
 
     let finalDescription = data.description !== undefined ? data.description : existing.description;
     if (data.contractorInvoiceId !== undefined) {
@@ -242,8 +242,8 @@ export class PaymentVoucherService {
           },
           select: { amount: true }
         });
-        const currentPaidSum = existingPVs.reduce((sum, pv) => sum + pv.amount, 0);
-        if (currentPaidSum + amount > invoice.totalAmount) {
+        const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
+        if (currentPaidSum + Number(amount) > Number(invoice.totalAmount)) {
           throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
         }
       }
@@ -337,7 +337,7 @@ export class PaymentVoucherService {
         // Log payment voucher payout in General Ledger
         const { LedgerService } = await import('./ledger.service');
         await LedgerService.logPaymentVoucherPayment(
-          tx, id, existing.amount, existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName
+          tx, id, Number(existing.amount), existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName
         );
 
         // Sync with monthly Contractor Invoice if BOM-based
@@ -363,7 +363,7 @@ export class PaymentVoucherService {
             where: { id: existing.invoiceId }
           });
           if (invoice) {
-            const newPaidAmount = (invoice.paidAmount || 0) + existing.amount;
+            const newPaidAmount = Number(invoice.paidAmount || 0) + Number(existing.amount);
             const newBalance = invoice.totalAmount - newPaidAmount;
             await tx.projectInvoice.update({
               where: { id: existing.invoiceId },
@@ -433,8 +433,8 @@ export class PaymentVoucherService {
           where: { id: existing.invoiceId }
         });
         if (invoice) {
-          const newPaidAmount = (invoice.paidAmount || 0) + existing.amount;
-          const newBalance = invoice.totalAmount - newPaidAmount;
+          const newPaidAmount = Number(invoice.paidAmount || 0) + Number(existing.amount);
+          const newBalance = Number(invoice.totalAmount) - newPaidAmount;
           await tx.projectInvoice.update({
             where: { id: existing.invoiceId },
             data: {

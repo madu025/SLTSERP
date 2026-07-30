@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 
 export interface CreateContractInput {
@@ -120,21 +121,18 @@ function getPrismaInstance(): Record<string, unknown> {
     return p;
 }
 
-function getSLTContractModel() { return require('@/lib/prisma').prisma.sLTContract; }
+function getSLTContractModel() { return prisma.sLTContract; }
 
 function getSLTContractTargetModel() {
-    const p = getPrismaInstance();
-    return p.sLTContractTarget || p.SLTContractTarget || p.sltContractTarget;
+    return prisma.sLTContractTarget;
 }
 
 function getSLTContractAmendmentModel() {
-    const p = getPrismaInstance();
-    return p.sLTContractAmendment || p.SLTContractAmendment || p.sltContractAmendment;
+    return prisma.sLTContractAmendment;
 }
 
 function getSLTContractAuditModel() {
-    const p = getPrismaInstance();
-    return p.sLTContractAudit || p.SLTContractAudit || p.sltContractAudit;
+    return prisma.sLTContractAudit;
 }
 
 export class SLTContractService {
@@ -239,7 +237,7 @@ export class SLTContractService {
                         poleRate: t.poleRate !== undefined ? Number(t.poleRate) : 4500,
                         perMeterRate: t.perMeterRate !== undefined ? Number(t.perMeterRate) : 250,
                         distanceThresholdMeters: t.distanceThresholdMeters !== undefined ? Number(t.distanceThresholdMeters) : 50,
-                        customSurcharges: t.customSurcharges || null,
+                        customSurcharges: t.customSurcharges ? (t.customSurcharges as Prisma.InputJsonValue) : Prisma.DbNull,
                         penaltyPerShortfall: Number(t.penaltyPerShortfall || 0),
                         bonusPerOverachieve: Number(t.bonusPerOverachieve || 0)
                     }))
@@ -325,7 +323,7 @@ export class SLTContractService {
                 ceilingValue: input.ceilingValue !== undefined ? Number(input.ceilingValue) : null,
                 ceilingIncrease: input.ceilingIncrease !== undefined ? Number(input.ceilingIncrease) : null,
                 parentAmendmentId: input.parentAmendmentId || null,
-                customSurcharges: input.customSurcharges || null,
+                customSurcharges: input.customSurcharges ? (input.customSurcharges as Prisma.InputJsonValue) : Prisma.DbNull,
                 documentUrl: input.documentUrl || null,
                 approvedBy: input.approvedBy || performedBy,
                 status: 'ACTIVE'
@@ -408,7 +406,7 @@ export class SLTContractService {
 
             for (let m = 1; m <= 12; m++) {
                 const monthName = MONTH_NAMES[m - 1];
-                const target = c.targets.find((t: { month: number; targetVolume?: number; baseUnitRate?: number; poleRate?: number; perMeterRate?: number; distanceThresholdMeters?: number; customSurcharges?: Record<string, number> | null }) => t.month === m);
+                const target = c.targets.find((t: { month: number; targetVolume?: number; baseUnitRate?: number; poleRate?: number | null; perMeterRate?: number | null; distanceThresholdMeters?: number | null; customSurcharges?: Prisma.JsonValue }) => t.month === m);
                 const baseTargetVolume = target?.targetVolume || 0;
                 const baseUnitRate = target?.baseUnitRate || 10000;
                 const basePoleRate = target?.poleRate || 4500;

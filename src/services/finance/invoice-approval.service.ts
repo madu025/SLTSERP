@@ -23,7 +23,7 @@ export class InvoiceApprovalService {
 
             // Maker-Checker Logic
             // If amount > 1M LKR, requires SUPER_ADMIN. Otherwise FINANCE_MANAGER can approve.
-            if (invoice.totalAmount > 1000000 && approverRole !== 'SUPER_ADMIN') {
+            if (Number(invoice.totalAmount) > 1000000 && approverRole !== 'SUPER_ADMIN') {
                 throw AppError.forbidden('Invoices over 1,000,000 LKR require SUPER_ADMIN approval.');
             }
 

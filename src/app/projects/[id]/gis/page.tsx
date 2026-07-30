@@ -1,3 +1,4 @@
+'use client';
 // ============================================================================
 // GIS Map Page - Project GIS visualization and management
 // ============================================================================
@@ -5,7 +6,6 @@
 // for a specific project. Fetches data from the GIS API.
 // ============================================================================
 
-'use client';
 
 import React, { use, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';

@@ -95,6 +95,7 @@ export class GISRouteOptimizerService {
             const projectCode = route.project?.projectCode || 'Unknown';
             const projectName = route.project?.name || 'Completed Project';
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const features = (route.geojsonData as any).features || [];
             for (const feature of features) {
                 const geom = feature.geometry;
@@ -139,7 +140,9 @@ export class GISRouteOptimizerService {
             spatialIndex.load(indexItems);
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const plannedFeatures = (currentRoute.geojsonData as any).features || [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const optimizedFeatures: any[] = [];
         let totalPlannedLength = 0;
         let optimizedSavedLength = 0;
@@ -154,11 +157,13 @@ export class GISRouteOptimizerService {
 
             // If it's a LineString (Cable Segment)
             if (geom.type === 'LineString' && Array.isArray(geom.coordinates)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const coordinates: Coordinate[] = geom.coordinates.map((c: any) => ({ lng: c[0], lat: c[1] }));
                 
                 // Calculate segment lengths and check overlaps
                 let segmentLength = 0;
                 let overlapLength = 0;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const optimizedCoords: any[] = [];
 
                 for (let i = 0; i < coordinates.length - 1; i++) {

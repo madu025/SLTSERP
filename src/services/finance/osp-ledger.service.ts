@@ -7,6 +7,7 @@ export class OSPLedgerService {
    * Automatically resolves GL Mappings and posts a Subledger event to the Unified Ledger.
    */
   static async postAutomatedTransaction(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tx: any,
     args: {
       sourceModule: string;

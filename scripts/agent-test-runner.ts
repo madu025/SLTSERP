@@ -7,7 +7,8 @@ console.log('🚀 Starting Agentic API Tester...');
 // Start the Next.js server in the background
 const server = spawn('npm', ['run', 'dev'], {
     env: { ...process.env, PORT: PORT.toString() },
-    stdio: 'ignore' // We don't need server logs here
+    stdio: 'ignore', // We don't need server logs here
+    shell: true
 });
 
 console.log(`⏳ Waiting for server to boot on port ${PORT}...`);
@@ -17,7 +18,8 @@ setTimeout(() => {
     
     // Spawn the API Tester
     const agent = spawn('npx', ['ts-node', 'scripts/agent-api-tester.ts', process.argv[2] || ''], {
-        stdio: 'inherit'
+        stdio: 'inherit',
+        shell: true
     });
 
     agent.on('close', (code) => {

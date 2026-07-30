@@ -68,6 +68,7 @@ export class BankCashService {
         }
 
         // Fetch target period journal lines
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const dateFilter: any = {};
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;

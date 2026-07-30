@@ -297,6 +297,7 @@ export class TripService {
       planned_duration_minutes: (trip.planned_duration_minutes as number) || undefined,
       actual_duration_minutes: (trip.actual_duration_minutes as number) || undefined,
       trip_status: trip.trip_status as unknown as import('@/types/vehicle-management.types').TripStatus,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       trip_type: trip.trip_type as any,
       fuel_consumed_liters: (trip.fuel_consumed_liters as number) || undefined,
       fuel_cost: (trip.fuel_cost as number) || undefined,

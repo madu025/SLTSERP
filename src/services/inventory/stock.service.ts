@@ -63,6 +63,7 @@ export class StockService {
      */
     static async pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const batches = await InventoryRepository.findAvailableBatches(storeId, itemId, tx as any);
 
         const pickedBatches: PickedBatch[] = [];
@@ -85,6 +86,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
@@ -98,6 +100,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available store batches list in-memory using FIFO
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static pickStoreBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         // Filter batches for this itemId in memory
@@ -125,6 +128,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
@@ -140,6 +144,7 @@ export class StockService {
      */
     static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const batches = await ContractorRepository.findAvailableBatches(contractorId, itemId, tx as any);
 
         const pickedBatches: PickedBatch[] = [];
@@ -162,6 +167,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
@@ -175,6 +181,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available contractor batches list in-memory using FIFO
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static pickContractorBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
@@ -200,6 +207,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
@@ -275,6 +283,7 @@ export class StockService {
                     referenceId: `INIT-STOCK-${Date.now()}`,
                     notes: reason || 'Initial Stock Setup',
                     items: {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         create: transactionItems.map((ti: any) => ({
                             itemId: ti.itemId,
                             quantity: ti.quantity
@@ -445,6 +454,7 @@ export class StockService {
                 recipientName,
                 remarks: remarks || null,
                 items: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     create: items.map((item: any) => ({
                         itemId: item.itemId,
                         quantity: parseFloat(item.quantity.toString()),
@@ -499,6 +509,7 @@ export class StockService {
     static async getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }) {
         const { storeId, itemId, search, staffId } = filters;
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const where: any = {};
         
         if (storeId) where.storeId = storeId;

@@ -6,9 +6,7 @@ import { logger } from './logger';
 const isProduction = process.env.NODE_ENV === 'production';
 const rawAgentKey = process.env.AGENT_API_KEY;
 
-if (isProduction && (!rawAgentKey || rawAgentKey === 'slts-agent-secure-sync-key-2026')) {
-    throw new Error('[FATAL SECURITY CONFIG] AGENT_API_KEY must be set to a strong secret in production.');
-}
+// Production check moved inside validation function to prevent build crashes
 
 const validApiKey = rawAgentKey || 'slts-agent-secure-sync-key-2026';
 
@@ -57,6 +55,10 @@ export async function validateAgentAuth(req: Request): Promise<{ success: boolea
     const apiKeyHeader = req.headers.get('x-api-key') || req.headers.get('X-API-Key');
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
     
+    if (isProduction && (!rawAgentKey || rawAgentKey === 'slts-agent-secure-sync-key-2026')) {
+        throw new Error('[FATAL SECURITY CONFIG] AGENT_API_KEY must be set to a strong secret in production.');
+    }
+
     // 1. Check static API key with timing-safe comparison
     if (apiKeyHeader && safeCompare(apiKeyHeader, validApiKey)) {
         return { success: true };

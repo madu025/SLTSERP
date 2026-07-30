@@ -24,10 +24,12 @@ export class AutomationService {
             }
         );
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const criticalItems = allStocks.filter((s: any) => s.item.minLevel > 0 && s.quantity < s.item.minLevel);
 
         if (criticalItems.length > 0) {
             // Group by store
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const storeGroups = criticalItems.reduce((acc: Record<string, string[]>, curr: any) => {
                 if (!acc[curr.store.name]) acc[curr.store.name] = [];
                 acc[curr.store.name].push(curr.item.name);

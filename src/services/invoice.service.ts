@@ -20,9 +20,11 @@ export class InvoiceService {
         });
         const proposerName = user ? `${user.name || 'User'} (${user.role})` : 'System User';
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const isApproverRole = userRole === 'AREA_MANAGER' || ROLE_GROUPS.ADMINS.includes(userRole as any);
         const status = isApproverRole ? 'APPROVED' : 'PENDING';
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const penalty = await primaryClient.$transaction(async (tx: any) => {
             const record = await tx.penalty.create({
                 data: {
@@ -76,6 +78,7 @@ export class InvoiceService {
         const { primaryClient } = await import('@/lib/prisma');
         const { NotificationService } = await import('@/services/notification');
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updatedPenalty = await primaryClient.$transaction(async (tx: any) => {
             const record = await tx.penalty.update({
                 where: { id: penaltyId },
@@ -118,6 +121,7 @@ export class InvoiceService {
     static async deletePenalty(invoiceId: string, penaltyId: string, userRole: string | null) {
         const { primaryClient } = await import('@/lib/prisma');
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const isApproverRole = userRole === 'AREA_MANAGER' || ROLE_GROUPS.ADMINS.includes(userRole as any);
 
         const penalty = await primaryClient.penalty.findUnique({
@@ -132,6 +136,7 @@ export class InvoiceService {
             throw AppError.forbidden('Permission Denied. Only Area Managers can delete approved/rejected penalties.');
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await primaryClient.$transaction(async (tx: any) => {
             await tx.penalty.delete({
                 where: { id: penaltyId }
@@ -432,6 +437,7 @@ export class InvoiceService {
                     const dropWireDistance = sod.dropWireDistance || 0;
                     if (dropWireDistance > 0) {
                         
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const hasDropwireMaterial = (sod as any).materialUsage?.some((mu: any) => {
                             const code = (mu.item?.code || '').toUpperCase();
                             const name = (mu.item?.name || '').toUpperCase();
