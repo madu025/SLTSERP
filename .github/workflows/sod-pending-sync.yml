@@ -1,0 +1,31 @@
+name: SOD Pending Sync (Every 15 min)
+
+on:
+  schedule:
+    # Runs at 0, 15, 30, 45 minutes past every hour (UTC)
+    - cron: "0,15,30,45 * * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync-pending-sods:
+    name: Sync Pending SODs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Trigger Pending SOD Sync
+        run: |
+          echo "Triggering SOD Pending Sync at $(date -u)"
+          RESPONSE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://sltserp.vercel.app/api/cron/sync-sod")
+          
+          echo "HTTP Status: $RESPONSE"
+          cat /tmp/response.json | python3 -m json.tool 2>/dev/null || cat /tmp/response.json
+          
+          if [ "$RESPONSE" != "200" ]; then
+            echo "ERROR: Sync failed with HTTP $RESPONSE"
+            exit 1
+          fi
+          echo "SOD Pending Sync completed successfully."

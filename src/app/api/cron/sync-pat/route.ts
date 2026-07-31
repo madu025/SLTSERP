@@ -1,32 +1,39 @@
-import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod/sod.service';
-import { AppError } from '@/lib/error';
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
-export const dynamic = 'force-dynamic';
+import { apiHandler } from "@/lib/api-handler";
+import { ServiceOrderService } from "@/services/sod/sod.service";
+import { AppError } from "@/lib/error";
 
 /**
  * GET /api/cron/sync-pat
- * This endpoint triggers a sync of global PAT results (HO Approved & HO Rejected).
- * Designed to be called by a cron job or triggered manually.
+ * Triggers HO Approved + Rejected PAT Result sync.
+ * Designed to be called every 30 minutes by GitHub Actions.
  */
 export const GET = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
-    const secret = searchParams.get('secret');
+    const secret = req.headers.get("authorization")?.replace("Bearer ", "") || searchParams.get("secret");
 
-    // Security check
     if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-        throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
+        throw AppError.unauthorized("Unauthorized: Invalid CRON_SECRET");
     }
 
-    console.log(`[CRON] Starting Automated PAT Sync at ${new Date().toISOString()}...`);
+    console.log(`[CRON] Starting PAT Sync at ${new Date().toISOString()}...`);
+    const startTime = Date.now();
 
-    const approvedResult = await ServiceOrderService.syncHoApprovedResults();
-    const rejectedResult = await ServiceOrderService.syncHoRejectedResults();
+    const [approvedResult, rejectedResult] = await Promise.all([
+        ServiceOrderService.syncHoApprovedResults(),
+        ServiceOrderService.syncHoRejectedResults(),
+    ]);
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[CRON] PAT Sync completed in ${duration}s`);
 
     return Response.json({
         success: true,
         timestamp: new Date().toISOString(),
-        approved: approvedResult,
-        rejected: rejectedResult
+        duration: `${duration}s`,
+        approvedResult,
+        rejectedResult,
     });
 });

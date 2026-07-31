@@ -18,6 +18,7 @@ model ContractorBatchStock {
 model StockRequest {
   id                        String             @id @default(cuid())
   requestNr                 String             @unique @default(cuid())
+  issueNoteNumber           String?
   fromStoreId               String?
   toStoreId                 String?
   status                    String             @default("PENDING")

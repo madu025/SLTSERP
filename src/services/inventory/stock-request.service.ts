@@ -9,7 +9,7 @@ import { StockService } from './stock.service';
 import { StockRequestActionData, TransactionClient } from './types';
 import { prisma } from '@/lib/prisma';
 import { ProcessGateEngine } from '../approval/process-gate-engine';
-
+import { AuditLedgerService } from './audit-ledger.service';
 export class StockRequestService {
     private static generateRequestId(sourceType?: string): string {
         const date = new Date();
@@ -409,6 +409,7 @@ export class StockRequestService {
             if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
             if (stockReq.workflowStage !== 'MAIN_STORE_RELEASE') throw AppError.badRequest("INVALID_WORKFLOW_STAGE");
 
+            const issueNoteNumber = stockReq.issueNoteNumber || await AuditLedgerService.generateMINNumber(tx);
             const transitStoreId = await this.getOrCreateTransitStore(tx);
             const prismaTx = tx as unknown as typeof prisma;
 
@@ -486,6 +487,11 @@ export class StockRequestService {
 
                 // Decrement from Main Store, Increment into Transit Store
                 const mainStoreKey = `${stockReq.toStoreId}:${reqItem.itemId}`;
+                const mainStockBefore = await InventoryRepository.findStock(stockReq.toStoreId!, reqItem.itemId, tx);
+                const transitStockBefore = await InventoryRepository.findStock(transitStoreId, reqItem.itemId, tx);
+                const mainQtyBefore = mainStockBefore ? Number(mainStockBefore.quantity) : 0;
+                const transitQtyBefore = transitStockBefore ? Number(transitStockBefore.quantity) : 0;
+
                 if (globalStockSet.has(mainStoreKey)) {
                     await InventoryRepository.commitAllocatedStock(stockReq.toStoreId!, reqItem.itemId, newlyIssuedQty, tx);
                 } else {
@@ -504,6 +510,31 @@ export class StockRequestService {
                     });
                     globalStockSet.add(transitStoreKey);
                 }
+
+                // Write Immutable Checksum Ledger Entries
+                await AuditLedgerService.recordEntry({
+                    storeId: stockReq.toStoreId!,
+                    itemId: reqItem.itemId,
+                    transactionType: 'STORE_TRANSFER_OUT',
+                    referenceType: 'StockRequest',
+                    referenceId: stockReq.requestNr,
+                    quantityBefore: mainQtyBefore,
+                    quantityChange: -newlyIssuedQty,
+                    quantityAfter: mainQtyBefore - newlyIssuedQty,
+                    performedById: userId || 'SYSTEM',
+                }, tx);
+
+                await AuditLedgerService.recordEntry({
+                    storeId: transitStoreId,
+                    itemId: reqItem.itemId,
+                    transactionType: 'STORE_TRANSFER_IN',
+                    referenceType: 'StockRequest',
+                    referenceId: stockReq.requestNr,
+                    quantityBefore: transitQtyBefore,
+                    quantityChange: newlyIssuedQty,
+                    quantityAfter: transitQtyBefore + newlyIssuedQty,
+                    performedById: userId || 'SYSTEM',
+                }, tx);
 
                 for (const p of pickedBatches) {
                     if (p.batchId) {
@@ -554,6 +585,7 @@ export class StockRequestService {
             const updated = await StockRequestRepository.update(requestId, {
                 workflowStage: nextStage,
                 status: nextStatus,
+                issueNoteNumber,
                 releasedById: userId,
                 releasedDate: new Date(),
                 releasedRemarks: remarks
@@ -676,6 +708,13 @@ export class StockRequestService {
                     remainingToReceive = StockService.round(remainingToReceive - take);
                 }
 
+                // Pre-fetch stock quantities for Ledger BEFORE modifying
+                const transitStockBefore = await InventoryRepository.findStock(transitStoreId, reqItem.itemId, tx);
+                const destStockBefore = await InventoryRepository.findStock(stockReq.fromStoreId!, reqItem.itemId, tx);
+                
+                const transitQtyBefore = transitStockBefore ? Number(transitStockBefore.quantity) : 0;
+                const destQtyBefore = destStockBefore ? Number(destStockBefore.quantity) : 0;
+
                 // Decrement from Transit Store, Increment into Destination Store
                 await InventoryRepository.decrementStockAtomic(transitStoreId, reqItem.itemId, incomingReceiveQty, prismaTx);
 
@@ -691,6 +730,31 @@ export class StockRequestService {
                     });
                     globalStockSet.add(destStockKey);
                 }
+
+                // Write Immutable Checksum Ledger Entries
+                await AuditLedgerService.recordEntry({
+                    storeId: transitStoreId,
+                    itemId: reqItem.itemId,
+                    transactionType: 'STORE_TRANSFER_OUT',
+                    referenceType: 'StockRequest',
+                    referenceId: stockReq.requestNr,
+                    quantityBefore: transitQtyBefore,
+                    quantityChange: -incomingReceiveQty,
+                    quantityAfter: transitQtyBefore - incomingReceiveQty,
+                    performedById: userId || 'SYSTEM',
+                }, tx);
+
+                await AuditLedgerService.recordEntry({
+                    storeId: stockReq.fromStoreId!,
+                    itemId: reqItem.itemId,
+                    transactionType: 'STORE_TRANSFER_IN',
+                    referenceType: 'StockRequest',
+                    referenceId: stockReq.requestNr,
+                    quantityBefore: destQtyBefore,
+                    quantityChange: incomingReceiveQty,
+                    quantityAfter: destQtyBefore + incomingReceiveQty,
+                    performedById: userId || 'SYSTEM',
+                }, tx);
 
                 for (const ti of transactionItems) {
                     transitStoreTransactionItems.push({

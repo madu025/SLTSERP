@@ -192,6 +192,11 @@
 ### [process-gate-engine.ts](src/services/approval/process-gate-engine.ts)
 * **Class**: `ProcessGateEngine`
   * **Methods**:
+    * `findMatchingPolicy(params: {
+        entityType: string;
+        fromStatus: string;
+        entityPayload?: Record<string, unknown>;
+    }): any`
     * `startGate(params: {
         entityType: string;
         entityId: string;
@@ -3156,6 +3161,7 @@
 | `/api/inventory/reconciliation/variance` | [route.ts](src/app/api/inventory/reconciliation/variance/route.ts) | `GET` |
 | `/api/inventory/reports/dynamic` | [route.ts](src/app/api/inventory/reports/dynamic/route.ts) | `POST` |
 | `/api/inventory/requests/action` | [route.ts](src/app/api/inventory/requests/action/route.ts) | `POST` |
+| `/api/inventory/requests/pending-balances` | [route.ts](src/app/api/inventory/requests/pending-balances/route.ts) | `GET` |
 | `/api/inventory/requests` | [route.ts](src/app/api/inventory/requests/route.ts) | `GET`, `POST`, `PATCH` |
 | `/api/inventory/returns` | [route.ts](src/app/api/inventory/returns/route.ts) | `POST`, `GET` |
 | `/api/inventory/rop` | [route.ts](src/app/api/inventory/rop/route.ts) | `POST` |
@@ -6705,6 +6711,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `requestNr: String` `[@unique @default(cuid())]`
+  * `issueNoteNumber: String?`
   * `fromStoreId: String?`
   * `toStoreId: String?`
   * `status: String` `[@default("PENDING")]`

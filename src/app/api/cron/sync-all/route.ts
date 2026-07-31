@@ -22,25 +22,39 @@ export const GET = apiHandler(async (req) => {
 
     const { addJob, sodSyncQueue } = await import('@/lib/queue');
 
-    // 1. SOD Sync (Runs every 15 mins) - Enqueue to BullMQ
-    await addJob(sodSyncQueue, 'periodic-pending-sync', { type: 'PERIODIC_PENDING_SYNC' });
-    console.log('[CRON] Enqueued SOD Sync Job');
+    // 1. SOD Sync
+    if (process.env.VERCEL) {
+        console.log('[CRON] Vercel environment detected. Executing SOD Sync synchronously...');
+        const { ServiceOrderService } = await import('@/services/sod/sod.service');
+        await ServiceOrderService.syncAllOpmcs();
+        console.log('[CRON] Synchronous SOD Sync completed.');
+    } else {
+        await addJob(sodSyncQueue, 'periodic-pending-sync', { type: 'PERIODIC_PENDING_SYNC' });
+        console.log('[CRON] Enqueued SOD Sync Job');
+    }
 
-    // 2. Appointment Reminders (Runs every 15 mins) - Note: If this is synchronous, consider offloading too.
-    // For now we'll keep it as is if it's fast, but ideally it should also be enqueued if it takes long.
+    // 2. Appointment Reminders
     await AppointmentNotificationService.checkAndNotify();
 
     // 3. PAT Sync (Runs ONLY once an hour around the 30-minute mark)
     const currentMinute = new Date().getMinutes();
     let patSyncEnqueued = false;
     if (currentMinute >= 25 && currentMinute <= 40) {
-        console.log('[CRON] Enqueueing Hourly PAT Sync...');
-        await addJob(sodSyncQueue, 'periodic-global-sync', { type: 'PERIODIC_GLOBAL_SYNC' });
-        patSyncEnqueued = true;
+        if (process.env.VERCEL) {
+            console.log('[CRON] Executing Hourly PAT Sync synchronously...');
+            const { ServiceOrderService } = await import('@/services/sod/sod.service');
+            await ServiceOrderService.syncHoApprovedResults();
+            await ServiceOrderService.syncHoRejectedResults();
+            console.log('[CRON] Synchronous PAT Sync completed.');
+        } else {
+            console.log('[CRON] Enqueueing Hourly PAT Sync...');
+            await addJob(sodSyncQueue, 'periodic-global-sync', { type: 'PERIODIC_GLOBAL_SYNC' });
+            patSyncEnqueued = true;
+        }
     }
 
     const duration = (Date.now() - startTime) / 1000;
-    console.log(`[CRON] Master Cron enqueued tasks in ${duration}s`);
+    console.log(`[CRON] Master Cron executed in ${duration}s`);
 
     return Response.json({
         success: true,

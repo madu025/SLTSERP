@@ -37,6 +37,7 @@ interface InventoryItem {
 interface InventoryRequest {
     id: string;
     requestNr: string;
+    issueNoteNumber?: string | null;
     priority: string;
     status: string;
     fromStoreId: string;
@@ -453,6 +454,11 @@ export default function RequestsPage() {
                                             </div>
                                             <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight flex items-center gap-2">
                                                 {selectedRequest?.requestNr}
+                                                {selectedRequest?.issueNoteNumber && (
+                                                    <span className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                                                        MIN Ref: {selectedRequest.issueNoteNumber}
+                                                    </span>
+                                                )}
                                             </h2>
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
                                                 Requested by <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest?.requestedBy?.name}</span> • Created {selectedRequest?.createdAt ? new Date(selectedRequest.createdAt).toLocaleDateString() : 'N/A'} • Required {selectedRequest?.requiredDate ? new Date(selectedRequest.requiredDate).toLocaleDateString() : 'Asap'}
