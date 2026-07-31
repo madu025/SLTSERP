@@ -74,6 +74,17 @@ export class ProcessGateEngine {
             });
         }
 
+        // Handle Out-Of-Office (OOO) Auto-Delegation
+        let isDelegated = false;
+        if (approver?.isOOO && approver.delegatedUserId) {
+            const delegate = await prisma.user.findUnique({ where: { id: approver.delegatedUserId, status: 'ACTIVE' } });
+            if (delegate) {
+                approver = delegate;
+                isDelegated = true;
+                console.log(`[ProcessGateEngine] Approver was OOO. Auto-delegated approval to ${delegate.email}`);
+            }
+        }
+
         const approverEmail = approver?.email || 'prasad@slts.lk'; // Fallback for dev testing
         const approverId = approver?.id; // Optional
 
@@ -117,8 +128,9 @@ export class ProcessGateEngine {
         action: 'APPROVED' | 'REJECTED';
         userId: string;
         remarks?: string;
+        payload?: Record<string, any>;
     }) {
-        const { instanceId, action, userId, remarks } = params;
+        const { instanceId, action, userId, remarks, payload } = params;
 
         return await prisma.$transaction(async (tx) => {
             const instance = await tx.universalApprovalInstance.findUnique({
@@ -138,18 +150,21 @@ export class ProcessGateEngine {
                 }
             }
 
-            // Segregation of Duties (Maker != Checker)
+            // Segregation of Duties (Maker != Checker) Security
             let requesterId: string | undefined;
             if (instance.entityType === 'MATERIAL_REQUEST') {
-                const req = await tx.stockRequest.findUnique({ where: { id: instance.entityId } });
+                const req = await tx.stockRequest.findUnique({ where: { id: instance.entityId }, select: { requestedById: true } });
                 requesterId = req?.requestedById;
-            } else if (instance.entityType === 'SOD') {
-                // const sod = await tx.serviceOrder.findUnique({ where: { id: instance.entityId } });
-                requesterId = undefined; // TODO: Map to actual SOD creator/requester field when available
+            } else if (instance.entityType === 'SERVICE_ORDER') {
+                // Future: Map to actual SOD creator if we add createdById to ServiceOrder
+                requesterId = undefined; 
+            } else if (instance.entityType === 'INVOICE') {
+                // Future: Map to actual Invoice creator if we add createdById to Invoice
+                requesterId = undefined;
             }
             
             if (requesterId && requesterId === userId) {
-                throw AppError.forbidden("Segregation of Duties Violation: You cannot approve your own request.");
+                throw AppError.forbidden("Segregation of Duties Violation: You cannot act as Checker (Approver) on an entity you created/own as Maker.");
             }
 
             // 1. Update the current instance
@@ -159,7 +174,8 @@ export class ProcessGateEngine {
                     status: action,
                     actionedById: userId,
                     actionedAt: new Date(),
-                    comments: remarks || `Actioned via ProcessGateEngine (${action})`
+                    comments: remarks || `Actioned via ProcessGateEngine (${action})`,
+                    payload: payload || Prisma.JsonNull
                 }
             });
 

@@ -32,7 +32,7 @@ export class DynamicApprovalService {
         const approveToken = this.generateActionToken(instanceId, 'APPROVED', userId);
         const rejectToken = this.generateActionToken(instanceId, 'REJECTED', userId);
 
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
         
         const approveUrl = `${baseUrl}/api/approvals/webhook?token=${approveToken}`;
         const rejectUrl = `${baseUrl}/api/approvals/webhook?token=${rejectToken}`;
@@ -121,7 +121,7 @@ export class DynamicApprovalService {
 
         const approveToken = this.generateActionToken(instanceId, 'APPROVED', userId);
         const rejectToken = this.generateActionToken(instanceId, 'REJECTED', userId);
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
         const approveUrl = `${baseUrl}/api/approvals/webhook?token=${approveToken}`;
         const rejectUrl = `${baseUrl}/api/approvals/webhook?token=${rejectToken}`;
 

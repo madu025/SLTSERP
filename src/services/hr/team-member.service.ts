@@ -27,7 +27,7 @@ export class TeamMemberService {
       }
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
     return `${appUrl}/team-upload/${token}`;
   }
 

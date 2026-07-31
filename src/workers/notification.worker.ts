@@ -34,7 +34,7 @@ export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATIONS, async (j
                 await EmailService.sendMail({
                     to: user.email,
                     subject: title,
-                    text: `${message}\n\nLink: ${link ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link}` : 'N/A'}`
+                    text: `${message}\n\nLink: ${link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : 'N/A'}`
                 });
             } catch (e) {
                 console.error(`[NOTIFICATION-WORKER] Email failed for ${userId}:`, e);

@@ -17,6 +17,8 @@ model User {
   updatedAt                     DateTime                      @updatedAt
   permissions                   String?
   status                        String                        @default("active")
+  isOOO                         Boolean                       @default(false)
+  delegatedUserId               String?
   handoversPerformed            AssetHandoverLog[]            @relation("HandoverPerformed")
   auditLogs                     AuditLog[]
   armApprovedContractors        Contractor[]                  @relation("ContractorArmApproval")
@@ -70,6 +72,8 @@ model User {
   universalApprovalAssignments  UniversalApprovalInstance[]   @relation("UniversalApprovalAssignee")
   universalApprovalActions      UniversalApprovalInstance[]   @relation("UniversalApprovalActioner")
   processApprovalLevels         ProcessApprovalLevel[]
+  delegatedUser                 User?                         @relation("UserDelegation", fields: [delegatedUserId], references: [id])
+  delegates                     User[]                        @relation("UserDelegation")
 
   @@index([role])
   @@index([supervisorId])

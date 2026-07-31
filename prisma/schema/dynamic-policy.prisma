@@ -18,9 +18,9 @@ model ProcessGatePolicy {
   writeAuditLedger  Boolean @default(true)
   generateIssueNote Boolean @default(false)
 
-  rolesToNotify     Json?   // e.g. ["STORES_MANAGER", "OSP_MANAGER"]
-  domainAction      String? // e.g. "RESERVE_STOCK_MAIN"
-  conditions        Json?   // e.g. {"field": "totalValue", "operator": ">=", "value": 500000}
+  rolesToNotify Json? // e.g. ["STORES_MANAGER", "OSP_MANAGER"]
+  domainAction  String? // e.g. "RESERVE_STOCK_MAIN"
+  conditions    Json? // e.g. {"field": "totalValue", "operator": ">=", "value": 500000}
 
   approvalLevels ProcessApprovalLevel[]
 
@@ -56,6 +56,7 @@ model UniversalApprovalInstance {
   actionedById   String?
   actionedAt     DateTime?
   comments       String?
+  payload        Json? // Payload data attached during approval (e.g. qty, deductions)
   createdAt      DateTime  @default(now())
 
   assignedUser User? @relation("UniversalApprovalAssignee", fields: [assignedUserId], references: [id])
@@ -66,10 +67,10 @@ model UniversalApprovalInstance {
 
 model IdempotencyLog {
   idempotencyKey String   @id
-  actionType     String   // e.g. "FSM_TRANSITION", "DOMAIN_ACTION"
-  status         String   // e.g. "SUCCESS", "FAILED"
+  actionType     String // e.g. "FSM_TRANSITION", "DOMAIN_ACTION"
+  status         String // e.g. "SUCCESS", "FAILED"
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   @@index([actionType])
 }
