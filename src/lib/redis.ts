@@ -3,7 +3,6 @@ import Redis from 'ioredis';
 const redisGlobal = global as unknown as { redis: Redis | undefined };
 
 const isProduction = process.env.NODE_ENV === 'production';
-const isVercel = process.env.VERCEL === '1';
 
 export const redis = (() => {
     if (redisGlobal.redis && ['end', 'close'].includes(redisGlobal.redis.status)) {
@@ -27,7 +26,8 @@ export const redis = (() => {
 // Prevent unhandled error events from crashing the process
 redis.on('error', (err) => {
     // Suppress ECONNREFUSED noise when Redis is not running locally or during build
-    if (err?.message?.includes('ECONNREFUSED') || (err as any)?.code === 'ECONNREFUSED') {
+    const errCode = (err as Record<string, unknown>)?.code;
+    if (err?.message?.includes('ECONNREFUSED') || errCode === 'ECONNREFUSED') {
         return;
     }
     console.warn('[REDIS] Non-fatal connection issue:', err.message);

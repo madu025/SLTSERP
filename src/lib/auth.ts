@@ -1,6 +1,5 @@
 import { SignJWT, jwtVerify, JWTPayload } from 'jose';
 
-const isProduction = process.env.NODE_ENV === 'production';
 const rawSecret = process.env.JWT_SECRET;
 
 const SECRET_KEY = rawSecret || 'slts-erp-fallback-secret-2026-key-production';

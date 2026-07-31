@@ -3,7 +3,6 @@ import { verifyJWT } from './auth';
 import { checkRateLimit } from './rate-limiter';
 import { logger } from './logger';
 
-const isProduction = process.env.NODE_ENV === 'production';
 const rawAgentKey = process.env.AGENT_API_KEY;
 
 // Production check moved inside validation function to prevent build crashes
