@@ -439,7 +439,7 @@ export class SODSyncService {
                 pendingByOpmc.set(sod.opmcId, list);
             }
 
-            const concurrencyLimit = 10;
+            const concurrencyLimit = 25;
             for (let i = 0; i < opmcs.length; i += concurrencyLimit) {
                 const chunk = opmcs.slice(i, i + concurrencyLimit);
                 const chunkResults = await Promise.all(chunk.map(async (opmc) => {
