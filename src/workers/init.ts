@@ -35,18 +35,18 @@ export async function initializeBackgroundWorkers() {
             { repeat: { every: 20 * 60 * 1000 }, jobId: 'repeat-completed-sync' }
         );
 
-        // 2. Pending SOD Sync (Every 20 minutes)
+        // 2. Pending SOD Sync (Every 15 minutes)
         await sodSyncQueue.add(
             'periodic-pending-sync',
             { type: 'PERIODIC_PENDING_SYNC' },
-            { repeat: { every: 20 * 60 * 1000 }, jobId: 'repeat-pending-sync' }
+            { repeat: { every: 15 * 60 * 1000 }, jobId: 'repeat-pending-sync' }
         );
 
-        // 3. Global PAT Sync / Rejections (Every 1 hour)
+        // 3. Global PAT Sync / Rejections (Every 30 minutes)
         await sodSyncQueue.add(
             'periodic-global-sync',
             { type: 'PERIODIC_GLOBAL_SYNC' },
-            { repeat: { every: 60 * 60 * 1000 }, jobId: 'repeat-global-sync' }
+            { repeat: { every: 30 * 60 * 1000 }, jobId: 'repeat-global-sync' }
         );
 
         // 4. Daily Automation (Every 24 hours)
