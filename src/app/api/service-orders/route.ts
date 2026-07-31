@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
     const params = {
-        rtomId: searchParams.get('rtomId') || searchParams.get('opmcId') || '',
+        rtomId: searchParams.get('rtomId') || searchParams.get('opmcId') || searchParams.get('rtom') || '',
         filter: searchParams.get('filter') || 'pending',
         search: searchParams.get('search') || undefined,
         statusFilter: searchParams.get('statusFilter') || undefined,
