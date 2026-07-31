@@ -19,7 +19,7 @@ jobs:
           RESPONSE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
             -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "https://sltserp.vercel.app/api/cron/sync-sod")
+            "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}")
           
           echo "HTTP Status: $RESPONSE"
           cat /tmp/response.json | python3 -m json.tool 2>/dev/null || cat /tmp/response.json

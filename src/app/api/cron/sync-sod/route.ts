@@ -11,7 +11,7 @@ import { AppError } from '@/lib/error';
  */
 export const GET = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
-    const secret = searchParams.get('secret');
+    const secret = req.headers.get('authorization')?.replace('Bearer ', '') || searchParams.get('secret');
 
     // Simple security: check for a secret token in the URL
     // In production, this should match an environment variable like CRON_SECRET
