@@ -409,7 +409,7 @@ export class StockRequestService {
             if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
             if (stockReq.workflowStage !== 'MAIN_STORE_RELEASE') throw AppError.badRequest("INVALID_WORKFLOW_STAGE");
 
-            const issueNoteNumber = stockReq.issueNoteNumber || await AuditLedgerService.generateMINNumber(tx);
+            const issueNoteNumber = (stockReq as Record<string, unknown>).issueNoteNumber as string | null || await AuditLedgerService.generateMINNumber(tx);
             const transitStoreId = await this.getOrCreateTransitStore(tx);
             const prismaTx = tx as unknown as typeof prisma;
 
@@ -589,7 +589,7 @@ export class StockRequestService {
                 releasedById: userId,
                 releasedDate: new Date(),
                 releasedRemarks: remarks
-            }, tx);
+            } as Prisma.StockRequestUncheckedUpdateInput, tx);
 
             this.safeNotifyFinalAction(updated, 'RELEASED');
             return updated;
