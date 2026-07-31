@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, ServiceOrderStatus } from '@prisma/client';
+import { SodStatus } from '@/lib/constants/sod-constants';
 import { GetServiceOrdersParams } from './sod-types';
 
 interface ServiceOrderItemWithIptv {
@@ -150,46 +151,57 @@ export class SODQueryService {
         }
 
         // Status Filtering
-        const completionStatuses = ["COMPLETED", "INSTALL_CLOSED", "PAT_OPMC_PASSED", "PAT_CORRECTED"];
+        const completionStatuses: ServiceOrderStatus[] = [
+            ServiceOrderStatus.COMPLETED,
+            ServiceOrderStatus.INSTALL_CLOSED,
+            ServiceOrderStatus.PAT_OPMC_PASSED,
+            ServiceOrderStatus.PAT_CORRECTED
+        ];
+        const excludedSltsStatuses: ServiceOrderStatus[] = [
+            ServiceOrderStatus.COMPLETED,
+            ServiceOrderStatus.INSTALL_CLOSED,
+            ServiceOrderStatus.RETURN,
+            ServiceOrderStatus.DISAPPEARED
+        ];
 
         if (filter === 'pending') {
             if (statusFilter === 'RETURN') {
-                andFilters.push({ sltsStatus: 'RETURN' });
+                andFilters.push({ sltsStatus: ServiceOrderStatus.RETURN });
             } else {
                 andFilters.push({
-                    sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'RETURN', 'DISAPPEARED'] as any },
-                    status: { notIn: completionStatuses as any }
+                    sltsStatus: { notIn: excludedSltsStatuses },
+                    status: { notIn: completionStatuses }
                 });
             }
         } else if (filter === 'install_closed') {
             andFilters.push({
-                status: 'INSTALL_CLOSED',
-                sltsStatus: { notIn: ['RETURN'] }
+                status: ServiceOrderStatus.INSTALL_CLOSED,
+                sltsStatus: { notIn: [ServiceOrderStatus.RETURN] }
             });
         } else if (filter === 'completed') {
             andFilters.push({
                 OR: [
-                    { sltsStatus: 'COMPLETED' },
-                    { status: { in: ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED', 'CLOSED', 'PASSED'] } }
+                    { sltsStatus: ServiceOrderStatus.COMPLETED },
+                    { status: { in: [ServiceOrderStatus.COMPLETED, ServiceOrderStatus.PAT_OPMC_PASSED, ServiceOrderStatus.PAT_CORRECTED, ServiceOrderStatus.CLOSED, ServiceOrderStatus.PASSED] } }
                 ],
                 NOT: [
-                    { status: 'INSTALL_CLOSED' },
-                    { status: 'PROV_CLOSED' },
-                    { sltsStatus: 'PROV_CLOSED' },
-                    { sltsStatus: 'INPROGRESS' },
-                    { sltsStatus: 'RETURN' },
-                    { status: 'RETURNED' },
-                    { sltsStatus: 'DISAPPEARED' },
-                    { status: 'PAT_OPMC_REJECTED' }
+                    { status: ServiceOrderStatus.INSTALL_CLOSED },
+                    { status: ServiceOrderStatus.PROV_CLOSED },
+                    { sltsStatus: ServiceOrderStatus.PROV_CLOSED },
+                    { sltsStatus: ServiceOrderStatus.INPROGRESS },
+                    { sltsStatus: ServiceOrderStatus.RETURN },
+                    { status: ServiceOrderStatus.RETURNED },
+                    { sltsStatus: ServiceOrderStatus.DISAPPEARED },
+                    { status: ServiceOrderStatus.PAT_OPMC_REJECTED }
                 ]
             });
         } else if (filter === 'disappeared') {
             andFilters.push({
-                sltsStatus: 'DISAPPEARED'
+                sltsStatus: ServiceOrderStatus.DISAPPEARED
             });
         } else if (filter === 'return') {
             andFilters.push({
-                sltsStatus: 'RETURN',
+                sltsStatus: ServiceOrderStatus.RETURN,
                 NOT: [
                     { opmcPatStatus: 'REJECTED' },
                     { hoPatStatus: 'REJECTED' },
@@ -200,12 +212,12 @@ export class SODQueryService {
 
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
             if (statusFilter === 'ASSIGNED') {
-                andFilters.push({ status: { in: ['ASSIGNED', 'ASSIGN'] } });
+                andFilters.push({ status: { in: [ServiceOrderStatus.ASSIGNED, ServiceOrderStatus.ASSIGN] } });
             } else {
-                andFilters.push({ status: statusFilter as import("@prisma/client").ServiceOrderStatus });
+                andFilters.push({ status: statusFilter as ServiceOrderStatus });
             }
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
-            andFilters.push({ status: { in: ["PENDING", "ASSIGNED", "ASSIGN", "INPROGRESS", "PROV_CLOSED", "OFFLINE"] } });
+            andFilters.push({ status: { in: [ServiceOrderStatus.PENDING, ServiceOrderStatus.ASSIGNED, ServiceOrderStatus.ASSIGN, ServiceOrderStatus.INPROGRESS, ServiceOrderStatus.PROV_CLOSED, ServiceOrderStatus.OFFLINE] } });
         }
 
         if (patFilter && patFilter !== 'ALL') {
