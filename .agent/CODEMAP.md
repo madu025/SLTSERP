@@ -58,6 +58,7 @@
     maxAmount?: number;
   }): any`
     * `deleteApprovalLevel(gatePolicyId: string, levelId: string): any`
+    * `seedIndustrialTemplates(): any`
 
 ### [prometheus.service.ts](src/services/admin/prometheus.service.ts)
 * **Class**: `PrometheusService`
@@ -2945,6 +2946,7 @@
 | `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
 | `/api/admin/process-gates` | [route.ts](src/app/api/admin/process-gates/route.ts) | `GET`, `POST` |
+| `/api/admin/process-gates/seed` | [route.ts](src/app/api/admin/process-gates/seed/route.ts) | `POST` |
 | `/api/admin/process-gates/[id]/levels` | [route.ts](src/app/api/admin/process-gates/[id]/levels/route.ts) | `POST` |
 | `/api/admin/process-gates/[id]/levels/[levelId]` | [route.ts](src/app/api/admin/process-gates/[id]/levels/[levelId]/route.ts) | `DELETE` |
 | `/api/admin/process-gates/[id]` | [route.ts](src/app/api/admin/process-gates/[id]/route.ts) | `PUT`, `DELETE` |

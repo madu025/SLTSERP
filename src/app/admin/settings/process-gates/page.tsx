@@ -179,6 +179,7 @@ export default function ProcessGatesAdminPage() {
                   onOpenBuilder={handleOpenBuilder}
                   onDeleteGate={handleDelete}
                   onAddNewGate={() => { setSelectedGate(null); setIsFormOpen(true); }}
+                  onRefreshGates={fetchGates}
                 />
               ) : (
                 <div className="bg-white rounded-2xl shadow-xs border overflow-hidden">

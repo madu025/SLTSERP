@@ -23,7 +23,7 @@ const createGateSchema = z.object({
 
 export const GET = apiHandler(async () => {
     const gates = await ProcessGateAdminService.getAllGates();
-    return { data: gates };
+    return gates;
 }, { roles: ROLE_GROUPS.ADMINS });
 
 export const POST = apiHandler(async (req, params, body) => {

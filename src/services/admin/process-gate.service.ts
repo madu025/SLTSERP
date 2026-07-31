@@ -170,4 +170,155 @@ export class ProcessGateAdminService {
       return true;
     });
   }
+
+  /**
+   * Seed / Load Industrial Standard Workflow Templates
+   */
+  static async seedIndustrialTemplates() {
+    return prisma.$transaction(async (tx) => {
+      // 1. MATERIAL_REQUEST 4-Step End-to-End Workflow
+      const mrGates = [
+        {
+          entityType: 'MATERIAL_REQUEST',
+          fromStatus: 'DRAFT',
+          toStatus: 'OSP_MANAGER_APPROVAL',
+          label: '1. MRN Submission & OSP Review',
+          isEnabled: true,
+          rolesToNotify: ['OSP_MANAGER'],
+          approvalLevels: [{ level: 1, requiredRole: 'OSP_MANAGER', description: 'OSP Manager verifies field requirements' }]
+        },
+        {
+          entityType: 'MATERIAL_REQUEST',
+          fromStatus: 'OSP_MANAGER_APPROVAL',
+          toStatus: 'HOS_APPROVAL',
+          label: '2. Head of Section Signoff',
+          isEnabled: true,
+          rolesToNotify: ['HOS'],
+          approvalLevels: [{ level: 1, requiredRole: 'HOS', description: 'HOS authorizes high-value material allocation' }]
+        },
+        {
+          entityType: 'MATERIAL_REQUEST',
+          fromStatus: 'HOS_APPROVAL',
+          toStatus: 'PROCUREMENT',
+          label: '3. Procurement Authorization',
+          isEnabled: true,
+          rolesToNotify: ['PROCUREMENT_OFFICER'],
+          approvalLevels: [{ level: 1, requiredRole: 'PROCUREMENT_OFFICER', description: 'Procurement checks store stock & supplier PO' }]
+        },
+        {
+          entityType: 'MATERIAL_REQUEST',
+          fromStatus: 'PROCUREMENT',
+          toStatus: 'ISSUED',
+          label: '4. Main Store Material Dispatch (MIN)',
+          isEnabled: true,
+          generateIssueNote: true,
+          writeAuditLedger: true,
+          rolesToNotify: ['STORES_MANAGER'],
+          approvalLevels: [{ level: 1, requiredRole: 'STORES_MANAGER', description: 'Main Store issues MIN note and releases inventory' }]
+        }
+      ];
+
+      for (const g of mrGates) {
+        const { approvalLevels, ...gateData } = g;
+        const upserted = await tx.processGatePolicy.upsert({
+          where: {
+            entityType_fromStatus_toStatus: {
+              entityType: gateData.entityType,
+              fromStatus: gateData.fromStatus,
+              toStatus: gateData.toStatus
+            }
+          },
+          update: gateData,
+          create: gateData
+        });
+
+        // Ensure approval levels exist
+        for (const lvl of approvalLevels) {
+          const existingLvl = await tx.processApprovalLevel.findFirst({
+            where: { gatePolicyId: upserted.id, level: lvl.level }
+          });
+
+          if (!existingLvl) {
+            await tx.processApprovalLevel.create({
+              data: {
+                gatePolicyId: upserted.id,
+                level: lvl.level,
+                requiredRole: lvl.requiredRole,
+                description: lvl.description
+              }
+            });
+          }
+        }
+      }
+
+      // 2. SERVICE_ORDER 3-Step Workflow
+      const sodGates = [
+        {
+          entityType: 'SERVICE_ORDER',
+          fromStatus: 'PENDING',
+          toStatus: 'ASSIGNED',
+          label: '1. Contractor Work Assignment',
+          isEnabled: true,
+          approvalLevels: [{ level: 1, requiredRole: 'ENGINEER', description: 'Engineer assigns contractor team' }]
+        },
+        {
+          entityType: 'SERVICE_ORDER',
+          fromStatus: 'ASSIGNED',
+          toStatus: 'INPROGRESS',
+          label: '2. Field Survey & Civil Execution',
+          isEnabled: true,
+          reqGpsLocation: true,
+          reqPhotoProof: true,
+          approvalLevels: [{ level: 1, requiredRole: 'CONTRACTOR', description: 'Contractor starts execution with GPS & photos' }]
+        },
+        {
+          entityType: 'SERVICE_ORDER',
+          fromStatus: 'INPROGRESS',
+          toStatus: 'COMPLETED',
+          label: '3. Provisional Acceptance Testing (PAT)',
+          isEnabled: true,
+          reqSltsPat: true,
+          writeAuditLedger: true,
+          approvalLevels: [
+            { level: 1, requiredRole: 'ENGINEER', description: 'Engineer verifies PAT document' },
+            { level: 2, requiredRole: 'OSP_MANAGER', description: 'OSP Manager final signoff' }
+          ]
+        }
+      ];
+
+      for (const g of sodGates) {
+        const { approvalLevels, ...gateData } = g;
+        const upserted = await tx.processGatePolicy.upsert({
+          where: {
+            entityType_fromStatus_toStatus: {
+              entityType: gateData.entityType,
+              fromStatus: gateData.fromStatus,
+              toStatus: gateData.toStatus
+            }
+          },
+          update: gateData,
+          create: gateData
+        });
+
+        for (const lvl of approvalLevels) {
+          const existingLvl = await tx.processApprovalLevel.findFirst({
+            where: { gatePolicyId: upserted.id, level: lvl.level }
+          });
+
+          if (!existingLvl) {
+            await tx.processApprovalLevel.create({
+              data: {
+                gatePolicyId: upserted.id,
+                level: lvl.level,
+                requiredRole: lvl.requiredRole,
+                description: lvl.description
+              }
+            });
+          }
+        }
+      }
+
+      return true;
+    });
+  }
 }
