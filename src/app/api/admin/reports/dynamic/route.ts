@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { DynamicReportService, DynamicReportPayload } from '@/services/inventory/dynamic-report.service';

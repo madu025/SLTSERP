@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { DynamicReportService, DynamicReportPayload } from '@/services/inventory/dynamic-report.service';
 import { apiHandler, castBody } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';

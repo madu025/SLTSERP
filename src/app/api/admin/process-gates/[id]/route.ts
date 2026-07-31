@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
 import { z } from 'zod';

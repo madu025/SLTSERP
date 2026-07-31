@@ -3,6 +3,8 @@ import { apiHandler } from '@/lib/api-handler';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 import { requireAuth } from '@/lib/server-utils';
 
+export const dynamic = 'force-dynamic';
+
 // PATCH /api/admin/monitoring/errors/[id] - Mark an error as resolved
 export const PATCH = apiHandler(async (_req, params) => {
     const user = await requireAuth(['SUPER_ADMIN', 'ADMIN']);

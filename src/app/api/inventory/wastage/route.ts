@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { InventoryService } from '@/services/inventory';
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler, castBody } from '@/lib/api-handler';

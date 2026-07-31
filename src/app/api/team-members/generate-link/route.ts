@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { TeamMemberService } from '@/services/hr/team-member.service';
 import { AppError } from '@/lib/error';

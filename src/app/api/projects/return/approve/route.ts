@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { approveReturnSchema, ApproveReturnSchema } from '@/lib/validations/project-stock.schema';

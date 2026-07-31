@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
 import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';

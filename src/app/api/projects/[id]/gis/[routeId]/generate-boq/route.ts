@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { generateBOQSchema, GenerateBOQSchema } from '@/lib/validations/gis.schema';

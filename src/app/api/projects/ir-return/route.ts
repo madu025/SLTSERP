@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ROLE_GROUPS } from '@/config/roles';
 import { ProjectIRLedgerService } from '@/services/project/project-ir-ledger.service';

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { MapApprovalService } from '@/services/gis/map-approval.service';
 import { AppError } from '@/lib/error';

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/fleet/TripService';
 import { endTripSchema, EndTripSchema } from '@/lib/validations/trip.schema';

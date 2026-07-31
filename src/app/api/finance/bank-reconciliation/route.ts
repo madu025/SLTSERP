@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { BankReconciliationService } from '@/services/finance/bank-reconciliation.service';

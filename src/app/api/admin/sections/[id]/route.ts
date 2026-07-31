@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { SectionService } from '@/services/core/section.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { SLTContractService, CreateAmendmentInput } from '@/services/slt/slt-contract.service';
 import { z } from 'zod';

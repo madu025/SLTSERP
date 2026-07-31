@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { GISAutoPlanService, PlannedClosure } from '@/services/gis/GISAutoPlanService';

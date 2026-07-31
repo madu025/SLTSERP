@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';

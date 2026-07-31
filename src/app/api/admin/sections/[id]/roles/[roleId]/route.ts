@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { RoleService } from '@/services/admin/role.service';

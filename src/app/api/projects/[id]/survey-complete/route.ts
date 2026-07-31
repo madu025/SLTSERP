@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { AppError } from '@/lib/error';
