@@ -251,3 +251,12 @@ Date: 2026-07-30
 - ?? **Must-Have**: Separated process gate workflows (MIN issue notes for internal vs FINANCE_APPROVED for procurement).
 - ?? **Must-Have**: Enforced (1)$ DB query indexing on [sourceType, status].
 
+
+
+## Session: SOD Table Dates & Gap Identification (2026-07-31)
+- **Module**: SOD Tables & Date Parsing System
+- **Decisions Adopted**:
+  - SO Number sub-text parses true SO Issue Date embedded in SO Prefix (e.g. EPA20260715... -> 15/07/2026).
+  - Pending SODs display SLA Aging badges against Received Date.
+  - Completed SODs display Turnaround Duration (e.g. 16d) instead of misleading Overdue badges.
+  - Verified zero-any types and project-wide TypeScript compilation.
