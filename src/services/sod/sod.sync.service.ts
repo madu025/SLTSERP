@@ -409,11 +409,15 @@ export class SODSyncService {
     /**
      * Trigger sync for all OPMCs
      */
-    static async syncAllOpmcs() {
-        const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
+    static async syncAllOpmcs(offset: number = 0, limit: number = 15) {
+        let opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
+        const totalOpmcs = opmcs.length;
+        if (limit > 0) {
+            opmcs = opmcs.slice(offset, offset + limit);
+        }
 
-        if (process.env.VERCEL === '1') {
-            console.log('[SYNC] Serverless/Vercel environment: running sync synchronously for all OPMCs with controlled concurrency...');
+        if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
+            console.log(`[SYNC] Syncing OPMCs batch ${offset} to ${offset + opmcs.length} of ${totalOpmcs}...`);
             let created = 0;
             let updated = 0;
             const results: Array<{ rtom: string; success: boolean; created?: number; updated?: number; error?: string }> = [];

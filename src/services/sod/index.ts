@@ -301,8 +301,8 @@ export class ServiceOrderService {
         return SODSyncService.syncHoRejectedResults();
     }
 
-    static async syncAllOpmcs() {
-        return SODSyncService.syncAllOpmcs();
+    static async syncAllOpmcs(offset: number = 0, limit: number = 15) {
+        return SODSyncService.syncAllOpmcs(offset, limit);
     }
 
     static async updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }) {

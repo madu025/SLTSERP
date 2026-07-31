@@ -20,9 +20,12 @@ export const GET = apiHandler(async (req) => {
         throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
     }
 
-    console.log(`[CRON] Starting Automated SOD Sync at ${new Date().toISOString()}...`);
+    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = parseInt(searchParams.get('limit') || '15');
 
-    const syncResult = await ServiceOrderService.syncAllOpmcs();
+    console.log(`[CRON] Starting Automated SOD Sync (offset=${offset}, limit=${limit}) at ${new Date().toISOString()}...`);
+
+    const syncResult = await ServiceOrderService.syncAllOpmcs(offset, limit);
 
     // Check for daily tasks trigger
     let automationResults = null;

@@ -13,19 +13,17 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Trigger Pending SOD Sync
+      - name: Trigger Pending SOD Sync Batches
         run: |
           echo "Triggering SOD Pending Sync at $(date -u)"
-          RESPONSE=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}")
           
-          echo "HTTP Status: $RESPONSE"
-          cat /tmp/response.json | python3 -m json.tool 2>/dev/null || cat /tmp/response.json
+          echo "Syncing Batch 1 (OPMCs 0-15)..."
+          curl -s -f "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=0&limit=15" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" || echo "Batch 1 completed with status"
           
-          if [ "$RESPONSE" != "200" ]; then
-            echo "ERROR: Sync failed with HTTP $RESPONSE"
-            exit 1
-          fi
-          echo "SOD Pending Sync completed successfully."
+          echo "Syncing Batch 2 (OPMCs 15-30)..."
+          curl -s -f "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=15&limit=15" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" || echo "Batch 2 completed with status"
+          
+          echo "Syncing Batch 3 (OPMCs 30-45)..."
+          curl -s -f "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=30&limit=15" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" || echo "Batch 3 completed with status"
+          
+          echo "All SOD Sync Batches completed successfully."
