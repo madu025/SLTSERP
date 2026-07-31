@@ -178,7 +178,7 @@
 ### [domain-dispatcher.service.ts](src/services/approval/domain-dispatcher.service.ts)
 * **Class**: `DomainActionDispatcher`
   * **Methods**:
-    * `dispatch(actionId: string, payload: any, tx: TransactionClient, instanceId?: string): any`
+    * `dispatch(payload: ActionPayload, tx: TransactionClient): any`
 
 ### [dynamic-approval.service.ts](src/services/approval/dynamic-approval.service.ts)
 * **Class**: `DynamicApprovalService`
@@ -661,6 +661,7 @@
     * `logPaymentVoucherPayment(tx: TransactionClient, pvId: string, amount: number, type: string, pvNumber: string, payeeName: string, description?: string): any`
     * `getLedgerEntries(pagination?: { page?: number; limit?: number }): any`
     * `getGlDrilldown(accountCode: string, fromDate?: Date, toDate?: Date): any`
+    * `accrueWipLiability(sodId: string, tx: TransactionClient): any`
 
 ### [osp-account-crud.service.ts](src/services/finance/osp-account-crud.service.ts)
 * **Class**: `OSPAccountCrudService`
@@ -1795,6 +1796,7 @@
         bomNumber?: string | null;
         rtomArea?: string | null;
         description?: string;
+        idempotencyKey?: string;
     }): any`
     * `recalculateInvoiceSplits(invoiceId: string, tx?: import('@prisma/client').Prisma.TransactionClient): any`
 
@@ -2911,6 +2913,15 @@
     * `deepParse(masterData: Record<string, string>): Record<string, string>`
     * `safeParseDate(dateStr: string | Date | undefined | null): Date | undefined`
 
+### [traffic.service.ts](src/services/system/traffic.service.ts)
+* **Class**: `TrafficService`
+  * **Methods**:
+    * `getLiveTraffic(): Promise<TrafficMetric[]>`
+    * `getBlockedList(): Promise<string[]>`
+    * `blockEntity(identifier: string): Promise<void>`
+    * `unblockEntity(identifier: string): Promise<void>`
+    * `isBlocked(identifier: string): Promise<boolean>`
+
 ## 2. Next.js API Routes (src/app/api)
 
 | Route Path | File Location | Supported Methods |
@@ -3155,6 +3166,7 @@
 | `/api/inventory/wastage` | [route.ts](src/app/api/inventory/wastage/route.ts) | `POST` |
 | `/api/invoices/amendments/pending` | [route.ts](src/app/api/invoices/amendments/pending/route.ts) | `GET` |
 | `/api/invoices/amendments/[id]/approve` | [route.ts](src/app/api/invoices/amendments/[id]/approve/route.ts) | `POST` |
+| `/api/invoices/bulk` | [route.ts](src/app/api/invoices/bulk/route.ts) | `POST` |
 | `/api/invoices/delay-sheets` | [route.ts](src/app/api/invoices/delay-sheets/route.ts) | `GET` |
 | `/api/invoices/generate` | [route.ts](src/app/api/invoices/generate/route.ts) | `POST` |
 | `/api/invoices/import-bom/csv` | [route.ts](src/app/api/invoices/import-bom/csv/route.ts) | `OPTIONS`, `POST` |
@@ -3307,6 +3319,8 @@
 | `/api/staff` | [route.ts](src/app/api/staff/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
 | `/api/stores` | [route.ts](src/app/api/stores/route.ts) | `GET`, `POST` |
 | `/api/stores/[storeId]` | [route.ts](src/app/api/stores/[storeId]/route.ts) | `GET`, `PUT`, `DELETE` |
+| `/api/system/traffic/block` | [route.ts](src/app/api/system/traffic/block/route.ts) | `POST` |
+| `/api/system/traffic` | [route.ts](src/app/api/system/traffic/route.ts) | `GET` |
 | `/api/tax-configs` | [route.ts](src/app/api/tax-configs/route.ts) | `GET`, `POST` |
 | `/api/team-members/generate-link` | [route.ts](src/app/api/team-members/generate-link/route.ts) | `POST` |
 | `/api/team-members/public` | [route.ts](src/app/api/team-members/public/route.ts) | `GET`, `POST` |
@@ -8660,6 +8674,8 @@
   * `projectNumber: Int?`
   * `bomNumber: String?`
   * `rtomArea: String?`
+  * `idempotencyKey: String?` `[@unique]`
+  * `checksum: String?`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id])]`
   * `project: Project?` `[@relation(fields: [projectId], references: [id])]`
   * `sods: ServiceOrder[]`
