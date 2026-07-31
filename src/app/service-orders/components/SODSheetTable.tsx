@@ -852,10 +852,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         {/* Received Date & Dynamic KPI Aging Indicator */}
                                         {order.receivedDate && (
                                             <div className="flex items-center gap-1.5 font-sans">
-                                                <span className="text-[8.5px] font-medium text-muted-foreground font-mono">
+                                                <span className="text-[8.5px] font-medium text-muted-foreground font-mono" title="Received Date">
                                                     {new Date(order.receivedDate).toLocaleDateString('en-GB')}
                                                 </span>
-                                                {(() => {
+                                                {filterType === 'pending' && (() => {
                                                     const sla = getSlaAgingBadge(order.receivedDate);
                                                     return (
                                                         <span className={`px-1 py-0.1 text-[7.5px] font-extrabold uppercase rounded border ${sla.className}`} title={`Received ${sla.days} days ago`}>
