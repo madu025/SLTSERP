@@ -962,6 +962,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS]
             },
             {
+                title: 'Process Gates Engine',
+                path: '/admin/settings/process-gates',
+                icon: ShieldCheck,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
                 title: 'SMTP Email Config',
                 path: '/admin/settings/smtp',
                 icon: Mail,
