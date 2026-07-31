@@ -205,7 +205,7 @@ export class SODQueryService {
                 andFilters.push({ status: statusFilter as import("@prisma/client").ServiceOrderStatus });
             }
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
-            andFilters.push({ status: { in: ["ASSIGNED", "ASSIGN", "INPROGRESS", "PROV_CLOSED", "OFFLINE"] } });
+            andFilters.push({ status: { in: ["PENDING", "ASSIGNED", "ASSIGN", "INPROGRESS", "PROV_CLOSED", "OFFLINE"] } });
         }
 
         if (patFilter && patFilter !== 'ALL') {
