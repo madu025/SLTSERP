@@ -59,9 +59,9 @@ export class JobQueueService {
                 recentCompleted,
                 repeatableCount: repeatable.length,
                 repeatable: repeatable.map(rj => ({
-                    key: rj.key,
-                    name: rj.name,
-                    next: rj.next ? new Date(rj.next).toLocaleString() : 'N/A'
+                    key: rj.key as string,
+                    name: rj.name as string,
+                    next: rj.next ? new Date(Number(rj.next)).toLocaleString() : 'N/A'
                 }))
             };
         }));

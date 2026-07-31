@@ -20,10 +20,6 @@ import {
     X,
     Filter,
     Copy,
-    Check,
-    Download,
-    ExternalLink,
-    LineChart,
     CheckCheck,
     Wrench,
     Zap,
@@ -31,7 +27,6 @@ import {
     FileText,
     ShieldCheck,
     ShieldAlert,
-    Radio,
     Truck,
     Lock
 } from 'lucide-react';
@@ -119,23 +114,29 @@ export default function SystemMonitoringPage() {
     const [actionLoading, setActionLoading] = useState(false);
     const [auditLoading, setAuditLoading] = useState(false);
     const [auditResult, setAuditResult] = useState<LedgerAuditResult | null>(null);
-    const [copiedKey, setCopiedKey] = useState<string | null>(null);
-    const [origin, setOrigin] = useState('');
     const [jobsStats, setJobsStats] = useState<QueueJobStat[]>([]);
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        actionType: 'CLEAR_ALL' | 'RESOLVE_ALL' | null;
+        confirmText: string;
+        variant: 'danger' | 'warning' | 'success';
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        actionType: null,
+        confirmText: 'Confirm',
+        variant: 'danger'
+    });
 
-    useEffect(() => {
-        setOrigin(window.location.origin);
-    }, []);
 
-    const metricsUrl = origin ? `${origin}/api/metrics` : '/api/metrics';
-
-    const copyToClipboard = useCallback(async (key: string, text: string) => {
+    const copyToClipboard = useCallback(async (text: string) => {
         try {
             await navigator.clipboard.writeText(text);
-            setCopiedKey(key);
             toast.success('Copied to clipboard!');
-            setTimeout(() => setCopiedKey(null), 2000);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Clipboard write failed:', err);
             toast.error('Failed to copy');
         }
@@ -148,7 +149,7 @@ export default function SystemMonitoringPage() {
             if (data.success) {
                 setHealth(data.data);
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Failed to load health stats:', err);
         }
     }, []);
@@ -167,7 +168,7 @@ export default function SystemMonitoringPage() {
                 setLogs(data.data.logs);
                 setTotalPages(data.data.pagination.totalPages || 1);
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Failed to load error logs:', err);
         } finally {
             setLoading(false);
@@ -213,7 +214,7 @@ export default function SystemMonitoringPage() {
                     toast.error(`TAMPERING WARNING! ${data.data.tamperedCount} corrupted hashes detected.`);
                 }
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Ledger audit failed:', err);
             toast.error('Failed to run SHA-256 security audit');
         } finally {
@@ -233,7 +234,7 @@ export default function SystemMonitoringPage() {
                 }
                 fetchHealth();
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Failed to resolve error:', err);
             toast.error('Failed to mark error as resolved');
         } finally {
@@ -241,8 +242,29 @@ export default function SystemMonitoringPage() {
         }
     };
 
-    const handleResolveAll = async () => {
-        if (!confirm('Mark all unresolved system error logs as RESOLVED?')) return;
+    const openClearLogsModal = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: 'Purge All Error Logs',
+            description: 'Are you sure you want to PERMANENTLY PURGE ALL error logs from the database? This action cannot be undone.',
+            actionType: 'CLEAR_ALL',
+            confirmText: 'Yes, Purge All',
+            variant: 'danger'
+        });
+    };
+
+    const openResolveAllModal = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: 'Resolve All Error Logs',
+            description: `Are you sure you want to mark all ${health?.errors.unresolved || 0} unresolved error logs as RESOLVED?`,
+            actionType: 'RESOLVE_ALL',
+            confirmText: 'Yes, Resolve All',
+            variant: 'success'
+        });
+    };
+
+    const executeResolveAll = async () => {
         setActionLoading(true);
         try {
             const res = await fetch('/api/admin/monitoring/errors', { method: 'PATCH' });
@@ -251,8 +273,10 @@ export default function SystemMonitoringPage() {
                 toast.success(`Resolved ${data.data.resolvedCount || 'all'} error logs!`);
                 fetchLogs();
                 fetchHealth();
+            } else {
+                toast.error(data.error?.message || 'Failed to resolve error logs');
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Failed to bulk resolve logs:', err);
             toast.error('Failed to resolve all error logs');
         } finally {
@@ -260,18 +284,10 @@ export default function SystemMonitoringPage() {
         }
     };
 
-    const handleClearLogs = async (clearAll = true) => {
-        const confirmMsg = clearAll
-            ? 'Are you sure you want to PERMANENTLY PURGE ALL error logs from the database?'
-            : 'Are you sure you want to clear resolved error logs?';
-        if (!confirm(confirmMsg)) return;
-
+    const executeClearLogs = async () => {
         setActionLoading(true);
         try {
-            const url = clearAll
-                ? '/api/admin/monitoring/errors?clearAll=true'
-                : '/api/admin/monitoring/errors?daysToKeep=0';
-            const res = await fetch(url, { method: 'DELETE' });
+            const res = await fetch('/api/admin/monitoring/errors?clearAll=true', { method: 'DELETE' });
             const data = await res.json();
             if (res.ok && data.success) {
                 toast.success(`Cleared ${data.data?.deletedCount ?? 'all'} log entries!`);
@@ -280,7 +296,7 @@ export default function SystemMonitoringPage() {
             } else {
                 toast.error(data.error?.message || 'Failed to clear logs');
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Failed to clear logs:', err);
             toast.error('Failed to clear logs');
         } finally {
@@ -426,27 +442,27 @@ ${log.stackTrace || 'No stack trace recorded'}
                                     {auditLoading ? 'Auditing Checksums...' : 'SHA-256 Security Audit'}
                                 </button>
                                 <button
-                                    onClick={handleResolveAll}
+                                    onClick={openResolveAllModal}
                                     disabled={actionLoading || (health?.errors.unresolved || 0) === 0}
-                                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-950/40"
+                                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-950/40 cursor-pointer"
                                 >
                                     <CheckCheck className="w-4 h-4" />
                                     Resolve All ({health?.errors.unresolved || 0})
                                 </button>
                                 <button
                                     onClick={() => { fetchHealth(); fetchLogs(); fetchJobsStats(); }}
-                                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-2 border border-slate-700"
+                                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-2 border border-slate-700 cursor-pointer"
                                 >
                                     <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                                     Refresh
                                 </button>
                                 <button
-                                    onClick={() => handleClearLogs(true)}
+                                    onClick={openClearLogsModal}
                                     disabled={actionLoading}
-                                    className="px-3.5 py-2 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/60 text-xs font-semibold transition flex items-center gap-2"
+                                    className="px-3.5 py-2 rounded-xl bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/60 text-xs font-semibold transition flex items-center gap-2 cursor-pointer"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
-                                    Clear Old
+                                    Clear Logs
                                 </button>
                             </div>
                         </div>
@@ -897,7 +913,7 @@ ${log.stackTrace || 'No stack trace recorded'}
                                                 <div className="flex justify-between items-center mb-1.5">
                                                     <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider">Stack Trace</h4>
                                                     <button
-                                                        onClick={() => copyToClipboard('stack', selectedLog.stackTrace || '')}
+                                                        onClick={() => copyToClipboard(selectedLog.stackTrace || '')}
                                                         className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 font-mono"
                                                     >
                                                         <Copy className="w-3 h-3" /> Copy Stack
@@ -911,7 +927,7 @@ ${log.stackTrace || 'No stack trace recorded'}
 
                                         <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800">
                                             <button
-                                                onClick={() => copyToClipboard('report', generateIncidentMarkdown(selectedLog))}
+                                                onClick={() => copyToClipboard(generateIncidentMarkdown(selectedLog))}
                                                 className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 border border-slate-700"
                                             >
                                                 <FileText className="w-3.5 h-3.5" />
@@ -941,6 +957,60 @@ ${log.stackTrace || 'No stack trace recorded'}
                     </main>
                 </div>
             </div>
+
+            {/* Custom Interactive Confirmation Modal */}
+            {confirmModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2.5 rounded-xl ${
+                                    confirmModal.variant === 'danger' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                }`}>
+                                    <AlertTriangle className="w-5 h-5" />
+                                </div>
+                                <h3 className="text-lg font-bold text-white tracking-tight">{confirmModal.title}</h3>
+                            </div>
+                            <button
+                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                                className="p-1 text-slate-400 hover:text-white rounded-lg transition"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <p className="text-sm text-slate-300 leading-relaxed">
+                            {confirmModal.description}
+                        </p>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition border border-slate-700 cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const type = confirmModal.actionType;
+                                    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                                    if (type === 'CLEAR_ALL') executeClearLogs();
+                                    if (type === 'RESOLVE_ALL') executeResolveAll();
+                                }}
+                                disabled={actionLoading}
+                                className={`px-4 py-2 text-xs font-semibold text-white rounded-xl transition flex items-center gap-2 shadow-lg cursor-pointer ${
+                                    confirmModal.variant === 'danger'
+                                        ? 'bg-red-600 hover:bg-red-500 shadow-red-950/50'
+                                        : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/50'
+                                }`}
+                            >
+                                {actionLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                                {confirmModal.confirmText}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </RoleGuard>
     );
 }
