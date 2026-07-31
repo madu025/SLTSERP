@@ -60,15 +60,28 @@ export default function RequestsPage() {
     const [user] = useState<User | null>(() => {
         if (typeof window !== 'undefined') {
             const stored = localStorage.getItem('user');
-            return stored ? JSON.parse(stored) : null;
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch (e) {
+                    console.error("Failed to parse user from localStorage", e);
+                }
+            }
         }
         return null;
     });
 
-    // User permissions (Centralized RBAC Configuration Driven)
-    const isStoresOfficer = hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
-    const isAreaManager = hasRole(user?.role, ROLE_GROUPS.AREA_MANAGERS);
-    const isProcurementRole = hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => setMounted(true), 0);
+        return () => window.clearTimeout(timer);
+    }, []);
+
+    // User permissions (Centralized RBAC Configuration Driven with Hydration Safety)
+    const isStoresOfficer = mounted && hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
+    const isAreaManager = mounted && hasRole(user?.role, ROLE_GROUPS.AREA_MANAGERS);
+    const isProcurementRole = mounted && hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
 
     // Approval State
     const [selectedRequest, setSelectedRequest] = useState<InventoryRequest | null>(null);
