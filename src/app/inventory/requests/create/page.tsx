@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Loader2, Paperclip, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Send, Loader2, Paperclip, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
@@ -142,6 +142,17 @@ export default function MaterialRequestPage() {
             const res = await fetch(`/api/inventory/stock?storeId=${selectedStore}`, { cache: 'no-store' });
             const data = await res.json();
             return Array.isArray(data) ? data : (data.stock || data.data || []);
+        },
+        enabled: !!selectedStore
+    });
+
+    const { data: pendingBalances = [], isLoading: isLoadingBalances } = useQuery({
+        queryKey: ["pending-balances", selectedStore],
+        queryFn: async () => {
+            if (!selectedStore) return [];
+            const res = await fetch(`/api/inventory/requests/pending-balances?storeId=${selectedStore}`);
+            const data = await res.json();
+            return data.success ? data.data : [];
         },
         enabled: !!selectedStore
     });
@@ -291,6 +302,32 @@ export default function MaterialRequestPage() {
                                 Submit Request
                             </Button>
                         </div>
+
+                        {pendingBalances.length > 0 && (
+                            <div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded-r-xl shadow-sm">
+                                <div className="flex gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                    <div className="space-y-1.5 w-full">
+                                        <h3 className="text-xs font-bold text-amber-800">Outstanding Backorders Detected</h3>
+                                        <p className="text-[11px] text-amber-700">
+                                            This store has <strong>{pendingBalances.length}</strong> partially fulfilled items awaiting dispatch. 
+                                            Please verify these backorders before requesting new stock.
+                                        </p>
+                                        <div className="mt-2 text-[10px] space-y-1 max-h-32 overflow-y-auto pr-2">
+                                            {pendingBalances.map((b: any, i: number) => (
+                                                <div key={i} className="flex justify-between items-center bg-white/60 px-2.5 py-1.5 rounded border border-amber-200/50">
+                                                    <span className="font-semibold text-amber-900">{b.itemName} <span className="text-amber-600 font-normal">({b.itemCode})</span></span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-amber-700 font-mono font-medium">Req: #{b.requestNr}</span>
+                                                        <span className="bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-bold">Pending Balance: {b.balanceQty}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* COMPACT CONFIGURATION */}
                         <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">

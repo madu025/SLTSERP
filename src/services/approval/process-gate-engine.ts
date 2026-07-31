@@ -28,6 +28,37 @@ export interface UpdateUniversalApprovalInstancePayload {
 
 export class ProcessGateEngine {
     /**
+     * Resolves the matching ProcessGatePolicy for an entity and current status using the RuleEngine.
+     */
+    static async findMatchingPolicy(params: {
+        entityType: string;
+        fromStatus: string;
+        entityPayload?: Record<string, unknown>;
+    }) {
+        const { entityType, fromStatus, entityPayload = {} } = params;
+
+        const policies = await prisma.processGatePolicy.findMany({
+            where: {
+                entityType,
+                fromStatus,
+                isEnabled: true
+            },
+            include: {
+                approvalLevels: {
+                    orderBy: { level: 'asc' }
+                }
+            }
+        });
+
+        const { RuleEngine } = await import('./rule-engine');
+
+        return policies.find(p => {
+            const conditions = p.conditions as import('./rule-engine').RuleCondition | import('./rule-engine').RuleCondition[] | null;
+            return RuleEngine.evaluate(conditions, entityPayload);
+        }) || null;
+    }
+
+    /**
      * Initializes the approval gate for a given entity and state transition.
      * Looks up the ProcessGatePolicy, and if found, creates the first UniversalApprovalInstance (Level 1).
      */

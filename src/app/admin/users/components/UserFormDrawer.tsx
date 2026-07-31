@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, Key, BadgeCheck } from "lucide-react";
+import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, BadgeCheck } from "lucide-react";
 import { ROLE_CATEGORIES } from '../constants/roles';
 
 // Zod Schema
@@ -42,6 +42,8 @@ export interface UserProp {
   username?: string;
   role: string;
   accessibleOpmcs?: { id: string }[];
+  contractorId?: string | null;
+  employeeId?: string | null;
 }
 
 export interface OpmcProp {
@@ -103,34 +105,37 @@ export function UserFormDrawer({
   // Sync form and section when drawer opens/closes
   useEffect(() => {
     if (!open) return;
-    if (initialData) {
-      form.reset({
-        ...initialData,
-        password: '', // Clear password field for security edit
-        assignedStoreId: initialData.assignedStoreId || 'none',
-        opmcIds: initialData.opmcIds || [],
-        status: initialData.status || 'active'
-      });
-      const section = Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
-      setSelectedSection(section);
-      setStep(1);
-    } else {
-      form.reset({
-        username: '',
-        email: '',
-        password: '',
-        name: '',
-        role: '',
-        employeeId: '',
-        opmcIds: [],
-        supervisorId: '',
-        assignedStoreId: 'none',
-        status: 'active'
-      });
-      setSelectedSection(null);
-      setStep(1);
-    }
-  }, [open, initialData?.username, initialData?.role]);
+    const timer = setTimeout(() => {
+      if (initialData) {
+        form.reset({
+          ...initialData,
+          password: '', // Clear password field for security edit
+          assignedStoreId: initialData.assignedStoreId || 'none',
+          opmcIds: initialData.opmcIds || [],
+          status: initialData.status || 'active'
+        });
+        const section = Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
+        setSelectedSection(section);
+        setStep(1);
+      } else {
+        form.reset({
+          username: '',
+          email: '',
+          password: '',
+          name: '',
+          role: '',
+          employeeId: '',
+          opmcIds: [],
+          supervisorId: '',
+          assignedStoreId: 'none',
+          status: 'active'
+        });
+        setSelectedSection(null);
+        setStep(1);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [open, initialData, form]);
 
   const handleSelectAllOpmcs = (checked: boolean) => {
     if (checked) {
@@ -140,10 +145,28 @@ export function UserFormDrawer({
     }
   };
 
-  // Supervisors list filter
+  const [supervisorSearch, setSupervisorSearch] = useState('');
+
+  // Supervisors list filter: Exclude self and external contractor users
   const potentialSupervisors = useMemo(() => {
-    return users.filter(u => u.id !== initialData?.id);
+    return users.filter(u => {
+      if (u.id === initialData?.id) return false;
+      if (u.contractorId) return false;
+      if (u.role && u.role.startsWith('CONTRACTOR')) return false;
+      return true;
+    });
   }, [users, initialData]);
+
+  const filteredSupervisors = useMemo(() => {
+    if (!supervisorSearch.trim()) return potentialSupervisors;
+    const query = supervisorSearch.toLowerCase();
+    return potentialSupervisors.filter(u => 
+      (u.name && u.name.toLowerCase().includes(query)) ||
+      (u.username && u.username.toLowerCase().includes(query)) ||
+      (u.employeeId && u.employeeId.toLowerCase().includes(query)) ||
+      (u.role && u.role.toLowerCase().includes(query))
+    );
+  }, [potentialSupervisors, supervisorSearch]);
 
   const handleFormSubmit = (data: UserFormValues) => {
     onSubmit({
@@ -315,78 +338,92 @@ export function UserFormDrawer({
               )}
 
               {/* STEP 2: Role & Department */}
-              {step === 2 && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="bg-indigo-50/60 border border-indigo-100 p-3.5 rounded-2xl flex items-center gap-3">
-                    <Shield className="w-4 h-4 text-indigo-600 flex-shrink-0" />
-                    <p className="text-xs text-indigo-900 leading-relaxed font-medium">
-                      Select the user's department and operational role. Roles define RBAC permissions and process gate approval authority.
-                    </p>
-                  </div>
+              {step === 2 && (() => {
+                const currentSection = selectedSection || (watchedRole ? Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(watchedRole))?.[0] || null : null);
+                return (
+                  <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="bg-indigo-50/60 border border-indigo-100 p-3.5 rounded-2xl flex items-center gap-3">
+                      <Shield className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                      <p className="text-xs text-indigo-900 leading-relaxed font-medium">
+                        Select the user&apos;s department and operational role. Roles define RBAC permissions and process gate approval authority.
+                      </p>
+                    </div>
 
-                  <div className="space-y-2">
-                    <FormLabel className="text-[11px] font-bold uppercase text-slate-600">1. Department / Division</FormLabel>
-                    <Select
-                      onValueChange={(val) => {
-                        setSelectedSection(val);
-                        form.setValue('role', '');
-                      }}
-                      value={selectedSection || ''}
-                    >
-                      <SelectTrigger className="h-11 text-sm bg-white font-semibold">
-                        <SelectValue placeholder="-- Select Department --" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.keys(ROLE_CATEGORIES).map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="space-y-2">
+                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600">1. Department / Division</FormLabel>
+                      <Select
+                        onValueChange={(val) => {
+                          setSelectedSection(val);
+                          form.setValue('role', '');
+                        }}
+                        value={currentSection || ''}
+                      >
+                        <SelectTrigger className="h-11 text-sm bg-white font-semibold">
+                          <SelectValue placeholder="-- Select Department --" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.keys(ROLE_CATEGORIES).map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <FormField control={form.control} name="role" render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600">2. System Role</FormLabel>
-                      <FormControl>
-                        <Select
-                          disabled={!selectedSection}
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <SelectTrigger className="h-11 text-sm bg-white font-bold text-indigo-900 border-indigo-200">
-                            <SelectValue placeholder={selectedSection ? "-- Select System Role --" : "First select a department above..."} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {selectedSection && ROLE_CATEGORIES[selectedSection as keyof typeof ROLE_CATEGORIES]?.map(role => (
-                              <SelectItem key={role} value={role} className="font-medium">
-                                {role.replace(/_/g, ' ')}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                    <FormField control={form.control} name="role" render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-600">2. System Role</FormLabel>
+                        <FormControl>
+                          <Select
+                            disabled={!currentSection}
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <SelectTrigger className="h-11 text-sm bg-white font-bold text-indigo-900 border-indigo-200">
+                              <SelectValue placeholder={currentSection ? "-- Select System Role --" : "First select a department above..."} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {currentSection && ROLE_CATEGORIES[currentSection as keyof typeof ROLE_CATEGORIES]?.map(role => (
+                                <SelectItem key={role} value={role} className="font-medium">
+                                  {role.replace(/_/g, ' ')}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
 
                   <FormField control={form.control} name="supervisorId" render={({ field }) => (
                     <FormItem className="space-y-2 pt-2">
                       <FormLabel className="text-[11px] font-bold uppercase text-slate-600">Reporting Supervisor (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                        <FormControl>
-                          <SelectTrigger className="h-10 text-sm bg-white">
-                            <SelectValue placeholder="-- Select Supervisor --" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="none" className="text-slate-400 italic">None (Independent Officer)</SelectItem>
-                          {potentialSupervisors.map(u => (
-                            <SelectItem key={u.id} value={u.id!}>
-                              {u.name || u.username} ({u.role.replace(/_/g, ' ')})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-1.5">
+                        <Input
+                          type="text"
+                          placeholder="🔍 Type to search supervisor (Name, Employee ID, Role)..."
+                          value={supervisorSearch}
+                          onChange={(e) => setSupervisorSearch(e.target.value)}
+                          className="h-9 text-xs bg-white border-slate-200"
+                        />
+                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 text-sm bg-white font-semibold">
+                              <SelectValue placeholder="-- Select Supervisor --" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-60">
+                            <SelectItem value="none" className="text-slate-400 italic">None (Independent Officer)</SelectItem>
+                            {filteredSupervisors.map(u => (
+                              <SelectItem key={u.id} value={u.id!}>
+                                👤 {u.name || u.username} {u.employeeId ? `(#${u.employeeId})` : ''} • [{u.role.replace(/_/g, ' ')}]
+                              </SelectItem>
+                            ))}
+                            {filteredSupervisors.length === 0 && (
+                              <div className="p-2 text-xs text-slate-400 italic text-center">No internal supervisors found</div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -398,7 +435,8 @@ export function UserFormDrawer({
                     </div>
                   )}
                 </div>
-              )}
+              );
+            })()}
 
               {/* STEP 3: Store & OPMC Scopes */}
               {step === 3 && (

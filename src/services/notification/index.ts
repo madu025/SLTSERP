@@ -38,10 +38,11 @@ export class NotificationService {
                 return null; // User disabled this type
             }
 
-            // Anti-spam: skip if identical notification (same user+title+link) exists within last 5 minutes
-            const dedupeKey = `notif_dedupe:${userId}:${title}:${link || 'nolink'}`;
+            // Anti-spam: skip if identical notification for the SAME entity exists within last 5 minutes
+            const entityId = metadata?.requestId || metadata?.contractorId || metadata?.serviceOrderId || metadata?.id || Date.now();
+            const dedupeKey = `notif_dedupe:${userId}:${title}:${link || 'nolink'}:${entityId}`;
             // SETNX returns 1 if set (meaning it didn't exist), or null/0 if it already existed
-            const isNew = await redis.set(dedupeKey, '1', 'EX', 300, 'NX'); // 300s = 5m
+            const isNew = await redis.set(dedupeKey, '1', 'EX', 300, 'NX').catch(() => '1'); // Fallback if Redis offline
             if (!isNew) {
                 return null; // Deduplicated by Redis O(1) cache
             }
@@ -231,8 +232,8 @@ export class NotificationService {
                     ...(opmcId ? {
                         OR: [
                             { accessibleOpmcs: { some: { id: opmcId } } },
-                            // Admins, Managers, IT, and Procurement are often global section heads
-                            { role: { in: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'PROCUREMENT_OFFICER', 'ENGINEER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'] } } 
+                            // Global section heads & managers receive section alerts across all OPMCs
+                            { role: { in: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'STORES_MANAGER', 'PROCUREMENT_OFFICER', 'ENGINEER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'] } } 
                         ]
                     } : {})
                 },
@@ -348,6 +349,46 @@ export class NotificationService {
      * Get aggregated sidebar notification counts in memory
      */
     static async getSidebarCounts(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true, assignedStoreId: true }
+        });
+
+        const userRole = user?.role || '';
+
+        // Real actionable database pending count for material requests & approvals
+        let dbMaterialPending = 0;
+        if (['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'PROCUREMENT_OFFICER', 'HEAD_OF_PROCUREMENT', 'STORES_MANAGER', 'STORES_ASSISTANT', 'AREA_MANAGER'].includes(userRole)) {
+            if (['OSP_MANAGER', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'HEAD_OF_PROCUREMENT'].includes(userRole)) {
+                dbMaterialPending = await prisma.stockRequest.count({
+                    where: { status: 'PENDING', workflowStage: { in: ['OSP_MANAGER_APPROVAL', 'PROCUREMENT'] } }
+                });
+            } else if (userRole === 'AREA_MANAGER') {
+                dbMaterialPending = await prisma.stockRequest.count({
+                    where: { status: 'PENDING', workflowStage: 'ARM_APPROVAL' }
+                });
+            } else if (['STORES_MANAGER', 'STORES_ASSISTANT'].includes(userRole)) {
+                if (user?.assignedStoreId) {
+                    dbMaterialPending = await prisma.stockRequest.count({
+                        where: {
+                            OR: [
+                                { fromStoreId: user.assignedStoreId, workflowStage: { in: ['STORES_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'PARTIALLY_ISSUED'] } },
+                                { toStoreId: user.assignedStoreId, workflowStage: { in: ['RECEIVE_PENDING', 'DISPATCHED', 'SUB_STORE_RECEIVE', 'GRN_PENDING'] } }
+                            ]
+                        }
+                    });
+                } else {
+                    dbMaterialPending = await prisma.stockRequest.count({
+                        where: { workflowStage: { in: ['STORES_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'RECEIVE_PENDING', 'GRN_PENDING'] } }
+                    });
+                }
+            } else {
+                dbMaterialPending = await prisma.stockRequest.count({
+                    where: { status: 'PENDING', workflowStage: { notIn: ['COMPLETED', 'REJECTED'] } }
+                });
+            }
+        }
+
         const unreadNotifications = await prisma.notification.findMany({
             where: {
                 userId,
@@ -365,7 +406,7 @@ export class NotificationService {
         let serviceOrdersCount = 0;
         let procurementApprovalsCount = 0;
         let contractorApprovalsCount = 0;
-        let materialRequestsCount = 0;
+        const materialRequestsCount = dbMaterialPending;
         let materialApprovalsCount = 0;
 
         for (const n of unreadNotifications) {
@@ -375,7 +416,6 @@ export class NotificationService {
             else if (link.startsWith("/helpdesk")) helpdeskCount++;
             else if (link.startsWith("/admin/inventory")) procurementApprovalsCount++;
             else if (link.startsWith("/admin/contractors")) contractorApprovalsCount++;
-            else if (link.startsWith("/inventory/requests")) materialRequestsCount++;
             else if (link.startsWith("/inventory/approvals")) materialApprovalsCount++;
             else if (link.startsWith("/service-orders")) {
                 if (n.metadata && typeof n.metadata === 'object' && !Array.isArray(n.metadata)) {

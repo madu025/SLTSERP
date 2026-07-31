@@ -15,6 +15,15 @@ type GatePolicyWithLevels = ProcessGatePolicy & {
   approvalLevels: ProcessApprovalLevel[];
 };
 
+const MODULE_CATEGORIES = [
+  { id: 'MATERIAL_REQUEST', label: 'Material Requisitions', icon: '📦', desc: 'Sub-store transfers, Vendor procurement, MIN release' },
+  { id: 'SERVICE_ORDER', label: 'Service Orders (SOD)', icon: '📋', desc: 'SOD completion, OPMC PAT verification, HO PAT' },
+  { id: 'INVOICE', label: 'Contractor Invoices', icon: '📄', desc: 'Invoice audit, Rate verification, CFO approval' },
+  { id: 'PURCHASE_ORDER', label: 'Purchase Orders', icon: '🛍️', desc: 'Vendor assignment, PO generation, Stock GRN' },
+  { id: 'STOCK_TRANSFER', label: 'Stock Transfers', icon: '🚚', desc: 'Inter-store warehouse dispatches' },
+  { id: 'ALL', label: 'All System Modules', icon: '🌐', desc: 'Complete overview of all configured process gates' }
+];
+
 export default function ProcessGatesAdminPage() {
   const [gates, setGates] = useState<GatePolicyWithLevels[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,42 +113,45 @@ export default function ProcessGatesAdminPage() {
                 </button>
               </div>
 
-              {/* Module Filter Tabs & View Mode Switcher */}
-              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border shadow-xs">
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2 shrink-0">Module:</span>
-                  <button
-                    onClick={() => setSelectedEntity('ALL')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                      selectedEntity === 'ALL'
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    All Modules ({gates.length})
-                  </button>
-                  {availableEntities.map((entity) => {
-                    const count = gates.filter(g => g.entityType === entity).length;
-                    return (
-                      <button
-                        key={entity}
-                        onClick={() => setSelectedEntity(entity)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                          selectedEntity === entity
-                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {entity.replace('_', ' ')}
-                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${selectedEntity === entity ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                          {count}
+              {/* Task-by-Task Module Selection Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {MODULE_CATEGORIES.map((mod) => {
+                  const count = mod.id === 'ALL' 
+                    ? gates.length 
+                    : gates.filter(g => g.entityType === mod.id).length;
+                  const isSelected = selectedEntity === mod.id;
+                  return (
+                    <button
+                      key={mod.id}
+                      onClick={() => setSelectedEntity(mod.id)}
+                      className={`p-3.5 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                        isSelected
+                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-100 ring-2 ring-indigo-400/30'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-xs'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xl">{mod.icon}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}>
+                          {count} {count === 1 ? 'Gate' : 'Gates'}
                         </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+                      <h3 className="font-bold text-xs mt-2 truncate">{mod.label}</h3>
+                      <p className={`text-[10px] mt-0.5 line-clamp-2 leading-tight ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                        {mod.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
 
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 self-end md:self-auto">
+              <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-2xl border shadow-xs">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Active Module Pipeline: <span className="text-indigo-600 font-extrabold">{MODULE_CATEGORIES.find(m => m.id === selectedEntity)?.label}</span>
+                </div>
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
                   <button
                     onClick={() => setViewMode('pipeline')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${

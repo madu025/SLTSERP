@@ -8,6 +8,7 @@ import { eventBus } from '@/lib/events/event-bus';
 import { StockService } from './stock.service';
 import { StockRequestActionData, TransactionClient } from './types';
 import { prisma } from '@/lib/prisma';
+import { ProcessGateEngine } from '../approval/process-gate-engine';
 
 export class StockRequestService {
     private static generateRequestId(sourceType?: string): string {
@@ -55,7 +56,21 @@ export class StockRequestService {
             }
         }
 
-        const initialWorkflowStage = fromStore.type === 'SUB' ? 'ARM_APPROVAL' : 'OSP_MANAGER_APPROVAL';
+        const isExternalProcurement = sourceType === 'LOCAL_PURCHASE' || sourceType === 'SLT' || sourceType === 'PROCUREMENT' || !finalToStoreId;
+
+        // Resolve initial stage dynamically using ProcessGateEngine and RuleEngine
+        const initialPolicy = await ProcessGateEngine.findMatchingPolicy({
+            entityType: 'MATERIAL_REQUEST',
+            fromStatus: 'DRAFT',
+            entityPayload: {
+                sourceType,
+                fromStoreType: fromStore.type,
+                toStoreId: finalToStoreId,
+                isExternalProcurement
+            }
+        });
+
+        const initialWorkflowStage = initialPolicy ? initialPolicy.toStatus : (isExternalProcurement ? 'OSP_MANAGER_APPROVAL' : 'ARM_APPROVAL');
 
         // Process items: create ad-hoc InventoryItems for custom/unregistered items
         const processedItems = [];
@@ -122,6 +137,13 @@ export class StockRequestService {
         if (nErr) {
             console.error("Failed to publish stock request created event:", nErr);
         }
+
+        // Emit global system event so connected UI dashboards auto-refresh live
+        await safe(emitSystemEvent('INVENTORY_UPDATE', {
+            requestId: req.id,
+            requestNr: req.requestNr,
+            stage: initialWorkflowStage
+        }));
 
         // --- DYNAMIC PROCESS GATE ENGINE INTEGRATION ---
         try {
@@ -289,7 +311,13 @@ export class StockRequestService {
 
             // Record stage-specific approval audit log
             const primaryRole = policy.approvalLevels?.[0]?.requiredRole;
-            if (primaryRole === 'AREA_MANAGER' || stockReq.workflowStage.includes('ARM')) {
+            if (primaryRole === 'OSP_MANAGER' || stockReq.workflowStage.includes('OSP')) {
+                updatePayload.hsOspAction = 'APPROVED';
+                updatePayload.hsOspDate = new Date();
+                updatePayload.managerAction = 'APPROVED';
+                updatePayload.managerDate = new Date();
+                updatePayload.approvedById = userId;
+            } else if (primaryRole === 'AREA_MANAGER' || stockReq.workflowStage.includes('ARM')) {
                 updatePayload.armAction = 'APPROVED';
                 updatePayload.armDate = new Date();
                 updatePayload.armRemarks = remarks || 'Approved by Area Manager';
@@ -405,16 +433,30 @@ export class StockRequestService {
             const mainStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
             const transitStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
 
-            for (const item of items || []) {
-                const issuedQty = StockService.round(item.issuedQty || 0);
-                if (issuedQty <= 0) continue;
+            let hasRemainingBalance = false;
 
-                const reqItem = stockReq.items.find((i: StockRequestItem) => i.id === item.id);
-                if (!reqItem) continue;
+            for (const reqItem of stockReq.items) {
+                const itemPayload = items?.find(i => i.id === reqItem.id);
+                const newlyIssuedQty = itemPayload ? StockService.round(itemPayload.issuedQty || 0) : 0;
+                
+                const targetQty = reqItem.approvedQty > 0 ? reqItem.approvedQty : reqItem.requestedQty;
+                const currentIssuedQty = reqItem.issuedQty || 0;
+                const totalIssuedQty = currentIssuedQty + newlyIssuedQty;
+                
+                if (totalIssuedQty < targetQty) {
+                    hasRemainingBalance = true;
+                }
+                
+                if (newlyIssuedQty <= 0) continue;
 
-                await StockRequestRepository.updateItem(reqItem.id, { issuedQty }, tx);
+                if (totalIssuedQty > targetQty) {
+                    throw AppError.badRequest(`Over-issuance detected: Cannot issue more than approved quantity for item ${reqItem.itemId}.`);
+                }
 
-                const pickedBatches = StockService.pickStoreBatchesFIFOBulk(availableBatches, reqItem.itemId, issuedQty);
+                // Update cumulative issued quantity
+                await StockRequestRepository.updateItem(reqItem.id, { issuedQty: totalIssuedQty }, tx);
+
+                const pickedBatches = StockService.pickStoreBatchesFIFOBulk(availableBatches, reqItem.itemId, newlyIssuedQty);
 
                 for (const picked of pickedBatches) {
                     if (picked.batchId) {
@@ -445,7 +487,7 @@ export class StockRequestService {
                 // Decrement from Main Store, Increment into Transit Store
                 const mainStoreKey = `${stockReq.toStoreId}:${reqItem.itemId}`;
                 if (globalStockSet.has(mainStoreKey)) {
-                    await InventoryRepository.commitAllocatedStock(stockReq.toStoreId!, reqItem.itemId, issuedQty, tx);
+                    await InventoryRepository.commitAllocatedStock(stockReq.toStoreId!, reqItem.itemId, newlyIssuedQty, tx);
                 } else {
                     throw AppError.badRequest("Cannot commit allocated stock for non-existent stock record.");
                 }
@@ -454,11 +496,11 @@ export class StockRequestService {
                 if (globalStockSet.has(transitStoreKey)) {
                     await prismaTx.inventoryStock.update({
                         where: { storeId_itemId: { storeId: transitStoreId, itemId: reqItem.itemId } },
-                        data: { quantity: { increment: issuedQty } }
+                        data: { quantity: { increment: newlyIssuedQty } }
                     });
                 } else {
                     await prismaTx.inventoryStock.create({
-                        data: { storeId: transitStoreId, itemId: reqItem.itemId, quantity: issuedQty }
+                        data: { storeId: transitStoreId, itemId: reqItem.itemId, quantity: newlyIssuedQty }
                     });
                     globalStockSet.add(transitStoreKey);
                 }
@@ -486,7 +528,7 @@ export class StockRequestService {
                     storeId: stockReq.toStoreId!,
                     referenceId: stockReq.requestNr,
                     userId: userId || 'SYSTEM',
-                    notes: `Released to Transit - Request ${stockReq.requestNr}`,
+                    notes: `Released to Transit (Partial/Full) - Request ${stockReq.requestNr}`,
                     items: {
                         create: mainStoreTransactionItems
                     }
@@ -499,15 +541,19 @@ export class StockRequestService {
                     storeId: transitStoreId,
                     referenceId: stockReq.requestNr,
                     userId: userId || 'SYSTEM',
-                    notes: `Transit incoming from Main Store - Request ${stockReq.requestNr}`,
+                    notes: `Transit incoming from Main Store (Partial/Full) - Request ${stockReq.requestNr}`,
                     items: {
                         create: transitStoreTransactionItems
                     }
                 }, tx);
             }
 
+            const nextStage = hasRemainingBalance ? 'PARTIALLY_ISSUED' : 'SUB_STORE_RECEIVE';
+            const nextStatus = hasRemainingBalance ? 'PARTIALLY_ISSUED' : 'APPROVED';
+
             const updated = await StockRequestRepository.update(requestId, {
-                workflowStage: 'SUB_STORE_RECEIVE',
+                workflowStage: nextStage,
+                status: nextStatus,
                 releasedById: userId,
                 releasedDate: new Date(),
                 releasedRemarks: remarks
@@ -526,7 +572,9 @@ export class StockRequestService {
             }> | null;
 
             if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
-            if (stockReq.workflowStage !== 'SUB_STORE_RECEIVE') throw AppError.badRequest("INVALID_WORKFLOW_STAGE");
+            if (stockReq.workflowStage !== 'SUB_STORE_RECEIVE' && stockReq.workflowStage !== 'PARTIALLY_ISSUED') {
+                throw AppError.badRequest("INVALID_WORKFLOW_STAGE");
+            }
 
             const transitStoreId = await this.getOrCreateTransitStore(tx);
             const prismaTx = tx as unknown as typeof prisma;
@@ -569,27 +617,25 @@ export class StockRequestService {
             });
             const globalStockSet = new Set(globalStocks.map(gs => `${gs.storeId}:${gs.itemId}`));
 
-            let totalIssued = 0;
-            let totalReceived = 0;
-
             const transitStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
             const subStoreTransactionItems: Array<{ itemId: string; batchId: string; quantity: number }> = [];
 
+            // We mutate reqItem.receivedQty in memory so we can sum it up later
             for (const item of items || []) {
-                const receivedQty = StockService.round(item.receivedQty || 0);
+                const incomingReceiveQty = StockService.round(item.receivedQty || 0);
                 const reqItem = stockReq.items.find((i: StockRequestItem) => i.id === item.id);
 
                 if (!reqItem) continue;
-                if (receivedQty <= 0) continue;
+                if (incomingReceiveQty <= 0) continue;
+                
+                const newTotalReceived = StockService.round((reqItem.receivedQty || 0) + incomingReceiveQty);
+                reqItem.receivedQty = newTotalReceived; // Update in memory
 
-                totalIssued += StockService.round(reqItem.issuedQty || 0);
-                totalReceived += receivedQty;
-
-                await StockRequestRepository.updateItem(reqItem.id, { receivedQty }, tx);
+                await StockRequestRepository.updateItem(reqItem.id, { receivedQty: newTotalReceived }, tx);
 
                 const movements = movementsMap.get(reqItem.itemId) || [];
                 const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
-                let remainingToReceive = receivedQty;
+                let remainingToReceive = incomingReceiveQty;
 
                 for (const m of movements) {
                     if (remainingToReceive <= 0) break;
@@ -631,17 +677,17 @@ export class StockRequestService {
                 }
 
                 // Decrement from Transit Store, Increment into Destination Store
-                await InventoryRepository.decrementStockAtomic(transitStoreId, reqItem.itemId, receivedQty, prismaTx);
+                await InventoryRepository.decrementStockAtomic(transitStoreId, reqItem.itemId, incomingReceiveQty, prismaTx);
 
                 const destStockKey = `${stockReq.fromStoreId}:${reqItem.itemId}`;
                 if (globalStockSet.has(destStockKey)) {
                     await prismaTx.inventoryStock.update({
                         where: { storeId_itemId: { storeId: stockReq.fromStoreId!, itemId: reqItem.itemId } },
-                        data: { quantity: { increment: receivedQty } }
+                        data: { quantity: { increment: incomingReceiveQty } }
                     });
                 } else {
                     await prismaTx.inventoryStock.create({
-                        data: { storeId: stockReq.fromStoreId!, itemId: reqItem.itemId, quantity: receivedQty }
+                        data: { storeId: stockReq.fromStoreId!, itemId: reqItem.itemId, quantity: incomingReceiveQty }
                     });
                     globalStockSet.add(destStockKey);
                 }
@@ -687,9 +733,40 @@ export class StockRequestService {
                 }, tx);
             }
 
+            let totalIssued = 0;
+            let totalReceived = 0;
+            let totalApproved = 0;
+
+            for (const item of stockReq.items) {
+                totalIssued += StockService.round(item.issuedQty || 0);
+                totalReceived += StockService.round(item.receivedQty || 0);
+                totalApproved += StockService.round(item.approvedQty > 0 ? item.approvedQty : item.requestedQty);
+            }
+
+            const hasUnissuedBalance = totalIssued < totalApproved;
+            const hasUnreceivedBalance = totalReceived < totalIssued;
+            
+            // If they received everything that was issued, but there's STILL unissued balance, it remains PARTIALLY_ISSUED.
+            // If they didn't receive everything issued yet, but there's no unissued balance, it goes to SUB_STORE_RECEIVE.
+            // Wait, if hasUnissuedBalance, it goes back to/stays PARTIALLY_ISSUED (main store needs to issue more).
+            // If !hasUnissuedBalance and !hasUnreceivedBalance, it is COMPLETED.
+            let nextStage = stockReq.workflowStage;
+            let nextStatus = stockReq.status;
+
+            if (hasUnissuedBalance) {
+                nextStage = 'PARTIALLY_ISSUED';
+                nextStatus = 'PARTIALLY_ISSUED';
+            } else if (hasUnreceivedBalance) {
+                nextStage = 'SUB_STORE_RECEIVE';
+                nextStatus = 'APPROVED'; // or 'PARTIALLY_COMPLETED'
+            } else {
+                nextStage = 'COMPLETED';
+                nextStatus = 'COMPLETED';
+            }
+
             const updated = await StockRequestRepository.update(requestId, {
-                status: totalReceived >= totalIssued ? 'COMPLETED' : 'PARTIALLY_COMPLETED',
-                workflowStage: 'COMPLETED',
+                status: nextStatus,
+                workflowStage: nextStage,
                 receivedById: userId,
                 receivedDate: new Date(),
                 receivedRemarks: remarks

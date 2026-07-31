@@ -36,7 +36,9 @@ export function useSidebarNotifications(
     const fetchMenuCounts = useCallback(async () => {
         if (!userId) return;
         try {
-            const res = await fetch(`/api/notifications/sidebar-counts?_t=${Date.now()}`);
+            const res = await fetch(`/api/notifications/sidebar-counts?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
+                headers: { 'x-user-id': userId }
+            });
             if (res.ok) {
                 const data = await res.json();
                 if (data.success && data.data) {
@@ -52,10 +54,12 @@ export function useSidebarNotifications(
         if (!userId) return;
         setLoadingNotifications(true);
         try {
-            const res = await fetch(`/api/notifications?_t=${Date.now()}`);
+            const res = await fetch(`/api/notifications?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
+                headers: { 'x-user-id': userId }
+            });
             if (res.ok) {
                 const json = await res.json();
-                const list = Array.isArray(json.data) ? json.data : [];
+                const list = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
                 setNotifications(list.slice(0, 8)); // latest 8 notifications in sidebar drawer
                 setUnreadCount(list.filter((n: SidebarNotification) => !n.isRead).length);
             }
@@ -68,7 +72,11 @@ export function useSidebarNotifications(
 
     const handleMarkAllRead = async (silent = false) => {
         try {
-            const res = await fetch('/api/notifications', { method: 'PATCH' });
+            const uid = userId || '';
+            const res = await fetch(`/api/notifications?userId=${encodeURIComponent(uid)}`, { 
+                method: 'PATCH',
+                headers: { 'x-user-id': uid }
+            });
             if (res.ok) {
                 setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
                 setUnreadCount(0);

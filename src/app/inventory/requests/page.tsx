@@ -20,6 +20,7 @@ interface User {
     id: string;
     name: string;
     role: string;
+    assignedStoreId?: string;
 }
 
 interface InventoryItem {
@@ -27,7 +28,9 @@ interface InventoryItem {
     itemId: string;
     item: { name: string; code?: string; unit: string; price?: number; unitPrice?: number };
     requestedQty: number;
-    approvedQty?: number;
+    approvedQty: number;
+    issuedQty?: number;
+    receivedQty?: number;
     remarks?: string;
 }
 
@@ -49,6 +52,8 @@ interface InventoryRequest {
     sltReferenceId?: string | null;
     workflowStage?: string | null;
     sourceType?: string | null;
+    hsOspAction?: string | null;
+    managerAction?: string | null;
     items: InventoryItem[];
 }
 
@@ -81,7 +86,7 @@ export default function RequestsPage() {
     // User permissions (Centralized RBAC Configuration Driven with Hydration Safety)
     const isStoresOfficer = mounted && hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
     const isAreaManager = mounted && hasRole(user?.role, ROLE_GROUPS.AREA_MANAGERS);
-    const isProcurementRole = mounted && hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
+    const isProcurementRole = mounted && hasRole(user?.role, ROLE_GROUPS.PROCUREMENT);
 
     // Approval State
     const [selectedRequest, setSelectedRequest] = useState<InventoryRequest | null>(null);
@@ -148,10 +153,21 @@ export default function RequestsPage() {
                 action,
                 remarks: approverRemarks,
                 userId: user?.id,
-                allocation: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'RELEASE') ? selectedRequest.items.map((i) => ({
-                    itemId: i.itemId,
-                    approvedQty: allocation[i.itemId] ?? i.requestedQty
-                })) : undefined
+                allocation: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'RELEASE' || action === 'RECEIVE') ? selectedRequest.items.map((i) => {
+                    let defaultQty = i.requestedQty;
+                    if (action === 'RELEASE') {
+                        defaultQty = Math.max(0, (i.approvedQty > 0 ? i.approvedQty : i.requestedQty) - (i.issuedQty || 0));
+                    } else if (action === 'RECEIVE') {
+                        defaultQty = Math.max(0, (i.issuedQty || 0) - (i.receivedQty || 0));
+                    }
+                    return {
+                        id: i.id,
+                        itemId: i.itemId,
+                        approvedQty: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE') ? (allocation[i.itemId] ?? i.requestedQty) : undefined,
+                        issuedQty: action === 'RELEASE' ? (allocation[i.itemId] ?? defaultQty) : undefined,
+                        receivedQty: action === 'RECEIVE' ? (allocation[i.itemId] ?? defaultQty) : undefined
+                    };
+                }) : undefined
             };
 
             return await processStockRequestAction(body);
@@ -217,35 +233,50 @@ export default function RequestsPage() {
                         </div>
 
                         {/* Primary Side Tabs (Internal Transfers vs Procurement Requisitions) */}
-                        {isProcurementRole && (
-                            <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200">
-                                <button
-                                    onClick={() => setRequestSide('internal')}
-                                    className={cn(
-                                        "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
-                                        requestSide === 'internal'
-                                            ? "bg-white text-blue-950 shadow-xs border border-slate-200/80"
-                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
-                                    )}
-                                >
-                                    <Package className="w-4 h-4 text-blue-600" />
-                                    📦 Internal Store Transfers (Inter-Store Dispatch)
-                                </button>
+                        {isProcurementRole && (() => {
+                            const internalPendingCount = requests.filter(r => (r.toStoreId || r.sourceType === 'SLT') && r.status === 'PENDING').length;
+                            const procurementPendingCount = requests.filter(r => (!r.toStoreId || r.sourceType === 'LOCAL' || r.sourceType === 'PROCUREMENT') && r.status === 'PENDING').length;
+                            
+                            return (
+                                <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200">
+                                    <button
+                                        onClick={() => setRequestSide('internal')}
+                                        className={cn(
+                                            "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative",
+                                            requestSide === 'internal'
+                                                ? "bg-white text-blue-950 shadow-xs border border-slate-200/80"
+                                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                        )}
+                                    >
+                                        <Package className="w-4 h-4 text-blue-600" />
+                                        <span>📦 Internal Store Transfers (Inter-Store Dispatch)</span>
+                                        {internalPendingCount > 0 && (
+                                            <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-600 text-white shadow-sm animate-pulse border border-blue-400">
+                                                {internalPendingCount} PENDING
+                                            </span>
+                                        )}
+                                    </button>
 
-                                <button
-                                    onClick={() => setRequestSide('procurement')}
-                                    className={cn(
-                                        "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
-                                        requestSide === 'procurement'
-                                            ? "bg-white text-amber-950 shadow-xs border border-amber-200/80"
-                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
-                                    )}
-                                >
-                                    <DollarSign className="w-4 h-4 text-amber-600" />
-                                    🛍️ Procurement Requisitions (Vendor Replenishment)
-                                </button>
-                            </div>
-                        )}
+                                    <button
+                                        onClick={() => setRequestSide('procurement')}
+                                        className={cn(
+                                            "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative",
+                                            requestSide === 'procurement'
+                                                ? "bg-white text-amber-950 shadow-xs border border-amber-200/80"
+                                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                        )}
+                                    >
+                                        <DollarSign className="w-4 h-4 text-amber-600" />
+                                        <span>🛍️ Procurement Requisitions (Vendor Replenishment)</span>
+                                        {procurementPendingCount > 0 && (
+                                            <span className="ml-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white shadow-md animate-pulse border border-amber-300 ring-2 ring-amber-400/40">
+                                                🔥 {procurementPendingCount} PENDING ACTION
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            );
+                        })()}
 
                         {/* Status Sub-Filters */}
                         <div className="flex border-b border-slate-200 justify-between items-center pb-2">
@@ -341,22 +372,24 @@ export default function RequestsPage() {
                                                             "text-[10px] px-1.5 py-0 font-semibold uppercase",
                                                             r.status === 'PENDING' ? 'border-amber-200 bg-amber-50 text-amber-700' :
                                                                 r.status === 'APPROVED' ? 'border-blue-200 bg-blue-50 text-blue-700' :
-                                                                    r.status === 'COMPLETED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
-                                                                        'border-gray-200 bg-gray-50 text-gray-600'
+                                                                    r.status === 'PARTIALLY_ISSUED' ? 'border-amber-400 bg-amber-50 text-amber-700' :
+                                                                        r.status === 'COMPLETED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
+                                                                            'border-gray-200 bg-gray-50 text-gray-600'
                                                         )}>
                                                             {r.status}
                                                         </Badge>
                                                     </td>
-                                                    <td className="px-4 py-1.5 text-right">
-                                                         {r.workflowStage === 'MAIN_STORE_RELEASE' && isStoresOfficer ? (
+                                                    <td className="px-4 py-1.5 text-right flex justify-end gap-1.5">
+                                                         {(r.workflowStage === 'MAIN_STORE_RELEASE' || r.workflowStage === 'PARTIALLY_ISSUED') && isStoresOfficer && (user?.assignedStoreId === r.toStoreId || !user?.assignedStoreId) ? (
                                                              <Button size="sm" className="h-7 px-2.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
                                                                  Release (MIN)
                                                              </Button>
-                                                         ) : (r.workflowStage === 'RECEIVE_PENDING' || r.workflowStage === 'DISPATCHED') && (isStoresOfficer || user?.id === r.requestedById) ? (
+                                                         ) : null}
+                                                         {(r.workflowStage === 'RECEIVE_PENDING' || r.workflowStage === 'DISPATCHED' || r.workflowStage === 'SUB_STORE_RECEIVE' || r.workflowStage === 'PARTIALLY_ISSUED') && (isStoresOfficer || user?.id === r.requestedById) && (user?.assignedStoreId === r.fromStoreId || !user?.assignedStoreId) ? (
                                                              <Button size="sm" className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
                                                                  Receive Stock
                                                              </Button>
-                                                         ) : r.status === 'PENDING' && isAreaManager ? (
+                                                         ) : r.status === 'PENDING' && (r.workflowStage === 'OSP_MANAGER_APPROVAL' ? isProcurementRole : isAreaManager) ? (
                                                              <Button size="sm" className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
                                                                  Review
                                                              </Button>
@@ -518,7 +551,12 @@ export default function RequestsPage() {
                                                             <th className="px-4 py-3">Item Code</th>
                                                             <th className="px-4 py-3 text-right">Requested</th>
                                                             <th className="px-4 py-3 text-right">Available</th>
-                                                            <th className="px-4 py-3 text-right w-32">Approved</th>
+                                                            <th className="px-4 py-3 text-right w-32">
+                                                                {
+                                                                    (selectedRequest?.workflowStage === 'RECEIVE_PENDING' || selectedRequest?.workflowStage === 'DISPATCHED' || selectedRequest?.workflowStage === 'SUB_STORE_RECEIVE' || (selectedRequest?.workflowStage === 'PARTIALLY_ISSUED' && user?.assignedStoreId === selectedRequest?.fromStoreId)) ? 'Receive Qty' :
+                                                                    (selectedRequest?.workflowStage === 'MAIN_STORE_RELEASE' || (selectedRequest?.workflowStage === 'PARTIALLY_ISSUED' && user?.assignedStoreId !== selectedRequest?.fromStoreId)) ? 'Issue Qty' : 'Approved Qty'
+                                                                }
+                                                            </th>
                                                             <th className="px-4 py-3 text-center">Unit</th>
                                                             <th className="px-4 py-3 text-center w-16">Remarks</th>
                                                         </tr>
@@ -552,7 +590,13 @@ export default function RequestsPage() {
                                                                             <Input
                                                                                 type="number"
                                                                                 className="h-8 w-24 text-right ml-auto text-xs font-bold border-blue-200 focus-visible:ring-blue-500 rounded-lg shadow-sm"
-                                                                                defaultValue={item.requestedQty}
+                                                                                defaultValue={
+                                                                                    (selectedRequest?.workflowStage === 'RECEIVE_PENDING' || selectedRequest?.workflowStage === 'DISPATCHED' || selectedRequest?.workflowStage === 'SUB_STORE_RECEIVE' || (selectedRequest?.workflowStage === 'PARTIALLY_ISSUED' && user?.assignedStoreId === selectedRequest?.fromStoreId))
+                                                                                        ? Math.max(0, (item.issuedQty || 0) - (item.receivedQty || 0))
+                                                                                        : (selectedRequest?.workflowStage === 'MAIN_STORE_RELEASE' || (selectedRequest?.workflowStage === 'PARTIALLY_ISSUED' && user?.assignedStoreId !== selectedRequest?.fromStoreId))
+                                                                                            ? Math.max(0, (item.approvedQty > 0 ? item.approvedQty : item.requestedQty) - (item.issuedQty || 0))
+                                                                                            : item.requestedQty
+                                                                                }
                                                                                 onChange={(e) => setAllocation(prev => ({ ...prev, [item.itemId]: parseFloat(e.target.value) }))}
                                                                             />
                                                                         ) : (
@@ -728,7 +772,7 @@ export default function RequestsPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Step 2: Approval Stages */}
+                                                {/* Step 2: Management Approval */}
                                                 {selectedRequest.status === 'REJECTED' ? (
                                                     <div className="relative">
                                                         <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900"></span>
@@ -737,33 +781,55 @@ export default function RequestsPage() {
                                                             {selectedRequest.remarks ? `&ldquo;${selectedRequest.remarks}&rdquo;` : 'Rejected by Approver'}
                                                         </div>
                                                     </div>
-                                                ) : selectedRequest.status === 'APPROVED' || selectedRequest.status === 'COMPLETED' ? (
+                                                ) : (selectedRequest.hsOspAction === 'APPROVED' || selectedRequest.workflowStage === 'PROCUREMENT' || selectedRequest.workflowStage === 'GRN_PENDING' || selectedRequest.status === 'APPROVED' || selectedRequest.status === 'COMPLETED') ? (
                                                     <div className="relative">
                                                         <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
                                                         <div className="font-bold text-slate-800 dark:text-slate-200">Management Approval</div>
-                                                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold font-sans">Fully Approved</div>
+                                                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold font-sans">OSP Manager Approved</div>
                                                     </div>
                                                 ) : (
                                                     <div className="relative">
-                                                        <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
+                                                        <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
                                                         <div className="font-bold text-slate-800 dark:text-slate-200">
                                                             {selectedRequest.workflowStage === 'ARM_APPROVAL' ? 'Area Manager (ARM) Review' :
                                                              selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? 'OSP Manager Review' :
-                                                             selectedRequest.workflowStage === 'STORES_MANAGER_APPROVAL' ? 'Stores Manager Review' :
                                                              'Management Review'}
                                                         </div>
-                                                        <div className="text-[10px] text-blue-500 font-semibold">Awaiting Review</div>
+                                                        <div className="text-[10px] text-amber-600 font-semibold">Awaiting OSP Manager Approval</div>
                                                     </div>
                                                 )}
 
-                                                {/* Step 3: Goods Issued / Received */}
+                                                {/* Step 3: Procurement & Purchase Order (for Vendor Procurement Requisitions) */}
+                                                {(!selectedRequest.toStoreId || selectedRequest.sourceType === 'LOCAL_PURCHASE' || selectedRequest.sourceType === 'LOCAL' || selectedRequest.sourceType === 'PROCUREMENT') && (
+                                                    selectedRequest.workflowStage === 'GRN_PENDING' || selectedRequest.status === 'COMPLETED' ? (
+                                                        <div className="relative">
+                                                            <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
+                                                            <div className="font-bold text-slate-800 dark:text-slate-200">Procurement &amp; PO Creation</div>
+                                                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold font-sans">PO Issued to Vendor</div>
+                                                        </div>
+                                                    ) : selectedRequest.workflowStage === 'PROCUREMENT' ? (
+                                                        <div className="relative">
+                                                            <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
+                                                            <div className="font-bold text-slate-800 dark:text-slate-200">Procurement &amp; PO Creation</div>
+                                                            <div className="text-[10px] text-amber-600 font-semibold">Awaiting Procurement Officer / PO Entry</div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="relative opacity-60">
+                                                            <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-white dark:border-slate-900"></span>
+                                                            <div className="font-bold text-slate-500 dark:text-slate-400">Procurement &amp; PO Creation</div>
+                                                            <div className="text-[10px] text-slate-400">Pending Management Approval</div>
+                                                        </div>
+                                                    )
+                                                )}
+
+                                                {/* Step 4: Goods Receipt & GRN Entry */}
                                                 {selectedRequest.status === 'COMPLETED' ? (
                                                     <div className="relative">
                                                         <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
-                                                        <div className="font-bold text-slate-800 dark:text-slate-200">Materials Received</div>
-                                                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold font-sans">GRN Processed &amp; Stock Updated</div>
+                                                        <div className="font-bold text-slate-800 dark:text-slate-200">Store Receipt / GRN</div>
+                                                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold font-sans">GRN Entry Completed &amp; Stock Received</div>
                                                     </div>
-                                                ) : selectedRequest.status === 'APPROVED' ? (
+                                                ) : (selectedRequest.workflowStage === 'GRN_PENDING' || selectedRequest.status === 'APPROVED') ? (
                                                     <div className="relative">
                                                         <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
                                                         <div className="font-bold text-slate-800 dark:text-slate-200">Store Receipt / GRN</div>
@@ -781,7 +847,6 @@ export default function RequestsPage() {
                                     </>
                                 )}
                             </div>
-
                         </div>
 
                         {/* Dialog Footer Actions - Sticky Bottom */}
@@ -789,13 +854,13 @@ export default function RequestsPage() {
                             <Button 
                                 variant="outline" 
                                 onClick={() => setSelectedRequest(null)}
-                                className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
+                                                className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
                             >
                                 <X className="w-3.5 h-3.5" /> Cancel
                             </Button>
                             {selectedRequest && selectedRequest.status !== 'COMPLETED' && selectedRequest.status !== 'REJECTED' && (
                                 <div className="flex gap-2">
-                                    {selectedRequest.workflowStage === 'MAIN_STORE_RELEASE' ? (
+                                    {(selectedRequest.workflowStage === 'MAIN_STORE_RELEASE' || selectedRequest.workflowStage === 'PARTIALLY_ISSUED') && (user?.assignedStoreId === selectedRequest.toStoreId || !user?.assignedStoreId) ? (
                                         isStoresOfficer ? (
                                             <Button
                                                 onClick={() => approvalMutation.mutate({ action: 'RELEASE' })}
@@ -809,7 +874,8 @@ export default function RequestsPage() {
                                                 🔒 MIN Release restricted to Main Store Officers
                                             </Badge>
                                         )
-                                    ) : selectedRequest.workflowStage === 'RECEIVE_PENDING' || selectedRequest.workflowStage === 'DISPATCHED' ? (
+                                    ) : null}
+                                    {(selectedRequest.workflowStage === 'RECEIVE_PENDING' || selectedRequest.workflowStage === 'DISPATCHED' || selectedRequest.workflowStage === 'PARTIALLY_ISSUED') && (user?.assignedStoreId === selectedRequest.fromStoreId || !user?.assignedStoreId) ? (
                                         (isStoresOfficer || user?.id === selectedRequest.requestedById) ? (
                                             <Button
                                                 onClick={() => approvalMutation.mutate({ action: 'RECEIVE' })}
@@ -823,6 +889,37 @@ export default function RequestsPage() {
                                                 🔒 Stock receipt restricted to Receiving Store Officers
                                             </Badge>
                                         )
+                                    ) : selectedRequest.workflowStage === 'OSP_MANAGER_APPROVAL' ? (
+                                        ROLE_GROUPS.PROCUREMENT.includes(user?.role || '') ? (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => approvalMutation.mutate({ action: 'REJECT' })}
+                                                    disabled={approvalMutation.isPending}
+                                                    className="h-9 px-4 text-xs font-bold rounded-xl border-red-200 hover:bg-red-50 text-red-600 flex items-center gap-1.5"
+                                                >
+                                                    <Ban className="w-3.5 h-3.5" /> Reject Requisition
+                                                </Button>
+                                                <Button
+                                                    onClick={() => approvalMutation.mutate({ action: 'APPROVE' })}
+                                                    disabled={approvalMutation.isPending}
+                                                    className="h-9 px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                                                >
+                                                    <Check className="w-3.5 h-3.5" /> {approvalMutation.isPending ? 'Processing...' : 'Approve Procurement Requisition'}
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs px-3 py-1.5 font-medium">
+                                                🔒 Pending OSP Manager Approval
+                                            </Badge>
+                                        )
+                                    ) : selectedRequest.workflowStage === 'GRN_PENDING' ? (
+                                        <Button
+                                            onClick={() => router.push(`/inventory/grn?requestId=${selectedRequest.id}`)}
+                                            className="h-9 px-4 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                                        >
+                                            <Package className="w-3.5 h-3.5" /> Proceed to GRN Entry
+                                        </Button>
                                     ) : (
                                         isAreaManager ? (
                                             <>

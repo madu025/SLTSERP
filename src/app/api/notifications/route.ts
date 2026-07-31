@@ -6,10 +6,10 @@ import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request) => {
-    const userId = request.headers.get('x-user-id');
+    const { searchParams } = new URL(request.url);
+    const userId = request.headers.get('x-user-id') || searchParams.get('userId');
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
-    const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50', 10);
 
     // Trigger today's appointments and reminder checks in background

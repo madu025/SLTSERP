@@ -155,16 +155,17 @@ export default function NotificationBell() {
         queryFn: async () => {
             if (!userId) return [];
             try {
-                const res = await fetch(`/api/notifications?_t=${Date.now()}`, {
+                const res = await fetch(`/api/notifications?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
                     cache: 'no-store',
                     headers: {
                         'Pragma': 'no-cache',
-                        'Cache-Control': 'no-cache'
+                        'Cache-Control': 'no-cache',
+                        'x-user-id': userId
                     }
                 });
                 if (!res.ok) return [];
                 const json = await res.json();
-                return Array.isArray(json.data) ? json.data : [];
+                return Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
             } catch (err) {
                 console.error("Fetch notifications error:", err);
                 return [];
@@ -182,7 +183,8 @@ export default function NotificationBell() {
     const markAsReadMutation = useMutation({
         mutationFn: async (notificationId: string) => {
             await fetch(`/api/notifications/${notificationId}`, {
-                method: "PATCH"
+                method: "PATCH",
+                headers: { 'x-user-id': userId || '' }
             });
         },
         onSuccess: () => {
@@ -193,8 +195,9 @@ export default function NotificationBell() {
     // Mark all as read mutation
     const markAllReadMutation = useMutation({
         mutationFn: async () => {
-            await fetch("/api/notifications", {
-                method: "PATCH"
+            await fetch(`/api/notifications?userId=${encodeURIComponent(userId || '')}`, {
+                method: "PATCH",
+                headers: { 'x-user-id': userId || '' }
             });
         },
         onSuccess: () => {

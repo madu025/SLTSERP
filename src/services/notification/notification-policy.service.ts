@@ -138,19 +138,19 @@ export class NotificationPolicyService {
         let stageName = '';
 
         if (stage === 'ARM_APPROVAL') {
-            roles = ['AREA_MANAGER', 'OFFICE_ADMIN'];
+            roles = ['AREA_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN', 'ADMIN'];
             stageName = 'ARM approval';
         } else {
-            roles = ['OSP_MANAGER', 'ADMIN'];
-            stageName = 'OSP Manager approval';
+            roles = ['OSP_MANAGER', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'STORES_MANAGER', 'SUPER_ADMIN', 'ADMIN'];
+            stageName = 'OSP Manager / Procurement approval';
         }
 
         await NotificationService.notifyByRole({
             roles,
-            title: 'New Material Request',
-            message: `New material request ${req.requestNr} from ${req.fromStoreName} requires your ${stageName}.`,
+            title: stage === 'ARM_APPROVAL' ? 'New Material Request' : 'New Procurement Requisition',
+            message: `New Material Request ${req.requestNr} from ${req.fromStoreName} requires your ${stageName}.`,
             type: 'INVENTORY',
-            priority: 'MEDIUM',
+            priority: 'HIGH',
             link: '/inventory/requests',
             opmcId: req.opmcId,
             metadata: { requestId: req.id, type: req.type }

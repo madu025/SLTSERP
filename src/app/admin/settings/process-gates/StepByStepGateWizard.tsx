@@ -40,7 +40,8 @@ export function StepByStepGateWizard({
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [domainActions, setDomainActions] = useState<{label: string; value: string; entityType: string; description?: string}[]>([]);
-  const [dynamicStatuses, setDynamicStatuses] = useState<Record<string, {label: string; value: string}[]>>({});
+  const [dynamicStatuses, setDynamicStatuses] = useState<Record<string, Array<{ label: string; value: string }>>>({});
+  const [usersList, setUsersList] = useState<Array<{ id: string; name: string; role: string; username?: string; employeeId?: string }>>([]);
 
   // Fetch registered Domain Actions and Workflow Statuses from API
   useEffect(() => {
@@ -61,6 +62,14 @@ export function StepByStepGateWizard({
         }
       })
       .catch(err => console.error('Failed to load workflow statuses', err));
+
+    fetch('/api/users?page=1&limit=1000')
+      .then(res => res.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.users || []);
+        setUsersList(list);
+      })
+      .catch(err => console.error('Failed to load users for gate wizard', err));
   }, []);
 
   // Form State for Gate Policy
@@ -473,7 +482,7 @@ export function StepByStepGateWizard({
                       )}
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-3">
+                    <div className="grid md:grid-cols-3 gap-3">
                       <div className="space-y-1">
                         <label className="block text-xs font-bold text-slate-700">Required Role:</label>
                         <select
@@ -482,11 +491,34 @@ export function StepByStepGateWizard({
                           className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
                         >
                           <option value="OSP_MANAGER">OSP_MANAGER (OSP Manager)</option>
+                          <option value="HEAD_OF_OSP">HEAD_OF_OSP (Head of Section / Department)</option>
                           <option value="STORES_MANAGER">STORES_MANAGER (Stores Manager)</option>
                           <option value="FINANCE_MANAGER">FINANCE_MANAGER (Finance Manager)</option>
                           <option value="AREA_MANAGER">AREA_MANAGER (Area Manager)</option>
                           <option value="ENGINEER">ENGINEER (Telecom Engineer)</option>
                           <option value="ADMIN">ADMIN (System Administrator)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-slate-700">Designated Specific User (Optional):</label>
+                        <select
+                          value={lvl.specificUserId || ''}
+                          onChange={(e) => {
+                            const updated = [...levels];
+                            updated[index].specificUserId = e.target.value || undefined;
+                            setLevels(updated);
+                          }}
+                          className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
+                        >
+                          <option value="">Any User with Role (Dynamic OPMC Scope)</option>
+                          {usersList
+                            .filter(u => u.role === lvl.requiredRole || lvl.requiredRole === 'ADMIN')
+                            .map(u => (
+                              <option key={u.id} value={u.id}>
+                                👤 {u.name} ({u.username || u.employeeId || u.id})
+                              </option>
+                            ))}
                         </select>
                       </div>
 
