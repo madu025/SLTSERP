@@ -83,6 +83,18 @@ function getSlaAgingBadge(receivedDate?: Date | string | null) {
     }
 }
 
+function parseSoNumberDate(soNum?: string | null): Date | null {
+    if (!soNum) return null;
+    const match = soNum.match(/20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/);
+    if (!match) return null;
+    const dateStr = match[0];
+    const year = parseInt(dateStr.slice(0, 4), 10);
+    const month = parseInt(dateStr.slice(4, 6), 10) - 1;
+    const day = parseInt(dateStr.slice(6, 8), 10);
+    const date = new Date(year, month, day);
+    return isNaN(date.getTime()) ? null : date;
+}
+
 export function SODSheetTable(props: SODSheetTableProps) {
     const {
         orders,
@@ -849,22 +861,38 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 </span>
                                             )}
                                         </div>
-                                        {/* Received Date & Dynamic KPI Aging Indicator */}
-                                        {order.receivedDate && (
-                                            <div className="flex items-center gap-1.5 font-sans">
-                                                <span className="text-[8.5px] font-medium text-muted-foreground font-mono" title="Received Date">
-                                                    {new Date(order.receivedDate).toLocaleDateString('en-GB')}
-                                                </span>
-                                                {filterType === 'pending' && (() => {
-                                                    const sla = getSlaAgingBadge(order.receivedDate);
-                                                    return (
-                                                        <span className={`px-1 py-0.1 text-[7.5px] font-extrabold uppercase rounded border ${sla.className}`} title={`Received ${sla.days} days ago`}>
-                                                            {sla.text}
-                                                        </span>
-                                                    );
-                                                })()}
-                                            </div>
-                                        )}
+                                         {/* Received Date Subtext & Dynamic KPI Aging/Turnaround Indicator */}
+                                         {(() => {
+                                             const parsedDate = parseSoNumberDate(order.soNum);
+                                             const effectiveDate = parsedDate || (order.receivedDate ? new Date(order.receivedDate) : null);
+                                             if (!effectiveDate) return null;
+
+                                             return (
+                                                 <div className="flex items-center gap-1.5 font-sans">
+                                                     <span className="text-[8.5px] font-medium text-muted-foreground font-mono" title="SO Issue / Received Date">
+                                                         {effectiveDate.toLocaleDateString('en-GB')}
+                                                     </span>
+                                                     {filterType === 'pending' && (() => {
+                                                         const sla = getSlaAgingBadge(effectiveDate);
+                                                         return (
+                                                             <span className={`px-1 py-0.1 text-[7.5px] font-extrabold uppercase rounded border ${sla.className}`} title={`Received ${sla.days} days ago`}>
+                                                                 {sla.text}
+                                                             </span>
+                                                         );
+                                                     })()}
+                                                     {filterType === 'completed' && order.completedDate && (() => {
+                                                         const compDate = new Date(order.completedDate);
+                                                         const diffTime = Math.max(0, compDate.getTime() - effectiveDate.getTime());
+                                                         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                                         return (
+                                                             <span className="px-1 py-0.1 text-[7.5px] font-extrabold uppercase rounded border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-mono" title={`Completed in ${diffDays} days`}>
+                                                                 {diffDays}d
+                                                             </span>
+                                                         );
+                                                     })()}
+                                                 </div>
+                                             );
+                                         })()}
                                     </div>
                                 </td>
 
