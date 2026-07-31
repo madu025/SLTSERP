@@ -26,7 +26,7 @@ export const redis = (() => {
 // Prevent unhandled error events from crashing the process
 redis.on('error', (err) => {
     // Suppress ECONNREFUSED noise when Redis is not running locally or during build
-    const errCode = (err as Record<string, unknown>)?.code;
+    const errCode = (err as unknown as Record<string, unknown>)?.code;
     if (err?.message?.includes('ECONNREFUSED') || errCode === 'ECONNREFUSED') {
         return;
     }
