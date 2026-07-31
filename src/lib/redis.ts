@@ -12,15 +12,12 @@ export const redis = (() => {
     }
 
     const client = redisGlobal.redis ?? new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-        enableOfflineQueue: isProduction, // Fail instantly if Redis is down in local dev
-        maxRetriesPerRequest: (isVercel || !isProduction) ? 3 : null,
-        connectTimeout: 2000, // 2 seconds
+        enableOfflineQueue: false, // Prevent queuing commands when Redis is down
+        maxRetriesPerRequest: 2,
+        connectTimeout: 2000,
         retryStrategy(times) {
-            if (isVercel || !isProduction) {
-                if (times > 2) return null;
-                return 200; // Fast retry
-            }
-            return Math.min(times * 100, 3000);
+            if (times > 2) return null; // Stop retrying after 2 attempts
+            return 200;
         }
     });
 
@@ -29,12 +26,11 @@ export const redis = (() => {
 
 // Prevent unhandled error events from crashing the process
 redis.on('error', (err) => {
-    // We only log if it's not a connection error that ioredis will retry anyway
-    if (!isProduction || err.message.includes('ECONNREFUSED')) {
-        // Suppress noisy logs in dev, or at least prevent crash
-    } else {
-        console.error('Redis error:', err);
+    // Suppress ECONNREFUSED noise when Redis is not running locally or during build
+    if (err?.message?.includes('ECONNREFUSED') || (err as any)?.code === 'ECONNREFUSED') {
+        return;
     }
+    console.warn('[REDIS] Non-fatal connection issue:', err.message);
 });
 
 if (!isProduction) {
