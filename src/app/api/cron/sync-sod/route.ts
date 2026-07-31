@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod/sod.service';
