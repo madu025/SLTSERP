@@ -12,7 +12,7 @@ import { SystemConfigService } from '@/services/core/system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
 import { MaterialUsageInput } from './sod-types';
 import { format, subMonths } from 'date-fns';
-import { safe, safeSync } from '@/utils/safe-await.util';
+import { safe } from '@/utils/safe-await.util';
 
 interface SyncStats {
     queuedCount: number;
@@ -708,15 +708,16 @@ export class SODSyncService {
                             entityType: 'SOD',
                             entityId: existing.id,
                             currentStatus: existing.sltsStatus,
-                            entityPayload: updatePayload as Record<string, any>
+                            entityPayload: updatePayload as Record<string, unknown>
                         });
 
                         if (gateResult.status === 'GATE_STARTED') {
                             blockStatusUpdate = true;
                             console.log(`[SYNC] FSM Intercepted transition for ${existing.soNum}. Halting sync-driven status update.`);
                         }
-                    } catch (gateErr: any) {
-                        console.warn(`[SYNC] FSM blocked transition for ${existing.soNum}:`, gateErr.message);
+                    } catch (gateErr: unknown) {
+                        const errMsg = gateErr instanceof Error ? gateErr.message : String(gateErr);
+                        console.warn(`[SYNC] FSM blocked transition for ${existing.soNum}:`, errMsg);
                         blockStatusUpdate = true;
                     }
                 }
