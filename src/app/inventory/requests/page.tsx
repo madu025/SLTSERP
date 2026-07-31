@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ClipboardList, Info, Building2, User, Check, Ban, DollarSign, Package, Clock, X, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, FileText } from "lucide-react";
+import { Plus, ClipboardList, Info, Building2, User, Check, Ban, DollarSign, Package, Clock, X, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, FileText, PackageCheck, CheckCircle2 } from "lucide-react";
 import { toast } from 'sonner';
 import { processStockRequestAction } from '@/actions/inventory-actions';
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ interface User {
 interface InventoryItem {
     id: string;
     itemId: string;
-    item: { name: string; code?: string; unit: string };
+    item: { name: string; code?: string; unit: string; price?: number; unitPrice?: number };
     requestedQty: number;
     approvedQty?: number;
     remarks?: string;
@@ -38,20 +38,24 @@ interface InventoryRequest {
     fromStoreId: string;
     fromStore: { name: string };
     toStoreId?: string | null;
-    requestedBy: { name: string };
+    toStore?: { name: string } | null;
+    requestedById?: string;
+    requestedBy: { id?: string; name: string };
     requiredDate?: string;
     createdAt: string;
     purpose?: string;
     remarks?: string;
     sltReferenceId?: string | null;
     workflowStage?: string | null;
+    sourceType?: string | null;
     items: InventoryItem[];
 }
 
 export default function RequestsPage() {
     const queryClient = useQueryClient();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
+    const [requestSide, setRequestSide] = useState<'internal' | 'procurement'>('internal');
+    const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'completed'>('all');
     const [user] = useState<User | null>(() => {
         if (typeof window !== 'undefined') {
             const stored = localStorage.getItem('user');
@@ -59,6 +63,10 @@ export default function RequestsPage() {
         }
         return null;
     });
+
+    // User permissions
+    const isStoresOfficer = user && ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN'].includes(user.role);
+    const isAreaManager = user && ['AREA_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role);
 
     // Approval State
     const [selectedRequest, setSelectedRequest] = useState<InventoryRequest | null>(null);
@@ -105,12 +113,19 @@ export default function RequestsPage() {
     });
 
     const filteredRequests = requests.filter((r) => {
+        // 1. Primary Side Filter (Internal vs Procurement)
+        const isProcurement = !r.toStoreId || r.sourceType === 'LOCAL' || r.sourceType === 'PROCUREMENT';
+        if (requestSide === 'internal' && isProcurement) return false;
+        if (requestSide === 'procurement' && !isProcurement) return false;
+
+        // 2. Status Sub-filter
         if (activeTab === 'pending') return r.status === 'PENDING';
+        if (activeTab === 'completed') return r.status === 'COMPLETED' || r.status === 'FULFILLED';
         return true;
     });
 
     const approvalMutation = useMutation({
-        mutationFn: async ({ action }: { action: 'APPROVE' | 'REJECT' }) => {
+        mutationFn: async ({ action }: { action: 'APPROVE' | 'REJECT' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'RELEASE' | 'RECEIVE' }) => {
             if (!selectedRequest) return;
 
             const body = {
@@ -118,7 +133,7 @@ export default function RequestsPage() {
                 action,
                 remarks: approverRemarks,
                 userId: user?.id,
-                allocation: action === 'APPROVE' ? selectedRequest.items.map((i) => ({
+                allocation: (action === 'APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE' || action === 'RELEASE') ? selectedRequest.items.map((i) => ({
                     itemId: i.itemId,
                     approvedQty: allocation[i.itemId] ?? i.requestedQty
                 })) : undefined
@@ -186,20 +201,75 @@ export default function RequestsPage() {
                             </div>
                         </div>
 
-                        {/* Tabs */}
-                        <div className="flex space-x-1 bg-slate-200/40 p-1 rounded-lg w-fit flex-none border border-slate-200/60">
+                        {/* Primary Side Tabs (Internal Transfers vs Procurement Requisitions) */}
+                        <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200">
                             <button
-                                onClick={() => setActiveTab('all')}
-                                className={cn("px-3 py-1 text-xs font-semibold rounded transition-all", activeTab === 'all' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700")}
+                                onClick={() => setRequestSide('internal')}
+                                className={cn(
+                                    "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
+                                    requestSide === 'internal'
+                                        ? "bg-white text-blue-950 shadow-xs border border-slate-200/80"
+                                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                )}
                             >
-                                All Requests
+                                <Package className="w-4 h-4 text-blue-600" />
+                                📦 Internal Store Transfers (Inter-Store Dispatch)
                             </button>
+
                             <button
-                                onClick={() => setActiveTab('pending')}
-                                className={cn("px-3 py-1 text-xs font-semibold rounded transition-all", activeTab === 'pending' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700")}
+                                onClick={() => setRequestSide('procurement')}
+                                className={cn(
+                                    "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
+                                    requestSide === 'procurement'
+                                        ? "bg-white text-amber-950 shadow-xs border border-amber-200/80"
+                                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                )}
                             >
-                                Pending Approval
+                                <DollarSign className="w-4 h-4 text-amber-600" />
+                                🛍️ Procurement Requisitions (Vendor Replenishment)
                             </button>
+                        </div>
+
+                        {/* Status Sub-Filters */}
+                        <div className="flex border-b border-slate-200 justify-between items-center pb-2">
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setActiveTab('all')}
+                                    className={cn(
+                                        "px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                                        activeTab === 'all'
+                                            ? "bg-slate-900 text-white"
+                                            : "text-slate-600 hover:bg-slate-100"
+                                    )}
+                                >
+                                    All Requests ({requests.filter(r => requestSide === 'procurement' ? (!r.toStoreId || r.sourceType === 'LOCAL') : (r.toStoreId || r.sourceType === 'SLT')).length})
+                                </button>
+
+                                <button
+                                    onClick={() => setActiveTab('pending')}
+                                    className={cn(
+                                        "px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5",
+                                        activeTab === 'pending'
+                                            ? "bg-amber-600 text-white"
+                                            : "text-slate-600 hover:bg-slate-100"
+                                    )}
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Pending Approval ({requests.filter(r => r.status === 'PENDING' && (requestSide === 'procurement' ? (!r.toStoreId || r.sourceType === 'LOCAL') : (r.toStoreId || r.sourceType === 'SLT'))).length})
+                                </button>
+                            </div>
+
+                            <Button
+                                size="sm"
+                                onClick={() => router.push(requestSide === 'procurement' ? '/inventory/requests/create?sourceType=LOCAL' : '/inventory/requests/create')}
+                                className={cn(
+                                    "h-8 text-xs font-bold shadow-xs flex items-center gap-1.5",
+                                    requestSide === 'procurement' ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+                                )}
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                {requestSide === 'procurement' ? 'New Procurement Requisition' : 'New Internal Transfer Request'}
+                            </Button>
                         </div>
 
                         {/* List */}
@@ -261,15 +331,23 @@ export default function RequestsPage() {
                                                         </Badge>
                                                     </td>
                                                     <td className="px-4 py-1.5 text-right">
-                                                        {r.status === 'PENDING' ? (
-                                                            <Button size="sm" className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
-                                                                Review
-                                                            </Button>
-                                                        ) : (
-                                                            <Button size="sm" variant="ghost" className="h-7 px-2.5 text-xs text-slate-500 hover:text-slate-800" onClick={() => { setSelectedRequest(r); setApprovalMode(false); }}>
-                                                                Details
-                                                            </Button>
-                                                        )}
+                                                         {r.workflowStage === 'MAIN_STORE_RELEASE' && isStoresOfficer ? (
+                                                             <Button size="sm" className="h-7 px-2.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
+                                                                 Release (MIN)
+                                                             </Button>
+                                                         ) : (r.workflowStage === 'RECEIVE_PENDING' || r.workflowStage === 'DISPATCHED') && (isStoresOfficer || user?.id === r.requestedById) ? (
+                                                             <Button size="sm" className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
+                                                                 Receive Stock
+                                                             </Button>
+                                                         ) : r.status === 'PENDING' && isAreaManager ? (
+                                                             <Button size="sm" className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
+                                                                 Review
+                                                             </Button>
+                                                         ) : (
+                                                             <Button size="sm" variant="ghost" className="h-7 px-2.5 text-xs text-slate-500 hover:text-slate-800" onClick={() => { setSelectedRequest(r); setApprovalMode(false); }}>
+                                                                 Details
+                                                             </Button>
+                                                         )}
                                                     </td>
                                                 </tr>
                                             ))
@@ -299,84 +377,115 @@ export default function RequestsPage() {
                                 </button>
                             </div>
 
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Material Request</span>
-                                        <Badge className="bg-blue-50/80 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 text-[9px] px-2 py-0 font-bold rounded-full">
-                                            Pending Approval
-                                        </Badge>
-                                        <Badge className="bg-red-600 text-white border-none font-bold text-[9px] px-2 py-0 rounded-full flex items-center gap-1 shadow-sm">
-                                            <AlertCircle className="w-2.5 h-2.5" /> URGENT
-                                        </Badge>
-                                    </div>
-                                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight flex items-center gap-2">
-                                        {selectedRequest?.requestNr}
-                                    </h2>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                        Requested by <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest?.requestedBy?.name}</span> • 02 Jul 2026 • Required 03 Jul 2026
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Split Panels Body */}
-                        <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
-                            
-                            {/* LEFT PANEL (65% Scrollable) */}
-                            <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                {selectedRequest && (
-                                    <>
-                                        {/* Request Information - 6 Cards */}
-                                        <div className="space-y-3">
-                                            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                                <Info className="w-3.5 h-3.5 text-blue-500" /> Request Information
-                                            </h3>
-                                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                    <Tag className="w-4 h-4 text-slate-400" />
-                                                    <div className="min-w-0">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Purpose</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.purpose || 'OSP_FTTH'}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                    <Building2 className="w-4 h-4 text-slate-400" />
-                                                    <div className="min-w-0">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Store</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.fromStore.name}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                    <ClipboardList className="w-4 h-4 text-slate-400" />
-                                                    <div className="min-w-0">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Project</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block font-sans">FTTH Phase 04</span>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                    <User className="w-4 h-4 text-slate-400" />
-                                                    <div className="min-w-0">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Department</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">Network Deployment</span>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                    <DollarSign className="w-4 h-4 text-emerald-500" />
-                                                    <div className="min-w-0">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Budget</span>
-                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">LKR 2,500,000.00</span>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                    <AlertCircle className="w-4 h-4 text-red-500" />
-                                                    <div className="min-w-0">
-                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Priority</span>
-                                                        <Badge className="bg-red-500/10 text-red-600 border border-red-500/20 text-[9px] font-bold px-2 py-0 rounded">URGENT</Badge>
-                                                    </div>
-                                                </div>
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                                                    {selectedRequest?.sourceType === 'MAIN_STORE' ? 'Internal Store Transfer' : 'Material Purchase Requisition'}
+                                                </span>
+                                                <Badge className={cn(
+                                                    "text-[9px] px-2 py-0 font-bold rounded-full border",
+                                                    selectedRequest?.status === 'APPROVED' ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                                                    selectedRequest?.status === 'COMPLETED' ? "bg-blue-50 text-blue-600 border-blue-200" :
+                                                    selectedRequest?.status === 'REJECTED' ? "bg-rose-50 text-rose-600 border-rose-200" :
+                                                    "bg-amber-50 text-amber-600 border-amber-200"
+                                                )}>
+                                                    {selectedRequest?.status || 'PENDING'}
+                                                </Badge>
+                                                <Badge className={cn(
+                                                    "border text-[9px] font-bold px-2 py-0 rounded-full flex items-center gap-1 shadow-sm",
+                                                    selectedRequest?.priority === 'URGENT' ? "bg-red-600 text-white border-none" :
+                                                    selectedRequest?.priority === 'HIGH' ? "bg-amber-500 text-white border-none" :
+                                                    "bg-slate-100 text-slate-700 border-slate-200"
+                                                )}>
+                                                    <AlertCircle className="w-2.5 h-2.5" /> {selectedRequest?.priority || 'MEDIUM'}
+                                                </Badge>
                                             </div>
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                                                {selectedRequest?.requestNr}
+                                            </h2>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                Requested by <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest?.requestedBy?.name}</span> • Created {selectedRequest?.createdAt ? new Date(selectedRequest.createdAt).toLocaleDateString() : 'N/A'} • Required {selectedRequest?.requiredDate ? new Date(selectedRequest.requiredDate).toLocaleDateString() : 'Asap'}
+                                            </p>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Split Panels Body */}
+                                <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+                                    
+                                    {/* LEFT PANEL (65% Scrollable) */}
+                                    <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                        {selectedRequest && (
+                                            <>
+                                                {/* Request Information - 6 Cards */}
+                                                <div className="space-y-3">
+                                                    <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                                        <Info className="w-3.5 h-3.5 text-blue-500" /> Request Information
+                                                    </h3>
+                                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                            <Tag className="w-4 h-4 text-slate-400" />
+                                                            <div className="min-w-0">
+                                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Purpose / Reason</span>
+                                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.purpose || 'General Requirement'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                            <Building2 className="w-4 h-4 text-slate-400" />
+                                                            <div className="min-w-0">
+                                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Requesting Store</span>
+                                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.fromStore?.name || 'N/A'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                            <ClipboardList className="w-4 h-4 text-slate-400" />
+                                                            <div className="min-w-0">
+                                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Target / Source</span>
+                                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block font-sans">
+                                                                    {selectedRequest.toStore?.name || (
+                                                                        selectedRequest.sourceType === 'SLT' ? 'SLT Head Office' :
+                                                                        selectedRequest.sourceType === 'LOCAL_PURCHASE' ? 'Local Vendor' :
+                                                                        selectedRequest.sourceType === 'EMERGENCY_LOCAL' ? 'Petty Cash Local Merchant' :
+                                                                        'Main Store'
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                            <User className="w-4 h-4 text-slate-400" />
+                                                            <div className="min-w-0">
+                                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Category / Scope</span>
+                                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">
+                                                                    {selectedRequest.sourceType === 'MAIN_STORE' ? 'Inter-Store Dispatch' : 'Vendor Procurement'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                            <DollarSign className="w-4 h-4 text-emerald-500" />
+                                                            <div className="min-w-0">
+                                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Est. Total Value</span>
+                                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs truncate block">
+                                                                    LKR {selectedRequest.items.reduce((acc, i) => acc + ((i.requestedQty || 0) * (i.item?.price || i.item?.unitPrice || 0)), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                            <AlertCircle className="w-4 h-4 text-red-500" />
+                                                            <div className="min-w-0">
+                                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Priority</span>
+                                                                <Badge className={cn(
+                                                                    "text-[9px] font-bold px-2 py-0 rounded",
+                                                                    selectedRequest.priority === 'URGENT' ? "bg-red-500/10 text-red-600 border border-red-500/20" :
+                                                                    selectedRequest.priority === 'HIGH' ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                                                                    "bg-slate-100 text-slate-700 border border-slate-200"
+                                                                )}>
+                                                                    {selectedRequest.priority || 'MEDIUM'}
+                                                                </Badge>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
 
                                         {/* Items Table */}
                                         <div className="space-y-3">
@@ -531,7 +640,11 @@ export default function RequestsPage() {
                                                 const totalItems = selectedRequest.items.length;
                                                 const totalQty = selectedRequest.items.reduce((sum, item) => sum + item.requestedQty, 0);
                                                 const approvedQtyCount = selectedRequest.items.reduce((sum, item) => sum + (allocation[item.itemId] ?? item.approvedQty ?? item.requestedQty), 0);
-                                                const estimatedCost = selectedRequest.items.reduce((sum, item) => sum + (item.requestedQty * 4500), 0);
+                                                const estimatedCost = selectedRequest.items.reduce((sum, item) => sum + (item.requestedQty * (item.item?.price || item.item?.unitPrice || 0)), 0);
+                                                
+                                                const allInStock = selectedRequest.items.every(i => (stockLevels[i.itemId] ?? 0) >= i.requestedQty);
+                                                const someInStock = selectedRequest.items.some(i => (stockLevels[i.itemId] ?? 0) > 0);
+
                                                 return (
                                                     <div className="space-y-3 text-xs">
                                                         <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
@@ -548,15 +661,18 @@ export default function RequestsPage() {
                                                         </div>
                                                         <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                                                             <span className="text-slate-500 dark:text-slate-400">Est. Cost (LKR)</span>
-                                                            <span className="font-black text-blue-600 dark:text-blue-400">LKR {estimatedCost.toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                            <span className="text-slate-500 dark:text-slate-400">Stock Status</span>
-                                                            <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[9px] font-bold px-2 py-0">Optimal</Badge>
+                                                            <span className="font-black text-blue-600 dark:text-blue-400">LKR {estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center py-1.5">
-                                                            <span className="text-slate-500 dark:text-slate-400">Budget Status</span>
-                                                            <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[9px] font-bold px-2 py-0">Within Budget</Badge>
+                                                            <span className="text-slate-500 dark:text-slate-400">Stock Availability</span>
+                                                            <Badge className={cn(
+                                                                "text-[9px] font-bold px-2 py-0 border",
+                                                                allInStock ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                                                                someInStock ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                                                                "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                                                            )}>
+                                                                {allInStock ? '100% Available' : someInStock ? 'Partial Stock' : 'Out of Stock'}
+                                                            </Badge>
                                                         </div>
                                                     </div>
                                                 );
@@ -565,40 +681,16 @@ export default function RequestsPage() {
 
                                         {/* Attachments Section */}
                                         {(() => {
-                                            const requestAttachments = selectedRequest.requestNr === 'REQ-20260702-6207' 
-                                                ? ['BOQ.pdf', 'Drawing.pdf', 'Survey.xlsx'] 
-                                                : [];
                                             const hasRealAttachment = !!selectedRequest.sltReferenceId;
-                                            if (requestAttachments.length === 0 && !hasRealAttachment) return null;
+                                            if (!hasRealAttachment) return null;
                                             return (
                                                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
                                                     <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                                        <Paperclip className="w-3.5 h-3.5 text-blue-500" /> Attachments
+                                                        <Paperclip className="w-3.5 h-3.5 text-blue-500" /> Attached Documents
                                                     </h4>
-                                                    <div className="space-y-2">
-                                                        {hasRealAttachment && (
-                                                            <a 
-                                                                href={selectedRequest.sltReferenceId || undefined} 
-                                                                target="_blank" 
-                                                                rel="noopener noreferrer"
-                                                                className="flex items-center justify-between p-2.5 bg-blue-50/40 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-800 rounded-xl text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-105/50 transition-colors"
-                                                            >
-                                                                <span className="flex items-center gap-2">
-                                                                    <FileText className="w-3.5 h-3.5" />
-                                                                    Approved Memo Document
-                                                                </span>
-                                                                <span className="text-[9px] font-normal">View File</span>
-                                                            </a>
-                                                        )}
-                                                        {requestAttachments.map(file => (
-                                                            <div key={file} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-850 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 border border-slate-200/50 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors">
-                                                                <span className="flex items-center gap-2">
-                                                                    <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                                                    {file}
-                                                                </span>
-                                                                <span className="text-[9px] text-slate-400 font-normal">1.2 MB</span>
-                                                            </div>
-                                                        ))}
+                                                    <div className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-800 text-xs">
+                                                        <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[180px]">Memo Approval Document</span>
+                                                        <a href={selectedRequest.sltReferenceId!} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">View</a>
                                                     </div>
                                                 </div>
                                             );
@@ -684,30 +776,61 @@ export default function RequestsPage() {
                             >
                                 <X className="w-3.5 h-3.5" /> Cancel
                             </Button>
-                            {approvalMode && (
+                            {selectedRequest && selectedRequest.status !== 'COMPLETED' && selectedRequest.status !== 'REJECTED' && (
                                 <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
-                                        onClick={() => setSelectedRequest(null)}
-                                    >
-                                        Save Draft
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => approvalMutation.mutate({ action: 'REJECT' })}
-                                        disabled={approvalMutation.isPending}
-                                        className="h-9 px-4 text-xs font-bold rounded-xl border-red-200 hover:bg-red-50 text-red-600 flex items-center gap-1.5"
-                                    >
-                                        <Ban className="w-3.5 h-3.5" /> Reject Request
-                                    </Button>
-                                    <Button
-                                        onClick={() => approvalMutation.mutate({ action: 'APPROVE' })}
-                                        disabled={approvalMutation.isPending}
-                                        className="h-9 px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
-                                    >
-                                        <Check className="w-3.5 h-3.5" /> {approvalMutation.isPending ? 'Processing...' : 'Approve & Issue'}
-                                    </Button>
+                                    {selectedRequest.workflowStage === 'MAIN_STORE_RELEASE' ? (
+                                        isStoresOfficer ? (
+                                            <Button
+                                                onClick={() => approvalMutation.mutate({ action: 'RELEASE' })}
+                                                disabled={approvalMutation.isPending}
+                                                className="h-9 px-4 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                                            >
+                                                <PackageCheck className="w-3.5 h-3.5" /> {approvalMutation.isPending ? 'Issuing MIN...' : 'Confirm Dispatch & Issue MIN'}
+                                            </Button>
+                                        ) : (
+                                            <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 text-xs px-3 py-1.5 font-medium">
+                                                🔒 MIN Release restricted to Main Store Officers
+                                            </Badge>
+                                        )
+                                    ) : selectedRequest.workflowStage === 'RECEIVE_PENDING' || selectedRequest.workflowStage === 'DISPATCHED' ? (
+                                        (isStoresOfficer || user?.id === selectedRequest.requestedById) ? (
+                                            <Button
+                                                onClick={() => approvalMutation.mutate({ action: 'RECEIVE' })}
+                                                disabled={approvalMutation.isPending}
+                                                className="h-9 px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                                            >
+                                                <CheckCircle2 className="w-3.5 h-3.5" /> {approvalMutation.isPending ? 'Receiving...' : 'Confirm & Receive Stock'}
+                                            </Button>
+                                        ) : (
+                                            <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 text-xs px-3 py-1.5 font-medium">
+                                                🔒 Stock receipt restricted to Receiving Store Officers
+                                            </Badge>
+                                        )
+                                    ) : (
+                                        isAreaManager ? (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => approvalMutation.mutate({ action: 'REJECT' })}
+                                                    disabled={approvalMutation.isPending}
+                                                    className="h-9 px-4 text-xs font-bold rounded-xl border-red-200 hover:bg-red-50 text-red-600 flex items-center gap-1.5"
+                                                >
+                                                    <Ban className="w-3.5 h-3.5" /> Reject Request
+                                                </Button>
+                                                <Button
+                                                    onClick={() => approvalMutation.mutate({ action: 'ARM_APPROVE' })}
+                                                    disabled={approvalMutation.isPending}
+                                                    className="h-9 px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                                                >
+                                                    <Check className="w-3.5 h-3.5" /> {approvalMutation.isPending ? 'Processing...' : 'Approve & Issue'}
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs px-3 py-1.5 font-medium">
+                                                🔒 Pending Area Manager Approval
+                                            </Badge>
+                                        )
+                                    )}
                                 </div>
                             )}
                         </div>

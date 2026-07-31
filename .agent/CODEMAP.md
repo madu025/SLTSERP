@@ -196,13 +196,15 @@
         entityType: string;
         entityId: string;
         currentStatus: string;
-        entityPayload?: Record<string, any>;
+        entityPayload?: Record<string, unknown>;
+        makerId?: string; // Add makerId parameter
     }): any`
     * `advanceGate(params: {
         instanceId: string;
         action: 'APPROVED' | 'REJECTED';
         userId: string;
         remarks?: string;
+        payload?: Record<string, unknown>;
     }): any`
 
 ### [rule-engine.ts](src/services/approval/rule-engine.ts)
@@ -1654,6 +1656,7 @@
         isApprover?: boolean;
         status?: string;
         workflowStage?: string;
+        sourceType?: string;
     }): any`
     * `processStockRequestAction(data: StockRequestActionData): any`
 
@@ -2934,6 +2937,7 @@
 | `/api/admin/contractors` | [route.ts](src/app/api/admin/contractors/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
 | `/api/admin/contractors/teams` | [route.ts](src/app/api/admin/contractors/teams/route.ts) | `GET` |
 | `/api/admin/contractors/[id]/teams` | [route.ts](src/app/api/admin/contractors/[id]/teams/route.ts) | `GET`, `POST` |
+| `/api/admin/domain-actions` | [route.ts](src/app/api/admin/domain-actions/route.ts) | `GET` |
 | `/api/admin/finance/banks/import` | [route.ts](src/app/api/admin/finance/banks/import/route.ts) | `POST` |
 | `/api/admin/finance/cost-allocation` | [route.ts](src/app/api/admin/finance/cost-allocation/route.ts) | `GET`, `POST` |
 | `/api/admin/finance/dashboard` | [route.ts](src/app/api/admin/finance/dashboard/route.ts) | `GET` |
@@ -2947,6 +2951,7 @@
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
 | `/api/admin/process-gates` | [route.ts](src/app/api/admin/process-gates/route.ts) | `GET`, `POST` |
 | `/api/admin/process-gates/seed` | [route.ts](src/app/api/admin/process-gates/seed/route.ts) | `POST` |
+| `/api/admin/process-gates/simulate` | [route.ts](src/app/api/admin/process-gates/simulate/route.ts) | `POST` |
 | `/api/admin/process-gates/[id]/levels` | [route.ts](src/app/api/admin/process-gates/[id]/levels/route.ts) | `POST` |
 | `/api/admin/process-gates/[id]/levels/[levelId]` | [route.ts](src/app/api/admin/process-gates/[id]/levels/[levelId]/route.ts) | `DELETE` |
 | `/api/admin/process-gates/[id]` | [route.ts](src/app/api/admin/process-gates/[id]/route.ts) | `PUT`, `DELETE` |
@@ -2972,6 +2977,7 @@
 | `/api/admin/users/[userId]/sections` | [route.ts](src/app/api/admin/users/[userId]/sections/route.ts) | `GET`, `POST` |
 | `/api/admin/users/[userId]/sections/[assignmentId]` | [route.ts](src/app/api/admin/users/[userId]/sections/[assignmentId]/route.ts) | `DELETE` |
 | `/api/admin/workers` | [route.ts](src/app/api/admin/workers/route.ts) | `GET` |
+| `/api/admin/workflow-statuses` | [route.ts](src/app/api/admin/workflow-statuses/route.ts) | `GET` |
 | `/api/agent/version` | [route.ts](src/app/api/agent/version/route.ts) | `GET` |
 | `/api/ai/alerts` | [route.ts](src/app/api/ai/alerts/route.ts) | `GET`, `PATCH` |
 | `/api/ai/copilot` | [route.ts](src/app/api/ai/copilot/route.ts) | `GET`, `POST` |
@@ -3132,6 +3138,7 @@
 | `/api/inventory/cycle-counts` | [route.ts](src/app/api/inventory/cycle-counts/route.ts) | `GET`, `POST` |
 | `/api/inventory/cycle-counts/[id]/approve` | [route.ts](src/app/api/inventory/cycle-counts/[id]/approve/route.ts) | `POST` |
 | `/api/inventory/cycle-counts/[id]` | [route.ts](src/app/api/inventory/cycle-counts/[id]/route.ts) | `GET`, `PUT` |
+| `/api/inventory/emergency-petty-purchase` | [route.ts](src/app/api/inventory/emergency-petty-purchase/route.ts) | `POST` |
 | `/api/inventory/grn` | [route.ts](src/app/api/inventory/grn/route.ts) | `POST`, `GET` |
 | `/api/inventory/in-hand-stock` | [route.ts](src/app/api/inventory/in-hand-stock/route.ts) | `GET` |
 | `/api/inventory/issue` | [route.ts](src/app/api/inventory/issue/route.ts) | `POST`, `GET` |
@@ -3843,6 +3850,8 @@
   * `reqDocUpload: Boolean` `[@default(false)]`
   * `writeAuditLedger: Boolean` `[@default(true)]`
   * `generateIssueNote: Boolean` `[@default(false)]`
+  * `rejectionBehavior: String` `[@default("PERMANENT_CANCEL") // "PERMANENT_CANCEL", "REWORK_TO_CREATOR", "STEP_BACK_ONE_LEVEL"]`
+  * `approvalStrategy: String` `[@default("ANY_CAN_APPROVE") // "ANY_CAN_APPROVE", "ALL_MUST_APPROVE", "PERCENTAGE_THRESHOLD"]`
   * `rolesToNotify: Json?` `[// e.g. ["STORES_MANAGER", "OSP_MANAGER"]]`
   * `domainAction: String?` `[// e.g. "RESERVE_STOCK_MAIN"]`
   * `conditions: Json?` `[// e.g. {"field": "totalValue", "operator": ">=", "value": 500000]`
@@ -3857,6 +3866,7 @@
   * `description: String?` `[// Instructions for approver]`
   * `minAmount: Decimal?` `[// Condition: Only apply if amount >= X]`
   * `maxAmount: Decimal?` `[// Condition: Only apply if amount <= X]`
+  * `slaHours: Int?` `[@default(24) // SLA Escalation Timeout in hours]`
   * `gatePolicy: ProcessGatePolicy` `[@relation(fields: [gatePolicyId], references: [id], onDelete: Cascade)]`
   * `specificUser: User?` `[@relation(fields: [specificUserId], references: [id])]`
 
@@ -3865,16 +3875,31 @@
   * `id: String` `[@id @default(cuid())]`
   * `entityType: String` `[// "SOD", "INVOICE", "STOCK_ISSUE"]`
   * `entityId: String` `[// The ID of the SOD, Invoice, etc.]`
+  * `policyId: String?` `[// Linked Gate Policy]`
+  * `levelIndex: Int` `[@default(0) // Current Level Index in policy]`
   * `level: Int`
   * `requiredRole: String`
   * `assignedUserId: String?`
+  * `makerId: String?` `[// The ID of the original creator/requester of the entity]`
   * `status: String` `[@default("PENDING") // "PENDING", "APPROVED", "REJECTED"]`
   * `actionedById: String?`
   * `actionedAt: DateTime?`
   * `comments: String?`
+  * `payload: Json?` `[// Payload data attached during approval (e.g. qty, deductions)]`
+  * `signatureHash: String?` `[// Cryptographic Digital Signature Hash]`
   * `createdAt: DateTime` `[@default(now())]`
+  * `policy: ProcessGatePolicy?` `[@relation(fields: [policyId], references: [id], onDelete: SetNull)]`
   * `assignedUser: User?` `[@relation("UniversalApprovalAssignee", fields: [assignedUserId], references: [id])]`
   * `actionedBy: User?` `[@relation("UniversalApprovalActioner", fields: [actionedById], references: [id])]`
+
+### [WorkflowStatus](prisma/schema/dynamic-policy.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `entityType: String` `[// e.g. "MATERIAL_REQUEST", "SERVICE_ORDER"]`
+  * `value: String` `[// e.g. "DRAFT", "PENDING"]`
+  * `label: String` `[// e.g. "DRAFT (Initial Material Request)"]`
+  * `badgeColor: String?` `[// Optional color for UI badges]`
+  * `createdAt: DateTime` `[@default(now())]`
 
 ### [IdempotencyLog](prisma/schema/dynamic-policy.prisma)
 * **Fields**:
@@ -7372,6 +7397,8 @@
   * `updatedAt: DateTime` `[@updatedAt]`
   * `permissions: String?`
   * `status: String` `[@default("active")]`
+  * `isOOO: Boolean` `[@default(false)]`
+  * `delegatedUserId: String?`
   * `handoversPerformed: AssetHandoverLog[]` `[@relation("HandoverPerformed")]`
   * `auditLogs: AuditLog[]`
   * `armApprovedContractors: Contractor[]` `[@relation("ContractorArmApproval")]`
@@ -7425,6 +7452,8 @@
   * `universalApprovalAssignments: UniversalApprovalInstance[]` `[@relation("UniversalApprovalAssignee")]`
   * `universalApprovalActions: UniversalApprovalInstance[]` `[@relation("UniversalApprovalActioner")]`
   * `processApprovalLevels: ProcessApprovalLevel[]`
+  * `delegatedUser: User?` `[@relation("UserDelegation", fields: [delegatedUserId], references: [id])]`
+  * `delegates: User[]` `[@relation("UserDelegation")]`
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:

@@ -237,3 +237,17 @@ Date: 2026-07-30
 - Updated StepByStepGateWizard.tsx to automatically suggest the correct romStatus based on the leaf node of existing gates for the selected entityType (Strict Linear Pipeline).
 - Added Conflict Validation logic to block saving if a gate already originates from the chosen romStatus, preventing race conditions and ensuring a Directed Acyclic Graph (DAG) state machine.
 
+
+## ?? 2026-07-31: Two-Sided Inventory Requests Architecture (Internal Transfers vs Procurement Requisitions)
+
+**Module:** Inventory Requests (/inventory/requests)
+**Context:** User requested /grill-me on separating Stores Manager Requests into 2 Sides:
+1. Internal Store Transfers (Inter-Store / Sub-Store ? Main Store)
+2. Procurement Requisitions (Stores Manager ? Vendor Procurement / Replenishment)
+
+**Key Decisions Adopted (5-Perspective Expert Panel):**
+- ?? **Must-Have**: Structured /inventory/requests into 2 Primary Navigation Tabs (Internal Store Transfers vs Procurement Requisitions).
+- ?? **Must-Have**: Supported sourceType filtering in /api/inventory/requests API route.
+- ?? **Must-Have**: Separated process gate workflows (MIN issue notes for internal vs FINANCE_APPROVED for procurement).
+- ?? **Must-Have**: Enforced (1)$ DB query indexing on [sourceType, status].
+

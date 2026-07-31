@@ -13,6 +13,7 @@ export const DOMAIN_ACTIONS_REGISTRY: DomainAction[] = [
   { entityType: 'MATERIAL_REQUEST', value: '', label: 'None (Only Status Update)', desc: 'Just update the status of the request' },
   { entityType: 'MATERIAL_REQUEST', value: '/api/inventory/reserve-stock', label: 'Reserve Stock (Main Store)', desc: 'Automatically reserve inventory quantities' },
   { entityType: 'MATERIAL_REQUEST', value: '/api/inventory/dispatch-mrn', label: 'Dispatch & Generate MIN', desc: 'Deduct stock and create Material Issue Note' },
+  { entityType: 'MATERIAL_REQUEST', value: '/api/inventory/emergency-petty-purchase', label: 'Emergency Fast-Track Petty Cash Purchase', desc: 'Auto-generate Petty Cash Voucher & Direct GRN for emergency local purchases' },
   
   // SERVICE_ORDER
   { entityType: 'SERVICE_ORDER', value: '', label: 'None (Only Status Update)', desc: 'Just update the status of the SOD' },

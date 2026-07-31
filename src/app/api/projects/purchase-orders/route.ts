@@ -31,7 +31,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 
     return await ProjectPurchaseOrderService.createPurchaseOrder(body as any);
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_PURCHASE_ORDER' },
     rawResponse: true
 });
@@ -54,7 +54,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await ProjectPurchaseOrderService.updatePurchaseOrderStatus(id, status, payload);
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
     audit: { action: 'UPDATE_STATUS', entity: 'PROJECT_PURCHASE_ORDER' },
     rawResponse: true
 });
@@ -71,7 +71,7 @@ export const DELETE = apiHandler(async (req) => {
     await ProjectPurchaseOrderService.deletePurchaseOrder(id);
     return { message: 'Purchase order deleted successfully' };
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
     audit: { action: 'DELETE', entity: 'PROJECT_PURCHASE_ORDER' },
     rawResponse: true
 });

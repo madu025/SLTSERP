@@ -2,6 +2,7 @@
 
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { requireAuth } from '@/lib/server-utils';
+import { ROLE_GROUPS } from '@/config/roles';
 import { revalidatePath } from 'next/cache';
 
 // --- ITEM MANAGEMENT ---
@@ -139,7 +140,7 @@ export async function updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT
 // --- STOCK REQUESTS & ISSUES ---
 
 export async function createStockRequest(data: any) {
-    const user = await requireAuth(['AREA_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'ENGINEER', 'AREA_COORDINATOR', 'STORES_MANAGER']);
+    const user = await requireAuth(ROLE_GROUPS.MATERIAL_REQUESTERS);
     try {
         const result = await InventoryService.createStockRequest({
             ...data,
@@ -168,7 +169,7 @@ export async function createStockIssue(data: any) {
 }
 
 export async function processStockRequestAction(data: any) {
-    const user = await requireAuth(['STORES_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN']);
+    const user = await requireAuth(ROLE_GROUPS.MATERIAL_REQUESTERS);
     try {
         const result = await InventoryService.processStockRequestAction({
             ...data,

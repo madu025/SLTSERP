@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Loader2, Paperclip, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Send, Loader2, Paperclip, CheckCircle2, AlertCircle } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
@@ -110,6 +110,31 @@ export default function MaterialRequestPage() {
         }
     });
 
+    // Auto-select logged-in user's assigned store
+    useEffect(() => {
+        if (!stores.length) return;
+        const storedUser = localStorage.getItem('user');
+        if (!storedUser) return;
+        try {
+            const userObj = JSON.parse(storedUser);
+            const userStoreId = userObj.assignedStoreId;
+            if (userStoreId && stores.some((s: StoreOption) => s.id === userStoreId)) {
+                setSelectedStore(userStoreId);
+                const store = stores.find((s: StoreOption) => s.id === userStoreId);
+                if (store?.type === 'SUB') {
+                    setSourceType('MAIN_STORE');
+                } else if (store?.type === 'MAIN') {
+                    setSourceType('SLT');
+                }
+            } else if (!selectedStore && stores.length > 0) {
+                setSelectedStore(stores[0].id);
+                if (stores[0].type === 'SUB') setSourceType('MAIN_STORE');
+            }
+        } catch (e) {
+            console.error("Failed to parse user from localStorage", e);
+        }
+    }, [stores]);
+
     const { data: currentStocks = [] } = useQuery({
         queryKey: ["current-stock", selectedStore],
         queryFn: async () => {
@@ -134,11 +159,14 @@ export default function MaterialRequestPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
-            if (!res.ok) throw new Error("Failed to create request");
-            return res.json();
+            const resData = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(resData.error || resData.message || `Server error (${res.status})`);
+            }
+            return resData;
         },
         onSuccess: (data) => {
-            toast.success(`Request created! #${data.requestNr}`);
+            toast.success(`Request created! #${data.requestNr || data.id || ''}`);
             queryClient.invalidateQueries({ queryKey: ["material-requests"] });
             // Reset
             setRequestItems([]);
@@ -151,7 +179,7 @@ export default function MaterialRequestPage() {
             setAttachmentUrl("");
             // Keep Store and Date
         },
-        onError: () => toast.error("Failed to create request")
+        onError: (err: Error) => toast.error(err.message || "Failed to create request")
     });
 
     // --- HANDLERS ---
@@ -214,9 +242,12 @@ export default function MaterialRequestPage() {
             otherReason ? `Other: ${otherReason}` : ''
         ].filter(Boolean).join(', ');
 
+        const mainStore = stores.find((s: StoreOption) => s.type === 'MAIN');
+        const targetToStoreId = sourceType === 'MAIN_STORE' ? (mainStore?.id || null) : null;
+
         const payload = {
             fromStoreId: selectedStore,
-            toStoreId: null,
+            toStoreId: targetToStoreId,
             requestedById: JSON.parse(user).id,
             priority,
             requiredDate,
@@ -286,14 +317,15 @@ export default function MaterialRequestPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Source</label>
-                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={sourceType} onChange={e => setSourceType(e.target.value)}>
+                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500 font-semibold" value={sourceType} onChange={e => setSourceType(e.target.value)}>
                                             {stores.find((s: StoreOption) => s.id === selectedStore)?.type === 'MAIN' && (
                                                 <option value="SLT">SLT (Head Office)</option>
                                             )}
                                             {stores.find((s: StoreOption) => s.id === selectedStore)?.type === 'SUB' && (
                                                 <option value="MAIN_STORE">Main Store (Internal Request)</option>
                                             )}
-                                            <option value="LOCAL_PURCHASE">Local Purchase</option>
+                                            <option value="LOCAL_PURCHASE">Local Purchase (Standard Vendor)</option>
+                                            <option value="EMERGENCY_LOCAL">🚨 Emergency Local Purchase (Fast-Track Petty Cash)</option>
                                         </select>
                                     </div>
                                     {sourceType === 'SLT' && (
@@ -342,6 +374,18 @@ export default function MaterialRequestPage() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {sourceType === 'EMERGENCY_LOCAL' && (
+                                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                                        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <span className="font-bold block">🚨 Emergency Fast-Track Petty Cash Purchase Active</span>
+                                            <span>
+                                                This request bypasses standard procurement queues and routes to Stores Manager for 1-Click Fast Approval. Upload shop receipt/memo to auto-increment store stock and generate Petty Cash Voucher.
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Project / Reason Grid */}
                                 <div className="bg-slate-50/60 p-2 rounded border border-slate-100">

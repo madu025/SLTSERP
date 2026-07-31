@@ -10,13 +10,17 @@ import { StockRequestActionData, TransactionClient } from './types';
 import { prisma } from '@/lib/prisma';
 
 export class StockRequestService {
-    private static generateRequestId(): string {
+    private static generateRequestId(sourceType?: string): string {
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const random = Math.floor(1000 + Math.random() * 9000);
-        return `REQ-${year}${month}${day}-${random}`;
+
+        // Material Purchase Requisitions use PRN- prefix, Internal transfers use REQ- prefix
+        const isPurchase = sourceType === 'LOCAL_PURCHASE' || sourceType === 'EMERGENCY_LOCAL' || sourceType === 'SLT' || sourceType === 'PROCUREMENT' || sourceType === 'LOCAL';
+        const prefix = isPurchase ? 'PRN' : 'REQ';
+        return `${prefix}-${year}${month}${day}-${random}`;
     }
 
     static async createStockRequest(data: {
@@ -85,7 +89,7 @@ export class StockRequestService {
         }
 
         const req = await StockRequestRepository.create({
-            requestNr: StockRequestService.generateRequestId(),
+            requestNr: StockRequestService.generateRequestId(sourceType),
             fromStoreId,
             toStoreId: finalToStoreId,
             requestedById,
@@ -147,6 +151,7 @@ export class StockRequestService {
         isApprover?: boolean;
         status?: string;
         workflowStage?: string;
+        sourceType?: string;
     }) {
         const where: Prisma.StockRequestWhereInput = {};
 
@@ -167,6 +172,10 @@ export class StockRequestService {
             where.workflowStage = { in: filters.workflowStage.split(',') };
         }
 
+        if (filters.sourceType) {
+            where.sourceType = filters.sourceType;
+        }
+
         return await StockRequestRepository.findMany({
             where,
             include: {
@@ -185,18 +194,34 @@ export class StockRequestService {
     static async processStockRequestAction(data: StockRequestActionData) {
         const { action, requestId, userId } = data;
 
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true }
+        });
+
+        if (!user) {
+            throw AppError.unauthorized("USER_NOT_FOUND");
+        }
+
         // Segregation of Duties (SoD) enforcement: Request creator cannot approve/release/process their own request
         if (['ARM_APPROVE', 'STORES_MANAGER_APPROVE', 'APPROVE', 'RELEASE'].includes(action)) {
             const stockReq = await prisma.stockRequest.findUnique({
                 where: { id: requestId },
                 select: { requestedById: true }
             });
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { role: true }
-            });
-            if (user?.role !== 'SUPER_ADMIN' && stockReq && stockReq.requestedById === userId) {
+            if (user.role !== 'SUPER_ADMIN' && stockReq && stockReq.requestedById === userId) {
                 throw AppError.badRequest("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
+            }
+        }
+
+        // Stage-Specific Role Isolation Enforcement
+        if (action === 'RELEASE') {
+            if (!['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+                throw AppError.forbidden("ROLE_PERMISSION_DENIED: Only Main Stores Officers can perform MIN Release and dispatch warehouse stock.");
+            }
+        } else if (action === 'ARM_APPROVE') {
+            if (!['AREA_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+                throw AppError.forbidden("ROLE_PERMISSION_DENIED: Only Area Managers and OSP Managers can perform ARM Stage Approvals.");
             }
         }
 
@@ -228,18 +253,21 @@ export class StockRequestService {
             const stockReq = await StockRequestRepository.findById(requestId, { items: true, fromStore: true, toStore: true }, tx);
             if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
 
-            // Find the active policy for the current stage
+            // Query active DB Process Gate Policy for current workflow stage
             const policy = await (tx as unknown as typeof prisma).processGatePolicy.findFirst({
-                where: { entityType: 'MATERIAL_REQUEST', fromStatus: stockReq.workflowStage }
+                where: { entityType: 'MATERIAL_REQUEST', fromStatus: stockReq.workflowStage, isEnabled: true },
+                include: { approvalLevels: true }
             });
 
-            if (!policy) throw AppError.badRequest(`No active Process Gate Policy for stage ${stockReq.workflowStage}`);
+            if (!policy) {
+                throw AppError.badRequest(`NO_PROCESS_GATE_POLICY: No active Process Gate Policy configured for stage '${stockReq.workflowStage}'. Please configure policy under Admin > Process Gates.`);
+            }
 
-            let nextStage = policy.toStatus;
+            const nextStage = policy.toStatus;
 
             // Condition-Based Domain Routing (Zero-Hardcoding via Event Bus Pattern)
-            let rolesToNotify: string[] = Array.isArray((policy as any).rolesToNotify) ? (policy as any).rolesToNotify : [];
-            const domainAction = (policy as any).domainAction;
+            const rolesToNotify: string[] = Array.isArray(policy.rolesToNotify) ? (policy.rolesToNotify as string[]) : [];
+            const domainAction = policy.domainAction;
 
             if (domainAction) {
                 const { DomainActionDispatcher } = await import('@/services/approval/domain-dispatcher.service');
@@ -252,25 +280,34 @@ export class StockRequestService {
                     stockReq,
                     items
                 }, tx);
-                
-                // Adjust nextStage for specific domain actions if needed, though ideally this should be handled generically
-                if (domainAction === 'TRIGGER_PROCUREMENT') {
-                    if (stockReq.sourceType === 'MAIN_STORE' && stockReq.toStoreId) {
-                        nextStage = 'MAIN_STORE_RELEASE';
-                    } else if (stockReq.sourceType === 'SLT') {
-                        nextStage = 'GRN_PENDING';
-                    }
-                }
+            }
+
+            // Dynamic update payload driven by database gate policy attributes
+            const updatePayload: Record<string, unknown> = {
+                workflowStage: nextStage
+            };
+
+            // Record stage-specific approval audit log
+            const primaryRole = policy.approvalLevels?.[0]?.requiredRole;
+            if (primaryRole === 'AREA_MANAGER' || stockReq.workflowStage.includes('ARM')) {
+                updatePayload.armAction = 'APPROVED';
+                updatePayload.armDate = new Date();
+                updatePayload.armRemarks = remarks || 'Approved by Area Manager';
+                updatePayload.armApprovedById = userId;
+            } else if (primaryRole === 'STORES_MANAGER' || stockReq.workflowStage.includes('STORES')) {
+                updatePayload.storesManagerAction = 'APPROVED';
+                updatePayload.storesManagerDate = new Date();
+                updatePayload.storesManagerRemarks = remarks || 'Approved by Stores Manager';
+                updatePayload.storesManagerApprovedById = userId;
+            }
+
+            if (nextStage === 'MAIN_STORE_RELEASE' || nextStage === 'COMPLETED' || nextStage === 'PROCUREMENT' || nextStage === 'GRN_PENDING') {
+                updatePayload.status = 'APPROVED';
+                updatePayload.approvedById = userId;
             }
 
             // Perform dynamic update using StockRequestRepository
-            const updated = await StockRequestRepository.update(requestId, {
-                workflowStage: nextStage,
-                // Status is upgraded to APPROVED if we reach the final stage or beyond
-                ...(nextStage === 'PROCUREMENT' || nextStage === 'MAIN_STORE_RELEASE' || nextStage === 'GRN_PENDING' 
-                    ? { status: 'APPROVED', approvedById: userId } 
-                    : {})
-            }, tx);
+            const updated = await StockRequestRepository.update(requestId, updatePayload, tx);
 
             // Event-Driven Side Effect triggers
             this.safeNotifyStageChange(updated, nextStage, rolesToNotify);
@@ -280,7 +317,7 @@ export class StockRequestService {
     }
 
     private static async handleReturn(data: StockRequestActionData) {
-        const { requestId, userId, remarks } = data;
+        const { requestId, remarks } = data;
         const updated = await StockRequestRepository.update(requestId, {
             workflowStage: 'RETURNED',
             status: 'RETURNED',

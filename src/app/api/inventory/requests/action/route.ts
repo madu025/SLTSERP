@@ -24,7 +24,7 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     return result;
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: ROLE_GROUPS.MATERIAL_REQUESTERS,
     audit: { action: 'UPDATE', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });

@@ -97,7 +97,7 @@ export default function MaterialAuditReportPage() {
     }));
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE_APPROVERS}>
+        <RoleGuard allowedRoles={[...ROLE_GROUPS.FINANCE_APPROVERS, ...ROLE_GROUPS.STORES_ALL]}>
             <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

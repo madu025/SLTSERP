@@ -13,7 +13,8 @@ export const GET = apiHandler(async (req) => {
         storeId: searchParams.get('storeId') || undefined,
         isApprover: searchParams.get('isApprover') === 'true',
         status: searchParams.get('status') || undefined,
-        workflowStage: searchParams.get('workflowStage') || undefined
+        workflowStage: searchParams.get('workflowStage') || undefined,
+        sourceType: searchParams.get('sourceType') || undefined
     };
 
     return await InventoryService.getStockRequests(filters);
@@ -29,7 +30,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: ROLE_GROUPS.MATERIAL_REQUESTERS,
     audit: { action: 'CREATE', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });
@@ -42,7 +43,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: ROLE_GROUPS.MATERIAL_REQUESTERS,
     audit: { action: 'UPDATE_STATUS', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });
