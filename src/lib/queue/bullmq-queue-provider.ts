@@ -14,7 +14,7 @@ export class BullMQQueueProvider implements QueueProvider {
         if (!q) {
             try {
                 q = new Queue(name, {
-                    connection: redis as any,
+                    connection: redis as unknown as Record<string, unknown>,
                     defaultJobOptions: {
                         attempts: 3,
                         backoff: {
@@ -26,23 +26,23 @@ export class BullMQQueueProvider implements QueueProvider {
                     },
                 });
                 this.queues.set(name, q);
-            } catch {
-                console.warn(`[BullMQ] Failed to initialize queue '${name}'. Fallback enabled.`);
+            } catch (error: unknown) {
+                console.warn(`[BullMQ] Failed to initialize queue '${name}'. Fallback enabled.`, error);
                 return null;
             }
         }
         return q;
     }
 
-    async addJob(queueName: string, jobName: string, data: unknown, opts?: any): Promise<{ id: string }> {
+    async addJob(queueName: string, jobName: string, data: unknown, opts?: Record<string, unknown>): Promise<{ id: string }> {
         try {
             const queue = this.getQueue(queueName);
             if (queue) {
                 const job = await queue.add(jobName, data, opts);
                 return { id: String(job.id || `job-${Date.now()}`) };
             }
-        } catch (error) {
-            console.warn(`[BullMQ] Queue error adding job '${jobName}' to '${queueName}'. Using fallback job ID.`);
+        } catch (error: unknown) {
+            console.warn(`[BullMQ] Queue error adding job '${jobName}' to '${queueName}'. Using fallback job ID.`, error);
         }
         return { id: `sync-job-${Date.now()}` };
     }
@@ -63,8 +63,8 @@ export class BullMQQueueProvider implements QueueProvider {
                     returnvalue: job.returnvalue
                 };
             }
-        } catch {
-            // Fallback for missing/failed queue
+        } catch (error: unknown) {
+            console.warn(`[BullMQ] Failed to get job '${jobId}' from '${queueName}'.`, error);
         }
         return {
             id: jobId,
@@ -87,8 +87,8 @@ export class BullMQQueueProvider implements QueueProvider {
                 ]);
                 return { active, waiting, completed, failed, delayed };
             }
-        } catch {
-            // Fallback metrics
+        } catch (error: unknown) {
+            console.warn(`[BullMQ] Failed to get metrics for queue '${queueName}'.`, error);
         }
         return { active: 0, waiting: 0, completed: 0, failed: 0, delayed: 0 };
     }
@@ -100,19 +100,23 @@ export class BullMQQueueProvider implements QueueProvider {
                 const jobs = await queue.getFailed(start, limit);
                 return jobs.map(j => ({
                     id: String(j.id),
+                    name: j.name,
                     state: 'failed',
                     progress: typeof j.progress === 'number' ? j.progress : 0,
                     failedReason: j.failedReason,
-                    returnvalue: j.returnvalue
+                    returnvalue: j.returnvalue,
+                    data: j.data,
+                    processedOn: j.processedOn,
+                    finishedOn: j.finishedOn
                 }));
             }
-        } catch {
-            // Fallback
+        } catch (error: unknown) {
+            console.warn(`[BullMQ] Failed to get failed jobs for queue '${queueName}'.`, error);
         }
         return [];
     }
 
-    async getCompletedJobs(queueName: string, start?: number, limit?: number): Promise<any[]> {
+    async getCompletedJobs(queueName: string, start?: number, limit?: number): Promise<Record<string, unknown>[]> {
         try {
             const queue = this.getQueue(queueName);
             if (queue) {
@@ -124,20 +128,20 @@ export class BullMQQueueProvider implements QueueProvider {
                     finishedOn: j.finishedOn,
                 }));
             }
-        } catch {
-            // Fallback
+        } catch (error: unknown) {
+            console.warn(`[BullMQ] Failed to get completed jobs for queue '${queueName}'.`, error);
         }
         return [];
     }
 
-    async getRepeatableJobs(queueName: string): Promise<any[]> {
+    async getRepeatableJobs(queueName: string): Promise<Record<string, unknown>[]> {
         try {
             const queue = this.getQueue(queueName);
             if (queue) {
                 return await queue.getRepeatableJobs();
             }
-        } catch {
-            // Fallback
+        } catch (error: unknown) {
+            console.warn(`[BullMQ] Failed to get repeatable jobs for queue '${queueName}'.`, error);
         }
         return [];
     }

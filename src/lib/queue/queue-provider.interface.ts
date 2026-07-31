@@ -1,9 +1,13 @@
 export interface JobInfo {
     id: string;
+    name?: string;
     state: string;
     progress: number;
     failedReason?: string;
-    returnvalue?: any;
+    returnvalue?: unknown;
+    data?: unknown;
+    processedOn?: number;
+    finishedOn?: number;
 }
 
 export interface QueueMetrics {
@@ -15,10 +19,10 @@ export interface QueueMetrics {
 }
 
 export interface QueueProvider {
-    addJob(queueName: string, jobName: string, data: unknown, opts?: any): Promise<{ id: string }>;
+    addJob(queueName: string, jobName: string, data: unknown, opts?: Record<string, unknown>): Promise<{ id: string }>;
     getJob(queueName: string, jobId: string): Promise<JobInfo | null>;
     getQueueMetrics(queueName: string): Promise<QueueMetrics>;
-    getFailedJobs(queueName: string, start: number, limit: number): Promise<any[]>;
-    getCompletedJobs(queueName: string, start: number, limit: number): Promise<any[]>;
-    getRepeatableJobs(queueName: string): Promise<any[]>;
+    getFailedJobs(queueName: string, start?: number, limit?: number): Promise<JobInfo[]>;
+    getCompletedJobs(queueName: string, start?: number, limit?: number): Promise<Record<string, unknown>[]>;
+    getRepeatableJobs(queueName: string): Promise<Record<string, unknown>[]>;
 }

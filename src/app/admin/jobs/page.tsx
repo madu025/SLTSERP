@@ -12,8 +12,7 @@ import {
     Clock,
     Activity,
     AlertCircle,
-    ChevronRight,
-    Search
+    ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
 
