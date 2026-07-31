@@ -911,27 +911,27 @@ export class SODSyncService {
             const [err] = await safe((async () => {
                 const { NotificationService } = await import('@/services/notification/notification.service');
 
-                let title = 'Service Orders Synced';
+                let title = `Service Orders Synced (${rtom})`;
                 let message = '';
                 if (created > 0 && updated > 0) {
-                    message = `${created} new service orders were synced and ${updated} existing orders were updated in the latest portal update.`;
+                    message = `${created} new service orders were synced and ${updated} existing orders were updated for RTOM ${rtom}.`;
                 } else if (created > 0) {
-                    title = 'New Service Orders Synced';
-                    message = `${created} new pending service orders were synced in the latest portal update.`;
+                    title = `New Service Orders Synced (${rtom})`;
+                    message = `${created} new pending service orders were synced for RTOM ${rtom}.`;
                 } else {
-                    title = 'Service Orders Updated';
-                    message = `${updated} existing service orders were updated (status transitions completed/returned) in the latest portal update.`;
+                    title = `Service Orders Updated (${rtom})`;
+                    message = `${updated} existing service orders were updated for RTOM ${rtom}.`;
                 }
 
                 await NotificationService.notifyByRole({
-                    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+                    roles: ROLE_GROUPS.SOD_PROJECT,
                     title,
                     message,
                     type: 'SYSTEM',
                     priority: 'MEDIUM',
-                    link: '/service-orders',
+                    link: `/service-orders?rtom=${encodeURIComponent(rtom)}&opmcId=${opmcId}`,
                     opmcId,
-                    metadata: { count: created + updated, created, updated, opmcId }
+                    metadata: { count: created + updated, created, updated, opmcId, rtom }
                 });
             })());
             if (err) {
