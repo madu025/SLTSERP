@@ -116,24 +116,28 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const { data: opmcs = [] } = useQuery<OPMC[]>({
         queryKey: ["opmcs"],
         queryFn: async () => {
-             const storedUser = localStorage.getItem('user');
-             if (!storedUser) return [];
-             const user = JSON.parse(storedUser) as { role: string; username: string; accessibleOpmcs?: OPMC[] };
-             
              const res = await fetch("/api/opmcs");
              if (!res.ok) return [];
              const allOpmcs = (await res.json()) as OPMC[];
 
-             const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-             if (isAdmin) {
-                 return allOpmcs;
-             }
+             const storedUser = localStorage.getItem('user') || localStorage.getItem('erp_user');
+             if (!storedUser) return allOpmcs;
+             
+             try {
+                 const user = JSON.parse(storedUser) as { role: string; username: string; accessibleOpmcs?: OPMC[] };
+                 const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+                 if (isAdmin) {
+                     return allOpmcs;
+                 }
 
-             // Non-admin: filter by accessible OPMCs if available
-             if (Array.isArray(user.accessibleOpmcs) && user.accessibleOpmcs.length > 0) {
-                 const assignedIds = user.accessibleOpmcs.map((o) => o.id);
-                 const filtered = allOpmcs.filter((o) => assignedIds.includes(o.id));
-                 if (filtered.length > 0) return filtered;
+                 // Non-admin: filter by accessible OPMCs if available
+                 if (Array.isArray(user.accessibleOpmcs) && user.accessibleOpmcs.length > 0) {
+                     const assignedIds = user.accessibleOpmcs.map((o) => o.id);
+                     const filtered = allOpmcs.filter((o) => assignedIds.includes(o.id));
+                     if (filtered.length > 0) return filtered;
+                 }
+             } catch (e) {
+                 console.error("Error parsing user from localStorage:", e);
              }
 
              return allOpmcs;
