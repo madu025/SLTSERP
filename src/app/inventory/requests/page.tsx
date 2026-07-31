@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ClipboardList, Info, Building2, User, Check, Ban, DollarSign, Package, Clock, X, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, FileText, PackageCheck, CheckCircle2 } from "lucide-react";
+import { Plus, ClipboardList, Info, Building2, User, Check, Ban, DollarSign, Package, Clock, X, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, PackageCheck, CheckCircle2 } from "lucide-react";
 import { toast } from 'sonner';
 import { processStockRequestAction } from '@/actions/inventory-actions';
 import { cn } from "@/lib/utils";
+import { ROLE_GROUPS, hasRole } from '@/config/roles';
 
 interface User {
     id: string;
@@ -64,9 +65,10 @@ export default function RequestsPage() {
         return null;
     });
 
-    // User permissions
-    const isStoresOfficer = user && ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN'].includes(user.role);
-    const isAreaManager = user && ['AREA_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role);
+    // User permissions (Centralized RBAC Configuration Driven)
+    const isStoresOfficer = hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
+    const isAreaManager = hasRole(user?.role, ROLE_GROUPS.AREA_MANAGERS);
+    const isProcurementRole = hasRole(user?.role, ROLE_GROUPS.STORES_ALL);
 
     // Approval State
     const [selectedRequest, setSelectedRequest] = useState<InventoryRequest | null>(null);
@@ -202,33 +204,35 @@ export default function RequestsPage() {
                         </div>
 
                         {/* Primary Side Tabs (Internal Transfers vs Procurement Requisitions) */}
-                        <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200">
-                            <button
-                                onClick={() => setRequestSide('internal')}
-                                className={cn(
-                                    "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
-                                    requestSide === 'internal'
-                                        ? "bg-white text-blue-950 shadow-xs border border-slate-200/80"
-                                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
-                                )}
-                            >
-                                <Package className="w-4 h-4 text-blue-600" />
-                                📦 Internal Store Transfers (Inter-Store Dispatch)
-                            </button>
+                        {isProcurementRole && (
+                            <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200">
+                                <button
+                                    onClick={() => setRequestSide('internal')}
+                                    className={cn(
+                                        "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
+                                        requestSide === 'internal'
+                                            ? "bg-white text-blue-950 shadow-xs border border-slate-200/80"
+                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                    )}
+                                >
+                                    <Package className="w-4 h-4 text-blue-600" />
+                                    📦 Internal Store Transfers (Inter-Store Dispatch)
+                                </button>
 
-                            <button
-                                onClick={() => setRequestSide('procurement')}
-                                className={cn(
-                                    "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
-                                    requestSide === 'procurement'
-                                        ? "bg-white text-amber-950 shadow-xs border border-amber-200/80"
-                                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
-                                )}
-                            >
-                                <DollarSign className="w-4 h-4 text-amber-600" />
-                                🛍️ Procurement Requisitions (Vendor Replenishment)
-                            </button>
-                        </div>
+                                <button
+                                    onClick={() => setRequestSide('procurement')}
+                                    className={cn(
+                                        "flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2",
+                                        requestSide === 'procurement'
+                                            ? "bg-white text-amber-950 shadow-xs border border-amber-200/80"
+                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                    )}
+                                >
+                                    <DollarSign className="w-4 h-4 text-amber-600" />
+                                    🛍️ Procurement Requisitions (Vendor Replenishment)
+                                </button>
+                            </div>
+                        )}
 
                         {/* Status Sub-Filters */}
                         <div className="flex border-b border-slate-200 justify-between items-center pb-2">
