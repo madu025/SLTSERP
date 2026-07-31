@@ -60,9 +60,11 @@ export default function JobsMonitoringPage() {
         try {
             const res = await fetch('/api/admin/jobs');
             if (res.ok) {
-                const data = await res.json();
-                setStats(data.queues);
-                setLastUpdated(data.timestamp);
+                const resData = await res.json();
+                const payload = resData.data || resData;
+                const queueList = Array.isArray(payload.queues) ? payload.queues : (Array.isArray(payload) ? payload : []);
+                setStats(queueList);
+                setLastUpdated(payload.timestamp || resData.timestamp || new Date().toISOString());
             } else {
                 toast.error("Failed to fetch job stats");
             }
@@ -104,7 +106,7 @@ export default function JobsMonitoringPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {stats.map((q) => (
+                        {(stats || []).map((q) => (
                             <Card key={q.name} className="overflow-hidden border-none shadow-sm bg-white">
                                 <CardHeader className="pb-2 border-b border-slate-50">
                                     <div className="flex justify-between items-center">
@@ -153,7 +155,7 @@ export default function JobsMonitoringPage() {
                             <h2 className="text-xl font-bold">Scheduled Tasks & Last Runs</h2>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {stats.map(q => (q.repeatableCount ?? 0) > 0 && (
+                            {(stats || []).map(q => (q.repeatableCount ?? 0) > 0 && (
                                 <Card key={`schedule-${q.name}`} className="border border-slate-200 shadow-sm overflow-hidden bg-white">
                                     <CardHeader className="bg-slate-50 border-b border-slate-100 py-3">
                                         <CardTitle className="text-sm font-semibold flex justify-between items-center text-slate-700">
@@ -188,7 +190,7 @@ export default function JobsMonitoringPage() {
                                     </CardContent>
                                 </Card>
                             ))}
-                            {stats.every(q => (q.repeatableCount ?? 0) === 0) && (
+                            {(stats || []).every(q => (q.repeatableCount ?? 0) === 0) && (
                                 <div className="col-span-full py-8 text-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
                                     No periodic tasks currently scheduled in the system.
                                 </div>
@@ -203,7 +205,7 @@ export default function JobsMonitoringPage() {
                         </div>
 
                         <div className="space-y-4">
-                            {stats.every(q => q.recentFailures.length === 0) ? (
+                            {(stats || []).every(q => (q.recentFailures || []).length === 0) ? (
                                 <Card className="border-dashed border-2 border-slate-200 bg-slate-50/50">
                                     <CardContent className="py-12 flex flex-col items-center justify-center text-slate-400">
                                         <CheckCircle2 className="h-12 w-12 mb-4 text-emerald-100" />
@@ -212,7 +214,7 @@ export default function JobsMonitoringPage() {
                                     </CardContent>
                                 </Card>
                             ) : (
-                                stats.map(q => q.recentFailures.length > 0 && (
+                                (stats || []).map(q => (q.recentFailures || []).length > 0 && (
                                     <div key={q.name} className="space-y-3">
                                         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest pl-1">{q.name} Failures</h3>
                                         {q.recentFailures.map((job) => (

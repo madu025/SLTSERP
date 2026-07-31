@@ -7,11 +7,10 @@ import { JobQueueService } from '@/services/admin/job-queue.service';
 export const GET = apiHandler(async () => {
     const stats = await JobQueueService.getQueueStats();
     
-    return Response.json({
-        success: true,
+    return {
         queues: stats,
         timestamp: new Date().toISOString()
-    });
+    };
 }, {
     roles: ROLE_GROUPS.ADMINS
 });

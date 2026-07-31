@@ -94,6 +94,18 @@ interface LedgerAuditResult {
     auditedAt: string;
 }
 
+interface QueueJobStat {
+    name: string;
+    active: number;
+    waiting: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+    recentCompleted?: { id: string; name: string; finishedOn: number }[];
+    repeatableCount?: number;
+    repeatable?: { key: string; name: string; next: string }[];
+}
+
 export default function SystemMonitoringPage() {
     const [health, setHealth] = useState<HealthStats | null>(null);
     const [logs, setLogs] = useState<ErrorLog[]>([]);
@@ -109,6 +121,7 @@ export default function SystemMonitoringPage() {
     const [auditResult, setAuditResult] = useState<LedgerAuditResult | null>(null);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [origin, setOrigin] = useState('');
+    const [jobsStats, setJobsStats] = useState<QueueJobStat[]>([]);
 
     useEffect(() => {
         setOrigin(window.location.origin);
@@ -161,16 +174,31 @@ export default function SystemMonitoringPage() {
         }
     }, [page, search, filterResolved]);
 
+    const fetchJobsStats = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/admin/jobs?_t=${Date.now()}`);
+            if (res.ok) {
+                const resData = await res.json();
+                const payload = resData.data || resData;
+                setJobsStats(Array.isArray(payload.queues) ? payload.queues : []);
+            }
+        } catch (err: unknown) {
+            console.error('Failed to load queue stats:', err);
+        }
+    }, []);
+
     useEffect(() => {
         fetchHealth();
         fetchLogs();
+        fetchJobsStats();
 
         const interval = setInterval(() => {
             fetchHealth();
+            fetchJobsStats();
         }, 30000);
 
         return () => clearInterval(interval);
-    }, [fetchHealth, fetchLogs]);
+    }, [fetchHealth, fetchLogs, fetchJobsStats]);
 
     const handleRunLedgerAudit = async () => {
         setAuditLoading(true);
@@ -406,7 +434,7 @@ ${log.stackTrace || 'No stack trace recorded'}
                                     Resolve All ({health?.errors.unresolved || 0})
                                 </button>
                                 <button
-                                    onClick={() => { fetchHealth(); fetchLogs(); }}
+                                    onClick={() => { fetchHealth(); fetchLogs(); fetchJobsStats(); }}
                                     className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-2 border border-slate-700"
                                 >
                                     <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -517,6 +545,64 @@ ${log.stackTrace || 'No stack trace recorded'}
                                     <div className={`p-3 rounded-2xl ${health.errors.unresolved > 0 ? 'bg-red-950/50 border border-red-800/40 text-red-400' : 'bg-slate-800 border border-slate-700 text-slate-400'}`}>
                                         <AlertTriangle className="w-6 h-6" />
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 🔄 Background Workers & BullMQ Sync Telemetry Section */}
+                        {jobsStats && jobsStats.length > 0 && (
+                            <div className="bg-slate-900/90 backdrop-blur-sm border border-slate-800/80 p-5 rounded-2xl shadow-xl space-y-4">
+                                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                    <h4 className="text-xs font-black uppercase text-indigo-400 tracking-wider flex items-center gap-2">
+                                        <Zap className="w-4 h-4 text-indigo-400 animate-pulse" />
+                                        Background Workers &amp; BullMQ Sync Telemetry
+                                    </h4>
+                                    <span className="text-[11px] font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                                        {jobsStats.reduce((acc, curr) => acc + (curr.repeatableCount || 0), 0)} Scheduled Cron Tasks
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {(jobsStats || []).map((q) => (
+                                        <div key={`queue-${q.name}`} className="bg-slate-950 p-4 rounded-xl border border-slate-800/90 flex flex-col justify-between space-y-3">
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="font-bold text-sm text-white flex items-center gap-1.5">
+                                                        <div className={`w-2 h-2 rounded-full ${q.active > 0 ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`} />
+                                                        {q.name}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">
+                                                        {q.completed} Completed
+                                                    </span>
+                                                </div>
+
+                                                {/* Schedules */}
+                                                {(q.repeatable || []).length > 0 ? (
+                                                    <div className="space-y-2 mt-2 pt-2 border-t border-slate-900">
+                                                        {q.repeatable?.map((job) => (
+                                                            <div key={job.key} className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/60 text-slate-300 text-xs">
+                                                                <p className="font-bold text-indigo-300 text-[11px] mb-1">{job.name}</p>
+                                                                <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                                                                    <span className="text-amber-400/90 font-semibold">⏰ Next: {job.next}</span>
+                                                                </div>
+                                                                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                                                    <span className="text-emerald-400/90">✅ Last: {q.recentCompleted && q.recentCompleted.length > 0 ? new Date(q.recentCompleted[0].finishedOn).toLocaleTimeString() : 'N/A'}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[11px] text-slate-500 italic mt-2">No active cron schedule attached.</p>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center justify-between text-[11px] font-mono pt-2 border-t border-slate-900 text-slate-400">
+                                                <span>Active: <strong className="text-blue-400">{q.active}</strong></span>
+                                                <span>Waiting: <strong className="text-amber-400">{q.waiting}</strong></span>
+                                                <span>Failed: <strong className={q.failed > 0 ? 'text-red-400 font-bold' : 'text-slate-500'}>{q.failed}</strong></span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
