@@ -439,25 +439,38 @@ export class SODSyncService {
                 pendingByOpmc.set(sod.opmcId, list);
             }
 
-            const allResults = await Promise.all(opmcs.map(async (opmc) => {
-                const localPendingSods = pendingByOpmc.get(opmc.id) || [];
-                const [e, res] = await safe(this.syncServiceOrders(opmc.id, opmc.rtom, localPendingSods));
-                
-                if (e || !res) {
-                    console.error(`[SYNC] Failed to sync ${opmc.rtom}:`, e);
-                    return { rtom: opmc.rtom, success: false, error: String(e) };
-                }
-                
-                return { rtom: opmc.rtom, success: true, created: res.created, updated: res.updated };
-            }));
+            const concurrencyLimit = 15;
+            const startTime = Date.now();
+            const maxAllowedTimeMs = 9500; // 9.5s deadline for Vercel Hobby 15s serverless cap
 
-            for (const r of allResults) {
-                if (r.success) {
-                    created += r.created || 0;
-                    updated += r.updated || 0;
-                    results.push({ rtom: r.rtom, success: true, created: r.created, updated: r.updated });
-                } else {
-                    results.push({ rtom: r.rtom, success: false, error: r.error });
+            for (let i = 0; i < opmcs.length; i += concurrencyLimit) {
+                if (Date.now() - startTime > maxAllowedTimeMs) {
+                    console.log(`[SYNC] Reached 9.5s Vercel serverless time limit threshold after processing ${results.length} OPMCs. Gracefully returning.`);
+                    break;
+                }
+                const chunk = opmcs.slice(i, i + concurrencyLimit);
+                const chunkResults = await Promise.all(chunk.map(async (opmc) => {
+                    const localPendingSods = pendingByOpmc.get(opmc.id) || [];
+                    const [e, res] = await safe(Promise.race([
+                        this.syncServiceOrders(opmc.id, opmc.rtom, localPendingSods),
+                        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('OPMC Sync Timeout')), 7500))
+                    ]));
+                    
+                    if (e || !res) {
+                        return { rtom: opmc.rtom, success: false, error: String(e) };
+                    }
+                    
+                    return { rtom: opmc.rtom, success: true, created: res.created, updated: res.updated };
+                }));
+
+                for (const r of chunkResults) {
+                    if (r.success) {
+                        created += r.created || 0;
+                        updated += r.updated || 0;
+                        results.push({ rtom: r.rtom, success: true, created: r.created, updated: r.updated });
+                    } else {
+                        results.push({ rtom: r.rtom, success: false, error: r.error });
+                    }
                 }
             }
 
