@@ -46,6 +46,9 @@ const createQueueWrapper = (name: string) => {
         getFailed: async (start: number, limit: number) => {
             return await queueProvider.getFailedJobs(name, start, limit);
         },
+        getCompleted: async (start: number, limit: number) => {
+            return await queueProvider.getCompletedJobs(name, start, limit);
+        },
         getRepeatableJobs: async () => {
             return await queueProvider.getRepeatableJobs(name);
         }

@@ -19,5 +19,6 @@ export interface QueueProvider {
     getJob(queueName: string, jobId: string): Promise<JobInfo | null>;
     getQueueMetrics(queueName: string): Promise<QueueMetrics>;
     getFailedJobs(queueName: string, start: number, limit: number): Promise<any[]>;
+    getCompletedJobs(queueName: string, start: number, limit: number): Promise<any[]>;
     getRepeatableJobs(queueName: string): Promise<any[]>;
 }

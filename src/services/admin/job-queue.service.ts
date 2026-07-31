@@ -40,6 +40,14 @@ export class JobQueueService {
                 finishedOn: job.finishedOn,
             }));
 
+            // Get last 2 completed jobs to show "Last Sync" time
+            const completedJobs = await q.queue.getCompleted(0, 1);
+            const recentCompleted = completedJobs.map(job => ({
+                id: job.id,
+                name: job.name,
+                finishedOn: job.finishedOn,
+            }));
+
             return {
                 name: q.name,
                 active,
@@ -48,6 +56,7 @@ export class JobQueueService {
                 failed,
                 delayed,
                 recentFailures,
+                recentCompleted,
                 repeatableCount: repeatable.length,
                 repeatable: repeatable.map(rj => ({
                     key: rj.key,

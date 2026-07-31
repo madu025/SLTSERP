@@ -26,6 +26,18 @@ interface JobFailure {
     finishedOn: number;
 }
 
+interface JobCompleted {
+    id: string;
+    name: string;
+    finishedOn: number;
+}
+
+interface RepeatableJob {
+    key: string;
+    name: string;
+    next: string;
+}
+
 interface QueueStat {
     name: string;
     active: number;
@@ -34,6 +46,9 @@ interface QueueStat {
     failed: number;
     delayed: number;
     recentFailures: JobFailure[];
+    recentCompleted?: JobCompleted[];
+    repeatableCount?: number;
+    repeatable?: RepeatableJob[];
 }
 
 export default function JobsMonitoringPage() {
@@ -130,6 +145,56 @@ export default function JobsMonitoringPage() {
                                 </CardContent>
                             </Card>
                         ))}
+                    </div>
+
+                    {/* Sync Schedules & History */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-indigo-500" />
+                            <h2 className="text-xl font-bold">Scheduled Tasks & Last Runs</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {stats.map(q => (q.repeatableCount ?? 0) > 0 && (
+                                <Card key={`schedule-${q.name}`} className="border border-slate-200 shadow-sm overflow-hidden bg-white">
+                                    <CardHeader className="bg-slate-50 border-b border-slate-100 py-3">
+                                        <CardTitle className="text-sm font-semibold flex justify-between items-center text-slate-700">
+                                            {q.name} Schedules
+                                            <span className="bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-full text-xs">{q.repeatableCount} Tasks</span>
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <div className="divide-y divide-slate-100">
+                                            {q.repeatable?.map(job => (
+                                                <div key={job.key} className="p-4 hover:bg-slate-50 transition-colors">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="font-medium text-sm text-slate-800">{job.name}</span>
+                                                    </div>
+                                                    <div className="flex flex-col gap-1 text-xs text-slate-500">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                                                            <span className="font-semibold text-slate-700">Next Run:</span> 
+                                                            {job.next}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                                                            <span className="font-semibold text-slate-700">Last Successful Run:</span> 
+                                                            {q.recentCompleted && q.recentCompleted.length > 0 
+                                                                ? new Date(q.recentCompleted[0].finishedOn).toLocaleString()
+                                                                : 'Never or data cleared'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                            {stats.every(q => (q.repeatableCount ?? 0) === 0) && (
+                                <div className="col-span-full py-8 text-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                    No periodic tasks currently scheduled in the system.
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-6">

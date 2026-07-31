@@ -112,6 +112,24 @@ export class BullMQQueueProvider implements QueueProvider {
         return [];
     }
 
+    async getCompletedJobs(queueName: string, start?: number, limit?: number): Promise<any[]> {
+        try {
+            const queue = this.getQueue(queueName);
+            if (queue) {
+                const jobs = await queue.getCompleted(start, limit);
+                return jobs.map(j => ({
+                    id: String(j.id),
+                    name: j.name,
+                    state: 'completed',
+                    finishedOn: j.finishedOn,
+                }));
+            }
+        } catch {
+            // Fallback
+        }
+        return [];
+    }
+
     async getRepeatableJobs(queueName: string): Promise<any[]> {
         try {
             const queue = this.getQueue(queueName);
