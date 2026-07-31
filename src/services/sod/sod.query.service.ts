@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrderStatus } from '@prisma/client';
-import { SodStatus } from '@/lib/constants/sod-constants';
 import { GetServiceOrdersParams } from './sod-types';
 
 interface ServiceOrderItemWithIptv {
