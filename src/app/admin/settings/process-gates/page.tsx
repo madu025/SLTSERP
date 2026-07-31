@@ -8,6 +8,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 import { Plus, Settings2, Trash2, ShieldAlert, GitMerge } from 'lucide-react';
 import { ProcessGateForm } from './ProcessGateForm';
 import { ApprovalLevelBuilder } from './ApprovalLevelBuilder';
+import { VisualWorkflowPipeline } from './VisualWorkflowPipeline';
 import { ProcessGatePolicy, ProcessApprovalLevel } from '@prisma/client';
 import { toast } from 'sonner';
 
@@ -18,6 +19,8 @@ type GatePolicyWithLevels = ProcessGatePolicy & {
 export default function ProcessGatesAdminPage() {
   const [gates, setGates] = useState<GatePolicyWithLevels[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEntity, setSelectedEntity] = useState<string>('MATERIAL_REQUEST');
+  const [viewMode, setViewMode] = useState<'pipeline' | 'table'>('pipeline');
   
   // Modals state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -36,7 +39,8 @@ export default function ProcessGatesAdminPage() {
       });
       if (!res.ok) throw new Error('Failed to fetch process gates');
       const data = await res.json();
-      setGates(data.data);
+      const gatesList = Array.isArray(data.data) ? data.data : (Array.isArray(data.data?.data) ? data.data.data : []);
+      setGates(gatesList);
     } catch (error) {
       toast.error('Error fetching process gates');
       console.error(error);
@@ -69,6 +73,11 @@ export default function ProcessGatesAdminPage() {
     setIsBuilderOpen(true);
   };
 
+  // Distinct entity types available from fetched gates plus common defaults
+  const availableEntities = Array.from(
+    new Set(['MATERIAL_REQUEST', 'SERVICE_ORDER', 'INVOICE', ...gates.map(g => g.entityType)])
+  );
+
   return (
     <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS as unknown as string[]}>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -79,7 +88,7 @@ export default function ProcessGatesAdminPage() {
             <div className="max-w-7xl mx-auto space-y-6">
               
               {/* Header */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border shadow-sm">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border shadow-xs">
                 <div>
                   <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                     <ShieldAlert className="w-6 h-6 text-indigo-600" />
@@ -91,17 +100,90 @@ export default function ProcessGatesAdminPage() {
                 </div>
                 <button
                   onClick={() => { setSelectedGate(null); setIsFormOpen(true); }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 shadow-md shadow-indigo-100 transition-all hover:scale-[1.02]"
                 >
                   <Plus className="w-4 h-4" />
                   New Gate Policy
                 </button>
               </div>
 
-              {/* Data Table */}
-              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+              {/* Module Filter Tabs & View Mode Switcher */}
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border shadow-xs">
+                {/* Module Selector Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2 shrink-0">Module:</span>
+                  <button
+                    onClick={() => setSelectedEntity('ALL')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                      selectedEntity === 'ALL'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    All Modules ({gates.length})
+                  </button>
+                  {availableEntities.map((entity) => {
+                    const count = gates.filter(g => g.entityType === entity).length;
+                    return (
+                      <button
+                        key={entity}
+                        onClick={() => setSelectedEntity(entity)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+                          selectedEntity === entity
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {entity.replace('_', ' ')}
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${selectedEntity === entity ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 self-end md:self-auto">
+                  <button
+                    onClick={() => setViewMode('pipeline')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      viewMode === 'pipeline'
+                        ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <GitMerge className="w-3.5 h-3.5" />
+                    Visual Pipeline
+                  </button>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      viewMode === 'table'
+                        ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    Policy Table
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Content: Either Visual Pipeline Canvas or Classic Table */}
+              {viewMode === 'pipeline' ? (
+                <VisualWorkflowPipeline
+                  entityType={selectedEntity}
+                  gates={gates}
+                  onEditGate={handleEdit}
+                  onOpenBuilder={handleOpenBuilder}
+                  onDeleteGate={handleDelete}
+                  onAddNewGate={() => { setSelectedGate(null); setIsFormOpen(true); }}
+                />
+              ) : (
+                <div className="bg-white rounded-2xl shadow-xs border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b text-slate-500 text-sm">
                         <th className="p-4 font-semibold">Entity Type</th>
@@ -123,7 +205,7 @@ export default function ProcessGatesAdminPage() {
                           <td colSpan={7} className="p-8 text-center text-slate-400">No process gate policies found. Click &apos;New Gate Policy&apos; to create one.</td>
                         </tr>
                       ) : (
-                        gates.map((gate) => (
+                        gates.filter(g => selectedEntity === 'ALL' || g.entityType === selectedEntity).map((gate) => (
                           <tr key={gate.id} className="hover:bg-slate-50 transition-colors">
                             <td className="p-4 font-medium text-slate-900">
                               <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-bold">
@@ -193,6 +275,7 @@ export default function ProcessGatesAdminPage() {
                   </table>
                 </div>
               </div>
+              )}
 
             </div>
           </main>
