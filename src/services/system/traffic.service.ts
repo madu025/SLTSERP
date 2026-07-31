@@ -54,6 +54,11 @@ export class TrafficService {
      * Quickly check if an entity is blocked (used by middleware)
      */
     static async isBlocked(identifier: string): Promise<boolean> {
-        return await redis.sismember(this.BLACKLIST_KEY, identifier) === 1;
+        try {
+            return await redis.sismember(this.BLACKLIST_KEY, identifier) === 1;
+        } catch (error) {
+            console.warn(`[TrafficService] Redis unavailable for isBlocked check on ${identifier}`);
+            return false;
+        }
     }
 }

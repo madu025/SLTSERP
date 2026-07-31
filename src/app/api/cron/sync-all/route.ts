@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Allow up to 5 minutes on Vercel Pro (60s on Hobby)
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod/sod.service';
 import { AppointmentNotificationService } from '@/services/notification/notification.service';
 import { AppError } from '@/lib/error';
 
@@ -21,7 +20,7 @@ export const GET = apiHandler(async (req) => {
     console.log('[CRON] Starting Master Cron Job (Enqueueing to Background Workers)...');
     const startTime = Date.now();
 
-    const { addJob, sodSyncQueue, notificationsQueue } = await import('@/lib/queue');
+    const { addJob, sodSyncQueue } = await import('@/lib/queue');
 
     // 1. SOD Sync (Runs every 15 mins) - Enqueue to BullMQ
     await addJob(sodSyncQueue, 'periodic-pending-sync', { type: 'PERIODIC_PENDING_SYNC' });

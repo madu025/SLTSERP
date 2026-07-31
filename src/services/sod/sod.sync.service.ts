@@ -626,7 +626,6 @@ export class SODSyncService {
 
             const existing = existingMap.get(item.SO_NUM);
             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                status: item.CON_STATUS as import("@prisma/client").ServiceOrderStatus,
                 lea: item.LEA,
                 voiceNumber: item.VOICENUMBER,
                 orderType: item.ORDER_TYPE,
@@ -668,7 +667,8 @@ export class SODSyncService {
                         soNum: item.SO_NUM,
                         receivedDate: statusDate,
                         completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : null,
-                        sltsStatus: initialSltsStatus
+                        sltsStatus: initialSltsStatus,
+                        status: contractorId ? 'INPROGRESS' : 'PENDING'
                     } as Prisma.ServiceOrderUncheckedCreateInput);
                 }
             }
@@ -949,6 +949,7 @@ export class SODSyncService {
         commentsList?: { date?: string; user?: string; comment?: string }[];
     }) {
         const { soNum, allTabs, teamDetails, forensicAudit } = payload;
+        if (!soNum) return;
         const MATERIAL_MAP: Record<string, string> = {
             'DROP WIRE': 'OSPFTA003',
             'FTTH DROP WIRE': 'OSPFTA003',
@@ -985,7 +986,6 @@ export class SODSyncService {
             customerName: masterData['CON_CUS_NAME'] || masterData['CUS_NAME'] || masterData['CUSTOMER NAME'] || deepData['CUSTOMER NAME'],
             techContact: masterData['CON_TEC_CONTACT'] || masterData['CONTACT NO'] || masterData['CONTACT NUMBER'] || deepData['CONTACT NO'],
             address: masterData['ADDRE'] || masterData['ADDRESS'] || deepData['ADDRESS'],
-            status: (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS']) as import("@prisma/client").ServiceOrderStatus,
             package: masterData['PKG'] || masterData['PACKAGE'] || deepData['PACKAGE'],
             iptv: masterData['IPTV'],
             dpDetails: masterData['DP'] || masterData['DP LOOP'] || deepData['DP LOOP'] || masterData['DP_DETAILS'] || masterData['CONNECTION POINT (DP)'],
@@ -1024,7 +1024,7 @@ export class SODSyncService {
             if (contractor) mapping.contractorId = contractor.id;
         }
 
-        const portalStatus = (mapping.status || masterData['CON_STATUS'] || '').toString().toUpperCase();
+        const portalStatus = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString().toUpperCase();
 
         const hasHiddenReturnFields =
             (masterData['RETREASON_HIDDEN'] && masterData['RETREASON_HIDDEN'].trim().length > 0) ||
@@ -1040,10 +1040,6 @@ export class SODSyncService {
             portalStatus.includes('REJECT');
 
         if (isServiceReturn) {
-            mapping.sltsStatus = 'RETURN';
-            if (!mapping.status || mapping.status === 'INPROGRESS') {
-                mapping.status = 'RETURN_PENDING';
-            }
             const rawReason = masterData['RETREASON_HIDDEN'] ||
                 masterData['RTRESONALL_HIDDEN'] ||
                 masterData['SOD RETURN'] ||
@@ -1066,7 +1062,7 @@ export class SODSyncService {
 
             const classification = SODReturnClassifierService.classify(String(rawReason) + ' ' + String(rawComment));
             const formattedReason = String(rawReason).toUpperCase().trim();
-            mapping.returnReason = formattedReason && formattedReason !== 'RETURN_PENDING'
+            mapping.returnReason = formattedReason
                 ? `${formattedReason} (${classification.category})`
                 : classification.category;
 
@@ -1103,7 +1099,6 @@ export class SODSyncService {
         }
 
         const isOffline = (payload.url && payload.url.toLowerCase().includes('offline')) ||
-            (typeof mapping.status === 'string' && mapping.status.toUpperCase() === 'OFFLINE') ||
             (masterData['COMPLETION_MODE'] && String(masterData['COMPLETION_MODE']).toUpperCase().includes('OFFLINE'));
 
         const dataToUpdate: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
@@ -1120,12 +1115,11 @@ export class SODSyncService {
         const stDate = SodUtils.safeParseDate(masterData['STATUS DATE'] || SodUtils.deepParse(masterData)['STATUS DATE']);
         if (stDate) dataToUpdate.statusDate = stDate;
 
-        const statusStr = typeof mapping.status === 'string' ? mapping.status : '';
+        const statusStr = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString();
         const currentStatus = statusStr.toUpperCase();
 
         const isCompletedStatus =
-            [SodStatus.COMPLETED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus) ||
-            [SodStatus.COMPLETED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(String(mapping.status).toUpperCase());
+            [SodStatus.COMPLETED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus);
 
         if (isCompletedStatus && !isServiceReturn) {
             dataToUpdate.sltsStatus = SodStatus.COMPLETED;
@@ -1168,14 +1162,14 @@ export class SODSyncService {
             if (!patDate) patDate = new Date();
 
             // Store PAT System Completion Date explicitly
-            if (['PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus) || ['PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(String(mapping.status).toUpperCase())) {
+            if (['PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus)) {
                 dataToUpdate.opmcPatDate = patDate;
                 dataToUpdate.sltsPatDate = patDate;
                 dataToUpdate.opmcPatStatus = 'PASSED';
                 dataToUpdate.sltsPatStatus = 'PASSED';
                 dataToUpdate.patStatus = 'PAT_OPMC_PASSED';
             }
-        } else if (SOD_RETURN_STATUSES.includes(currentStatus)) {
+        } else if (isServiceReturn || SOD_RETURN_STATUSES.includes(currentStatus)) {
             dataToUpdate.sltsStatus = SodStatus.RETURN;
             const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
             const classification = SODReturnClassifierService.classify(rawReason);
@@ -1380,7 +1374,7 @@ export class SODSyncService {
                 data: {
                     ...dataToUpdate,
                     soNum: soNum || "",
-                    status: (dataToUpdate.status as string) || 'PENDING',
+                    status: 'PENDING',
                     sltsStatus: (dataToUpdate.sltsStatus as string) || 'INPROGRESS',
                     iptvSerials: iptvSerials.length > 0 ? {
                         create: iptvSerials.map(sn => ({ serialNumber: sn }))
