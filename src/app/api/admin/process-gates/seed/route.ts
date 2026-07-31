@@ -7,7 +7,10 @@ export const POST = apiHandler(
     return { message: 'Industrial standard workflow templates loaded successfully' };
   },
   {
-    allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
-    auditAction: 'SEED_INDUSTRIAL_GATE_TEMPLATES',
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    audit: {
+      action: 'SEED_INDUSTRIAL_GATE_TEMPLATES',
+      entity: 'PROCESS_GATE_POLICY',
+    },
   }
 );
