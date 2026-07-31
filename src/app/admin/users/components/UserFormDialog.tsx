@@ -253,7 +253,7 @@ export function UserFormDialog({
                                     <FormField control={form.control} name="password" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Password {initialData?.id && '(Leave blank to keep current)'}</FormLabel>
-                                            <FormControl><Input type="password" placeholder="••••••••" className="h-10 text-sm" {...field} /></FormControl>
+                                            <FormControl><Input type="password" placeholder="••••••••" className="h-10 text-sm" {...field} value={field.value || ''} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
