@@ -218,3 +218,22 @@ Date: 2026-07-30
 | **Architect** | Event-Driven Ledger | 🟡 Should | Over-engineering for current scale |
 | **OSP SME** | SLA Breach Auto-Penalties | 🟡 Should | High risk of contractor disputes |
 | **CFO** | P&L per Service Order | 🟡 Should | Material cost data must be 100% accurate |
+
+## 📅 2026-07-31: Process Gate Pipeline Conflicts & Gaps
+
+**Module:** Process Gate Engine (Admin Settings)
+**Context:** User invoked /grill-me stating that independent process gates in the wizard could lead to gaps or conflicts (overlapping origin statuses or disconnected pipelines).
+
+### Consolidated Multi-Role Review Table
+
+| Feature | Expert View | Severity | Decision |
+| :--- | :--- | :--- | :--- |
+| **Strict Linear Pipeline Validation** | Architect | 🔴 Must-Have | **ADOPTED** |
+| **Prevent Multiple Gates from Same Status** | QA / Security | 🔴 Must-Have | **ADOPTED** |
+| **Visual Gap Warning Indicator** | OSP SME | 🟡 Should-Have | DEFERRED |
+| **Block module if Pipeline Broken** | CFO | 🔵 Future Roadmap | REJECTED (Out of scope) |
+
+**Implementation Notes:** 
+- Updated StepByStepGateWizard.tsx to automatically suggest the correct romStatus based on the leaf node of existing gates for the selected entityType (Strict Linear Pipeline).
+- Added Conflict Validation logic to block saving if a gate already originates from the chosen romStatus, preventing race conditions and ensuring a Directed Acyclic Graph (DAG) state machine.
+

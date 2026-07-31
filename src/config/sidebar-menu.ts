@@ -474,7 +474,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Inventory / Stores',
         path: '/inventory',
         icon: Warehouse,
-        allowedRoles: ROLE_GROUPS.STORES,
+        allowedRoles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER'],
         permissionId: 'inventory',
         submenu: [
             // 1. Setup & Master Data
@@ -516,17 +516,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
-                // Merged: Stock Requests + Material Request + My Requests → single hub
+                // Single Unified Hub: Stock Requests + Material Requests + Approvals
                 title: 'Material Requests',
                 path: '/inventory/requests',
                 icon: ClipboardList,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER']
-            },
-            {
-                title: 'Material Approvals',
-                path: '/inventory/approvals',
-                icon: ClipboardCheck,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
             },
             // 3. Stock Outflow
             {
@@ -606,6 +600,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
         allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', ...ROLE_GROUPS.ALL_OPS],
         permissionId: 'restore_requests',
         submenu: [
+            {
+                title: 'Material Requests & Approvals',
+                path: '/inventory/requests',
+                icon: ClipboardList,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
+            },
             {
                 title: 'Procurement Approvals',
                 path: '/procurement/approvals',

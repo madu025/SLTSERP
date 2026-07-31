@@ -205,17 +205,17 @@ export class StockRequestService {
             case 'STORES_MANAGER_APPROVE':
             case 'APPROVE':
             case 'GATE_PASSED':
-                return this.handleGatePassed(data);
+                return StockRequestService.handleGatePassed(data);
             case 'RETURN':
-                return this.handleReturn(data);
+                return StockRequestService.handleReturn(data);
             case 'REJECT':
-                return this.handleReject(data);
+                return StockRequestService.handleReject(data);
             case 'PROCUREMENT_COMPLETE':
-                return this.handleProcurementComplete(data);
+                return StockRequestService.handleProcurementComplete(data);
             case 'RELEASE':
-                return this.handleMainStoreRelease(data);
+                return StockRequestService.handleMainStoreRelease(data);
             case 'RECEIVE':
-                return this.handleSubStoreReceive(data);
+                return StockRequestService.handleSubStoreReceive(data);
             default:
                 throw AppError.badRequest('INVALID_ACTION');
         }

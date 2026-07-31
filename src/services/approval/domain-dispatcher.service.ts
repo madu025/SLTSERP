@@ -44,28 +44,28 @@ export class DomainActionDispatcher {
 
         switch (actionId) {
             case 'TRIGGER_PROCUREMENT':
-                await this.handleTriggerProcurement(payload, tx);
+                await DomainActionDispatcher.handleTriggerProcurement(payload, tx);
                 break;
             case 'POST_TO_LEDGER':
-                await this.handlePostToLedger(payload, tx);
+                await DomainActionDispatcher.handlePostToLedger(payload, tx);
                 break;
             case 'GENERATE_INVOICE':
-                await this.handleGenerateInvoice(payload, tx);
+                await DomainActionDispatcher.handleGenerateInvoice(payload, tx);
                 break;
             case 'PAY_CONTRACTOR':
-                await this.handlePayContractor(payload, tx);
+                await DomainActionDispatcher.handlePayContractor(payload, tx);
                 break;
             case 'RETURN_MATERIAL':
-                await this.handleReturnMaterial(payload, tx);
+                await DomainActionDispatcher.handleReturnMaterial(payload, tx);
                 break;
             case 'ACCRUE_WIP':
-                await this.handleAccrueWIP(payload, tx);
+                await DomainActionDispatcher.handleAccrueWIP(payload, tx);
                 break;
-                        case 'HANDLE_SOD_ASSIGNED':
-                await this.handleSodAssigned(payload, tx);
+            case 'HANDLE_SOD_ASSIGNED':
+                await DomainActionDispatcher.handleSodAssigned(payload, tx);
                 break;
             case 'HANDLE_SOD_COMPLETED':
-                await this.handleSodCompleted(payload, tx);
+                await DomainActionDispatcher.handleSodCompleted(payload, tx);
                 break;
             default:
                 console.warn(`[DomainActionDispatcher] Unhandled domain action: ${actionId}`);

@@ -18,11 +18,16 @@ model ProcessGatePolicy {
   writeAuditLedger  Boolean @default(true)
   generateIssueNote Boolean @default(false)
 
+  // Next-Gen Upgrades
+  rejectionBehavior String @default("PERMANENT_CANCEL") // "PERMANENT_CANCEL", "REWORK_TO_CREATOR", "STEP_BACK_ONE_LEVEL"
+  approvalStrategy  String @default("ANY_CAN_APPROVE") // "ANY_CAN_APPROVE", "ALL_MUST_APPROVE", "PERCENTAGE_THRESHOLD"
+
   rolesToNotify Json? // e.g. ["STORES_MANAGER", "OSP_MANAGER"]
   domainAction  String? // e.g. "RESERVE_STOCK_MAIN"
   conditions    Json? // e.g. {"field": "totalValue", "operator": ">=", "value": 500000}
 
   approvalLevels ProcessApprovalLevel[]
+  instances      UniversalApprovalInstance[]
 
   updatedAt DateTime @updatedAt
 
@@ -38,6 +43,7 @@ model ProcessApprovalLevel {
   description    String? // Instructions for approver
   minAmount      Decimal? // Condition: Only apply if amount >= X
   maxAmount      Decimal? // Condition: Only apply if amount <= X
+  slaHours       Int?     @default(24) // SLA Escalation Timeout in hours
 
   gatePolicy   ProcessGatePolicy @relation(fields: [gatePolicyId], references: [id], onDelete: Cascade)
   specificUser User?             @relation(fields: [specificUserId], references: [id])
@@ -49,20 +55,43 @@ model UniversalApprovalInstance {
   id             String    @id @default(cuid())
   entityType     String // "SOD", "INVOICE", "STOCK_ISSUE"
   entityId       String // The ID of the SOD, Invoice, etc.
+  policyId       String? // Linked Gate Policy
+  levelIndex     Int       @default(0) // Current Level Index in policy
   level          Int
   requiredRole   String
   assignedUserId String?
+  makerId        String? // The ID of the original creator/requester of the entity
   status         String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
   actionedById   String?
   actionedAt     DateTime?
   comments       String?
   payload        Json? // Payload data attached during approval (e.g. qty, deductions)
+  signatureHash  String? // Cryptographic Digital Signature Hash
   createdAt      DateTime  @default(now())
 
-  assignedUser User? @relation("UniversalApprovalAssignee", fields: [assignedUserId], references: [id])
-  actionedBy   User? @relation("UniversalApprovalActioner", fields: [actionedById], references: [id])
+  policy       ProcessGatePolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  assignedUser User?              @relation("UniversalApprovalAssignee", fields: [assignedUserId], references: [id])
+  actionedBy   User?              @relation("UniversalApprovalActioner", fields: [actionedById], references: [id])
 
   @@index([entityType, entityId])
+  @@index([policyId])
+}
+
+// ============================================================================
+// Workflow / System Status Registry
+// Dynamically defines the available statuses per module instead of hardcoding
+// ============================================================================
+
+model WorkflowStatus {
+  id          String   @id @default(cuid())
+  entityType  String   // e.g. "MATERIAL_REQUEST", "SERVICE_ORDER"
+  value       String   // e.g. "DRAFT", "PENDING"
+  label       String   // e.g. "DRAFT (Initial Material Request)"
+  badgeColor  String?  // Optional color for UI badges
+  createdAt   DateTime @default(now())
+
+  @@unique([entityType, value])
+  @@index([entityType])
 }
 
 model IdempotencyLog {

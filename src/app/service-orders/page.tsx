@@ -118,16 +118,25 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         queryFn: async () => {
              const storedUser = localStorage.getItem('user');
              if (!storedUser) return [];
-             const user = JSON.parse(storedUser) as { role: string; username: string };
+             const user = JSON.parse(storedUser) as { role: string; username: string; accessibleOpmcs?: OPMC[] };
+             
+             const res = await fetch("/api/opmcs");
+             if (!res.ok) return [];
+             const allOpmcs = (await res.json()) as OPMC[];
+
              const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
              if (isAdmin) {
-                 const res = await fetch("/api/opmcs");
-                 return (await res.json()) as OPMC[];
+                 return allOpmcs;
              }
-             const res = await fetch("/api/users?page=1&limit=1000");
-             const data = (await res.json()) as { users: { username: string; accessibleOpmcs: OPMC[] }[] };
-             const currentUser = data.users.find((u) => u.username === user.username);
-             return currentUser?.accessibleOpmcs?.map((o) => ({ id: o.id, rtom: o.rtom, name: o.name || '' })) || [];
+
+             // Non-admin: filter by accessible OPMCs if available
+             if (Array.isArray(user.accessibleOpmcs) && user.accessibleOpmcs.length > 0) {
+                 const assignedIds = user.accessibleOpmcs.map((o) => o.id);
+                 const filtered = allOpmcs.filter((o) => assignedIds.includes(o.id));
+                 if (filtered.length > 0) return filtered;
+             }
+
+             return allOpmcs;
         }
     });
 

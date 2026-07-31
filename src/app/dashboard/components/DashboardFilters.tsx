@@ -50,6 +50,21 @@ export function DashboardFilters({
                 ? 'your assigned areas'
                 : 'all RTOMs';
 
+    const roleTitleMap: Record<string, string> = {
+        STORES_MANAGER: 'Stores & Inventory Control Hub',
+        STORES_ASSISTANT: 'Stores & Material Issue Operations',
+        FINANCE_MANAGER: 'Central Finance & Billing Hub',
+        FINANCE_ASSISTANT: 'Accounts & Voucher Operations',
+        OSP_MANAGER: 'OSP Regional Operations & Control',
+        AREA_MANAGER: 'Area Operations & SLA Cockpit',
+        ENGINEER: 'Field Service Orders & Network Operations',
+        AREA_COORDINATOR: 'Field Service Orders & Dispatch',
+        QC_OFFICER: 'Quality Control & PAT Inspection Dashboard',
+        SUPER_ADMIN: 'Executive Command Center',
+        ADMIN: 'System Administration Cockpit',
+    };
+    const roleTitle = (user?.role && roleTitleMap[user.role]) ? roleTitleMap[user.role] : 'Executive operations cockpit';
+
     return (
         <div className="space-y-4">
             {/* ── Page Header ─────────────────────────────── */}
@@ -66,11 +81,11 @@ export function DashboardFilters({
                                 Welcome, {user?.name ?? 'User'}
                             </h1>
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                                <Activity className="w-3 h-3 animate-pulse" /> Live ERP
+                                <Activity className="w-3 h-3 animate-pulse" /> {user?.role ? user.role.replace('_', ' ') : 'Live ERP'}
                             </span>
                         </div>
                         <p className="text-muted-foreground text-xs md:text-sm font-medium mt-0.5">
-                            Executive operations cockpit for <span className="font-bold text-primary">{scopeLabel}</span>
+                            {roleTitle} for <span className="font-bold text-primary">{scopeLabel}</span>
                         </p>
                     </div>
                 </div>

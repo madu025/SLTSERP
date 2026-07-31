@@ -85,11 +85,27 @@ export default function DashboardPage() {
     });
 
     const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
-    const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user.role);
+    const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER', 'OSP_MANAGER'].includes(user.role);
     const canFilterGlobally = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER'].includes(user.role);
     
-    // Only high level roles can see finance & inventory
-    const canViewFinance = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'MANAGER'].includes(user.role);
+    // Dynamic Role-gated tab visibility
+    const canViewFinance = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'MANAGER'].includes(user.role);
+    const canViewInventory = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER', 'OSP_MANAGER', 'MANAGER'].includes(user.role);
+    const canViewProjects = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'MANAGER', 'AREA_COORDINATOR'].includes(user.role);
+    const canViewOperations = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(user.role);
+
+    // Auto-set default active tab based on user role
+    useEffect(() => {
+        if (user?.role) {
+            if (['STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'].includes(user.role)) {
+                setActiveTab('inventory');
+            } else if (['FINANCE_MANAGER', 'FINANCE_ASSISTANT'].includes(user.role)) {
+                setActiveTab('finance');
+            } else {
+                setActiveTab('operations');
+            }
+        }
+    }, [user?.role]);
 
     const rtomRegionMap = stats?.rtomRegionMap;
     const userAccessibleRtoms = stats?.userAccessibleRtoms;
@@ -162,7 +178,12 @@ export default function DashboardPage() {
     }
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS}>
+        <RoleGuard allowedRoles={[
+            'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
+            'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 
+            'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT',
+            'PROCUREMENT_OFFICER', 'OFFICE_ADMIN', 'SITE_OFFICE_STAFF', 'SA_MANAGER', 'SA_ASSISTANT'
+        ]}>
             <div className="min-h-screen flex bg-background text-foreground">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full">
@@ -186,43 +207,48 @@ export default function DashboardPage() {
                             
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                                 <TabsList className="mb-4">
-                                    <TabsTrigger value="operations">Operations</TabsTrigger>
-                                    <TabsTrigger value="projects">Projects</TabsTrigger>
+                                    {canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
+                                    {canViewProjects && <TabsTrigger value="projects">Projects</TabsTrigger>}
                                     {canViewFinance && <TabsTrigger value="finance">Finance</TabsTrigger>}
-                                    {canViewFinance && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
+                                    {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
                                 </TabsList>
                                 
-                                <TabsContent value="operations" className="space-y-6">
-                                    <StatsCardGrid isLoading={isLoading} stats={stats} />
-                                    <ChartSection
-                                        isLoading={isLoading}
-                                        monthlyPieData={monthlyPieData}
-                                        patData={patData}
-                                        statusBreakdown={stats?.statusBreakdown}
-                                    />
-                                    <PerformanceSection
-                                        isLoading={isLoading}
-                                        contractors={stats?.contractors}
-                                        aging={stats?.aging}
-                                    />
-                                    {isHigherManagement && (
-                                        <RTOMTables isLoading={isLoading} sortedRtoms={sortedRtoms} />
-                                    )}
-                                </TabsContent>
+                                {canViewOperations && (
+                                    <TabsContent value="operations" className="space-y-6">
+                                        <StatsCardGrid isLoading={isLoading} stats={stats} />
+                                        <ChartSection
+                                            isLoading={isLoading}
+                                            monthlyPieData={monthlyPieData}
+                                            patData={patData}
+                                            statusBreakdown={stats?.statusBreakdown}
+                                        />
+                                        <PerformanceSection
+                                            isLoading={isLoading}
+                                            contractors={stats?.contractors}
+                                            aging={stats?.aging}
+                                        />
+                                        {isHigherManagement && (
+                                            <RTOMTables isLoading={isLoading} sortedRtoms={sortedRtoms} />
+                                        )}
+                                    </TabsContent>
+                                )}
                                 
-                                <TabsContent value="projects" className="space-y-6">
-                                    <ProjectsSection user={user} />
-                                </TabsContent>
+                                {canViewProjects && (
+                                    <TabsContent value="projects" className="space-y-6">
+                                        <ProjectsSection user={user} />
+                                    </TabsContent>
+                                )}
 
                                 {canViewFinance && (
-                                    <>
-                                        <TabsContent value="finance" className="space-y-6">
-                                            <FinanceSection rtom={selectedRtom} />
-                                        </TabsContent>
-                                        <TabsContent value="inventory" className="space-y-6">
-                                            <InventorySection rtom={selectedRtom} />
-                                        </TabsContent>
-                                    </>
+                                    <TabsContent value="finance" className="space-y-6">
+                                        <FinanceSection rtom={selectedRtom} />
+                                    </TabsContent>
+                                )}
+
+                                {canViewInventory && (
+                                    <TabsContent value="inventory" className="space-y-6">
+                                        <InventorySection rtom={selectedRtom} />
+                                    </TabsContent>
                                 )}
                             </Tabs>
                         </div>
