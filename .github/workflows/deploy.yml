@@ -21,21 +21,21 @@ jobs:
 
       - name: Create .env file for build
         run: |
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > .env
-          echo "DIRECT_URL=${{ secrets.DIRECT_URL }}" >> .env
-          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-          echo "NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}" >> .env
-          echo "CRON_SECRET=${{ secrets.CRON_SECRET }}" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}" > .env
+          echo "DIRECT_URL=${{ secrets.DIRECT_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}" >> .env
+          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET || 'slts-erp-fallback-nextauth-secret-2026' }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET || 'slts-erp-fallback-jwt-secret-2026' }}" >> .env
+          echo "NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}" >> .env
+          echo "CRON_SECRET=${{ secrets.CRON_SECRET || 'slts-erp-fallback-cron-secret-2026' }}" >> .env
           echo "NODE_ENV=production" >> .env
 
       - name: Build Next.js
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL || 'postgresql://postgres:postgres@localhost:5432/postgres' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'slts-erp-fallback-jwt-secret-2026' }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'slts-erp-fallback-nextauth-secret-2026' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET || 'slts-erp-fallback-cron-secret-2026' }}
           NODE_ENV: production
         run: npm run build
 
