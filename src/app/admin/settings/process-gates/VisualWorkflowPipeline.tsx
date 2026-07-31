@@ -38,10 +38,27 @@ export function VisualWorkflowPipeline({
   onDeleteGate,
   onAddNewGate,
 }: VisualWorkflowPipelineProps) {
-  // Filter gates for the selected entity type
-  const entityGates = gates
-    .filter(g => entityType === 'ALL' || g.entityType === entityType)
-    .sort((a, b) => a.fromStatus.localeCompare(b.fromStatus));
+  // Filter gates for the selected entity type and sort in chronological sequence
+  const rawGates = gates.filter(g => entityType === 'ALL' || g.entityType === entityType);
+  
+  const sortedGates: GatePolicyWithLevels[] = [];
+  const remaining = [...rawGates];
+
+  if (remaining.length > 0) {
+    const toStatuses = new Set(remaining.map(g => g.toStatus));
+    let current = remaining.find(g => !toStatuses.has(g.fromStatus)) || remaining[0];
+
+    while (current && remaining.length > 0) {
+      sortedGates.push(current);
+      const idx = remaining.findIndex(g => g.id === current.id);
+      if (idx !== -1) remaining.splice(idx, 1);
+      
+      const nextGate = remaining.find(g => g.fromStatus === current.toStatus);
+      current = nextGate || remaining[0];
+    }
+  }
+
+  const entityGates = sortedGates;
 
   if (entityGates.length === 0) {
     return (
@@ -248,14 +265,14 @@ export function VisualWorkflowPipeline({
                       {gate.approvalLevels.map((lvl) => (
                         <div key={lvl.id} className="bg-white border border-slate-200 p-2.5 rounded-xl text-xs space-y-1 shadow-2xs">
                           <div className="flex items-center justify-between font-bold text-slate-700">
-                            <span>Level {lvl.levelOrder}: {lvl.name}</span>
+                            <span>Level {lvl.level}: {lvl.description || lvl.requiredRole}</span>
                           </div>
                           <div className="flex flex-wrap gap-1 pt-1">
-                            {lvl.requiredRoles.map((role) => (
-                              <span key={role} className="bg-indigo-50 text-indigo-700 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-indigo-100">
-                                {role}
+                            {lvl.requiredRole && (
+                              <span className="bg-indigo-50 text-indigo-700 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-indigo-100">
+                                {lvl.requiredRole}
                               </span>
-                            ))}
+                            )}
                           </div>
                         </div>
                       ))}
