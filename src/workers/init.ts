@@ -11,6 +11,18 @@ export async function initializeBackgroundWorkers() {
     console.log(`[WORKERS] Runtime: ${process.env.NEXT_RUNTIME}`);
     console.log(`[WORKERS] Redis URL: ${process.env.REDIS_URL || 'NOT SET'}`);
 
+    // Pre-check if Redis is reachable before attempting BullMQ Worker instantiation
+    try {
+        const { redis } = await import('../lib/redis');
+        await Promise.race([
+            redis.ping(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Redis ping timeout')), 1500))
+        ]);
+    } catch (pingErr: unknown) {
+        console.warn('[WORKERS] ⚠️ Local Redis server (port 6379) is not reachable. Skipping background workers.');
+        return;
+    }
+
     const { sodSyncQueue, systemQueue } = await import('../lib/queue');
 
     // 🚀 INITIALIZE BULLMQ WORKERS

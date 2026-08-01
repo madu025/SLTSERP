@@ -2741,7 +2741,7 @@
     * `syncPatResults(opmcId: string, rtom: string): any`
     * `syncHoApprovedResults(): any`
     * `syncHoRejectedResults(): any`
-    * `syncAllOpmcs(): any`
+    * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
     * `syncServiceOrders(opmcId: string, rtom: string): any`
     * `getExtensionRawData(soNum: string): any`
@@ -2901,7 +2901,7 @@
     * `syncPatResults(opmcId: string, rtom: string): any`
     * `syncHoApprovedResults(): any`
     * `syncHoRejectedResults(): any`
-    * `syncAllOpmcs(): any`
+    * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
     * `syncServiceOrders(opmcId: string, rtom: string, preloadedPendingSods?: { id: string; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: string }[]): any`
     * `bridgeSync(payload: {

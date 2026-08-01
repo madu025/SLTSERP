@@ -782,21 +782,21 @@ ${log.stackTrace || 'No stack trace recorded'}
                                                     <tr key={log.id} className="hover:bg-slate-800/40 transition">
                                                         <td className="py-3 px-4 whitespace-nowrap">
                                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                                                                log.statusCode >= 500 ? 'bg-red-950 text-red-400 border border-red-800/60' : 'bg-amber-950 text-amber-400 border border-amber-800/60'
+                                                                log.statusCode >= 500 ? 'bg-red-950 text-red-400 border border-red-800' : 'bg-amber-950 text-amber-400 border border-amber-800'
                                                             }`}>
                                                                 {log.statusCode}
                                                             </span>
                                                         </td>
-                                                        <td className="py-3 px-4 whitespace-nowrap font-mono text-xs text-slate-300 max-w-[200px] truncate">
-                                                            <span className="font-bold text-indigo-400 mr-1.5">{log.method}</span>
+                                                        <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-200">
+                                                            <span className="font-bold text-slate-400 mr-1.5">{log.method}</span>
                                                             {log.path}
                                                         </td>
                                                         <td className="py-3 px-4 whitespace-nowrap">
-                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${diag.badgeColor}`}>
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${diag.badgeColor}`}>
                                                                 {diag.label}
                                                             </span>
                                                         </td>
-                                                        <td className="py-3 px-4 max-w-xs truncate text-slate-200 font-mono text-[11px]">
+                                                        <td className="py-3 px-4 text-slate-300 font-mono text-[11px] max-w-md truncate" title={log.message}>
                                                             {log.message}
                                                         </td>
                                                         <td className="py-3 px-4 whitespace-nowrap text-slate-400 text-[11px]">
