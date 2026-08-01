@@ -1085,6 +1085,11 @@ export const hasAccess = (
         return allowedRoles.includes(userRole);
     }
 
+    // Strict isolation for Procurement Officer: ONLY allow items where role is explicitly listed
+    if (userRole === 'PROCUREMENT_OFFICER') {
+        return allowedRoles.includes(userRole);
+    }
+
     // Check if user role is explicitly allowed
     if (allowedRoles.includes('ALL') || allowedRoles.includes(userRole)) return true;
 

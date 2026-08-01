@@ -76,42 +76,53 @@ export default function ProcurementForecastPage() {
     const [poTitle, setPoTitle] = useState('');
 
     // Fetch Forecast Projections
-    const { data: forecast = [], isLoading: isLoadingForecast, refetch: refetchForecast } = useQuery<ForecastItem[]>({
+    const { data: rawForecast, isLoading: isLoadingForecast, refetch: refetchForecast } = useQuery<ForecastItem[]>({
         queryKey: ['procurement-forecast', months, target],
         queryFn: async () => {
-            const res = await fetch(`/api/procurement/forecast?months=${months}&target=${target}`);
-            return res.json();
+            const res = await fetch(`/api/procurement/forecast?months=${months}&target=${target}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (Array.isArray(data)) return data;
+            if (data && Array.isArray(data.data)) return data.data;
+            return [];
         }
     });
+    const forecast: ForecastItem[] = Array.isArray(rawForecast) ? rawForecast : [];
 
     // Fetch Expiry Warnings
     const { data: expiryData, isLoading: isLoadingExpiry, refetch: refetchExpiry } = useQuery<{ success: boolean; warnings: ExpiryWarning[] }>({
         queryKey: ['expiry-warnings'],
         queryFn: async () => {
-            const res = await fetch('/api/procurement/expiry-check');
+            const res = await fetch('/api/procurement/expiry-check', { cache: 'no-store' });
             return res.json();
         }
     });
     const warnings = expiryData?.warnings || [];
 
     // Fetch active projects for dropdown
-    const { data: projects = [] } = useQuery<ProjectType[]>({
+    const { data: rawProjects } = useQuery<ProjectType[]>({
         queryKey: ['active-projects-for-po'],
         queryFn: async () => {
-            const res = await fetch('/api/projects');
-            return Array.isArray(res) ? res : [];
+            const res = await fetch('/api/projects', { cache: 'no-store' });
+            const data = await res.json();
+            if (Array.isArray(data)) return data;
+            if (data && Array.isArray(data.data)) return data.data;
+            return [];
         }
     });
+    const projects: ProjectType[] = Array.isArray(rawProjects) ? rawProjects : [];
 
     // Fetch active vendors for dropdown
-    const { data: vendors = [] } = useQuery<VendorType[]>({
+    const { data: rawVendors } = useQuery<VendorType[]>({
         queryKey: ['active-vendors-for-po'],
         queryFn: async () => {
-            const res = await fetch('/api/vendors');
+            const res = await fetch('/api/vendors', { cache: 'no-store' });
             const data = await res.json();
-            return Array.isArray(data) ? data : [];
+            if (Array.isArray(data)) return data;
+            if (data && Array.isArray(data.data)) return data.data;
+            return [];
         }
     });
+    const vendors: VendorType[] = Array.isArray(rawVendors) ? rawVendors : [];
 
     // Select all items initially
     useEffect(() => {

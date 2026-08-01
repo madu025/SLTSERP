@@ -44,7 +44,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     // Filter State
     const [selectedRtomId, setSelectedRtomId] = useState<string>("");
     const [selectedRtom, setSelectedRtom] = useState<string>("");
-    const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
+    const [selectedMonth, setSelectedMonth] = useState<string>(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : String(new Date().getMonth() + 1));
     const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
     const [searchTerm, setSearchTerm] = useState(urlSearch || "");
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(urlSearch || "");
@@ -249,6 +249,11 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     }, [urlRtom, safeOpmcs, selectedRtomId]);
 
     const handleOpmcChange = (value: string) => {
+        if (value === 'ALL') {
+            setSelectedRtomId('ALL');
+            setSelectedRtom('ALL');
+            return;
+        }
         const opmc = safeOpmcs.find(o => o.id === value);
         if (opmc) {
             setSelectedRtomId(value);
@@ -380,6 +385,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                      <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
                                          <SelectTrigger className="h-7 border-none bg-transparent w-[110px] focus:ring-0 shadow-none font-bold text-xs"><SelectValue placeholder="RTOM" /></SelectTrigger>
                                          <SelectContent>
+                                             <SelectItem value="ALL" className="text-xs font-bold text-primary">All RTOMs</SelectItem>
                                              {safeOpmcs.length > 0 ? safeOpmcs.map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom}</SelectItem>) : <SelectItem value="error" disabled>No RTOMs Available</SelectItem>}
                                          </SelectContent>
                                      </Select>
@@ -390,14 +396,16 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                      <div className="flex items-center gap-1 px-2 py-0.5 bg-muted/60 rounded-lg border border-border/20 shrink-0">
                                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                                          <Select value={selectedMonth} onValueChange={(v) => { setSelectedMonth(v); setCurrentPage(1); }}>
-                                             <SelectTrigger className="h-7 border-none bg-transparent w-[76px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
+                                             <SelectTrigger className="h-7 border-none bg-transparent w-[88px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
                                              <SelectContent>
+                                                 <SelectItem value="ALL" className="text-xs font-bold text-primary">All Months</SelectItem>
                                                  {['1','2','3','4','5','6','7','8','9','10','11','12'].map(m => <SelectItem key={m} value={m} className="text-xs">{new Date(2000, Number(m)-1).toLocaleString('default', { month: 'short' })}</SelectItem>)}
                                              </SelectContent>
                                          </Select>
                                          <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setCurrentPage(1); }}>
                                              <SelectTrigger className="h-7 border-none bg-transparent w-[88px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
                                              <SelectContent>
+                                                 <SelectItem value="ALL" className="text-xs font-bold text-primary">All Years</SelectItem>
                                                  {['2024','2025','2026'].map(y => <SelectItem key={y} value={y} className="text-xs">{y}</SelectItem>)}
                                              </SelectContent>
                                          </Select>

@@ -18,8 +18,8 @@ export const GET = apiHandler(async (request) => {
         page: parseInt(searchParams.get('page') || '1'),
         limit: parseInt(searchParams.get('limit') || '50'),
         cursor: searchParams.get('cursor') || undefined,
-        month: searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined,
-        year: searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined,
+        month: searchParams.get('month') && searchParams.get('month') !== 'ALL' && !isNaN(parseInt(searchParams.get('month')!)) ? parseInt(searchParams.get('month')!) : undefined,
+        year: searchParams.get('year') && searchParams.get('year') !== 'ALL' && !isNaN(parseInt(searchParams.get('year')!)) ? parseInt(searchParams.get('year')!) : undefined,
     };
 
     // rtomId is optional (allows fetching cross-OPMC completed/invoicable SODs)

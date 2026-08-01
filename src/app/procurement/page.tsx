@@ -41,13 +41,18 @@ interface OverviewRequest {
 
 export default function ProcurementOverviewPage() {
     // Fetch all procurement requests for statistics
-    const { data: allRequests = [], isLoading } = useQuery<OverviewRequest[]>({
+    const { data: rawRequests, isLoading } = useQuery<OverviewRequest[]>({
         queryKey: ["procurement-overview"],
         queryFn: async () => {
-            const res = await fetch("/api/inventory/requests");
-            return res.json();
+            const res = await fetch("/api/inventory/requests", { cache: 'no-store' });
+            const json = await res.json();
+            if (Array.isArray(json)) return json;
+            if (json && Array.isArray(json.data)) return json.data;
+            return [];
         }
     });
+
+    const allRequests: OverviewRequest[] = Array.isArray(rawRequests) ? rawRequests : [];
 
     // Calculate statistics
     const stats = {

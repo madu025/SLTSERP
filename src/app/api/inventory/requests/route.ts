@@ -14,7 +14,8 @@ export const GET = apiHandler(async (req) => {
         isApprover: searchParams.get('isApprover') === 'true',
         status: searchParams.get('status') || undefined,
         workflowStage: searchParams.get('workflowStage') || undefined,
-        sourceType: searchParams.get('sourceType') || undefined
+        sourceType: searchParams.get('sourceType') || undefined,
+        procurementStatus: searchParams.get('procurementStatus') || undefined
     };
 
     return await InventoryService.getStockRequests(filters);

@@ -34,9 +34,6 @@ model StockRequest {
   maintenanceMonths         String?
   workflowStage             String             @default("REQUEST")
   procurementStatus         String             @default("PENDING")
-  poNumber                  String?
-  vendor                    String?
-  expectedDelivery          DateTime?
   irNumber                  String?
   isCoveringPO              Boolean            @default(false)
   armAction                 String?
@@ -69,6 +66,7 @@ model StockRequest {
   storesManagerApprovedBy   User?              @relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])
   toStore                   InventoryStore?    @relation("RequestTarget", fields: [toStoreId], references: [id])
   items                     StockRequestItem[]
+  purchaseOrders            PurchaseOrder[]
 
   @@index([fromStoreId])
   @@index([toStoreId])
@@ -79,20 +77,21 @@ model StockRequest {
 }
 
 model StockRequestItem {
-  id              String        @id @default(cuid())
-  requestId       String
-  itemId          String
-  requestedQty    Float
-  approvedQty     Float         @default(0)
-  issuedQty       Float?
-  receivedQty     Float         @default(0)
-  remarks         String?
-  make            String?
-  model           String?
-  suggestedVendor String?
-  createdAt       DateTime      @default(now())
-  item            InventoryItem @relation(fields: [itemId], references: [id])
-  request         StockRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(cuid())
+  requestId          String
+  itemId             String
+  requestedQty       Float
+  approvedQty        Float               @default(0)
+  issuedQty          Float?
+  receivedQty        Float               @default(0)
+  remarks            String?
+  make               String?
+  model              String?
+  suggestedVendor    String?
+  createdAt          DateTime            @default(now())
+  item               InventoryItem       @relation(fields: [itemId], references: [id])
+  request            StockRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([requestId])
   @@index([itemId])
@@ -410,4 +409,39 @@ model StockMovement {
   @@index([storeId])
   @@index([itemId])
   @@index([type])
+}
+
+model PurchaseOrder {
+  id               String    @id @default(cuid())
+  poNumber         String    @unique
+  vendor           String
+  expectedDelivery DateTime?
+  status           String    @default("PENDING") // PENDING, APPROVED, ISSUED, COMPLETED
+
+  stockRequestId String
+  stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Restrict)
+
+  items PurchaseOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stockRequestId])
+}
+
+model PurchaseOrderItem {
+  id          String @id @default(cuid())
+  quantity    Float
+  unitPrice   Float  @default(0.0)
+  taxAmount   Float  @default(0.0)
+  totalAmount Float  @default(0.0)
+
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  stockRequestItemId String
+  stockRequestItem   StockRequestItem @relation(fields: [stockRequestItemId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([stockRequestItemId])
 }

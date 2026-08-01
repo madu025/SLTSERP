@@ -26,3 +26,4 @@ export { RTOMTables, type RTOMTablesProps } from './RTOMTables';
 export { default as FinanceSection } from './FinanceSection';
 export { default as InventorySection } from './InventorySection';
 export { default as ProjectsSection } from './ProjectsSection';
+export { default as ProcurementSection } from './ProcurementSection';

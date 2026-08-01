@@ -174,6 +174,7 @@ export class StockRequestService {
         status?: string;
         workflowStage?: string;
         sourceType?: string;
+        procurementStatus?: string;
     }) {
         const where: Prisma.StockRequestWhereInput = {};
 
@@ -191,11 +192,17 @@ export class StockRequestService {
         }
 
         if (filters.workflowStage) {
-            where.workflowStage = { in: filters.workflowStage.split(',') };
+            const stages = filters.workflowStage.split(',');
+            where.workflowStage = { in: stages };
         }
 
         if (filters.sourceType) {
             where.sourceType = filters.sourceType;
+        }
+
+        if (filters.procurementStatus) {
+            const pStatuses = filters.procurementStatus.split(',');
+            where.procurementStatus = { in: pStatuses };
         }
 
         return await StockRequestRepository.findMany({
@@ -257,6 +264,10 @@ export class StockRequestService {
                 return StockRequestService.handleReturn(data);
             case 'REJECT':
                 return StockRequestService.handleReject(data);
+            case 'CREATE_PO':
+                return StockRequestService.handleCreatePO(data);
+            case 'UPDATE_PROCUREMENT_STATUS':
+                return StockRequestService.handleUpdateProcurementStatus(data);
             case 'PROCUREMENT_COMPLETE':
                 return StockRequestService.handleProcurementComplete(data);
             case 'RELEASE':
@@ -266,6 +277,78 @@ export class StockRequestService {
             default:
                 throw AppError.badRequest('INVALID_ACTION');
         }
+    }
+
+    private static async handleCreatePO(data: StockRequestActionData) {
+        const { requestId, poNumber, vendor, expectedDelivery, remarks, items } = data;
+
+        if (!poNumber || !vendor) {
+            throw AppError.badRequest('PO Number and Vendor are required');
+        }
+
+        const updated = await prisma.$transaction(async (tx) => {
+            const newPO = await tx.purchaseOrder.create({
+                data: {
+                    poNumber,
+                    vendor,
+                    expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : undefined,
+                    stockRequestId: requestId,
+                    status: 'APPROVED'
+                }
+            });
+
+            if (items && items.length > 0) {
+                const poItems = items.map(item => ({
+                    purchaseOrderId: newPO.id,
+                    stockRequestItemId: item.id,
+                    quantity: item.orderQty || 1,
+                    unitPrice: item.unitPrice || 0,
+                    taxAmount: item.taxAmount || 0,
+                    totalAmount: item.totalAmount || 0,
+                }));
+                
+                await tx.purchaseOrderItem.createMany({
+                    data: poItems
+                });
+            }
+
+            const request = await tx.stockRequest.update({
+                where: { id: requestId },
+                data: {
+                    procurementStatus: 'PO_CREATED',
+                    remarks: remarks || undefined
+                },
+                include: {
+                    items: { include: { item: true } },
+                    fromStore: true,
+                    toStore: true,
+                    requestedBy: true,
+                    purchaseOrders: { include: { items: true } }
+                }
+            });
+            
+            return request;
+        });
+
+        this.safeNotifyFinalAction(updated as any, 'CREATE_PO', remarks);
+        return updated;
+    }
+
+    private static async handleUpdateProcurementStatus(data: StockRequestActionData) {
+        const { requestId, procurementStatus, remarks } = data;
+        const updatePayload: Record<string, unknown> = {
+            procurementStatus: procurementStatus || undefined,
+            remarks: remarks || undefined
+        };
+
+        if (procurementStatus === 'COMPLETED') {
+            updatePayload.workflowStage = 'GRN_PENDING';
+            updatePayload.status = 'APPROVED';
+        }
+
+        const updated = await StockRequestRepository.update(requestId, updatePayload);
+        this.safeNotifyFinalAction(updated, `PROCUREMENT_STATUS_${procurementStatus}`);
+        return updated;
     }
 
     private static async handleGatePassed(data: StockRequestActionData) {

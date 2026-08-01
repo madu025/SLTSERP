@@ -260,3 +260,18 @@ Date: 2026-07-30
   - Pending SODs display SLA Aging badges against Received Date.
   - Completed SODs display Turnaround Duration (e.g. 16d) instead of misleading Overdue badges.
   - Verified zero-any types and project-wide TypeScript compilation.
+
+## Session: PRN to Multi-PO Splitting (Procurement Architecture)
+**Date:** 2026-08-01
+**Context:** User invoked /grill-me asking if a Purchase Request (PRN) can have a 1-to-Many relationship with Purchase Orders (POs) when they are built.
+
+### Consolidated Multi-Role Review Table
+
+| Feature | Expert View | Severity | Decision |
+| :--- | :--- | :--- | :--- |
+| **Extract poNumber to new PurchaseOrder table (1:Many from PRN)** | Architect | ?? Must-Have | **ADOPTED** |
+| **Track Line-Items via PurchaseOrderItem mapped to StockRequestItem** | OSP SME | ?? Must-Have | **ADOPTED** |
+| **Data Migration Script to preserve existing POs before dropping columns** | QA / Security | ?? Must-Have | **ADOPTED** |
+| **Track unitPrice, 	axAmount, 	otalAmount on PO line items** | CFO | ?? Must-Have | **ADOPTED** |
+| **Include purchaseOrders: true in queries without bloating payload** | DevOps | ?? Should-Have | DEFERRED (To Execution) |
+

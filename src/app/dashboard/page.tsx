@@ -1,5 +1,4 @@
 "use client";
-import { ROLE_GROUPS } from '@/config/roles';
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -9,9 +8,18 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection } from './components';
+import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection, ProcurementSection } from './components';
 import type { Stats } from './components';
 import RoleGuard from '@/components/RoleGuard';
+import { ROLE_GROUPS, hasRole } from '@/config/roles';
+
+const getDefaultTabForRole = (role?: string) => {
+    if (!role) return 'operations';
+    if (role === 'PROCUREMENT_OFFICER') return 'procurement';
+    if (['STORES_MANAGER', 'STORES_ASSISTANT'].includes(role)) return 'inventory';
+    if (['FINANCE_MANAGER', 'FINANCE_ASSISTANT'].includes(role)) return 'finance';
+    return 'operations';
+};
 
 /* ── Chart-heavy sections are dynamically imported (client-only) ── */
 const ChartSection = dynamic(() => import('./components/ChartSection'), {
@@ -53,7 +61,7 @@ export default function DashboardPage() {
     const [mounted, setMounted] = useState(false);
     const [selectedRegion, setSelectedRegion] = useState('ALL');
     const [selectedRtom, setSelectedRtom] = useState('ALL');
-    const [activeTab, setActiveTab] = useState('operations');
+    const [activeTab, setActiveTab] = useState(() => getDefaultTabForRole(user?.role));
 
     useEffect(() => {
         Promise.resolve().then(() => setMounted(true));
@@ -85,27 +93,15 @@ export default function DashboardPage() {
     });
 
     const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
-    const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER', 'OSP_MANAGER'].includes(user.role);
-    const canFilterGlobally = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER'].includes(user.role);
+    const isHigherManagement = hasRole(user?.role, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER', 'OSP_MANAGER']);
+    const canFilterGlobally = hasRole(user?.role, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER']);
     
     // Dynamic Role-gated tab visibility
-    const canViewFinance = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'MANAGER'].includes(user.role);
-    const canViewInventory = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER', 'OSP_MANAGER', 'MANAGER'].includes(user.role);
-    const canViewProjects = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'MANAGER', 'AREA_COORDINATOR'].includes(user.role);
-    const canViewOperations = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(user.role);
-
-    // Auto-set default active tab based on user role
-    useEffect(() => {
-        if (user?.role) {
-            if (['STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'].includes(user.role)) {
-                setActiveTab('inventory');
-            } else if (['FINANCE_MANAGER', 'FINANCE_ASSISTANT'].includes(user.role)) {
-                setActiveTab('finance');
-            } else {
-                setActiveTab('operations');
-            }
-        }
-    }, [user?.role]);
+    const canViewFinance = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'MANAGER']);
+    const canViewInventory = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'MANAGER']);
+    const canViewProcurement = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.PROCUREMENT, 'MANAGER']);
+    const canViewProjects = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS, 'MANAGER', 'AREA_COORDINATOR']);
+    const canViewOperations = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.ALL_OPS, 'MANAGER']);
 
     const rtomRegionMap = stats?.rtomRegionMap;
     const userAccessibleRtoms = stats?.userAccessibleRtoms;
@@ -209,6 +205,7 @@ export default function DashboardPage() {
                                 <TabsList className="mb-4">
                                     {canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
                                     {canViewProjects && <TabsTrigger value="projects">Projects</TabsTrigger>}
+                                    {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
                                     {canViewFinance && <TabsTrigger value="finance">Finance</TabsTrigger>}
                                     {canViewInventory && <TabsTrigger value="inventory">Inventory</TabsTrigger>}
                                 </TabsList>
@@ -236,6 +233,12 @@ export default function DashboardPage() {
                                 {canViewProjects && (
                                     <TabsContent value="projects" className="space-y-6">
                                         <ProjectsSection user={user} />
+                                    </TabsContent>
+                                )}
+
+                                {canViewProcurement && (
+                                    <TabsContent value="procurement" className="space-y-6">
+                                        <ProcurementSection rtom={selectedRtom} />
                                     </TabsContent>
                                 )}
 

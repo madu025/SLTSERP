@@ -184,14 +184,13 @@ export class SODQueryService {
                     { status: { in: [ServiceOrderStatus.COMPLETED, ServiceOrderStatus.PAT_OPMC_PASSED, ServiceOrderStatus.PAT_CORRECTED, ServiceOrderStatus.CLOSED, ServiceOrderStatus.PASSED] } }
                 ],
                 NOT: [
-                    { status: ServiceOrderStatus.INSTALL_CLOSED },
                     { status: ServiceOrderStatus.PROV_CLOSED },
                     { sltsStatus: ServiceOrderStatus.PROV_CLOSED },
-                    { sltsStatus: ServiceOrderStatus.INPROGRESS },
                     { sltsStatus: ServiceOrderStatus.RETURN },
                     { status: ServiceOrderStatus.RETURNED },
                     { sltsStatus: ServiceOrderStatus.DISAPPEARED },
-                    { status: ServiceOrderStatus.PAT_OPMC_REJECTED }
+                    { status: ServiceOrderStatus.PAT_OPMC_REJECTED },
+                    { status: ServiceOrderStatus.PAT_REJECTED }
                 ]
             });
         } else if (filter === 'disappeared') {

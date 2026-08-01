@@ -70,21 +70,27 @@ export default function ApprovalsPage() {
     const [stockLevels, setStockLevels] = useState<Record<string, number>>({});
 
     // Fetch Requests with filtering
-    const { data: requests = [], isLoading } = useQuery<ApprovalRequest[]>({
+    const { data: rawRequests = [], isLoading } = useQuery<ApprovalRequest[]>({
         queryKey: ["approvals", activeTab],
         queryFn: async () => {
+            let url = "";
             if (activeTab === "PENDING") {
                 // PENDING: Only procurement requests awaiting manager approval
-                const url = `/api/inventory/requests?workflowStage=REQUEST&status=PENDING&_t=${Date.now()}`;
-                return (await fetch(url, { cache: 'no-store' })).json();
+                url = `/api/inventory/requests?workflowStage=REQUEST&status=PENDING&_t=${Date.now()}`;
             } else {
                 // HISTORY: Show ALL approved/rejected requests (procurement + internal transfers)
                 // This gives managers a unified view of all their approval decisions
-                const url = `/api/inventory/requests?status=APPROVED,REJECTED&_t=${Date.now()}`;
-                return (await fetch(url, { cache: 'no-store' })).json();
+                url = `/api/inventory/requests?status=APPROVED,REJECTED&_t=${Date.now()}`;
             }
+            const res = await fetch(url, { cache: 'no-store' });
+            const json = await res.json();
+            if (Array.isArray(json)) return json;
+            if (json && Array.isArray(json.data)) return json.data;
+            return [];
         }
     });
+
+    const requests = Array.isArray(rawRequests) ? rawRequests : [];
 
     // Initialize edited quantities and fetch stock levels when selection changes
     useEffect(() => {

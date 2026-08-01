@@ -50,14 +50,14 @@ export default function Header() {
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        localStorage.removeItem('contractor_user');
-        localStorage.removeItem('contractor_token');
-        if (user?.role?.startsWith('CONTRACTOR_') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/contractor'))) {
-            router.push('/contractor/login');
+        localStorage.clear(); // Clear everything to prevent cross-user data leakage
+        const isContractor = user?.role?.startsWith('CONTRACTOR_') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/contractor'));
+        
+        // Use window.location.href to force a full reload and wipe React Query memory cache
+        if (isContractor) {
+            window.location.href = '/contractor/login';
         } else {
-            router.push('/login');
+            window.location.href = '/login';
         }
     };
 

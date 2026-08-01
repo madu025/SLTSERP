@@ -332,6 +332,7 @@
   * **Methods**:
     * `getFinanceMetrics(rtom: string = 'ALL'): any`
     * `getInventoryMetrics(rtom: string = 'ALL'): any`
+    * `getProcurementMetrics(rtom: string = 'ALL'): any`
 
 ### [executive-dashboard.service.ts](src/services/core/executive-dashboard.service.ts)
 * **Class**: `ExecutiveDashboardService`
@@ -1662,6 +1663,7 @@
         status?: string;
         workflowStage?: string;
         sourceType?: string;
+        procurementStatus?: string;
     }): any`
     * `processStockRequestAction(data: StockRequestActionData): any`
 
@@ -3038,6 +3040,7 @@
 | `/api/dashboard/executive` | [route.ts](src/app/api/dashboard/executive/route.ts) | `GET` |
 | `/api/dashboard/finance` | [route.ts](src/app/api/dashboard/finance/route.ts) | `GET` |
 | `/api/dashboard/inventory` | [route.ts](src/app/api/dashboard/inventory/route.ts) | `GET` |
+| `/api/dashboard/procurement` | [route.ts](src/app/api/dashboard/procurement/route.ts) | `GET` |
 | `/api/dashboard/project-stats` | [route.ts](src/app/api/dashboard/project-stats/route.ts) | `GET` |
 | `/api/dashboard/projects` | [route.ts](src/app/api/dashboard/projects/route.ts) | `GET` |
 | `/api/dashboard/stats` | [route.ts](src/app/api/dashboard/stats/route.ts) | `GET` |

@@ -83,15 +83,20 @@ export interface MrnActionData {
 
 export interface StockRequestActionData {
     requestId: string;
-    action: 'APPROVE' | 'REJECT' | 'RELEASE' | 'RECEIVE' | 'RETURN' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'PROCUREMENT_COMPLETE' | 'GATE_PASSED';
+    action: 'APPROVE' | 'REJECT' | 'RELEASE' | 'RECEIVE' | 'RETURN' | 'ARM_APPROVE' | 'STORES_MANAGER_APPROVE' | 'PROCUREMENT_COMPLETE' | 'GATE_PASSED' | 'CREATE_PO' | 'UPDATE_PROCUREMENT_STATUS';
     userId: string;
     remarks?: string;
     instanceId?: string;
+    procurementStatus?: string;
     items?: {
         id: string;
         approvedQty?: number;
         issuedQty?: number;
         receivedQty?: number;
+        orderQty?: number;
+        unitPrice?: number;
+        taxAmount?: number;
+        totalAmount?: number;
     }[];
     // Procurement specific fields
     poNumber?: string;

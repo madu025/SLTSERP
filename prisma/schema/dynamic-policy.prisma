@@ -83,12 +83,12 @@ model UniversalApprovalInstance {
 // ============================================================================
 
 model WorkflowStatus {
-  id          String   @id @default(cuid())
-  entityType  String   // e.g. "MATERIAL_REQUEST", "SERVICE_ORDER"
-  value       String   // e.g. "DRAFT", "PENDING"
-  label       String   // e.g. "DRAFT (Initial Material Request)"
-  badgeColor  String?  // Optional color for UI badges
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  entityType String // e.g. "MATERIAL_REQUEST", "SERVICE_ORDER"
+  value      String // e.g. "DRAFT", "PENDING"
+  label      String // e.g. "DRAFT (Initial Material Request)"
+  badgeColor String? // Optional color for UI badges
+  createdAt  DateTime @default(now())
 
   @@unique([entityType, value])
   @@index([entityType])

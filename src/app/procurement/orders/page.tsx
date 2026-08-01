@@ -45,10 +45,12 @@ interface ProcurementRequest {
     status: string;
     workflowStage: string;
     procurementStatus?: string | null;
-    poNumber?: string | null;
-    vendor?: string | null;
+    purchaseOrders?: {
+        poNumber: string;
+        vendor: string;
+        expectedDelivery?: string | null;
+    }[];
     irNumber?: string | null;
-    expectedDelivery?: string | null;
     remarks?: string | null;
     purpose?: string | null;
     requestedBy?: {
@@ -76,23 +78,29 @@ export default function ProcurementOrdersPage() {
     const [typeFilter, setTypeFilter] = useState("ALL");
 
     // Fetch Procurement Requests
-    const { data: requests = [], isLoading } = useQuery<ProcurementRequest[]>({
+    const { data: rawRequests = [], isLoading } = useQuery<ProcurementRequest[]>({
         queryKey: ["procurement-orders", activeTab],
         queryFn: async () => {
             let url = "";
             if (activeTab === "PENDING") {
                 // Newly approved requests awaiting PO creation
-                url = "/api/inventory/requests?workflowStage=PROCUREMENT&procurementStatus=PENDING";
+                url = "/api/inventory/requests?workflowStage=PROCUREMENT_PROCESSING,PROCUREMENT&procurementStatus=PENDING";
             } else if (activeTab === "IN_PROGRESS") {
                 // POs created, in progress
-                url = "/api/inventory/requests?workflowStage=PROCUREMENT&procurementStatus=PO_CREATED,PO_SENT,PO_CONFIRMED";
+                url = "/api/inventory/requests?workflowStage=PROCUREMENT_PROCESSING,PROCUREMENT&procurementStatus=PO_CREATED,PO_SENT,PO_CONFIRMED";
             } else {
                 // Completed and ready for GRN
-                url = "/api/inventory/requests?workflowStage=GRN_PENDING&procurementStatus=COMPLETED";
+                url = "/api/inventory/requests?workflowStage=GRN_PENDING,STORE_RECEIVING&procurementStatus=COMPLETED";
             }
-            return (await fetch(url)).json();
+            const res = await fetch(`${url}&_t=${Date.now()}`, { cache: 'no-store' });
+            const json = await res.json();
+            if (Array.isArray(json)) return json;
+            if (json && Array.isArray(json.data)) return json.data;
+            return [];
         }
     });
+
+    const requests = Array.isArray(rawRequests) ? rawRequests : [];
 
     // Create PO Mutation
     const createPOMutation = useMutation({
@@ -200,11 +208,10 @@ export default function ProcurementOrdersPage() {
 
     const filteredRequests = requests.filter((req: ProcurementRequest) => {
         // Search filter: requestNr, vendor, poNumber, purpose, requestedBy name, suggestedVendor
-        const matchesSearch = 
-            !searchQuery ||
-            req.requestNr?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            req.vendor?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            req.poNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        const matchesSearch = !searchQuery || 
+            req.requestNr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            req.purchaseOrders?.some(po => po.vendor.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            req.purchaseOrders?.some(po => po.poNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
             req.purpose?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             req.requestedBy?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             req.items?.some(item => item.suggestedVendor?.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -372,14 +379,14 @@ export default function ProcurementOrdersPage() {
                                                         </td>
                                                     )}
                                                     {activeTab !== "PENDING" && (
-                                                        <td className="px-3 py-1.5 font-mono font-bold text-slate-700 text-xs">{req.poNumber || '-'}</td>
+                                                        <td className="px-3 py-1.5 font-mono font-bold text-slate-700 text-xs">{req.purchaseOrders?.map(po => po.poNumber).join(', ') || '-'}</td>
                                                     )}
                                                     {activeTab !== "PENDING" && (
-                                                        <td className="px-3 py-1.5 font-medium text-slate-700">{req.vendor || '-'}</td>
+                                                        <td className="px-3 py-1.5 text-xs text-slate-600 font-medium">{req.purchaseOrders?.map(po => po.vendor).join(', ') || '-'}</td>
                                                     )}
                                                     {activeTab !== "PENDING" && (
                                                         <td className="px-3 py-1.5 text-slate-500 font-semibold text-xs">
-                                                            {req.expectedDelivery ? new Date(req.expectedDelivery).toLocaleDateString() : '-'}
+                                                            {req.purchaseOrders?.map(po => po.expectedDelivery ? new Date(po.expectedDelivery).toLocaleDateString() : '-').join(', ') || '-'}
                                                         </td>
                                                     )}
                                                     <td className="px-3 py-1.5 text-center text-slate-600 font-semibold">{req.items?.length || 0}</td>
@@ -531,8 +538,8 @@ export default function ProcurementOrdersPage() {
                                                 <ClipboardList className="w-4 h-4 text-slate-400" />
                                                 <div className="min-w-0">
                                                     <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
-                                                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">
-                                                        {selectedRequest.poNumber || 'PENDING'}
+                                                    <span className="font-semibold text-slate-800">
+                                                        {selectedRequest.purchaseOrders?.map(po => po.poNumber).join(', ') || 'PENDING'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -540,7 +547,9 @@ export default function ProcurementOrdersPage() {
                                                 <User className="w-4 h-4 text-slate-400" />
                                                 <div className="min-w-0">
                                                     <span className="text-[9px] font-bold text-slate-400 block uppercase">Vendor Partner</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.vendor || 'Awaiting Award'}</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">
+                                                        {selectedRequest.purchaseOrders?.map(po => po.vendor).join(', ') || 'NOT ASSIGNED'}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">

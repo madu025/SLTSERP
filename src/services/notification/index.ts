@@ -232,8 +232,8 @@ export class NotificationService {
                     ...(opmcId ? {
                         OR: [
                             { accessibleOpmcs: { some: { id: opmcId } } },
-                            // Global section heads & managers receive section alerts across all OPMCs
-                            { role: { in: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'STORES_MANAGER', 'PROCUREMENT_OFFICER', 'ENGINEER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'] } } 
+                            // Global executive leadership receive alerts across all OPMCs
+                            { role: { in: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'] } } 
                         ]
                     } : {})
                 },
