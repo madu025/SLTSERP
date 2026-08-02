@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
-import { MaterialService } from '@/services/inventory/material.service';
+import { TransactionService } from '@/services/inventory/transaction.service';
 import { z } from 'zod';
 
 const generateSchema = z.object({
@@ -13,8 +13,8 @@ const generateSchema = z.object({
 export const POST = apiHandler(async (_req, _params, body) => {
     const data = generateSchema.parse(body);
 
-    await MaterialService.generateBalanceSheet(data.contractorId, data.storeId, data.month);
-    const balanceSheet = await MaterialService.getBalanceSheet(data.contractorId, data.storeId, data.month);
+    await TransactionService.generateBalanceSheet(data.contractorId, data.storeId, data.month);
+    const balanceSheet = await TransactionService.getBalanceSheet(data.contractorId, data.storeId, data.month);
 
     return Response.json({
         message: 'Balance sheet generated successfully',

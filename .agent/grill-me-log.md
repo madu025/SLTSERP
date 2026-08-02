@@ -275,3 +275,20 @@ Date: 2026-07-30
 | **Track unitPrice, 	axAmount, 	otalAmount on PO line items** | CFO | ?? Must-Have | **ADOPTED** |
 | **Include purchaseOrders: true in queries without bloating payload** | DevOps | ?? Should-Have | DEFERRED (To Execution) |
 
+## [2026-08-01] Module: Procurement Workflow - Rollback & Recall Strategy
+
+### Executive Summary
+Evaluated the strategy for allowing Managers to \"Recall\" or \"Revise\" a PRN approval after it was mistakenly approved (e.g., forgot to edit quantity).
+
+### Consolidated Expert Panel Decisions
+
+| Perspective | Role | Core Strategy & Constraints | Priority | Trade-offs / Complexity |
+|---|---|---|---|---|
+| **Architecture** | Lead Dev | **State Machine Guard:** Allow rollback from APPROVED -> PENDING_APPROVAL ONLY IF PurchaseOrder count is 0. Reset pprovedQty to null via $transaction(). | ?? Must-Have | High safety, low complexity. |
+| **Security** | QA Lead | **Immutable Audit:** Any rollback must log Action: RECALL_APPROVAL with user ID & timestamp into AuditLog. Only original approver or SUPER_ADMIN can recall. | ?? Must-Have | Requires passing Audit payload in API. |
+| **Domain SME** | OSP Manager | **Notification Alert:** System must ping the requester (Procurement Officer) that the PRN was recalled to prevent operational delay expectations. | ?? Should-Have | Moderate complexity (Notification table insert). |
+| **Financials** | CFO | **Financial Point of No Return:** Once a PO is generated and sent to the Vendor, PRN recall is BLOCKED. It requires a formal \"Vendor Cancellation\" workflow instead. | ?? Must-Have | Crucial to avoid ghost liabilities on the Ledger. |
+| **Performance** | DevOps | **Client Cache Busting:** The UI must optimistic-update and append _t=Date.now() to /api/inventory/requests fetch to instantly remove it from Procurement View. | ?? Must-Have | Easy to implement via Next.js router.refresh / query invalidation. |
+
+### Conclusion
+**Adopted:** The strict "Pre-PO Recall" strategy. It ensures operations can fix mistakes seamlessly while strictly preserving financial and database integrity once external vendors are involved.

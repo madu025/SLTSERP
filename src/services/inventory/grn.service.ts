@@ -35,7 +35,7 @@ export class GRNService {
     }
 
     static async createGRN(data: CreateGRNData): Promise<GRN> {
-        const { storeId, sourceType, supplier, receivedById, items, requestId, sltReferenceId } = data;
+        const { storeId, sourceType, supplier, receivedById, items, requestId, sltReferenceId, reference } = data;
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // Promote CUSTOM/Unregistered items to standard SLTS type
@@ -69,7 +69,7 @@ export class GRNService {
                     supplier,
                     receivedById,
                     requestId: requestId || null,
-                    reference: sltReferenceId || null,
+                    reference: reference || sltReferenceId || null,
                     items: {
                         create: items.map((i) => ({
                             itemId: i.itemId,
@@ -101,9 +101,10 @@ export class GRNService {
                 const unitPrice = meta?.unitPrice || 0;
 
                 // A. Create Batch
+                const lotNumber = await AuditLedgerService.getNextDocumentNumber('LOT', tx);
                 const batch = await tx.inventoryBatch.create({
                     data: {
-                        batchNumber: `BAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                        batchNumber: lotNumber, // Auto-incrementing Lot Number
                         itemId: item.itemId,
                         grnId: grn.id,
                         initialQty: qty,
@@ -250,7 +251,7 @@ export class GRNService {
                 });
 
                 if (request) {
-                    if (request.status !== 'APPROVED') {
+                    if (request.status !== 'APPROVED' && request.status !== 'PARTIALLY_COMPLETED') {
                         throw AppError.badRequest(`CANNOT_RECEIVE_GRN_FOR_UNAPPROVED_REQUEST: Stock Request ${request.requestNr} has status ${request.status} and must be APPROVED first.`);
                     }
 
@@ -259,9 +260,10 @@ export class GRNService {
                     // Update received quantities for each item
                     for (const reqItem of request.items) {
                         const grnItem = items.find((gi) => gi.itemId === reqItem.itemId);
+                        const limitQty = reqItem.approvedQty > 0 ? reqItem.approvedQty : reqItem.requestedQty;
+                        
                         if (grnItem) {
                             const newReceivedQty = reqItem.receivedQty + parseFloat(grnItem.quantity.toString());
-                            const limitQty = reqItem.approvedQty;
                             if (newReceivedQty > limitQty) {
                                 throw AppError.badRequest(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
                             }
@@ -275,18 +277,20 @@ export class GRNService {
                                 allItemsCompleted = false;
                             }
                         } else {
-                            if (reqItem.receivedQty < reqItem.requestedQty) {
+                            if (reqItem.receivedQty < limitQty) {
                                 allItemsCompleted = false;
                             }
                         }
                     }
 
                     const newStatus = allItemsCompleted ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
+                    const newWorkflowStage = allItemsCompleted ? 'COMPLETED' : request.workflowStage;
 
                     const updatedReq = await tx.stockRequest.update({
                         where: { id: requestId },
                         data: {
                             status: newStatus,
+                            workflowStage: newWorkflowStage,
                             sltReferenceId: sltReferenceId || request.sltReferenceId
                         }
                     });

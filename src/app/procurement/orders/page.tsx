@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Eye, FileText, Package, Search, Printer, ClipboardList, Info, Calendar, ArrowRight, Building2, User, Check, Ban, DollarSign, Clock, ArrowRightLeft, MapPin, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, X } from "lucide-react";
+import { Loader2, Eye, FileText, Package, Search, Printer, ClipboardList, Info, Calendar, ArrowRight, Building2, User, Check, Ban, DollarSign, Clock, ArrowRightLeft, MapPin, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, X, PlusCircle } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -46,9 +46,23 @@ interface ProcurementRequest {
     workflowStage: string;
     procurementStatus?: string | null;
     purchaseOrders?: {
+        id?: string;
         poNumber: string;
         vendor: string;
         expectedDelivery?: string | null;
+        totalAmount?: number | null;
+        items?: {
+            id: string;
+            stockRequestItemId?: string | null;
+            quantity: number;
+            unitPrice: number;
+            totalAmount: number;
+            stockItem?: {
+                name: string;
+                code?: string | null;
+                unit?: string | null;
+            } | null;
+        }[];
     }[];
     irNumber?: string | null;
     remarks?: string | null;
@@ -71,6 +85,9 @@ export default function ProcurementOrdersPage() {
     const [vendor, setVendor] = useState("");
     const [expectedDelivery, setExpectedDelivery] = useState("");
     const [poRemarks, setPORemarks] = useState("");
+    const [selectedItemIds, setSelectedItemIds] = useState<Record<string, boolean>>({});
+    const [itemUnitPrices, setItemUnitPrices] = useState<Record<string, number>>({});
+    const [itemOrderQtys, setItemOrderQtys] = useState<Record<string, number>>({});
 
     // Toolbar Filters
     const [searchQuery, setSearchQuery] = useState("");
@@ -104,7 +121,7 @@ export default function ProcurementOrdersPage() {
 
     // Create PO Mutation
     const createPOMutation = useMutation({
-        mutationFn: async (data: { poNumber: string, vendor: string, expectedDelivery?: string, remarks?: string }) => {
+        mutationFn: async (data: { poNumber: string, vendor: string, expectedDelivery?: string, remarks?: string, items: any[] }) => {
             if (!selectedRequest) throw new Error("No request selected");
             const res = await fetch("/api/inventory/requests", {
                 method: "PATCH",
@@ -115,20 +132,27 @@ export default function ProcurementOrdersPage() {
                     poNumber: data.poNumber,
                     vendor: data.vendor,
                     expectedDelivery: data.expectedDelivery,
-                    remarks: data.remarks
+                    remarks: data.remarks,
+                    items: data.items
                 })
             });
-            if (!res.ok) throw new Error("Failed to create PO");
+            if (!res.ok) {
+                const errJson = await res.json().catch(() => ({}));
+                throw new Error(errJson.error || "Failed to create PO");
+            }
             return res.json();
         },
-        onSuccess: () => {
+        onSuccess: (resData: any) => {
             toast.success("Purchase Order created successfully!");
             queryClient.invalidateQueries({ queryKey: ["procurement-orders"] });
+            const updatedRecord = resData?.data || resData;
+            if (updatedRecord && updatedRecord.id) {
+                setSelectedRequest(updatedRecord);
+            }
             setShowPODialog(false);
-            setSelectedRequest(null);
             resetPOForm();
         },
-        onError: () => toast.error("Failed to create PO")
+        onError: (err: any) => toast.error(err?.message || "Failed to create PO")
     });
 
     // Update PO Status Mutation
@@ -179,6 +203,36 @@ export default function ProcurementOrdersPage() {
         setVendor("");
         setExpectedDelivery("");
         setPORemarks("");
+        setSelectedItemIds({});
+        setItemUnitPrices({});
+        setItemOrderQtys({});
+    };
+
+    const openCreatePODialog = (req: ProcurementRequest) => {
+        setSelectedRequest(req);
+        const autoPoNum = `PO-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+        setPONumber(autoPoNum);
+        setVendor(req.sourceType === 'SLT' ? 'SLT Head Office' : '');
+        setExpectedDelivery('');
+        setPORemarks('');
+
+        const initSelected: Record<string, boolean> = {};
+        const initQtys: Record<string, number> = {};
+        const initPrices: Record<string, number> = {};
+
+        (req.items || []).forEach((item) => {
+            const isAlreadyOrdered = req.purchaseOrders?.some(po =>
+                po.items?.some(pi => pi.stockRequestItemId === item.id)
+            );
+            initSelected[item.id] = !isAlreadyOrdered;
+            initQtys[item.id] = item.requestedQty;
+            initPrices[item.id] = 0;
+        });
+
+        setSelectedItemIds(initSelected);
+        setItemOrderQtys(initQtys);
+        setItemUnitPrices(initPrices);
+        setShowPODialog(true);
     };
 
     const handleCreatePO = () => {
@@ -186,11 +240,32 @@ export default function ProcurementOrdersPage() {
             toast.error("PO Number and Vendor are required");
             return;
         }
+
+        const selectedItemsPayload = (selectedRequest?.items || [])
+            .filter((item) => selectedItemIds[item.id])
+            .map((item) => {
+                const qty = itemOrderQtys[item.id] ?? item.requestedQty;
+                const unitPrice = itemUnitPrices[item.id] ?? 0;
+                return {
+                    id: item.id,
+                    itemId: item.item?.id || item.id,
+                    orderQty: qty,
+                    unitPrice: unitPrice,
+                    totalAmount: qty * unitPrice
+                };
+            });
+
+        if (selectedItemsPayload.length === 0) {
+            toast.error("Please select at least one item to include in this Purchase Order");
+            return;
+        }
+
         createPOMutation.mutate({
             poNumber,
             vendor,
             expectedDelivery,
-            remarks: poRemarks
+            remarks: poRemarks,
+            items: selectedItemsPayload
         });
     };
 
@@ -281,6 +356,53 @@ export default function ProcurementOrdersPage() {
                                 >
                                     Ready for GRN
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* KPI Summary Cards */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
+                                <div className="flex items-center justify-between text-amber-600 font-bold text-xs">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Awaiting PO</span>
+                                    <Clock className="w-4 h-4 text-amber-500" />
+                                </div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white">
+                                    {requests.filter(r => r.procurementStatus === 'PENDING' || !r.procurementStatus).length}
+                                </div>
+                                <p className="text-[10px] text-slate-400">Approved PRNs awaiting PO issue</p>
+                            </div>
+
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
+                                <div className="flex items-center justify-between text-blue-600 font-bold text-xs">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">In Progress POs</span>
+                                    <FileText className="w-4 h-4 text-blue-500" />
+                                </div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white">
+                                    {requests.filter(r => ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'].includes(r.procurementStatus || '')).length}
+                                </div>
+                                <p className="text-[10px] text-slate-400">POs created & in vendor fulfillment</p>
+                            </div>
+
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
+                                <div className="flex items-center justify-between text-emerald-600 font-bold text-xs">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ready for GRN</span>
+                                    <Package className="w-4 h-4 text-emerald-500" />
+                                </div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white">
+                                    {requests.filter(r => r.procurementStatus === 'COMPLETED').length}
+                                </div>
+                                <p className="text-[10px] text-slate-400">Delivered & ready for store GRN</p>
+                            </div>
+
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
+                                <div className="flex items-center justify-between text-indigo-600 font-bold text-xs">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Active PRNs</span>
+                                    <ClipboardList className="w-4 h-4 text-indigo-500" />
+                                </div>
+                                <div className="text-xl font-black text-slate-900 dark:text-white">
+                                    {requests.length}
+                                </div>
+                                <p className="text-[10px] text-slate-400">Total requests in procurement stage</p>
                             </div>
                         </div>
 
@@ -406,13 +528,7 @@ export default function ProcurementOrdersPage() {
                                                                 <Button
                                                                     size="sm"
                                                                     className="h-7 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase rounded-lg"
-                                                                    onClick={() => {
-                                                                        setSelectedRequest(req);
-                                                                        if (req.sourceType === 'SLT') {
-                                                                            setVendor('SLT Head Office');
-                                                                        }
-                                                                        setShowPODialog(true);
-                                                                    }}
+                                                                    onClick={() => openCreatePODialog(req)}
                                                                 >
                                                                     <FileText className="w-3.5 h-3.5 mr-1" />
                                                                     Create PO
@@ -421,6 +537,33 @@ export default function ProcurementOrdersPage() {
 
                                                             {activeTab === "IN_PROGRESS" && (
                                                                 <>
+                                                                    {(() => {
+                                                                        const reqItems = req.items || [];
+                                                                        const coveredCount = reqItems.filter(item =>
+                                                                            req.purchaseOrders?.some(po =>
+                                                                                po.items?.some(pi => pi.stockRequestItemId === item.id)
+                                                                            )
+                                                                        ).length;
+                                                                        const isFullyCovered = reqItems.length > 0 && coveredCount === reqItems.length;
+
+                                                                        if (isFullyCovered) {
+                                                                            return (
+                                                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold whitespace-nowrap px-2 py-1">
+                                                                                    ✓ All POs Issued
+                                                                                </Badge>
+                                                                            );
+                                                                        }
+                                                                        return (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="outline"
+                                                                                className="h-7 text-[10px] font-bold border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 rounded-lg flex items-center gap-1"
+                                                                                onClick={() => openCreatePODialog(req)}
+                                                                            >
+                                                                                <PlusCircle className="w-3 h-3 text-blue-600" /> + Add PO
+                                                                            </Button>
+                                                                        );
+                                                                    })()}
                                                                     {req.procurementStatus === "PO_CREATED" && (
                                                                         <Button
                                                                             size="sm"
@@ -569,10 +712,70 @@ export default function ProcurementOrdersPage() {
                                         </div>
                                     </div>
 
+                                     {/* Issued Purchase Orders Section */}
+                                     {selectedRequest.purchaseOrders && selectedRequest.purchaseOrders.length > 0 && (
+                                         <div className="space-y-3">
+                                             <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                                 <ClipboardList className="w-3.5 h-3.5 text-blue-500" /> Issued Purchase Orders ({selectedRequest.purchaseOrders.length})
+                                             </h3>
+                                             <div className="space-y-3">
+                                                 {selectedRequest.purchaseOrders.map((po, index) => (
+                                                     <div key={po.poNumber || index} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+                                                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                                                             <div className="space-y-0.5">
+                                                                 <div className="flex items-center gap-2">
+                                                                     <span className="font-mono font-black text-blue-600 dark:text-blue-400 text-sm">{po.poNumber}</span>
+                                                                     <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-bold">
+                                                                         Issued PO
+                                                                     </Badge>
+                                                                 </div>
+                                                                 <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                                                     <User className="w-3.5 h-3.5 text-slate-400" /> Vendor: <span className="font-bold text-slate-900 dark:text-white">{po.vendor}</span>
+                                                                 </div>
+                                                             </div>
+                                                             <div className="text-right space-y-0.5">
+                                                                 <span className="text-[9px] font-bold text-slate-400 uppercase block">Expected Delivery</span>
+                                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                                                     {po.expectedDelivery ? new Date(po.expectedDelivery).toLocaleDateString() : 'N/A'}
+                                                                 </span>
+                                                             </div>
+                                                         </div>
+
+                                                         {/* Included Items List inside PO */}
+                                                                 <div className="space-y-1.5 bg-slate-50/70 dark:bg-slate-950/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800/60 text-xs">
+                                                             <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block mb-1">Materials Covered in this PO</span>
+                                                             {po.items && po.items.length > 0 ? (
+                                                                 po.items.map(poItem => (
+                                                                     <div key={poItem.id} className="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/40 last:border-none">
+                                                                         <span className="font-bold text-slate-800 dark:text-slate-200">
+                                                                             {selectedRequest.items?.find(i => i.id === poItem.stockRequestItemId || i.item?.id === (poItem as any).itemId)?.item?.name || 'Material Item'}
+                                                                         </span>
+                                                                         <div className="flex items-center gap-3 font-semibold">
+                                                                             <span className="text-slate-600 dark:text-slate-400">
+                                                                                 {poItem.quantity} {selectedRequest.items?.find(i => i.id === poItem.stockRequestItemId || i.item?.id === (poItem as any).itemId)?.item?.unit || 'Nos'}
+                                                                             </span>
+                                                                             {poItem.unitPrice > 0 && (
+                                                                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                                                                     @ LKR {poItem.unitPrice.toLocaleString('en-LK')} = LKR {poItem.totalAmount.toLocaleString('en-LK')}
+                                                                                 </span>
+                                                                             )}
+                                                                         </div>
+                                                                     </div>
+                                                                 ))
+                                                             ) : (
+                                                                 <div className="text-slate-500 italic text-[11px]">Items assigned to this PO</div>
+                                                             )}
+                                                         </div>
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     )}
+
                                     {/* Requested Materials Table */}
                                     <div className="space-y-3">
                                         <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Materials list
+                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Materials list & PO Fulfillment Status
                                         </h3>
                                         <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
                                             <table className="w-full text-xs text-left border-collapse">
@@ -582,33 +785,52 @@ export default function ProcurementOrdersPage() {
                                                         <th className="px-4 py-3 text-right">Requested Qty</th>
                                                         <th className="px-4 py-3">Make / Model</th>
                                                         <th className="px-4 py-3">Suggested Vendor</th>
+                                                        <th className="px-4 py-3 text-center">PO Assignment Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                    {selectedRequest.items?.map((item: ProcurementRequestItem) => (
-                                                        <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors duration-150 group">
-                                                            <td className="px-4 py-3.5">
-                                                                <div className="flex items-center gap-2.5">
-                                                                    <div className="w-7 h-7 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 font-black text-slate-500 dark:text-slate-400 text-[9px]">
-                                                                        {item.item?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                                    {selectedRequest.items?.map((item: ProcurementRequestItem) => {
+                                                        // Find matching PO that covers this item
+                                                        const linkedPO = selectedRequest.purchaseOrders?.find(po =>
+                                                            po.items?.some(pi => pi.stockRequestItemId === item.id)
+                                                        );
+
+                                                        return (
+                                                            <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors duration-150 group">
+                                                                <td className="px-4 py-3.5">
+                                                                    <div className="flex items-center gap-2.5">
+                                                                        <div className="w-7 h-7 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 font-black text-slate-500 dark:text-slate-400 text-[9px]">
+                                                                            {item.item?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item?.name}</div>
+                                                                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.item?.code || 'N/A'}</div>
+                                                                        </div>
                                                                     </div>
-                                                                    <div>
-                                                                        <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item?.name}</div>
-                                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.item?.code || 'N/A'}</div>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-3.5 text-right font-bold text-slate-900 dark:text-slate-200">
-                                                                {item.requestedQty} {item.item?.unit}
-                                                            </td>
-                                                            <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
-                                                                {item.make || '-'} / {item.model || '-'}
-                                                            </td>
-                                                            <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
-                                                                {item.suggestedVendor || '-'}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                                </td>
+                                                                <td className="px-4 py-3.5 text-right font-bold text-slate-900 dark:text-slate-200">
+                                                                    {item.requestedQty} {item.item?.unit}
+                                                                </td>
+                                                                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                                                                    {item.make || '-'} / {item.model || '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                                                                    {item.suggestedVendor || '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                                                                     {linkedPO ? (
+                                                                         <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold whitespace-nowrap inline-flex items-center">
+                                                                             Covered in {linkedPO.poNumber}
+                                                                         </Badge>
+                                                                     ) : (
+                                                                         <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-bold whitespace-nowrap inline-flex items-center">
+                                                                             Pending PO
+                                                                         </Badge>
+                                                                     )}
+                                                                 </td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -626,25 +848,40 @@ export default function ProcurementOrdersPage() {
                                         
                                         {(() => {
                                             const totalItems = selectedRequest.items?.length || 0;
-                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
-                                            const estimatedCost = totalQty * 4500;
+                                            const qtyByUnit: Record<string, number> = {};
+                                            (selectedRequest.items || []).forEach(item => {
+                                                const unit = item.item?.unit || 'Nos';
+                                                qtyByUnit[unit] = (qtyByUnit[unit] || 0) + (item.requestedQty || 0);
+                                            });
+
+                                            const formattedTotalQty = Object.entries(qtyByUnit)
+                                                .map(([unit, val]) => `${val.toLocaleString()} ${unit}`)
+                                                .join(', ') || '0';
+
+                                            const totalPOVal = selectedRequest.purchaseOrders?.reduce((sum, po) => {
+                                                const itemsSum = po.items?.reduce((iSum, pi) => iSum + (pi.totalAmount || (pi.quantity * pi.unitPrice) || 0), 0) || 0;
+                                                return sum + (po.totalAmount || itemsSum || 0);
+                                            }, 0) || 0;
+
                                             return (
                                                 <div className="space-y-3 text-xs">
                                                     <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                                                         <span className="text-slate-500 dark:text-slate-400">Total Items</span>
-                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalItems}</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalItems} Items</span>
                                                     </div>
                                                     <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
                                                         <span className="text-slate-500 dark:text-slate-400">Total Quantity</span>
-                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalQty.toLocaleString()}</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{formattedTotalQty}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-slate-500 dark:text-slate-400">Est. PO Value (LKR)</span>
-                                                        <span className="font-black text-blue-600 dark:text-blue-400">LKR {estimatedCost.toLocaleString()}</span>
+                                                        <span className="text-slate-500 dark:text-slate-400">Total PO Value (LKR)</span>
+                                                        <span className="font-black text-emerald-600 dark:text-emerald-400">
+                                                            {totalPOVal > 0 ? `LKR ${totalPOVal.toLocaleString('en-LK', { minimumFractionDigits: 2 })}` : 'Pending PO Pricing'}
+                                                        </span>
                                                     </div>
                                                     <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                                                        <span className="text-slate-500 dark:text-slate-400">Status</span>
-                                                        <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[9px] font-bold px-2 py-0">Active</Badge>
+                                                        <span className="text-slate-500 dark:text-slate-400">Issued PO Count</span>
+                                                        <span className="font-black text-blue-600 dark:text-blue-400">{selectedRequest.purchaseOrders?.length || 0} POs</span>
                                                     </div>
                                                     <div className="flex justify-between items-center py-1.5">
                                                         <span className="text-slate-500 dark:text-slate-400">Budget Checks</span>
@@ -683,16 +920,45 @@ export default function ProcurementOrdersPage() {
                                 </div>
                             </div>
 
-                            {/* Sticky Drawer Footer */}
-                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
-                                <Button 
-                                    variant="outline" 
-                                    onClick={() => setSelectedRequest(null)}
-                                    className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
-                                >
-                                    <X className="w-3.5 h-3.5" /> Close Details
-                                </Button>
-                            </div>
+                             {/* Sticky Drawer Footer */}
+                             <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center flex-shrink-0 gap-3">
+                                 <Button 
+                                     variant="outline" 
+                                     onClick={() => setSelectedRequest(null)}
+                                     className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
+                                 >
+                                     <X className="w-3.5 h-3.5" /> Close Details
+                                 </Button>
+                                 {(() => {
+                                     const totalReqItems = selectedRequest?.items?.length || 0;
+                                     const coveredCount = (selectedRequest?.items || []).filter(item =>
+                                         selectedRequest?.purchaseOrders?.some(po =>
+                                             po.items?.some(pi => pi.stockRequestItemId === item.id)
+                                         )
+                                     ).length;
+                                     const isFullyCovered = totalReqItems > 0 && coveredCount === totalReqItems;
+
+                                     if (isFullyCovered) {
+                                         return (
+                                             <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 flex items-center gap-1.5">
+                                                 <Check className="w-4 h-4 text-emerald-600" /> All Materials Covered by POs
+                                             </Badge>
+                                         );
+                                     }
+
+                                     if (selectedRequest && selectedRequest.status !== 'COMPLETED') {
+                                         return (
+                                             <Button
+                                                 onClick={() => openCreatePODialog(selectedRequest)}
+                                                 className="h-9 px-4 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                                             >
+                                                 <PlusCircle className="w-3.5 h-3.5" /> + Create Additional PO
+                                             </Button>
+                                         );
+                                     }
+                                     return null;
+                                 })()}
+                             </div>
                         </>
                     )}
                 </DialogContent>
@@ -772,10 +1038,10 @@ export default function ProcurementOrdersPage() {
                                                 </div>
                                             </div>
                                             <div className="space-y-1.5">
-                                                <Label htmlFor="vendor" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Vendor *</Label>
+                                                <Label htmlFor="vendor" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Vendor Supplier *</Label>
                                                 <Input
                                                     id="vendor"
-                                                    placeholder={selectedRequest.sourceType === 'SLT' ? "SLT Head Office" : "Enter vendor supplier name"}
+                                                    placeholder={selectedRequest.sourceType === 'SLT' ? "SLT Head Office" : "Enter vendor supplier name (e.g. Sierra Cable PLC)"}
                                                     value={vendor}
                                                     onChange={(e) => setVendor(e.target.value)}
                                                     className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-blue-500"
@@ -792,15 +1058,97 @@ export default function ProcurementOrdersPage() {
                                                 />
                                             </div>
                                             <div className="col-span-2 space-y-1.5">
-                                                <Label htmlFor="remarks" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Remarks</Label>
+                                                <Label htmlFor="remarks" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Remarks & Special Instructions</Label>
                                                 <Textarea
                                                     id="remarks"
                                                     placeholder="Add any internal remarks or special dispatch instructions..."
                                                     value={poRemarks}
                                                     onChange={(e) => setPORemarks(e.target.value)}
-                                                    className="min-h-[100px] text-xs bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl resize-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                    className="min-h-[70px] text-xs bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl resize-none focus-visible:ring-1 focus-visible:ring-blue-500"
                                                 />
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Item Selection & Unit Pricing Table */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                                <Package className="w-3.5 h-3.5 text-blue-500" /> Select Items & Unit Pricing for this PO
+                                            </h4>
+                                            <span className="text-[10px] font-bold text-slate-400">Uncheck items to split across multiple POs</span>
+                                        </div>
+
+                                        <div className="border border-slate-200/60 dark:border-slate-800 rounded-xl overflow-hidden">
+                                            <table className="w-full text-left text-xs">
+                                                <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200/60 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
+                                                    <tr>
+                                                        <th className="p-2.5 w-10 text-center">Include</th>
+                                                        <th className="p-2.5">Item Name</th>
+                                                        <th className="p-2.5 w-24 text-right">Order Qty</th>
+                                                        <th className="p-2.5 w-28 text-right">Unit Price (LKR)</th>
+                                                        <th className="p-2.5 w-28 text-right">Line Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {selectedRequest.items?.map((item: ProcurementRequestItem) => {
+                                                        const prevPO = selectedRequest.purchaseOrders?.find(po =>
+                                                            po.items?.some(pi => pi.stockRequestItemId === item.id)
+                                                        );
+                                                        const isChecked = selectedItemIds[item.id] ?? !prevPO;
+                                                        const qty = itemOrderQtys[item.id] ?? item.requestedQty;
+                                                        const unitPrice = itemUnitPrices[item.id] ?? 0;
+                                                        const lineTotal = qty * unitPrice;
+
+                                                        return (
+                                                            <tr key={item.id} className={cn("transition-colors", isChecked ? "bg-white dark:bg-slate-900" : "bg-slate-50/50 opacity-60")}>
+                                                                <td className="p-2.5 text-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isChecked}
+                                                                        onChange={(e) => setSelectedItemIds(prev => ({ ...prev, [item.id]: e.target.checked }))}
+                                                                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2.5">
+                                                                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                                                                        {item.item?.name}
+                                                                        {prevPO && (
+                                                                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-bold">
+                                                                                Covered in {prevPO.poNumber}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-slate-400 font-mono">{item.item?.code || 'N/A'}</div>
+                                                                </td>
+                                                                <td className="p-2.5 text-right">
+                                                                    <Input
+                                                                        type="number"
+                                                                        disabled={!isChecked}
+                                                                        value={qty}
+                                                                        onChange={(e) => setItemOrderQtys(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
+                                                                        className="h-7 w-20 text-right text-xs font-bold rounded-lg ml-auto bg-slate-50 dark:bg-slate-950"
+                                                                    />
+                                                                    <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">{item.item?.unit}</span>
+                                                                </td>
+                                                                <td className="p-2.5 text-right">
+                                                                    <Input
+                                                                        type="number"
+                                                                        disabled={!isChecked}
+                                                                        placeholder="0.00"
+                                                                        value={unitPrice || ''}
+                                                                        onChange={(e) => setItemUnitPrices(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
+                                                                        className="h-7 w-24 text-right text-xs font-bold rounded-lg ml-auto bg-slate-50 dark:bg-slate-950"
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2.5 text-right font-black text-slate-800 dark:text-slate-200">
+                                                                    LKR {lineTotal.toLocaleString('en-LK', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
@@ -808,33 +1156,47 @@ export default function ProcurementOrdersPage() {
                                 {/* RIGHT PANEL (35% Sticky Details Summary) */}
                                 <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
                                     
-                                    {/* Order Overview Card */}
+                                    {/* Order Financial Summary Card */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                                         <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Items Included
+                                            <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> PO Financial Summary
                                         </h4>
                                         
-                                        <div className="max-h-[300px] overflow-y-auto space-y-2.5 pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                            {selectedRequest.items?.map((item: ProcurementRequestItem) => (
-                                                <div key={item.id} className="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-xs flex justify-between items-start">
-                                                    <div>
-                                                        <div className="font-bold text-slate-800 dark:text-slate-200">{item.item?.name}</div>
-                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.item?.code || 'N/A'}</div>
-                                                    </div>
-                                                    <span className="font-black text-slate-700 dark:text-slate-300 ml-2 whitespace-nowrap">
-                                                        {item.requestedQty} {item.item?.unit}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-
                                         {(() => {
-                                            const totalItems = selectedRequest.items?.length || 0;
-                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
+                                            const selectedItems = (selectedRequest.items || []).filter(item => selectedItemIds[item.id]);
+                                            const qtyByUnit: Record<string, number> = {};
+                                            let totalPOAmount = 0;
+
+                                            selectedItems.forEach(item => {
+                                                const unit = item.item?.unit || 'Nos';
+                                                const qty = itemOrderQtys[item.id] ?? item.requestedQty;
+                                                const unitPrice = itemUnitPrices[item.id] ?? 0;
+                                                qtyByUnit[unit] = (qtyByUnit[unit] || 0) + qty;
+                                                totalPOAmount += (qty * unitPrice);
+                                            });
+
+                                            const formattedTotalQty = Object.entries(qtyByUnit)
+                                                .map(([unit, val]) => `${val.toLocaleString()} ${unit}`)
+                                                .join(', ') || '0 Items';
+
                                             return (
-                                                <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 text-xs flex justify-between items-center font-bold">
-                                                    <span className="text-slate-400">Total Items / Qty</span>
-                                                    <span className="text-slate-800 dark:text-slate-200">{totalItems} Items ({totalQty.toLocaleString()})</span>
+                                                <div className="space-y-3 text-xs">
+                                                    <div className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                        <span className="text-slate-400 font-bold">Selected Items</span>
+                                                        <span className="font-bold text-slate-800 dark:text-slate-200">{selectedItems.length} of {selectedRequest.items?.length || 0} Items</span>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                        <span className="text-slate-400 font-bold">Total Ordered Qty</span>
+                                                        <span className="font-bold text-slate-800 dark:text-slate-200">{formattedTotalQty}</span>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-800/50">
+                                                        <span className="text-emerald-700 dark:text-emerald-400 font-black uppercase text-[10px] tracking-wider">Total PO Value</span>
+                                                        <span className="font-black text-emerald-700 dark:text-emerald-400 text-sm">
+                                                            LKR {totalPOAmount.toLocaleString('en-LK', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             );
                                         })()}

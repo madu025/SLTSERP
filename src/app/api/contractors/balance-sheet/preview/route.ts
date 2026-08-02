@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { MaterialService } from '@/services/inventory/material.service';
+import { TransactionService } from '@/services/inventory/transaction.service';
 import { AppError } from '@/lib/error';
 
 // GET - Preview balance sheet data before generation
@@ -15,6 +15,6 @@ export const GET = apiHandler(async (req) => {
         throw AppError.badRequest('contractorId, storeId, and month are required');
     }
 
-    const previewData = await MaterialService.previewBalanceSheet(contractorId, storeId, month);
+    const previewData = await TransactionService.previewBalanceSheet(contractorId, storeId, month);
     return Response.json(previewData);
 });

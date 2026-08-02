@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Package, CheckCircle, Eye, Info, Calendar, Building2, User, AlertCircle, PenSquare, Tag, TrendingUp, X, Clock, ClipboardList, Loader2, FileText, CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Package, Eye, Info, Calendar, Building2, AlertCircle, Tag, TrendingUp, X, Clock, ClipboardList, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { createGRN } from "@/actions/inventory-actions";
@@ -20,12 +20,43 @@ interface GRNItem {
     requestedQty: number;
     receivedQty: number;
     remarks: string;
+    unit?: string;
     serials?: string[];
     hasSerial?: boolean;
     expiryDate?: string;
 }
 
+interface PORefItem {
+    id?: string;
+    poNumber?: string;
+    vendor?: string | { name?: string };
+    items?: Array<{
+        id?: string;
+        requisitionItemId?: string;
+        stockRequestItemId?: string;
+        itemCode?: string;
+        description?: string;
+        quantity?: number;
+    }>;
+}
+
+interface GRNHistoryItem {
+    id: string;
+    grnNumber: string;
+    createdAt: string;
+    receivedBy?: { name?: string };
+    items?: Array<{
+        itemId: string;
+        quantity: number;
+        item?: { name: string };
+    }>;
+}
+
 interface InventoryRequest {
+    status?: string;
+    workflowStage?: string;
+    purchaseOrders?: PORefItem[];
+    grns?: GRNHistoryItem[];
     id: string;
     requestNr: string;
     poNumber?: string;
@@ -33,7 +64,8 @@ interface InventoryRequest {
     sourceType: string;
     fromStoreId: string;
     irNumber?: string;
-    items: {
+    reference?: string | null;
+    items: Array<{
         id: string;
         itemId: string;
         item?: {
@@ -43,10 +75,12 @@ interface InventoryRequest {
             hasSerial?: boolean;
         };
         requestedQty: number;
+        approvedQty?: number;
+        receivedQty?: number;
         batch?: {
             batchNumber: string;
         };
-    }[];
+    }>;
     expectedDelivery?: string;
 }
 
@@ -62,6 +96,7 @@ interface CompletedGRN {
         poNumber: string;
         vendor: string | null;
     } | null;
+    reference?: string | null;
     items: Array<{
         id: string;
         itemId: string;
@@ -87,8 +122,10 @@ export default function GRNPage() {
     // GRN Form State
     const [grnNumber, setGRNNumber] = useState('');
     const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [invoiceNumber, setInvoiceNumber] = useState('');
     const [receivedItems, setReceivedItems] = useState<GRNItem[]>([]);
     const [grnRemarks, setGRNRemarks] = useState('');
+    const [selectedPOId, setSelectedPOId] = useState<string>('ALL');
 
     // Auto-generate GRN Number when dialog opens
     useEffect(() => {
@@ -104,7 +141,10 @@ export default function GRNPage() {
     const { data: requests = [], isLoading: isLoadingRequests } = useQuery<InventoryRequest[]>({
         queryKey: ['grn-requests'],
         queryFn: async () => {
-            const res = await fetch(`/api/inventory/requests?workflowStage=GRN_PENDING`);
+            const res = await fetch(`/api/inventory/requests?workflowStage=GRN_PENDING&_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            });
             return res.json();
         },
         enabled: activeTab === 'READY'
@@ -114,7 +154,10 @@ export default function GRNPage() {
     const { data: completedGrns = [], isLoading: isLoadingCompleted } = useQuery<CompletedGRN[]>({
         queryKey: ['completed-generals'],
         queryFn: async () => {
-            const res = await fetch(`/api/inventory/grn`);
+            const res = await fetch(`/api/inventory/grn?_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            });
             const json = await res.json();
             return json.success ? json.data : json;
         },
@@ -149,24 +192,71 @@ export default function GRNPage() {
         onError: () => toast.error('Failed to create GRN')
     });
 
-    const handleOpenGRNDialog = (request: InventoryRequest) => {
-        setSelectedRequest(request);
+    const handleSelectPO = (poNumber: string, requestOverride?: InventoryRequest) => {
+        const req = requestOverride || selectedRequest;
+        setSelectedPOId(poNumber);
+        if (!req) return;
 
-        // Initialize received items with requested quantities
-        const items: GRNItem[] = request.items.map((item) => {
-            const reqQty = item.requestedQty || 0;
+        const allItems: GRNItem[] = req.items.map((item) => {
+            const reqQty = item.approvedQty && item.approvedQty > 0 ? item.approvedQty : (item.requestedQty || 0);
+            const prevReceived = item.receivedQty || 0;
+            const remaining = Math.max(0, reqQty - prevReceived);
+
             return {
                 itemId: item.itemId,
                 itemName: item.item?.name || 'Unknown Item',
                 requestedQty: reqQty,
-                receivedQty: reqQty, // Default to requested qty
+                prevReceivedQty: prevReceived,
+                remainingQty: remaining,
+                receivedQty: remaining,
                 remarks: '',
+                unit: item.item?.unit || '',
                 hasSerial: item.item?.hasSerial || false,
-                serials: Array(Math.ceil(reqQty)).fill(''),
+                serials: Array(Math.ceil(remaining)).fill(''),
                 expiryDate: ''
             };
-        });
-        setReceivedItems(items);
+        }).filter(i => i.remainingQty > 0);
+
+        if (poNumber === 'ALL') {
+            setReceivedItems(allItems);
+            return;
+        }
+
+        const targetPO = req.purchaseOrders?.find(p => p.poNumber === poNumber || p.id === poNumber);
+
+        if (targetPO && Array.isArray(targetPO.items) && targetPO.items.length > 0) {
+            const poItemsList = targetPO.items;
+
+            const matchingReqItemIds = new Set(poItemsList.map(pi => pi.stockRequestItemId || pi.requisitionItemId).filter((id): id is string => Boolean(id)));
+            const matchingCodes = new Set(poItemsList.map(pi => pi.itemCode).filter((code): code is string => Boolean(code)));
+            const matchingNames = new Set(poItemsList.map(pi => pi.description?.toLowerCase().trim()).filter((name): name is string => Boolean(name)));
+
+            const filtered = allItems.filter(item => {
+                const reqItemObj = req.items.find(ri => ri.itemId === item.itemId);
+                const reqItemId = reqItemObj?.id;
+                const itemCode = reqItemObj?.item?.code;
+                const itemNameLower = item.itemName.toLowerCase().trim();
+
+                if (reqItemId && matchingReqItemIds.has(reqItemId)) return true;
+                if (itemCode && matchingCodes.has(itemCode)) return true;
+                if (matchingCodes.has(item.itemId)) return true;
+                if (matchingNames.has(itemNameLower)) return true;
+                for (const name of Array.from(matchingNames)) {
+                    if (name && (itemNameLower.includes(name) || name.includes(itemNameLower))) return true;
+                }
+
+                return false;
+            });
+
+            setReceivedItems(filtered);
+        } else {
+            setReceivedItems(allItems);
+        }
+    };
+
+    const handleOpenGRNDialog = (request: InventoryRequest) => {
+        setSelectedRequest(request);
+        handleSelectPO('ALL', request);
         setShowGRNDialog(true);
     };
 
@@ -208,6 +298,7 @@ export default function GRNPage() {
             receivedById: user.id,
             requestId: selectedRequest.id,
             sltReferenceId: selectedRequest.irNumber || null,
+            reference: invoiceNumber,
             items: receivedItems.map(item => ({
                 itemId: item.itemId,
                 quantity: parseFloat(item.receivedQty.toString()),
@@ -244,6 +335,28 @@ export default function GRNPage() {
         updated[index].remarks = value;
         setReceivedItems(updated);
     };
+
+    const estimatorSummaries = useMemo(() => {
+        const totalItems = receivedItems.length;
+        
+        const groupedOrdered = receivedItems.reduce((acc, item) => {
+            const unit = item.unit || 'Nos';
+            acc[unit] = (acc[unit] || 0) + item.requestedQty;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const groupedReceived = receivedItems.reduce((acc, item) => {
+            const unit = item.unit || 'Nos';
+            acc[unit] = (acc[unit] || 0) + (Number(item.receivedQty) || 0);
+            return acc;
+        }, {} as Record<string, number>);
+
+        return {
+            totalItems,
+            groupedOrdered,
+            groupedReceived
+        };
+    }, [receivedItems]);
 
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
@@ -383,6 +496,7 @@ export default function GRNPage() {
                                                                             vendor: grn.supplier || grn.request?.vendor || 'N/A',
                                                                             sourceType: grn.sourceType,
                                                                             fromStoreId: grn.storeId,
+                                                                            reference: grn.reference,
                                                                             items: grn.items.map((i) => ({
                                                                                 id: i.id,
                                                                                 itemId: i.itemId,
@@ -458,9 +572,9 @@ export default function GRNPage() {
                                     
                                     {/* GRN References */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-3 gap-4">
                                             <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">GRN Reference (Auto-Generated)</label>
+                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">GRN Reference</label>
                                                 <Input
                                                     className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-mono font-bold text-slate-500 cursor-not-allowed border-dashed"
                                                     value={grnNumber}
@@ -468,10 +582,20 @@ export default function GRNPage() {
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Invoice / Delivery Note</label>
+                                                <Input
+                                                    type="text"
+                                                    placeholder="E.g. INV-2024-001"
+                                                    className="h-9 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                    value={invoiceNumber}
+                                                    onChange={e => setInvoiceNumber(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Received Date</label>
                                                 <Input
                                                     type="date"
-                                                    className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                    className="h-9 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
                                                     value={receivedDate}
                                                     onChange={e => setReceivedDate(e.target.value)}
                                                 />
@@ -479,7 +603,46 @@ export default function GRNPage() {
                                         </div>
                                     </div>
 
-                                    {/* Received Items Checklist */}
+                                     {/* Target PO Selector Card (Multi-PO Partial GRN Support) */}
+                                     {(() => {
+                                         const poList = (selectedRequest.purchaseOrders && selectedRequest.purchaseOrders.length > 0)
+                                             ? selectedRequest.purchaseOrders
+                                             : (selectedRequest.poNumber && selectedRequest.poNumber !== 'N/A' && selectedRequest.poNumber !== '-')
+                                                 ? [{ id: selectedRequest.poNumber, poNumber: selectedRequest.poNumber, vendor: selectedRequest.vendor }]
+                                                 : [];
+
+                                         if (poList.length === 0) return null;
+
+                                         return (
+                                             <div className="bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 p-4 rounded-2xl space-y-2">
+                                                 <div className="flex justify-between items-center">
+                                                     <label className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                                                         <ClipboardList className="w-3.5 h-3.5" /> Target PO Delivery Filter
+                                                     </label>
+                                                     <Badge className="bg-blue-600 text-white text-[9px] px-2 py-0 font-bold rounded">
+                                                         {poList.length} PO Reference{poList.length > 1 ? 's' : ''}
+                                                     </Badge>
+                                                 </div>
+                                                 <select
+                                                     value={selectedPOId}
+                                                     onChange={(e) => handleSelectPO(e.target.value)}
+                                                     className="w-full h-9 rounded-xl bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 text-xs font-bold px-3 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                                                 >
+                                                     <option value="ALL">📦 Intake All Outstanding PO Items (Combined)</option>
+                                                     {poList.map((po) => (
+                                                         <option key={po.id || po.poNumber} value={po.poNumber}>
+                                                             📄 {po.poNumber} — {typeof po.vendor === 'object' ? po.vendor?.name : (po.vendor || 'Vendor')}
+                                                         </option>
+                                                     ))}
+                                                 </select>
+                                                 <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 font-medium">
+                                                     Selecting a specific PO filters the checklist to show ONLY the materials authorized under that supplier&apos;s purchase order.
+                                                 </p>
+                                             </div>
+                                         );
+                                     })()}
+
+                                     {/* Received Items Checklist */}
                                     <div className="space-y-3">
                                         <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
                                             <Package className="w-3.5 h-3.5 text-blue-500" /> Items Verification List
@@ -492,7 +655,7 @@ export default function GRNPage() {
                                                         <th className="px-4 py-3">Material Description</th>
                                                         <th className="px-4 py-3 text-center w-28">Ordered Qty</th>
                                                         <th className="px-4 py-3 text-center w-36">Received Qty</th>
-                                                        <th className="px-4 py-3">Batch &amp; Expiry Registry</th>
+                                                        <th className="px-4 py-3">Expiry &amp; Serial Registry</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -503,23 +666,28 @@ export default function GRNPage() {
                                                                 <div className="text-[9px] text-slate-400 mt-0.5">Item Registry Code</div>
                                                             </td>
                                                             <td className="px-4 py-3.5 text-center font-black text-slate-600 dark:text-slate-400">
-                                                                {item.requestedQty}
+                                                                {item.requestedQty} <span className="text-[9px] font-semibold text-slate-400">{item.unit || 'Nos'}</span>
                                                             </td>
-                                                            <td className="px-4 py-3.5">
-                                                                <Input
-                                                                    type="number"
-                                                                    className="h-8 text-right font-black text-xs"
-                                                                    value={item.receivedQty}
-                                                                    onChange={e => updateReceivedQty(idx, e.target.value)}
-                                                                />
+                                                            <td className="px-4 py-3.5 relative">
+                                                                <div className="relative flex items-center">
+                                                                    <Input
+                                                                        type="number"
+                                                                        step="any"
+                                                                        className={cn("h-8 text-right font-black text-xs pr-10", item.receivedQty > item.requestedQty ? "text-red-500 border-red-200 focus-visible:ring-red-500" : "")}
+                                                                        value={item.receivedQty}
+                                                                        onChange={e => updateReceivedQty(idx, e.target.value)}
+                                                                    />
+                                                                    <span className={cn("absolute right-3 text-[10px] font-bold pointer-events-none", item.receivedQty > item.requestedQty ? "text-red-400" : "text-slate-400")}>
+                                                                        {item.unit || 'Nos'}
+                                                                    </span>
+                                                                </div>
+                                                                {item.receivedQty > item.requestedQty && (
+                                                                    <div className="absolute top-1 right-2 text-[8px] text-red-500 font-bold bg-white px-1">
+                                                                        Over
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             <td className="px-4 py-3.5 space-y-3">
-                                                                <Input
-                                                                    className="h-8 text-xs font-mono"
-                                                                    placeholder="Batch Number (optional)"
-                                                                    value={item.remarks}
-                                                                    onChange={e => updateItemRemarks(idx, e.target.value)}
-                                                                />
                                                                 <div className="space-y-1">
                                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Expiry Date</span>
                                                                     <Input
@@ -584,24 +752,46 @@ export default function GRNPage() {
                                         <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                             <Info className="w-3.5 h-3.5 text-blue-500" /> Reference Information
                                         </h4>
-                                        <div className="space-y-3.5 text-xs">
-                                            <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Request No</span>
-                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.requestNr}</span>
-                                            </div>
-                                            <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
-                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.poNumber || 'N/A'}</span>
-                                            </div>
-                                            <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier Partner</span>
-                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.vendor || 'N/A'}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Source Type</span>
-                                                <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[9px] font-bold px-2 py-0 mt-0.5 rounded">{selectedRequest.sourceType}</Badge>
-                                            </div>
-                                        </div>
+                                        {(() => {
+                                            const poList = selectedRequest.purchaseOrders || [];
+                                            let displayPO = selectedRequest.poNumber || 'N/A';
+                                            let displayVendor = (selectedRequest.vendor as string) || 'N/A';
+
+                                            if (poList.length > 0) {
+                                                if (selectedPOId === 'ALL') {
+                                                    displayPO = `Multiple POs (${poList.length})`;
+                                                    const vendors = Array.from(new Set(poList.map(p => typeof p.vendor === 'object' ? p.vendor?.name : p.vendor).filter(Boolean)));
+                                                    displayVendor = vendors.length > 1 ? 'Multiple Suppliers' : ((vendors[0] as string) || 'N/A');
+                                                } else {
+                                                    const target = poList.find(p => p.poNumber === selectedPOId || p.id === selectedPOId);
+                                                    if (target) {
+                                                        displayPO = target.poNumber || 'N/A';
+                                                        displayVendor = typeof target.vendor === 'object' ? (target.vendor?.name || 'N/A') : (target.vendor || 'N/A');
+                                                    }
+                                                }
+                                            }
+
+                                            return (
+                                                <div className="space-y-3.5 text-xs">
+                                                    <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Request No</span>
+                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.requestNr}</span>
+                                                    </div>
+                                                    <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
+                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{displayPO}</span>
+                                                    </div>
+                                                    <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier Partner</span>
+                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{displayVendor}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Source Type</span>
+                                                        <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[9px] font-bold px-2 py-0 mt-0.5 rounded">{selectedRequest.sourceType}</Badge>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Verification Metrics */}
@@ -609,27 +799,38 @@ export default function GRNPage() {
                                         <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                             <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Intake Estimator
                                         </h4>
-                                        {(() => {
-                                            const totalItems = receivedItems.length;
-                                            const totalOrdered = receivedItems.reduce((sum, item) => sum + item.requestedQty, 0);
-                                            const totalReceived = receivedItems.reduce((sum, item) => sum + (parseFloat(item.receivedQty as any) || 0), 0);
-                                            return (
-                                                <div className="space-y-3 text-xs">
-                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80 font-semibold">
-                                                        <span className="text-slate-400">Materials In GRN</span>
-                                                        <span className="text-slate-800 dark:text-slate-200 font-bold">{totalItems}</span>
+                                        <div className="space-y-3 text-xs">
+                                            <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80 font-semibold">
+                                                <span className="text-slate-400">Materials In GRN</span>
+                                                <span className="text-slate-800 dark:text-slate-200 font-bold">{estimatorSummaries.totalItems}</span>
+                                            </div>
+                                            
+                                            <div className="space-y-1 py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                <div className="font-semibold text-slate-400 mb-1">Total Ordered Qty</div>
+                                                {Object.entries(estimatorSummaries.groupedOrdered).map(([unit, qty]) => (
+                                                    <div key={unit} className="flex justify-between items-center text-slate-800 dark:text-slate-200">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400">{unit}</span>
+                                                        <span className="font-black">{qty.toLocaleString()}</span>
                                                     </div>
-                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80 font-semibold">
-                                                        <span className="text-slate-400">Total Ordered Qty</span>
-                                                        <span className="text-slate-800 dark:text-slate-200 font-bold">{totalOrdered.toLocaleString()}</span>
+                                                ))}
+                                                {Object.keys(estimatorSummaries.groupedOrdered).length === 0 && (
+                                                    <span className="text-slate-400 text-xs">0</span>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-1 py-1.5">
+                                                <div className="font-semibold text-slate-400 mb-1">Total Received Qty</div>
+                                                {Object.entries(estimatorSummaries.groupedReceived).map(([unit, qty]) => (
+                                                    <div key={unit} className="flex justify-between items-center text-blue-600 dark:text-blue-400">
+                                                        <span className="text-[10px] uppercase font-bold text-blue-400/70">{unit}</span>
+                                                        <span className="font-black">{qty.toLocaleString()}</span>
                                                     </div>
-                                                    <div className="flex justify-between items-center py-1.5 font-bold">
-                                                        <span className="text-slate-400">Total Received Qty</span>
-                                                        <span className="text-blue-600 dark:text-blue-400">{totalReceived.toLocaleString()}</span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
+                                                ))}
+                                                {Object.keys(estimatorSummaries.groupedReceived).length === 0 && (
+                                                    <span className="text-slate-400 text-xs">0</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -714,6 +915,13 @@ export default function GRNPage() {
                                                 </div>
                                             </div>
                                             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <ClipboardList className="w-4 h-4 text-blue-500" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Invoice / Del. Note</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.reference || 'N/A'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
                                                 <Building2 className="w-4 h-4 text-slate-400" />
                                                 <div className="min-w-0">
                                                     <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier</span>
@@ -762,7 +970,7 @@ export default function GRNPage() {
                                                     <tr>
                                                         <th className="px-4 py-3">Material / Item</th>
                                                         <th className="px-4 py-3 text-right">Quantity</th>
-                                                        <th className="px-4 py-3">Batch Number</th>
+                                                        <th className="px-4 py-3">Lot Number</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">

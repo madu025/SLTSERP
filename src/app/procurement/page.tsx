@@ -3,8 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import RoleGuard from '@/components/RoleGuard';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
     ShoppingCart,
@@ -13,7 +16,9 @@ import {
     CheckCircle,
     TrendingUp,
     Package,
-    Loader2
+    Loader2,
+    ArrowRight,
+    PlusCircle
 } from "lucide-react";
 
 interface OverviewRequestItem {
@@ -44,7 +49,10 @@ export default function ProcurementOverviewPage() {
     const { data: rawRequests, isLoading } = useQuery<OverviewRequest[]>({
         queryKey: ["procurement-overview"],
         queryFn: async () => {
-            const res = await fetch("/api/inventory/requests", { cache: 'no-store' });
+            const res = await fetch(`/api/inventory/requests?_t=${Date.now()}`, { 
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache' }
+            });
             const json = await res.json();
             if (Array.isArray(json)) return json;
             if (json && Array.isArray(json.data)) return json.data;
@@ -57,7 +65,7 @@ export default function ProcurementOverviewPage() {
     // Calculate statistics
     const stats = {
         pendingPO: allRequests.filter((r: OverviewRequest) =>
-            r.workflowStage === 'PROCUREMENT' && r.procurementStatus === 'PENDING'
+            r.workflowStage === 'PROCUREMENT' && (r.procurementStatus === 'PENDING' || !r.procurementStatus)
         ).length,
 
         inProgress: allRequests.filter((r: OverviewRequest) =>
@@ -74,51 +82,70 @@ export default function ProcurementOverviewPage() {
         ).length,
 
         sltRequests: allRequests.filter((r: OverviewRequest) =>
-            r.sourceType === 'SLT' && r.workflowStage === 'PROCUREMENT'
+            (r.sourceType === 'SLT' || r.sourceType === 'PROCUREMENT') && (r.workflowStage === 'PROCUREMENT' || r.workflowStage === 'GRN_PENDING')
         ).length,
 
         localPurchase: allRequests.filter((r: OverviewRequest) =>
-            r.sourceType === 'LOCAL_PURCHASE' && r.workflowStage === 'PROCUREMENT'
+            (r.sourceType === 'LOCAL_PURCHASE' || r.sourceType === 'LOCAL' || r.sourceType === 'EMERGENCY_LOCAL') && (r.workflowStage === 'PROCUREMENT' || r.workflowStage === 'GRN_PENDING')
         ).length,
 
         urgent: allRequests.filter((r: OverviewRequest) =>
-            r.priority === 'URGENT' && r.workflowStage === 'PROCUREMENT'
+            r.priority === 'URGENT' && (r.workflowStage === 'PROCUREMENT' || r.workflowStage === 'OSP_MANAGER_APPROVAL')
         ).length,
     };
 
     // Recent activity (last 10 requests)
     const recentActivity = [...allRequests]
-        .filter((r: OverviewRequest) => r.workflowStage === 'PROCUREMENT' || r.workflowStage === 'GRN_PENDING')
+        .filter((r: OverviewRequest) => r.workflowStage === 'PROCUREMENT' || r.workflowStage === 'GRN_PENDING' || r.workflowStage === 'OSP_MANAGER_APPROVAL')
         .sort((a: OverviewRequest, b: OverviewRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 10);
 
     const getStatusBadge = (request: OverviewRequest) => {
-        if (request.procurementStatus === 'PENDING') {
-            return <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-black px-2 py-0.5">Awaiting PO</Badge>;
+        if (request.workflowStage === 'OSP_MANAGER_APPROVAL') {
+            return <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-black px-2 py-0.5">Pending Approval</Badge>;
+        } else if (request.procurementStatus === 'PENDING' || !request.procurementStatus) {
+            return <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-black px-2 py-0.5">Awaiting PO</Badge>;
         } else if (request.procurementStatus === 'PO_CREATED') {
-            return <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-black px-2 py-0.5">PO Created</Badge>;
+            return <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-black px-2 py-0.5">PO Created</Badge>;
         } else if (request.procurementStatus === 'PO_SENT') {
-            return <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-black px-2 py-0.5">PO Sent</Badge>;
+            return <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] font-black px-2 py-0.5">PO Sent</Badge>;
         } else if (request.procurementStatus === 'PO_CONFIRMED') {
-            return <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] font-black px-2 py-0.5">PO Confirmed</Badge>;
-        } else if (request.procurementStatus === 'COMPLETED') {
-            return <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black px-2 py-0.5">Ready for GRN</Badge>;
+            return <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black px-2 py-0.5">PO Confirmed</Badge>;
+        } else if (request.procurementStatus === 'COMPLETED' || request.workflowStage === 'GRN_PENDING') {
+            return <Badge className="bg-teal-50 text-teal-700 border border-teal-200 text-[9px] font-black px-2 py-0.5">Ready for GRN</Badge>;
         }
         return <Badge variant="outline" className="text-[9px] font-bold">{request.status}</Badge>;
     };
 
     return (
-        <div className="erp-page-wrapper flex-row overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50">
-                    <div className="max-w-7xl mx-auto space-y-4">
-                        {/* Header */}
-                        <div className="space-y-0.5">
-                            <h1 className="text-xl font-black text-slate-900 tracking-tight">Procurement Overview</h1>
-                            <p className="text-xs text-slate-500">Real-time procurement workflow insights and metrics</p>
-                        </div>
+        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'PROCUREMENT_OFFICER', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']}>
+            <div className="erp-page-wrapper flex-row overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                    <Header />
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50">
+                        <div className="max-w-7xl mx-auto space-y-4">
+                            {/* Header Banner */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="space-y-0.5">
+                                    <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                                        <ShoppingCart className="w-5 h-5 text-blue-600" /> Procurement Overview
+                                    </h1>
+                                    <p className="text-xs text-slate-500">Real-time procurement workflow insights, purchase order tracking and metrics</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Link href="/inventory/requests/create">
+                                        <Button className="h-9 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm">
+                                            <PlusCircle className="w-3.5 h-3.5" /> + New PRN
+                                        </Button>
+                                    </Link>
+                                    <Link href="/procurement/orders">
+                                        <Button variant="outline" className="h-9 px-3 text-xs font-bold text-slate-700 border-slate-200 hover:bg-slate-50 rounded-xl flex items-center gap-1.5">
+                                            Manage POs <ArrowRight className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </div>
 
                         {/* Key Metrics Grid */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -274,7 +301,7 @@ export default function ProcurementOverviewPage() {
                             </CardHeader>
                             <CardContent className="p-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <a
+                                    <Link
                                         href="/procurement/orders"
                                         className="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all group"
                                     >
@@ -285,9 +312,9 @@ export default function ProcurementOverviewPage() {
                                             <div className="font-bold text-xs text-slate-800">Manage Purchase Orders</div>
                                             <div className="text-[10px] text-slate-500 font-medium mt-0.5">Create and track procurement orders</div>
                                         </div>
-                                    </a>
+                                    </Link>
 
-                                    <a
+                                    <Link
                                         href="/procurement/approvals"
                                         className="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all group"
                                     >
@@ -298,7 +325,7 @@ export default function ProcurementOverviewPage() {
                                             <div className="font-bold text-xs text-slate-800">View Approvals</div>
                                             <div className="text-[10px] text-slate-500 font-medium mt-0.5">Manager approval and review queue</div>
                                         </div>
-                                    </a>
+                                    </Link>
                                 </div>
                             </CardContent>
                         </Card>
@@ -306,5 +333,6 @@ export default function ProcurementOverviewPage() {
                 </div>
             </main>
         </div>
+        </RoleGuard>
     );
 }

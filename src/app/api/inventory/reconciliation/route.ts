@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
-import { MaterialService } from '@/services/inventory/material.service';
+import { TransactionService } from '@/services/inventory/transaction.service';
+import { IssueService } from '@/services/inventory/issue.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 
@@ -15,7 +16,7 @@ export const GET = apiHandler(async (request) => {
         throw AppError.badRequest('Missing parameters');
     }
 
-    const data = await MaterialService.getReconciliation({ contractorId, storeId, month });
+    const data = await TransactionService.getReconciliation({ contractorId, storeId, month });
     return { success: true, data };
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,
@@ -29,10 +30,8 @@ export const POST = apiHandler(async (request, _params, body) => {
     const { action: _action, ...data } = body;
 
     if (action === 'ISSUE') {
-        const result = await MaterialService.issueMaterials(
-            data as Parameters<typeof MaterialService.issueMaterials>[0],
-            userId ?? undefined
-        );
+        const payload = data as Parameters<typeof IssueService.issueMaterial>[0];
+        const result = await IssueService.issueMaterial({ ...payload, userId: userId ?? undefined });
         return { success: true, data: result };
     }
 
@@ -40,7 +39,7 @@ export const POST = apiHandler(async (request, _params, body) => {
         const contractorId = data.contractorId as string | undefined;
         const storeId = data.storeId as string | undefined;
         const month = data.month as string | undefined;
-        const result = await MaterialService.generateBalanceSheet(
+        const result = await TransactionService.generateBalanceSheet(
             contractorId ?? '', storeId ?? '', month ?? '', userId ?? undefined
         );
         return { success: true, data: result };

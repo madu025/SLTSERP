@@ -8,10 +8,10 @@ export interface ActionPayload {
     entityType: string;
     userId: string;
     instanceId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     // Legacy support for older triggers
-    stockReq?: any;
-    items?: any;
+    stockReq?: Record<string, unknown>;
+    items?: Record<string, unknown>[];
 }
 
 export class DomainActionDispatcher {
@@ -47,16 +47,16 @@ export class DomainActionDispatcher {
                 await DomainActionDispatcher.handleTriggerProcurement(payload, tx);
                 break;
             case 'POST_TO_LEDGER':
-                await DomainActionDispatcher.handlePostToLedger(payload, tx);
+                await DomainActionDispatcher.handlePostToLedger(payload);
                 break;
             case 'GENERATE_INVOICE':
-                await DomainActionDispatcher.handleGenerateInvoice(payload, tx);
+                await DomainActionDispatcher.handleGenerateInvoice(payload);
                 break;
             case 'PAY_CONTRACTOR':
-                await DomainActionDispatcher.handlePayContractor(payload, tx);
+                await DomainActionDispatcher.handlePayContractor(payload);
                 break;
             case 'RETURN_MATERIAL':
-                await DomainActionDispatcher.handleReturnMaterial(payload, tx);
+                await DomainActionDispatcher.handleReturnMaterial(payload);
                 break;
             case 'ACCRUE_WIP':
                 await DomainActionDispatcher.handleAccrueWIP(payload, tx);
@@ -77,40 +77,53 @@ export class DomainActionDispatcher {
         
         if (!stockReq) return;
 
-        if (items && Array.isArray(items)) {
-            for (const item of items) {
-                await StockRequestRepository.updateItem(item.id, { approvedQty: item.approvedQty || 0 }, tx);
+        interface LegacyItem {
+            id: string;
+            itemId: string;
+            approvedQty?: number;
+            requestedQty?: number;
+        }
+
+        const stockReqData = stockReq as { sourceType?: string; toStoreId?: string; items?: LegacyItem[] };
+        const itemsData = (items as unknown as LegacyItem[]) || stockReqData.items;
+
+        if (itemsData && Array.isArray(itemsData)) {
+            for (const item of itemsData) {
+                const finalApproved = (item.approvedQty && item.approvedQty > 0) ? item.approvedQty : (item.requestedQty || 0);
+                await StockRequestRepository.updateItem(item.id, { approvedQty: finalApproved }, tx);
             }
         }
 
-        if (stockReq.sourceType === 'MAIN_STORE' && stockReq.toStoreId) {
+        if (stockReqData.sourceType === 'MAIN_STORE' && stockReqData.toStoreId) {
             // ATP: Reserve stock in the provider store (toStoreId)
-            for (const item of (items || stockReq.items)) {
-                const qtyToReserve = item.approvedQty || item.requestedQty;
-                if (qtyToReserve > 0) {
-                    // This will throw if stock is insufficient, automatically rolling back the FSM state
-                    await InventoryRepository.reserveStock(stockReq.toStoreId, item.itemId, Number(qtyToReserve), tx);
+            if (itemsData) {
+                for (const item of itemsData) {
+                    const qtyToReserve = item.approvedQty || item.requestedQty || 0;
+                    if (qtyToReserve > 0) {
+                        // This will throw if stock is insufficient, automatically rolling back the FSM state
+                        await InventoryRepository.reserveStock(stockReqData.toStoreId, item.itemId, Number(qtyToReserve), tx);
+                    }
                 }
             }
         }
     }
 
-    private static async handlePostToLedger(payload: ActionPayload, tx: TransactionClient) {
+    private static async handlePostToLedger(payload: ActionPayload) {
         console.log(`[DomainActionDispatcher] Stub: Posting to General Ledger for ${payload.entityType} ${payload.entityId}`);
         // TODO: Implement FinanceService.postLedgerEntry(payload.entityId, tx);
     }
 
-    private static async handleGenerateInvoice(payload: ActionPayload, tx: TransactionClient) {
+    private static async handleGenerateInvoice(payload: ActionPayload) {
         console.log(`[DomainActionDispatcher] Stub: Generating Invoice for SOD ${payload.entityId}`);
         // TODO: Implement InvoiceService.generate(payload.entityId, tx);
     }
 
-    private static async handlePayContractor(payload: ActionPayload, tx: TransactionClient) {
+    private static async handlePayContractor(payload: ActionPayload) {
         console.log(`[DomainActionDispatcher] Stub: Paying Contractor for Invoice ${payload.entityId}`);
         // TODO: Implement ContractorPaymentService.process(payload.entityId, tx);
     }
 
-    private static async handleReturnMaterial(payload: ActionPayload, tx: TransactionClient) {
+    private static async handleReturnMaterial(payload: ActionPayload) {
         console.log(`[DomainActionDispatcher] Stub: Returning Material for SOD ${payload.entityId}`);
         // TODO: Implement SODMaterialService.returnDefectiveMaterials(payload.entityId, tx);
     }

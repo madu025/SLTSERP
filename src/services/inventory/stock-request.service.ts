@@ -56,7 +56,7 @@ export class StockRequestService {
             }
         }
 
-        const isExternalProcurement = sourceType === 'LOCAL_PURCHASE' || sourceType === 'SLT' || sourceType === 'PROCUREMENT' || !finalToStoreId;
+        const isExternalProcurement = sourceType === 'LOCAL_PURCHASE' || sourceType === 'EMERGENCY_LOCAL' || sourceType === 'SLT' || sourceType === 'PROCUREMENT' || !finalToStoreId;
 
         // Resolve initial stage dynamically using ProcessGateEngine and RuleEngine
         const initialPolicy = await ProcessGateEngine.findMatchingPolicy({
@@ -70,7 +70,8 @@ export class StockRequestService {
             }
         });
 
-        const initialWorkflowStage = initialPolicy ? initialPolicy.toStatus : (isExternalProcurement ? 'OSP_MANAGER_APPROVAL' : 'ARM_APPROVAL');
+        const defaultInitialStage = isExternalProcurement ? 'OSP_MANAGER_APPROVAL' : 'ARM_APPROVAL';
+        const initialWorkflowStage = (initialPolicy && initialPolicy.toStatus && initialPolicy.toStatus !== 'PENDING') ? initialPolicy.toStatus : defaultInitialStage;
 
         // Process items: create ad-hoc InventoryItems for custom/unregistered items
         const processedItems = [];
@@ -211,7 +212,19 @@ export class StockRequestService {
                 fromStore: true,
                 toStore: true,
                 requestedBy: true,
-                items: { include: { item: true } }
+                items: { include: { item: true } },
+                purchaseOrders: {
+                    include: {
+                        items: true
+                    }
+                },
+                grns: {
+                    include: {
+                        receivedBy: true,
+                        items: { include: { item: true } }
+                    },
+                    orderBy: { createdAt: 'desc' }
+                }
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -262,6 +275,8 @@ export class StockRequestService {
                 return StockRequestService.handleGatePassed(data);
             case 'RETURN':
                 return StockRequestService.handleReturn(data);
+            case 'RECALL_APPROVAL':
+                return StockRequestService.handleRecallApproval(data);
             case 'REJECT':
                 return StockRequestService.handleReject(data);
             case 'CREATE_PO':
@@ -330,7 +345,7 @@ export class StockRequestService {
             return request;
         });
 
-        this.safeNotifyFinalAction(updated as any, 'CREATE_PO', remarks);
+        this.safeNotifyFinalAction(updated as unknown as StockRequest, 'CREATE_PO', remarks);
         return updated;
     }
 
@@ -358,9 +373,15 @@ export class StockRequestService {
             const stockReq = await StockRequestRepository.findById(requestId, { items: true, fromStore: true, toStore: true }, tx);
             if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
 
+            // Resolve effective stage for PENDING/legacy records dynamically
+            const isExternal = stockReq.sourceType === 'LOCAL_PURCHASE' || stockReq.sourceType === 'EMERGENCY_LOCAL' || stockReq.sourceType === 'SLT' || stockReq.sourceType === 'PROCUREMENT' || !stockReq.toStoreId;
+            const effectiveStage = (stockReq.workflowStage === 'PENDING' || stockReq.workflowStage === 'REQUEST')
+                ? (isExternal ? 'OSP_MANAGER_APPROVAL' : 'ARM_APPROVAL')
+                : stockReq.workflowStage;
+
             // Query active DB Process Gate Policy for current workflow stage
             const policy = await (tx as unknown as typeof prisma).processGatePolicy.findFirst({
-                where: { entityType: 'MATERIAL_REQUEST', fromStatus: stockReq.workflowStage, isEnabled: true },
+                where: { entityType: 'MATERIAL_REQUEST', fromStatus: effectiveStage, isEnabled: true },
                 include: { approvalLevels: true }
             });
 
@@ -449,6 +470,87 @@ export class StockRequestService {
 
         this.safeNotifyFinalAction(updated, 'REJECTED');
         return updated;
+    }
+
+    private static async handleRecallApproval(data: StockRequestActionData) {
+        const { requestId, userId, remarks } = data;
+        
+        return await prisma.$transaction(async (tx) => {
+            // 1. Point of no return Check (Has a PO been created?)
+            const poExists = await tx.purchaseOrder.findFirst({
+                where: { stockRequestId: requestId }
+            });
+            if (poExists) {
+                throw AppError.badRequest("CANNOT_RECALL_PO_EXISTS: A Purchase Order has already been generated. This request can no longer be recalled.");
+            }
+
+            const stockReq = await tx.stockRequest.findUnique({
+                where: { id: requestId },
+                include: { items: true }
+            });
+
+            if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
+            if (stockReq.status !== 'APPROVED') throw AppError.badRequest("INVALID_STATE: Only approved requests can be recalled.");
+
+            // 2. Clear approved quantities on items
+            if (stockReq.items && stockReq.items.length > 0) {
+                for (const item of stockReq.items) {
+                    await tx.stockRequestItem.update({
+                        where: { id: item.id },
+                        data: { approvedQty: 0 } // Reset to unapproved
+                    });
+                }
+            }
+
+            // 3. Revert Request status to Management Review Stage
+            const isExternal = stockReq.sourceType === 'LOCAL_PURCHASE' || stockReq.sourceType === 'EMERGENCY_LOCAL' || stockReq.sourceType === 'SLT' || stockReq.sourceType === 'PROCUREMENT' || !stockReq.toStoreId;
+            const targetRecallStage = isExternal ? 'OSP_MANAGER_APPROVAL' : 'ARM_APPROVAL';
+
+            const updated = await tx.stockRequest.update({
+                where: { id: requestId },
+                data: {
+                    workflowStage: targetRecallStage,
+                    status: 'PENDING',
+                    approvedById: null,
+                    hsOspAction: null,
+                    managerAction: null,
+                    armAction: null,
+                    storesManagerAction: null,
+                    remarks: remarks || 'Approval recalled for re-evaluation.'
+                },
+                include: {
+                    requestedBy: true
+                }
+            });
+
+            // 4. Record explicit Audit Log
+            await tx.auditLog.create({
+                data: {
+                    action: 'RECALL_APPROVAL',
+                    entityId: requestId,
+                    entity: 'STOCK_REQUEST',
+                    userId: userId,
+                    newValue: { details: 'Manager recalled PRN approval to adjust quantities/values.' },
+                    ipAddress: 'SYSTEM',
+                    userAgent: 'SYSTEM'
+                }
+            });
+
+            // 5. Notify Requester
+            if (stockReq.requestedById) {
+                await tx.notification.create({
+                    data: {
+                        userId: stockReq.requestedById,
+                        title: 'Approval Recalled',
+                        message: `PRN ${stockReq.requestNr} approval was recalled for re-evaluation.`,
+                        type: 'WARNING',
+                        metadata: { requestId }
+                    }
+                });
+            }
+
+            return updated;
+        });
     }
 
     private static async handleProcurementComplete(data: StockRequestActionData) {

@@ -110,12 +110,15 @@ model GRN {
   updatedAt    DateTime         @updatedAt
   receivedBy   User             @relation(fields: [receivedById], references: [id])
   request      StockRequest?    @relation(fields: [requestId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
   store        InventoryStore   @relation(fields: [storeId], references: [id])
   items        GRNItem[]
   batches      InventoryBatch[]
 
   @@index([storeId])
   @@index([requestId])
+  @@index([purchaseOrderId])
   @@index([grnNumber])
 }
 
@@ -422,6 +425,7 @@ model PurchaseOrder {
   stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Restrict)
 
   items PurchaseOrderItem[]
+  grns  GRN[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

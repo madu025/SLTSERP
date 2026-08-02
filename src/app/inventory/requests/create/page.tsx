@@ -126,9 +126,9 @@ export default function MaterialRequestPage() {
                 } else if (store?.type === 'MAIN') {
                     setSourceType('SLT');
                 }
-            } else if (!selectedStore && stores.length > 0) {
-                setSelectedStore(stores[0].id);
-                if (stores[0].type === 'SUB') setSourceType('MAIN_STORE');
+            } else {
+                // If user has no assigned store (e.g. Unassigned Stores Manager), require explicit store selection
+                setSelectedStore("");
             }
         } catch (e) {
             console.error("Failed to parse user from localStorage", e);
@@ -243,6 +243,11 @@ export default function MaterialRequestPage() {
         if (!selectedStore) { toast.error("Please select a store"); return; }
         const user = localStorage.getItem('user');
         if (!user) { toast.error("Authenticated user required"); return; }
+
+        if (sourceType === 'EMERGENCY_LOCAL' && !attachmentUrl) {
+            toast.error("Emergency Local Purchase requires a Memo Approval Attachment! Please upload a PDF or Image memo before submitting.");
+            return;
+        }
 
         const validItems = requestItems.filter(i => (i.itemId || (i.isCustom && i.customName)) && parseFloat(i.requestedQty) > 0);
         if (validItems.length === 0) { toast.error("Add at least one item with Quantity"); return; }
@@ -416,13 +421,30 @@ export default function MaterialRequestPage() {
                                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
                                         <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                                         <div>
-                                            <span className="font-bold block">🚨 Emergency Fast-Track Petty Cash Purchase Active</span>
+                                            <span className="font-bold block">🚨 Emergency Fast-Track Petty Cash Purchase (Attachment Required)</span>
                                             <span>
-                                                This request bypasses standard procurement queues and routes to Stores Manager for 1-Click Fast Approval. Upload shop receipt/memo to auto-increment store stock and generate Petty Cash Voucher.
+                                                This request requires a mandatory Memo/Receipt approval attachment. Once submitted, it routes to OSP Manager for Fast-Track approval.
                                             </span>
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Approval Workflow Route Preview (Gap 5) */}
+                                <div className="p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-xl text-xs text-blue-900 flex items-center justify-between shadow-xs">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] uppercase font-black text-blue-700 tracking-wider bg-blue-100 px-2 py-0.5 rounded">Approval Workflow Path:</span>
+                                        <span className="font-semibold text-slate-800">
+                                            {sourceType === 'MAIN_STORE' ? (
+                                                <>Requester <span className="text-blue-500 font-bold">➔</span> OSP Manager Approval <span className="text-blue-500 font-bold">➔</span> Main Store Release <span className="text-blue-500 font-bold">➔</span> Receiving Store</>
+                                            ) : (
+                                                <>Requester <span className="text-blue-500 font-bold">➔</span> OSP Manager Approval <span className="text-blue-500 font-bold">➔</span> Procurement Officer Processing</>
+                                            )}
+                                        </span>
+                                    </div>
+                                    <span className="text-[10px] text-blue-600 font-bold italic">
+                                        {sourceType === 'MAIN_STORE' ? 'Internal Transfer Flow' : 'Procurement Requisition (PRN) Flow'}
+                                    </span>
+                                </div>
 
                                 {/* Project / Reason Grid */}
                                 <div className="bg-slate-50/60 p-2 rounded border border-slate-100">

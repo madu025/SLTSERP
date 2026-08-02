@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { MaterialService } from '@/services/inventory/material.service';
+import { TransactionService } from '@/services/inventory/transaction.service';
 import { AppError } from '@/lib/error';
 
 // GET - Retrieve contractor balance sheet
@@ -15,6 +15,6 @@ export const GET = apiHandler(async (req) => {
         throw AppError.badRequest('contractorId, storeId, and month are required');
     }
 
-    const balanceSheet = await MaterialService.getBalanceSheet(contractorId, storeId, month);
+    const balanceSheet = await TransactionService.getBalanceSheet(contractorId, storeId, month);
     return Response.json(balanceSheet);
 });
