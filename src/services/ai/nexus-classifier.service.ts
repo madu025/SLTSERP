@@ -8,6 +8,7 @@ interface ModelData {
 }
 
 const MODEL_PATH = path.join(process.cwd(), 'src/services/nexus-model.json');
+const DYNAMIC_TRAINING_PATH = path.join(process.cwd(), 'src/services/nexus-training-data.json');
 
 const TRAINING_DATA: { intent: string; text: string }[] = [
   // ===== FINANCE =====
@@ -172,6 +173,9 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'PROCUREMENT', text: 'purchase orders pending approval' },
   { intent: 'PROCUREMENT', text: 'requisition list' },
   { intent: 'PROCUREMENT', text: 'pending procurement documents' },
+  { intent: 'PROCUREMENT', text: 'awsana grn eka mokadda' },
+  { intent: 'PROCUREMENT', text: 'last grn number' },
+  { intent: 'PROCUREMENT', text: 'latest goods receipt note' },
 
   // ===== VOUCHERS =====
   { intent: 'VOUCHERS', text: 'how many pending payment vouchers' },
@@ -219,9 +223,17 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'BOM_INVOICES', text: 'synced sod count' },
   { intent: 'BOM_INVOICES', text: 'rtom area billing' },
   { intent: 'BOM_INVOICES', text: 'slt billing summary' },
+  
+  // Job Costing & Reasoning
+  { intent: 'JOB_COSTING', text: 'material cost eka kiyada' },
+  { intent: 'JOB_COSTING', text: 'completed connect walata giya material cost eka' },
+  { intent: 'JOB_COSTING', text: 'labaya kiyada' },
+  { intent: 'JOB_COSTING', text: 'profit eka kiyada' },
+  { intent: 'JOB_COSTING', text: 'revenue and cost of completed orders' },
+  { intent: 'JOB_COSTING', text: 'job costing details for rtom' },
+  { intent: 'JOB_COSTING', text: 'how much profit did we make' },
+  { intent: 'JOB_COSTING', text: 'what is the material cost' },
 ];
-
-const DYNAMIC_TRAINING_PATH = path.join(process.cwd(), 'src/services/nexus-training-data.json');
 
 export class NexusClassifierService {
   /**
@@ -321,17 +333,18 @@ export class NexusClassifierService {
   }
 
   /**
-   * Trains the Naive Bayes model on all data and saves parameters to nexus-model.json
+   * Train the Naive Bayes model using Laplace smoothing
    */
   static async train(): Promise<void> {
-    const allData = await this.getTrainingData();
-    const documentCount = allData.length;
+    const combinedData = await this.getTrainingData();
     const classCounts: Record<string, number> = {};
     const wordCountsPerClass: Record<string, Record<string, number>> = {};
     const vocab = new Set<string>();
+    
+    const documentCount = combinedData.length;
 
-    // 1. Count frequencies
-    for (const doc of allData) {
+    // 1. Calculate frequencies
+    for (const doc of combinedData) {
       const tokens = this.tokenize(doc.text);
       classCounts[doc.intent] = (classCounts[doc.intent] || 0) + 1;
 
@@ -367,6 +380,59 @@ export class NexusClassifierService {
     // Save model parameters to disk
     await fs.promises.writeFile(MODEL_PATH, JSON.stringify(modelData, null, 2), 'utf-8');
     console.log(`[CLASSIFIER] Model trained successfully on ${documentCount} documents. Vocab size: ${vocabSize}`);
+  }
+
+
+  /**
+   * Predict the intent of a query using the trained model and return confidence probability
+   */
+  static predictWithConfidence(message: string): { intent: string; confidence: number } {
+    let model: ModelData;
+
+    try {
+      if (fs.existsSync(MODEL_PATH)) {
+        model = JSON.parse(fs.readFileSync(MODEL_PATH, 'utf-8'));
+      } else {
+        const intent = this.predictInMemory(message);
+        return { intent, confidence: intent !== 'UNKNOWN' ? 0.9 : 0.0 };
+      }
+    } catch (e) {
+      console.error("[CLASSIFIER] Failed to load model file, falling back:", e);
+      const intent = this.predictInMemory(message);
+      return { intent, confidence: intent !== 'UNKNOWN' ? 0.9 : 0.0 };
+    }
+
+    const tokens = this.tokenize(message);
+    const scores: Record<string, number> = {};
+    let maxScore = -Infinity;
+
+    for (const intent in model.priors) {
+      let score = Math.log(model.priors[intent]);
+      for (const token of tokens) {
+        const p = model.likelihoods[intent]?.[token] || (1 / (model.vocabSize + 1));
+        score += Math.log(p);
+      }
+      scores[intent] = score;
+      if (score > maxScore) maxScore = score;
+    }
+
+    // Apply Softmax to convert log-probabilities to confidence percentages
+    let sumExp = 0;
+    let bestIntent = 'UNKNOWN';
+    let bestScoreNormalized = -Infinity;
+
+    for (const intent in scores) {
+      // Shift by maxScore to prevent underflow/overflow
+      const expScore = Math.exp(scores[intent] - maxScore);
+      sumExp += expScore;
+      if (expScore > bestScoreNormalized) {
+        bestScoreNormalized = expScore;
+        bestIntent = intent;
+      }
+    }
+
+    const confidence = bestScoreNormalized / sumExp;
+    return { intent: bestIntent, confidence };
   }
 
   /**

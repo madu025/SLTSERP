@@ -1,0 +1,6802 @@
+[
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "R-MD area eke job costing report eka ganna please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Colombo region eke profit and loss please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Completed connections wala material wiyadama kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Gampaha opmc eke profit eka kiyada please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "How much material cost was spent for completed jobs this month please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Revenue and cost summaries please"
+  },
+  {
+    "intent": "JOB_COSTING",
+    "text": "Material usage cost kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "ada dawase wada kiyada please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "nittambuwa progress eka balanna please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "completed sods for today please"
+  },
+  {
+    "intent": "SERVICE_ORDER_PROGRESS",
+    "text": "in hand service orders please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "salli gewim balanna please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding invoices kiyada please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "badu iwarada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock items monawada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "store eke adu badu please"
+  }
+]

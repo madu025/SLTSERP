@@ -17,11 +17,23 @@ import {
     Check,
     MessageSquare,
     ThumbsUp,
-    ThumbsDown
+    ThumbsDown,
+    Maximize2,
+    Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+
+interface NexusChart {
+    type: 'bar' | 'pie' | 'line';
+    title: string;
+    data: Record<string, string | number>[];
+    xAxisKey: string;
+    seriesKeys: string[];
+}
 
 interface NexusAction {
     type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER' | 'EXPORT_EXCEL';
@@ -56,6 +68,7 @@ interface Message {
     intent?: string;
     query?: string;
     feedbackStatus?: 'UP' | 'DOWN' | null;
+    chart?: NexusChart;
 }
 
 interface NexusAlert {
@@ -79,6 +92,23 @@ export default function NexusAgent() {
     const [isLoading, setIsLoading] = useState(false);
     const [executingActionIdx, setExecutingActionIdx] = useState<string | null>(null);
     const [completedActions, setCompletedActions] = useState<Record<string, string>>({});
+    const [expandedChart, setExpandedChart] = useState<NexusChart | null>(null);
+    const [correctingMessageId, setCorrectingMessageId] = useState<string | null>(null);
+    
+    const downloadChartCSV = (chart: NexusChart) => {
+        if (!chart.data || chart.data.length === 0) return;
+        const keys = Object.keys(chart.data[0]);
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + keys.join(",") + "\n"
+            + chart.data.map(row => keys.map(k => row[k]).join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${chart.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_data.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
     const [suggestions, setSuggestions] = useState<string[]>([
         "Low stock materials monawada?",
         "how many registered contractors?",
@@ -158,19 +188,25 @@ export default function NexusAgent() {
         return () => clearInterval(timer);
     }, []);
 
-    const handleFeedback = async (messageId: string, rating: 'UP' | 'DOWN', intent?: string, query?: string) => {
+    const handleFeedback = async (messageId: string, rating: 'UP' | 'DOWN', intent?: string, query?: string, correctedIntent?: string) => {
+        if (rating === 'DOWN' && !correctedIntent) {
+             setCorrectingMessageId(messageId);
+             return;
+        }
+
         setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, feedbackStatus: rating } : msg));
+        setCorrectingMessageId(null);
         
-        if (!intent || intent === 'UNKNOWN' || !query) return;
+        if (!intent || !query) return;
 
         try {
             const res = await fetch('/api/ai/feedback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rating, intent, query })
+                body: JSON.stringify({ rating, intent, query, correctedIntent })
             });
-            if (res.ok && rating === 'UP') {
-                toast.success('Thanks! Model retrained with feedback.', { icon: <Sparkles className="w-4 h-4 text-emerald-400" /> });
+            if (res.ok) {
+                toast.success(rating === 'UP' ? 'Thanks! Model retrained with feedback.' : 'Model manually retrained for corrected intent.', { icon: <Sparkles className="w-4 h-4 text-emerald-400" /> });
             }
         } catch (e) {
             console.error('Failed to submit feedback', e);
@@ -206,17 +242,20 @@ export default function NexusAgent() {
             if (!response.ok) throw new Error('API Error');
 
             const json = await response.json();
+            const resData = json.success && json.data ? json.data : json;
+            
             setMessages(prev => [...prev, { 
                 id: Date.now() + 'a',
                 sender: 'agent', 
-                text: json.response || 'සමාවන්න, ප්‍රතිචාරයක් ලබා ගැනීමට නොහැකි විය.', 
-                actions: json.actions || undefined,
-                intent: json.intent,
-                query: json.query,
+                text: resData.response || 'සමාවන්න, ප්‍රතිචාරයක් ලබා ගැනීමට නොහැකි විය.', 
+                actions: resData.actions || undefined,
+                chart: resData.chart || undefined,
+                intent: resData.intent,
+                query: resData.query,
                 timestamp: new Date() 
             }]);
-            if (json.suggestions && Array.isArray(json.suggestions)) {
-                setSuggestions(json.suggestions);
+            if (resData.suggestions && Array.isArray(resData.suggestions)) {
+                setSuggestions(resData.suggestions);
             }
         } catch {
             setMessages(prev => [...prev, { 
@@ -484,7 +523,7 @@ export default function NexusAgent() {
                                                 </div>
                                                 
                                                 {/* Feedback Buttons */}
-                                                {msg.sender === 'agent' && msg.intent && msg.intent !== 'UNKNOWN' && (
+                                                {msg.sender === 'agent' && msg.intent && (
                                                     <div className="flex items-center gap-2 mt-0.5 ml-1">
                                                         <button 
                                                             onClick={() => handleFeedback(msg.id, 'UP', msg.intent, msg.query)}
@@ -502,7 +541,71 @@ export default function NexusAgent() {
                                                         >
                                                             <ThumbsDown className="w-3 h-3" />
                                                         </button>
+                                                        
+                                                        {correctingMessageId === msg.id && msg.feedbackStatus !== 'DOWN' && (
+                                                            <select 
+                                                                className="text-[9px] bg-slate-800 text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none cursor-pointer hover:bg-slate-700 transition-colors"
+                                                                onChange={(e) => {
+                                                                    if (e.target.value) {
+                                                                        handleFeedback(msg.id, 'DOWN', msg.intent, msg.query, e.target.value);
+                                                                    }
+                                                                }}
+                                                                defaultValue=""
+                                                            >
+                                                                <option value="" disabled>Correct Intent?</option>
+                                                                {['FINANCE', 'PROJECTS', 'INVENTORY_LOW', 'CONTRACTORS', 'STORES', 'INVENTORY_ITEMS', 'PROCUREMENT', 'VOUCHERS', 'JOB_COSTING', 'SERVICE_ORDER_PROGRESS', 'BOM_INVOICES'].map(i => (
+                                                                    <option key={i} value={i}>{i}</option>
+                                                                ))}
+                                                            </select>
+                                                        )}
                                                         {msg.feedbackStatus === 'UP' && <span className="text-[9px] text-emerald-400/70">Learned!</span>}
+                                                        {msg.feedbackStatus === 'DOWN' && <span className="text-[9px] text-red-400/70">Corrected!</span>}
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Render Chart if available */}
+                                                {msg.chart && (
+                                                    <div className="mt-2 w-[280px] md:w-[320px] bg-[#0F172A] border border-slate-700/80 rounded-xl p-3 shadow-md ml-1 relative group">
+                                                        <button 
+                                                            onClick={() => setExpandedChart(msg.chart!)}
+                                                            className="absolute top-2 right-2 p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
+                                                            title="Maximize Chart"
+                                                        >
+                                                            <Maximize2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <h5 className="text-[10px] font-bold text-slate-300 mb-2 text-center pr-6">{msg.chart.title}</h5>
+                                                        <div className="w-full h-[180px]">
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                {msg.chart.type === 'bar' ? (
+                                                                    <BarChart data={msg.chart.data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                                                                        <XAxis dataKey={msg.chart.xAxisKey} tick={{fontSize: 9, fill: '#94a3b8'}} />
+                                                                        <YAxis tick={{fontSize: 9, fill: '#94a3b8'}} />
+                                                                        <Tooltip contentStyle={{backgroundColor: '#1E293B', border: '1px solid #334155', fontSize: '10px'}} />
+                                                                        {msg.chart.seriesKeys.map((key, idx) => (
+                                                                            <Bar key={key} dataKey={key} fill={['#38bdf8', '#34d399', '#f472b6', '#a78bfa'][idx % 4]} radius={[2, 2, 0, 0]} />
+                                                                        ))}
+                                                                    </BarChart>
+                                                                ) : msg.chart.type === 'pie' ? (
+                                                                    <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                                                                        <Pie data={msg.chart.data} dataKey={msg.chart.seriesKeys[0]} nameKey={msg.chart.xAxisKey} cx="50%" cy="50%" outerRadius={60} label={({name, percent}) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false} style={{fontSize: '9px'}}>
+                                                                            {msg.chart.data.map((_, idx) => (
+                                                                                <Cell key={`cell-${idx}`} fill={['#38bdf8', '#34d399', '#f472b6', '#a78bfa', '#fbbf24'][idx % 5]} />
+                                                                            ))}
+                                                                        </Pie>
+                                                                        <Tooltip contentStyle={{backgroundColor: '#1E293B', border: '1px solid #334155', fontSize: '10px'}} />
+                                                                    </PieChart>
+                                                                ) : (
+                                                                    <LineChart data={msg.chart.data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                                                                        <XAxis dataKey={msg.chart.xAxisKey} tick={{fontSize: 9, fill: '#94a3b8'}} />
+                                                                        <YAxis tick={{fontSize: 9, fill: '#94a3b8'}} />
+                                                                        <Tooltip contentStyle={{backgroundColor: '#1E293B', border: '1px solid #334155', fontSize: '10px'}} />
+                                                                        {msg.chart.seriesKeys.map((key, idx) => (
+                                                                            <Line key={key} type="monotone" dataKey={key} stroke={['#38bdf8', '#34d399', '#f472b6', '#a78bfa'][idx % 4]} strokeWidth={2} dot={{r: 3}} />
+                                                                        ))}
+                                                                    </LineChart>
+                                                                )}
+                                                            </ResponsiveContainer>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -710,6 +813,56 @@ export default function NexusAgent() {
                     )}
                 </div>
             )}
+            {/* Expanded Chart Dialog */}
+            <Dialog open={!!expandedChart} onOpenChange={(open) => !open && setExpandedChart(null)}>
+                <DialogContent className="max-w-4xl bg-[#0F172A] border-slate-700 text-slate-200">
+                    <DialogHeader className="flex flex-row items-center justify-between mr-8">
+                        <DialogTitle className="text-lg text-sky-400">{expandedChart?.title}</DialogTitle>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 gap-2 bg-slate-800 border-slate-600 hover:bg-slate-700 text-slate-200"
+                            onClick={() => expandedChart && downloadChartCSV(expandedChart)}
+                        >
+                            <Download className="w-4 h-4" /> Export CSV
+                        </Button>
+                    </DialogHeader>
+                    {expandedChart && (
+                        <div className="w-full h-[400px] md:h-[500px] mt-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                {expandedChart.type === 'bar' ? (
+                                    <BarChart data={expandedChart.data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                        <XAxis dataKey={expandedChart.xAxisKey} tick={{fill: '#94a3b8'}} angle={-45} textAnchor="end" height={80} />
+                                        <YAxis tick={{fill: '#94a3b8'}} />
+                                        <Tooltip contentStyle={{backgroundColor: '#1E293B', border: '1px solid #334155'}} />
+                                        {expandedChart.seriesKeys.map((key, idx) => (
+                                            <Bar key={key} dataKey={key} fill={['#38bdf8', '#34d399', '#f472b6', '#a78bfa'][idx % 4]} radius={[4, 4, 0, 0]} />
+                                        ))}
+                                    </BarChart>
+                                ) : expandedChart.type === 'pie' ? (
+                                    <PieChart margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                                        <Pie data={expandedChart.data} dataKey={expandedChart.seriesKeys[0]} nameKey={expandedChart.xAxisKey} cx="50%" cy="50%" outerRadius={150} label={({name, percent}) => `${name} (${((percent || 0) * 100).toFixed(1)}%)`} style={{fontSize: '12px', fill: '#cbd5e1'}}>
+                                            {expandedChart.data.map((_, idx) => (
+                                                <Cell key={`cell-${idx}`} fill={['#38bdf8', '#34d399', '#f472b6', '#a78bfa', '#fbbf24'][idx % 5]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip contentStyle={{backgroundColor: '#1E293B', border: '1px solid #334155'}} />
+                                    </PieChart>
+                                ) : (
+                                    <LineChart data={expandedChart.data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                        <XAxis dataKey={expandedChart.xAxisKey} tick={{fill: '#94a3b8'}} angle={-45} textAnchor="end" height={80} />
+                                        <YAxis tick={{fill: '#94a3b8'}} />
+                                        <Tooltip contentStyle={{backgroundColor: '#1E293B', border: '1px solid #334155'}} />
+                                        {expandedChart.seriesKeys.map((key, idx) => (
+                                            <Line key={key} type="monotone" dataKey={key} stroke={['#38bdf8', '#34d399', '#f472b6', '#a78bfa'][idx % 4]} strokeWidth={3} dot={{r: 5}} />
+                                        ))}
+                                    </LineChart>
+                                )}
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

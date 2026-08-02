@@ -1,4 +1,5 @@
 import { primaryClient as prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { ProjectAIService } from '../project/project-ai.service';
 
 export class NexusContextService {
@@ -270,13 +271,17 @@ export class NexusContextService {
   }
 
   static async getProcurementContext() {
-    const [pendingPRs, pendingPOs, pendingGRNs, poList] = await Promise.all([
+    const [pendingPRs, pendingPOs, pendingGRNs, completedGRNs] = await Promise.all([
       prisma.projectRequisition.count({ where: { status: 'DRAFT' } }),
       prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } }),
-      prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } }),
-      prisma.projectPurchaseOrder.findMany({
-        where: { status: 'PENDING_APPROVAL' },
-        select: { poNumber: true, totalAmount: true, status: true },
+      prisma.stockRequest.findMany({
+        where: { workflowStage: 'GRN_PENDING' },
+        select: { requestNr: true, status: true, purpose: true, sourceType: true, createdAt: true },
+        take: 10,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.gRN.findMany({
+        select: { grnNumber: true, sourceType: true, supplier: true, createdAt: true },
         take: 10,
         orderBy: { createdAt: 'desc' }
       })
@@ -284,12 +289,19 @@ export class NexusContextService {
     return {
       pendingPRsCount: pendingPRs,
       pendingPOsCount: pendingPOs,
-      pendingGRNsCount: pendingGRNs,
-      pendingPOList: poList.map(p => ({
-        poNumber: p.poNumber,
-        totalAmount: Number(p.totalAmount || 0),
-        status: p.status
-      }))
+      pendingGRNsCount: pendingGRNs.length,
+      incompleteGRNsList: pendingGRNs.map(g => ({
+        requestNr: g.requestNr,
+        status: g.status,
+        purpose: g.purpose || g.sourceType || 'N/A'
+      })),
+      completedGRNsCount: completedGRNs.length,
+      completedGRNsList: completedGRNs.map(g => ({
+        grnNumber: g.grnNumber,
+        supplier: g.supplier || g.sourceType,
+        date: g.createdAt
+      })),
+      latestCompletedGRN: completedGRNs[0] ? `${completedGRNs[0].grnNumber} (Supplier: ${completedGRNs[0].supplier || completedGRNs[0].sourceType})` : 'No completed GRNs found'
     };
   }
 
@@ -475,6 +487,136 @@ export class NexusContextService {
         pendingPVsCount
       },
       contractorsCount
+    };
+  }
+
+  static async getServiceOrderProgressContext(opmcCode?: string) {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const whereClause: Record<string, unknown> = {};
+    if (opmcCode && opmcCode.trim() !== '') {
+        whereClause.OR = [
+            { rtom: { contains: opmcCode, mode: 'insensitive' } },
+            { name: { contains: opmcCode, mode: 'insensitive' } },
+            { region: { contains: opmcCode, mode: 'insensitive' } }
+        ];
+    }
+
+    const opmcs = await prisma.oPMC.findMany({
+        where: whereClause,
+        select: { id: true, name: true, rtom: true }
+    });
+
+    const results = [];
+    for (const opmc of opmcs) {
+        const [completed, inHand, todaysSOD] = await Promise.all([
+            prisma.serviceOrder.count({ where: { opmcId: opmc.id, status: 'COMPLETED' } }),
+            prisma.serviceOrder.count({ where: { opmcId: opmc.id, status: { in: ['PENDING', 'INPROGRESS'] } } }),
+            prisma.serviceOrder.count({ where: { opmcId: opmc.id, receivedDate: { gte: today, lt: tomorrow } } })
+        ]);
+
+        if (completed > 0 || inHand > 0 || todaysSOD > 0) {
+            results.push({
+                opmcName: opmc.name || opmc.rtom,
+                completed,
+                inHand,
+                todaysSOD
+            });
+        }
+    }
+
+    results.sort((a, b) => b.inHand - a.inHand);
+    
+    return {
+        dailyProgress: results.slice(0, 15),
+        totalCompleted: results.reduce((sum, r) => sum + r.completed, 0),
+        totalInHand: results.reduce((sum, r) => sum + r.inHand, 0),
+        totalTodaysSOD: results.reduce((sum, r) => sum + r.todaysSOD, 0)
+    };
+  }
+
+  /**
+   * Retrieves Job Costing, Revenue, and Profitability context logically derived across multiple tables.
+   */
+  static async getJobCostingContext(args?: { rtom?: string, monthYYYYMM?: string, status?: string }) {
+    const filters: Prisma.ServiceOrderWhereInput = {};
+    if (args?.rtom) {
+        filters.rtom = { equals: args.rtom, mode: 'insensitive' };
+    }
+    if (args?.status) {
+        filters.sltsStatus = args.status.toUpperCase() as import('@prisma/client').ServiceOrderStatus;
+    }
+    if (args?.monthYYYYMM) {
+        const year = parseInt(args.monthYYYYMM.substring(0, 4));
+        const month = parseInt(args.monthYYYYMM.substring(4, 6)) - 1;
+        const startOfMonth = new Date(year, month, 1);
+        const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
+        filters.completedDate = { gte: startOfMonth, lte: endOfMonth };
+    }
+
+    // 1. Fetch Service Orders
+    const orders = await prisma.serviceOrder.findMany({
+        where: filters,
+        select: {
+            id: true,
+            soNum: true,
+            rtom: true,
+            revenueAmount: true,
+            contractorAmount: true,
+            completedDate: true
+        },
+        take: 1000 // Limit to prevent massive loads
+    });
+
+    if (orders.length === 0) {
+        return { message: "No service orders found matching the criteria." };
+    }
+
+    const orderIds = orders.map(o => o.id);
+
+    // 2. Fetch Material Usage for these orders
+    const materialUsages = await prisma.sODMaterialUsage.findMany({
+        where: { serviceOrderId: { in: orderIds } },
+        select: {
+            serviceOrderId: true,
+            quantity: true,
+            unitPrice: true,
+            costPrice: true
+        }
+    });
+
+    // 3. Aggregate Logic
+    let totalRevenue = 0;
+    let totalContractorPayout = 0;
+    
+    orders.forEach(o => {
+        totalRevenue += (o.revenueAmount || 0);
+        totalContractorPayout += (o.contractorAmount || 0);
+    });
+
+    let totalMaterialCost = 0;
+    materialUsages.forEach(m => {
+        // Prefer costPrice, fallback to unitPrice
+        const price = (m.costPrice && m.costPrice > 0) ? m.costPrice : (m.unitPrice || 0);
+        totalMaterialCost += (m.quantity * price);
+    });
+
+    const netProfit = totalRevenue - (totalContractorPayout + totalMaterialCost);
+
+    return {
+        criteria: args || {},
+        ordersCount: orders.length,
+        financials: {
+            totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+            totalContractorPayout: parseFloat(totalContractorPayout.toFixed(2)),
+            totalMaterialCost: parseFloat(totalMaterialCost.toFixed(2)),
+            netProfit: parseFloat(netProfit.toFixed(2)),
+            profitMarginPercentage: totalRevenue > 0 ? parseFloat(((netProfit / totalRevenue) * 100).toFixed(2)) : 0
+        },
+        summary: `For the given criteria, ${orders.length} orders generated LKR ${totalRevenue.toFixed(2)} in revenue. Material cost was LKR ${totalMaterialCost.toFixed(2)} and contractor payouts were LKR ${totalContractorPayout.toFixed(2)}, leaving a net profit of LKR ${netProfit.toFixed(2)}.`
     };
   }
 }

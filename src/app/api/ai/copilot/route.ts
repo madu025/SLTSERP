@@ -25,11 +25,11 @@ export const GET = apiHandler(async () => {
         NexusMemoryService.getFrequentSuggestions(user.id)
     ]);
 
-    return Response.json({
+    return {
         history,
         userName: user.name || "User",
         suggestions
-    });
+    };
 }, {
     // Auth required
 });
@@ -86,11 +86,11 @@ export const POST = apiHandler(async (_req, _params, body) => {
         }
 
         const result = await NexusAgentService.executeAction(action, user.id);
-        return Response.json({
+        return {
             success: true,
             message: 'Action executed successfully',
             result
-        });
+        };
     }
 
     if (!message) {
@@ -98,7 +98,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
     }
 
     const reply = await NexusAgentService.ask(message, user.id);
-    return Response.json(reply);
+    return reply;
 }, {
     // Auth required
 });
