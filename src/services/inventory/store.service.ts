@@ -35,6 +35,10 @@ export class StoreService {
                 ]
             };
 
+            if (dbUser.assignedStoreId) {
+                baseWhere.OR?.push({ id: dbUser.assignedStoreId });
+            }
+
             const isStoreStaff = userRole === 'STORES_MANAGER' || userRole === 'STORES_ASSISTANT';
 
             if (isStoreStaff) {

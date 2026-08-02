@@ -5,7 +5,14 @@ import { InventoryService } from '@/services/inventory/inventory.service';
 export const dynamic = 'force-dynamic';
 
 // GET: Fetch all active stores (using rawResponse for backwards-compatibility with frontend)
-export const GET = apiHandler(async () => {
+export const GET = apiHandler(async (req) => {
+    const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role');
+
+    if (userId && userRole) {
+        return await InventoryService.getAccessibleStores(userId, userRole);
+    }
+    
     return await InventoryService.getStores();
 }, {
     rawResponse: true
