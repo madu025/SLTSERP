@@ -4,8 +4,8 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
+
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ interface StoreItem {
 
 type FilterValues = z.infer<typeof reconciliationFilterSchema>;
 
-export default function ReconciliationPage() {
+export default function ReconciliationTab() {
     const form = useForm<FilterValues>({
         resolver: zodResolver(reconciliationFilterSchema),
         defaultValues: {
@@ -102,9 +102,9 @@ export default function ReconciliationPage() {
 
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
-            <Sidebar />
+            
             <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                <Header />
+                
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
                     <div className="max-w-7xl mx-auto space-y-4">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

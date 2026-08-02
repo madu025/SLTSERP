@@ -479,34 +479,10 @@ export const SIDEBAR_MENU: MenuItem[] = [
         submenu: [
             // 1. Setup & Master Data
             {
-                title: 'Material Registration',
+                title: 'Material Master Data', // Merged Material Registration + Bulk Import
                 path: '/inventory/items',
                 icon: FileText,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
-            },
-            {
-                title: 'Bulk Import Materials',
-                path: '/inventory/items/import',
-                icon: Upload,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN']
-            },
-            {
-                title: 'Initial Stock Setup',
-                path: '/inventory/admin/initial',
-                icon: Warehouse,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
-            },
-            {
-                title: 'Pre-ERP Reconciliation',
-                path: '/inventory/admin/pre-erp-reconciliation',
-                icon: Scale,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER']
-            },
-            {
-                title: 'Material Audit Report',
-                path: '/inventory/admin/material-audit-report',
-                icon: FileSpreadsheet,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'FINANCE_MANAGER']
             },
             // 2. Stock Inflow
             {
@@ -544,50 +520,32 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 title: 'Wastage Reports',
                 path: '/inventory/admin/wastage',
-                icon: ClipboardCheck,   // was PackageMinus — conflicted with Stock Issue
+                icon: ClipboardCheck,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
             },
             // 4. Returns & Reconciliation
             {
                 title: 'MRN (Material Return)',
                 path: '/inventory/admin/mrns',
-                icon: RefreshCw,        // was Receipt — conflicted with GRN
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
-            },
-            {
-                title: 'Material Reconciliation',
-                path: '/inventory/admin/reconciliation',
-                icon: ClipboardCheck,
-                allowedRoles: ROLE_GROUPS.STORES
-            },
-            {
-                title: 'Contractor Balance Sheet',
-                path: '/contractors/balance-sheet',
-                icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
-            },
-            {
-                title: 'Virtual Transition',
-                path: '/inventory/admin/virtual-swap',
                 icon: RefreshCw,
-                allowedRoles: ROLE_GROUPS.STORES
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
-            // 5. Analytics & History
             {
-                title: 'Inventory Audit & Compliance',
+                title: 'Audit & Reconciliation Hub', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
                 path: '/inventory/audit',
                 icon: ShieldCheck,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']
             },
+            // 5. Analytics & History
             {
                 title: 'Inventory Cardex',
                 path: '/inventory/reports/cardex',
-                icon: HistoryIcon,      // was FileText — conflicted with Material Registration
+                icon: HistoryIcon,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
                 title: 'Inventory Dashboard',
-                path: '/inventory/dashboard',   // was /inventory — same as parent, caused active-state conflict
+                path: '/inventory/dashboard',
                 icon: LayoutDashboard,
                 allowedRoles: ROLE_GROUPS.STORES
             }

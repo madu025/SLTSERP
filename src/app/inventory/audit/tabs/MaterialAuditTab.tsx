@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
-import RoleGuard from '@/components/RoleGuard';
+
+
+
 import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,7 +61,7 @@ function formatCompact(amount: number): string {
     return `${amount}`;
 }
 
-export default function MaterialAuditReportPage() {
+export default function MaterialAuditTab() {
     const [selectedOpmcId, setSelectedOpmcId] = useState<string>('');
 
     // Fetch OPMCs
@@ -97,13 +97,7 @@ export default function MaterialAuditReportPage() {
     }));
 
     return (
-        <RoleGuard allowedRoles={[...ROLE_GROUPS.FINANCE_APPROVERS, ...ROLE_GROUPS.STORES_ALL]}>
-            <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden">
-                <Sidebar />
-                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                    <Header />
-
-                    <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="h-full">
                         {/* Header */}
                         <div className="flex flex-wrap items-start justify-between gap-4">
                             <div>
@@ -252,9 +246,6 @@ export default function MaterialAuditReportPage() {
                                 </table>
                             </div>
                         </div>
-                    </main>
-                </div>
-            </div>
-        </RoleGuard>
+                    </div>
     );
 }

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package, RotateCcw, Target } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package, RotateCcw, Target, Upload } from "lucide-react";
 import { InventoryItem } from "@/types/inventory";
 
 interface ItemTableProps {
@@ -23,11 +23,12 @@ interface ItemTableProps {
     onAdd: () => void;
     onBulkEdit: (type: 'CATEGORY' | 'JOB_TYPE' | 'TYPE') => void;
     onMerge: () => void;
+    onImport: () => void;
 }
 
 export function ItemTable({
     items, isLoading, searchTerm, onSearchChange, categoryFilter, onCategoryFilterChange,
-    selectedIds, onToggleSelect, onToggleSelectAll, onEdit, onDelete, onAdd, onBulkEdit, onMerge
+    selectedIds, onToggleSelect, onToggleSelectAll, onEdit, onDelete, onAdd, onBulkEdit, onMerge, onImport
 }: ItemTableProps) {
 
     const filteredItems = items.filter((i) =>
@@ -46,9 +47,14 @@ export function ItemTable({
                     <h1 className="text-xl font-black text-slate-900 tracking-tight">Item Master List</h1>
                     <p className="text-xs text-slate-500">Manage all inventory materials and parts</p>
                 </div>
-                <Button size="sm" onClick={onAdd} className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm">
-                    <Plus className="w-3.5 h-3.5" /> Add New Item
-                </Button>
+                <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={onImport} className="h-8 px-3 rounded-lg border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm">
+                        <Upload className="w-3.5 h-3.5" /> Bulk Import
+                    </Button>
+                    <Button size="sm" onClick={onAdd} className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm">
+                        <Plus className="w-3.5 h-3.5" /> Add New Item
+                    </Button>
+                </div>
             </div>
 
             <div className="erp-table-container flex flex-col bg-white overflow-hidden">

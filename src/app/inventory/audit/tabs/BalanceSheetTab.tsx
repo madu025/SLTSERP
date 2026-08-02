@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
+
+
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RefreshCw, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { ErrorUtil } from "../../../utils/error.util";
+import { ErrorUtil } from "@/utils/error.util";
 
 interface BalanceSheetItem {
     id: string;
@@ -76,7 +76,7 @@ const formatCategory = (cat: string) => {
     return cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
-export default function ContractorBalanceSheetPage() {
+export default function BalanceSheetTab() {
     const currentDate = new Date();
     const [selectedContractorId, setSelectedContractorId] = useState("");
     const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -247,9 +247,9 @@ export default function ContractorBalanceSheetPage() {
 
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
-            <Sidebar />
+            
             <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden print:overflow-visible">
-                <Header />
+                
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 print:p-0 print:overflow-visible">
                     <div className="max-w-7xl mx-auto space-y-4 print:space-y-0">
                         <div className="erp-toolbar p-3 bg-white border-slate-200 rounded-lg shadow-sm print:hidden">

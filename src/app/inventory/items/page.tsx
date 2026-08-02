@@ -11,6 +11,7 @@ import { useItemOperations } from "./hooks/useItemOperations";
 import { ItemTable } from "./components/ItemTable";
 import { ItemFormDialog } from "./components/ItemFormDialog";
 import { BulkOperationsModals } from "./components/BulkOperationsModals";
+import { BulkImportModal } from "./components/BulkImportModal";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ export default function ItemMasterPage() {
     const [showFormModal, setShowFormModal] = useState(false);
     const [showBulkEditModal, setShowBulkEditModal] = useState(false);
     const [showMergeModal, setShowMergeModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
     // Active Data
@@ -155,6 +157,7 @@ export default function ItemMasterPage() {
                             onDelete={handleDelete}
                             onBulkEdit={handleBulkEdit}
                             onMerge={handleMerge}
+                            onImport={() => setShowImportModal(true)}
                         />
                     </div>
                 </div>
@@ -200,6 +203,11 @@ export default function ItemMasterPage() {
                     setMergeTargetId={setMergeTargetId}
                     onMergeSubmit={onMergeSubmit}
                     isMerging={mergeMutation.isPending}
+                />
+
+                <BulkImportModal
+                    open={showImportModal}
+                    onOpenChange={setShowImportModal}
                 />
 
                 <Dialog open={!!showDeleteConfirm} onOpenChange={(o) => !o && setShowDeleteConfirm(null)}>
