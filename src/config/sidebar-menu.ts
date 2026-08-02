@@ -42,7 +42,6 @@ import {
     TrendingUp,
     PieChart,
     Scale,
-    FileSpreadsheet,
     Layers,
     Package,
     Lock,
