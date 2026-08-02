@@ -106,7 +106,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         allowedRoles: [
             'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
             'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 
-            'STORES_MANAGER', 'STORES_ASSISTANT', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT',
+            'FINANCE_MANAGER', 'FINANCE_ASSISTANT',
             'PROCUREMENT_OFFICER', 'OFFICE_ADMIN', 'SITE_OFFICE_STAFF', 'SA_MANAGER', 'SA_ASSISTANT'
         ],
         permissionId: 'dashboard'
@@ -477,6 +477,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
         allowedRoles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER'],
         permissionId: 'inventory',
         submenu: [
+            {
+                title: 'Dashboard Overview',
+                path: '/inventory',
+                icon: LayoutDashboard,
+                allowedRoles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER']
+            },
             // 1. Setup & Master Data
             {
                 title: 'Material Master Data', // Merged Material Registration + Bulk Import
