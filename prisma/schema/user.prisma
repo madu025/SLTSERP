@@ -154,26 +154,26 @@ model AuditLog {
 }
 
 model Staff {
-  id                   String                @id @default(cuid())
-  name                 String
-  employeeId           String                @unique
-  designation          Role
-  area                 String?
-  opmcId               String?
-  reportsToId          String?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  handoversReceived    AssetHandoverLog[]    @relation("HandoverReceived")
-  assignedITAssets     ITAsset[]             @relation("AssignedITAssets")
-  assignedITAssetUnits ITAssetUnit[]         @relation("StaffITAssetUnits")
-  serials              InventoryItemSerial[]
-  jobs                 Job[]
-  projects             Project[]
-  opmc                 OPMC?                 @relation(fields: [opmcId], references: [id])
-  reportsTo            Staff?                @relation("Hierarchy", fields: [reportsToId], references: [id])
-  subordinates         Staff[]               @relation("Hierarchy")
-  user                 User?
-  assignedOfficeAssets OfficeAsset[]         @relation("AssignedOfficeAssets")
+  id                       String                   @id @default(cuid())
+  name                     String
+  employeeId               String                   @unique
+  designation              Role
+  area                     String?
+  opmcId                   String?
+  reportsToId              String?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  handoversReceived        AssetHandoverLog[]       @relation("HandoverReceived")
+  assignedITAssets         ITAsset[]                @relation("AssignedITAssets")
+  assignedITAssetUnits     ITAssetUnit[]            @relation("StaffITAssetUnits")
+  serials                  InventoryItemSerial[]
+  jobs                     Job[]
+  projects                 Project[]
+  opmc                     OPMC?                    @relation(fields: [opmcId], references: [id])
+  reportsTo                Staff?                   @relation("Hierarchy", fields: [reportsToId], references: [id])
+  subordinates             Staff[]                  @relation("Hierarchy")
+  user                     User?
+  assignedOfficeAssets     OfficeAsset[]            @relation("AssignedOfficeAssets")
   officeAssetMovementsFrom OfficeAssetMovementLog[] @relation("HandedOverFromStaff")
   officeAssetMovementsTo   OfficeAssetMovementLog[] @relation("HandedOverToStaff")
 

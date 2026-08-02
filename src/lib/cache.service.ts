@@ -40,6 +40,18 @@ export class CacheService {
         }
     }
 
+    /**
+     * Cache-Aside pattern: Get from cache, or fetch, set, and return.
+     */
+    static async getOrSet<T>(key: string, fetcher: () => Promise<T>, ttlSeconds: number = 3600): Promise<T> {
+        const cached = await this.get<T>(key);
+        if (cached !== null) return cached;
+
+        const data = await fetcher();
+        await this.set(key, data, ttlSeconds);
+        return data;
+    }
+
     static async set(key: string, value: unknown, ttlSeconds: number = 3600): Promise<void> {
         if (!CacheService.isReady()) return;
         try {

@@ -307,3 +307,20 @@ Evaluated the strategy for allowing Managers to \"Recall\" or \"Revise\" a PRN a
 
 ### Conclusion
 **Adopted:** All 🔴 Must-Have items were executed (Cache busting applied, strict typing enforced, redundant try/catch blocks removed).
+
+
+## System Architecture Review (Whole ERP Application)
+Date: 2026-08-02
+
+**Decisions Adopted/Deferred:**
+- **Load Balancer:** Stateless Edge/ALB (Must-Have)
+- **Caching:** Redis Cache-Aside (Must-Have)
+- **CDN:** Vercel/Cloudflare Edge (Must-Have)
+- **DB Replication:** Read Replicas for Reports (Should-Have)
+- **Sharding:** Table Partitioning (Future Roadmap)
+- **Message Queues:** BullMQ with Idempotency (Must-Have)
+- **Rate Limiting:** Redis Sliding Window (Must-Have)
+- **Circuit Breaker:** Fail-fast for external APIs (Should-Have)
+- **Health Checks:** Deep /api/health probe (Must-Have)
+- **Observability:** APM (Sentry) + JSON Logs (Must-Have)
+

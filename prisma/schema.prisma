@@ -55,6 +55,51 @@ datasource db {
   directUrl  = env("DIRECT_URL")
 }
 
+
+enum TaskType {
+  TASK
+  MILESTONE
+  PHASE
+}
+
+enum ProjectTypeEnum {
+  OSP_FTTH
+  CIVIL
+  MAINTENANCE
+  OTHER
+}
+
+enum ExpenseType {
+  MATERIAL
+  LABOR
+  TRANSPORT
+  OTHER
+}
+
+enum NotificationTypeEnum {
+  SYSTEM
+  EMAIL
+  SMS
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum StoreTypeEnum {
+  MAIN
+  SUB
+  VAN
+}
+
+enum TransactionTypeEnum {
+  IN
+  OUT
+  ADJUSTMENT
+}
 model OPMC {
   id                       String                    @id @default(cuid())
   name                     String                    @default("")
@@ -291,8 +336,8 @@ model Notification {
   userId    String
   title     String
   message   String
-  type      String   @default("SYSTEM")
-  priority  String   @default("MEDIUM")
+  type      NotificationTypeEnum   @default(SYSTEM)
+  priority  TaskPriority   @default(MEDIUM)
   isRead    Boolean  @default(false)
   link      String?
   metadata  Json?
@@ -335,7 +380,7 @@ model AuditLog {
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([entity, entityId])
   @@index([userId])
@@ -375,7 +420,7 @@ model Job {
   region            String?
   district          String?
   status            JobStatus      @default(PENDING_SURVEY)
-  priority          String      @default("MEDIUM")
+  priority          TaskPriority      @default(MEDIUM)
   assignedToId      String?
   projectId         String?     @unique
   createdAt         DateTime    @default(now())
@@ -393,7 +438,7 @@ model Project {
   projectCode       String                  @unique
   name              String
   description       String?
-  type              String                  @default("OSP_FTTH")
+  type              ProjectTypeEnum                  @default(OSP_FTTH)
   location          String?
   status            ProjectStatus                  @default(PLANNING)
   progress          Float                   @default(0)
@@ -521,7 +566,7 @@ model ProjectMilestone {
 model ProjectExpense {
   id          String   @id @default(cuid())
   projectId   String
-  type        String
+  type        ExpenseType
   description String
   amount      Float
   date        DateTime @default(now())
@@ -544,9 +589,9 @@ model ProjectTask {
   wbsCode           String              // e.g., "1.1.1", "1.2"
   name              String
   description       String?
-  type              String              @default("TASK") // TASK, MILESTONE, PHASE
-  status            String              @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED
-  priority          String              @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  type              TaskType              @default(TASK) // TASK, MILESTONE, PHASE
+  status            TaskStatus              @default(PENDING) // PENDING, IN_PROGRESS, COMPLETED, DELAYED
+  priority          TaskPriority              @default(MEDIUM) // LOW, MEDIUM, HIGH, CRITICAL
   plannedStartDate  DateTime?
   plannedEndDate    DateTime?
   actualStartDate   DateTime?
@@ -838,7 +883,7 @@ model TableColumnSettings {
 model InventoryStore {
   id              String                           @id @default(cuid())
   name            String
-  type            String                           @default("SUB")
+  type            StoreTypeEnum                           @default(SUB)
   location        String?
   managerId       String?
   createdAt       DateTime                         @default(now())
@@ -1143,7 +1188,7 @@ model MRNItem {
 
 model InventoryTransaction {
   id          String                     @id @default(cuid())
-  type        String
+  type        TransactionTypeEnum
   storeId     String
   referenceId String?
   notes       String?
@@ -4739,4 +4784,28 @@ model ServiceOrderDelayReason {
   
   @@index([serviceOrderId])
   @@unique([serviceOrderId, reason])
+}
+
+
+model SODAuditItem {
+    id        String   @id @default(cuid())
+    sodAuditId String
+    name      String
+    status    String
+    uuid      String
+    createdAt DateTime @default(now())
+    sodAudit  SODForensicAudit @relation(fields: [sodAuditId], references: [id], onDelete: Cascade)
+
+    @@index([sodAuditId])
+}
+
+
+model ChecklistItem {
+    id          String   @id @default(cuid())
+    parentId    String
+    item        String
+    isChecked   Boolean  @default(false)
+    parent      ProjectInspection @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+    @@index([parentId])
 }

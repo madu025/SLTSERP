@@ -1,44 +1,44 @@
 model InventoryStore {
-  id              String                           @id @default(cuid())
-  name            String
-  type            String                           @default("SUB")
-  location        String?
-  managerId       String?
-  createdAt       DateTime                         @default(now())
-  updatedAt       DateTime                         @updatedAt
-  coveringRt      String?
-  gpsLocation     String?
-  officeAdminId   String?
-  balanceSheets   ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
-  materialIssues  ContractorMaterialIssue[]        @relation("MaterialIssues")
-  materialReturns ContractorMaterialReturn[]       @relation("MaterialReturns")
-  wastageReports  ContractorWastage[]
-  grns            GRN[]
-  itAssets        ITAsset[]
-  officeAssetMovementsFrom OfficeAssetMovementLog[] @relation("MovedFromSite")
-  officeAssetMovementsTo   OfficeAssetMovementLog[] @relation("MovedToSite")
-  officeAssets    OfficeAsset[]
-  batchStocks     InventoryBatchStock[]
-  serials         InventoryItemSerial[]
-  stocks          InventoryStock[]
-  manager         User?                            @relation(fields: [managerId], references: [id])
-  officeAdmin     User?                            @relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])
-  transactions    InventoryTransaction[]
-  mrns            MRN[]
-  opmcs           OPMC[]
-  projectReturns  ProjectMaterialReturn[]
-  agreements      SiteOfficeAgreement[]
-  requests        SiteOfficeRequest[]
-  tenders         SiteOfficeTender[]
-  vehicles        SiteOfficeVehicle[]
-  stockIssues     StockIssue[]                     @relation("StockIssues")
-  outRequests     StockRequest[]                   @relation("RequestSource")
-  inRequests      StockRequest[]                   @relation("RequestTarget")
-  teamAssignments TeamStoreAssignment[]
-  assignedUsers   User[]                           @relation("UserAssignedStore")
-  locators        WarehouseLocator[]
-  cycleCounts     CycleCountHeader[]
-  ledgers         InventoryLedger[]
+  id                       String                           @id @default(cuid())
+  name                     String
+  type                     String                           @default("SUB")
+  location                 String?
+  managerId                String?
+  createdAt                DateTime                         @default(now())
+  updatedAt                DateTime                         @updatedAt
+  coveringRt               String?
+  gpsLocation              String?
+  officeAdminId            String?
+  balanceSheets            ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  materialIssues           ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns          ContractorMaterialReturn[]       @relation("MaterialReturns")
+  wastageReports           ContractorWastage[]
+  grns                     GRN[]
+  itAssets                 ITAsset[]
+  officeAssetMovementsFrom OfficeAssetMovementLog[]         @relation("MovedFromSite")
+  officeAssetMovementsTo   OfficeAssetMovementLog[]         @relation("MovedToSite")
+  officeAssets             OfficeAsset[]
+  batchStocks              InventoryBatchStock[]
+  serials                  InventoryItemSerial[]
+  stocks                   InventoryStock[]
+  manager                  User?                            @relation(fields: [managerId], references: [id])
+  officeAdmin              User?                            @relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])
+  transactions             InventoryTransaction[]
+  mrns                     MRN[]
+  opmcs                    OPMC[]
+  projectReturns           ProjectMaterialReturn[]
+  agreements               SiteOfficeAgreement[]
+  requests                 SiteOfficeRequest[]
+  tenders                  SiteOfficeTender[]
+  vehicles                 SiteOfficeVehicle[]
+  stockIssues              StockIssue[]                     @relation("StockIssues")
+  outRequests              StockRequest[]                   @relation("RequestSource")
+  inRequests               StockRequest[]                   @relation("RequestTarget")
+  teamAssignments          TeamStoreAssignment[]
+  assignedUsers            User[]                           @relation("UserAssignedStore")
+  locators                 WarehouseLocator[]
+  cycleCounts              CycleCountHeader[]
+  ledgers                  InventoryLedger[]
 
   @@index([type])
   @@index([managerId])

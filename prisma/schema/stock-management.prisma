@@ -98,23 +98,23 @@ model StockRequestItem {
 }
 
 model GRN {
-  id           String           @id @default(cuid())
-  grnNumber    String           @unique
-  storeId      String
-  sourceType   String
-  supplier     String?
-  requestId    String?
-  receivedById String
-  reference    String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  receivedBy   User             @relation(fields: [receivedById], references: [id])
-  request      StockRequest?    @relation(fields: [requestId], references: [id])
+  id              String           @id @default(cuid())
+  grnNumber       String           @unique
+  storeId         String
+  sourceType      String
+  supplier        String?
+  requestId       String?
+  receivedById    String
+  reference       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  receivedBy      User             @relation(fields: [receivedById], references: [id])
+  request         StockRequest?    @relation(fields: [requestId], references: [id])
   purchaseOrderId String?
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-  store        InventoryStore   @relation(fields: [storeId], references: [id])
-  items        GRNItem[]
-  batches      InventoryBatch[]
+  purchaseOrder   PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  store           InventoryStore   @relation(fields: [storeId], references: [id])
+  items           GRNItem[]
+  batches         InventoryBatch[]
 
   @@index([storeId])
   @@index([requestId])

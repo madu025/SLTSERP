@@ -3,9 +3,24 @@ import { getRequestId } from './request-context';
 type LogLevel = 'info' | 'warn' | 'error' | 'perf';
 
 class Logger {
+    private isProduction = process.env.NODE_ENV === 'production';
+
     private format(level: LogLevel, message: string, meta?: unknown) {
         const timestamp = new Date().toISOString();
         const requestId = getRequestId();
+        
+        if (this.isProduction) {
+            // Structured JSON for APM/Observability in production
+            return JSON.stringify({
+                timestamp,
+                level,
+                requestId,
+                message,
+                meta
+            });
+        }
+
+        // Human-readable format for development
         const tracePrefix = requestId ? ` [ReqID: ${requestId}]` : '';
         const metaStr = meta ? ` | ${JSON.stringify(meta)}` : '';
         return `[${timestamp}] [${level.toUpperCase()}]${tracePrefix} ${message}${metaStr}`;
@@ -26,11 +41,13 @@ class Logger {
     perf(message: string, durationMs: number, meta?: unknown) {
         // Log slow operations (e.g., queries > 500ms)
         const level: LogLevel = durationMs > 500 ? 'warn' : 'info';
-        const msg = `${message} took ${durationMs}ms`;
+        const msg = this.isProduction ? message : `${message} took ${durationMs}ms`;
+        const perfMeta = { ...((meta as object) || {}), durationMs };
+        
         if (level === 'warn') {
-            console.warn(this.format('perf', msg, meta));
+            console.warn(this.format('perf', msg, perfMeta));
         } else {
-            console.log(this.format('perf', msg, meta));
+            console.log(this.format('perf', msg, perfMeta));
         }
     }
 }

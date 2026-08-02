@@ -1465,10 +1465,10 @@
 ### [audit-ledger.service.ts](src/services/inventory/audit-ledger.service.ts)
 * **Class**: `AuditLedgerService`
   * **Methods**:
-    * `getNextDocumentNumber(type: string, tx?: any): Promise<string>`
-    * `generateMINNumber(tx?: any): Promise<string>`
-    * `generateMRNNumber(tx?: any): Promise<string>`
-    * `recordEntry(input: CreateLedgerEntryInput, tx?: any): any`
+    * `getNextDocumentNumber(type: string, tx?: TransactionClient): Promise<string>`
+    * `generateMINNumber(tx?: TransactionClient): Promise<string>`
+    * `generateMRNNumber(tx?: TransactionClient): Promise<string>`
+    * `recordEntry(input: CreateLedgerEntryInput, tx?: TransactionClient): any`
     * `verifyLedgerIntegrity(storeId?: string, itemId?: string): any`
 
 ### [consumable-audit.service.ts](src/services/inventory/consumable-audit.service.ts)
@@ -1657,9 +1657,9 @@
     * `getStoreBatches(storeId: string, itemId?: string): Promise<InventoryBatchStock[]>`
     * `getContractorBatches(contractorId: string, itemId?: string): Promise<ContractorBatchStock[]>`
     * `pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
-    * `pickStoreBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
+    * `pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
     * `pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
-    * `pickContractorBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
+    * `pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
     * `initializeStock(storeId: string, items: { itemId: string; quantity: string | number }[], reason?: string, userId?: string): any`
     * `createStockIssue(data: {
         storeId: string;
@@ -2089,9 +2089,9 @@
     * `markLinkPrefixAsRead(userId: string, linkPrefix: string): any`
     * `markTypeAsRead(userId: string, type: string): any`
     * `cleanup(days = 30, onlyRead = true): any`
-    * `delete(id: string): any`
+    * `delete(id: string, userId: string): any`
     * `deleteAll(userId: string): any`
-    * `getSidebarCounts(userId: string): any`
+    * `getSidebarCounts(userId: string, preloadedRole?: string, preloadedStoreId?: string | null): any`
     * `getUserPreferences(userId: string): any`
     * `upsertUserPreference(userId: string, type: string, enabled: boolean): any`
     * `sendTestNotification(userId: string | null): any`
@@ -3137,6 +3137,7 @@
 | `/api/inventory/cycle-counts` | [route.ts](src/app/api/inventory/cycle-counts/route.ts) | `GET`, `POST` |
 | `/api/inventory/cycle-counts/[id]/approve` | [route.ts](src/app/api/inventory/cycle-counts/[id]/approve/route.ts) | `POST` |
 | `/api/inventory/cycle-counts/[id]` | [route.ts](src/app/api/inventory/cycle-counts/[id]/route.ts) | `GET`, `PUT` |
+| `/api/inventory/dashboard-kpis` | [route.ts](src/app/api/inventory/dashboard-kpis/route.ts) | `GET` |
 | `/api/inventory/emergency-petty-purchase` | [route.ts](src/app/api/inventory/emergency-petty-purchase/route.ts) | `POST` |
 | `/api/inventory/grn` | [route.ts](src/app/api/inventory/grn/route.ts) | `POST`, `GET` |
 | `/api/inventory/in-hand-stock` | [route.ts](src/app/api/inventory/in-hand-stock/route.ts) | `GET` |
@@ -8364,8 +8365,8 @@
   * `userId: String`
   * `title: String`
   * `message: String`
-  * `type: String` `[@default("SYSTEM")]`
-  * `priority: String` `[@default("MEDIUM")]`
+  * `type: NotificationTypeEnum` `[@default(SYSTEM)]`
+  * `priority: TaskPriority` `[@default(MEDIUM)]`
   * `isRead: Boolean` `[@default(false)]`
   * `link: String?`
   * `metadata: Json?`
@@ -8400,7 +8401,7 @@
   * `ipAddress: String?`
   * `userAgent: String?`
   * `createdAt: DateTime` `[@default(now())]`
-  * `user: User` `[@relation(fields: [userId], references: [id])]`
+  * `user: User` `[@relation(fields: [userId], references: [id], onDelete: Restrict)]`
 
 ### [Staff](prisma/schema.prisma)
 * **Fields**:
@@ -8432,7 +8433,7 @@
   * `region: String?`
   * `district: String?`
   * `status: JobStatus` `[@default(PENDING_SURVEY)]`
-  * `priority: String` `[@default("MEDIUM")]`
+  * `priority: TaskPriority` `[@default(MEDIUM)]`
   * `assignedToId: String?`
   * `projectId: String?` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -8446,7 +8447,7 @@
   * `projectCode: String` `[@unique]`
   * `name: String`
   * `description: String?`
-  * `type: String` `[@default("OSP_FTTH")]`
+  * `type: ProjectTypeEnum` `[@default(OSP_FTTH)]`
   * `location: String?`
   * `status: ProjectStatus` `[@default(PLANNING)]`
   * `progress: Float` `[@default(0)]`
@@ -8558,7 +8559,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `projectId: String`
-  * `type: String`
+  * `type: ExpenseType`
   * `description: String`
   * `amount: Float`
   * `date: DateTime` `[@default(now())]`
@@ -8576,9 +8577,9 @@
   * `wbsCode: String` `[// e.g., "1.1.1", "1.2"]`
   * `name: String`
   * `description: String?`
-  * `type: String` `[@default("TASK") // TASK, MILESTONE, PHASE]`
-  * `status: String` `[@default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED]`
-  * `priority: String` `[@default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL]`
+  * `type: TaskType` `[@default(TASK) // TASK, MILESTONE, PHASE]`
+  * `status: TaskStatus` `[@default(PENDING) // PENDING, IN_PROGRESS, COMPLETED, DELAYED]`
+  * `priority: TaskPriority` `[@default(MEDIUM) // LOW, MEDIUM, HIGH, CRITICAL]`
   * `plannedStartDate: DateTime?`
   * `plannedEndDate: DateTime?`
   * `actualStartDate: DateTime?`
@@ -8836,7 +8837,7 @@
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
   * `name: String`
-  * `type: String` `[@default("SUB")]`
+  * `type: StoreTypeEnum` `[@default(SUB)]`
   * `location: String?`
   * `managerId: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -9094,7 +9095,7 @@
 ### [InventoryTransaction](prisma/schema.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `type: String`
+  * `type: TransactionTypeEnum`
   * `storeId: String`
   * `referenceId: String?`
   * `notes: String?`
@@ -11780,4 +11781,22 @@
   * `reason: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
+
+### [SODAuditItem](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `sodAuditId: String`
+  * `name: String`
+  * `status: String`
+  * `uuid: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `sodAudit: SODForensicAudit` `[@relation(fields: [sodAuditId], references: [id], onDelete: Cascade)]`
+
+### [ChecklistItem](prisma/schema.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `parentId: String`
+  * `item: String`
+  * `isChecked: Boolean` `[@default(false)]`
+  * `parent: ProjectInspection` `[@relation(fields: [parentId], references: [id], onDelete: Cascade)]`
 
