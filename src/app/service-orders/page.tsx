@@ -40,6 +40,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const urlRtom = searchParams.get('rtom');
 
     const hasSetDefault = React.useRef(false);
+    const hasAppliedUrlRtom = React.useRef(false);
 
     // Filter State
     const [selectedRtomId, setSelectedRtomId] = useState<string>("");
@@ -236,17 +237,19 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         }
     }, [urlSearch, searchTerm]);
 
+    // Apply urlRtom ONCE on first load only. Never re-apply after user manually changes RTOM.
     useEffect(() => {
-        if (urlRtom && safeOpmcs.length > 0) {
+        if (urlRtom && safeOpmcs.length > 0 && !hasAppliedUrlRtom.current) {
             const matchedOpmc = safeOpmcs.find(o => o.rtom === urlRtom);
-            if (matchedOpmc && matchedOpmc.id !== selectedRtomId) {
+            if (matchedOpmc) {
+                hasAppliedUrlRtom.current = true;
                 setTimeout(() => {
                     setSelectedRtomId(matchedOpmc.id);
                     setSelectedRtom(matchedOpmc.rtom);
                 }, 0);
             }
         }
-    }, [urlRtom, safeOpmcs, selectedRtomId]);
+    }, [urlRtom, safeOpmcs]);
 
     const handleOpmcChange = (value: string) => {
         if (value === 'ALL') {
