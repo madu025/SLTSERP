@@ -42,3 +42,7 @@ Add whatever helps you do your job. This is your cheat sheet.
 ## Related
 
 - [Agent workspace](/concepts/agent-workspace)
+
+## GitHub Management
+
+- `GITHUB_TOKEN` is stored in `.env` (untracked by git) for automating GitHub API, Secrets, and Actions tasks.
