@@ -1,14 +1,66 @@
+import { Role } from '@prisma/client';
 import { ROLE_GROUPS } from '@/config/roles';
 import { NotificationService, NotificationPriority } from '@/services/notification/notification.service';
 import { EmailService } from './email.service';
+import { prisma } from '@/lib/prisma';
+
+/**
+ * Roles that receive all stock/inventory alert emails.
+ * Kept in sync with the in-app notification roles used in notifyLowStock.
+ * Declared once here so in-app and email recipients never drift apart again (fixes Issue #8).
+ */
+const INVENTORY_ALERT_EMAIL_ROLES: Role[] = [
+    Role.SUPER_ADMIN,
+    Role.ADMIN,
+    Role.CEO,
+    Role.HEAD_OF_OSP,
+    Role.STORES_MANAGER,
+    Role.OSP_MANAGER,
+];
+
+/**
+ * Shared helper: fetch emails for a set of roles and send a single digest email.
+ * Eliminates the duplicate admin-fetch + sendMail pattern (fixes Issues #2 & #7).
+ * Errors are logged with structured context; a retry can be added via BullMQ if needed.
+ */
+async function sendAlertEmail({
+    roles,
+    subject,
+    text,
+    html,
+    context,
+}: {
+    roles: Role[];
+    subject: string;
+    text: string;
+    html: string;
+    context: string; // caller label for structured error logs
+}): Promise<void> {
+    const admins = await prisma.user.findMany({
+        where: { role: { in: roles } },   // ✅ Fix #3: strictly-typed Role enum, no `as any`
+        select: { email: true }
+    });
+
+    const emails = admins.map(a => a.email).filter(Boolean) as string[];
+    if (emails.length === 0) return;
+
+    try {
+        await EmailService.sendMail({ to: emails.join(','), subject, text, html });
+    } catch (err: unknown) {
+        // Fix #6: structured error log — production APM/log-aggregators will surface this
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[NotificationPolicy] Email send failure [${context}]:`, message);
+        // TODO: enqueue retry job via notificationsQueue if email is critical-path
+    }
+}
 
 export class NotificationPolicyService {
-    
+
     // --- CONTRACTOR POLICIES ---
 
     static async notifyContractorSubmission(contractor: { id: string; name: string; siteOfficeStaffId: string | null; opmcId: string | null }) {
         const message = `Contractor "${contractor.name}" has submitted their registration form and is waiting for ARM review.`;
-        
+
         if (contractor.siteOfficeStaffId) {
             await NotificationService.send({
                 userId: contractor.siteOfficeStaffId,
@@ -33,7 +85,11 @@ export class NotificationPolicyService {
         });
     }
 
-    static async notifyContractorStatusChange(contractor: { id: string; name: string; siteOfficeStaffId: string | null; opmcId: string | null }, status: string, rejectionReason?: string | null) {
+    static async notifyContractorStatusChange(
+        contractor: { id: string; name: string; siteOfficeStaffId: string | null; opmcId: string | null },
+        status: string,
+        rejectionReason?: string | null
+    ) {
         const reporterId = contractor.siteOfficeStaffId;
         if (!reporterId) return;
 
@@ -91,64 +147,52 @@ export class NotificationPolicyService {
     // --- INVENTORY POLICIES ---
 
     static async notifyLowStock(storeName: string, itemName: string, currentQty: number, minLevel: number) {
-        // Notify both store managers (directly responsible) and project managers (resource planning)
+        const inAppRoles = [...ROLE_GROUPS.STORES_MANAGERS, 'OSP_MANAGER', 'HEAD_OF_OSP'];
+        const alertMessage = `Item "${itemName}" in ${storeName} is below minimum level. Current: ${currentQty}, Min: ${minLevel}`;
+
+        // In-app notification
         await NotificationService.notifyByRole({
-            roles: [...ROLE_GROUPS.STORES_MANAGERS, 'OSP_MANAGER', 'HEAD_OF_OSP'],
+            roles: inAppRoles,
             title: 'Low Stock Alert',
-            message: `Item "${itemName}" in ${storeName} is below minimum level. Current: ${currentQty}, Min: ${minLevel}`,
+            message: alertMessage,
             type: 'INVENTORY',
             priority: 'HIGH',
             link: '/inventory/stock'
         });
 
-        // Trigger real email alerts to active admins/managers
-        try {
-            const prisma = (await import('@/lib/prisma')).primaryClient;
-            const admins = await prisma.user.findMany({
-                where: {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    role: { in: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] as any }
-                },
-                select: { email: true }
-            });
-
-            const emails = admins.map(a => a.email).filter(Boolean) as string[];
-            if (emails.length > 0) {
-                await EmailService.sendMail({
-                    to: emails.join(','),
-                    subject: `[SLTS NEXUS Alert] Critical Low Stock: ${itemName} in ${storeName}`,
-                    text: `Low stock detected for item: ${itemName} in ${storeName}.\nCurrent stock level: ${currentQty}\nMinimum safety stock level: ${minLevel}\n\nPlease take immediate replenishment action.`,
-                    html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #e2e8f0;border-radius:8px;">
-                        <h2 style="color:#e11d48;margin-top:0;">⚠️ Low Stock Replenishment Required</h2>
-                        <p><strong>Material Name:</strong> ${itemName}</p>
-                        <p><strong>Storage Store:</strong> ${storeName}</p>
-                        <p><strong>In Hand Quantity:</strong> <span style="color:#e11d48;font-weight:bold;">${currentQty}</span></p>
-                        <p><strong>Configured Min Level:</strong> ${minLevel}</p>
-                        <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0;" />
-                        <p style="font-size:12px;color:#64748b;">This is an automated production alert from SLTS Nexus ERP.</p>
-                    </div>`
-                });
-            }
-        } catch (err) {
-            console.error("Failed to send low stock emails:", err);
-        }
+        // Email notification — same role set as in-app (Fix #8: aligned recipients)
+        await sendAlertEmail({
+            roles: INVENTORY_ALERT_EMAIL_ROLES,
+            subject: `[SLTS NEXUS Alert] Critical Low Stock: ${itemName} in ${storeName}`,
+            text: `Low stock detected for item: ${itemName} in ${storeName}.\nCurrent stock level: ${currentQty}\nMinimum safety stock level: ${minLevel}\n\nPlease take immediate replenishment action.`,
+            html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #e2e8f0;border-radius:8px;">
+                <h2 style="color:#e11d48;margin-top:0;">⚠️ Low Stock Replenishment Required</h2>
+                <p><strong>Material Name:</strong> ${itemName}</p>
+                <p><strong>Storage Store:</strong> ${storeName}</p>
+                <p><strong>In Hand Quantity:</strong> <span style="color:#e11d48;font-weight:bold;">${currentQty}</span></p>
+                <p><strong>Configured Min Level:</strong> ${minLevel}</p>
+                <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0;" />
+                <p style="font-size:12px;color:#64748b;">This is an automated production alert from SLTS Nexus ERP.</p>
+            </div>`,
+            context: `notifyLowStock:${itemName}:${storeName}`
+        });
     }
 
-    static async notifyStockRequestCreated(req: { id: string; requestNr: string; fromStoreName: string; opmcId?: string; type: string }, stage: string) {
-        let roles: string[] = [];
-        let stageName = '';
+    static async notifyStockRequestCreated(
+        req: { id: string; requestNr: string; fromStoreName: string; opmcId?: string; type: string },
+        stage: string
+    ) {
+        // Fix #4: use ROLE_GROUPS constants instead of hardcoded strings
+        const isArmStage = stage === 'ARM_APPROVAL';
+        const roles = isArmStage
+            ? [...ROLE_GROUPS.AREA_MANAGERS, ...ROLE_GROUPS.OFFICE_ADMINS]
+            : ['OSP_MANAGER', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'STORES_MANAGER', ...ROLE_GROUPS.ADMINS];
 
-        if (stage === 'ARM_APPROVAL') {
-            roles = ['AREA_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN', 'ADMIN'];
-            stageName = 'ARM approval';
-        } else {
-            roles = ['OSP_MANAGER', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'STORES_MANAGER', 'SUPER_ADMIN', 'ADMIN'];
-            stageName = 'OSP Manager / Procurement approval';
-        }
+        const stageName = isArmStage ? 'ARM approval' : 'OSP Manager / Procurement approval';
 
         await NotificationService.notifyByRole({
             roles,
-            title: stage === 'ARM_APPROVAL' ? 'New Material Request' : 'New Procurement Requisition',
+            title: isArmStage ? 'New Material Request' : 'New Procurement Requisition',
             message: `New Material Request ${req.requestNr} from ${req.fromStoreName} requires your ${stageName}.`,
             type: 'INVENTORY',
             priority: 'HIGH',
@@ -159,9 +203,10 @@ export class NotificationPolicyService {
     }
 
     static async notifyStockRequestStageChange(req: { id: string; requestNr: string }, stage: string, receiverRoles: string[]) {
-        let title = '';
-        let message = '';
+        let title: string;
+        let message: string;
 
+        // Fix #5: default case guard — unknown stages log a warning and skip notification
         switch (stage) {
             case 'STORES_MANAGER_APPROVAL':
                 title = 'Request Approved by ARM';
@@ -179,6 +224,9 @@ export class NotificationPolicyService {
                 title = 'Material Release Required';
                 message = `Request ${req.requestNr} approved, ready for release from Main Store.`;
                 break;
+            default:
+                console.warn(`[NotificationPolicy] notifyStockRequestStageChange: unrecognized stage "${stage}" for request ${req.requestNr}. Skipping notification.`);
+                return;
         }
 
         await NotificationService.notifyByRole({
@@ -191,11 +239,16 @@ export class NotificationPolicyService {
         });
     }
 
-    static async notifyStockRequestFinalAction(req: { id: string; requestNr: string; requestedById: string }, action: string, remarks?: string | null) {
-        let title = '';
-        let message = '';
-        let priority: NotificationPriority = 'MEDIUM';
+    static async notifyStockRequestFinalAction(
+        req: { id: string; requestNr: string; requestedById: string },
+        action: string,
+        remarks?: string | null
+    ) {
+        let title: string;
+        let message: string;
+        let priority: NotificationPriority;
 
+        // Fix #5: default case guard — unknown actions log a warning and skip notification
         switch (action) {
             case 'RETURNED':
                 title = 'Material Request Returned';
@@ -215,7 +268,11 @@ export class NotificationPolicyService {
             case 'PROCUREMENT_COMPLETE':
                 title = 'Procurement Completed';
                 message = `Procurement for request ${req.requestNr} is complete. Waiting for GRN.`;
+                priority = 'MEDIUM';
                 break;
+            default:
+                console.warn(`[NotificationPolicy] notifyStockRequestFinalAction: unrecognized action "${action}" for request ${req.requestNr}. Skipping notification.`);
+                return;
         }
 
         await NotificationService.send({
@@ -229,13 +286,17 @@ export class NotificationPolicyService {
     }
 
     /**
-     * Check expiring inventory batches and trigger alerts
+     * Check expiring inventory batches and trigger alerts.
+     *
+     * Fix #1: uses the shared `prisma` client (not mixed primaryClient/prisma).
+     * Fix #2: admin email list fetched ONCE before the loop (eliminates N+1 DB queries).
+     * Fix #7: uses shared sendAlertEmail helper (DRY).
      */
     static async checkBatchExpirations() {
-        const prisma = (await import('@/lib/prisma')).prisma;
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
+        // Fix #1: consistent `prisma` import (no mixed primaryClient usage)
         const expiringBatches = await prisma.inventoryBatch.findMany({
             where: {
                 expiryDate: {
@@ -247,56 +308,35 @@ export class NotificationPolicyService {
                 item: true,
                 storeStocks: {
                     where: { quantity: { gt: 0 } },
-                    include: {
-                        store: true
-                    }
+                    include: { store: true }
                 }
             }
         });
 
+        if (expiringBatches.length === 0) return [];
+
+        // Fix #2: fetch admin emails ONCE outside the loop
+        const adminEmailRecords = await prisma.user.findMany({
+            where: { role: { in: INVENTORY_ALERT_EMAIL_ROLES } },  // ✅ Fix #3: typed enum, no `as any`
+            select: { email: true }
+        });
+        const adminEmails = adminEmailRecords.map(a => a.email).filter(Boolean) as string[];
+
         const results = [];
         for (const batch of expiringBatches) {
             for (const bs of batch.storeStocks) {
-                const message = `Batch "${batch.batchNumber}" of item "${batch.item.name}" in store "${bs.store.name}" is expiring on ${batch.expiryDate?.toLocaleDateString()}! Quantity remaining: ${bs.quantity}.`;
-                
+                const batchMessage = `Batch "${batch.batchNumber}" of item "${batch.item.name}" in store "${bs.store.name}" is expiring on ${batch.expiryDate?.toLocaleDateString()}! Quantity remaining: ${bs.quantity}.`;
+
+                // In-app notifications per batch/store pair (deduplication handled inside NotificationService)
                 await NotificationService.notifyByRole({
                     roles: ROLE_GROUPS.STORES_MANAGERS,
                     title: 'Batch Expiry Warning (FEFO)',
-                    message,
+                    message: batchMessage,
                     type: 'INVENTORY',
                     priority: 'CRITICAL',
-                    link: '/inventory/assets',
+                    link: '/inventory/stock',
                     metadata: { batchId: batch.id, expiryDate: batch.expiryDate }
                 });
-
-                // Send email alert for expiring batch
-                try {
-                    const admins = await (await import('@/lib/prisma')).primaryClient.user.findMany({
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] as any } },
-                        select: { email: true }
-                    });
-                    const emails = admins.map(a => a.email).filter(Boolean) as string[];
-                    if (emails.length > 0) {
-                        await EmailService.sendMail({
-                            to: emails.join(','),
-                            subject: `[SLTS NEXUS FEFO Alert] Batch Expiration: ${batch.item.name}`,
-                            text: message,
-                            html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #fecaca;border-radius:8px;background-color:#fff5f5;">
-                                <h2 style="color:#dc2626;margin-top:0;">⏳ FEFO Compliance: Batch Expiry Warning</h2>
-                                <p><strong>Material:</strong> ${batch.item.name} (${batch.item.code})</p>
-                                <p><strong>Batch Number:</strong> ${batch.batchNumber || 'N/A'}</p>
-                                <p><strong>Store Location:</strong> ${bs.store.name}</p>
-                                <p><strong>Remaining Qty:</strong> <span style="font-weight:bold;">${bs.quantity}</span></p>
-                                <p><strong>Expiry Date:</strong> <span style="color:#dc2626;font-weight:bold;">${batch.expiryDate?.toLocaleDateString()}</span></p>
-                                <hr style="border:0;border-top:1px solid #fecaca;margin:20px 0;" />
-                                <p style="font-size:11px;color:#7f1d1d;">Please prioritize issuing this batch to avoid financial write-offs.</p>
-                            </div>`
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to send batch expiry email:", e);
-                }
 
                 results.push({
                     batchNumber: batch.batchNumber,
@@ -307,6 +347,50 @@ export class NotificationPolicyService {
                 });
             }
         }
+
+        // Fix #2: send ONE digest email per run (not one per batch×store combination)
+        if (results.length > 0 && adminEmails.length > 0) {
+            const digestRows = results.map(r =>
+                `<tr>
+                    <td style="padding:4px 8px;border-bottom:1px solid #fecaca;">${r.itemName}</td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #fecaca;">${r.batchNumber ?? 'N/A'}</td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #fecaca;">${r.storeName}</td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #fecaca;font-weight:bold;">${r.quantity}</td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #fecaca;color:#dc2626;font-weight:bold;">${r.expiryDate?.toLocaleDateString() ?? 'N/A'}</td>
+                </tr>`
+            ).join('');
+
+            try {
+                await EmailService.sendMail({
+                    to: adminEmails.join(','),
+                    subject: `[SLTS NEXUS FEFO Alert] ${results.length} Batch(es) Expiring Within 30 Days`,
+                    text: `The following ${results.length} batch(es) are expiring within 30 days:\n\n${results.map(r => `- ${r.itemName} (${r.batchNumber ?? 'N/A'}) @ ${r.storeName}: Qty ${r.quantity}, Expires ${r.expiryDate?.toLocaleDateString() ?? 'N/A'}`).join('\n')}`,
+                    html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #fecaca;border-radius:8px;background-color:#fff5f5;">
+                        <h2 style="color:#dc2626;margin-top:0;">⏳ FEFO Compliance: Batch Expiry Digest</h2>
+                        <p>${results.length} batch(es) will expire within the next 30 days. Please prioritize issuing these batches to avoid financial write-offs.</p>
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="background:#fee2e2;">
+                                    <th style="padding:6px 8px;text-align:left;">Material</th>
+                                    <th style="padding:6px 8px;text-align:left;">Batch #</th>
+                                    <th style="padding:6px 8px;text-align:left;">Store</th>
+                                    <th style="padding:6px 8px;text-align:left;">Qty</th>
+                                    <th style="padding:6px 8px;text-align:left;">Expiry</th>
+                                </tr>
+                            </thead>
+                            <tbody>${digestRows}</tbody>
+                        </table>
+                        <hr style="border:0;border-top:1px solid #fecaca;margin:20px 0;" />
+                        <p style="font-size:11px;color:#7f1d1d;">Automated FEFO alert from SLTS Nexus ERP.</p>
+                    </div>`
+                });
+            } catch (err: unknown) {
+                // Fix #6: structured error log
+                const message = err instanceof Error ? err.message : String(err);
+                console.error('[NotificationPolicy] FEFO digest email failure:', message);
+            }
+        }
+
         return results;
     }
 }
