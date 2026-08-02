@@ -1,8 +1,0 @@
-schema_version: 1
-module_path: public_assets
-title: Public Static Assets & Browser Extension Distribution
-scope:
-    - public/
-source_files: []
-depends_on: []
-related_to: []

@@ -1,1 +1,0 @@
-Prisma ORM with `prisma-client-js` generator against PostgreSQL; migration lock pinned to the `postgresql` provider. Seeds rely on `bcryptjs` for password hashing.
