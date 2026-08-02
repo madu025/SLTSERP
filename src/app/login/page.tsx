@@ -90,8 +90,12 @@ export default function LoginPage() {
         }
 
         const isContractorRole = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(data.user?.role);
+        const isStoresRole = ['STORES_MANAGER', 'STORES_ASSISTANT'].includes(data.user?.role);
+
         if (isContractorRole) {
           router.push("/contractor/dashboard");
+        } else if (isStoresRole) {
+          router.push("/inventory");
         } else {
           router.push("/dashboard");
         }
