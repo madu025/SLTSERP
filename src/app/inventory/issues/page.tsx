@@ -74,7 +74,7 @@ export default function StockIssuePage() {
     const { data: items = [] } = useQuery<Array<{ id: string; name: string; code: string; hasSerial?: boolean }>>({
         queryKey: ["items"],
         queryFn: async (): Promise<Array<{ id: string; name: string; code: string; hasSerial?: boolean }>> => {
-            const res = await fetch("/api/inventory/items");
+            const res = await fetch(`/api/inventory/items?_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         }
     });
@@ -83,7 +83,7 @@ export default function StockIssuePage() {
     const { data: projects = [] } = useQuery<Array<{ id: string; name: string }>>({
         queryKey: ["projects"],
         queryFn: async (): Promise<Array<{ id: string; name: string }>> => {
-            const res = await fetch("/api/projects");
+            const res = await fetch(`/api/projects?_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         }
     });
@@ -92,7 +92,7 @@ export default function StockIssuePage() {
     const { data: teams = [] } = useQuery<Array<{ id: string; name: string }>>({
         queryKey: ["teams"],
         queryFn: async (): Promise<Array<{ id: string; name: string }>> => {
-            const res = await fetch("/api/contractors/teams");
+            const res = await fetch(`/api/contractors/teams?_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         }
     });
@@ -109,7 +109,7 @@ export default function StockIssuePage() {
     const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ["contractors"],
         queryFn: async () => {
-            const res = await fetch("/api/contractors?page=1&limit=1000");
+            const res = await fetch(`/api/contractors?page=1&limit=1000&_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         }
     });
@@ -123,7 +123,7 @@ export default function StockIssuePage() {
     const { data: issues = [], isLoading } = useQuery<StockIssue[]>({
         queryKey: ['stock-issues'],
         queryFn: async (): Promise<StockIssue[]> => {
-            const res = await fetch('/api/inventory/issues');
+            const res = await fetch(`/api/inventory/issues?_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         }
     });
@@ -199,7 +199,7 @@ export default function StockIssuePage() {
 
             if (hasSerial && value && user?.storeId) {
                 try {
-                    const res = await fetch(`/api/inventory/serials?storeId=${user.storeId}&itemId=${value}`);
+                    const res = await fetch(`/api/inventory/serials?storeId=${user.storeId}&itemId=${value}&_t=${Date.now()}`, { cache: 'no-store' });
                     if (res.ok) {
                         const serialsData = await res.json();
                         setIssueItems(prev => {

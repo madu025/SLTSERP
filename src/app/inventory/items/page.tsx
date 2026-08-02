@@ -44,7 +44,7 @@ export default function ItemMasterPage() {
     const { data: items = [], isLoading } = useQuery<InventoryItem[]>({
         queryKey: ["items"],
         queryFn: async () => {
-            const res = await fetch("/api/inventory/items");
+            const res = await fetch(`/api/inventory/items?_t=${Date.now()}`, { cache: 'no-store' });
             if (!res.ok) throw new Error("Failed to fetch inventory items");
             return res.json();
         }

@@ -21,13 +21,12 @@ export interface DynamicReportPayload {
 }
 
 // Helper to access nested objects via string path (e.g. "serviceOrder.soNum")
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getNestedValue(obj: any, path: string): any {
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     if (!obj) return null;
     const parts = path.split('.');
-    let current = obj;
+    let current: unknown = obj;
     for (const part of parts) {
-        current = current[part];
+        current = (current as Record<string, unknown>)[part];
         if (current === undefined || current === null) return null;
     }
     return current;
@@ -35,8 +34,7 @@ function getNestedValue(obj: any, path: string): any {
 
 // Helper to map operator string to Prisma conditions
 function mapOperator(operator: string, value: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let parsedValue: any = value;
+    let parsedValue: string | number | boolean | Date = value;
     if (value === 'true') parsedValue = true;
     else if (value === 'false') parsedValue = false;
     else if (!isNaN(Number(value)) && value.trim() !== '') {
@@ -58,8 +56,7 @@ function mapOperator(operator: string, value: string) {
 }
 
 // Helper to recursively build nested prisma where objects
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildNestedFilter(parts: string[], operator: string, value: string): any {
+function buildNestedFilter(parts: string[], operator: string, value: string): Record<string, unknown> {
     if (parts.length === 1) {
         return { [parts[0]]: mapOperator(operator, value) };
     }
@@ -114,15 +111,14 @@ export class DynamicReportService {
             // Merge filters
             const rootKey = parts[0];
             if (whereClause[rootKey]) {
-                whereClause[rootKey] = { ...whereClause[rootKey], ...filterObj[rootKey] };
+                whereClause[rootKey] = { ...(whereClause[rootKey] as object), ...(filterObj[rootKey] as object) };
             } else {
                 whereClause[rootKey] = filterObj[rootKey];
             }
         }
 
         // 3. Determine Includes based on entity
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let includeClause: any = undefined;
+        let includeClause: Record<string, unknown> | undefined = undefined;
         if (entity === 'materialUsage') {
             includeClause = { serviceOrder: true, item: true };
         } else if (entity === 'contractorStock') {
@@ -186,10 +182,8 @@ export class DynamicReportService {
         }
 
         // 6. Map and Flatten columns for standard tabular result
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mappedRows = rawRecords.map((rec: any) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const row: Record<string, any> = {};
+        const mappedRows = rawRecords.map((rec: Record<string, unknown>) => {
+            const row: Record<string, unknown> = {};
             for (const col of columns) {
                 row[col] = getNestedValue(rec, col);
             }

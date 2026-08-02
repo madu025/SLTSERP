@@ -57,18 +57,18 @@ export default function StoresManagementPage() {
     // Data Fetching
     const { data: stores = [], isLoading: isLoadingStores } = useQuery<Store[]>({
         queryKey: ["stores"],
-        queryFn: async () => (await fetch("/api/stores")).json()
+        queryFn: async () => (await fetch(`/api/stores?_t=${Date.now()}`, { cache: 'no-store' })).json()
     });
 
     const { data: opmcs = [] } = useQuery<OPMC[]>({
         queryKey: ["opmcs"],
-        queryFn: async () => (await fetch("/api/opmcs")).json()
+        queryFn: async () => (await fetch(`/api/opmcs?_t=${Date.now()}`, { cache: 'no-store' })).json()
     });
 
     const { data: users = [] } = useQuery<User[]>({
         queryKey: ["users-select"],
         queryFn: async () => {
-            const res = await fetch("/api/users?page=1&limit=1000");
+            const res = await fetch(`/api/users?page=1&limit=1000&_t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             return data.users || [];
         }

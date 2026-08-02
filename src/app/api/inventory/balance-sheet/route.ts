@@ -8,17 +8,15 @@ export const POST = apiHandler(async (request, _params, body) => {
 
     try {
         const result = await InventoryService.saveBalanceSheet({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ...(body as any),
             userId: userId || 'SYSTEM'
         });
         return { message: 'Balance sheet saved successfully', id: result.id };
     } catch (error: unknown) {
         const err = error as { message?: string };
-        if (err?.message === 'MISSING_FIELDS') {
-            throw AppError.badRequest('Missing fields');
-        }
-        console.error('Error saving balance sheet:', error);
-        throw AppError.internal('Internal Server Error');
+        if (err?.message === 'MISSING_FIELDS') throw AppError.badRequest('Missing fields');
+        throw error;
     }
 }, {
     audit: { action: 'CREATE', entity: 'BALANCE_SHEET' },

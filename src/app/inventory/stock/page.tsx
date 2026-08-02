@@ -66,7 +66,7 @@ export default function StockPage() {
         queryKey: ['item-batches', selectedStoreId, selectedItemForBatches?.itemId],
         queryFn: async () => {
             if (!selectedItemForBatches) return [];
-            const res = await fetch(`/api/inventory/batches?storeId=${selectedStoreId}&itemId=${selectedItemForBatches.itemId}`);
+            const res = await fetch(`/api/inventory/batches?storeId=${selectedStoreId}&itemId=${selectedItemForBatches.itemId}&_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         },
         enabled: !!(selectedStoreId && selectedItemForBatches)
@@ -83,7 +83,7 @@ export default function StockPage() {
         queryKey: ['item-serials', selectedStoreId, selectedItemForSerials?.itemId],
         queryFn: async () => {
             if (!selectedItemForSerials) return [];
-            const res = await fetch(`/api/inventory/serials?storeId=${selectedStoreId}&itemId=${selectedItemForSerials.itemId}`);
+            const res = await fetch(`/api/inventory/serials?storeId=${selectedStoreId}&itemId=${selectedItemForSerials.itemId}&_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         },
         enabled: !!(selectedStoreId && selectedItemForSerials)
@@ -94,7 +94,7 @@ export default function StockPage() {
     const { data: stores = [] } = useQuery<Store[]>({
         queryKey: ['stores'],
         queryFn: async () => {
-            const res = await fetch('/api/inventory/stores');
+            const res = await fetch(`/api/inventory/stores?_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         }
     });
@@ -112,7 +112,7 @@ export default function StockPage() {
         queryKey: ['stock', selectedStoreId],
         queryFn: async () => {
             if (!selectedStoreId) return [];
-            const res = await fetch(`/api/inventory/stock?storeId=${selectedStoreId}`);
+            const res = await fetch(`/api/inventory/stock?storeId=${selectedStoreId}&_t=${Date.now()}`, { cache: 'no-store' });
             return res.json();
         },
         enabled: !!selectedStoreId

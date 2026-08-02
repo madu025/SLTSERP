@@ -30,8 +30,7 @@ export class CycleCountService {
         const countNumber = `CC-${Date.now().toString().slice(-6)}`;
 
         // Fetch store current stocks
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const stockQuery: any = { storeId: data.storeId };
+        const stockQuery: Prisma.InventoryStockWhereInput = { storeId: data.storeId };
         if (data.itemIds && data.itemIds.length > 0) {
             stockQuery.itemId = { in: data.itemIds };
         }
@@ -82,8 +81,7 @@ export class CycleCountService {
     }
 
     static async getCycleCounts(storeId?: string, status?: string) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const where: any = {};
+        const where: Prisma.CycleCountHeaderWhereInput = {};
         if (storeId) where.storeId = storeId;
         if (status) where.status = status;
 

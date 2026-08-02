@@ -292,3 +292,18 @@ Evaluated the strategy for allowing Managers to \"Recall\" or \"Revise\" a PRN a
 
 ### Conclusion
 **Adopted:** The strict "Pre-PO Recall" strategy. It ensures operations can fix mistakes seamlessly while strictly preserving financial and database integrity once external vendors are involved.
+
+---
+
+## Session: Inventory Module Data Flow & Architecture Audit (2026-08-02)
+
+| Recommendation | Category | Expert | Cost/Complexity vs Benefit |
+| :--- | :---: | :---: | :--- |
+| **Apply Cache Busting (_t=Date.now()) to all Inventory Pages** | 🔴 Must-Have | Architect | **Low Cost**: Simple string additions. **Benefit**: Fixes bugs where UI doesn't update after stock adjustments. |
+| **Remove redundant 	ry/catch inside piHandler** | 🔴 Must-Have | Architect | **Low Cost**: Simple deletion. **Benefit**: Cleans up API responses and allows piHandler to standardize errors. |
+| **Refactor ny types to Strict Interfaces in Inventory Services** | 🔴 Must-Have | QA Lead | **Medium Cost**: Requires careful typescript mapping. **Benefit**: Prevents catastrophic hidden data mismatch errors. |
+| **Enforce orce-dynamic strictly on all Inventory API GETs** | 🔴 Must-Have | DevOps | **Low Cost**: 1 line of code per file. **Benefit**: Prevents Vercel static cache drift. |
+| **Optimistic UI Updates for Stock Requests/MRN** | 🟡 Should-Have | OSP SME | **Medium Cost**: React state refactoring. **Benefit**: Flawless User Experience. |
+
+### Conclusion
+**Adopted:** All 🔴 Must-Have items were executed (Cache busting applied, strict typing enforced, redundant try/catch blocks removed).

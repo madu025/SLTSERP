@@ -4,16 +4,30 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
-    const storeId = searchParams.get('storeId');
+    let storeId = searchParams.get('storeId');
+    const { _userRole, _userId } = params;
+
+    const isGlobalManager = ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER'].includes(_userRole || '');
+
+    if (!isGlobalManager && _userId) {
+        // Enforce store limit: assistants can only see their assigned store
+        const user = await prisma.user.findUnique({ where: { id: _userId }, select: { assignedStoreId: true }});
+        if (user?.assignedStoreId) {
+            storeId = user.assignedStoreId;
+        } else {
+            // Unassigned assistant gets no data
+            storeId = 'unassigned';
+        }
+    }
 
     const storeFilter = (storeId && storeId !== 'all' && storeId !== 'unassigned') 
         ? { storeId } 
         : {};
 
     // 1. Calculate Stock Valuation & Total Items
-    const stocks = await (prisma as any).inventoryStock.findMany({
+    const stocks = await prisma.inventoryStock.findMany({
         where: storeFilter,
         select: {
             quantity: true,
@@ -31,7 +45,7 @@ export const GET = apiHandler(async (req) => {
 
     let totalValue = 0;
     let totalQuantity = 0;
-    const itemStockMap = new Map<string, { item: any; totalQty: number }>();
+    const itemStockMap = new Map<string, { item: { id: string; name: string; unitPrice: number | null; minLevel: number; category: string | null; }; totalQty: number }>();
 
     for (const s of stocks) {
         const qty = s.quantity || 0;
@@ -61,7 +75,7 @@ export const GET = apiHandler(async (req) => {
     });
 
     // 2. Pending Contractor Dispatches (Stock Requests awaiting store issue)
-    const pendingDispatches = await (prisma as any).stockRequest.findMany({
+    const pendingDispatches = await prisma.stockRequest.findMany({
         where: {
             status: { in: ['PENDING', 'APPROVED'] },
             ...(storeId && storeId !== 'all' && storeId !== 'unassigned' ? { fromStoreId: storeId } : {})
@@ -88,7 +102,7 @@ export const GET = apiHandler(async (req) => {
     });
 
     // 3. Awaiting GRNs
-    const pendingGrns = await (prisma as any).gRN.findMany({
+    const pendingGrns = await prisma.gRN.findMany({
         where: storeFilter,
         take: 10,
         orderBy: { createdAt: 'desc' },
@@ -112,7 +126,7 @@ export const GET = apiHandler(async (req) => {
     });
 
     // 4. Pending MRNs (Returns)
-    const pendingMrnsCount = await (prisma as any).mRN.count({
+    const pendingMrnsCount = await prisma.mRN.count({
         where: {
             status: 'PENDING',
             ...storeFilter
@@ -122,7 +136,7 @@ export const GET = apiHandler(async (req) => {
     return NextResponse.json({
         success: true,
         summary: {
-            totalStockValue: Math.round(totalValue),
+            totalStockValue: isGlobalManager ? Math.round(totalValue) : null,
             totalStockQuantity: totalQuantity,
             totalUniqueItems: itemStockMap.size,
             lowStockCount: lowStockAlerts.length,

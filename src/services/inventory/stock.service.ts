@@ -100,8 +100,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available store batches list in-memory using FIFO
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static pickStoreBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         // Filter batches for this itemId in memory
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
@@ -111,16 +110,17 @@ export class StockService {
 
         for (const stock of itemBatches) {
             if (remainingToPick <= 0) break;
-            const available = this.round(stock.quantity);
+            const available = this.round(Number(stock.quantity));
             const take = Math.min(available, remainingToPick);
             pickedBatches.push({
                 batchId: stock.batchId,
                 quantity: this.round(take),
-                batch: stock.batch
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                batch: (stock as any).batch || { unitPrice: 0, costPrice: 0 }
             });
             remainingToPick = this.round(remainingToPick - take);
             // Reflect the decrement in the local array item quantity so future picks in the same transaction loop are correct
-            stock.quantity = this.round(stock.quantity - take);
+            stock.quantity = this.round(Number(stock.quantity) - take);
         }
 
         if (this.round(remainingToPick) > 0) {
@@ -181,8 +181,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available contractor batches list in-memory using FIFO
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static pickContractorBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
 
@@ -191,15 +190,16 @@ export class StockService {
 
         for (const stock of itemBatches) {
             if (remainingToPick <= 0) break;
-            const available = this.round(stock.quantity);
+            const available = this.round(Number(stock.quantity));
             const take = Math.min(available, remainingToPick);
             pickedBatches.push({
                 batchId: stock.batchId,
                 quantity: this.round(take),
-                batch: stock.batch
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                batch: (stock as any).batch || { unitPrice: 0, costPrice: 0 }
             });
             remainingToPick = this.round(remainingToPick - take);
-            stock.quantity = this.round(stock.quantity - take);
+            stock.quantity = this.round(Number(stock.quantity) - take);
         }
 
         if (this.round(remainingToPick) > 0) {
@@ -283,8 +283,7 @@ export class StockService {
                     referenceId: `INIT-STOCK-${Date.now()}`,
                     notes: reason || 'Initial Stock Setup',
                     items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        create: transactionItems.map((ti: any) => ({
+                        create: transactionItems.map((ti) => ({
                             itemId: ti.itemId,
                             quantity: ti.quantity
                         }))
@@ -454,8 +453,7 @@ export class StockService {
                 recipientName,
                 remarks: remarks || null,
                 items: {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    create: items.map((item: any) => ({
+                    create: items.map((item) => ({
                         itemId: item.itemId,
                         quantity: parseFloat(item.quantity.toString()),
                         remarks: item.remarks || null
@@ -509,8 +507,7 @@ export class StockService {
     static async getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }) {
         const { storeId, itemId, search, staffId } = filters;
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const where: any = {};
+        const where: import('@prisma/client').Prisma.InventoryItemSerialWhereInput = {};
         
         if (storeId) where.storeId = storeId;
         if (itemId) where.itemId = itemId;

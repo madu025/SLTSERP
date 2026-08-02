@@ -42,12 +42,12 @@ export default function CardexReportPage() {
 
     const { data: stores = [] } = useQuery<Store[]>({
         queryKey: ['stores'],
-        queryFn: async () => (await fetch('/api/inventory/stores')).json()
+        queryFn: async () => (await fetch(`/api/inventory/stores?_t=${Date.now()}`, { cache: 'no-store' })).json()
     });
 
     const { data: items = [] } = useQuery<Item[]>({
         queryKey: ['items'],
-        queryFn: async () => (await fetch('/api/inventory/items')).json()
+        queryFn: async () => (await fetch(`/api/inventory/items?_t=${Date.now()}`, { cache: 'no-store' })).json()
     });
 
     const { data: transactions = [], isLoading } = useQuery<Transaction[]>({
@@ -56,7 +56,7 @@ export default function CardexReportPage() {
             const params = new URLSearchParams();
             if (selectedItemId !== 'ALL') params.append('itemId', selectedItemId);
             if (selectedStoreId !== 'ALL') params.append('storeId', selectedStoreId);
-            return (await fetch(`/api/inventory/transactions?${params.toString()}`)).json();
+            return (await fetch(`/api/inventory/transactions?${params.toString()}&_t=${Date.now()}`, { cache: 'no-store' })).json();
         }
     });
 

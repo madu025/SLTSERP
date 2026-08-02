@@ -123,9 +123,7 @@ export class WastageService {
                             : (description || reason),
                         status: status,
                         items: {
-                            
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            create: items.map((item: any) => ({
+                            create: items.map((item) => ({
                                 itemId: item.itemId,
                                 quantity: parseFloat(item.quantity.toString()),
                                 unit: item.unit || 'Nos'
@@ -228,9 +226,7 @@ export class WastageService {
                     referenceId: `STORE-WASTAGE-${Date.now()}`,
                     notes: `[STATUS: ${status}] ${reason || description}`,
                     items: {
-                        
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        create: transactionItems.map((ti: any) => ({
+                        create: transactionItems.map((ti) => ({
                             itemId: ti.itemId,
                             quantity: ti.quantity,
                             batchId: ti.batchId
@@ -271,13 +267,11 @@ export class WastageService {
             if (wastage) {
                 if (wastage.status !== 'PENDING') throw AppError.badRequest('ALREADY_PROCESSED');
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const itemIds = wastage.items.map((i: any) => i.itemId);
+                const itemIds = wastage.items.map((i) => i.itemId);
                 const itemMetas = await tx.inventoryItem.findMany({ select: { id: true, name: true, unitPrice: true, costPrice: true, maxWastagePercentage: true, isWastageAllowed: true },
                     where: { id: { in: itemIds } }
                 });
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const metaMap = new Map(itemMetas.map((m: any) => [m.id, m]));
+                const metaMap = new Map(itemMetas.map((m) => [m.id, m]));
 
                 const availableBatches = await ContractorRepository.findAvailableBatchesBulk(wastage.contractorId, itemIds, tx);
 
@@ -345,13 +339,11 @@ export class WastageService {
                     throw AppError.badRequest('ALREADY_PROCESSED');
                 }
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const itemIds = txRecord.items.map((i: any) => i.itemId);
+                const itemIds = txRecord.items.map((i) => i.itemId);
                 const itemMetas = await tx.inventoryItem.findMany({ select: { id: true, name: true, unitPrice: true, costPrice: true, maxWastagePercentage: true, isWastageAllowed: true },
                     where: { id: { in: itemIds } }
                 });
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const metaMap = new Map(itemMetas.map((m: any) => [m.id, m]));
+                const metaMap = new Map(itemMetas.map((m) => [m.id, m]));
 
                 const availableBatches = await InventoryRepository.findAvailableBatchesBulk(txRecord.storeId, itemIds, tx);
 

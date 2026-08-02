@@ -542,12 +542,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/inventory/reports/cardex',
                 icon: HistoryIcon,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
-            },
-            {
-                title: 'Inventory Dashboard',
-                path: '/inventory/dashboard',
-                icon: LayoutDashboard,
-                allowedRoles: ROLE_GROUPS.STORES
             }
         ]
     },
