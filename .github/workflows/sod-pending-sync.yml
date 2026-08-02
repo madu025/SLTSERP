@@ -21,7 +21,7 @@ jobs:
             local BATCH_NAME=$1
             local OFFSET=$2
             echo "Syncing $BATCH_NAME (OPMCs $OFFSET to $(($OFFSET + 15)))..."
-            RESPONSE=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X GET -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=$OFFSET&limit=15")
+            RESPONSE=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X GET -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "https://sltserp.vercel.app/api/cron/sync-sod?offset=$OFFSET&limit=15")
             
             if [ "$RESPONSE" != "200" ]; then
               echo "ERROR: $BATCH_NAME failed with HTTP $RESPONSE"
