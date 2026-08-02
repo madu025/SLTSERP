@@ -484,34 +484,34 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             // 1. Setup & Master Data
             {
-                title: 'Material Master Data', // Merged Material Registration + Bulk Import
+                title: 'Item Master Data', // Merged Material Registration + Bulk Import
                 path: '/inventory/items',
                 icon: FileText,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             // 2. Stock Inflow
             {
-                title: 'GRN Entry',
+                title: 'Goods Receipt (GRN)',
                 path: '/inventory/grn',
                 icon: Receipt,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
                 // Single Unified Hub: Stock Requests + Material Requests + Approvals
-                title: 'Material Requests',
+                title: 'Material Requisitions',
                 path: '/inventory/requests',
                 icon: ClipboardList,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
             },
             // 3. Stock Outflow
             {
-                title: 'Stock Levels',
+                title: 'Inventory Balance',
                 path: '/inventory/stock',
                 icon: BarChart3,
                 allowedRoles: ROLE_GROUPS.STORES
             },
             {
-                title: 'Stock Issue',
+                title: 'Goods Issue (MIN)',
                 path: '/inventory/issues',
                 icon: PackageMinus,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
@@ -523,27 +523,27 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'OFFICE_ADMIN']
             },
             {
-                title: 'Wastage Reports',
+                title: 'Inventory Adjustments (Wastage)',
                 path: '/inventory/admin/wastage',
                 icon: ClipboardCheck,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
             },
             // 4. Returns & Reconciliation
             {
-                title: 'MRN (Material Return)',
+                title: 'Material Returns (MRN)',
                 path: '/inventory/admin/mrns',
                 icon: RefreshCw,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
-                title: 'Audit & Reconciliation Hub', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
+                title: 'Physical Stock Take & Recon', // Merged Material Reconciliation, Contractor Balance Sheet, Material Audit, Inventory Audit
                 path: '/inventory/audit',
                 icon: ShieldCheck,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']
             },
             // 5. Analytics & History
             {
-                title: 'Inventory Cardex',
+                title: 'Stock Ledger (Cardex)',
                 path: '/inventory/reports/cardex',
                 icon: HistoryIcon,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
