@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
@@ -11,9 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     LayoutDashboard,
-    Package,
     AlertTriangle,
-    Clock,
     Store,
     Receipt,
     ClipboardList,
@@ -21,19 +19,20 @@ import {
     ShieldCheck,
     History as HistoryIcon,
     ArrowUpRight,
-    Building2,
     DollarSign,
     CheckCircle2,
     Truck,
-    PackageMinus
+    Lock
 } from "lucide-react";
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
+import { hasRole, ROLE_GROUPS } from '@/config/roles';
 
 interface User {
     id: string;
     name: string;
     role: string;
+    storeId?: string;
 }
 
 interface StoreType {
@@ -88,6 +87,23 @@ export default function StoresManagerDashboardPage() {
         queryFn: async () => (await fetch('/api/inventory/stores')).json()
     });
 
+    // Dynamic Role-based Store Scope Detection
+    const isGlobalManager = hasRole(user?.role, [
+        'SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER'
+    ]);
+
+    useEffect(() => {
+        if (user && stores.length > 0 && !isGlobalManager) {
+            // Store Assistant / Site Staff: Dynamically lock to their assigned store
+            const assignedStore = stores.find(s => s.id === user.storeId || s.managerId === user.id);
+            if (assignedStore) {
+                setSelectedStoreId(assignedStore.id);
+            } else if (stores[0]) {
+                setSelectedStoreId(stores[0].id);
+            }
+        }
+    }, [user, stores, isGlobalManager]);
+
     const { data: kpiData, isLoading, refetch } = useQuery<KpiData>({
         queryKey: ['stores-dashboard-kpis', selectedStoreId],
         queryFn: async () => {
@@ -96,7 +112,7 @@ export default function StoresManagerDashboardPage() {
             return res.json();
         },
         enabled: !!user,
-        refetchInterval: 30000, // Auto-refresh every 30 seconds
+        refetchInterval: 30000,
     });
 
     const summary = kpiData?.summary || {
@@ -110,7 +126,7 @@ export default function StoresManagerDashboardPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER']}>
+        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'SITE_OFFICE_STAFF', 'OSP_MANAGER', 'AREA_MANAGER']}>
             <div className="erp-page-wrapper flex-row overflow-hidden bg-slate-50 dark:bg-slate-950">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
@@ -119,7 +135,7 @@ export default function StoresManagerDashboardPage() {
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
                         <div className="max-w-7xl mx-auto space-y-6">
 
-                            {/* 1. Header & Store Selector */}
+                            {/* 1. Header & Dynamic Store Selector */}
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -127,25 +143,40 @@ export default function StoresManagerDashboardPage() {
                                             <LayoutDashboard className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h1 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                                                Stores Manager Command Center
-                                            </h1>
+                                            <div className="flex items-center gap-2">
+                                                <h1 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                                                    Stores Operations Dashboard
+                                                </h1>
+                                                {!isGlobalManager && (
+                                                    <Badge variant="outline" className="text-[10px] font-bold border-amber-300 bg-amber-50 text-amber-800 flex items-center gap-1">
+                                                        <Lock className="w-3 h-3" /> Site Store Scope
+                                                    </Badge>
+                                                )}
+                                            </div>
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                Real-time Warehouse Operations, Material Issue Queue & Inventory Valuation
+                                                {isGlobalManager 
+                                                    ? 'Enterprise Multi-Store Command Center & Material Issue Tracking' 
+                                                    : 'Site Store Dispatch Queue & Local Stock Inventory Controls'
+                                                }
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-3 w-full md:w-auto">
-                                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    {/* Store Filter Dropdown (Locked for Site Assistants, Unlocked for Managers) */}
+                                    <div className={cn(
+                                        "flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700",
+                                        !isGlobalManager && "opacity-90 bg-amber-50/50 border-amber-200 dark:bg-slate-800"
+                                    )}>
                                         <Store className="w-4 h-4 text-slate-500" />
                                         <select
                                             value={selectedStoreId}
-                                            onChange={(e) => setSelectedStoreId(e.target.value)}
-                                            className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+                                            onChange={(e) => isGlobalManager && setSelectedStoreId(e.target.value)}
+                                            disabled={!isGlobalManager}
+                                            className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer disabled:cursor-not-allowed"
                                         >
-                                            <option value="all">All Stores (Global View)</option>
+                                            {isGlobalManager && <option value="all">All Stores (Global View)</option>}
                                             {stores.map((s) => (
                                                 <option key={s.id} value={s.id}>{s.name}</option>
                                             ))}
