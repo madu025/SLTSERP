@@ -48,13 +48,20 @@ export const GET = apiHandler(async (req, params) => {
     const itemStockMap = new Map<string, { item: { id: string; name: string; unitPrice: number | null; minLevel: number; category: string | null; }; totalQty: number }>();
 
     for (const s of stocks) {
-        const qty = s.quantity || 0;
-        const price = s.item?.unitPrice || 0;
+        const qty = Number(s.quantity) || 0;
+        const price = s.item?.unitPrice ? Number(s.item.unitPrice) : 0;
         totalValue += qty * price;
         totalQuantity += qty;
 
         if (s.item) {
-            const existing = itemStockMap.get(s.item.id) || { item: s.item, totalQty: 0 };
+            const parsedItem = {
+                id: s.item.id,
+                name: s.item.name,
+                unitPrice: s.item.unitPrice ? Number(s.item.unitPrice) : null,
+                minLevel: Number(s.item.minLevel) || 0,
+                category: s.item.category
+            };
+            const existing = itemStockMap.get(s.item.id) || { item: parsedItem, totalQty: 0 };
             existing.totalQty += qty;
             itemStockMap.set(s.item.id, existing);
         }
