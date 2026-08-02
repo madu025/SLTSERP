@@ -1,0 +1,104 @@
+enum OfficeAssetCategory {
+  FURNITURE
+  APPLIANCE
+  MACHINERY
+  VEHICLE
+  GENERATOR
+  AC_UNIT
+  FIRE_SAFETY
+  OTHER
+}
+
+enum OfficeAssetStatus {
+  ACTIVE
+  IN_REPAIR
+  RETIRED
+  DISPOSED
+  LOST
+}
+
+model OfficeAsset {
+  id              String               @id @default(cuid())
+  assetNumber     String               @unique
+  serialNumber    String?              @unique
+  name            String
+  category        OfficeAssetCategory
+  status          OfficeAssetStatus    @default(ACTIVE)
+  
+  // Assignment & Location
+  assignedStaffId String?
+  assignedUserId  String?
+  siteOfficeId    String?              // Maps to InventoryStore as a site location
+  locationDetails String?              // specific room/floor
+  
+  // Financial link
+  fixedAssetId    String?              @unique
+  
+  // Metadata & Details
+  brand           String?
+  model           String?
+  purchaseCost    Float?
+  purchaseDate    DateTime?
+  warrantyExpiry  DateTime?
+  metadata        Json?                // Dynamic properties without hardcoding
+  
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relations
+  assignedStaff   Staff?               @relation("AssignedOfficeAssets", fields: [assignedStaffId], references: [id])
+  assignedUser    User?                @relation("AssignedOfficeAssetsToUser", fields: [assignedUserId], references: [id])
+  siteOffice      InventoryStore?      @relation(fields: [siteOfficeId], references: [id])
+  fixedAsset      FixedAsset?          @relation(fields: [fixedAssetId], references: [id])
+  
+  movementLogs    OfficeAssetMovementLog[]
+  maintenanceLogs OfficeAssetMaintenanceLog[]
+
+  @@index([category])
+  @@index([status])
+  @@index([assignedStaffId])
+  @@index([assignedUserId])
+  @@index([siteOfficeId])
+  @@index([fixedAssetId])
+}
+
+model OfficeAssetMovementLog {
+  id              String      @id @default(cuid())
+  assetId         String
+  fromStaffId     String?
+  toStaffId       String?
+  fromSiteId      String?
+  toSiteId        String?
+  action          String      // e.g. "ASSIGNED", "RETURNED", "TRANSFERRED"
+  remarks         String?
+  performedById   String
+  createdAt       DateTime    @default(now())
+
+  asset           OfficeAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  fromStaff       Staff?      @relation("HandedOverFromStaff", fields: [fromStaffId], references: [id])
+  toStaff         Staff?      @relation("HandedOverToStaff", fields: [toStaffId], references: [id])
+  fromSite        InventoryStore? @relation("MovedFromSite", fields: [fromSiteId], references: [id])
+  toSite          InventoryStore? @relation("MovedToSite", fields: [toSiteId], references: [id])
+  performedBy     User        @relation("PerformedAssetMovements", fields: [performedById], references: [id])
+
+  @@index([assetId])
+  @@index([performedById])
+}
+
+model OfficeAssetMaintenanceLog {
+  id              String      @id @default(cuid())
+  assetId         String
+  serviceDate     DateTime
+  nextServiceDate DateTime?
+  vendorName      String?
+  cost            Float?
+  description     String
+  performedById   String
+  createdAt       DateTime    @default(now())
+
+  asset           OfficeAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  performedBy     User        @relation("PerformedAssetMaintenances", fields: [performedById], references: [id])
+
+  @@index([assetId])
+  @@index([serviceDate])
+}

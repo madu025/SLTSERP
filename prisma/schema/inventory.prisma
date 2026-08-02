@@ -15,6 +15,9 @@ model InventoryStore {
   wastageReports  ContractorWastage[]
   grns            GRN[]
   itAssets        ITAsset[]
+  officeAssetMovementsFrom OfficeAssetMovementLog[] @relation("MovedFromSite")
+  officeAssetMovementsTo   OfficeAssetMovementLog[] @relation("MovedToSite")
+  officeAssets    OfficeAsset[]
   batchStocks     InventoryBatchStock[]
   serials         InventoryItemSerial[]
   stocks          InventoryStock[]

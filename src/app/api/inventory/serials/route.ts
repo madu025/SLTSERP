@@ -1,7 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
-import { AppError } from '@/lib/error';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +12,7 @@ export const GET = apiHandler(async (request) => {
     const search = searchParams.get('search') || undefined;
     const staffId = searchParams.get('staffId') || undefined;
 
-    if (!storeId && !itemId && !search && !staffId) {
-        throw AppError.badRequest('MISSING_PARAMS');
-    }
-
+    // We allow empty params to return the latest 100 serials (handled by take: 100 in service)
     const serials = await InventoryService.getAllSerials({ storeId, itemId, search, staffId });
     return serials;
 }, {

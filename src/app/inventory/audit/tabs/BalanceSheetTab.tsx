@@ -246,13 +246,8 @@ export default function BalanceSheetTab() {
     };
 
     return (
-        <div className="erp-page-wrapper flex-row overflow-hidden">
-            
-            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden print:overflow-visible">
-                
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 print:p-0 print:overflow-visible">
-                    <div className="max-w-7xl mx-auto space-y-4 print:space-y-0">
-                        <div className="erp-toolbar p-3 bg-white border-slate-200 rounded-lg shadow-sm print:hidden">
+        <div className="space-y-4">
+            <div className="erp-toolbar p-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm print:hidden">
                             <div className="flex flex-wrap items-end gap-3 w-full">
                                 <div className="flex-1 min-w-[200px]">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Contractor</label>
@@ -550,15 +545,12 @@ export default function BalanceSheetTab() {
                         )}
 
                         {!isLoading && !balanceSheet && selectedContractorId && selectedStoreId && (
-                            <Card className="print:hidden border-slate-200 shadow-sm">
+                            <Card className="print:hidden border-slate-200 dark:border-slate-800 shadow-sm">
                                 <CardContent className="py-12 text-center text-xs text-slate-400 italic">
                                     No balance sheet found. Click &quot;Generate&quot; to create one.
                                 </CardContent>
                             </Card>
                         )}
-                    </div>
-                </div>
-            </main>
         </div>
     );
 }

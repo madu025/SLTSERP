@@ -35,8 +35,13 @@ export class ContractorService {
             select: { contractorId: true, role: true }
         });
         
+        // SEC-2: Prevent IDOR (Insecure Direct Object Reference)
+        // Only internal SLT staff/admins can impersonate/query another contractor via headers.
+        // Contractors themselves are strictly locked to their own assigned contractorId.
+        const isAdmin = currentUser?.role && ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER', 'STORES_MANAGER', 'FIELD_ENGINEER'].includes(currentUser.role);
+
         return {
-            contractorId: providedContractorId || currentUser?.contractorId || null,
+            contractorId: isAdmin && providedContractorId ? providedContractorId : (currentUser?.contractorId || null),
             role: currentUser?.role || null
         };
     }

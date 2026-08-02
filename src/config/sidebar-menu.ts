@@ -512,10 +512,10 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
-                title: 'Asset Custody',
-                path: '/inventory/assets',
+                title: 'Office Assets (EAM)',
+                path: '/eam/assets',
                 icon: HardHat,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'OFFICE_ADMIN']
             },
             {
                 title: 'Wastage Reports',

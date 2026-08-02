@@ -1,6 +1,6 @@
 import { AppError } from '@/lib/error';
 import { primaryClient as prisma } from '@/lib/prisma';
-import { AssetCustodyService } from '../inventory/asset-custody.service';
+
 import { StockRequestService } from '../inventory/stock-request.service';
 import { NexusContextService } from '@/services/ai/nexus-context.service';
 import { NexusClassifierService } from '@/services/ai/nexus-classifier.service';
@@ -158,14 +158,6 @@ export class NexusAgentService {
      * Execute an autonomous action on behalf of the user safely
      */
     static async executeAction(action: NexusAction, userId: string) {
-        if (action.type === 'ASSIGN_CUSTODY') {
-            if (!action.serialNumber || !action.staffId) throw AppError.badRequest("MISSING_PARAMS");
-            return await AssetCustodyService.assignAsset(
-                action.serialNumber,
-                action.staffId,
-                userId
-            );
-        }
 
         if (action.type === 'STOCK_HEAL' || action.type === 'STOCK_TRANSFER') {
             if (!action.itemId || !action.fromStoreId || !action.toStoreId || !action.quantity) {

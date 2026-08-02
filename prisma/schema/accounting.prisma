@@ -161,6 +161,7 @@ model FixedAsset {
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
   depreciationLogs        DepreciationLog[]
+  officeAssets            OfficeAsset[]
 
   @@index([category])
   @@index([status])

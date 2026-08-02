@@ -148,6 +148,10 @@ export class ContractorInventoryService {
             throw new Error(`Material issue '${issueId}' not found.`);
         }
 
+        if (issue.issuedBy && userId && issue.issuedBy === userId) {
+            throw new Error('Maker-Checker Violation (ISO 27001): You cannot accept an issue note that you yourself issued.');
+        }
+
         if (issue.status === 'ACCEPTED') {
             return { success: true, message: 'Issue is already accepted.' };
         }

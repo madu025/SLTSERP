@@ -74,6 +74,9 @@ model User {
   processApprovalLevels         ProcessApprovalLevel[]
   delegatedUser                 User?                         @relation("UserDelegation", fields: [delegatedUserId], references: [id])
   delegates                     User[]                        @relation("UserDelegation")
+  assignedOfficeAssets          OfficeAsset[]                 @relation("AssignedOfficeAssetsToUser")
+  officeAssetMovementsPerformed OfficeAssetMovementLog[]      @relation("PerformedAssetMovements")
+  officeAssetMaintenances       OfficeAssetMaintenanceLog[]   @relation("PerformedAssetMaintenances")
 
   @@index([role])
   @@index([supervisorId])
@@ -170,6 +173,9 @@ model Staff {
   reportsTo            Staff?                @relation("Hierarchy", fields: [reportsToId], references: [id])
   subordinates         Staff[]               @relation("Hierarchy")
   user                 User?
+  assignedOfficeAssets OfficeAsset[]         @relation("AssignedOfficeAssets")
+  officeAssetMovementsFrom OfficeAssetMovementLog[] @relation("HandedOverFromStaff")
+  officeAssetMovementsTo   OfficeAssetMovementLog[] @relation("HandedOverToStaff")
 
   @@index([opmcId])
   @@index([reportsToId])

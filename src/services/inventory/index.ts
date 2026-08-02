@@ -8,7 +8,6 @@ import { WastageService } from './wastage.service';
 import { StockRequestService } from './stock-request.service';
 import { TransactionService } from './transaction.service';
 import { VirtualSwapService } from './virtual-swap.service';
-import { AssetCustodyService } from './asset-custody.service';
 import { ForecastService } from './forecast.service';
 import { ROPService } from './rop.service';
 import { AbcService } from './abc.service';
@@ -110,10 +109,6 @@ export class InventoryService {
     static getInHandStock = VirtualSwapService.getInHandStock;
     static executeBulkSwap = VirtualSwapService.executeBulkSwap;
 
-    // --- ASSET CUSTODY MANAGEMENT ---
-    static assignAsset = AssetCustodyService.assignAsset;
-    static handoverAsset = AssetCustodyService.handoverAsset;
-    static retireAsset = AssetCustodyService.retireAsset;
 
     // --- FORECAST MANAGEMENT ---
     static getMaterialForecast = ForecastService.getMaterialForecast;

@@ -177,7 +177,7 @@ model MRNItem {
 
 model ContractorMaterialIssue {
   id           String                        @id @default(cuid())
-  issueNumber  String?                       @unique
+  issueNumber  String                        @unique
   contractorId String
   storeId      String
   issueDate    DateTime                      @default(now())
@@ -189,7 +189,7 @@ model ContractorMaterialIssue {
   acceptedAt   DateTime?
   acceptedBy   String?
   createdAt    DateTime                      @default(now())
-  contractor   Contractor                    @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
+  contractor   Contractor                    @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Restrict)
   store        InventoryStore                @relation("MaterialIssues", fields: [storeId], references: [id])
   items        ContractorMaterialIssueItem[]
 
@@ -214,7 +214,7 @@ model ContractorMaterialIssueItem {
 
 model ContractorMaterialReturn {
   id             String                         @id @default(cuid())
-  returnNumber   String?
+  returnNumber   String                         @unique
   contractorId   String
   storeId        String
   serviceOrderId String?
@@ -225,7 +225,7 @@ model ContractorMaterialReturn {
   acceptedAt     DateTime?
   status         String                         @default("PENDING")
   createdAt      DateTime                       @default(now())
-  contractor     Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  contractor     Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Restrict)
   serviceOrder   ServiceOrder?                  @relation("SODMaterialReturns", fields: [serviceOrderId], references: [id])
   store          InventoryStore                 @relation("MaterialReturns", fields: [storeId], references: [id])
   items          ContractorMaterialReturnItem[]
@@ -293,7 +293,7 @@ model ContractorMaterialBalanceSheet {
   generatedAt  DateTime                     @default(now())
   generatedBy  String?
   items        ContractorBalanceSheetItem[]
-  contractor   Contractor                   @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)
+  contractor   Contractor                   @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Restrict)
   store        InventoryStore               @relation("BalanceSheets", fields: [storeId], references: [id])
 
   @@unique([contractorId, storeId, month])
