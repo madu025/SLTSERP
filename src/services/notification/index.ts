@@ -226,6 +226,9 @@ export class NotificationService {
         opmcId?: string;
     }) {
         try {
+            // Global executives always receive cross-OPMC alerts
+            const globalRoles = ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'];
+
             const users = await prisma.user.findMany({
                 where: {
                     role: { in: roles as Role[] },
@@ -233,7 +236,9 @@ export class NotificationService {
                         OR: [
                             { accessibleOpmcs: { some: { id: opmcId } } },
                             // Global executive leadership receive alerts across all OPMCs
-                            { role: { in: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'] } } 
+                            { role: { in: globalRoles as Role[] } },
+                            // Stores staff assigned to a store linked to this OPMC
+                            { assignedStore: { opmcs: { some: { id: opmcId } } } }
                         ]
                     } : {})
                 },
@@ -346,15 +351,23 @@ export class NotificationService {
     }
 
     /**
-     * Get aggregated sidebar notification counts in memory
+     * Get aggregated sidebar notification counts in memory.
+     * Accepts optional pre-fetched role/storeId to avoid a redundant DB lookup
+     * when the caller (API route) already has these values from auth headers.
      */
-    static async getSidebarCounts(userId: string) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { role: true, assignedStoreId: true }
-        });
+    static async getSidebarCounts(userId: string, preloadedRole?: string, preloadedStoreId?: string | null) {
+        let userRole = preloadedRole || '';
+        let assignedStoreId = preloadedStoreId !== undefined ? preloadedStoreId : null;
 
-        const userRole = user?.role || '';
+        // Only hit DB if we don't have the role pre-loaded
+        if (!userRole) {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { role: true, assignedStoreId: true }
+            });
+            userRole = String(user?.role || '');
+            assignedStoreId = user?.assignedStoreId ?? null;
+        }
 
         // Real actionable database pending count for material requests & approvals
         let dbMaterialPending = 0;
@@ -368,12 +381,12 @@ export class NotificationService {
                     where: { status: 'PENDING', workflowStage: 'ARM_APPROVAL' }
                 });
             } else if (['STORES_MANAGER', 'STORES_ASSISTANT'].includes(userRole)) {
-                if (user?.assignedStoreId) {
+                if (assignedStoreId) {
                     dbMaterialPending = await prisma.stockRequest.count({
                         where: {
                             OR: [
-                                { fromStoreId: user.assignedStoreId, workflowStage: { in: ['STORES_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'PARTIALLY_ISSUED'] } },
-                                { toStoreId: user.assignedStoreId, workflowStage: { in: ['RECEIVE_PENDING', 'DISPATCHED', 'SUB_STORE_RECEIVE', 'GRN_PENDING'] } }
+                                { fromStoreId: assignedStoreId, workflowStage: { in: ['STORES_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'PARTIALLY_ISSUED'] } },
+                                { toStoreId: assignedStoreId, workflowStage: { in: ['RECEIVE_PENDING', 'DISPATCHED', 'SUB_STORE_RECEIVE', 'GRN_PENDING'] } }
                             ]
                         }
                     });

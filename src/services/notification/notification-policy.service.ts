@@ -91,13 +91,14 @@ export class NotificationPolicyService {
     // --- INVENTORY POLICIES ---
 
     static async notifyLowStock(storeName: string, itemName: string, currentQty: number, minLevel: number) {
+        // Notify both store managers (directly responsible) and project managers (resource planning)
         await NotificationService.notifyByRole({
-            roles: ROLE_GROUPS.PROJECT_MANAGERS,
+            roles: [...ROLE_GROUPS.STORES_MANAGERS, 'OSP_MANAGER', 'HEAD_OF_OSP'],
             title: 'Low Stock Alert',
             message: `Item "${itemName}" in ${storeName} is below minimum level. Current: ${currentQty}, Min: ${minLevel}`,
             type: 'INVENTORY',
             priority: 'HIGH',
-            link: '/admin/inventory/stock'
+            link: '/inventory/stock'
         });
 
         // Trigger real email alerts to active admins/managers
