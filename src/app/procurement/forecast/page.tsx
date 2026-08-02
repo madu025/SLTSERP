@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import RoleGuard from '@/components/RoleGuard';
+import { ROLE_GROUPS } from '@/config/roles';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -218,8 +220,9 @@ export default function ProcurementForecastPage() {
     }).format(totalRecommendedCost);
 
     return (
-        <div className="flex h-screen bg-[#0F172A] text-slate-100 font-sans overflow-hidden">
-            <Sidebar />
+        <RoleGuard allowedRoles={ROLE_GROUPS.PROCUREMENT}>
+            <div className="flex h-screen bg-[#0F172A] text-slate-100 font-sans overflow-hidden">
+                <Sidebar />
             <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar">
                 <Header />
                 <main className="p-6 space-y-6">
@@ -527,5 +530,6 @@ export default function ProcurementForecastPage() {
                 </DialogContent>
             </Dialog>
         </div>
+        </RoleGuard>
     );
 }

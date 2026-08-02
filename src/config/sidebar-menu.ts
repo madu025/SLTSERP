@@ -582,26 +582,26 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Procurement',
         path: '/procurement',
         icon: ShoppingCart,
-        allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES],
+        allowedRoles: [...ROLE_GROUPS.PROCUREMENT],
         permissionId: 'procurement',
         submenu: [
             {
                 title: 'Overview',
                 path: '/procurement',
                 icon: LayoutDashboard,
-                allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES]
+                allowedRoles: [...ROLE_GROUPS.PROCUREMENT]
             },
             {
                 title: 'Purchase Orders',
                 path: '/procurement/orders',
                 icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES]
+                allowedRoles: [...ROLE_GROUPS.PROCUREMENT]
             },
             {
                 title: 'AI Forecast & PO Builder',
                 path: '/procurement/forecast',
                 icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES]
+                allowedRoles: [...ROLE_GROUPS.PROCUREMENT]
             }
         ]
     },

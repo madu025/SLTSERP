@@ -118,7 +118,7 @@ export default function ProcurementOverviewPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'PROCUREMENT_OFFICER', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']}>
+        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'PROCUREMENT_OFFICER', 'OSP_MANAGER', 'FINANCE_MANAGER']}>
             <div className="erp-page-wrapper flex-row overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
