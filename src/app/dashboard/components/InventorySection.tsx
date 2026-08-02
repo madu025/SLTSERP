@@ -17,6 +17,9 @@ interface InventoryStats {
     updatedAt: string;
 }
 
+import Link from 'next/link';
+import { ArrowUpRight, Warehouse } from 'lucide-react';
+
 export default function InventorySection({ rtom = 'ALL' }: { rtom?: string }) {
     const { data, isLoading, error } = useQuery<InventoryStats>({
         queryKey: ['dashboard-inventory', rtom],
@@ -47,7 +50,27 @@ export default function InventorySection({ rtom = 'ALL' }: { rtom?: string }) {
     const pendingGRNs = data?.pendingGRNs || 0;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-4">
+            {/* Direct Link Banner to Stores Command Center */}
+            <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-600/30 rounded-xl border border-blue-400/30">
+                        <Warehouse className="w-5 h-5 text-blue-300" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-black">Stores Manager Operational Command Center</h4>
+                        <p className="text-xs text-blue-200/80">Manage warehouse stock dispatches (MIN), GRN verification, and inventory valuation</p>
+                    </div>
+                </div>
+                <Link
+                    href="/inventory"
+                    className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex-none"
+                >
+                    Open Command Center <ArrowUpRight className="w-4 h-4" />
+                </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="md:col-span-2 border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Critical Stock Shortages</CardTitle>
@@ -108,5 +131,6 @@ export default function InventorySection({ rtom = 'ALL' }: { rtom?: string }) {
                 </Card>
             </div>
         </div>
+    </div>
     );
 }
