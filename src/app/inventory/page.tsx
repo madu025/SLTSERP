@@ -87,6 +87,11 @@ export default function StoresManagerDashboardPage() {
         queryFn: async () => (await fetch('/api/inventory/stores')).json()
     });
 
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // Dynamic Role-based Store Scope Detection
     const isGlobalManager = hasRole(user?.role, [
         'SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER'
@@ -147,7 +152,7 @@ export default function StoresManagerDashboardPage() {
                                                 <h1 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                                                     Stores Operations Dashboard
                                                 </h1>
-                                                {!isGlobalManager && (
+                                                {mounted && !isGlobalManager && (
                                                     <Badge variant="outline" className="text-[10px] font-bold border-amber-300 bg-amber-50 text-amber-800 flex items-center gap-1">
                                                         <Lock className="w-3 h-3" /> Site Store Scope
                                                     </Badge>
