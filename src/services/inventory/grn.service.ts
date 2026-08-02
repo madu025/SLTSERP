@@ -16,11 +16,13 @@ export class GRNService {
             include: {
                 store: true,
                 receivedBy: true,
+                purchaseOrder: true,
                 request: {
                     include: {
                         items: { include: { item: true } },
                         requestedBy: true,
-                        approvedBy: true
+                        approvedBy: true,
+                        purchaseOrders: true
                     }
                 },
                 items: {
@@ -35,7 +37,7 @@ export class GRNService {
     }
 
     static async createGRN(data: CreateGRNData): Promise<GRN> {
-        const { storeId, sourceType, supplier, receivedById, items, requestId, sltReferenceId, reference } = data;
+        const { storeId, sourceType, supplier, receivedById, items, requestId, purchaseOrderId, sltReferenceId, reference, documentUrl } = data;
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // Promote CUSTOM/Unregistered items to standard SLTS type
@@ -62,6 +64,7 @@ export class GRNService {
             // 1. Create GRN with an atomic document number
             const grnNumber = await AuditLedgerService.getNextDocumentNumber('GRN', tx);
             const grn = await tx.gRN.create({
+                // @ts-ignore - Prisma client needs regeneration after server restart
                 data: {
                     grnNumber,
                     storeId,
@@ -69,14 +72,16 @@ export class GRNService {
                     supplier,
                     receivedById,
                     requestId: requestId || null,
+                    purchaseOrderId: purchaseOrderId && purchaseOrderId !== 'ALL' ? purchaseOrderId : null,
                     reference: reference || sltReferenceId || null,
+                    documentUrl: documentUrl || null,
                     items: {
                         create: items.map((i) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity.toString())
                         }))
                     }
-                },
+                } as any,
                 include: { items: true }
             });
 

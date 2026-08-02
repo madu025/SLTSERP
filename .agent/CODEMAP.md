@@ -440,6 +440,14 @@
     * `updateTaskStatus(taskId: string, status: string, progress: number = 0): any`
     * `submitApproval(approvalId: string, status: string, userId: string, comments?: string): any`
 
+### [office-asset.service.ts](src/services/eam/office-asset.service.ts)
+* **Class**: `OfficeAssetService`
+  * **Methods**:
+    * `getAllAssets(): any`
+    * `getAssetById(id: string): any`
+    * `createAsset(data: CreateOfficeAssetDTO, createdById: string): any`
+    * `moveAsset(data: MoveOfficeAssetDTO): any`
+
 ### [accounting-posting-registry.service.ts](src/services/finance/accounting-posting-registry.service.ts)
 * **Class**: `AccountingPostingRegistry`
   * **Methods**:
@@ -1454,13 +1462,6 @@
         discrepancies: AuditDiscrepancy[];
     }>`
 
-### [asset-custody.service.ts](src/services/inventory/asset-custody.service.ts)
-* **Class**: `AssetCustodyService`
-  * **Methods**:
-    * `assignAsset(serialNumber: string, staffId: string, userId: string, tx?: TransactionClient): any`
-    * `handoverAsset(serialNumber: string, fromStaffId: string, toStaffId: string, userId: string, tx?: TransactionClient): any`
-    * `retireAsset(serialNumber: string, status: 'IN_STORE' | 'FAULTY', storeId: string | null, userId: string, tx?: TransactionClient): any`
-
 ### [audit-ledger.service.ts](src/services/inventory/audit-ledger.service.ts)
 * **Class**: `AuditLedgerService`
   * **Methods**:
@@ -1582,25 +1583,6 @@
 * **Class**: `MaterialExcelImportService`
   * **Methods**:
     * `importMaterialReport(filePath: string, opmcId: string | null = null, createdById: string = 'system-import'): Promise<ImportResult>`
-
-### [material.service.ts](src/services/inventory/material.service.ts)
-* **Class**: `MaterialService`
-  * **Methods**:
-    * `getReconciliation(params: {
-        contractorId: string;
-        storeId: string;
-        month: string; // "2025-01"
-    }): any`
-    * `issueMaterials(data: {
-        contractorId: string;
-        storeId: string;
-        month: string;
-        items: { itemId: string; quantity: number; unit: string }[];
-        issuedBy?: string;
-    }, userId?: string): any`
-    * `generateBalanceSheet(contractorId: string, storeId: string, month: string, userId?: string): any`
-    * `getBalanceSheet(contractorId: string, storeId: string, month: string): any`
-    * `previewBalanceSheet(contractorId: string, storeId: string, month: string): any`
 
 ### [mrn.service.ts](src/services/inventory/mrn.service.ts)
 * **Class**: `MRNService`
@@ -1745,6 +1727,14 @@
         userId: string;
     }): any`
     * `generateReportData(params: { contractorId: string; storeId: string; month: string }): any`
+    * `getReconciliation(params: {
+        contractorId: string;
+        storeId: string;
+        month: string; // "2025-01"
+    }): any`
+    * `generateBalanceSheet(contractorId: string, storeId: string, month: string, userId?: string): any`
+    * `getBalanceSheet(contractorId: string, storeId: string, month: string): any`
+    * `previewBalanceSheet(contractorId: string, storeId: string, month: string): any`
 
 ### [virtual-swap.service.ts](src/services/inventory/virtual-swap.service.ts)
 * **Class**: `VirtualSwapService`
@@ -3045,6 +3035,7 @@
 | `/api/dashboard/projects` | [route.ts](src/app/api/dashboard/projects/route.ts) | `GET` |
 | `/api/dashboard/stats` | [route.ts](src/app/api/dashboard/stats/route.ts) | `GET` |
 | `/api/drivers/[id]/trips` | [route.ts](src/app/api/drivers/[id]/trips/route.ts) | `GET` |
+| `/api/eam/assets` | [route.ts](src/app/api/eam/assets/route.ts) | `GET`, `POST` |
 | `/api/files/contractors/[filename]` | [route.ts](src/app/api/files/contractors/[filename]/route.ts) | `GET` |
 | `/api/finance/ap/aging` | [route.ts](src/app/api/finance/ap/aging/route.ts) | `GET` |
 | `/api/finance/ar/aging` | [route.ts](src/app/api/finance/ar/aging/route.ts) | `GET` |
@@ -3168,9 +3159,6 @@
 | `/api/inventory/requests` | [route.ts](src/app/api/inventory/requests/route.ts) | `GET`, `POST`, `PATCH` |
 | `/api/inventory/returns` | [route.ts](src/app/api/inventory/returns/route.ts) | `POST`, `GET` |
 | `/api/inventory/rop` | [route.ts](src/app/api/inventory/rop/route.ts) | `POST` |
-| `/api/inventory/serials/assign` | [route.ts](src/app/api/inventory/serials/assign/route.ts) | `POST` |
-| `/api/inventory/serials/handover` | [route.ts](src/app/api/inventory/serials/handover/route.ts) | `POST` |
-| `/api/inventory/serials/retire` | [route.ts](src/app/api/inventory/serials/retire/route.ts) | `POST` |
 | `/api/inventory/serials` | [route.ts](src/app/api/inventory/serials/route.ts) | `GET` |
 | `/api/inventory/stock` | [route.ts](src/app/api/inventory/stock/route.ts) | `GET`, `POST` |
 | `/api/inventory/stores/low-stock` | [route.ts](src/app/api/inventory/stores/low-stock/route.ts) | `GET` |
@@ -3494,6 +3482,7 @@
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `depreciationLogs: DepreciationLog[]`
+  * `officeAssets: OfficeAsset[]`
 
 ### [DepreciationLog](prisma/schema/accounting.prisma)
 * **Fields**:
@@ -4499,6 +4488,9 @@
   * `wastageReports: ContractorWastage[]`
   * `grns: GRN[]`
   * `itAssets: ITAsset[]`
+  * `officeAssetMovementsFrom: OfficeAssetMovementLog[]` `[@relation("MovedFromSite")]`
+  * `officeAssetMovementsTo: OfficeAssetMovementLog[]` `[@relation("MovedToSite")]`
+  * `officeAssets: OfficeAsset[]`
   * `batchStocks: InventoryBatchStock[]`
   * `serials: InventoryItemSerial[]`
   * `stocks: InventoryStock[]`
@@ -4825,6 +4817,67 @@
   * `link: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+
+### [OfficeAsset](prisma/schema/office-asset.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `assetNumber: String` `[@unique]`
+  * `serialNumber: String?` `[@unique]`
+  * `name: String`
+  * `category: OfficeAssetCategory`
+  * `status: OfficeAssetStatus` `[@default(ACTIVE)]`
+  * `assignedStaffId: String?`
+  * `assignedUserId: String?`
+  * `siteOfficeId: String?` `[// Maps to InventoryStore as a site location]`
+  * `locationDetails: String?` `[// specific room/floor]`
+  * `fixedAssetId: String?` `[@unique]`
+  * `brand: String?`
+  * `model: String?`
+  * `purchaseCost: Float?`
+  * `purchaseDate: DateTime?`
+  * `warrantyExpiry: DateTime?`
+  * `metadata: Json?` `[// Dynamic properties without hardcoding]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+  * `assignedStaff: Staff?` `[@relation("AssignedOfficeAssets", fields: [assignedStaffId], references: [id])]`
+  * `assignedUser: User?` `[@relation("AssignedOfficeAssetsToUser", fields: [assignedUserId], references: [id])]`
+  * `siteOffice: InventoryStore?` `[@relation(fields: [siteOfficeId], references: [id])]`
+  * `fixedAsset: FixedAsset?` `[@relation(fields: [fixedAssetId], references: [id])]`
+  * `movementLogs: OfficeAssetMovementLog[]`
+  * `maintenanceLogs: OfficeAssetMaintenanceLog[]`
+
+### [OfficeAssetMovementLog](prisma/schema/office-asset.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `assetId: String`
+  * `fromStaffId: String?`
+  * `toStaffId: String?`
+  * `fromSiteId: String?`
+  * `toSiteId: String?`
+  * `action: String` `[// e.g. "ASSIGNED", "RETURNED", "TRANSFERRED"]`
+  * `remarks: String?`
+  * `performedById: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `asset: OfficeAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
+  * `fromStaff: Staff?` `[@relation("HandedOverFromStaff", fields: [fromStaffId], references: [id])]`
+  * `toStaff: Staff?` `[@relation("HandedOverToStaff", fields: [toStaffId], references: [id])]`
+  * `fromSite: InventoryStore?` `[@relation("MovedFromSite", fields: [fromSiteId], references: [id])]`
+  * `toSite: InventoryStore?` `[@relation("MovedToSite", fields: [toSiteId], references: [id])]`
+  * `performedBy: User` `[@relation("PerformedAssetMovements", fields: [performedById], references: [id])]`
+
+### [OfficeAssetMaintenanceLog](prisma/schema/office-asset.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `assetId: String`
+  * `serviceDate: DateTime`
+  * `nextServiceDate: DateTime?`
+  * `vendorName: String?`
+  * `cost: Float?`
+  * `description: String`
+  * `performedById: String`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `asset: OfficeAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
+  * `performedBy: User` `[@relation("PerformedAssetMaintenances", fields: [performedById], references: [id])]`
 
 ### [OPMC](prisma/schema/opmc.prisma)
 * **Fields**:
@@ -6730,9 +6783,6 @@
   * `maintenanceMonths: String?`
   * `workflowStage: String` `[@default("REQUEST")]`
   * `procurementStatus: String` `[@default("PENDING")]`
-  * `poNumber: String?`
-  * `vendor: String?`
-  * `expectedDelivery: DateTime?`
   * `irNumber: String?`
   * `isCoveringPO: Boolean` `[@default(false)]`
   * `armAction: String?`
@@ -6765,6 +6815,7 @@
   * `storesManagerApprovedBy: User?` `[@relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])]`
   * `toStore: InventoryStore?` `[@relation("RequestTarget", fields: [toStoreId], references: [id])]`
   * `items: StockRequestItem[]`
+  * `purchaseOrders: PurchaseOrder[]`
 
 ### [StockRequestItem](prisma/schema/stock-management.prisma)
 * **Fields**:
@@ -6782,6 +6833,7 @@
   * `createdAt: DateTime` `[@default(now())]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `request: StockRequest` `[@relation(fields: [requestId], references: [id], onDelete: Cascade)]`
+  * `purchaseOrderItems: PurchaseOrderItem[]`
 
 ### [GRN](prisma/schema/stock-management.prisma)
 * **Fields**:
@@ -6797,6 +6849,8 @@
   * `updatedAt: DateTime` `[@updatedAt]`
   * `receivedBy: User` `[@relation(fields: [receivedById], references: [id])]`
   * `request: StockRequest?` `[@relation(fields: [requestId], references: [id])]`
+  * `purchaseOrderId: String?`
+  * `purchaseOrder: PurchaseOrder?` `[@relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
   * `items: GRNItem[]`
   * `batches: InventoryBatch[]`
@@ -6847,7 +6901,7 @@
 ### [ContractorMaterialIssue](prisma/schema/stock-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `issueNumber: String?` `[@unique]`
+  * `issueNumber: String` `[@unique]`
   * `contractorId: String`
   * `storeId: String`
   * `issueDate: DateTime` `[@default(now())]`
@@ -6859,7 +6913,7 @@
   * `acceptedAt: DateTime?`
   * `acceptedBy: String?`
   * `createdAt: DateTime` `[@default(now())]`
-  * `contractor: Contractor` `[@relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)]`
+  * `contractor: Contractor` `[@relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Restrict)]`
   * `store: InventoryStore` `[@relation("MaterialIssues", fields: [storeId], references: [id])]`
   * `items: ContractorMaterialIssueItem[]`
 
@@ -6876,7 +6930,7 @@
 ### [ContractorMaterialReturn](prisma/schema/stock-management.prisma)
 * **Fields**:
   * `id: String` `[@id @default(cuid())]`
-  * `returnNumber: String?`
+  * `returnNumber: String` `[@unique]`
   * `contractorId: String`
   * `storeId: String`
   * `serviceOrderId: String?`
@@ -6887,7 +6941,7 @@
   * `acceptedAt: DateTime?`
   * `status: String` `[@default("PENDING")]`
   * `createdAt: DateTime` `[@default(now())]`
-  * `contractor: Contractor` `[@relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)]`
+  * `contractor: Contractor` `[@relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Restrict)]`
   * `serviceOrder: ServiceOrder?` `[@relation("SODMaterialReturns", fields: [serviceOrderId], references: [id])]`
   * `store: InventoryStore` `[@relation("MaterialReturns", fields: [storeId], references: [id])]`
   * `items: ContractorMaterialReturnItem[]`
@@ -6942,7 +6996,7 @@
   * `generatedAt: DateTime` `[@default(now())]`
   * `generatedBy: String?`
   * `items: ContractorBalanceSheetItem[]`
-  * `contractor: Contractor` `[@relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)]`
+  * `contractor: Contractor` `[@relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Restrict)]`
   * `store: InventoryStore` `[@relation("BalanceSheets", fields: [storeId], references: [id])]`
 
 ### [ContractorBalanceSheetItem](prisma/schema/stock-management.prisma)
@@ -7035,6 +7089,32 @@
   * `reference: String?`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
+
+### [PurchaseOrder](prisma/schema/stock-management.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `poNumber: String` `[@unique]`
+  * `vendor: String`
+  * `expectedDelivery: DateTime?`
+  * `status: String` `[@default("PENDING") // PENDING, APPROVED, ISSUED, COMPLETED]`
+  * `stockRequestId: String`
+  * `stockRequest: StockRequest` `[@relation(fields: [stockRequestId], references: [id], onDelete: Restrict)]`
+  * `items: PurchaseOrderItem[]`
+  * `grns: GRN[]`
+  * `createdAt: DateTime` `[@default(now())]`
+  * `updatedAt: DateTime` `[@updatedAt]`
+
+### [PurchaseOrderItem](prisma/schema/stock-management.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(cuid())]`
+  * `quantity: Float`
+  * `unitPrice: Float` `[@default(0.0)]`
+  * `taxAmount: Float` `[@default(0.0)]`
+  * `totalAmount: Float` `[@default(0.0)]`
+  * `purchaseOrderId: String`
+  * `purchaseOrder: PurchaseOrder` `[@relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)]`
+  * `stockRequestItemId: String`
+  * `stockRequestItem: StockRequestItem` `[@relation(fields: [stockRequestItemId], references: [id], onDelete: Restrict)]`
 
 ### [SurveyRequest](prisma/schema/survey.prisma)
 * **Fields**:
@@ -7464,6 +7544,9 @@
   * `processApprovalLevels: ProcessApprovalLevel[]`
   * `delegatedUser: User?` `[@relation("UserDelegation", fields: [delegatedUserId], references: [id])]`
   * `delegates: User[]` `[@relation("UserDelegation")]`
+  * `assignedOfficeAssets: OfficeAsset[]` `[@relation("AssignedOfficeAssetsToUser")]`
+  * `officeAssetMovementsPerformed: OfficeAssetMovementLog[]` `[@relation("PerformedAssetMovements")]`
+  * `officeAssetMaintenances: OfficeAssetMaintenanceLog[]` `[@relation("PerformedAssetMaintenances")]`
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:
@@ -7540,6 +7623,9 @@
   * `reportsTo: Staff?` `[@relation("Hierarchy", fields: [reportsToId], references: [id])]`
   * `subordinates: Staff[]` `[@relation("Hierarchy")]`
   * `user: User?`
+  * `assignedOfficeAssets: OfficeAsset[]` `[@relation("AssignedOfficeAssets")]`
+  * `officeAssetMovementsFrom: OfficeAssetMovementLog[]` `[@relation("HandedOverFromStaff")]`
+  * `officeAssetMovementsTo: OfficeAssetMovementLog[]` `[@relation("HandedOverToStaff")]`
 
 ### [NotificationPreference](prisma/schema/user.prisma)
 * **Fields**:
@@ -8953,6 +9039,7 @@
   * `requestId: String?`
   * `receivedById: String`
   * `reference: String?`
+  * `documentUrl: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `receivedBy: User` `[@relation(fields: [receivedById], references: [id])]`

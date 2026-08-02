@@ -93,6 +93,14 @@ interface CompletedGRN {
     createdAt: string;
     request?: {
         requestNr: string;
+        poNumber?: string;
+        vendor?: string;
+        purchaseOrders?: {
+            poNumber: string;
+            vendor: string | null;
+        }[];
+    } | null;
+    purchaseOrder?: {
         poNumber: string;
         vendor: string | null;
     } | null;
@@ -166,7 +174,6 @@ export default function GRNPage() {
 
     const isLoading = activeTab === 'READY' ? isLoadingRequests : isLoadingCompleted;
 
-    // Create GRN mutation
     const createGRNMutation = useMutation({
         mutationFn: async (data: {
             storeId: string;
@@ -174,7 +181,10 @@ export default function GRNPage() {
             supplier?: string;
             receivedById: string;
             requestId: string;
+            purchaseOrderId?: string;
             sltReferenceId: string | null;
+            reference?: string;
+            documentUrl?: string;
             items: Array<{ itemId: string; quantity: number; serials?: string[] }>;
         }) => {
             return await createGRN(data);
@@ -297,6 +307,7 @@ export default function GRNPage() {
             supplier: selectedRequest.vendor,
             receivedById: user.id,
             requestId: selectedRequest.id,
+            purchaseOrderId: selectedPOId !== 'ALL' ? selectedPOId : undefined,
             sltReferenceId: selectedRequest.irNumber || null,
             reference: invoiceNumber,
             items: receivedItems.map(item => ({
@@ -327,12 +338,6 @@ export default function GRNPage() {
                 updated[index].serials = (updated[index].serials || []).slice(0, newSize);
             }
         }
-        setReceivedItems(updated);
-    };
-
-    const updateItemRemarks = (index: number, value: string) => {
-        const updated = [...receivedItems];
-        updated[index].remarks = value;
         setReceivedItems(updated);
     };
 
@@ -429,11 +434,28 @@ export default function GRNPage() {
                                                         <td className="px-4 py-1.5 font-bold text-slate-800">{req.requestNr}</td>
                                                         <td className="px-3 py-1.5">
                                                             <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-slate-200 text-slate-600 bg-white">
-                                                                {req.poNumber || '-'}
+                                                                {(req.poNumber && req.poNumber !== 'N/A' && req.poNumber !== '-') ? req.poNumber : (req.purchaseOrders?.length === 1 ? req.purchaseOrders[0].poNumber : (req.purchaseOrders && req.purchaseOrders.length > 1 ? req.purchaseOrders.map(p => p.poNumber).filter(Boolean).join(', ') : '-'))}
                                                             </Badge>
                                                         </td>
-                                                        <td className="px-3 py-1.5 text-slate-700">{req.vendor || '-'}</td>
-                                                        <td className="px-3 py-1.5 text-center font-semibold text-slate-700">{req.items?.length || 0}</td>
+                                                        <td className="px-3 py-1.5 text-slate-700 truncate max-w-[150px]">
+                                                            {(req.vendor && req.vendor !== 'N/A' && req.vendor !== '-') ? String(req.vendor) : (req.purchaseOrders?.length ? Array.from(new Set(req.purchaseOrders.map(p => (typeof p.vendor === 'object' && p.vendor !== null) ? (p.vendor as unknown as { name?: string }).name : p.vendor).filter(Boolean))).join(', ') || '-' : '-')}
+                                                        </td>
+                                                        <td className="px-3 py-1.5 min-w-[120px]">
+                                                            <div className="flex flex-col gap-1 w-full max-w-[140px]">
+                                                                <div className="flex justify-between items-center text-[9px] font-bold">
+                                                                    <span className="text-slate-500">{req.items?.reduce((acc, item) => acc + (item.receivedQty || 0), 0) || 0} / {req.items?.reduce((acc, item) => acc + (item.requestedQty || 0), 0) || 0} Items</span>
+                                                                    <span className="text-blue-600">
+                                                                        {Math.round(((req.items?.reduce((acc, item) => acc + (item.receivedQty || 0), 0) || 0) / (req.items?.reduce((acc, item) => acc + (item.requestedQty || 0), 0) || 1)) * 100)}%
+                                                                    </span>
+                                                                </div>
+                                                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div 
+                                                                        className="h-full bg-blue-500 rounded-full" 
+                                                                        style={{ width: `${Math.min(100, Math.round(((req.items?.reduce((acc, item) => acc + (item.receivedQty || 0), 0) || 0) / (req.items?.reduce((acc, item) => acc + (item.requestedQty || 0), 0) || 1)) * 100))}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </td>
                                                         <td className="px-3 py-1.5 text-slate-500">
                                                             {req.expectedDelivery
                                                                 ? new Date(req.expectedDelivery).toLocaleDateString()
@@ -473,11 +495,17 @@ export default function GRNPage() {
                                                         <td className="px-4 py-1.5 font-bold text-slate-800">{grn.grnNumber}</td>
                                                         <td className="px-3 py-1.5">
                                                             <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-slate-200 text-slate-600 bg-white">
-                                                                {grn.request?.poNumber || '-'}
+                                                                {grn.purchaseOrder?.poNumber || (grn.request ? ((grn.request.poNumber && grn.request.poNumber !== 'N/A' && grn.request.poNumber !== '-') ? grn.request.poNumber : (grn.request.purchaseOrders?.length === 1 ? grn.request.purchaseOrders[0].poNumber : (grn.request.purchaseOrders && grn.request.purchaseOrders.length > 1 ? grn.request.purchaseOrders.map(p => p.poNumber).filter(Boolean).join(', ') : '-'))) : '-')}
                                                             </Badge>
                                                         </td>
-                                                        <td className="px-3 py-1.5 text-slate-700">{grn.supplier || grn.request?.vendor || '-'}</td>
-                                                        <td className="px-3 py-1.5 text-center font-semibold text-slate-700">{grn.items?.length || 0}</td>
+                                                        <td className="px-3 py-1.5 text-slate-700 truncate max-w-[150px]">
+                                                            {grn.supplier && grn.supplier !== 'N/A' && grn.supplier !== '-' ? grn.supplier : (grn.purchaseOrder?.vendor ? ((typeof grn.purchaseOrder.vendor === 'object' && grn.purchaseOrder.vendor !== null) ? (grn.purchaseOrder.vendor as unknown as { name?: string }).name : String(grn.purchaseOrder.vendor)) : (grn.request ? ((grn.request.vendor && grn.request.vendor !== 'N/A' && grn.request.vendor !== '-') ? String(grn.request.vendor) : (grn.request.purchaseOrders?.length ? Array.from(new Set(grn.request.purchaseOrders.map(p => (typeof p.vendor === 'object' && p.vendor !== null) ? (p.vendor as unknown as { name?: string }).name : p.vendor).filter(Boolean))).join(', ') || '-' : '-')) : '-'))}
+                                                        </td>
+                                                        <td className="px-3 py-1.5 text-center font-semibold text-slate-700">
+                                                            <div className="flex items-center justify-center gap-1.5 text-[10px]">
+                                                                <span className="bg-slate-100 text-slate-600 px-1.5 rounded-sm">{grn.items?.length || 0} Items</span>
+                                                            </div>
+                                                        </td>
                                                         <td className="px-3 py-1.5 text-slate-500">
                                                             {new Date(grn.createdAt).toLocaleDateString()}
                                                         </td>
@@ -883,7 +911,7 @@ export default function GRNPage() {
                                         {selectedRequest.requestNr}
                                     </h2>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                                        PO Reference: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{selectedRequest.poNumber || 'N/A'}</span>
+                                        PO Reference: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{(selectedRequest.poNumber && selectedRequest.poNumber !== 'N/A' && selectedRequest.poNumber !== '-') ? selectedRequest.poNumber : (selectedRequest.purchaseOrders?.length === 1 ? selectedRequest.purchaseOrders[0].poNumber : (selectedRequest.purchaseOrders && selectedRequest.purchaseOrders.length > 1 ? selectedRequest.purchaseOrders.map(p => p.poNumber).filter(Boolean).join(', ') : 'N/A'))}</span>
                                     </p>
                                 </div>
                             </div>
@@ -911,7 +939,7 @@ export default function GRNPage() {
                                                 <ClipboardList className="w-4 h-4 text-slate-400" />
                                                 <div className="min-w-0">
                                                     <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.poNumber || 'N/A'}</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{(selectedRequest.poNumber && selectedRequest.poNumber !== 'N/A' && selectedRequest.poNumber !== '-') ? selectedRequest.poNumber : (selectedRequest.purchaseOrders?.length === 1 ? selectedRequest.purchaseOrders[0].poNumber : (selectedRequest.purchaseOrders && selectedRequest.purchaseOrders.length > 1 ? selectedRequest.purchaseOrders.map(p => p.poNumber).filter(Boolean).join(', ') : 'N/A'))}</span>
                                                 </div>
                                             </div>
                                             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
@@ -919,13 +947,6 @@ export default function GRNPage() {
                                                 <div className="min-w-0">
                                                     <span className="text-[9px] font-bold text-slate-400 block uppercase">Invoice / Del. Note</span>
                                                     <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.reference || 'N/A'}</span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
-                                                <Building2 className="w-4 h-4 text-slate-400" />
-                                                <div className="min-w-0">
-                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier</span>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.vendor || 'N/A'}</span>
                                                 </div>
                                             </div>
                                             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
@@ -940,7 +961,7 @@ export default function GRNPage() {
                                                 <div className="min-w-0">
                                                     <span className="text-[9px] font-bold text-slate-400 block uppercase">Intake Status</span>
                                                     <Badge className={cn(
-                                                        "text-[9px] font-bold px-2 py-0 rounded",
+                                                        "text-[9px] font-bold px-2 py-0 rounded mt-0.5",
                                                         activeTab === 'COMPLETED' ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
                                                     )}>
                                                         {activeTab === 'COMPLETED' ? 'COMPLETED' : 'AWAITING VERIFICATION'}
@@ -954,6 +975,13 @@ export default function GRNPage() {
                                                     <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">
                                                         {selectedRequest.expectedDelivery ? new Date(selectedRequest.expectedDelivery).toLocaleDateString() : 'Immediate'}
                                                     </span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5 col-span-2 lg:col-span-3">
+                                                <Building2 className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{(selectedRequest.vendor && selectedRequest.vendor !== 'N/A' && selectedRequest.vendor !== '-') ? String(selectedRequest.vendor) : (selectedRequest.purchaseOrders?.length ? Array.from(new Set(selectedRequest.purchaseOrders.map(p => (typeof p.vendor === 'object' && p.vendor !== null) ? (p.vendor as unknown as { name?: string }).name : p.vendor).filter(Boolean))).join(', ') || 'N/A' : 'N/A')}</span>
                                                 </div>
                                             </div>
                                         </div>

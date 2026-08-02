@@ -32,6 +32,8 @@ export const grnSchema = z.object({
     supplier: z.string().optional(),
     sltReferenceId: z.string().optional(),
     requestId: z.string().optional(),
+    purchaseOrderId: z.string().optional(),
+    documentUrl: z.string().optional(),
     notes: z.string().optional(),
     items: z.array(z.object({
         itemId: z.string().min(1),

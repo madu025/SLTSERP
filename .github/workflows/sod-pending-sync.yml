@@ -17,13 +17,23 @@ jobs:
         run: |
           echo "Triggering SOD Pending Sync at $(date -u)"
           
-          echo "Syncing Batch 1 (OPMCs 0-15)..."
-          curl -s -f "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=0&limit=15" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" || echo "Batch 1 completed with status"
-          
-          echo "Syncing Batch 2 (OPMCs 15-30)..."
-          curl -s -f "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=15&limit=15" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" || echo "Batch 2 completed with status"
-          
-          echo "Syncing Batch 3 (OPMCs 30-45)..."
-          curl -s -f "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=30&limit=15" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" || echo "Batch 3 completed with status"
+          run_batch() {
+            local BATCH_NAME=$1
+            local OFFSET=$2
+            echo "Syncing $BATCH_NAME (OPMCs $OFFSET to $(($OFFSET + 15)))..."
+            RESPONSE=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X GET -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "https://sltserp.vercel.app/api/cron/sync-sod?secret=${{ secrets.CRON_SECRET }}&offset=$OFFSET&limit=15")
+            
+            if [ "$RESPONSE" != "200" ]; then
+              echo "ERROR: $BATCH_NAME failed with HTTP $RESPONSE"
+              cat /tmp/resp.json
+              exit 1
+            fi
+            echo "$BATCH_NAME completed successfully."
+          }
+
+          run_batch "Batch 1" 0
+          run_batch "Batch 2" 15
+          run_batch "Batch 3" 30
           
           echo "All SOD Sync Batches completed successfully."
+

@@ -64,6 +64,7 @@ export interface CreateGRNData {
     purchaseOrderId?: string;
     sltReferenceId?: string;
     reference?: string;
+    documentUrl?: string;
 }
 
 export interface StockIssueRequest {
