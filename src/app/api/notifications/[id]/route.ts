@@ -10,9 +10,13 @@ export const PATCH = apiHandler(async (_req, params) => {
     audit: { action: 'MARK_NOTIFICATION_AS_READ', entity: 'Notification' }
 });
 
-export const DELETE = apiHandler(async (_req, params) => {
+export const DELETE = apiHandler(async (req, params) => {
     const { id } = params;
-    await NotificationService.delete(id);
+    const userId = req.headers.get("x-user-id");
+    if (!userId) {
+        return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    await NotificationService.delete(id, userId);
     return Response.json({ success: true });
 }, {
     audit: { action: 'DELETE_NOTIFICATION', entity: 'Notification' }

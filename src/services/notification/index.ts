@@ -1,4 +1,3 @@
-
 import { NotificationRepository } from '@/repositories/notification.repository';
 import { emitNotification } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
@@ -8,6 +7,18 @@ import { notificationsQueue } from '@/lib/queue';
 
 export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type NotificationType = 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE' | 'HELPDESK';
+
+// Utility to create a deterministic hash from strings for deduplication fallback
+const getDedupHash = (title: string, message: string) => {
+    let hash = 0;
+    const str = title + message;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16);
+};
 
 export class NotificationService {
     /**
@@ -39,31 +50,18 @@ export class NotificationService {
             }
 
             // Anti-spam: skip if identical notification for the SAME entity exists within last 5 minutes
-            const entityId = metadata?.requestId || metadata?.contractorId || metadata?.serviceOrderId || metadata?.id || Date.now();
+            // Fix #3: Use hash of content as fallback instead of Date.now() which defeats deduplication
+            const entityId = metadata?.requestId || metadata?.contractorId || metadata?.serviceOrderId || metadata?.id || getDedupHash(title, message);
             const dedupeKey = `notif_dedupe:${userId}:${title}:${link || 'nolink'}:${entityId}`;
-            // SETNX returns 1 if set (meaning it didn't exist), or null/0 if it already existed
-            const isNew = await redis.set(dedupeKey, '1', 'EX', 300, 'NX').catch(() => '1'); // Fallback if Redis offline
-            if (!isNew) {
+            
+            // Fix #7: ioredis set with 'NX' returns 'OK' on success, null if key already exists
+            const isNew = await redis.set(dedupeKey, '1', 'EX', 300, 'NX').catch(() => 'OK'); // Fallback if Redis offline
+            if (isNew !== 'OK') {
                 return null; // Deduplicated by Redis O(1) cache
             }
 
-            // Limit to 50 notifications per user (FIFO)
-            const count = await NotificationRepository.count({ userId });
-            if (count >= 50) {
-                // Find and delete excess notifications
-                const excess = await NotificationRepository.findMany({
-                    where: { userId },
-                    orderBy: { createdAt: 'asc' },
-                    take: (count - 50) + 1,
-                    select: { id: true }
-                });
-
-                if (excess.length > 0) {
-                    await NotificationRepository.deleteMany({
-                        id: { in: excess.map((n: { id: string }) => n.id) }
-                    });
-                }
-            }
+            // Fix #6: Offload FIFO cleanup to background worker to prevent race conditions and DB stalls on API thread
+            notificationsQueue.add('cleanup-fifo', { userId }, { removeOnComplete: true, removeOnFail: 5 }).catch(() => {});
 
             const notification = await NotificationRepository.create({
                 userId,
@@ -123,43 +121,9 @@ export class NotificationService {
         metadata?: Record<string, unknown>;
     }) {
         try {
-            // Check notification counts in bulk using GroupBy
-            const counts = await prisma.notification.groupBy({
-                by: ['userId'],
-                where: { userId: { in: userIds } },
-                _count: { _all: true }
-            });
-
-            const countMap = new Map<string, number>();
-            for (const c of counts) {
-                countMap.set(c.userId, c._count._all);
-            }
-
-            const usersWithExcess = userIds.filter(userId => (countMap.get(userId) || 0) >= 50);
-
-            if (usersWithExcess.length > 0) {
-                // Fire and forget the deletion loop to avoid blocking the broadcast
-                Promise.resolve().then(async () => {
-                    for (const userId of usersWithExcess) {
-                        try {
-                            const currentCount = countMap.get(userId) || 0;
-                            const deleteCount = (currentCount - 50) + 1;
-                            const excess = await NotificationRepository.findMany({
-                                where: { userId },
-                                orderBy: { createdAt: 'asc' },
-                                take: deleteCount,
-                                select: { id: true }
-                            });
-                            if (excess.length > 0) {
-                                await NotificationRepository.deleteMany({
-                                    id: { in: excess.map((n: { id: string }) => n.id) }
-                                });
-                            }
-                        } catch (err) {
-                            console.error(`Failed to cleanup excess notifications for ${userId}:`, err);
-                        }
-                    }
-                }).catch(console.error);
+            // Fix #5: Offload FIFO cleanup to background worker for all users in the broadcast
+            for (const userId of userIds) {
+                notificationsQueue.add('cleanup-fifo', { userId }, { removeOnComplete: true, removeOnFail: 5 }).catch(() => {});
             }
 
             // Filter userIds based on preferences
@@ -226,21 +190,38 @@ export class NotificationService {
         opmcId?: string;
     }) {
         try {
+            // Fix #8: Strict validation of roles array against Prisma Role enum
+            const validRoles = roles.filter((role): role is Role => Object.values(Role).includes(role as Role));
+            if (validRoles.length === 0) {
+                console.warn('[NotificationService] notifyByRole: No valid roles provided. Skipping.', roles);
+                return null;
+            }
+
             // Global executives always receive cross-OPMC alerts
-            const globalRoles = ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'];
+            const globalRoles: Role[] = ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'];
+            
+            // Validate that we only query with roles the caller requested (global or not)
+            const globalRolesRequested = globalRoles.filter(r => validRoles.includes(r));
+            const scopedRolesRequested = validRoles.filter(r => !globalRoles.includes(r));
 
             const users = await prisma.user.findMany({
                 where: {
-                    role: { in: roles as Role[] },
-                    ...(opmcId ? {
-                        OR: [
-                            { accessibleOpmcs: { some: { id: opmcId } } },
-                            // Global executive leadership receive alerts across all OPMCs
-                            { role: { in: globalRoles as Role[] } },
-                            // Stores staff assigned to a store linked to this OPMC
-                            { assignedStore: { opmcs: { some: { id: opmcId } } } }
-                        ]
-                    } : {})
+                    OR: [
+                        // Scoped roles: Must meet OPMC filter if provided
+                        {
+                            role: { in: scopedRolesRequested },
+                            ...(opmcId ? {
+                                OR: [
+                                    { accessibleOpmcs: { some: { id: opmcId } } },
+                                    { assignedStore: { opmcs: { some: { id: opmcId } } } }
+                                ]
+                            } : {})
+                        },
+                        // Fix #2: Global roles: Requested global roles bypass the OPMC filter entirely
+                        {
+                            role: { in: globalRolesRequested }
+                        }
+                    ]
                 },
                 select: { id: true }
             });
@@ -338,9 +319,10 @@ export class NotificationService {
 
     /**
      * Delete a single notification
+     * Fix #1: Added ownership check to prevent IDOR vulnerability
      */
-    static async delete(id: string) {
-        return await NotificationRepository.deleteMany({ id });
+    static async delete(id: string, userId: string) {
+        return await NotificationRepository.deleteMany({ id, userId });
     }
 
     /**
@@ -402,51 +384,31 @@ export class NotificationService {
             }
         }
 
-        const unreadNotifications = await prisma.notification.findMany({
-            where: {
-                userId,
-                isRead: false
-            },
-            select: {
-                link: true,
-                metadata: true
-            },
-            take: 100
-        });
-
-        let approvalsCount = 0;
-        let helpdeskCount = 0;
-        let serviceOrdersCount = 0;
-        let procurementApprovalsCount = 0;
-        let contractorApprovalsCount = 0;
-        const materialRequestsCount = dbMaterialPending;
-        let materialApprovalsCount = 0;
-
-        for (const n of unreadNotifications) {
-            const link = n.link || "";
-
-            if (link.startsWith("/projects")) approvalsCount++;
-            else if (link.startsWith("/helpdesk")) helpdeskCount++;
-            else if (link.startsWith("/admin/inventory")) procurementApprovalsCount++;
-            else if (link.startsWith("/admin/contractors")) contractorApprovalsCount++;
-            else if (link.startsWith("/inventory/approvals")) materialApprovalsCount++;
-            else if (link.startsWith("/service-orders")) {
-                if (n.metadata && typeof n.metadata === 'object' && !Array.isArray(n.metadata)) {
-                    const meta = n.metadata as Record<string, unknown>;
-                    serviceOrdersCount += typeof meta.count === 'number' ? meta.count : 1;
-                } else {
-                    serviceOrdersCount += 1;
-                }
-            }
-        }
+        // Fix #4: Use exact grouped counting in DB instead of `take: 100` loop
+        const [
+            approvalsCount,
+            helpdeskCount,
+            procurementApprovalsCount,
+            contractorApprovalsCount,
+            materialApprovalsCount,
+            serviceOrdersCount
+        ] = await Promise.all([
+            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/projects' } } }),
+            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/helpdesk' } } }),
+            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/admin/inventory' } } }),
+            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/admin/contractors' } } }),
+            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/inventory/approvals' } } }),
+            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/service-orders' } } })
+        ]);
 
         return {
             approvals: approvalsCount,
             helpdesk: helpdeskCount,
+            // Fallback to real DB material requests if specific notification counts are lower (or we just use the real DB count)
             serviceOrders: serviceOrdersCount,
             procurementApprovals: procurementApprovalsCount,
             contractorApprovals: contractorApprovalsCount,
-            materialRequests: materialRequestsCount,
+            materialRequests: dbMaterialPending,
             materialApprovals: materialApprovalsCount
         };
     }
