@@ -766,56 +766,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             }
         ]
     },
-    {
-        title: 'IT Help Desk',
-        path: '/helpdesk',
-        icon: LifeBuoy,
-        allowedRoles: ['ALL'],
-        submenu: [
-            {
-                title: 'User Dashboard',
-                path: '/helpdesk',
-                icon: LayoutDashboard,
-                allowedRoles: ['ALL']
-            },
-            {
-                title: 'Create Ticket',
-                path: '/helpdesk/tickets/new',
-                icon: FileText,
-                allowedRoles: ['ALL']
-            },
-            {
-                title: 'IT Dashboard (Staff)',
-                path: '/helpdesk/admin',
-                icon: Shield,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
-            },
-            {
-                title: 'Asset Management',
-                path: '/helpdesk/assets',
-                icon: Laptop,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
-            },
-            {
-                title: 'Device Audits',
-                path: '/helpdesk/assets/audits',
-                icon: ClipboardCheck,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
-            },
-            {
-                title: 'Software Licenses',
-                path: '/helpdesk/software-licenses',
-                icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
-            },
-            {
-                title: 'Help Desk Reports',
-                path: '/helpdesk/reports',
-                icon: BarChart3,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
-            }
-        ]
-    },
+
     {
         title: 'Vehicle & Fleet Management',
         path: '/vehicles',

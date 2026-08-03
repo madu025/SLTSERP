@@ -281,7 +281,7 @@ export class NexusContextService {
         orderBy: { createdAt: 'desc' }
       }),
       prisma.gRN.findMany({
-        select: { grnNumber: true, sourceType: true, supplier: true, createdAt: true },
+        select: { grnNumber: true, sourceType: true, supplier: true, createdAt: true, purchaseOrder: { select: { vendor: true } } },
         take: 10,
         orderBy: { createdAt: 'desc' }
       })
@@ -298,10 +298,10 @@ export class NexusContextService {
       completedGRNsCount: completedGRNs.length,
       completedGRNsList: completedGRNs.map(g => ({
         grnNumber: g.grnNumber,
-        supplier: g.supplier || g.sourceType,
+        supplier: g.supplier || g.purchaseOrder?.vendor || g.sourceType,
         date: g.createdAt
       })),
-      latestCompletedGRN: completedGRNs[0] ? `${completedGRNs[0].grnNumber} (Supplier: ${completedGRNs[0].supplier || completedGRNs[0].sourceType})` : 'No completed GRNs found'
+      latestCompletedGRN: completedGRNs[0] ? `${completedGRNs[0].grnNumber} (Supplier: ${completedGRNs[0].supplier || completedGRNs[0].purchaseOrder?.vendor || 'Not Specified'})` : 'No completed GRNs found'
     };
   }
 

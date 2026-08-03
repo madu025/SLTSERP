@@ -13,15 +13,27 @@ export const GET = apiHandler(async (req) => {
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    const userId = req.headers.get('x-user-id');
+    const url = new URL(req.url);
+    const userId = req.headers.get('x-user-id') || url.searchParams.get('userId');
 
     if (!userId) {
         throw AppError.unauthorized('Missing user authentication');
     }
 
+    let isClosed = false;
+
+    const safeWrite = async (chunk: string) => {
+        if (isClosed) return;
+        try {
+            await writer.write(encoder.encode(chunk));
+        } catch {
+            isClosed = true;
+        }
+    };
+
     // Keep-alive interval
     const keepAlive = setInterval(() => {
-        writer.write(encoder.encode(': keep-alive\n\n'));
+        safeWrite(': keep-alive\n\n');
     }, 30000);
 
     // Subscribe to events
@@ -29,20 +41,23 @@ export const GET = apiHandler(async (req) => {
 
     const unsubscribeUser = subscribeToNotifications(userId, (data) => {
         const payload = JSON.stringify({ ...data, _realtime: true });
-        writer.write(encoder.encode(`data: ${payload}\n\n`));
+        safeWrite(`data: ${payload}\n\n`);
     });
 
     const unsubscribeSystem = subscribeToSystemEvents((data) => {
         const payload = JSON.stringify({ ...data, _isSystem: true });
-        writer.write(encoder.encode(`data: ${payload}\n\n`));
+        safeWrite(`data: ${payload}\n\n`);
     });
 
     // Handle close
     req.signal.onabort = () => {
+        isClosed = true;
         clearInterval(keepAlive);
         unsubscribeUser();
         unsubscribeSystem();
-        writer.close();
+        try {
+            writer.close();
+        } catch {}
     };
 
     return new Response(responseStream.readable, {
