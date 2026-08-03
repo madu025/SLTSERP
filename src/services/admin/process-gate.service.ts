@@ -116,27 +116,34 @@ export class ProcessGateAdminService {
   }) {
     const gate = await prisma.processGatePolicy.findUnique({
       where: { id: gatePolicyId },
-      include: { approvalLevels: true }
+      select: { id: true }
     });
 
     if (!gate) {
       throw AppError.notFound('Process Gate Policy not found');
     }
 
-    // Determine the next level number
-    const maxLevel = gate.approvalLevels.reduce((max, level) => Math.max(max, level.level), 0);
-    const nextLevel = maxLevel + 1;
+    // Transactional: compute next level and insert atomically so concurrent
+    // POSTs cannot create duplicate level numbers.
+    return prisma.$transaction(async (tx) => {
+      const maxResult = await tx.processApprovalLevel.findFirst({
+        where: { gatePolicyId },
+        orderBy: { level: 'desc' },
+        select: { level: true }
+      });
+      const nextLevel = (maxResult?.level ?? 0) + 1;
 
-    return prisma.processApprovalLevel.create({
-      data: {
-        gatePolicyId,
-        level: nextLevel,
-        requiredRole: data.requiredRole,
-        specificUserId: data.specificUserId,
-        description: data.description,
-        minAmount: data.minAmount !== undefined ? new Prisma.Decimal(data.minAmount) : null,
-        maxAmount: data.maxAmount !== undefined ? new Prisma.Decimal(data.maxAmount) : null,
-      }
+      return tx.processApprovalLevel.create({
+        data: {
+          gatePolicyId,
+          level: nextLevel,
+          requiredRole: data.requiredRole,
+          specificUserId: data.specificUserId,
+          description: data.description,
+          minAmount: data.minAmount !== undefined ? new Prisma.Decimal(data.minAmount) : null,
+          maxAmount: data.maxAmount !== undefined ? new Prisma.Decimal(data.maxAmount) : null,
+        }
+      });
     });
   }
 

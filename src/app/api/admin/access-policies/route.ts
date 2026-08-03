@@ -2,6 +2,8 @@
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { SystemSettingService } from '@/services/core/system-setting.service';
+import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { AppError } from '@/lib/error';
 
 const accessPolicySchema = z.object({
     policies: z.record(z.string(), z.array(z.string()))
@@ -17,8 +19,8 @@ export const GET = apiHandler(async () => {
 export const POST = apiHandler<{ success: boolean }, z.infer<typeof accessPolicySchema>>(
     async (request, params, body) => {
         const adminRole = request.headers.get('x-user-role');
-        if (adminRole !== 'SUPER_ADMIN' && adminRole !== 'ADMIN') {
-            throw new Error('Unauthorized');
+        if (!hasRole(adminRole, ROLE_GROUPS.CORE_ADMINS)) {
+            throw AppError.forbidden('Only Super Admins and Admins can modify access policies');
         }
 
         await SystemSettingService.upsertSetting('PAGE_ACCESS_POLICIES', body.policies);

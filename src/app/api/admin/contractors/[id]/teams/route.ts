@@ -6,29 +6,6 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_READ_ROLES = [
-    'SUPER_ADMIN',
-    'ADMIN',
-    'OFFICE_ADMIN',
-    'OFFICE_ADMIN_ASSISTANT',
-    'OSP_MANAGER',
-    'AREA_MANAGER',
-    'FINANCE_MANAGER',
-    'FINANCE_ASSISTANT',
-    'SITE_OFFICE_STAFF',
-    'ENGINEER',
-    'ASSISTANT_ENGINEER',
-    'AREA_COORDINATOR',
-    'MANAGER',
-    'QC_OFFICER',
-    'STORES_MANAGER',
-    'STORES_OFFICER',
-    'CONTRACTOR_SUPERVISOR',
-    'CONTRACTOR_TECHNICIAN',
-    'CONTRACTOR_FINANCE',
-    'CONTRACTOR'
-];
-
 const saveTeamsSchema = z.object({
     teams: z.array(z.object({
         id: z.string().optional(),
@@ -55,7 +32,7 @@ export const GET = apiHandler(
         return { teams, contractor };
     },
     {
-        roles: ALLOWED_READ_ROLES
+        roles: ROLE_GROUPS.CONTRACTOR_READERS
     }
 );
 

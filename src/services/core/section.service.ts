@@ -48,7 +48,7 @@ export class SectionService {
     /**
      * Update an existing section.
      */
-    static async updateSection(id: string, data: { name?: string, code?: string, description?: string, icon?: string, color?: string, isActive?: boolean }, userId: string) {
+    static async updateSection(id: string, data: { name?: string, code?: string, description?: string | null, icon?: string | null, color?: string | null, isActive?: boolean }, userId: string) {
         const existing = await prisma.section.findUnique({ where: { id } });
         if (!existing) throw AppError.badRequest('SECTION_NOT_FOUND');
 
@@ -80,8 +80,19 @@ export class SectionService {
      * Delete a section.
      */
     static async deleteSection(id: string, userId: string) {
-        const existing = await prisma.section.findUnique({ where: { id } });
+        const existing = await prisma.section.findUnique({
+            where: { id },
+            include: { _count: { select: { userAssignments: true, roles: true } } }
+        });
         if (!existing) throw AppError.badRequest('SECTION_NOT_FOUND');
+
+        // Block silent cascade destruction of roles + user assignments
+        if (existing._count.userAssignments > 0) {
+            throw AppError.badRequest('Cannot delete section with active user assignments. Reassign users first.');
+        }
+        if (existing._count.roles > 0) {
+            throw AppError.badRequest('Cannot delete section with defined roles. Delete or reassign roles first.');
+        }
 
         await prisma.section.delete({
             where: { id }
@@ -95,6 +106,6 @@ export class SectionService {
             oldValue: existing
         });
 
-        return { success: true };
+        return { id, success: true };
     }
 }

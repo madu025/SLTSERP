@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 // PATCH /api/admin/monitoring/errors/[id] - Mark an error as resolved
 export const PATCH = apiHandler(async (_req, params) => {
-    const user = await requireAuth(['SUPER_ADMIN', 'ADMIN']);
+    const user = await requireAuth(ROLE_GROUPS.CORE_ADMINS);
     const { id } = await params;
 
     return await SystemMonitoringService.markResolved(id, user.id);

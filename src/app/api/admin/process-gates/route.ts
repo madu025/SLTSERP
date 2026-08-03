@@ -26,11 +26,10 @@ export const GET = apiHandler(async () => {
     return gates;
 }, { roles: ROLE_GROUPS.ADMINS });
 
-export const POST = apiHandler(async (req, params, body) => {
+export const POST = apiHandler(async (_req, _params, body) => {
     const newGate = await ProcessGateAdminService.createGate(body);
-    
+
     return {
-      status: 201,
       message: 'Process Gate Policy created successfully',
       data: newGate
     };

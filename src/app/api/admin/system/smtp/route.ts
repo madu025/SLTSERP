@@ -3,20 +3,28 @@ import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
+interface SmtpConfigValue {
+    host?: string;
+    port?: string;
+    user?: string;
+    pass?: string;
+    from?: string;
+}
+
 const SmtpSchema = z.object({
     host: z.string().min(1, 'Host is required'),
-    port: z.string().min(1, 'Port is required').or(z.number()),
+    port: z.union([z.string().min(1, 'Port is required'), z.number()]).transform(String),
     user: z.string().min(1, 'Username is required'),
     pass: z.string().min(1, 'Password is required'),
     from: z.string().min(1, 'From address is required')
 });
 
 export const GET = apiHandler(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const setting = await (prisma as any).systemSetting.findUnique({
+    const setting = await prisma.systemSetting.findUnique({
         where: { key: 'SMTP_CONFIG' }
     });
 
@@ -27,32 +35,29 @@ export const GET = apiHandler(async () => {
     }
 
     // Mask password in GET
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config = setting.value as any;
+    const config = (setting.value ?? {}) as SmtpConfigValue;
     return NextResponse.json({
         data: {
             ...config,
             pass: config.pass ? '********' : ''
         }
     });
-});
+}, { roles: ROLE_GROUPS.ADMINS });
 
-export const PUT = apiHandler(async (req: Request) => {
-    const body = await req.json();
+export const PUT = apiHandler(async (_req, _params, body) => {
     const validated = SmtpSchema.parse(body);
 
     let passToSave = validated.pass;
 
     // If password is masked, preserve the old one
     if (passToSave === '********') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const existing = await (prisma as any).systemSetting.findUnique({
+        const existing = await prisma.systemSetting.findUnique({
             where: { key: 'SMTP_CONFIG' }
         });
-        
-        if (existing && existing.value) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            passToSave = (existing.value as any).pass;
+
+        const existingPass = (existing?.value as SmtpConfigValue | null)?.pass;
+        if (existingPass) {
+            passToSave = existingPass;
         } else {
             throw AppError.badRequest('Real password is required for first-time setup.');
         }
@@ -63,8 +68,7 @@ export const PUT = apiHandler(async (req: Request) => {
         pass: passToSave
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updated = await (prisma as any).systemSetting.upsert({
+    await prisma.systemSetting.upsert({
         where: { key: 'SMTP_CONFIG' },
         update: { value: valueToSave },
         create: { key: 'SMTP_CONFIG', value: valueToSave }
@@ -73,9 +77,11 @@ export const PUT = apiHandler(async (req: Request) => {
     return NextResponse.json({
         message: 'SMTP settings updated successfully',
         data: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ...(updated.value as any),
+            ...valueToSave,
             pass: '********'
         }
     });
+}, {
+    roles: ROLE_GROUPS.ADMINS,
+    audit: { action: 'UPDATE_SMTP_CONFIG', entity: 'SystemSetting' }
 });

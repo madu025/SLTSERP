@@ -3,25 +3,28 @@ export const dynamic = 'force-dynamic';
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { z } from 'zod';
+
+const updateConfigSchema = z.object({
+    key: z.string().min(1).max(100),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+    description: z.string().max(500).optional()
+});
 
 export const GET = apiHandler(async () => {
     return SystemConfigService.getConfigs();
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (request) => {
+export const POST = apiHandler(async (request, _params, body) => {
     const role = request.headers.get('x-user-role');
     const userId = request.headers.get('x-user-id');
 
-    if (role !== 'SUPER_ADMIN') {
+    if (!hasRole(role, ROLE_GROUPS.SUPER_ADMINS)) {
         throw AppError.forbidden('Only Super Admins can modify system config');
     }
 
-    const body = await request.json();
-    const { key, value, description } = body;
+    const { key, value, description } = updateConfigSchema.parse(body);
 
-    if (!key || value === undefined) {
-        throw AppError.badRequest('Key and Value required');
-    }
-
-    return SystemConfigService.updateConfig(key, value, description, userId || 'system');
+    return SystemConfigService.updateConfig(key, String(value), description, userId || 'system');
 }, { rawResponse: true });

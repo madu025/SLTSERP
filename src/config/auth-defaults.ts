@@ -22,6 +22,22 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     SITE_OFFICE_STAFF: ['dashboard', 'contractors']
 };
 
+/**
+ * Allowlist of valid page-permission keys. Single source of truth for
+ * API-side validation of SystemRole.permissions payloads (keep in sync with
+ * PAGE_PERMISSIONS in the admin role UI).
+ */
+export const VALID_PERMISSION_KEYS: readonly string[] = [
+    'dashboard',
+    'service-orders',
+    'contractors',
+    'restore-requests',
+    'invoices',
+    'inventory',
+    'procurement',
+    'administration'
+];
+
 export const SECTION_MAPPING: Record<string, string[]> = {
     'OSP_MANAGER': ['PROJECTS'],
     'AREA_MANAGER': ['PROJECTS'],

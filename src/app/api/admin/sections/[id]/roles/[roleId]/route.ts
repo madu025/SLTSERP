@@ -21,7 +21,7 @@ export const PATCH = apiHandler(async (_req, params, body) => {
     const role = await RoleService.updateRole(roleId, data);
     return Response.json(role);
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
     audit: { action: 'UPDATE_ROLE', entity: 'Admin' }
 });
 
@@ -32,6 +32,6 @@ export const DELETE = apiHandler(async (_req, params) => {
     await RoleService.deleteRole(roleId);
     return Response.json({ message: 'Role deleted successfully' });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
     audit: { action: 'DELETE_ROLE', entity: 'Admin' }
 });

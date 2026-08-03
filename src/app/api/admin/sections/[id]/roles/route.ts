@@ -32,6 +32,6 @@ export const POST = apiHandler(async (_req, params, body) => {
 
     return Response.json(role, { status: 201 });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
     audit: { action: 'CREATE_ROLE', entity: 'Admin' }
 });

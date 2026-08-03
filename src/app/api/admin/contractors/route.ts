@@ -8,29 +8,6 @@ import { ROLE_GROUPS } from "@/config/roles";
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const ALLOWED_READ_ROLES = [
-    'SUPER_ADMIN',
-    'ADMIN',
-    'OFFICE_ADMIN',
-    'OFFICE_ADMIN_ASSISTANT',
-    'OSP_MANAGER',
-    'AREA_MANAGER',
-    'FINANCE_MANAGER',
-    'FINANCE_ASSISTANT',
-    'SITE_OFFICE_STAFF',
-    'ENGINEER',
-    'ASSISTANT_ENGINEER',
-    'AREA_COORDINATOR',
-    'MANAGER',
-    'QC_OFFICER',
-    'STORES_MANAGER',
-    'STORES_OFFICER',
-    'CONTRACTOR_SUPERVISOR',
-    'CONTRACTOR_TECHNICIAN',
-    'CONTRACTOR_FINANCE',
-    'CONTRACTOR'
-];
-
 /**
  * GET: List all contractors for Admin ERP
  */
@@ -55,7 +32,7 @@ export const GET = apiHandler(
         });
     },
     {
-        roles: ALLOWED_READ_ROLES
+        roles: ROLE_GROUPS.CONTRACTOR_READERS
     }
 );
 

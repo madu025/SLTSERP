@@ -37,6 +37,7 @@ export const DELETE = apiHandler(async (req, params) => {
     
     return {
       message: 'Process Gate Policy deleted successfully',
-      data: { success: true }
+      id,
+      data: { id, success: true }
     };
 }, { roles: ROLE_GROUPS.ADMINS });
