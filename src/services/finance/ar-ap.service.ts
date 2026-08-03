@@ -95,8 +95,8 @@ export class ArApService {
 
             // 2. Update Invoice settlement balances
             if (invoice) {
-                const newPaid = invoice.paidAmount + amount;
-                const newBalance = Math.max(0, invoice.totalAmount - newPaid);
+                const newPaid = invoice.paidAmount.toNumber() + amount;
+                const newBalance = Math.max(0, Number(invoice.totalAmount) - newPaid);
                 const newStatus = newBalance === 0 ? 'PAID' : 'PARTIALLY_PAID';
 
                 await tx.projectInvoice.update({

@@ -1,12 +1,12 @@
 model ProjectApprovalRequest {
-  id          String                @id @default(cuid())
-  projectId   String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId   String @db.Uuid
   type        String
-  referenceId String
-  documentId  String?
+  referenceId String @db.Uuid
+  documentId  String? @db.Uuid
   title       String
   description String?
-  amount      Float?
+  amount      Decimal? @db.Decimal(14, 2)
   status      String                @default("PENDING")
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
@@ -16,16 +16,17 @@ model ProjectApprovalRequest {
 
   @@index([projectId])
   @@index([documentId])
+  @@index([referenceId])
 }
 
 model ProjectApprovalStep {
-  id             String                 @id @default(cuid())
-  requestId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  requestId      String @db.Uuid
   stepNumber     Int
   roleRequired   String
-  assignedUserId String?
+  assignedUserId String? @db.Uuid
   status         String                 @default("PENDING")
-  actionedById   String?
+  actionedById   String? @db.Uuid
   actionedAt     DateTime?
   comment        String?
   createdAt      DateTime               @default(now())
@@ -35,26 +36,29 @@ model ProjectApprovalStep {
   request        ProjectApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
+  @@index([assignedUserId])
+  @@index([actionedById])
 }
 
 model WorkflowTemplate {
-  id            String                  @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name          String                  @unique
   description   String?
-  projectTypeId String
+  projectTypeId String @db.Uuid
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
   isActive      Boolean                 @default(true)
   stages        WorkflowStageTemplate[]
   projectType   ProjectType             @relation(fields: [projectTypeId], references: [id])
+  @@index([projectTypeId])
 }
 
 model WorkflowStageTemplate {
-  id                 String                      @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name               String
   description        String?
   sequence           Int
-  workflowTemplateId String
+  workflowTemplateId String @db.Uuid
   reqApproval        Boolean                     @default(false)
   reqChecklist       Boolean                     @default(false)
   reqPhotos          Boolean                     @default(false)
@@ -71,61 +75,68 @@ model WorkflowStageTemplate {
   taskTemplates      WorkflowTaskTemplate[]
 
   @@unique([workflowTemplateId, sequence])
+  @@index([workflowTemplateId])
 }
 
 model WorkflowTaskTemplate {
-  id              String                @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name            String
   description     String?
   priority        String                @default("MEDIUM")
-  stageTemplateId String
+  stageTemplateId String @db.Uuid
   stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+  @@index([stageTemplateId])
 }
 
 model WorkflowChecklistTemplate {
-  id              String                @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   label           String
   isMandatory     Boolean               @default(true)
   reqPhoto        Boolean               @default(false)
-  stageTemplateId String
+  stageTemplateId String @db.Uuid
   stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+  @@index([stageTemplateId])
 }
 
 model WorkflowApprovalTemplate {
-  id              String                @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   level           Int                   @default(1)
   role            String
-  stageTemplateId String
+  stageTemplateId String @db.Uuid
   stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+  @@index([stageTemplateId])
 }
 
 model WorkflowConditionTemplate {
-  id              String                @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   field           String
   operator        String
   value           String
   action          String
-  stageTemplateId String
+  stageTemplateId String @db.Uuid
   stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+  @@index([stageTemplateId])
 }
 
 model ProjectWorkflowInstance {
-  id             String                 @id @default(cuid())
-  projectId      String                 @unique
-  currentStageId String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String @db.Uuid                 @unique
+  currentStageId String? @db.Uuid
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
   stages         ProjectStageInstance[]
   project        Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId])
+  @@index([currentStageId])
 }
 
 model ProjectStageInstance {
-  id                        String                     @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name                      String
   description               String?
   sequence                  Int
   status                    String                     @default("PENDING")
-  projectWorkflowInstanceId String
+  projectWorkflowInstanceId String @db.Uuid
   reqApproval               Boolean
   reqChecklist              Boolean
   reqPhotos                 Boolean
@@ -146,62 +157,67 @@ model ProjectStageInstance {
 }
 
 model ProjectTaskInstance {
-  id             String               @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name           String
   description    String?
   priority       String               @default("MEDIUM")
   status         String               @default("PENDING")
-  assignedTeamId String?
-  assignedUserId String?
+  assignedTeamId String? @db.Uuid
+  assignedUserId String? @db.Uuid
   plannedStart   DateTime?
   plannedFinish  DateTime?
   actualStart    DateTime?
   actualFinish   DateTime?
-  progress       Float                @default(0)
-  stageId        String
+  progress       Decimal @db.Decimal(8, 4) @default(0)
+  stageId        String @db.Uuid
   stage          ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
 
   @@index([stageId])
+  @@index([assignedTeamId])
+  @@index([assignedUserId])
 }
 
 model ProjectChecklistInstance {
-  id          String               @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   label       String
   isMandatory Boolean
   isCompleted Boolean              @default(false)
   photoUrl    String?
-  stageId     String
+  stageId     String @db.Uuid
   stage       ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
 
   @@index([stageId])
 }
 
 model ProjectApprovalInstance {
-  id           String               @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   level        Int
   role         String
   status       String               @default("PENDING")
-  approvedById String?
+  approvedById String? @db.Uuid
   approvedAt   DateTime?
   comments     String?
-  stageId      String
+  stageId      String @db.Uuid
   stage        ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
 
   @@index([stageId])
+  @@index([approvedById])
 }
 
 model WorkflowAuditLog {
-  id         String   @id @default(cuid())
-  userId     String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId     String @db.Uuid
   action     String
   entityType String
-  entityId   String
+  entityId   String @db.Uuid
   details    Json?
   createdAt  DateTime @default(now())
+  @@index([userId])
+  @@index([entityId])
 }
 
 model StageGateRule {
-  id          String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   stageFrom   String
   stageTo     String
   ruleType    String
@@ -217,9 +233,9 @@ model StageGateRule {
 }
 
 model ProjectSupervisorAssignment {
-  id           String   @id @default(cuid())
-  projectId    String
-  supervisorId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId    String @db.Uuid
+  supervisorId String @db.Uuid
   role         String   @default("PRIMARY")
   status       String   @default("ASSIGNED")
   assignedAt   DateTime @default(now())

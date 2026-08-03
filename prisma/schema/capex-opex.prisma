@@ -7,18 +7,18 @@
 
 // ─── CAPEX/OPEX Budget Allocation per OPMC per Financial Year ────────────────
 model FinanceBudgetAllocation {
-  id              String                 @id @default(cuid())
-  opmcId          String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  opmcId          String @db.Uuid
   fiscalYear      Int // e.g., 2025
   quarter         Int? // 1-4, null = full year
   expenditureType String // CAPEX | OPEX
   category        String // NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER
-  allocatedAmount Float                  @default(0)
+  allocatedAmount Decimal @db.Decimal(14, 2) @default(0)
   description     String?
-  approvedById    String?
+  approvedById    String? @db.Uuid
   approvedAt      DateTime?
   status          String                 @default("ACTIVE") // ACTIVE | FROZEN | REVISED
-  createdById     String
+  createdById     String @db.Uuid
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   opmc            OPMC                   @relation(fields: [opmcId], references: [id])
@@ -30,27 +30,29 @@ model FinanceBudgetAllocation {
   @@index([expenditureType])
   @@index([category])
   @@index([status])
+  @@index([approvedById])
+  @@index([createdById])
 }
 
 // ─── Unified CAPEX/OPEX Ledger — Every Spend Event Recorded Here ─────────────
 model CapexOpexLedgerEntry {
-  id              String                   @id @default(cuid())
-  budgetId        String?
-  opmcId          String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  budgetId        String? @db.Uuid
+  opmcId          String @db.Uuid
   expenditureType String // CAPEX | OPEX
   category        String // NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER
   sourceType      String // PROJECT_EXPENSE | INVOICE | PETTY_CASH | PURCHASE_ORDER | VEHICLE_TRIP | MANUAL
-  sourceId        String // Polymorphic FK to the originating record
-  amount          Float                    @default(0)
+  sourceId        String @db.Uuid // Polymorphic FK to the originating record
+  amount          Decimal @db.Decimal(14, 2) @default(0)
   transactionDate DateTime                 @default(now())
   fiscalYear      Int
   quarter         Int // 1-4, computed from transactionDate
   description     String
   referenceNumber String? // PO/Invoice/Voucher reference number
-  vendorId        String?
-  projectId       String?
-  approvedById    String?
-  createdById     String
+  vendorId        String? @db.Uuid
+  projectId       String? @db.Uuid
+  approvedById    String? @db.Uuid
+  createdById     String @db.Uuid
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
   budget          FinanceBudgetAllocation? @relation(fields: [budgetId], references: [id])
@@ -64,4 +66,7 @@ model CapexOpexLedgerEntry {
   @@index([transactionDate])
   @@index([projectId])
   @@index([budgetId])
+  @@index([vendorId])
+  @@index([approvedById])
+  @@index([createdById])
 }

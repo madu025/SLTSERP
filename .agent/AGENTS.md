@@ -20,6 +20,9 @@ All code additions, edits, or refactors MUST comply with strict production-level
 7. **Algorithmic Efficiency (Big-O)**: Avoid $O(N^2)$ loops (e.g., nested `find` or database queries inside a loop). Utilize $O(1)$ Hash Maps, Sets, and Prisma `$transaction` batch operations to optimize time and space complexity.
 8. **🆕 [AUDIT-DERIVED] Fixed-Value Fields Must Be Enums**: Never use a plain `String` type in Prisma for a field that represents a known, fixed set of values (status, priority, type, category, etc.). Always define an explicit Prisma `enum`. This prevents invalid states from being written to the database and silently breaking downstream logic (workflow engines, invoice generation, ledger posting).
 9. **🆕 [AUDIT-DERIVED] Never Store Individually-Queryable Data as JSON**: If a field's contents need to be filtered, aggregated, or queried individually (e.g. a list of delay reasons, line items, attachments), it must be a proper one-to-many relation table — not a `Json` column. `Json` columns are only acceptable for genuinely opaque, non-queried blobs (e.g. raw external API payloads kept for audit purposes only).
+10. **🆕 [AUDIT-DERIVED] Strict Database ID & Primary Key Strategy**: Never use a plain `String @id @default(cuid())` blindly for database models. All primary keys MUST use native PostgreSQL `UUID v7` (`id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid`) or `BigInt @id @default(autoincrement())` for minimal 16-byte storage size and maximum B-Tree index cache performance. For auditable business documents (Invoices, MIN, GRN, MRN, Service Orders), decouple internal surrogate primary keys (`id`) from human-readable business sequence codes (`MIN-YYYY-MM-XXXX`, `INV-YYYY-XXXX`) backed by `@unique` indexes.
+11. **🆕 [AUDIT-DERIVED] Explicit Currency & Numeric Precision**: Never use `Float` or plain `String` types in Prisma for monetary amounts, financial ledgers, unit costs, revenue, or material quantities. Always use PostgreSQL `Decimal(14, 2)` or `Decimal(15, 4)` (`@db.Decimal(14,2)`) to eliminate IEEE 754 floating-point rounding errors.
+12. **🆕 [AUDIT-DERIVED] Prohibition of Generic Text Strings**: Generic `String` is strictly prohibited for any schema field where a semantic native database type exists. Primary keys MUST use `@db.Uuid` (`uuid_generate_v7()`) or `BigInt`. Statuses/Categories MUST use Prisma `Enum`. Financial values MUST use `Decimal(14,2)`. Dates/Times MUST use `DateTime`. Plain `String` is ONLY allowed for genuine arbitrary free-text (e.g. `address`, `comments`, `customerName`).
 
 
 ## 💰 Financial & Transactional Data Integrity Standards 🆕 [AUDIT-DERIVED]
@@ -44,7 +47,6 @@ deduction — all financial or quasi-financial state. The following rules are **
    codebase (see Error Handling Standards below), but around financial write paths this is
    elevated from a code-quality issue to a data-integrity issue — a swallowed exception here can
    mean money or stock moved without a corresponding record.
-
 
 ## 🧬 Schema Change & Migration Safety Standards 🆕 [AUDIT-DERIVED]
 
@@ -309,36 +311,6 @@ To ensure maximum production quality, deep technical depth, and global industry 
        features) that are valuable but out of scope for now; logged for later, never 
        auto-adopted.
    - "Automated Recommended Defaults" (above) applies ONLY to 🔴 Must-Have items.
-
-7. **Cost/Complexity Counterpoint Required**:
-   - For every suggestion, the panel must also state the implementation cost/complexity and 
-     any downside (e.g. added latency, more tables to maintain, more edge cases) — not just the 
-     benefit. A one-sided "adopt this" recommendation without a stated trade-off is incomplete.
-
-8. **Cross-Check Against Existing Safety Rules**:
-   - Any suggestion touching the database schema must be flagged against the Schema Change & 
-     Migration Safety Standards (blast-radius check required before implementation).
-   - Any suggestion touching money, ledger, payments, or stock must be flagged against the 
-     Financial & Transactional Data Integrity Standards (STOP rule — needs user confirmation, 
-     `$transaction()` required).
-   - The grill-me output itself does not bypass these rules — it only plans; execution still 
-     goes through them.
-
-9. **Grill-Me Session Log**:
-   - Each `/grill-me` session's Consolidated Review Table must be appended to 
-     `.agent/grill-me-log.md` (module name, date, decisions adopted/deferred/rejected) so past 
-     sessions aren't silently re-litigated and institutional decisions are traceable.
-
-10. **Handoff to `/goal`**:
-    - When a grill-me output is later executed via `/goal`, only 🔴 Must-Have and explicitly 
-      user-approved 🟡 Should-Have items become part of that goal's Definition of Done checklist. 
-      🔵 Future Roadmap items must never be silently pulled into an unrelated goal's execution.
-
-
-## 🚀 Upgraded Autonomous Goal & Long-Running Task Standard (`/goal`)
-
-To ensure maximum agent autonomy, flawless execution, and enterprise-grade output during long-running background tasks, the agent MUST follow these strict rules:
-
 1. **Unstoppable Autonomous Execution (Zero Hand-Holding)**:
    - The agent MUST execute continuously, resolving all obstacles, writing code, fixing lints, and running tests until the user's objective is **100% achieved**.
    - NEVER stop midway, NEVER output placeholders (e.g. `// add logic here`), and NEVER pause for trivial user confirmation when an obvious technical path exists. If you hit an error, read the logs, fix the code, and try again autonomously.
@@ -419,3 +391,36 @@ To ensure maximum agent autonomy, flawless execution, and enterprise-grade outpu
 2. **No Hardcoded Status Checks**: Never hardcode status values like `status === 'PENDING_APPROVAL'` or `amount > 100000` inside service logic. All conditions MUST be driven by the database (e.g., `ApprovalMatrix`, `ProcessGatePolicy`).
 3. **IDE Development Coding Standard**: From this point forward, all code generated by the agent must strictly conform to this final architecture. New modules, UI components, and API routes must integrate into the `ProcessGateEngine` and `DomainActionDispatcher` via the Saga pattern.
 4. **Enforcement**: Any code modification that introduces hardcoded approval thresholds, hardcoded roles, or skips the FSM Domain Dispatcher is considered a critical violation of the workspace rules.
+
+
+## 🕵️‍♂️ Upgraded 5-QA Auditor Line-by-Line Code Review Protocol (`/grill-me audit`)
+
+Whenever `/grill-me audit` or `/grill-me` is invoked to audit existing code, the agent MUST execute a strict **Line-by-Line Code & Logic Debate** where **5 Specialized QA Expert Auditors** actively debate, cross-examine, and challenge every single line of code, data structure, schema definition, and logic flow to guarantee that the application passes all automated and manual enterprise QA tests with zero bugs.
+
+### The 5 Specialized QA Auditor Personas:
+
+1. **🛡️ QA Auditor 1: Data Integrity & Schema Enforcement Auditor**
+   - **Focus**: Native PostgreSQL `UUID v7` (`@db.Uuid`), `Decimal(14,2)` precision, 3NF foreign key integrity, Prisma `Enum` state machines, and zero invalid database states.
+   - **Debate Angle**: *"Is this field typed correctly at the DB layer? Are there orphan FKs or unvalidated strings?"*
+
+2. **🔒 QA Auditor 2: Security & RBAC Penetration Auditor**
+   - **Focus**: `apiHandler` Zod input validation, `RoleGuard` RBAC enforcement, SQL injection immunity, zero hardcoded secrets, and RLS / JWT security.
+   - **Debate Angle**: *"Can an unauthorized role call this API or bypass checks? Is standard Zod validation enforced?"*
+
+3. **⚡ QA Auditor 3: Big-O Performance & Egress Auditor**
+   - **Focus**: $O(1)$ HashMaps, $O(N)$ batch transactions, zero database egress regress (selective `select` blocks), and force-dynamic caching standards.
+   - **Debate Angle**: *"Will this query cause N+1 DB calls or over-fetch heavy JSON blobs under high traffic?"*
+
+4. **🧪 QA Auditor 4: Failover, Edge Case & Idempotency Auditor**
+   - **Focus**: Zero silent `try/catch` blocks, idempotency key checks on mutations, race condition prevention, and strict TypeScript types (zero `any`).
+   - **Debate Angle**: *"What if this operation fails halfway? Are errors swallowed silently? Is there an idempotency key?"*
+
+5. **💼 QA Auditor 5: Enterprise Domain & Audit Ledger Auditor**
+   - **Focus**: MIN/MRN store issue notes, immutable `InventoryLedger` SHA-256 checksums, full job costing, and GAAP/IFRS revenue recognition rules.
+   - **Debate Angle**: *"Does this process create an auditable MIN reference and immutable ledger entry? Is money/stock tracked properly?"*
+
+### 💬 Mandatory 5-Auditor Line-by-Line Debate Workflow:
+1. **Line-by-Line Cross-Examination**: Present a bulleted debate where the 5 QA Auditors critique the target code/schema line by line.
+2. **Consolidated QA Audit Fix Matrix**: List all identified flaws, their severity (🔴 Must-Have / 🟡 Should-Have / 🔵 Future), stated trade-offs, and concrete refactored code fixes.
+3. **Execution & Verification**: Apply fixes, run `npx tsc --noEmit` and `npx prisma db push`, and log the audit to `.agent/grill-me-log.md`.
+

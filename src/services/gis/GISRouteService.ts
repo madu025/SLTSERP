@@ -130,7 +130,7 @@ export class GISRouteService {
         const chamberCount = gisRoute.chambers.length;
         const closureCount = gisRoute.closures.length;
         const cableSegmentCount = gisRoute.cableSegments.length;
-        const totalCableLength = gisRoute.cableSegments.reduce((sum, seg) => sum + (seg.length || 0), 0);
+        const totalCableLength = gisRoute.cableSegments.reduce((sum, seg) => sum + Number(seg.length || 0), 0);
 
         // Load project-level GIS Material Mapping
         const project = await prisma.project.findUnique({
@@ -629,10 +629,10 @@ export class GISRouteService {
         // Cable Segments
         const cableStats = {
             total: gisRoute.cableSegments.length,
-            totalLength: gisRoute.cableSegments.reduce((sum, s) => sum + (s.length || 0), 0),
+            totalLength: gisRoute.cableSegments.reduce((sum, s) => sum + Number(s.length || 0), 0),
             installedLength: gisRoute.cableSegments
                 .filter(s => s.status === 'INSTALLED')
-                .reduce((sum, s) => sum + (s.length || 0), 0),
+                .reduce((sum, s) => sum + Number(s.length || 0), 0),
             planned: countByStatus(gisRoute.cableSegments, 'PLANNED'),
             installed: countByStatus(gisRoute.cableSegments, 'INSTALLED'),
             progressPercent: gisRoute.cableSegments.length > 0
@@ -658,10 +658,10 @@ export class GISRouteService {
         const installedPoles = countByStatus(gisRoute.poles, 'INSTALLED') + countByStatus(gisRoute.poles, 'VERIFIED');
         const poleVariance = plannedPoles - installedPoles;
 
-        const routeLengthMeters = gisRoute.routeLength || 0;
+        const routeLengthMeters = Number(gisRoute.routeLength || 0);
         const installedCableLength = gisRoute.cableSegments
             .filter(s => s.status === 'INSTALLED')
-            .reduce((sum, s) => sum + (s.length || 0), 0);
+            .reduce((sum, s) => sum + Number(s.length || 0), 0);
 
         return {
             routeId,
@@ -912,7 +912,7 @@ export class GISRouteService {
             slackLoops,
         };
 
-        const newLength = segment.length + 20.0;
+        const newLength = segment.length.toNumber() + 20.0;
 
         const updatedSegment = await prisma.gISCableSegment.update({
             where: { id: segmentId },

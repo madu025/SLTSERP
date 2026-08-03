@@ -278,7 +278,7 @@ export class WastageService {
                 let totalWastageValue = 0;
                 // Apply DEDUCTIONS
                 for (const item of wastage.items) {
-                    const qty = StockService.round(item.quantity);
+                    const qty = StockService.round(item.quantity.toNumber());
                     if (qty <= 0) continue;
 
                     const itemMeta = metaMap.get(item.itemId);

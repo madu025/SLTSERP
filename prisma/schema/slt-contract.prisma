@@ -14,7 +14,7 @@ enum AmendmentStatus {
 }
 
 model SLTContract {
-  id             String            @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   contractNumber String            @unique // e.g. AGR-2026-0101
   title          String // e.g. SLT OSP Fiber Connection Agreement 2026
   startDate      DateTime
@@ -25,17 +25,17 @@ model SLTContract {
 
   // Commercial / financial governance (extracted from Principal Contract PDF)
   tenderNo     String? // Tender / Project reference e.g. L/0076/2024
-  ceilingValue Float? // Maximum financial ceiling value (Rs.)
+  ceilingValue Decimal? @db.Decimal(14, 2) // Maximum financial ceiling value (Rs.)
   model1AQty   Int? // Model 1A connection quantity
   model1BQty   Int? // Model 1B connection quantity
 
   // Dedicated master rate structure (contract-wide defaults, LKR)
-  poleRate56    Float? // Concrete pole supply rate 5.6m
-  poleRate67    Float? // Concrete pole supply rate 6.7m
-  poleRate80    Float? // Concrete pole supply rate 8.0m
-  poleErectRate Float? // Additional pole erecting service cost (beyond 15%)
-  poleAdminFee  Float? // Concrete pole administrative fee (per pole)
-  peoTvRate     Float? // PEO TV provisioning rate
+  poleRate56    Decimal? @db.Decimal(14, 2) // Concrete pole supply rate 5.6m
+  poleRate67    Decimal? @db.Decimal(14, 2) // Concrete pole supply rate 6.7m
+  poleRate80    Decimal? @db.Decimal(14, 2) // Concrete pole supply rate 8.0m
+  poleErectRate Decimal? @db.Decimal(14, 2) // Additional pole erecting service cost (beyond 15%)
+  poleAdminFee  Decimal? @db.Decimal(14, 2) // Concrete pole administrative fee (per pole)
+  peoTvRate     Decimal? @db.Decimal(14, 2) // PEO TV provisioning rate
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -49,18 +49,18 @@ model SLTContract {
 }
 
 model SLTContractTarget {
-  id                      String   @id @default(cuid())
-  contractId              String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractId              String @db.Uuid
   year                    Int // e.g. 2026
   month                   Int // 1-12 (1 = Jan, 2 = Feb)
   targetVolume            Int // e.g. 6000 for Jan, 8000 for Feb
-  baseUnitRate            Float // Base LKR rate per connection e.g. 10000.00
-  poleRate                Float?   @default(4500) // LKR surcharge per pole planted
-  perMeterRate            Float?   @default(250) // LKR surcharge per extra meter beyond threshold
-  distanceThresholdMeters Float?   @default(50) // Free span threshold (e.g. 50 meters)
+  baseUnitRate            Decimal @db.Decimal(14, 2) // Base LKR rate per connection e.g. 10000.00
+  poleRate                Decimal? @db.Decimal(14, 2) @default(4500) // LKR surcharge per pole planted
+  perMeterRate            Decimal? @db.Decimal(14, 2) @default(250) // LKR surcharge per extra meter beyond threshold
+  distanceThresholdMeters Decimal? @db.Decimal(12, 4) @default(50) // Free span threshold (e.g. 50 meters)
   customSurcharges        Json? // Flexible JSON store for arbitrary custom SLT rate variables
-  penaltyPerShortfall     Float    @default(0) // Optional LKR penalty per missing order below target
-  bonusPerOverachieve     Float    @default(0) // Optional LKR bonus per extra order above target
+  penaltyPerShortfall     Decimal @db.Decimal(14, 2) @default(0) // Optional LKR penalty per missing order below target
+  bonusPerOverachieve     Decimal @db.Decimal(14, 2) @default(0) // Optional LKR bonus per extra order above target
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -72,20 +72,20 @@ model SLTContractTarget {
 }
 
 model SLTContractAmendment {
-  id                       String          @id @default(cuid())
-  contractId               String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractId               String @db.Uuid
   amendmentNumber          String // e.g. AMD-2026-01
   effectiveDate            DateTime
   reason                   String // e.g. Crisis Fuel Surcharge Adjustment, Monsoon Rate Increase
-  revisedUnitRate          Float? // Revised LKR rate per connection (if rate amended)
+  revisedUnitRate          Decimal? @db.Decimal(14, 2) // Revised LKR rate per connection (if rate amended)
   revisedTargetVolume      Int? // Revised target SOD volume (if volume amended)
-  revisedPoleRate          Float? // Revised pole planting rate
-  revisedPerMeterRate      Float? // Revised per-meter distance rate
-  revisedDistanceThreshold Float? // Revised free distance threshold
+  revisedPoleRate          Decimal? @db.Decimal(14, 2) // Revised pole planting rate
+  revisedPerMeterRate      Decimal? @db.Decimal(14, 2) // Revised per-meter distance rate
+  revisedDistanceThreshold Decimal? @db.Decimal(14, 2) // Revised free distance threshold
   revisedEndDate           DateTime? // For period-extension amendments
-  ceilingValue             Float? // Revised total financial ceiling limit (Rs.)
-  ceilingIncrease          Float? // Ceiling increase amount for this amendment (Rs.)
-  parentAmendmentId        String? // Lineage: prior amendment this one references/supersedes
+  ceilingValue             Decimal? @db.Decimal(14, 2) // Revised total financial ceiling limit (Rs.)
+  ceilingIncrease          Decimal? @db.Decimal(14, 2) // Ceiling increase amount for this amendment (Rs.)
+  parentAmendmentId        String? @db.Uuid // Lineage: prior amendment this one references/supersedes
   customSurcharges         Json? // Revised dynamic custom rate rules
   status                   AmendmentStatus @default(ACTIVE)
   approvedBy               String?
@@ -104,8 +104,8 @@ model SLTContractAmendment {
 }
 
 model SLTContractAudit {
-  id          String   @id @default(cuid())
-  contractId  String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractId  String @db.Uuid
   action      String // CONTRACT_CREATED, TARGET_SET, AMENDMENT_FILED, RATE_REVISED
   details     String
   performedBy String

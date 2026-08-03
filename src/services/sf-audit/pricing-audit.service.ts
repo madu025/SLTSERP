@@ -105,7 +105,15 @@ export class PricingAuditService {
             }
         });
 
-        return { count: rules.length, rules };
+        return {
+            count: rules.length,
+            rules: rules.map(r => ({
+                ...r,
+                minDistance: Number(r.minDistance),
+                maxDistance: Number(r.maxDistance),
+                rateAmount: Number(r.rateAmount),
+            }))
+        };
     }
 
     /**
@@ -129,7 +137,12 @@ export class PricingAuditService {
             }
         });
 
-        return updated;
+        return {
+            ...updated,
+            minDistance: Number(updated.minDistance),
+            maxDistance: Number(updated.maxDistance),
+            rateAmount: Number(updated.rateAmount),
+        };
     }
 
     /**

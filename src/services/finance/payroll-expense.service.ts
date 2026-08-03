@@ -88,7 +88,7 @@ export class PayrollExpenseService {
             orderBy: { createdAt: 'desc' }
         });
 
-        const totalAllocated = records.reduce((sum: number, r: { amount: number }) => sum + Number(r.amount), 0);
+        const totalAllocated = records.reduce((sum: number, r) => sum + Number(r.amount), 0);
 
         return {
             totalAllocated,

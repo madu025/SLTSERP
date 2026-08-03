@@ -301,7 +301,7 @@ export class ProjectSurveyService {
       const poleCount = gisRoute.poles.length;
       const chamberCount = gisRoute.chambers.length;
       const closureCount = gisRoute.closures.length;
-      const totalCableLength = gisRoute.cableSegments.reduce((sum, seg) => sum + (seg.length || 0), 0);
+      const totalCableLength = gisRoute.cableSegments.reduce((sum, seg) => sum + Number(seg.length || 0), 0);
 
       const items = [];
 

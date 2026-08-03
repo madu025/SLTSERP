@@ -1,5 +1,5 @@
 model ServiceOrder {
-  id                 String                      @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   rtom               String
   lea                String?
   soNum              String                      @unique
@@ -30,15 +30,15 @@ model ServiceOrder {
   ontSerialNumber    String?
   dpDetails          String?
   patStatus          String?
-  sltsPatStatus      String?                     @default("PENDING")
+  sltsPatStatus      PatStatusEnum?              @default(PENDING)
   sltsPatDate        DateTime?
-  opmcPatStatus      String?                     @default("PENDING")
+  opmcPatStatus      PatStatusEnum?              @default(PENDING)
   opmcPatDate        DateTime?
-  hoPatStatus        String?                     @default("PENDING")
+  hoPatStatus        PatStatusEnum?              @default(PENDING)
   hoPatDate          DateTime?
   isInvoicable       Boolean                     @default(false)
   invoiced           Boolean                     @default(false)
-  invoiceId          String?
+  invoiceId          String? @db.Uuid
   wiredOnly          Boolean                     @default(false)
   delayReasonsRaw    Json?                       @map("delayReasons")
   delayReasons       ServiceOrderDelayReason[]
@@ -50,12 +50,13 @@ model ServiceOrder {
   materialSource     String?
   directTeam         String?
   photoUrls          String[]                    @default([])
-  dropWireDistance   Float?
-  revenueAmount      Float?
-  contractorAmount   Float?
-  opmcId             String
-  contractorId       String?
-  teamId             String?
+  dropWireDistance   Decimal?                    @db.Decimal(10, 2)
+  revenueAmount      Decimal?                    @db.Decimal(14, 2)
+  contractorAmount   Decimal?                    @db.Decimal(14, 2)
+
+  opmcId             String @db.Uuid
+  contractorId       String? @db.Uuid
+  teamId             String? @db.Uuid
   isManualEntry      Boolean                     @default(false)
   isLegacyImport     Boolean                     @default(false)
   isOfflineWorkOrder Boolean                     @default(false)
@@ -66,7 +67,7 @@ model ServiceOrder {
   qcInspectedAt      DateTime?
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
-  projectInvoiceId   String?
+  projectInvoiceId   String? @db.Uuid
   collectedCPEs      CollectedCPE[]              @relation("CollectedCPEs")
   materialReturns    ContractorMaterialReturn[]  @relation("SODMaterialReturns")
   penalties          Penalty[]
@@ -104,10 +105,11 @@ model ServiceOrder {
   @@index([woroTaskName])
   @@index([isOfflineWorkOrder])
   @@index([opmcId, isOfflineWorkOrder])
+  @@index([invoiceId])
 }
 
 model SODForensicAudit {
-  id              String       @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   soNum           String       @unique
   auditData       Json
   voiceTestStatus String?
@@ -119,7 +121,7 @@ model SODForensicAudit {
 }
 
 model ExtensionRawData {
-  id          String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   soNum       String?
   sltUser     String?
   activeTab   String?
@@ -133,8 +135,8 @@ model ExtensionRawData {
 }
 
 model ServiceOrderStatusHistory {
-  id             String             @id @default(cuid())
-  serviceOrderId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String @db.Uuid
   status         ServiceOrderStatus
   statusDate     DateTime
   createdAt      DateTime           @default(now())
@@ -146,10 +148,10 @@ model ServiceOrderStatusHistory {
 }
 
 model ServiceOrderComment {
-  id             String       @id @default(cuid())
-  serviceOrderId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String @db.Uuid
   comment        String
-  authorId       String?
+  authorId       String? @db.Uuid
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   author         User?        @relation("UserComments", fields: [authorId], references: [id])
@@ -157,15 +159,16 @@ model ServiceOrderComment {
 
   @@index([serviceOrderId])
   @@index([createdAt])
+  @@index([authorId])
 }
 
 model RestoreRequest {
-  id              String       @id @default(cuid())
-  serviceOrderId  String
-  requestedById   String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId  String @db.Uuid
+  requestedById   String @db.Uuid
   reason          String
   status          String       @default("PENDING")
-  approvedById    String?
+  approvedById    String? @db.Uuid
   approvalComment String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -176,19 +179,20 @@ model RestoreRequest {
   @@index([status])
   @@index([serviceOrderId])
   @@index([requestedById])
+  @@index([approvedById])
 }
 
 model SODMaterialUsage {
-  id             String               @id @default(cuid())
-  serviceOrderId String
-  itemId         String
-  quantity       Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String @db.Uuid
+  itemId         String @db.Uuid
+  quantity       Decimal @db.Decimal(12, 4)
   unit           String
   usageType      String
-  batchId        String?
-  unitPrice      Float?               @default(0)
-  costPrice      Float?               @default(0)
-  wastagePercent Float?
+  batchId        String? @db.Uuid
+  unitPrice      Decimal? @db.Decimal(14, 2) @default(0)
+  costPrice      Decimal? @db.Decimal(14, 2) @default(0)
+  wastagePercent Decimal? @db.Decimal(8, 4)
   exceedsLimit   Boolean              @default(false)
   comment        String?
   serialNumber   String?
@@ -204,12 +208,13 @@ model SODMaterialUsage {
   @@index([itemId])
   @@index([usageType])
   @@index([serialNumber])
+  @@index([batchId])
 }
 
 model SODRevenueConfig {
-  id            String    @id @default(cuid())
-  rtomId        String?
-  revenuePerSOD Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  rtomId        String? @db.Uuid
+  revenuePerSOD Decimal @db.Decimal(14, 2)
   effectiveFrom DateTime?
   effectiveTo   DateTime?
   circularRef   String?
@@ -226,7 +231,7 @@ model SODRevenueConfig {
 }
 
 model SLTPATStatus {
-  id           String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   soNum        String    @unique
   rtom         String?
   lea          String?
@@ -249,8 +254,8 @@ model SLTPATStatus {
 }
 
 model PATSession {
-  id              String           @id @default(cuid())
-  projectId       String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId       String @db.Uuid
   patType         String
   status          String           @default("PENDING")
   sltOfficers     Json?
@@ -259,8 +264,8 @@ model PATSession {
   totalPoints     Int              @default(0)
   passedPoints    Int              @default(0)
   failedPoints    Int              @default(0)
-  passRate        Float?
-  conductedById   String?
+  passRate        Decimal? @db.Decimal(8, 4)
+  conductedById   String? @db.Uuid
   conductedAt     DateTime?
   completedAt     DateTime?
   notes           String?
@@ -272,17 +277,18 @@ model PATSession {
   @@index([projectId])
   @@index([patType])
   @@index([status])
+  @@index([conductedById])
 }
 
 model PATPointResult {
-  id             String     @id @default(cuid())
-  patSessionId   String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  patSessionId   String @db.Uuid
   pointReference String
-  measuredPower  Float?
-  acceptedPower  Float?
+  measuredPower  Decimal? @db.Decimal(12, 4)
+  acceptedPower  Decimal? @db.Decimal(12, 4)
   powerStatus    String?    @default("PENDING")
-  verifiedLat    Float?
-  verifiedLng    Float?
+  verifiedLat    Decimal? @db.Decimal(11, 8)
+  verifiedLng    Decimal? @db.Decimal(11, 8)
   fineTuneNeeded Boolean    @default(false)
   fineTuneType   String?
   fineTuneNotes  String?
@@ -295,9 +301,9 @@ model PATPointResult {
 }
 
 model CollectedCPE {
-  id                String       @id @default(cuid())
-  serviceOrderId    String
-  contractorId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId    String @db.Uuid
+  contractorId      String @db.Uuid
   deviceType        String
   serialNumber      String
   condition         String       @default("FAULTY")
@@ -316,8 +322,8 @@ model CollectedCPE {
 }
 
 model SODErectedPole {
-  id             String       @id @default(cuid())
-  serviceOrderId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String @db.Uuid
   poleType       String
   poleNumber     String       @unique
   createdAt      DateTime     @default(now())
@@ -328,8 +334,8 @@ model SODErectedPole {
 }
 
 model SODIptvSerial {
-  id             String       @id @default(cuid())
-  serviceOrderId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String @db.Uuid
   serialNumber   String       @unique
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -339,8 +345,8 @@ model SODIptvSerial {
 }
 
 model ServiceOrderDelayReason {
-  id             String   @id @default(cuid())
-  serviceOrderId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  serviceOrderId String @db.Uuid
   reason         String
   createdAt      DateTime @default(now())
 

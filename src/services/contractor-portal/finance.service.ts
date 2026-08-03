@@ -50,8 +50,9 @@ export class ContractorFinanceService {
             });
 
             if (completedSods.length > 0) {
-                const calculatedTotal = completedSods.reduce((sum, s) => sum + (s.contractorAmount || 15000), 0);
+                const calculatedTotal = completedSods.reduce((sum, s) => sum + (s.contractorAmount ? Number(s.contractorAmount) : 15000), 0);
                 const claimNo = `CLM-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
 
                 const newInvoice = await prisma.invoice.create({
                     data: {

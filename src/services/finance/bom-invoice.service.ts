@@ -310,7 +310,7 @@ export class BOMInvoiceService {
                     opmcName,
                     opmcId: so.opmcId,
                     count: 0,
-                    rate
+                    rate: Number(rate)
                 };
             }
             opmcGroups[opmcId].count++;

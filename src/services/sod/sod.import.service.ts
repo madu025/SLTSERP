@@ -318,16 +318,16 @@ export class SODImportService {
                     let contractorAmount = 0;
 
                     const revConfig = revConfigMap.get(opmc.id) || revConfigMap.get(null);
-                    if (revConfig) revenueAmount = revConfig.revenuePerSOD ?? 0;
+                    if (revConfig) revenueAmount = Number(revConfig.revenuePerSOD ?? 0);
 
                     const payConfig = payConfigMap.get(opmc.id) || payConfigMap.get(null);
                     if (payConfig && payConfig.tiers && payConfig.tiers.length > 0) {
                         const dist = row.dropWireDistance || 0;
-                        const matchingTier = payConfig.tiers.find(t => dist >= t.minDistance && dist <= t.maxDistance);
-                        if (matchingTier) contractorAmount = matchingTier.amount;
+                        const matchingTier = payConfig.tiers.find(t => dist >= Number(t.minDistance) && dist <= Number(t.maxDistance));
+                        if (matchingTier) contractorAmount = Number(matchingTier.amount);
                         else {
-                            const sorted = [...payConfig.tiers].sort((a, b) => b.maxDistance - a.maxDistance);
-                            if (dist > sorted[0].maxDistance) contractorAmount = sorted[0].amount;
+                            const sorted = [...payConfig.tiers].sort((a, b) => Number(b.maxDistance) - Number(a.maxDistance));
+                            if (dist > Number(sorted[0].maxDistance)) contractorAmount = Number(sorted[0].amount);
                         }
                     }
                     const materialUsageData: Array<{

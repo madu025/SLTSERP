@@ -173,8 +173,8 @@ export class PreErpReconciliationService {
     });
     if (!balance) throw new Error('BALANCE_RECORD_NOT_FOUND');
 
-    const varianceQty = input.physicalAuditedQty - balance.closingBalanceQuantity;
-    const financialImpact = varianceQty * balance.unitCostLkr;
+    const varianceQty = input.physicalAuditedQty - Number(balance.closingBalanceQuantity);
+    const financialImpact = varianceQty * Number(balance.unitCostLkr);
 
     const adjustment = await prisma.materialVarianceAdjustment.create({
       data: {

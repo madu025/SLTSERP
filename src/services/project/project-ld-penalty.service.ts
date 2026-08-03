@@ -87,7 +87,7 @@ export class ProjectLDPenaltyService {
 
         if (options.waivedAmount !== undefined) {
             updateData.waivedAmount = options.waivedAmount;
-            updateData.netAmount = existing.amount - options.waivedAmount;
+            updateData.netAmount = Number(existing.amount) - options.waivedAmount;
         }
 
         if (options.remarks) updateData.remarks = options.remarks;

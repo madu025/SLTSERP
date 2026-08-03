@@ -86,9 +86,9 @@ export class ProjectBOQPRService {
         const materialLaborItems = boqItems.filter((i) => i.category === 'MATERIAL+LABOR');
         const cableItems = boqItems.filter((i) => i.category === 'CABLE');
 
-        const totalMaterial = materialItems.reduce((s, i) => s + i.amount, 0);
-        const totalMaterialLabor = materialLaborItems.reduce((s, i) => s + i.amount, 0);
-        const totalCable = cableItems.reduce((s, i) => s + i.amount, 0);
+        const totalMaterial = materialItems.reduce((s, i) => s + Number(i.amount), 0);
+        const totalMaterialLabor = materialLaborItems.reduce((s, i) => s + Number(i.amount), 0);
+        const totalCable = cableItems.reduce((s, i) => s + Number(i.amount), 0);
         const estimatedTotal = totalMaterial + totalMaterialLabor + totalCable;
 
         const pr = await prisma.$transaction(async (tx) => {

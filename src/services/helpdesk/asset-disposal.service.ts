@@ -76,7 +76,7 @@ export class AssetDisposalService {
 
         const totalSalvage = requests
             .filter(r => r.status === ApprovalStatus.APPROVED)
-            .reduce((sum, r) => sum + (r.salvageValue || 0), 0);
+            .reduce((sum, r) => sum + Number(r.salvageValue || 0), 0);
 
         return {
             requests: formattedRequests,

@@ -237,15 +237,15 @@ export class RouteVersionService {
 
     if (!versionA || !versionB) throw AppError.badRequest('One or both versions not found');
 
-    const lengthDiff = (versionB.routeLength ?? 0) - (versionA.routeLength ?? 0);
+    const lengthDiff = Number(versionB.routeLength ?? 0) - Number(versionA.routeLength ?? 0);
 
     return {
-      versionA: { version: versionA.version, type: versionA.versionType, length: versionA.routeLength },
-      versionB: { version: versionB.version, type: versionB.versionType, length: versionB.routeLength },
+      versionA: { version: versionA.version, type: versionA.versionType, length: Number(versionA.routeLength ?? 0) },
+      versionB: { version: versionB.version, type: versionB.versionType, length: Number(versionB.routeLength ?? 0) },
       delta: {
         routeLengthMeters: Math.round(lengthDiff * 100) / 100,
         routeLengthPct: versionA.routeLength
-          ? Math.round((lengthDiff / versionA.routeLength) * 10000) / 100
+          ? Math.round((lengthDiff / Number(versionA.routeLength)) * 10000) / 100
           : 0,
       },
       geoJsonChanged: JSON.stringify(versionA.geojsonData) !== JSON.stringify(versionB.geojsonData),

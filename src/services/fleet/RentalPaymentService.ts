@@ -31,13 +31,14 @@ interface DbRentalVehicle {
   rental_contract_id: string;
   rental_start_date: Date;
   rental_end_date: Date;
-  rental_cost_daily: number;
-  rental_cost_monthly: number | null;
+  rental_cost_daily: number | import('@prisma/client/runtime/library').Decimal;
+  rental_cost_monthly: number | import('@prisma/client/runtime/library').Decimal | null;
   fuel_included: boolean;
-  driver_portion_monthly: number | null;
+  driver_portion_monthly: number | import('@prisma/client/runtime/library').Decimal | null;
   expected_working_days: number | null;
-  rate_per_additional_km: number | null;
-  absent_deduction_rate: number | null;
+  rate_per_additional_km: number | import('@prisma/client/runtime/library').Decimal | null;
+  absent_deduction_rate: number | import('@prisma/client/runtime/library').Decimal | null;
+
   fuel_allowance_per_km: number | null;
   driver_term: string | null;
   fuel_supplying: string | null;
@@ -243,28 +244,28 @@ class RentalPaymentService {
       }
     });
 
-    const monthlyRate = rentalVehicle.rental_cost_monthly ?? rentalVehicle.rental_cost_daily * 30;
-    const driverPortion = rentalVehicle.driver_portion_monthly ?? 0;
+    const monthlyRate = Number(rentalVehicle.rental_cost_monthly ?? (Number(rentalVehicle.rental_cost_daily) * 30));
+    const driverPortion = Number(rentalVehicle.driver_portion_monthly ?? 0);
     const base_rental = monthlyRate + driverPortion;
 
     let fuel_allowance_amount = 0;
     if (rentalVehicle.fuel_supplying === 'OWNER' && rentalVehicle.fuel_allowance_per_km) {
-      fuel_allowance_amount = total_km_traveled * rentalVehicle.fuel_allowance_per_km;
+      fuel_allowance_amount = total_km_traveled * Number(rentalVehicle.fuel_allowance_per_km);
     }
 
     let driver_overtime_pay = 0;
     driverOTs.forEach((ot) => {
-      driver_overtime_pay += ot.total_pay || 0;
+      driver_overtime_pay += Number(ot.total_pay || 0);
     });
 
-    const deductionRate = rentalVehicle.absent_deduction_rate ?? 0;
+    const deductionRate = Number(rentalVehicle.absent_deduction_rate ?? 0);
     const absent_deductions = absent_days * deductionRate;
 
     let additional_km_charges = 0;
     const mileageLimit = rentalVehicle.mileage_limit_monthly;
     if (mileageLimit && total_km_traveled > mileageLimit) {
       const overLimitKm = total_km_traveled - mileageLimit;
-      const ratePerAdditionalKm = rentalVehicle.rate_per_additional_km ?? rentalVehicle.excess_mileage_cost_per_km ?? 0;
+      const ratePerAdditionalKm = Number(rentalVehicle.rate_per_additional_km ?? rentalVehicle.excess_mileage_cost_per_km ?? 0);
       additional_km_charges = overLimitKm * ratePerAdditionalKm;
     }
 
@@ -275,13 +276,14 @@ class RentalPaymentService {
       year,
       month,
       rental_cost_monthly: monthlyRate,
-      driver_portion_monthly: rentalVehicle.driver_portion_monthly,
+      driver_portion_monthly: rentalVehicle.driver_portion_monthly ? Number(rentalVehicle.driver_portion_monthly) : null,
       expected_working_days: rentalVehicle.expected_working_days,
-      rate_per_additional_km: rentalVehicle.rate_per_additional_km ?? rentalVehicle.excess_mileage_cost_per_km,
-      absent_deduction_rate: rentalVehicle.absent_deduction_rate,
-      fuel_allowance_per_km: rentalVehicle.fuel_allowance_per_km,
+      rate_per_additional_km: (rentalVehicle.rate_per_additional_km ?? rentalVehicle.excess_mileage_cost_per_km) ? Number(rentalVehicle.rate_per_additional_km ?? rentalVehicle.excess_mileage_cost_per_km) : null,
+      absent_deduction_rate: rentalVehicle.absent_deduction_rate ? Number(rentalVehicle.absent_deduction_rate) : null,
+      fuel_allowance_per_km: rentalVehicle.fuel_allowance_per_km ? Number(rentalVehicle.fuel_allowance_per_km) : null,
       fuel_supplying: rentalVehicle.fuel_supplying,
-      fuel_efficiency: rentalVehicle.fuel_efficiency,
+      fuel_efficiency: rentalVehicle.fuel_efficiency ? Number(rentalVehicle.fuel_efficiency) : null,
+
       mileage_limit_monthly: rentalVehicle.mileage_limit_monthly,
       excess_mileage_cost_per_km: rentalVehicle.excess_mileage_cost_per_km,
       fuel_included: rentalVehicle.fuel_included,

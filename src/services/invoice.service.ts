@@ -209,9 +209,9 @@ export class InvoiceService {
                 }
 
                 if (u.usageType === 'BOM_CLAIM') {
-                    itemMap[itemCode].bomQty += u.quantity;
+                    itemMap[itemCode].bomQty += Number(u.quantity);
                 } else {
-                    itemMap[itemCode].localQty += u.quantity;
+                    itemMap[itemCode].localQty += Number(u.quantity);
                 }
             });
 
@@ -398,7 +398,7 @@ export class InvoiceService {
                 );
 
                 // Calculate and Create
-                const totalAmount = groupSods.reduce((sum, sod) => sum + (sod.contractorAmount || 0), 0);
+                const totalAmount = groupSods.reduce((sum, sod) => sum + (sod.contractorAmount ? Number(sod.contractorAmount) : 0), 0);
                 if (totalAmount === 0) continue;
 
                 // Audit each SOD for penalties
@@ -434,8 +434,9 @@ export class InvoiceService {
                     let materialMismatch = false;
                     let mismatchReason = '';
 
-                    const dropWireDistance = sod.dropWireDistance || 0;
+                    const dropWireDistance = sod.dropWireDistance ? Number(sod.dropWireDistance) : 0;
                     if (dropWireDistance > 0) {
+
                         
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const hasDropwireMaterial = (sod as any).materialUsage?.some((mu: any) => {

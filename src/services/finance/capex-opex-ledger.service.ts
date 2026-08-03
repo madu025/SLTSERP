@@ -125,7 +125,7 @@ export class CapexOpexLedgerService {
     ]);
 
     return {
-      items: items as LedgerEntryDTO[],
+      items: items.map((i) => ({ ...i, amount: Number(i.amount) })) as LedgerEntryDTO[],
       total,
       page,
       limit,
@@ -154,10 +154,10 @@ export class CapexOpexLedgerService {
       orderBy: { _sum: { amount: 'desc' } },
     });
 
-    return grouped.map((g: { category: string; expenditureType: string; _sum: { amount: number | null } }) => ({
+    return grouped.map((g) => ({
       category: g.category as SpendCategory,
       expenditureType: g.expenditureType as ExpenditureType,
-      total: g._sum.amount ?? 0,
+      total: Number(g._sum.amount ?? 0),
     }));
   }
 

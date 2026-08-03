@@ -289,8 +289,9 @@ async function main() {
 
         await prisma.$executeRaw`
             INSERT INTO "InventoryItem" ("id", "code", "name", "category", "unit", "type", "commonName", "isOspFtth", "isWastageAllowed", "updatedAt", "createdAt", "source", "minLevel")
-            VALUES (${id}, ${item.code}, ${item.name}, ${item.category}, ${item.unit}, ${itemType}, ${commonName}, ${isOspFtth}, ${isWastageAllowed}, ${now}, ${now}, 'SLT', 0)
+            VALUES (${id}::uuid, ${item.code}, ${item.name}, ${item.category}, ${item.unit}, ${itemType}, ${commonName}, ${isOspFtth}, ${isWastageAllowed}, ${now}, ${now}, 'SLT', 0)
             ON CONFLICT ("code") DO UPDATE SET
+
                 "name" = ${item.name},
                 "category" = ${item.category},
                 "unit" = ${item.unit},

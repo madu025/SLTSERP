@@ -1,35 +1,37 @@
 model PettyCashAccount {
-  id             String                   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name           String
-  opmcId         String                   @unique
-  imprestLimit   Float                    @default(0)
-  currentBalance Float                    @default(0)
+  opmcId         String @db.Uuid                   @unique
+  imprestLimit   Decimal @db.Decimal(14, 2) @default(0)
+  currentBalance Decimal @db.Decimal(14, 2) @default(0)
   status         String                   @default("ACTIVE")
-  createdById    String?
+  createdById    String? @db.Uuid
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
   opmc           OPMC                     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
   reimbursements PettyCashReimbursement[]
   vouchers       PettyCashVoucher[]
+  @@index([opmcId])
+  @@index([createdById])
 }
 
 model PettyCashVoucher {
-  id              String                  @id @default(cuid())
-  accountId       String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  accountId       String @db.Uuid
   voucherNumber   String                  @unique
   date            DateTime                @default(now())
   title           String
   description     String?
-  amount          Float                   @default(0)
+  amount          Decimal @db.Decimal(14, 2) @default(0)
   category        String
   status          String                  @default("DRAFT")
   recipientName   String?
   receiptUrl      String?
-  approvedById    String?
+  approvedById    String? @db.Uuid
   approvedAt      DateTime?
   rejectionReason String?
-  reimbursementId String?
-  createdById     String?
+  reimbursementId String? @db.Uuid
+  createdById     String? @db.Uuid
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   account         PettyCashAccount        @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -37,20 +39,24 @@ model PettyCashVoucher {
 
   @@index([accountId])
   @@index([reimbursementId])
+  @@index([approvedById])
+  @@index([createdById])
 }
 
 model PettyCashReimbursement {
-  id                  String             @id @default(cuid())
-  accountId           String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  accountId           String @db.Uuid
   reimbursementNumber String             @unique
-  totalAmount         Float              @default(0)
+  totalAmount         Decimal @db.Decimal(14, 2) @default(0)
   status              String             @default("PENDING")
-  paymentVoucherId    String?
-  createdById         String?
+  paymentVoucherId    String? @db.Uuid
+  createdById         String? @db.Uuid
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   account             PettyCashAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   vouchers            PettyCashVoucher[]
 
   @@index([accountId])
+  @@index([paymentVoucherId])
+  @@index([createdById])
 }

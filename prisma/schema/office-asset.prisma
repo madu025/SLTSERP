@@ -18,7 +18,7 @@ enum OfficeAssetStatus {
 }
 
 model OfficeAsset {
-  id           String              @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   assetNumber  String              @unique
   serialNumber String?             @unique
   name         String
@@ -26,18 +26,18 @@ model OfficeAsset {
   status       OfficeAssetStatus   @default(ACTIVE)
 
   // Assignment & Location
-  assignedStaffId String?
-  assignedUserId  String?
-  siteOfficeId    String? // Maps to InventoryStore as a site location
+  assignedStaffId String? @db.Uuid
+  assignedUserId  String? @db.Uuid
+  siteOfficeId    String? @db.Uuid // Maps to InventoryStore as a site location
   locationDetails String? // specific room/floor
 
   // Financial link
-  fixedAssetId String? @unique
+  fixedAssetId String? @db.Uuid @unique
 
   // Metadata & Details
   brand          String?
   model          String?
-  purchaseCost   Float?
+  purchaseCost   Decimal? @db.Decimal(14, 2)
   purchaseDate   DateTime?
   warrantyExpiry DateTime?
   metadata       Json? // Dynamic properties without hardcoding
@@ -63,15 +63,15 @@ model OfficeAsset {
 }
 
 model OfficeAssetMovementLog {
-  id            String   @id @default(cuid())
-  assetId       String
-  fromStaffId   String?
-  toStaffId     String?
-  fromSiteId    String?
-  toSiteId      String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  assetId       String @db.Uuid
+  fromStaffId   String? @db.Uuid
+  toStaffId     String? @db.Uuid
+  fromSiteId    String? @db.Uuid
+  toSiteId      String? @db.Uuid
   action        String // e.g. "ASSIGNED", "RETURNED", "TRANSFERRED"
   remarks       String?
-  performedById String
+  performedById String @db.Uuid
   createdAt     DateTime @default(now())
 
   asset       OfficeAsset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -83,17 +83,21 @@ model OfficeAssetMovementLog {
 
   @@index([assetId])
   @@index([performedById])
+  @@index([fromStaffId])
+  @@index([toStaffId])
+  @@index([fromSiteId])
+  @@index([toSiteId])
 }
 
 model OfficeAssetMaintenanceLog {
-  id              String    @id @default(cuid())
-  assetId         String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  assetId         String @db.Uuid
   serviceDate     DateTime
   nextServiceDate DateTime?
   vendorName      String?
-  cost            Float?
+  cost            Decimal? @db.Decimal(14, 2)
   description     String
-  performedById   String
+  performedById   String @db.Uuid
   createdAt       DateTime  @default(now())
 
   asset       OfficeAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -101,4 +105,5 @@ model OfficeAssetMaintenanceLog {
 
   @@index([assetId])
   @@index([serviceDate])
+  @@index([performedById])
 }

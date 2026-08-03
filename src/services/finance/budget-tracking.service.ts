@@ -51,16 +51,16 @@ export class BudgetTrackingService {
     ]);
 
     const totalActual =
-      (materialIssueItems._sum.quantity ?? 0) + // qty as proxy; real cost needs unit price join
-      (expenseCost._sum.amount ?? 0) +
-      (laborCost._sum.laborCost ?? 0);
+      Number(materialIssueItems._sum.quantity ?? 0) + // qty as proxy; real cost needs unit price join
+      Number(expenseCost._sum.amount ?? 0) +
+      Number(laborCost._sum.laborCost ?? 0);
 
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: { budget: true },
     });
 
-    const budget = project?.budget ?? 0;
+    const budget = Number(project?.budget ?? 0);
     const variance = budget - totalActual;
     const variancePct = budget > 0 ? (variance / budget) * 100 : 0;
     const varianceStatus = BudgetTrackingService.getVarianceStatus(variancePct);
@@ -115,15 +115,15 @@ export class BudgetTrackingService {
     if (!project) throw AppError.badRequest('Project not found');
 
     const materialCost = materialIssues.reduce((s) => s + 0, 0); // No direct cost on StockIssue
-    const expenseCost = expenses.reduce((s, e) => s + e.amount, 0);
-    const laborCost = dailyProgress.reduce((s, d) => s + d.laborCost, 0);
+    const expenseCost = expenses.reduce((s, e) => s + Number(e.amount), 0);
+    const laborCost = dailyProgress.reduce((s, d) => s + Number(d.laborCost), 0);
     const actualCost = materialCost + expenseCost + laborCost;
 
-    const budget = project.budget ?? 0;
+    const budget = Number(project.budget ?? 0);
     const variance = budget - actualCost;
     const variancePct = budget > 0 ? (variance / budget) * 100 : 0;
     const varianceStatus = BudgetTrackingService.getVarianceStatus(variancePct);
-    const boqEstimate = boqTotal._sum.amount ?? 0;
+    const boqEstimate = Number(boqTotal._sum.amount ?? 0);
 
     // Cost breakdown by month (for trend chart)
     const monthlyTrend: Record<string, number> = {};
@@ -133,11 +133,11 @@ export class BudgetTrackingService {
     }
     for (const exp of expenses) {
       const month = exp.date.toISOString().substring(0, 7);
-      monthlyTrend[month] = (monthlyTrend[month] || 0) + exp.amount;
+      monthlyTrend[month] = (monthlyTrend[month] || 0) + Number(exp.amount);
     }
     for (const dp of dailyProgress) {
       const month = dp.reportDate.toISOString().substring(0, 7);
-      monthlyTrend[month] = (monthlyTrend[month] || 0) + dp.laborCost;
+      monthlyTrend[month] = (monthlyTrend[month] || 0) + Number(dp.laborCost);
     }
 
     return {

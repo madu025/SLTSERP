@@ -97,11 +97,11 @@ export const sodImportWorker = new Worker(
         const getContractorAmount = (opmcId: string, dist: number) => {
             const config = activePayConfigs.find(c => c.rtomId === opmcId) || activePayConfigs.find(c => c.rtomId === null);
             if (config && config.tiers && config.tiers.length > 0) {
-                const matchingTier = config.tiers.find(t => dist >= t.minDistance && dist <= t.maxDistance);
-                if (matchingTier) return matchingTier.amount;
+                const matchingTier = config.tiers.find(t => dist >= Number(t.minDistance) && dist <= Number(t.maxDistance));
+                if (matchingTier) return Number(matchingTier.amount);
                 
-                const sorted = [...config.tiers].sort((a, b) => b.maxDistance - a.maxDistance);
-                if (dist > sorted[0].maxDistance) return sorted[0].amount;
+                const sorted = [...config.tiers].sort((a, b) => Number(b.maxDistance) - Number(a.maxDistance));
+                if (dist > Number(sorted[0].maxDistance)) return Number(sorted[0].amount);
             }
             return 0;
         };

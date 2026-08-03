@@ -22,7 +22,7 @@ export async function calculateProjectProgress(projectId: string): Promise<numbe
 
   if (!project?.workflowInstance?.stages || project.workflowInstance.stages.length === 0) {
     // No workflow - keep existing progress or set to 0
-    return project?.progress || 0;
+    return Number(project?.progress || 0);
   }
 
   const stages = project.workflowInstance.stages;
@@ -90,7 +90,7 @@ export async function updateProgressOnBOQGenerate(projectId: string): Promise<vo
 
   // Otherwise, set milestone-based progress
   // BOQ generation = ~10% if no workflow
-  const currentProgress = project.progress || 0;
+  const currentProgress = Number(project.progress || 0);
   const newProgress = Math.max(currentProgress, 10);
   
   await prisma.project.update({

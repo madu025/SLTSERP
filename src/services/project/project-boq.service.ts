@@ -131,7 +131,7 @@ export class ProjectBOQService {
             if (existing) {
                 const rateVal = parseFloat(String(updateData.unitRate));
                 data.unitRate = rateVal;
-                data.amount = (existing.quantity || 0) * rateVal;
+                data.amount = Number(existing.quantity || 0) * rateVal;
             }
         }
 

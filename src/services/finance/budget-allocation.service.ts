@@ -122,7 +122,7 @@ export class BudgetAllocationService {
       orderBy: [{ fiscalYear: 'desc' }, { category: 'asc' }],
     });
 
-    return results as BudgetDTO[];
+    return results.map((r) => ({ ...r, allocatedAmount: Number(r.allocatedAmount) })) as BudgetDTO[];
   }
 
   /**
@@ -175,7 +175,7 @@ export class BudgetAllocationService {
     const actualMap = new Map<string, number>();
     for (const row of actuals) {
       const key = `${row.category}::${row.expenditureType}`;
-      actualMap.set(key, row._sum.amount ?? 0);
+      actualMap.set(key, Number(row._sum.amount ?? 0));
     }
 
     // 4. Join budgets with actuals — O(k) single pass
@@ -184,14 +184,14 @@ export class BudgetAllocationService {
     return budgets.map((budget) => {
       const key = `${budget.category}::${budget.expenditureType}`;
       const actual = actualMap.get(key) ?? 0;
-      const variance = budget.allocatedAmount - actual;
+      const variance = budget.allocatedAmount.toNumber() - actual;
       const utilizationPct =
-        budget.allocatedAmount > 0 ? Math.round((actual / budget.allocatedAmount) * 100) : 0;
+        budget.allocatedAmount.toNumber() > 0 ? Math.round((actual / budget.allocatedAmount.toNumber()) * 100) : 0;
 
       return {
         category: budget.category as SpendCategory,
         expenditureType: budget.expenditureType as ExpenditureType,
-        allocated: budget.allocatedAmount,
+        allocated: Number(budget.allocatedAmount),
         actual,
         variance,
         utilizationPct,

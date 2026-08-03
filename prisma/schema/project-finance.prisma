@@ -1,8 +1,8 @@
 model Invoice {
-  id                String                    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   invoiceNumber     String                    @unique
-  contractorId      String
-  projectId         String?
+  contractorId      String @db.Uuid
+  projectId         String? @db.Uuid
   year              Int?
   month             Int?
   totalAmount       Decimal                   @default(0)
@@ -22,9 +22,9 @@ model Invoice {
   vatAmount         Decimal                   @default(0)
   ssclAmount        Decimal                   @default(0)
   whtAmount         Decimal                   @default(0)
-  vatPercent        Float                     @default(18)
-  ssclPercent       Float                     @default(2.5)
-  whtPercent        Float                     @default(5)
+  vatPercent        Decimal @db.Decimal(8, 4) @default(18)
+  ssclPercent       Decimal @db.Decimal(8, 4) @default(2.5)
+  whtPercent        Decimal @db.Decimal(8, 4) @default(5)
   dueDate           DateTime?
   date              DateTime                  @default(now())
   createdAt         DateTime                  @default(now())
@@ -45,8 +45,8 @@ model Invoice {
 }
 
 model InvoiceAmendmentRequest {
-  id               String    @id @default(cuid())
-  invoiceId        String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  invoiceId        String @db.Uuid
   originalAmount   Decimal
   requestedAmount  Decimal
   originalAmountA  Decimal
@@ -55,8 +55,8 @@ model InvoiceAmendmentRequest {
   requestedAmountB Decimal
   reason           String
   status           String    @default("PENDING_SF_APPROVAL")
-  requestedById    String
-  approvedById     String?
+  requestedById    String @db.Uuid
+  approvedById     String? @db.Uuid
   approvedAt       DateTime?
   rejectionReason  String?
   createdAt        DateTime  @default(now())
@@ -67,10 +67,12 @@ model InvoiceAmendmentRequest {
 
   @@index([invoiceId])
   @@index([status])
+  @@index([requestedById])
+  @@index([approvedById])
 }
 
 model Bank {
-  id        String       @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   code      String       @unique
   name      String
   createdAt DateTime     @default(now())
@@ -79,8 +81,8 @@ model Bank {
 }
 
 model BankBranch {
-  id        String   @id @default(cuid())
-  bankId    String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  bankId    String @db.Uuid
   code      String
   name      String
   createdAt DateTime @default(now())
@@ -88,10 +90,11 @@ model BankBranch {
   bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
 
   @@unique([bankId, code])
+  @@index([bankId])
 }
 
 model Vendor {
-  id             String               @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   code           String               @unique
   name           String
   contactPerson  String?
@@ -119,9 +122,9 @@ model Vendor {
 }
 
 model ProjectRequisition {
-  id               String                   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   prNumber         String                   @unique
-  projectId        String
+  projectId        String @db.Uuid
   title            String
   description      String?
   priority         String                   @default("MEDIUM")
@@ -129,12 +132,12 @@ model ProjectRequisition {
   type             String                   @default("MATERIAL")
   deliveryLocation String?
   requiredDate     DateTime?
-  requestedById    String
-  approvedById     String?
+  requestedById    String @db.Uuid
+  approvedById     String? @db.Uuid
   approvedAt       DateTime?
   rejectionReason  String?
-  vendorId         String?
-  estimatedTotal   Float                    @default(0)
+  vendorId         String? @db.Uuid
+  estimatedTotal   Decimal @db.Decimal(14, 2) @default(0)
   remarks          String?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
@@ -148,41 +151,44 @@ model ProjectRequisition {
   @@index([status])
   @@index([prNumber])
   @@index([vendorId])
+  @@index([requestedById])
+  @@index([approvedById])
 }
 
 model ProjectRequisitionItem {
-  id             String             @id @default(cuid())
-  requisitionId  String
-  boqItemId      String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  requisitionId  String @db.Uuid
+  boqItemId      String? @db.Uuid
   itemCode       String
   description    String
   unit           String
-  quantity       Float
-  estimatedPrice Float              @default(0)
-  totalEstimated Float              @default(0)
+  quantity       Decimal @db.Decimal(12, 4)
+  estimatedPrice Decimal @db.Decimal(14, 2) @default(0)
+  totalEstimated Decimal @db.Decimal(14, 2) @default(0)
   notes          String?
   createdAt      DateTime           @default(now())
   requisition    ProjectRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
 
   @@index([requisitionId])
+  @@index([boqItemId])
 }
 
 model Quotation {
-  id             String             @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   quoteNumber    String             @unique
-  requisitionId  String
-  vendorId       String
+  requisitionId  String @db.Uuid
+  vendorId       String @db.Uuid
   vendorName     String
   quoteDate      DateTime           @default(now())
   validUntil     DateTime?
-  totalAmount    Float              @default(0)
+  totalAmount    Decimal @db.Decimal(14, 2) @default(0)
   status         String             @default("PENDING")
   currency       String             @default("LKR")
   deliveryDays   Int?
   warrantyPeriod String?
   paymentTerms   String?
   remarks        String?
-  acceptedById   String?
+  acceptedById   String? @db.Uuid
   acceptedAt     DateTime?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -194,17 +200,18 @@ model Quotation {
   @@index([vendorId])
   @@index([status])
   @@index([quoteNumber])
+  @@index([acceptedById])
 }
 
 model QuotationItem {
-  id           String    @id @default(cuid())
-  quotationId  String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  quotationId  String @db.Uuid
   itemCode     String
   description  String
   unit         String
-  quantity     Float
-  unitPrice    Float
-  totalPrice   Float
+  quantity     Decimal @db.Decimal(12, 4)
+  unitPrice    Decimal @db.Decimal(14, 2)
+  totalPrice   Decimal @db.Decimal(14, 2)
   deliveryDays Int?
   notes        String?
   createdAt    DateTime  @default(now())
@@ -214,11 +221,11 @@ model QuotationItem {
 }
 
 model ProjectPurchaseOrder {
-  id                 String                     @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   poNumber           String                     @unique
-  projectId          String
-  requisitionId      String?
-  vendorId           String
+  projectId          String @db.Uuid
+  requisitionId      String? @db.Uuid
+  vendorId           String @db.Uuid
   vendorName         String
   title              String
   description        String?
@@ -229,19 +236,19 @@ model ProjectPurchaseOrder {
   orderDate          DateTime                   @default(now())
   expectedDelivery   DateTime?
   deliveryLocation   String?
-  subtotal           Float                      @default(0)
-  taxAmount          Float                      @default(0)
-  discountAmount     Float                      @default(0)
-  totalAmount        Float                      @default(0)
+  subtotal           Decimal @db.Decimal(14, 2) @default(0)
+  taxAmount          Decimal @db.Decimal(14, 2) @default(0)
+  discountAmount     Decimal @db.Decimal(14, 2) @default(0)
+  totalAmount        Decimal @db.Decimal(14, 2) @default(0)
   currency           String                     @default("LKR")
   paymentTerms       String?
   deliveryTerms      String?
   notes              String?
-  approvedById       String?
+  approvedById       String? @db.Uuid
   approvedAt         DateTime?
-  issuedById         String?
+  issuedById         String? @db.Uuid
   issuedAt           DateTime?
-  closedById         String?
+  closedById         String? @db.Uuid
   closedAt           DateTime?
   cancellationReason String?
   createdAt          DateTime                   @default(now())
@@ -256,41 +263,45 @@ model ProjectPurchaseOrder {
   @@index([vendorId])
   @@index([status])
   @@index([poNumber])
+  @@index([approvedById])
+  @@index([issuedById])
+  @@index([closedById])
 }
 
 model ProjectPurchaseOrderItem {
-  id                String               @id @default(cuid())
-  poId              String
-  requisitionItemId String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  poId              String @db.Uuid
+  requisitionItemId String? @db.Uuid
   itemCode          String
   description       String
   unit              String
-  quantity          Float
-  unitPrice         Float
-  totalPrice        Float
-  receivedQty       Float                @default(0)
-  balanceQty        Float                @default(0)
+  quantity          Decimal @db.Decimal(12, 4)
+  unitPrice         Decimal @db.Decimal(14, 2)
+  totalPrice        Decimal @db.Decimal(14, 2)
+  receivedQty       Decimal @db.Decimal(14, 2) @default(0)
+  balanceQty        Decimal @db.Decimal(14, 2) @default(0)
   deliveryDate      DateTime?
   notes             String?
   createdAt         DateTime             @default(now())
   purchaseOrder     ProjectPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
 
   @@index([poId])
+  @@index([requisitionItemId])
 }
 
 model ProjectGoodsReceipt {
-  id              String                    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   grnNumber       String                    @unique
-  poId            String
-  projectId       String
-  receivedById    String
+  poId            String @db.Uuid
+  projectId       String @db.Uuid
+  receivedById    String @db.Uuid
   receivedDate    DateTime                  @default(now())
   status          String                    @default("PENDING")
   deliveryNoteRef String?
   invoiceRef      String?
   remarks         String?
-  storeId         String?
-  approvedById    String?
+  storeId         String? @db.Uuid
+  approvedById    String? @db.Uuid
   approvedAt      DateTime?
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
@@ -302,22 +313,25 @@ model ProjectGoodsReceipt {
   @@index([projectId])
   @@index([grnNumber])
   @@index([status])
+  @@index([receivedById])
+  @@index([storeId])
+  @@index([approvedById])
 }
 
 model ProjectGoodsReceiptItem {
-  id               String              @id @default(cuid())
-  goodsReceiptId   String
-  poItemId         String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  goodsReceiptId   String @db.Uuid
+  poItemId         String @db.Uuid
   itemCode         String
   description      String
   unit             String
-  quantityOrdered  Float
-  quantityReceived Float
-  quantityAccepted Float
-  quantityRejected Float               @default(0)
+  quantityOrdered  Decimal @db.Decimal(14, 2)
+  quantityReceived Decimal @db.Decimal(14, 2)
+  quantityAccepted Decimal @db.Decimal(14, 2)
+  quantityRejected Decimal @db.Decimal(14, 2) @default(0)
   rejectionReason  String?
-  unitPrice        Float
-  totalPrice       Float
+  unitPrice        Decimal @db.Decimal(14, 2)
+  totalPrice       Decimal @db.Decimal(14, 2)
   batchNumber      String?
   serialNumbers    String[]            @default([])
   notes            String?
@@ -329,34 +343,34 @@ model ProjectGoodsReceiptItem {
 }
 
 model ProjectInvoice {
-  id               String               @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   invoiceNumber    String               @unique
-  projectId        String
+  projectId        String @db.Uuid
   title            String
   description      String?
   status           String               @default("DRAFT")
   type             String               @default("CLIENT")
   invoiceDate      DateTime             @default(now())
   dueDate          DateTime?
-  subtotal         Float                @default(0)
-  taxAmount        Float                @default(0)
-  discountAmount   Float                @default(0)
-  vatAmount        Float                @default(0)
-  ssclAmount       Float                @default(0)
-  whtAmount        Float                @default(0)
-  vatPercent       Float                @default(18)
-  ssclPercent      Float                @default(2.5)
-  whtPercent       Float                @default(5)
-  totalAmount      Float                @default(0)
-  paidAmount       Float                @default(0)
-  balanceAmount    Float                @default(0)
+  subtotal         Decimal @db.Decimal(14, 2) @default(0)
+  taxAmount        Decimal @db.Decimal(14, 2) @default(0)
+  discountAmount   Decimal @db.Decimal(14, 2) @default(0)
+  vatAmount        Decimal @db.Decimal(14, 2) @default(0)
+  ssclAmount       Decimal @db.Decimal(14, 2) @default(0)
+  whtAmount        Decimal @db.Decimal(14, 2) @default(0)
+  vatPercent       Decimal @db.Decimal(8, 4) @default(18)
+  ssclPercent      Decimal @db.Decimal(8, 4) @default(2.5)
+  whtPercent       Decimal @db.Decimal(8, 4) @default(5)
+  totalAmount      Decimal @db.Decimal(14, 2) @default(0)
+  paidAmount       Decimal @db.Decimal(14, 2) @default(0)
+  balanceAmount    Decimal @db.Decimal(14, 2) @default(0)
   currency         String               @default("LKR")
   notes            String?
   referenceNumber  String?
   periodFrom       DateTime?
   periodTo         DateTime?
-  createdById      String?
-  approvedById     String?
+  createdById      String? @db.Uuid
+  approvedById     String? @db.Uuid
   approvedAt       DateTime?
   cancelledReason  String?
   createdAt        DateTime             @default(now())
@@ -373,37 +387,41 @@ model ProjectInvoice {
   @@index([status])
   @@index([invoiceNumber])
   @@index([invoiceDate])
+  @@index([createdById])
+  @@index([approvedById])
 }
 
 model ProjectInvoiceItem {
-  id          String         @id @default(cuid())
-  invoiceId   String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  invoiceId   String @db.Uuid
   description String
-  quantity    Float          @default(1)
-  unitPrice   Float          @default(0)
-  totalPrice  Float          @default(0)
-  boqItemId   String?
-  taskId      String?
+  quantity    Decimal @db.Decimal(12, 4) @default(1)
+  unitPrice   Decimal @db.Decimal(14, 2) @default(0)
+  totalPrice  Decimal @db.Decimal(14, 2) @default(0)
+  boqItemId   String? @db.Uuid
+  taskId      String? @db.Uuid
   itemType    String         @default("SERVICE")
   notes       String?
   createdAt   DateTime       @default(now())
   invoice     ProjectInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+  @@index([boqItemId])
+  @@index([taskId])
 }
 
 model PaymentVoucher {
-  id                 String          @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   pvNumber           String          @unique
-  projectId          String
+  projectId          String @db.Uuid
   title              String
   description        String?
   status             String          @default("DRAFT")
   type               String          @default("CONTRACTOR")
   expenditureType    String          @default("OPEX") // CAPEX | OPEX
   payeeName          String
-  payeeId            String?
-  invoiceId          String?
+  payeeId            String? @db.Uuid
+  invoiceId          String? @db.Uuid
   amount             Decimal         @default(0)
   paymentDate        DateTime?
   paymentMethod      String?
@@ -415,12 +433,12 @@ model PaymentVoucher {
   taxWithheld        Decimal         @default(0)
   netAmount          Decimal         @default(0)
   retentionAmount    Decimal         @default(0)
-  retentionReleaseId String?
+  retentionReleaseId String? @db.Uuid
   notes              String?
-  createdById        String?
-  approvedById       String?
+  createdById        String? @db.Uuid
+  approvedById       String? @db.Uuid
   approvedAt         DateTime?
-  paidById           String?
+  paidById           String? @db.Uuid
   paidAt             DateTime?
   rejectionReason    String?
   cancelledReason    String?
@@ -433,26 +451,31 @@ model PaymentVoucher {
   @@index([status])
   @@index([pvNumber])
   @@index([invoiceId])
+  @@index([payeeId])
+  @@index([retentionReleaseId])
+  @@index([createdById])
+  @@index([approvedById])
+  @@index([paidById])
 }
 
 model ProjectLDPenalty {
-  id             String    @id @default(cuid())
-  projectId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String @db.Uuid
   title          String
   description    String?
   type           String    @default("LD")
   category       String    @default("DELAY")
-  amount         Float     @default(0)
-  percentage     Float?
+  amount         Decimal @db.Decimal(14, 2) @default(0)
+  percentage     Decimal? @db.Decimal(14, 2)
   referenceTable String?
-  referenceId    String?
+  referenceId    String? @db.Uuid
   referenceDesc  String?
-  waivedAmount   Float     @default(0)
-  netAmount      Float     @default(0)
+  waivedAmount   Decimal @db.Decimal(14, 2) @default(0)
+  netAmount      Decimal @db.Decimal(14, 2) @default(0)
   status         String    @default("PROPOSED")
   appliedDate    DateTime?
-  leviedById     String?
-  approvedById   String?
+  leviedById     String? @db.Uuid
+  approvedById   String? @db.Uuid
   approvedAt     DateTime?
   remarks        String?
   createdAt      DateTime  @default(now())
@@ -462,18 +485,21 @@ model ProjectLDPenalty {
   @@index([projectId])
   @@index([status])
   @@index([type])
+  @@index([referenceId])
+  @@index([leviedById])
+  @@index([approvedById])
 }
 
 model ProjectRetention {
-  id                    String             @id @default(cuid())
-  projectId             String
-  invoiceId             String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId             String @db.Uuid
+  invoiceId             String? @db.Uuid
   title                 String
   description           String?
-  retentionPercent      Float              @default(10)
-  retentionAmount       Float              @default(0)
-  releasedAmount        Float              @default(0)
-  balanceAmount         Float              @default(0)
+  retentionPercent      Decimal @db.Decimal(8, 4) @default(10)
+  retentionAmount       Decimal @db.Decimal(14, 2) @default(0)
+  releasedAmount        Decimal @db.Decimal(14, 2) @default(0)
+  balanceAmount         Decimal @db.Decimal(14, 2) @default(0)
   status                String             @default("HELD")
   releaseCondition      String?
   defectLiabilityPeriod Int?
@@ -490,24 +516,26 @@ model ProjectRetention {
 }
 
 model RetentionRelease {
-  id               String           @id @default(cuid())
-  retentionId      String
-  releaseAmount    Float            @default(0)
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  retentionId      String @db.Uuid
+  releaseAmount    Decimal @db.Decimal(14, 2) @default(0)
   releaseDate      DateTime         @default(now())
-  paymentVoucherId String?
-  approvedById     String?
+  paymentVoucherId String? @db.Uuid
+  approvedById     String? @db.Uuid
   approvedAt       DateTime?
   remarks          String?
   createdAt        DateTime         @default(now())
   retention        ProjectRetention @relation(fields: [retentionId], references: [id], onDelete: Cascade)
 
   @@index([retentionId])
+  @@index([paymentVoucherId])
+  @@index([approvedById])
 }
 
 model ProjectChangeOrder {
-  id              String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   coNumber        String    @unique
-  projectId       String
+  projectId       String @db.Uuid
   title           String
   description     String?
   type            String    @default("SCOPE")
@@ -515,20 +543,20 @@ model ProjectChangeOrder {
   priority        String    @default("MEDIUM")
   reason          String?
   referenceTable  String?
-  referenceId     String?
-  originalValue   Float?
-  newValue        Float?
-  costImpact      Float     @default(0)
+  referenceId     String? @db.Uuid
+  originalValue   Decimal? @db.Decimal(14, 2)
+  newValue        Decimal? @db.Decimal(14, 2)
+  costImpact      Decimal @db.Decimal(14, 2) @default(0)
   timeImpact      Int?
   scopeImpact     String?
   riskAssessment  String?
   supportingDocs  String[]  @default([])
-  requestedById   String?
+  requestedById   String? @db.Uuid
   requestedDate   DateTime  @default(now())
-  approvedById    String?
+  approvedById    String? @db.Uuid
   approvedAt      DateTime?
   rejectionReason String?
-  implementedById String?
+  implementedById String? @db.Uuid
   implementedAt   DateTime?
   notes           String?
   createdAt       DateTime  @default(now())
@@ -539,25 +567,29 @@ model ProjectChangeOrder {
   @@index([status])
   @@index([coNumber])
   @@index([type])
+  @@index([referenceId])
+  @@index([requestedById])
+  @@index([approvedById])
+  @@index([implementedById])
 }
 
 model ProjectPayment {
-  id            String    @id @default(cuid())
-  projectId     String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId     String @db.Uuid
   paymentNumber String    @unique
-  amount        Float
+  amount        Decimal @db.Decimal(14, 2)
   description   String?
   invoiceRef    String?
   level1Status  String    @default("PENDING")
-  level1UserId  String?
+  level1UserId  String? @db.Uuid
   level1At      DateTime?
   level1Notes   String?
   level2Status  String    @default("PENDING")
-  level2UserId  String?
+  level2UserId  String? @db.Uuid
   level2At      DateTime?
   level2Notes   String?
   level3Status  String    @default("PENDING")
-  level3UserId  String?
+  level3UserId  String? @db.Uuid
   level3At      DateTime?
   level3Notes   String?
   status        String    @default("PENDING")
@@ -569,15 +601,18 @@ model ProjectPayment {
   @@index([projectId])
   @@index([status])
   @@index([paymentNumber])
+  @@index([level1UserId])
+  @@index([level2UserId])
+  @@index([level3UserId])
 }
 
 model CostAllocationMemo {
-  id               String                   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   memoNumber       String                   @unique
   title            String
   description      String?
-  totalCost        Float                    @default(0)
-  journalEntryId   String?
+  totalCost        Decimal @db.Decimal(14, 2) @default(0)
+  journalEntryId   String? @db.Uuid
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
   allocationTarget String?
@@ -587,15 +622,16 @@ model CostAllocationMemo {
   items            CostAllocationMemoItem[]
 
   @@index([memoNumber])
+  @@index([journalEntryId])
 }
 
 model CostAllocationMemoItem {
-  id        String             @id @default(cuid())
-  memoId    String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  memoId    String @db.Uuid
   itemName  String
   quantity  Int                @default(1)
-  unitCost  Float              @default(0)
-  totalCost Float              @default(0)
+  unitCost  Decimal @db.Decimal(14, 2) @default(0)
+  totalCost Decimal @db.Decimal(14, 2) @default(0)
   memo      CostAllocationMemo @relation(fields: [memoId], references: [id], onDelete: Cascade)
 
   @@index([memoId])

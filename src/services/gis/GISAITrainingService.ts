@@ -162,7 +162,7 @@ export class GISAITrainingService {
           let closestPole: typeof plannedRoute.poles[0] | null = null;
 
           for (const pp of plannedRoute.poles) {
-            const dist = GISAITrainingService.getDistance(fp.latitude, fp.longitude, pp.latitude, pp.longitude);
+            const dist = GISAITrainingService.getDistance(Number(fp.latitude), Number(fp.longitude), Number(pp.latitude), pp.longitude.toNumber());
             if (dist < minDistance) {
               minDistance = dist;
               closestPole = pp;

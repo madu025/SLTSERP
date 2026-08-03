@@ -188,11 +188,11 @@ export class BankCashService {
             where: { bankAccountId }
         });
 
-        let statementBalance = bankAccount.openingBalance;
+        let statementBalance = Number(bankAccount.openingBalance);
         let unreconciledStatementCount = 0;
 
         for (const line of statementLines) {
-            statementBalance += Number(line.debit) - Number(line.credit);
+            statementBalance += Number(line.debit.toNumber()) - Number(line.credit.toNumber());
             if (!line.isReconciled) unreconciledStatementCount++;
         }
 

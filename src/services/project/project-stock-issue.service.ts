@@ -121,7 +121,7 @@ export class ProjectStockIssueService {
 
         for (const item of issue.items) {
             const stock = issueStockMap.get(item.itemId);
-            if (!stock || Number(stock.quantity) < item.quantity) {
+            if (!stock || Number(stock.quantity.toNumber()) < item.quantity.toNumber()) {
                 throw AppError.badRequest(`INSUFFICIENT_STOCK: Insufficient stock for item ID: ${item.itemId}`);
             }
         }
@@ -148,7 +148,7 @@ export class ProjectStockIssueService {
                     tx as TransactionClient,
                     issue.storeId,
                     item.itemId,
-                    item.quantity
+                    item.quantity.toNumber()
                 );
 
                 for (const picked of pickedBatches) {
@@ -185,7 +185,7 @@ export class ProjectStockIssueService {
                     });
 
                     if (boqItem) {
-                        const cost = item.quantity * boqItem.unitRate;
+                        const cost = Number(item.quantity) * Number(boqItem.unitRate);
                         await tx.projectBOQItem.update({
                             where: { id: boqItem.id },
                             data: {
@@ -225,9 +225,9 @@ export class ProjectStockIssueService {
                 });
                 
                 if (project) {
-                    const newActualCost = (project.actualCost || 0) + totalIssueCost;
+                    const newActualCost = Number(project.actualCost || 0) + totalIssueCost;
                     const newVariance = project.budget !== null && project.budget !== undefined
-                        ? project.budget - newActualCost
+                        ? Number(project.budget) - newActualCost
                         : null;
 
                     await tx.project.update({
@@ -334,10 +334,10 @@ export class ProjectStockIssueService {
                         create: { storeId: returnReq.storeId, itemId: item.itemId, quantity: item.quantity },
                         update: { quantity: { increment: item.quantity } }
                     });
-                    transferInItems.push({ itemId: item.itemId, quantity: item.quantity });
+                    transferInItems.push({ itemId: item.itemId, quantity: Number(item.quantity) });
                 } else {
                     // Log as wastage (not added back to usable stock)
-                    wastageItems.push({ itemId: item.itemId, quantity: item.quantity });
+                    wastageItems.push({ itemId: item.itemId, quantity: Number(item.quantity) });
                 }
 
                 // Credit Project BOQ
@@ -346,7 +346,7 @@ export class ProjectStockIssueService {
                 });
 
                 if (boqItem) {
-                    const credit = item.quantity * boqItem.unitRate;
+                    const credit = Number(item.quantity) * Number(boqItem.unitRate);
                     await tx.projectBOQItem.update({
                         where: { id: boqItem.id },
                         data: {
@@ -402,9 +402,9 @@ export class ProjectStockIssueService {
                 });
 
                 if (project) {
-                    const newActualCost = Math.max(0, (project.actualCost || 0) - totalCredit);
+                    const newActualCost = Math.max(0, Number(project.actualCost || 0) - totalCredit);
                     const newVariance = project.budget !== null && project.budget !== undefined
-                        ? project.budget - newActualCost
+                        ? Number(project.budget) - newActualCost
                         : null;
 
                     await tx.project.update({

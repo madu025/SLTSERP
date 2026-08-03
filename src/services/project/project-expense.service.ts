@@ -47,9 +47,9 @@ export class ProjectExpenseService {
             });
 
             if (project) {
-                const newActualCost = (project.actualCost || 0) + amountVal;
+                const newActualCost = Number(project.actualCost || 0) + amountVal;
                 const newVariance = project.budget !== null && project.budget !== undefined
-                    ? project.budget - newActualCost
+                    ? Number(project.budget) - newActualCost
                     : null;
 
                 await tx.project.update({
@@ -91,9 +91,9 @@ export class ProjectExpenseService {
             });
 
             if (project) {
-                const newActualCost = Math.max(0, (project.actualCost || 0) - expenseAmount);
+                const newActualCost = Math.max(0, Number(project.actualCost || 0) - Number(expenseAmount));
                 const newVariance = project.budget !== null && project.budget !== undefined
-                    ? project.budget - newActualCost
+                    ? Number(project.budget) - newActualCost
                     : null;
 
                 await tx.project.update({

@@ -1,5 +1,5 @@
 model AuthorityEntity {
-  id            String       @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name          String
   shortName     String?
   contactPerson String?
@@ -15,11 +15,11 @@ model AuthorityEntity {
 }
 
 model PermitType {
-  id              String          @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name            String
   code            String          @unique
   description     String?
-  authorityId     String
+  authorityId     String @db.Uuid
   defaultDuration Int?
   requiresRenewal Boolean         @default(false)
   isActive        Boolean         @default(true)
@@ -33,9 +33,9 @@ model PermitType {
 }
 
 model ProjectPermit {
-  id               String                  @id @default(cuid())
-  projectId        String
-  permitTypeId     String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId        String @db.Uuid
+  permitTypeId     String @db.Uuid
   permitNumber     String?
   status           String                  @default("DRAFT")
   applicationDate  DateTime?
@@ -45,9 +45,9 @@ model ProjectPermit {
   rejectionReason  String?
   approvalDocument String?
   remarks          String?
-  appliedById      String?
-  approvedById     String?
-  cost             Float?
+  appliedById      String? @db.Uuid
+  approvedById     String? @db.Uuid
+  cost             Decimal? @db.Decimal(14, 2)
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   approvalSteps    PermitApprovalStep[]
@@ -58,32 +58,38 @@ model ProjectPermit {
   @@index([projectId])
   @@index([status])
   @@index([expiryDate])
+  @@index([permitTypeId])
+  @@index([appliedById])
+  @@index([approvedById])
 }
 
 model ProjectPermitDocument {
-  id           String        @id @default(cuid())
-  permitId     String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  permitId     String @db.Uuid
   documentType String
   fileName     String
   fileUrl      String
-  uploadedById String
+  uploadedById String @db.Uuid
   uploadedAt   DateTime      @default(now())
   permit       ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
 
   @@index([permitId])
+  @@index([uploadedById])
 }
 
 model PermitApprovalStep {
-  id             String        @id @default(cuid())
-  permitId       String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  permitId       String @db.Uuid
   stepNumber     Int
   roleRequired   String
-  assignedUserId String?
+  assignedUserId String? @db.Uuid
   status         String        @default("PENDING")
-  actionedById   String?
+  actionedById   String? @db.Uuid
   actionedAt     DateTime?
   comment        String?
   permit         ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
 
   @@index([permitId])
+  @@index([assignedUserId])
+  @@index([actionedById])
 }

@@ -28,7 +28,7 @@ export class ROPService {
         for (const u of allUsages) {
             if (u.itemId) {
                 const list = usageMap.get(u.itemId) || [];
-                list.push({ quantity: u.quantity, createdAt: u.createdAt });
+                list.push({ quantity: Number(u.quantity), createdAt: u.createdAt });
                 usageMap.set(u.itemId, list);
             }
         }

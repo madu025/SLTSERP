@@ -13,11 +13,11 @@ enum FiscalPeriodStatus {
 }
 
 model ChartOfAccount {
-  id         String           @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   code       String           @unique
   name       String
   type       AccountType
-  parentId   String?
+  parentId   String? @db.Uuid
   isPostable Boolean          @default(true)
   isActive   Boolean          @default(true)
   createdAt  DateTime         @default(now())
@@ -33,10 +33,11 @@ model ChartOfAccount {
 
   @@index([type])
   @@index([code])
+  @@index([parentId])
 }
 
 model GLMappingConfig {
-  id              String @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   sourceModule    String // e.g. "OSP_IOU", "OSP_RENT", "SOD_INVOICE"
   transactionType String // e.g. "ISSUE_ADVANCE", "PAY_RENT", "RECOGNIZE_REVENUE"
 
@@ -54,11 +55,11 @@ model GLMappingConfig {
 }
 
 model FiscalPeriod {
-  id                    String                 @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   year                  Int
   month                 Int
   status                FiscalPeriodStatus     @default(OPEN)
-  closedById            String?
+  closedById            String? @db.Uuid
   closedAt              DateTime?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
@@ -66,17 +67,18 @@ model FiscalPeriod {
 
   @@unique([year, month])
   @@index([status])
+  @@index([closedById])
 }
 
 model Customer {
-  id            String            @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   code          String            @unique
   name          String
   contactPerson String?
   email         String?
   phone         String?
   taxNumber     String?
-  creditLimit   Float             @default(0)
+  creditLimit   Decimal @db.Decimal(14, 2) @default(0)
   isActive      Boolean           @default(true)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -84,16 +86,16 @@ model Customer {
 }
 
 model CustomerReceipt {
-  id              String          @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   receiptNumber   String          @unique
-  customerId      String?
-  invoiceId       String?
-  amount          Float           @default(0)
+  customerId      String? @db.Uuid
+  invoiceId       String? @db.Uuid
+  amount          Decimal @db.Decimal(14, 2) @default(0)
   paymentMethod   String          @default("BANK_TRANSFER")
   referenceNumber String?
   receiptDate     DateTime        @default(now())
   notes           String?
-  createdById     String?
+  createdById     String? @db.Uuid
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   customer        Customer?       @relation(fields: [customerId], references: [id])
@@ -101,17 +103,18 @@ model CustomerReceipt {
 
   @@index([customerId])
   @@index([invoiceId])
+  @@index([createdById])
 }
 
 model BankAccount {
-  id             String              @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   accountNumber  String              @unique
   bankName       String
   branchName     String?
   glAccountCode  String              @default("BANK-1000")
   currency       String              @default("LKR")
-  openingBalance Float               @default(0)
-  currentBalance Float               @default(0)
+  openingBalance Decimal @db.Decimal(14, 2) @default(0)
+  currentBalance Decimal @db.Decimal(14, 2) @default(0)
   isActive       Boolean             @default(true)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -119,15 +122,15 @@ model BankAccount {
 }
 
 model BankStatementLine {
-  id                      String      @id @default(cuid())
-  bankAccountId           String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  bankAccountId           String @db.Uuid
   statementDate           DateTime
   description             String
   referenceNumber         String?
-  debit                   Float       @default(0)
-  credit                  Float       @default(0)
+  debit                   Decimal @db.Decimal(14, 2) @default(0)
+  credit                  Decimal @db.Decimal(14, 2) @default(0)
   isReconciled            Boolean     @default(false)
-  reconciledJournalLineId String?
+  reconciledJournalLineId String? @db.Uuid
   reconciledAt            DateTime?
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
@@ -135,24 +138,25 @@ model BankStatementLine {
 
   @@index([bankAccountId])
   @@index([isReconciled])
+  @@index([reconciledJournalLineId])
 }
 
 model FixedAsset {
-  id                      String            @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   assetNumber             String            @unique
   name                    String
   category                String            @default("EQUIPMENT")
   subCategory             String?
   acquisitionDate         DateTime          @default(now())
   purchasedYear           String?
-  cost                    Float             @default(0)
+  cost                    Decimal @db.Decimal(14, 2) @default(0)
   usefulLifeYears         Int               @default(5)
   depreciationMethod      String            @default("STRAIGHT_LINE")
   glAssetCode             String            @default("FA-1410")
   glDepExpCode            String            @default("EXP-DEP-6010")
   glAccumDepCode          String            @default("ACC-DEP-1510")
-  accumulatedDepreciation Float             @default(0)
-  netBookValue            Float             @default(0)
+  accumulatedDepreciation Decimal @db.Decimal(14, 2) @default(0)
+  netBookValue            Decimal @db.Decimal(14, 2) @default(0)
   locationCode            String?
   locationName            String?
   details                 String?
@@ -169,61 +173,67 @@ model FixedAsset {
 }
 
 model DepreciationLog {
-  id                 String     @id @default(cuid())
-  fixedAssetId       String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  fixedAssetId       String @db.Uuid
   year               Int
   month              Int
-  depreciationAmount Float
-  accumulatedAfter   Float
-  netBookValueAfter  Float
-  postedJournalId    String?
+  depreciationAmount Decimal @db.Decimal(14, 2)
+  accumulatedAfter   Decimal @db.Decimal(14, 2)
+  netBookValueAfter  Decimal @db.Decimal(14, 2)
+  postedJournalId    String? @db.Uuid
   createdAt          DateTime   @default(now())
   fixedAsset         FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)
 
   @@unique([fixedAssetId, year, month])
   @@index([year, month])
+  @@index([fixedAssetId])
+  @@index([postedJournalId])
 }
 
 model PayrollExpense {
-  id              String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   period          String
-  opmcId          String?
-  amount          Float    @default(0)
+  opmcId          String? @db.Uuid
+  amount          Decimal @db.Decimal(14, 2) @default(0)
   referenceNumber String?
   notes           String?
   status          String   @default("POSTED")
-  createdById     String?
-  postedJournalId String?
+  createdById     String? @db.Uuid
+  postedJournalId String? @db.Uuid
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([period])
   @@index([opmcId])
+  @@index([createdById])
+  @@index([postedJournalId])
 }
 
 model CreditDebitNote {
-  id              String          @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   noteNumber      String          @unique
   type            String          @default("CREDIT_NOTE") // CREDIT_NOTE | DEBIT_NOTE
-  invoiceId       String?
-  amount          Float           @default(0)
+  invoiceId       String? @db.Uuid
+  amount          Decimal @db.Decimal(14, 2) @default(0)
   reason          String
   status          String          @default("POSTED")
-  createdById     String?
-  postedJournalId String?
+  createdById     String? @db.Uuid
+  postedJournalId String? @db.Uuid
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   invoice         ProjectInvoice? @relation(fields: [invoiceId], references: [id])
 
   @@index([type])
   @@index([invoiceId])
+  @@index([createdById])
+  @@index([postedJournalId])
 }
 
 model ApprovalMatrix {
-  id           String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   module       String   @default("INVOICE")
-  minAmount    Float    @default(0)
-  maxAmount    Float
+  minAmount    Decimal @db.Decimal(14, 2) @default(0)
+  maxAmount    Decimal @db.Decimal(14, 2)
   requiredRole String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -232,9 +242,9 @@ model ApprovalMatrix {
 }
 
 model CurrencyExchange {
-  id            String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   currencyCode  String // e.g. "USD", "EUR"
-  exchangeRate  Float
+  exchangeRate  Decimal @db.Decimal(14, 2)
   effectiveDate DateTime
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -245,14 +255,14 @@ model CurrencyExchange {
 }
 
 model AccountBalanceRollup {
-  id               String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   accountCode      String
-  fiscalPeriodId   String
+  fiscalPeriodId   String @db.Uuid
   year             Int
   month            Int
-  totalDebit       Float    @default(0)
-  totalCredit      Float    @default(0)
-  closingBalance   Float    @default(0)
+  totalDebit       Decimal @db.Decimal(14, 2) @default(0)
+  totalCredit      Decimal @db.Decimal(14, 2) @default(0)
+  closingBalance   Decimal @db.Decimal(14, 2) @default(0)
   lastCalculatedAt DateTime @default(now())
 
   account      ChartOfAccount @relation("RollupBalances", fields: [accountCode], references: [code], onDelete: Cascade)

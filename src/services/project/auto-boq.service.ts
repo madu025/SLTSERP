@@ -62,7 +62,7 @@ export class AutoBOQService {
 
     const rates: Record<string, number> = {};
     for (const rc of rateConfigs) {
-      rates[rc.itemCode] = rc.unitRate;
+      rates[rc.itemCode] = Number(rc.unitRate);
     }
 
     // Load cable config from project GIS mapping or use env defaults
@@ -111,8 +111,8 @@ export class AutoBOQService {
     allItems.push(...service.processObstructions(byLayer['survey_obstruction'] || []));
 
     // Cable sections: match A-end to B-end
-    const cableStartPoints = byLayer['survey_cable_start'] || [];
-    const cableEndPoints = byLayer['survey_cable_end'] || [];
+    const cableStartPoints = (byLayer['survey_cable_start'] || []).map((p) => ({ ...p, latitude: Number(p.latitude), longitude: Number(p.longitude) }));
+    const cableEndPoints = (byLayer['survey_cable_end'] || []).map((p) => ({ ...p, latitude: Number(p.latitude), longitude: Number(p.longitude) }));
     const joints = byLayer['survey_joint_closure'] || [];
     allItems.push(...service.processCableSections(cableStartPoints, cableEndPoints, joints));
 

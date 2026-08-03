@@ -70,9 +70,9 @@ export class ExecutiveDashboardService {
       _avg: { progress: true },
     });
 
-    const totalBudget = stats._sum.budget ?? 0;
-    const totalSpent = stats._sum.actualCost ?? 0;
-    const totalVariance = stats._sum.variance ?? 0;
+    const totalBudget = Number(stats._sum.budget ?? 0);
+    const totalSpent = Number(stats._sum.actualCost ?? 0);
+    const totalVariance = Number(stats._sum.variance ?? 0);
 
     // Over-budget projects
     const overBudget = await prisma.project.count({
@@ -88,7 +88,7 @@ export class ExecutiveDashboardService {
       totalVariance,
       spendRate: totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0,
       overBudgetProjects: overBudget,
-      avgProgress: Math.round((stats._avg.progress ?? 0) * 10) / 10,
+      avgProgress: Math.round(Number(stats._avg.progress ?? 0) * 10) / 10,
     };
   }
 
@@ -106,7 +106,7 @@ export class ExecutiveDashboardService {
     const prePAT = patSessions.filter((s) => s.patType === 'PRE_PAT');
     const sltPAT = patSessions.filter((s) => s.patType === 'SLT_PAT');
     const avgPassRate = total > 0
-      ? patSessions.reduce((sum, s) => sum + (s.passRate ?? 0), 0) / total
+      ? patSessions.reduce((sum, s) => sum + Number(s.passRate ?? 0), 0) / total
       : 0;
 
     return {

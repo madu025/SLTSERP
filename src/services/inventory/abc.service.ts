@@ -38,7 +38,7 @@ export class AbcService {
         let totalAnnualValue = 0;
         const mappedItems = items.map(item => {
             const usage = usages.find(u => u.itemId === item.id);
-            const qty90Days = usage?._sum?.quantity || 0;
+            const qty90Days = Number(usage?._sum?.quantity || 0);
             
             // Scale 90-day consumption to annual (365 days)
             const annualQty = Math.round((qty90Days * (365 / 90)) * 100) / 100;

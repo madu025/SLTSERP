@@ -35,13 +35,13 @@ export const GET = apiHandler(async (req) => {
     const pendingBalances = openRequests.flatMap(req => {
         return req.items
             .filter(i => {
-                const targetQty = i.approvedQty > 0 ? i.approvedQty : i.requestedQty;
-                const issued = i.issuedQty || 0;
+                const targetQty = Number(i.approvedQty.toNumber() > 0 ? i.approvedQty : i.requestedQty);
+                const issued = Number(i.issuedQty || 0);
                 return issued < targetQty;
             })
             .map(i => {
-                const targetQty = i.approvedQty > 0 ? i.approvedQty : i.requestedQty;
-                const issued = i.issuedQty || 0;
+                const targetQty = Number(i.approvedQty.toNumber() > 0 ? i.approvedQty : i.requestedQty);
+                const issued = Number(i.issuedQty || 0);
                 return {
                     requestId: req.id,
                     requestNr: req.requestNr,

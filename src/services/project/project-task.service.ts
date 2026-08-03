@@ -65,7 +65,7 @@ async function updateParentProgress(parentId: string, tx: TransactionClient) {
 
     const children = parent.children;
     if (children.length > 0) {
-        const avgProgress = children.reduce((sum: number, c: { actualProgress: number }) => sum + c.actualProgress, 0) / children.length;
+        const avgProgress = children.reduce((sum: number, c: { actualProgress: unknown }) => sum + Number(c.actualProgress || 0), 0) / children.length;
         const newProgress = Math.round(avgProgress);
         
         await tx.projectTask.update({

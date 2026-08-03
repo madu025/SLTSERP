@@ -33,8 +33,8 @@ export class ProjectBOQApprovalService {
         const categoryTotals: Record<string, number> = {};
         let grandTotal = 0;
         for (const item of boqItems) {
-            categoryTotals[item.category || 'OTHER'] = (categoryTotals[item.category || 'OTHER'] || 0) + item.amount;
-            grandTotal += item.amount;
+            categoryTotals[item.category || 'OTHER'] = (categoryTotals[item.category || 'OTHER'] || 0) + Number(item.amount);
+            grandTotal += Number(item.amount);
         }
 
         return {

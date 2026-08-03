@@ -181,15 +181,15 @@ export class ProjectInvoiceService {
                 
                 // Log invoice finalization in General Ledger
                 const { LedgerService } = await import('../finance/ledger.service');
-                await LedgerService.logInvoiceIssuance(tx, id, existing.totalAmount, existing.type, existing.invoiceNumber);
+                await LedgerService.logInvoiceIssuance(tx, id, Number(existing.totalAmount), existing.type, existing.invoiceNumber);
             } else if (updateFields.status === 'CANCELLED') {
                 updateData.cancelledReason = updateFields.cancelledReason || 'Cancelled';
             }
 
             // Handle payment updates
             if (updateFields.paidAmount !== undefined) {
-                const newPaidAmount = (existing.paidAmount || 0) + updateFields.paidAmount;
-                const newBalance = existing.totalAmount - newPaidAmount;
+                const newPaidAmount = Number(existing.paidAmount || 0) + updateFields.paidAmount;
+                const newBalance = Number(existing.totalAmount) - newPaidAmount;
                 updateData.paidAmount = newPaidAmount;
                 updateData.balanceAmount = Math.max(0, newBalance);
                 if (newBalance <= 0 && existing.status !== 'CANCELLED') {
@@ -297,19 +297,19 @@ export class ProjectInvoiceService {
             }),
         ]);
 
-        const totalInvoiced = invoices.reduce((s, i) => s + i.totalAmount, 0);
-        const totalPaid = invoices.reduce((s, i) => s + i.paidAmount, 0);
-        const totalBalance = invoices.reduce((s, i) => s + i.balanceAmount, 0);
+        const totalInvoiced = invoices.reduce((s, i) => s + Number(i.totalAmount), 0);
+        const totalPaid = invoices.reduce((s, i) => s + Number(i.paidAmount), 0);
+        const totalBalance = invoices.reduce((s, i) => s + Number(i.balanceAmount), 0);
         const totalRetained = retentions
             .filter((r) => r.status === 'HELD')
-            .reduce((s, r) => s + r.retentionAmount, 0);
+            .reduce((s, r) => s + Number(r.retentionAmount), 0);
         const totalReleased = retentions
             .filter((r) => r.status === 'RELEASED')
-            .reduce((s, r) => s + r.retentionAmount, 0);
+            .reduce((s, r) => s + Number(r.retentionAmount), 0);
 
-        const boqEstimate = boqTotal._sum.amount ?? 0;
-        const budget = project?.budget ?? 0;
-        const actualCost = project?.actualCost ?? 0;
+        const boqEstimate = Number(boqTotal._sum.amount ?? 0);
+        const budget = Number(project?.budget ?? 0);
+        const actualCost = Number(project?.actualCost ?? 0);
 
         return {
             project: {
@@ -326,17 +326,17 @@ export class ProjectInvoiceService {
                 totalBalance,
                 paymentProgress: totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0,
                 paymentCount: payments._count.id,
-                totalPaymentAmount: payments._sum.amount ?? 0,
-                expenses: expenses._sum.amount ?? 0,
+                totalPaymentAmount: Number(payments._sum.amount ?? 0),
+                expenses: Number(expenses._sum.amount ?? 0),
                 totalRetained,
                 totalReleasedRetentions: totalReleased,
             },
             invoices: invoices.map((inv) => ({
                 ...inv,
                 paymentBreakdown: [
-                    { level: 1, label: 'Advance Payment (30%)', amount: inv.totalAmount * 0.3 },
-                    { level: 2, label: 'Work Completion (50%)', amount: inv.totalAmount * 0.5 },
-                    { level: 3, label: 'Final + Retention Release (20%)', amount: inv.totalAmount * 0.2 },
+                    { level: 1, label: 'Advance Payment (30%)', amount: Number(inv.totalAmount) * 0.3 },
+                    { level: 2, label: 'Work Completion (50%)', amount: Number(inv.totalAmount) * 0.5 },
+                    { level: 3, label: 'Final + Retention Release (20%)', amount: Number(inv.totalAmount) * 0.2 },
                 ],
             })),
             retentions,

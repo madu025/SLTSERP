@@ -751,9 +751,9 @@ export class ReportService {
     const summary = payments.reduce(
       (acc, p) => ({
         total_count: acc.total_count + 1,
-        total_base_amount: acc.total_base_amount + p.base_amount,
-        total_tax_amount: acc.total_tax_amount + p.tax_amount,
-        total_amount: acc.total_amount + p.total_amount,
+        total_base_amount: acc.total_base_amount + Number(p.base_amount),
+        total_tax_amount: acc.total_tax_amount + Number(p.tax_amount),
+        total_amount: acc.total_amount + Number(p.total_amount),
       }),
       { total_count: 0, total_base_amount: 0, total_tax_amount: 0, total_amount: 0 }
     );
@@ -763,7 +763,7 @@ export class ReportService {
       const key = p.payment_type;
       const existing = byTypeMap.get(key) || { count: 0, total_amount: 0 };
       existing.count += 1;
-      existing.total_amount += p.total_amount;
+      existing.total_amount += Number(p.total_amount);
       byTypeMap.set(key, existing);
     });
 

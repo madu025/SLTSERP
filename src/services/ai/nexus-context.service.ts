@@ -408,9 +408,9 @@ export class NexusContextService {
                 itemMap[code] = { name: u.item.name, local: 0, bom: 0 };
             }
             if (u.usageType === 'BOM_CLAIM') {
-                itemMap[code].bom += u.quantity;
+                itemMap[code].bom += Number(u.quantity);
             } else {
-                itemMap[code].local += u.quantity;
+                itemMap[code].local += Number(u.quantity);
             }
         });
 
@@ -593,15 +593,16 @@ export class NexusContextService {
     let totalContractorPayout = 0;
     
     orders.forEach(o => {
-        totalRevenue += (o.revenueAmount || 0);
-        totalContractorPayout += (o.contractorAmount || 0);
+        totalRevenue += o.revenueAmount ? Number(o.revenueAmount) : 0;
+        totalContractorPayout += o.contractorAmount ? Number(o.contractorAmount) : 0;
     });
+
 
     let totalMaterialCost = 0;
     materialUsages.forEach(m => {
         // Prefer costPrice, fallback to unitPrice
-        const price = (m.costPrice && m.costPrice > 0) ? m.costPrice : (m.unitPrice || 0);
-        totalMaterialCost += (m.quantity * price);
+        const price = (m.costPrice && Number(m.costPrice) > 0) ? Number(m.costPrice) : Number(m.unitPrice || 0);
+        totalMaterialCost += (Number(m.quantity) * price);
     });
 
     const netProfit = totalRevenue - (totalContractorPayout + totalMaterialCost);

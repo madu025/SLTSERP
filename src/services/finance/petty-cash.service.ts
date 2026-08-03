@@ -88,7 +88,7 @@ export class PettyCashService {
     if (!account) throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_FOUND');
     if (account.status !== 'ACTIVE') throw AppError.badRequest('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
 
-    if (data.amount > account.imprestLimit) {
+    if (data.amount > Number(account.imprestLimit)) {
       throw AppError.badRequest('VOUCHER_AMOUNT_EXCEEDS_IMPREST_LIMIT');
     }
 
@@ -157,12 +157,12 @@ export class PettyCashService {
       await tx.pettyCashAccount.update({
         where: { id: account.id },
         data: {
-          currentBalance: account.currentBalance - voucher.amount
+          currentBalance: Number(account.currentBalance) - Number(voucher.amount)
         }
       });
 
       // 3. Log double-entry transaction
-      await LedgerService.logPettyCashExpense(tx, voucherId, voucher.amount, voucher.category, `Petty Cash: ${voucher.title}`);
+      await LedgerService.logPettyCashExpense(tx, voucherId, Number(voucher.amount), voucher.category, `Petty Cash: ${voucher.title}`);
 
       return updatedVoucher;
     });
@@ -221,7 +221,7 @@ export class PettyCashService {
         throw AppError.badRequest('NO_APPROVED_VOUCHERS_FOR_REIMBURSEMENT');
       }
 
-      const totalAmount = eligibleVouchers.reduce((sum, v) => sum + v.amount, 0);
+      const totalAmount = eligibleVouchers.reduce((sum, v) => sum + Number(v.amount), 0);
 
       // Generate Reimbursement Request Number
       const year = new Date().getFullYear();
@@ -289,8 +289,8 @@ export class PettyCashService {
       // to the current balance to avoid overwriting any expenses approved during the pending window.
       // We cap it at the imprest limit to ensure mathematical logic checks out.
       const newBalance = Math.min(
-        reimbursement.account.imprestLimit,
-        reimbursement.account.currentBalance + reimbursement.totalAmount
+        Number(reimbursement.account.imprestLimit),
+        Number(reimbursement.account.currentBalance) + Number(reimbursement.totalAmount)
       );
       await tx.pettyCashAccount.update({
         where: { id: reimbursement.accountId },
@@ -300,7 +300,7 @@ export class PettyCashService {
       });
 
       // 4. Log funding entry in general ledger
-      await LedgerService.logPettyCashReimbursement(tx, reimbursementId, reimbursement.totalAmount, `Replenish Petty Cash Imprest for ${reimbursement.account.name}`);
+      await LedgerService.logPettyCashReimbursement(tx, reimbursementId, Number(reimbursement.totalAmount), `Replenish Petty Cash Imprest for ${reimbursement.account.name}`);
 
       return updatedReimbursement;
     });

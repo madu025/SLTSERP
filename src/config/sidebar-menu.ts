@@ -832,11 +832,36 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
+                title: '3NF System Roles',
+                path: '/admin/roles',
+                icon: ShieldCheck,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'Department Sections',
+                path: '/admin/sections',
+                icon: Layers,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'User Section Assignments',
+                path: '/admin/user-assignments',
+                icon: UserCog,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'Staff Hierarchy Master',
+                path: '/admin/staff',
+                icon: Users,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
                 title: 'Global Roles Defaults',
                 path: '/admin/global-roles',
                 icon: Settings,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
+
 
             {
                 title: 'System Audit Log',

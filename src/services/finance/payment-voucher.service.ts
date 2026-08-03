@@ -120,7 +120,7 @@ export class PaymentVoucherService {
           select: { amount: true }
         });
         const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
-        if (currentPaidSum + data.amount > invoice.totalAmount) {
+        if (currentPaidSum + data.amount > Number(invoice.totalAmount)) {
           throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
         }
       }
@@ -364,7 +364,7 @@ export class PaymentVoucherService {
           });
           if (invoice) {
             const newPaidAmount = Number(invoice.paidAmount || 0) + Number(existing.amount);
-            const newBalance = invoice.totalAmount - newPaidAmount;
+            const newBalance = Number(invoice.totalAmount) - newPaidAmount;
             await tx.projectInvoice.update({
               where: { id: existing.invoiceId },
               data: {

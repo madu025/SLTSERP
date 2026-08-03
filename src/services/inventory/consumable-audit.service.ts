@@ -49,7 +49,8 @@ export class ConsumableAuditService {
         const completedFtthSodsCount = completedSods.length;
 
         // Sum field Drop Wire distance in meters
-        const dropWireFieldUsedMeters = completedSods.reduce((sum, s) => sum + (s.dropWireDistance || 0), 0);
+        const dropWireFieldUsedMeters = completedSods.reduce((sum, s) => sum + (s.dropWireDistance ? Number(s.dropWireDistance) : 0), 0);
+
 
         // 2. Query Contractor Stock & Issues
         const contractorIssues = await prisma.contractorMaterialIssue.findMany({
@@ -73,10 +74,10 @@ export class ConsumableAuditService {
                 const name = (item.item.name || '').toUpperCase();
 
                 if (code.includes('DW') || code.includes('OSPFTA003') || name.includes('DROP WIRE')) {
-                    dropWireIssuedMeters += item.quantity;
+                    dropWireIssuedMeters += Number(item.quantity);
                 }
                 if (code.includes('FAC') || name.includes('FAST CONNECTOR') || name.includes('FIELD CONNECTOR')) {
-                    facIssuedPcs += item.quantity;
+                    facIssuedPcs += Number(item.quantity);
                 }
             }
         }

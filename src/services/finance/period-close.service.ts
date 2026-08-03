@@ -135,13 +135,13 @@ export class PeriodCloseService {
             // 2. Adjust Invoice Balance
             if (invoice) {
                 if (noteType === 'CREDIT_NOTE') {
-                    const newBalance = Math.max(0, invoice.balanceAmount - amount);
+                    const newBalance = Math.max(0, Number(invoice.balanceAmount) - amount);
                     await tx.projectInvoice.update({
                         where: { id: invoiceId },
                         data: { balanceAmount: newBalance }
                     });
                 } else {
-                    const newBalance = invoice.balanceAmount + amount;
+                    const newBalance = invoice.balanceAmount.toNumber() + amount;
                     await tx.projectInvoice.update({
                         where: { id: invoiceId },
                         data: { balanceAmount: newBalance }

@@ -59,7 +59,7 @@ export class OSPAccountCrudService {
         transactionType: 'ISSUE_ADVANCE',
         referenceId: iou.id,
         description: `Petty Cash IOU for ${iou.staffName} (${iou.iouNumber})`,
-        amount: iou.amount,
+        amount: Number(iou.amount),
         transactionDate: new Date(),
       });
 
@@ -143,7 +143,7 @@ export class OSPAccountCrudService {
         transactionType: 'ISSUE_ADVANCE',
         referenceId: adv.id,
         description: `Project Advance for ${adv.supplierName || 'Supplier'} (${adv.refNumber})`,
-        amount: adv.amount, // base amount? Or totalAmount? totalAmount typically used for finance.
+        amount: Number(adv.amount), // base amount? Or totalAmount? totalAmount typically used for finance.
         transactionDate: new Date(),
       });
 
@@ -216,7 +216,7 @@ export class OSPAccountCrudService {
         transactionType: 'PAY_RENT',
         referenceId: rent.id,
         description: `Property Rent Payment to ${rent.supplierName} (${rent.slipNo})`,
-        amount: rent.amount,
+        amount: Number(rent.amount),
         transactionDate: rent.slipDate || new Date(),
       });
 
@@ -292,7 +292,7 @@ export class OSPAccountCrudService {
       await AccountingPostingRegistry.postVehicleExpense(tx, {
         vehicleId: deposit.id,
         vehicleRegNo: deposit.stationName,
-        amount: deposit.actualDeposit,
+        amount: Number(deposit.actualDeposit),
         expenseType: 'FUEL',
         paymentSource: 'BANK',
         description: `Fuel Deposit for ${deposit.stationName} (${deposit.officeLocation})`
@@ -374,7 +374,7 @@ export class OSPAccountCrudService {
       await AccountingPostingRegistry.postVehicleExpense(tx, {
         vehicleId: payment.id,
         vehicleRegNo: payment.vehicleNo || payment.accountName,
-        amount: payment.amount,
+        amount: Number(payment.amount),
         expenseType: 'HIRING',
         paymentSource: 'BANK',
         description: `Vehicle Hiring Payment to ${payment.accountName} (${payment.slipNo})`

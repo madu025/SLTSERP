@@ -25,12 +25,12 @@ export class OspAccountReportService {
             rejectedCount: vouchers.filter((v) => v.status === 'REJECTED').length,
             totalApprovedAmount: vouchers
                 .filter((v) => v.status === 'APPROVED')
-                .reduce((sum, v) => sum + v.amount, 0),
+                .reduce((sum, v) => sum + Number(v.amount), 0),
             categoryBreakdown: {
-                SUBSISTENCE: vouchers.filter((v) => v.category === 'SUBSISTENCE').reduce((s, v) => s + v.amount, 0),
-                STAFF_WELFARE: vouchers.filter((v) => v.category === 'STAFF_WELFARE').reduce((s, v) => s + v.amount, 0),
-                TRAVEL_TRANSPORT: vouchers.filter((v) => v.category === 'TRAVEL_TRANSPORT').reduce((s, v) => s + v.amount, 0),
-                MISCELLANEOUS: vouchers.filter((v) => v.category === 'MISCELLANEOUS').reduce((s, v) => s + v.amount, 0)
+                SUBSISTENCE: vouchers.filter((v) => v.category === 'SUBSISTENCE').reduce((s, v) => s + Number(v.amount), 0),
+                STAFF_WELFARE: vouchers.filter((v) => v.category === 'STAFF_WELFARE').reduce((s, v) => s + Number(v.amount), 0),
+                TRAVEL_TRANSPORT: vouchers.filter((v) => v.category === 'TRAVEL_TRANSPORT').reduce((s, v) => s + Number(v.amount), 0),
+                MISCELLANEOUS: vouchers.filter((v) => v.category === 'MISCELLANEOUS').reduce((s, v) => s + Number(v.amount), 0)
             }
         };
 
@@ -100,8 +100,8 @@ export class OspAccountReportService {
         const fleetStats = {
             totalVehicles: vehicles.length,
             totalMonthlyHireRate: 0,
-            totalPaymentsLogged: payments.reduce((sum, p) => sum + p.amount, 0),
-            totalFuelDeposits: fuelDeposits.reduce((sum, f) => sum + f.actualDeposit, 0)
+            totalPaymentsLogged: payments.reduce((sum, p) => sum + Number(p.amount), 0),
+            totalFuelDeposits: fuelDeposits.reduce((sum, f) => sum + Number(f.actualDeposit), 0)
         };
 
         // 4. Project Advances & IOU Aging Data
@@ -141,10 +141,10 @@ export class OspAccountReportService {
 
         const advanceStats = {
             totalAdvances: advances.length,
-            totalAdvanceAmount: advances.reduce((sum, a) => sum + a.amount, 0),
-            totalVatClaimable: advances.reduce((sum, a) => sum + (a.vatAmount || 0), 0),
+            totalAdvanceAmount: advances.reduce((sum, a) => sum + Number(a.amount), 0),
+            totalVatClaimable: advances.reduce((sum, a) => sum + Number(a.vatAmount || 0), 0),
             totalIOUs: ious.length,
-            totalIOUAmount: ious.reduce((sum, i) => sum + i.amount, 0),
+            totalIOUAmount: ious.reduce((sum, i) => sum + Number(i.amount), 0),
             agingOver30DaysCount: ious.filter((i) => (i.noOfDays || 0) > 30).length
         };
 
@@ -164,7 +164,7 @@ export class OspAccountReportService {
 
         const rentStats = {
             totalRentRecords: propertyRents.length,
-            totalRentPaid: propertyRents.reduce((sum, r) => sum + r.amount, 0)
+            totalRentPaid: propertyRents.reduce((sum, r) => sum + Number(r.amount), 0)
         };
 
         return {

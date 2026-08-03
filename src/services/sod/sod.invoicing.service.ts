@@ -115,7 +115,7 @@ export class SODInvoicingService {
             });
 
             if (matchingRule) {
-                contractorAmount = matchingRule.rateAmount;
+                contractorAmount = Number(matchingRule.rateAmount);
             } else {
                 const fallbackRule = await ruleModel.findFirst({
                     where: {
@@ -127,7 +127,7 @@ export class SODInvoicingService {
                 });
 
                 if (fallbackRule) {
-                    contractorAmount = fallbackRule.rateAmount;
+                    contractorAmount = Number(fallbackRule.rateAmount);
                 } else {
                     // Base rate for 0-50m
                     const baseRate = areaGroup === 'OTHER' ? 6650 : 6750;
@@ -156,7 +156,7 @@ export class SODInvoicingService {
                 }
             });
             if (poleRule) {
-                contractorAmount += options.poleCount * poleRule.rateAmount;
+                contractorAmount += options.poleCount * Number(poleRule.rateAmount);
             } else {
                 contractorAmount += options.poleCount * 700;
             }

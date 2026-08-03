@@ -99,23 +99,24 @@ export class SODLifecycleService {
 
         // PAT Updates from UI
         if (otherData.sltsPatStatus) {
-            updateData.sltsPatStatus = otherData.sltsPatStatus;
+            updateData.sltsPatStatus = otherData.sltsPatStatus as import('@prisma/client').PatStatusEnum;
             if (otherData.sltsPatStatus === 'PAT_PASSED' && oldOrder.sltsPatStatus !== 'PAT_PASSED') {
                 updateData.sltsPatDate = new Date();
             }
         }
         if (otherData.opmcPatStatus) {
-            updateData.opmcPatStatus = otherData.opmcPatStatus;
+            updateData.opmcPatStatus = otherData.opmcPatStatus as import('@prisma/client').PatStatusEnum;
             if (otherData.opmcPatStatus === 'PAT_PASSED' && oldOrder.opmcPatStatus !== 'PAT_PASSED') {
                 updateData.opmcPatDate = new Date();
             }
         }
         if (otherData.hoPatStatus) {
-            updateData.hoPatStatus = otherData.hoPatStatus;
+            updateData.hoPatStatus = otherData.hoPatStatus as import('@prisma/client').PatStatusEnum;
             if (otherData.hoPatStatus === 'PAT_PASSED' && oldOrder.hoPatStatus !== 'PAT_PASSED') {
                 updateData.hoPatDate = new Date();
             }
         }
+
 
         // Invoicable logic delegated to SODInvoicingService
         const finalSltsPat = otherData.sltsPatStatus !== undefined ? otherData.sltsPatStatus : oldOrder.sltsPatStatus;

@@ -1,10 +1,10 @@
 model OPMC {
-  id                          String                       @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name                        String                       @default("")
   rtom                        String                       @unique
   region                      String                       @default("METRO")
   province                    String                       @default("METRO 01")
-  storeId                     String?
+  storeId                     String? @db.Uuid
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   contractors                 Contractor[]
@@ -21,4 +21,5 @@ model OPMC {
   capexOpexLedgerEntries      CapexOpexLedgerEntry[]
   preErpMaterialBalances      PreErpMaterialBalance[]
   materialVarianceAdjustments MaterialVarianceAdjustment[]
+  @@index([storeId])
 }

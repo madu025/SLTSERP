@@ -54,7 +54,7 @@ export class ContractorKPIService {
       select: { passRate: true, fineTuneNeeded: true },
     });
     const patQualityScore = patSessions.length > 0
-      ? patSessions.reduce((sum, s) => sum + (s.passRate ?? 0), 0) / patSessions.length
+      ? patSessions.reduce((sum, s) => sum + Number(s.passRate ?? 0), 0) / patSessions.length
       : 100;
 
     // 3. Safety Score from HSE logs

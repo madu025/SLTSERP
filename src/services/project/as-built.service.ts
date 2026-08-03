@@ -59,7 +59,7 @@ export class AsBuiltService {
           id: pt.id,
           geometry: {
             type: 'Point',
-            coordinates: [pt.longitude, pt.latitude],
+            coordinates: [Number(pt.longitude), Number(pt.latitude)],
           },
           properties: {
             ...(pt.attributes as Record<string, unknown>),
@@ -81,7 +81,7 @@ export class AsBuiltService {
 
     const summary = {
       totalPoints: allPoints.length,
-      routeLengthMeters: project.routeLength || 0,
+      routeLengthMeters: Number(project.routeLength || 0),
       poles: {
         existing: (puntosByLayer['survey_existing_pole'] || []).length,
         new: (puntosByLayer['survey_new_pole'] || []).length,
@@ -119,7 +119,7 @@ export class AsBuiltService {
         type: 'Feature',
         geometry: {
           type: 'Point',
-          coordinates: [pt.longitude, pt.latitude],
+          coordinates: [Number(pt.longitude), Number(pt.latitude)],
         },
         properties: {
           id: pt.id,

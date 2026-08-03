@@ -171,8 +171,8 @@ export class TransactionService {
         const openingMap = new Map<string, number>();
         if (prevSheet) {
             
-            prevSheet.items.forEach((item: { itemId: string, closingBalance: number }) => {
-                openingMap.set(item.itemId, item.closingBalance);
+            prevSheet.items.forEach((item) => {
+                openingMap.set(item.itemId, Number(item.closingBalance));
             });
         }
 
@@ -190,7 +190,7 @@ export class TransactionService {
         issues.forEach(issue => {
             issue.items.forEach(item => {
                 const current = receivedMap.get(item.itemId) || 0;
-                receivedMap.set(item.itemId, current + item.quantity);
+                receivedMap.set(item.itemId, current + item.quantity.toNumber());
             });
         });
 
@@ -209,7 +209,7 @@ export class TransactionService {
         returns.forEach(ret => {
             ret.items.forEach(item => {
                 const current = returnedMap.get(item.itemId) || 0;
-                returnedMap.set(item.itemId, current + item.quantity);
+                returnedMap.set(item.itemId, current + item.quantity.toNumber());
             });
         });
 
@@ -237,10 +237,10 @@ export class TransactionService {
                 const isUsage = ['USED', 'USED_F1', 'USED_G1', 'PORTAL_SYNC'].includes(mu.usageType);
                 if (isUsage) {
                     const current = usedMap.get(mu.itemId) || 0;
-                    usedMap.set(mu.itemId, current + mu.quantity);
+                    usedMap.set(mu.itemId, current + mu.quantity.toNumber());
                 } else if (mu.usageType === 'WASTAGE') {
                     const current = wastageMap.get(mu.itemId) || 0;
-                    wastageMap.set(mu.itemId, current + mu.quantity);
+                    wastageMap.set(mu.itemId, current + mu.quantity.toNumber());
                 }
             });
         });
@@ -258,7 +258,7 @@ export class TransactionService {
         directWastage.forEach(dw => {
             dw.items.forEach(item => {
                 const current = wastageMap.get(item.itemId) || 0;
-                wastageMap.set(item.itemId, current + item.quantity);
+                wastageMap.set(item.itemId, current + item.quantity.toNumber());
             });
         });
 
@@ -409,7 +409,7 @@ export class TransactionService {
         issues.forEach(issue => {
             issue.items.forEach(ii => {
                 const s = getItem(ii.item);
-                s.issued += ii.quantity;
+                s.issued += Number(ii.quantity);
             });
         });
 
@@ -417,9 +417,9 @@ export class TransactionService {
         sodUsage.forEach(usage => {
             const s = getItem(usage.item);
             if (usage.usageType === 'WASTAGE') {
-                s.wastage += usage.quantity;
+                s.wastage += Number(usage.quantity);
             } else {
-                s.used += usage.quantity;
+                s.used += Number(usage.quantity);
             }
         });
 
@@ -427,7 +427,7 @@ export class TransactionService {
         returns.forEach(ret => {
             ret.items.forEach(ri => {
                 const s = getItem(ri.item);
-                s.returned += ri.quantity;
+                s.returned += Number(ri.quantity);
             });
         });
 
@@ -435,7 +435,7 @@ export class TransactionService {
         wastages.forEach(w => {
             w.items.forEach(wi => {
                 const s = getItem(wi.item);
-                s.wastage += wi.quantity;
+                s.wastage += Number(wi.quantity);
             });
         });
 
@@ -493,7 +493,7 @@ export class TransactionService {
             // Create new items
             for (const s of stats) {
                 const prevItem = prevSheet?.items.find(pi => pi.itemId === s.id);
-                const opening = prevItem ? prevItem.closingBalance : 0;
+                const opening = prevItem ? Number(prevItem.closingBalance) : 0;
 
                 await tx.contractorBalanceSheetItem.create({
                     data: {

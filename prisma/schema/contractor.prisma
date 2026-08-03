@@ -1,5 +1,5 @@
 model Contractor {
-  id                      String           @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name                    String
   contactNumber           String?
   email                   String?
@@ -21,18 +21,18 @@ model Contractor {
   agreementDuration       Int?             @default(1)
   brCertUrl               String?
   armApprovedAt           DateTime?
-  armApprovedById         String?
+  armApprovedById         String? @db.Uuid
   ospApprovedAt           DateTime?
-  ospApprovedById         String?
+  ospApprovedById         String? @db.Uuid
   rejectionReason         String?
-  rejectionById           String?
+  rejectionById           String? @db.Uuid
   rejectedAt              DateTime?
   registrationToken       String?          @unique
   registrationTokenExpiry DateTime?
   registrationStartedAt   DateTime?
   registrationDraft       Json?
-  siteOfficeStaffId       String?
-  opmcId                  String?
+  siteOfficeStaffId       String? @db.Uuid
+  opmcId                  String? @db.Uuid
   bankName                String?
   bankBranch              String?
   bankAccountNumber       String?
@@ -69,16 +69,22 @@ model Contractor {
   serviceOrders     ServiceOrder[]
   stockIssues       StockIssue[]                     @relation("ContractorIssues")
   teamMembers       TeamMember[]
+  users             User[]                           @relation("ContractorUsers")
+
 
   @@index([status])
   @@index([opmcId])
   @@index([type])
+  @@index([armApprovedById])
+  @@index([ospApprovedById])
+  @@index([rejectionById])
+  @@index([siteOfficeStaffId])
 }
 
 model ContractorStock {
-  id           String        @id @default(cuid())
-  contractorId String
-  itemId       String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractorId String @db.Uuid
+  itemId       String @db.Uuid
   quantity     Decimal       @default(0)
   updatedAt    DateTime      @updatedAt
   contractor   Contractor    @relation(fields: [contractorId], references: [id], onDelete: Cascade)
@@ -90,11 +96,11 @@ model ContractorStock {
 }
 
 model ContractorTeam {
-  id               String                @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name             String
   status           String                @default("ACTIVE")
-  contractorId     String
-  opmcId           String?
+  contractorId     String @db.Uuid
+  opmcId           String? @db.Uuid
   sltCode          String?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
@@ -103,12 +109,14 @@ model ContractorTeam {
   serviceOrders    ServiceOrder[]
   members          TeamMember[]
   storeAssignments TeamStoreAssignment[]
+  @@index([contractorId])
+  @@index([opmcId])
 }
 
 model TeamStoreAssignment {
-  id        String         @id @default(cuid())
-  teamId    String
-  storeId   String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  teamId    String @db.Uuid
+  storeId   String @db.Uuid
   isPrimary Boolean        @default(false)
   createdAt DateTime       @default(now())
   store     InventoryStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -120,7 +128,7 @@ model TeamStoreAssignment {
 }
 
 model TeamMember {
-  id                     String          @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name                   String
   idCopyNumber           String?
   contractorIdCopyNumber String?
@@ -137,17 +145,19 @@ model TeamMember {
   passportPhotoUrl       String?
   uploadToken            String?         @unique
   uploadTokenExpiry      DateTime?
-  contractorId           String
-  teamId                 String?
+  contractorId           String @db.Uuid
+  teamId                 String? @db.Uuid
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt
   contractor             Contractor      @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   team                   ContractorTeam? @relation(fields: [teamId], references: [id])
+  @@index([contractorId])
+  @@index([teamId])
 }
 
 model ContractorPaymentConfig {
-  id            String                  @id @default(cuid())
-  rtomId        String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  rtomId        String? @db.Uuid
   effectiveFrom DateTime?
   effectiveTo   DateTime?
   isActive      Boolean                 @default(true)
@@ -163,57 +173,59 @@ model ContractorPaymentConfig {
 }
 
 model ContractorPaymentTier {
-  id          String                  @id @default(cuid())
-  configId    String
-  minDistance Float
-  maxDistance Float
-  amount      Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  configId    String @db.Uuid
+  minDistance Decimal @db.Decimal(12, 4)
+  maxDistance Decimal @db.Decimal(12, 4)
+  amount      Decimal @db.Decimal(14, 2)
   config      ContractorPaymentConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
 
   @@index([configId])
 }
 
 model Penalty {
-  id             String        @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   amount         Decimal       @default(0)
   reason         String
   description    String?
   status         String        @default("PENDING")
   proposedBy     String?
-  invoiceId      String?
-  serviceOrderId String?
+  invoiceId      String? @db.Uuid
+  serviceOrderId String? @db.Uuid
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id])
+  @@index([invoiceId])
+  @@index([serviceOrderId])
 }
 
 model ContractorPerformanceScore {
-  id                   String     @id @default(cuid())
-  contractorId         String
-  projectId            String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractorId         String @db.Uuid
+  projectId            String? @db.Uuid
   evaluationMonth      String
-  score                Float      @default(0)
-  productivityScore    Float?
-  qualityScore         Float?
-  safetyScore          Float?
-  slaComplianceScore   Float?
-  scheduleScore        Float?
+  score                Decimal @db.Decimal(8, 4) @default(0)
+  productivityScore    Decimal? @db.Decimal(8, 4)
+  qualityScore         Decimal? @db.Decimal(8, 4)
+  safetyScore          Decimal? @db.Decimal(8, 4)
+  slaComplianceScore   Decimal? @db.Decimal(8, 4)
+  scheduleScore        Decimal? @db.Decimal(8, 4)
   ncrCount             Int        @default(0)
   ncrClosedCount       Int        @default(0)
   hseIncidentCount     Int        @default(0)
   completedTasksCount  Int        @default(0)
   delayedTasksCount    Int        @default(0)
   totalTasksAssigned   Int        @default(0)
-  averageRating        Float?
+  averageRating        Decimal? @db.Decimal(8, 4)
   inspectionCount      Int        @default(0)
   inspectionPassCount  Int        @default(0)
-  patPassPct           Float?
-  materialWastagePct   Float?
+  patPassPct           Decimal? @db.Decimal(8, 4)
+  materialWastagePct   Decimal? @db.Decimal(8, 4)
   reworkCount          Int?
-  timelineAdherencePct Float?
+  timelineAdherencePct Decimal? @db.Decimal(8, 4)
   autoCalculated       Boolean    @default(false)
-  evaluatedById        String?
+  evaluatedById        String? @db.Uuid
   evaluatedAt          DateTime   @default(now())
   notes                String?
   createdAt            DateTime   @default(now())
@@ -225,16 +237,18 @@ model ContractorPerformanceScore {
   @@index([contractorId])
   @@index([evaluationMonth])
   @@index([score])
+  @@index([projectId])
+  @@index([evaluatedById])
 }
 
 model ContractorRateRule {
-  id              String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   workType        String
   workDescription String
-  minDistance     Float    @default(0)
-  maxDistance     Float    @default(9999)
+  minDistance     Decimal @db.Decimal(12, 4) @default(0)
+  maxDistance     Decimal @db.Decimal(12, 4) @default(9999)
   areaGroup       String
-  rateAmount      Float    @default(0)
+  rateAmount      Decimal @db.Decimal(14, 2) @default(0)
   poleType        String?
   poleMethod      String?
   isActive        Boolean  @default(true)

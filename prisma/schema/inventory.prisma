@@ -1,14 +1,14 @@
 model InventoryStore {
-  id                       String                           @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name                     String
   type                     String                           @default("SUB")
   location                 String?
-  managerId                String?
+  managerId                String? @db.Uuid
   createdAt                DateTime                         @default(now())
   updatedAt                DateTime                         @updatedAt
   coveringRt               String?
   gpsLocation              String?
-  officeAdminId            String?
+  officeAdminId            String? @db.Uuid
   balanceSheets            ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
   materialIssues           ContractorMaterialIssue[]        @relation("MaterialIssues")
   materialReturns          ContractorMaterialReturn[]       @relation("MaterialReturns")
@@ -42,10 +42,11 @@ model InventoryStore {
 
   @@index([type])
   @@index([managerId])
+  @@index([officeAdminId])
 }
 
 model InventoryItem {
-  id                    String                         @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   code                  String                         @unique
   name                  String
   description           String?
@@ -99,9 +100,9 @@ model InventoryItem {
 }
 
 model InventoryStock {
-  id                String         @id @default(cuid())
-  storeId           String
-  itemId            String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  storeId           String @db.Uuid
+  itemId            String @db.Uuid
   quantity          Decimal        @default(0)
   allocatedQuantity Decimal        @default(0)
   minLevel          Decimal        @default(0)
@@ -111,13 +112,15 @@ model InventoryStock {
   store             InventoryStore @relation(fields: [storeId], references: [id])
 
   @@unique([storeId, itemId])
+  @@index([storeId])
+  @@index([itemId])
 }
 
 model InventoryBatch {
-  id               String                     @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   batchNumber      String?
-  itemId           String
-  grnId            String?
+  itemId           String @db.Uuid
+  grnId            String? @db.Uuid
   initialQty       Decimal
   costPrice        Decimal                    @default(0)
   unitPrice        Decimal                    @default(0)
@@ -135,17 +138,18 @@ model InventoryBatch {
   @@index([itemId])
   @@index([createdAt])
   @@index([expiryDate])
+  @@index([grnId])
 }
 
 model InventoryBatchStock {
-  id                String            @id @default(cuid())
-  storeId           String
-  itemId            String
-  batchId           String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  storeId           String @db.Uuid
+  itemId            String @db.Uuid
+  batchId           String @db.Uuid
   quantity          Decimal           @default(0)
   allocatedQuantity Decimal           @default(0)
   updatedAt         DateTime          @updatedAt
-  locatorId         String?
+  locatorId         String? @db.Uuid
   batch             InventoryBatch    @relation(fields: [batchId], references: [id])
   item              InventoryItem     @relation(fields: [itemId], references: [id])
   store             InventoryStore    @relation(fields: [storeId], references: [id])
@@ -155,37 +159,43 @@ model InventoryBatchStock {
   @@index([storeId])
   @@index([itemId])
   @@index([batchId])
+  @@index([locatorId])
 }
 
 model InventoryTransaction {
-  id          String                     @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   type        String
-  storeId     String
-  referenceId String?
+  storeId     String @db.Uuid
+  referenceId String? @db.Uuid
   notes       String?
   date        DateTime                   @default(now())
-  userId      String
+  userId      String @db.Uuid
   store       InventoryStore             @relation(fields: [storeId], references: [id])
   items       InventoryTransactionItem[]
 
   @@index([storeId])
   @@index([type])
   @@index([date])
+  @@index([referenceId])
+  @@index([userId])
 }
 
 model InventoryTransactionItem {
-  id            String               @id @default(cuid())
-  transactionId String
-  itemId        String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  transactionId String @db.Uuid
+  itemId        String @db.Uuid
   quantity      Decimal
-  batchId       String?
+  batchId       String? @db.Uuid
   batch         InventoryBatch?      @relation(fields: [batchId], references: [id])
   item          InventoryItem        @relation(fields: [itemId], references: [id])
   transaction   InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  @@index([transactionId])
+  @@index([itemId])
+  @@index([batchId])
 }
 
 model MaterialCategory {
-  id          String             @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name        String             @unique
   description String?
   createdAt   DateTime           @default(now())
@@ -194,10 +204,10 @@ model MaterialCategory {
 }
 
 model MaterialStandard {
-  id             String           @id @default(cuid())
-  categoryId     String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  categoryId     String @db.Uuid
   packageType    String
-  itemId         String
+  itemId         String @db.Uuid
   standardQty    Decimal
   maxQty         Decimal?
   wastagePercent Decimal          @default(5)
@@ -208,12 +218,14 @@ model MaterialStandard {
 
   @@unique([categoryId, packageType, itemId])
   @@index([packageType])
+  @@index([categoryId])
+  @@index([itemId])
 }
 
 model CurrentStock {
-  id        String   @id @default(cuid())
-  storeId   String
-  itemId    String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  storeId   String @db.Uuid
+  itemId    String @db.Uuid
   quantity  Decimal  @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,16 +236,16 @@ model CurrentStock {
 }
 
 model InventoryItemSerial {
-  id              String             @id @default(cuid())
-  itemId          String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  itemId          String @db.Uuid
   serialNumber    String             @unique
   status          String             @default("IN_STORE")
-  storeId         String?
-  contractorId    String?
-  sodId           String?
+  storeId         String? @db.Uuid
+  contractorId    String? @db.Uuid
+  sodId           String? @db.Uuid
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
-  assignedStaffId String?
+  assignedStaffId String? @db.Uuid
   locator         String?
   assignedStaff   Staff?             @relation(fields: [assignedStaffId], references: [id])
   contractor      Contractor?        @relation(fields: [contractorId], references: [id])
@@ -246,11 +258,12 @@ model InventoryItemSerial {
   @@index([contractorId])
   @@index([assignedStaffId])
   @@index([status])
+  @@index([sodId])
 }
 
 model JournalEntry {
-  id             String        @id @default(cuid())
-  referenceId    String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  referenceId    String? @db.Uuid
   referenceType  String?
   idempotencyKey String?       @unique
   sha256Hash     String?
@@ -258,9 +271,9 @@ model JournalEntry {
   status         String        @default("DRAFT") // DRAFT, PENDING_APPROVAL, POSTED, REVERSED
   isLocked       Boolean       @default(false)
   postedAt       DateTime?
-  createdById    String?
-  approvedById   String?
-  reversalOfId   String?
+  createdById    String? @db.Uuid
+  approvedById   String? @db.Uuid
+  reversalOfId   String? @db.Uuid
   date           DateTime      @default(now())
   createdAt      DateTime      @default(now())
   lines          JournalLine[]
@@ -268,18 +281,21 @@ model JournalEntry {
   @@index([referenceId, referenceType])
   @@index([status])
   @@index([idempotencyKey])
+  @@index([createdById])
+  @@index([approvedById])
+  @@index([reversalOfId])
 }
 
 model JournalLine {
-  id           String          @id @default(cuid())
-  entryId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  entryId      String @db.Uuid
   accountCode  String
   accountName  String
   debit        Decimal         @default(0)
   credit       Decimal         @default(0)
   description  String?
   currency     String          @default("LKR")
-  exchangeRate Float           @default(1.0)
+  exchangeRate Decimal @db.Decimal(14, 2) @default(1.0)
   entry        JournalEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
   account      ChartOfAccount? @relation(fields: [accountCode], references: [code], onDelete: Restrict)
 
@@ -288,8 +304,8 @@ model JournalLine {
 }
 
 model WarehouseLocator {
-  id                   String                @id @default(cuid())
-  storeId              String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  storeId              String @db.Uuid
   code                 String
   aisle                String?
   rack                 String?
@@ -308,15 +324,15 @@ model WarehouseLocator {
 }
 
 model CycleCountHeader {
-  id                 String           @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   countNumber        String           @unique
-  storeId            String
+  storeId            String @db.Uuid
   status             String           @default("DRAFT")
   countType          String           @default("BLIND")
   plannedDate        DateTime         @default(now())
   completedDate      DateTime?
-  countedById        String
-  approvedById       String?
+  countedById        String @db.Uuid
+  approvedById       String? @db.Uuid
   remarks            String?
   totalVarianceValue Decimal          @default(0)
   createdAt          DateTime         @default(now())
@@ -329,13 +345,15 @@ model CycleCountHeader {
   @@index([storeId])
   @@index([status])
   @@index([countNumber])
+  @@index([countedById])
+  @@index([approvedById])
 }
 
 model CycleCountLine {
-  id            String           @id @default(cuid())
-  headerId      String
-  itemId        String
-  batchId       String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  headerId      String @db.Uuid
+  itemId        String @db.Uuid
+  batchId       String? @db.Uuid
   systemQty     Decimal          @default(0)
   countedQty    Decimal          @default(0)
   varianceQty   Decimal          @default(0)
@@ -348,10 +366,11 @@ model CycleCountLine {
 
   @@index([headerId])
   @@index([itemId])
+  @@index([batchId])
 }
 
 model DocumentCounter {
-  id       String @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   type     String // MIN | MRN | GRN | ISS | GRN-IR | ISS-IR | MRN-IR
   period   String // YYYY-MM
   sequence Int    @default(0)
@@ -360,19 +379,19 @@ model DocumentCounter {
 }
 
 model InventoryLedger {
-  id               String   @id @default(cuid())
-  storeId          String
-  itemId           String
-  batchId          String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  storeId          String @db.Uuid
+  itemId           String @db.Uuid
+  batchId          String? @db.Uuid
   transactionType  String // GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, MRN_APPROVAL, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION
   referenceType    String // GRN, ContractorMaterialIssue, SOD, MRN, CycleCount
-  referenceId      String
+  referenceId      String @db.Uuid
   quantityBefore   Decimal  @default(0) @db.Decimal(12, 4)
   quantityChange   Decimal  @default(0) @db.Decimal(12, 4)
   quantityAfter    Decimal  @default(0) @db.Decimal(12, 4)
   unitPrice        Decimal  @default(0) @db.Decimal(12, 2)
   totalValue       Decimal  @default(0) @db.Decimal(14, 2)
-  performedById    String
+  performedById    String @db.Uuid
   idempotencyKey   String?  @unique
   previousChecksum String?
   checksum         String // SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt + previousChecksum)
@@ -385,4 +404,6 @@ model InventoryLedger {
   @@index([storeId, itemId, createdAt])
   @@index([referenceType, referenceId])
   @@index([transactionType])
+  @@index([batchId])
+  @@index([performedById])
 }

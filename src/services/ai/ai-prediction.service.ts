@@ -38,7 +38,7 @@ export class AiPredictionService {
 
     // Progress velocity (% per day over last 7 days)
     const velocityScore = dailyProgress.length >= 2
-      ? (dailyProgress[0].progressPct - dailyProgress[dailyProgress.length - 1].progressPct) /
+      ? (Number(dailyProgress[0].progressPct) - Number(dailyProgress[dailyProgress.length - 1].progressPct)) /
         dailyProgress.length
       : 0;
 
@@ -120,9 +120,9 @@ export class AiPredictionService {
     }
 
     // Forecast total cost based on current burn rate
-    const burnRate = progress > 0 ? actual / (progress / 100) : actual;
-    const forecastOverrun = burnRate - budget;
-    const overrunPct = (forecastOverrun / budget) * 100;
+    const burnRate = progress.toNumber() > 0 ? Number(actual) / (progress.toNumber() / 100) : Number(actual);
+    const forecastOverrun = burnRate - Number(budget);
+    const overrunPct = (forecastOverrun / Number(budget)) * 100;
 
     const riskScore = Math.min(
       100,
@@ -266,7 +266,7 @@ export class AiPredictionService {
     for (const demand of boqDemand) {
       if (!demand.materialId) continue;
 
-      const required = (demand._sum.quantity ?? 0) - (demand._sum.actualQuantity ?? 0);
+      const required = Number(demand._sum.quantity ?? 0) - Number(demand._sum.actualQuantity ?? 0);
       const available = stockMap.get(demand.materialId) ?? 0;
       const shortfall = required - available;
 

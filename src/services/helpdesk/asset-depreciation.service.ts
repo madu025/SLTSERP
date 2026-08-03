@@ -39,8 +39,8 @@ export class ITAssetDepreciationService {
         for (const asset of assets) {
             if (!asset.purchaseCost) continue;
             
-            const salvageValue = asset.purchaseCost * SALVAGE_VALUE_PERCENT;
-            const depreciableBase = asset.purchaseCost - salvageValue;
+            const salvageValue = Number(asset.purchaseCost) * SALVAGE_VALUE_PERCENT;
+            const depreciableBase = Number(asset.purchaseCost) - salvageValue;
             
             // Monthly depreciation = depreciable base / useful life
             const monthlyDepreciation = depreciableBase / USEFUL_LIFE_MONTHS;
@@ -113,7 +113,7 @@ export class ITAssetDepreciationService {
         const now = new Date();
 
         const formattedAssets = assets.map((asset) => {
-            const cost = asset.purchaseCost || 0;
+            const cost = Number(asset.purchaseCost || 0);
             const purchaseDate = asset.purchaseDate ? new Date(asset.purchaseDate) : now;
             
             const monthsInUse = Math.max(
@@ -142,7 +142,7 @@ export class ITAssetDepreciationService {
             };
         });
 
-        const totalCost = formattedAssets.reduce((sum, a) => sum + a.purchaseCost, 0);
+        const totalCost = formattedAssets.reduce((sum, a) => sum + Number(a.purchaseCost), 0);
         const totalAccumulated = formattedAssets.reduce((sum, a) => sum + a.accumulatedDepreciation, 0);
         const totalNetBookValue = formattedAssets.reduce((sum, a) => sum + a.netBookValue, 0);
         const estMonthlyPosting = formattedAssets

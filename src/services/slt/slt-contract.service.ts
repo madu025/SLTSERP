@@ -406,11 +406,11 @@ export class SLTContractService {
 
             for (let m = 1; m <= 12; m++) {
                 const monthName = MONTH_NAMES[m - 1];
-                const target = c.targets.find((t: { month: number; targetVolume?: number; baseUnitRate?: number; poleRate?: number | null; perMeterRate?: number | null; distanceThresholdMeters?: number | null; customSurcharges?: Prisma.JsonValue }) => t.month === m);
-                const baseTargetVolume = target?.targetVolume || 0;
-                const baseUnitRate = target?.baseUnitRate || 10000;
-                const basePoleRate = target?.poleRate || 4500;
-                const basePerMeterRate = target?.perMeterRate || 250;
+                const target = c.targets.find((t) => t.month === m);
+                const baseTargetVolume = Number(target?.targetVolume || 0);
+                const baseUnitRate = Number(target?.baseUnitRate || 10000);
+                const basePoleRate = Number(target?.poleRate || 4500);
+                const basePerMeterRate = Number(target?.perMeterRate || 250);
                 const baseDistanceThreshold = target?.distanceThresholdMeters || 50;
                 const baseCustomSurcharges = (target?.customSurcharges as Record<string, number>) || {};
 
@@ -443,10 +443,10 @@ export class SLTContractService {
                     }
 
                     if (appliesToThisMonth) {
-                        if (amd.revisedUnitRate) effectiveUnitRate = amd.revisedUnitRate;
+                        if (amd.revisedUnitRate) effectiveUnitRate = Number(amd.revisedUnitRate);
                         if (amd.revisedTargetVolume) effectiveTargetVolume = amd.revisedTargetVolume;
-                        if (amd.revisedPoleRate) effectivePoleRate = amd.revisedPoleRate;
-                        if (amd.revisedPerMeterRate) effectivePerMeterRate = amd.revisedPerMeterRate;
+                        if (amd.revisedPoleRate) effectivePoleRate = Number(amd.revisedPoleRate);
+                        if (amd.revisedPerMeterRate) effectivePerMeterRate = Number(amd.revisedPerMeterRate);
                         if (amd.revisedDistanceThreshold) effectiveDistanceThreshold = amd.revisedDistanceThreshold;
                         if (amd.customSurcharges) {
                             effectiveCustomSurcharges = { ...effectiveCustomSurcharges, ...(amd.customSurcharges as Record<string, number>) };
@@ -455,10 +455,10 @@ export class SLTContractService {
                         activeAmendmentObj = {
                             amendmentNumber: amd.amendmentNumber,
                             reason: amd.reason,
-                            revisedUnitRate: amd.revisedUnitRate || undefined,
+                            revisedUnitRate: amd.revisedUnitRate ? Number(amd.revisedUnitRate) : undefined,
                             revisedTargetVolume: amd.revisedTargetVolume || undefined,
-                            revisedPoleRate: amd.revisedPoleRate || undefined,
-                            revisedPerMeterRate: amd.revisedPerMeterRate || undefined,
+                            revisedPoleRate: amd.revisedPoleRate ? Number(amd.revisedPoleRate) : undefined,
+                            revisedPerMeterRate: amd.revisedPerMeterRate ? Number(amd.revisedPerMeterRate) : undefined,
                             effectiveDate: amd.effectiveDate.toISOString().split('T')[0],
                             documentUrl: amd.documentUrl || undefined
                         };
@@ -470,8 +470,8 @@ export class SLTContractService {
                     ? Math.round((actualCompletedCount / effectiveTargetVolume) * 100)
                     : 0;
 
-                const contractedRevenue = effectiveTargetVolume * effectiveUnitRate;
-                const actualRevenue = actualCompletedCount * effectiveUnitRate;
+                const contractedRevenue = effectiveTargetVolume * Number(effectiveUnitRate);
+                const actualRevenue = actualCompletedCount * Number(effectiveUnitRate);
                 const revenueVariance = actualRevenue - contractedRevenue;
 
                 let status: MonthPerformanceSummary['status'] = 'ON_TRACK';
@@ -486,11 +486,11 @@ export class SLTContractService {
                     targetVolume: effectiveTargetVolume,
                     actualCompleted: actualCompletedCount,
                     targetAchievementPercent,
-                    baseUnitRate,
-                    effectiveUnitRate,
-                    effectivePoleRate,
-                    effectivePerMeterRate,
-                    effectiveDistanceThreshold,
+                    baseUnitRate: Number(baseUnitRate),
+                    effectiveUnitRate: Number(effectiveUnitRate),
+                    effectivePoleRate: Number(effectivePoleRate),
+                    effectivePerMeterRate: Number(effectivePerMeterRate),
+                    effectiveDistanceThreshold: Number(effectiveDistanceThreshold),
                     customSurcharges: effectiveCustomSurcharges,
                     activeAmendment: activeAmendmentObj,
                     contractedRevenue,

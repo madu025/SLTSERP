@@ -46,7 +46,7 @@ export class ProjectResourceService {
             }
         });
 
-        const currentAllocationSum = overlaps.reduce((sum, r) => sum + r.allocationPercentage, 0);
+        const currentAllocationSum = overlaps.reduce((sum, r) => sum + Number(r.allocationPercentage), 0);
         const newTotal = currentAllocationSum + Number(allocationPercentage || 100);
 
         const isOverloaded = newTotal > 100;

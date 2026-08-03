@@ -1,11 +1,11 @@
 model OspPettyCashIou {
-  id             String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   iouNumber      String
-  opmcId         String?
+  opmcId         String? @db.Uuid
   staffName      String
   staffServiceNo String?
   type           String    @default("PETTY_CASH")
-  amount         Float
+  amount         Decimal @db.Decimal(14, 2)
   issuedDate     DateTime?
   reason         String?
   noOfDays       Int?      @default(0)
@@ -22,18 +22,18 @@ model OspPettyCashIou {
 }
 
 model OspProjectAdvance {
-  id           String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   refNumber    String    @unique
   type         String    @default("PROJECT")
   supplierName String?
   description  String
   invoiceNo    String?
-  amount       Float
-  vatAmount    Float     @default(0)
-  totalAmount  Float
+  amount       Decimal @db.Decimal(14, 2)
+  vatAmount    Decimal @db.Decimal(14, 2) @default(0)
+  totalAmount  Decimal @db.Decimal(14, 2)
   status       String    @default("PENDING")
   approvedAt   DateTime?
-  opmcId       String?
+  opmcId       String? @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -42,16 +42,16 @@ model OspProjectAdvance {
 }
 
 model OspPropertyRentPayment {
-  id           String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   accountNo    String?
   supplierName String
-  amount       Float
+  amount       Decimal @db.Decimal(14, 2)
   category     String    @default("Office Rent")
   slipNo       String
   slipDate     DateTime?
   status       String    @default("PENDING")
   approvedAt   DateTime?
-  opmcId       String?
+  opmcId       String? @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -62,11 +62,11 @@ model OspPropertyRentPayment {
 }
 
 model OspFuelDepositLedger {
-  id             String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   officeLocation String
-  opmcId         String?
+  opmcId         String? @db.Uuid
   stationName    String
-  actualDeposit  Float
+  actualDeposit  Decimal @db.Decimal(14, 2)
   status         String    @default("PENDING")
   approvedAt     DateTime?
   createdAt      DateTime  @default(now())
@@ -78,18 +78,18 @@ model OspFuelDepositLedger {
 }
 
 model OspVehicleHiringPayment {
-  id          String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   vehicleNo   String?
   bankCode    String?
   accountNo   String?
   accountName String
-  amount      Float
+  amount      Decimal @db.Decimal(14, 2)
   slipNo      String
   slipDate    DateTime?
   paidDate    DateTime?
   status      String    @default("PENDING")
   approvedAt  DateTime?
-  opmcId      String?
+  opmcId      String? @db.Uuid
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

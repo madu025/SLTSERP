@@ -1,24 +1,28 @@
 model User {
-  id                            String                        @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   email                         String                        @unique
   username                      String                        @unique
   password                      String
   name                          String?
   role                          Role                          @default(ENGINEER)
-  staffId                       String?                       @unique
+  roleId                        String?                       @db.Uuid
+  systemRole                    SystemRole?                   @relation("UserSystemRole", fields: [roleId], references: [id])
+  staffId                       String? @db.Uuid                       @unique
+
   securityQuestion              String?
   securityAnswer                String?
   employeeId                    String?                       @unique
-  supervisorId                  String?
-  assignedStoreId               String?
-  contractorId                  String?
+
+  supervisorId                  String? @db.Uuid
+  assignedStoreId               String? @db.Uuid
+  contractorId                  String? @db.Uuid
   mustChangePassword            Boolean                       @default(false)
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt
   permissions                   String?
   status                        String                        @default("active")
   isOOO                         Boolean                       @default(false)
-  delegatedUserId               String?
+  delegatedUserId               String? @db.Uuid
   handoversPerformed            AssetHandoverLog[]            @relation("HandoverPerformed")
   auditLogs                     AuditLog[]
   armApprovedContractors        Contractor[]                  @relation("ContractorArmApproval")
@@ -61,7 +65,9 @@ model User {
   amendmentRequestsRequested    InvoiceAmendmentRequest[]     @relation("AmendmentRequestedBy")
   amendmentRequestsApproved     InvoiceAmendmentRequest[]     @relation("AmendmentApprovedBy")
   assignedStore                 InventoryStore?               @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
+  contractor                    Contractor?                   @relation("ContractorUsers", fields: [contractorId], references: [id])
   staff                         Staff?                        @relation(fields: [staffId], references: [id])
+
   supervisor                    User?                         @relation("UserSupervisor", fields: [supervisorId], references: [id])
   subordinates                  User[]                        @relation("UserSupervisor")
   sectionAssignments            UserSectionAssignment[]
@@ -80,12 +86,18 @@ model User {
 
   @@index([role])
   @@index([supervisorId])
+  @@index([roleId])
+  @@index([staffId])
+  @@index([employeeId])
+  @@index([assignedStoreId])
+  @@index([contractorId])
+  @@index([delegatedUserId])
 }
 
 model Notification {
-  id           String    @id @default(cuid())
-  userId       String
-  tenantId     String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId       String @db.Uuid
+  tenantId     String? @db.Uuid
   title        String
   message      String
   type         String    @default("SYSTEM")
@@ -108,7 +120,7 @@ model Notification {
 }
 
 model NotificationTemplate {
-  id        String   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   code      String   @unique
   title     String
   message   String
@@ -120,8 +132,8 @@ model NotificationTemplate {
 }
 
 model NotificationEvent {
-  id          String    @id @default(cuid())
-  tenantId    String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  tenantId    String? @db.Uuid
   eventType   String
   payload     Json
   status      String    @default("PENDING")
@@ -136,11 +148,11 @@ model NotificationEvent {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId    String @db.Uuid
   action    String
   entity    String
-  entityId  String
+  entityId  String @db.Uuid
   oldValue  Json?
   newValue  Json?
   ipAddress String?
@@ -154,13 +166,14 @@ model AuditLog {
 }
 
 model Staff {
-  id                       String                   @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name                     String
   employeeId               String                   @unique
+
   designation              Role
   area                     String?
-  opmcId                   String?
-  reportsToId              String?
+  opmcId                   String? @db.Uuid
+  reportsToId              String? @db.Uuid
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
   handoversReceived        AssetHandoverLog[]       @relation("HandoverReceived")
@@ -180,12 +193,13 @@ model Staff {
   @@index([opmcId])
   @@index([reportsToId])
   @@index([designation])
+  @@index([employeeId])
 }
 
 model NotificationPreference {
-  id        String   @id @default(cuid())
-  userId    String
-  tenantId  String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId    String @db.Uuid
+  tenantId  String? @db.Uuid
   type      String
   enabled   Boolean  @default(true)
   inApp     Boolean  @default(true)
@@ -203,8 +217,8 @@ model NotificationPreference {
 }
 
 model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId    String @db.Uuid
   endpoint  String
   p256dh    String
   auth      String

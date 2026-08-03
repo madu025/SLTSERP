@@ -85,12 +85,12 @@ export class ProjectRetentionService {
             throw AppError.badRequest('RETENTION_NOT_FOUND');
         }
 
-        if (releaseAmount > existing.balanceAmount) {
+        if (Number(releaseAmount) > Number(existing.balanceAmount)) {
             throw AppError.badRequest('RELEASE_AMOUNT_EXCEEDS_BALANCE');
         }
 
-        const newReleased = (existing.releasedAmount || 0) + releaseAmount;
-        const newBalance = existing.retentionAmount - newReleased;
+        const newReleased = Number(existing.releasedAmount || 0) + Number(releaseAmount);
+        const newBalance = Number(existing.retentionAmount) - newReleased;
         const newStatus = newBalance <= 0 ? 'FULLY_RELEASED' : 'PARTIALLY_RELEASED';
 
         // Use transaction to create release and update retention
@@ -133,7 +133,7 @@ export class ProjectRetentionService {
         if (updateData.retentionPercent !== undefined) data.retentionPercent = updateData.retentionPercent;
         if (updateData.retentionAmount !== undefined) {
             data.retentionAmount = updateData.retentionAmount;
-            data.balanceAmount = updateData.retentionAmount - (existing.releasedAmount || 0);
+            data.balanceAmount = Number(updateData.retentionAmount) - Number(existing.releasedAmount || 0);
         }
         if (updateData.status !== undefined) data.status = updateData.status;
         if (updateData.releaseCondition !== undefined) data.releaseCondition = updateData.releaseCondition;
@@ -160,7 +160,7 @@ export class ProjectRetentionService {
             throw AppError.badRequest('RETENTION_NOT_FOUND');
         }
 
-        if ((existing.releasedAmount || 0) > 0) {
+        if (Number(existing.releasedAmount || 0) > 0) {
             throw AppError.badRequest('HAS_RELEASES');
         }
 

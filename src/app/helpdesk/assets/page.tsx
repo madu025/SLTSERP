@@ -2,7 +2,8 @@
 import { ROLE_GROUPS } from '@/config/roles';
 
 import React, { useEffect, useState, useCallback } from "react";
-import { ITAsset, Staff, InventoryStore as SiteOffice } from "@prisma/client";
+import { Staff, InventoryStore as SiteOffice } from "@prisma/client";
+import { ITAsset } from "@/components/helpdesk/AssetList";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import AssetList from "@/components/helpdesk/AssetList";
@@ -103,7 +104,10 @@ export default function HelpdeskAssetManagementPage() {
       if (!res.ok) throw new Error("Failed to fetch assets");
       const json = await res.json();
       if (json.success) {
-        setAssets(json.data.assets || []);
+        setAssets(((json.data.assets || []) as (ITAsset & { purchaseCost: unknown })[]).map((a) => ({
+          ...a,
+          purchaseCost: a.purchaseCost != null ? Number(a.purchaseCost) : null,
+        })));
         setTotalPages(Math.ceil((json.data.total || 0) / 25) || 1);
         setTotalAssets(json.data.total || 0);
         // Refresh metrics cards dynamically

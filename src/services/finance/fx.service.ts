@@ -20,7 +20,7 @@ export class FXService {
       }
     });
     
-    return rate?.exchangeRate ?? 1.0;
+    return rate ? Number(rate.exchangeRate) : 1.0;
   }
 
   /**

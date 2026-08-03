@@ -495,7 +495,7 @@ export class ProjectService {
                 budget: project?.budget,
                 actualCost: project?.actualCost,
                 variance: project?.budget && project?.actualCost
-                    ? project.budget - project.actualCost
+                    ? Number(project.budget) - Number(project.actualCost)
                     : null,
             },
         };

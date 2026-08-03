@@ -1,6 +1,6 @@
 model ProjectRisk {
-  id             String   @id @default(cuid())
-  projectId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String @db.Uuid
   title          String
   description    String
   probability    Int
@@ -8,49 +8,51 @@ model ProjectRisk {
   score          Int
   mitigationPlan String?
   status         String   @default("OPEN")
-  identifiedById String
+  identifiedById String @db.Uuid
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([identifiedById])
 }
 
 model ProjectInspection {
-  id               String    @id @default(cuid())
-  projectId        String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId        String @db.Uuid
   title            String
   category         String
   status           String    @default("PENDING")
   checklist        Json
   correctiveAction String?
   photoUrls        String[]  @default([])
-  inspectorId      String
+  inspectorId      String @db.Uuid
   inspectedAt      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([inspectorId])
 }
 
 model ProjectEVM {
-  id                   String        @id @default(cuid())
-  projectId            String        @unique
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId            String @db.Uuid        @unique
   lastCalculatedAt     DateTime      @default(now())
-  pvTotal              Float         @default(0)
-  pvCurrentPeriod      Float         @default(0)
-  evTotal              Float         @default(0)
-  evCurrentPeriod      Float         @default(0)
-  acTotal              Float         @default(0)
-  acCurrentPeriod      Float         @default(0)
-  spi                  Float?
-  cpi                  Float?
-  scheduleVariance     Float?
-  costVariance         Float?
-  estimateAtCompletion Float?
-  estimateToComplete   Float?
-  varianceAtCompletion Float?
+  pvTotal              Decimal @db.Decimal(14, 2) @default(0)
+  pvCurrentPeriod      Decimal @db.Decimal(14, 2) @default(0)
+  evTotal              Decimal @db.Decimal(14, 2) @default(0)
+  evCurrentPeriod      Decimal @db.Decimal(14, 2) @default(0)
+  acTotal              Decimal @db.Decimal(14, 2) @default(0)
+  acCurrentPeriod      Decimal @db.Decimal(14, 2) @default(0)
+  spi                  Decimal? @db.Decimal(8, 4)
+  cpi                  Decimal? @db.Decimal(8, 4)
+  scheduleVariance     Decimal? @db.Decimal(14, 2)
+  costVariance         Decimal? @db.Decimal(14, 2)
+  estimateAtCompletion Decimal? @db.Decimal(14, 2)
+  estimateToComplete   Decimal? @db.Decimal(14, 2)
+  varianceAtCompletion Decimal? @db.Decimal(14, 2)
   status               String        @default("GREEN")
   statusNotes          String?
   createdAt            DateTime      @default(now())
@@ -63,16 +65,16 @@ model ProjectEVM {
 }
 
 model EVMSnapshot {
-  id               String     @id @default(cuid())
-  evmId            String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  evmId            String @db.Uuid
   snapshotDate     DateTime   @default(now())
-  pvCumulative     Float      @default(0)
-  evCumulative     Float      @default(0)
-  acCumulative     Float      @default(0)
-  spi              Float?
-  cpi              Float?
-  scheduleVariance Float?
-  costVariance     Float?
+  pvCumulative     Decimal @db.Decimal(14, 2) @default(0)
+  evCumulative     Decimal @db.Decimal(14, 2) @default(0)
+  acCumulative     Decimal @db.Decimal(14, 2) @default(0)
+  spi              Decimal? @db.Decimal(8, 4)
+  cpi              Decimal? @db.Decimal(8, 4)
+  scheduleVariance Decimal? @db.Decimal(14, 2)
+  costVariance     Decimal? @db.Decimal(14, 2)
   periodLabel      String
   createdAt        DateTime   @default(now())
   evm              ProjectEVM @relation(fields: [evmId], references: [id], onDelete: Cascade)
@@ -82,14 +84,14 @@ model EVMSnapshot {
 }
 
 model ProjectAsset {
-  id                String                   @id @default(cuid())
-  projectId         String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId         String @db.Uuid
   assetType         String
   assetCode         String?
   assetName         String
   description       String?
-  latitude          Float?
-  longitude         Float?
+  latitude          Decimal? @db.Decimal(11, 8)
+  longitude         Decimal? @db.Decimal(11, 8)
   address           String?
   routeIdentifier   String?
   fiberCount        Int?
@@ -103,14 +105,14 @@ model ProjectAsset {
   installationDate  DateTime?
   commissionedDate  DateTime?
   sourceType        String?
-  sourceId          String?
+  sourceId          String? @db.Uuid
   sourceDescription String?
   transferredToNOC  Boolean                  @default(false)
   transferDate      DateTime?
-  nocAssetId        String?
+  nocAssetId        String? @db.Uuid
   transferNotes     String?
-  createdById       String
-  verifiedById      String?
+  createdById       String @db.Uuid
+  verifiedById      String? @db.Uuid
   verifiedAt        DateTime?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
@@ -125,33 +127,38 @@ model ProjectAsset {
   @@index([assetCode])
   @@index([status])
   @@index([transferredToNOC])
+  @@index([sourceId])
+  @@index([nocAssetId])
+  @@index([createdById])
+  @@index([verifiedById])
 }
 
 model ProjectAssetCable {
-  id                 String       @id @default(cuid())
-  assetId            String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  assetId            String @db.Uuid
   cableNumber        Int
   fiberCount         Int
   fiberFrom          Int?
   fiberTo            Int?
   direction          String?
-  connectedToAssetId String?
+  connectedToAssetId String? @db.Uuid
   connectedToPort    String?
   notes              String?
   createdAt          DateTime     @default(now())
   asset              ProjectAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId])
+  @@index([connectedToAssetId])
 }
 
 model ProjectAssetConnection {
-  id               String       @id @default(cuid())
-  assetId          String
-  connectedAssetId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  assetId          String @db.Uuid
+  connectedAssetId String @db.Uuid
   connectionType   String
   fiberNumber      Int?
-  loss             Float?
-  testReferenceId  String?
+  loss             Decimal? @db.Decimal(12, 4)
+  testReferenceId  String? @db.Uuid
   notes            String?
   createdAt        DateTime     @default(now())
   asset            ProjectAsset @relation("AssetConnections", fields: [assetId], references: [id], onDelete: Cascade)
@@ -159,33 +166,35 @@ model ProjectAssetConnection {
 
   @@index([assetId])
   @@index([connectedAssetId])
+  @@index([testReferenceId])
 }
 
 model ProjectAssetDocument {
-  id           String       @id @default(cuid())
-  assetId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  assetId      String @db.Uuid
   documentType String
   fileName     String
   fileUrl      String
-  uploadedById String
+  uploadedById String @db.Uuid
   uploadedAt   DateTime     @default(now())
   asset        ProjectAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId])
+  @@index([uploadedById])
 }
 
 model ProjectChangeRequest {
-  id              String           @id @default(cuid())
-  projectId       String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId       String @db.Uuid
   requestNumber   String           @unique
   changeType      String
   title           String
   description     String?
-  costImpact      Float?
+  costImpact      Decimal? @db.Decimal(14, 2)
   timeImpact      Int?
   routeChangeData Json?
   status          String           @default("DRAFT")
-  requestedById   String?
+  requestedById   String? @db.Uuid
   submittedAt     DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -195,16 +204,17 @@ model ProjectChangeRequest {
   @@index([projectId])
   @@index([status])
   @@index([requestNumber])
+  @@index([requestedById])
 }
 
 model ChangeApproval {
-  id              String               @id @default(cuid())
-  changeRequestId String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  changeRequestId String @db.Uuid
   stepOrder       Int                  @default(1)
   role            String
   status          String               @default("PENDING")
-  approverId      String?
-  approvedById    String?
+  approverId      String? @db.Uuid
+  approvedById    String? @db.Uuid
   approvedAt      DateTime?
   remarks         String?
   comment         String?
@@ -213,19 +223,21 @@ model ChangeApproval {
 
   @@index([changeRequestId])
   @@index([status])
+  @@index([approverId])
+  @@index([approvedById])
 }
 
 model AiPrediction {
-  id              String    @id @default(cuid())
-  projectId       String?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId       String? @db.Uuid
   predictionType  String
   riskLevel       String
-  probabilityPct  Float
+  probabilityPct  Decimal @db.Decimal(8, 4)
   predictedImpact String
   currentMetrics  Json
   rootCause       String?
   recommendation  String?
-  confidenceScore Float?
+  confidenceScore Decimal? @db.Decimal(8, 4)
   isResolved      Boolean   @default(false)
   resolvedAt      DateTime?
   createdAt       DateTime  @default(now())

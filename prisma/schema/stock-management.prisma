@@ -1,8 +1,8 @@
 model ContractorBatchStock {
-  id           String         @id @default(cuid())
-  contractorId String
-  itemId       String
-  batchId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractorId String @db.Uuid
+  itemId       String @db.Uuid
+  batchId      String @db.Uuid
   quantity     Decimal        @default(0)
   updatedAt    DateTime       @updatedAt
   batch        InventoryBatch @relation(fields: [batchId], references: [id])
@@ -16,16 +16,16 @@ model ContractorBatchStock {
 }
 
 model StockRequest {
-  id                        String             @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   requestNr                 String             @unique @default(cuid())
   issueNoteNumber           String?
-  fromStoreId               String?
-  toStoreId                 String?
+  fromStoreId               String? @db.Uuid
+  toStoreId                 String? @db.Uuid
   status                    String             @default("PENDING")
-  requestedById             String
-  approvedById              String?
+  requestedById             String @db.Uuid
+  approvedById              String? @db.Uuid
   remarks                   String?
-  sltReferenceId            String?
+  sltReferenceId            String? @db.Uuid
   priority                  String             @default("MEDIUM")
   requiredDate              DateTime?
   purpose                   String?
@@ -39,19 +39,19 @@ model StockRequest {
   armAction                 String?
   armDate                   DateTime?
   armRemarks                String?
-  armApprovedById           String?
+  armApprovedById           String? @db.Uuid
   storesManagerAction       String?
   storesManagerDate         DateTime?
   storesManagerRemarks      String?
-  storesManagerApprovedById String?
+  storesManagerApprovedById String? @db.Uuid
   hsOspAction               String?
   hsOspDate                 DateTime?
   managerAction             String?
   managerDate               DateTime?
-  releasedById              String?
+  releasedById              String? @db.Uuid
   releasedDate              DateTime?
   releasedRemarks           String?
-  receivedById              String?
+  receivedById              String? @db.Uuid
   receivedDate              DateTime?
   receivedRemarks           String?
   createdAt                 DateTime           @default(now())
@@ -74,16 +74,22 @@ model StockRequest {
   @@index([status])
   @@index([workflowStage])
   @@index([createdAt])
+  @@index([approvedById])
+  @@index([sltReferenceId])
+  @@index([armApprovedById])
+  @@index([storesManagerApprovedById])
+  @@index([releasedById])
+  @@index([receivedById])
 }
 
 model StockRequestItem {
-  id                 String              @id @default(cuid())
-  requestId          String
-  itemId             String
-  requestedQty       Float
-  approvedQty        Float               @default(0)
-  issuedQty          Float?
-  receivedQty        Float               @default(0)
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  requestId          String @db.Uuid
+  itemId             String @db.Uuid
+  requestedQty       Decimal @db.Decimal(14, 2)
+  approvedQty        Decimal @db.Decimal(14, 2) @default(0)
+  issuedQty          Decimal? @db.Decimal(14, 2)
+  receivedQty        Decimal @db.Decimal(14, 2) @default(0)
   remarks            String?
   make               String?
   model              String?
@@ -98,20 +104,20 @@ model StockRequestItem {
 }
 
 model GRN {
-  id              String           @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   grnNumber       String           @unique
-  storeId         String
+  storeId         String @db.Uuid
   sourceType      String
   supplier        String?
-  requestId       String?
-  receivedById    String
+  requestId       String? @db.Uuid
+  receivedById    String @db.Uuid
   reference       String?
   documentUrl     String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   receivedBy      User             @relation(fields: [receivedById], references: [id])
   request         StockRequest?    @relation(fields: [requestId], references: [id])
-  purchaseOrderId String?
+  purchaseOrderId String? @db.Uuid
   purchaseOrder   PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
   store           InventoryStore   @relation(fields: [storeId], references: [id])
   items           GRNItem[]
@@ -121,14 +127,15 @@ model GRN {
   @@index([requestId])
   @@index([purchaseOrderId])
   @@index([grnNumber])
+  @@index([receivedById])
 }
 
 model GRNItem {
-  id        String          @id @default(cuid())
-  grnId     String
-  itemId    String
-  quantity  Float
-  batchId   String?         @unique
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  grnId     String @db.Uuid
+  itemId    String @db.Uuid
+  quantity  Decimal @db.Decimal(12, 4)
+  batchId   String? @db.Uuid         @unique
   createdAt DateTime        @default(now())
   batch     InventoryBatch? @relation(fields: [batchId], references: [id])
   grn       GRN             @relation(fields: [grnId], references: [id], onDelete: Cascade)
@@ -136,20 +143,21 @@ model GRNItem {
 
   @@index([grnId])
   @@index([itemId])
+  @@index([batchId])
 }
 
 model MRN {
-  id           String         @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   mrnNumber    String         @unique
-  storeId      String
+  storeId      String @db.Uuid
   returnType   String
   returnTo     String?
   supplier     String?
   reason       String?
-  grnId        String?
-  returnedById String
+  grnId        String? @db.Uuid
+  returnedById String @db.Uuid
   status       String         @default("PENDING")
-  approvedById String?
+  approvedById String? @db.Uuid
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   approvedBy   User?          @relation("MRNApprover", fields: [approvedById], references: [id])
@@ -160,13 +168,16 @@ model MRN {
   @@index([storeId])
   @@index([status])
   @@index([mrnNumber])
+  @@index([grnId])
+  @@index([returnedById])
+  @@index([approvedById])
 }
 
 model MRNItem {
-  id        String        @id @default(cuid())
-  mrnId     String
-  itemId    String
-  quantity  Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  mrnId     String @db.Uuid
+  itemId    String @db.Uuid
+  quantity  Decimal @db.Decimal(12, 4)
   reason    String?
   createdAt DateTime      @default(now())
   item      InventoryItem @relation(fields: [itemId], references: [id])
@@ -177,10 +188,10 @@ model MRNItem {
 }
 
 model ContractorMaterialIssue {
-  id           String                        @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   issueNumber  String                        @unique
-  contractorId String
-  storeId      String
+  contractorId String @db.Uuid
+  storeId      String @db.Uuid
   issueDate    DateTime                      @default(now())
   month        String
   issuedBy     String?
@@ -201,10 +212,10 @@ model ContractorMaterialIssue {
 }
 
 model ContractorMaterialIssueItem {
-  id       String                  @id @default(cuid())
-  issueId  String
-  itemId   String
-  quantity Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  issueId  String @db.Uuid
+  itemId   String @db.Uuid
+  quantity Decimal @db.Decimal(12, 4)
   unit     String
   issue    ContractorMaterialIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
   item     InventoryItem           @relation("IssueItems", fields: [itemId], references: [id])
@@ -214,11 +225,11 @@ model ContractorMaterialIssueItem {
 }
 
 model ContractorMaterialReturn {
-  id             String                         @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   returnNumber   String                         @unique
-  contractorId   String
-  storeId        String
-  serviceOrderId String?
+  contractorId   String @db.Uuid
+  storeId        String @db.Uuid
+  serviceOrderId String? @db.Uuid
   returnDate     DateTime                       @default(now())
   month          String
   reason         String?
@@ -237,11 +248,11 @@ model ContractorMaterialReturn {
 }
 
 model ContractorMaterialReturnItem {
-  id               String                   @id @default(cuid())
-  returnId         String
-  itemId           String
-  quantity         Float
-  acceptedQuantity Float?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  returnId         String @db.Uuid
+  itemId           String @db.Uuid
+  quantity         Decimal @db.Decimal(12, 4)
+  acceptedQuantity Decimal? @db.Decimal(14, 2)
   unit             String
   condition        String                   @default("GOOD")
   item             InventoryItem            @relation("ReturnItems", fields: [itemId], references: [id])
@@ -252,14 +263,14 @@ model ContractorMaterialReturnItem {
 }
 
 model ContractorWastage {
-  id           String                  @id @default(cuid())
-  contractorId String
-  storeId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractorId String @db.Uuid
+  storeId      String @db.Uuid
   date         DateTime                @default(now())
   month        String
   description  String?
   status       String                  @default("APPROVED")
-  approvedById String?
+  approvedById String? @db.Uuid
   approvedAt   DateTime?
   createdAt    DateTime                @default(now())
   contractor   Contractor              @relation(fields: [contractorId], references: [id], onDelete: Cascade)
@@ -268,13 +279,14 @@ model ContractorWastage {
 
   @@index([contractorId, storeId, month])
   @@index([status])
+  @@index([approvedById])
 }
 
 model ContractorWastageItem {
-  id        String            @id @default(cuid())
-  wastageId String
-  itemId    String
-  quantity  Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  wastageId String @db.Uuid
+  itemId    String @db.Uuid
+  quantity  Decimal @db.Decimal(12, 4)
   unit      String
   item      InventoryItem     @relation(fields: [itemId], references: [id])
   wastage   ContractorWastage @relation(fields: [wastageId], references: [id], onDelete: Cascade)
@@ -284,13 +296,13 @@ model ContractorWastageItem {
 }
 
 model ContractorMaterialBalanceSheet {
-  id           String                       @id @default(cuid())
-  contractorId String
-  storeId      String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  contractorId String @db.Uuid
+  storeId      String @db.Uuid
   month        String
-  totalValue   Float?
-  usageRate    Float?
-  wastageRate  Float?
+  totalValue   Decimal? @db.Decimal(14, 2)
+  usageRate    Decimal? @db.Decimal(8, 4)
+  wastageRate  Decimal? @db.Decimal(8, 4)
   generatedAt  DateTime                     @default(now())
   generatedBy  String?
   items        ContractorBalanceSheetItem[]
@@ -304,16 +316,16 @@ model ContractorMaterialBalanceSheet {
 }
 
 model ContractorBalanceSheetItem {
-  id             String                         @id @default(cuid())
-  balanceSheetId String
-  itemId         String
-  openingBalance Float
-  received       Float
-  returned       Float                          @default(0)
-  used           Float
-  wastage        Float
-  closingBalance Float
-  requiredNext   Float?
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  balanceSheetId String @db.Uuid
+  itemId         String @db.Uuid
+  openingBalance Decimal @db.Decimal(14, 2)
+  received       Decimal @db.Decimal(14, 2)
+  returned       Decimal @db.Decimal(14, 2) @default(0)
+  used           Decimal @db.Decimal(14, 2)
+  wastage        Decimal @db.Decimal(14, 2)
+  closingBalance Decimal @db.Decimal(14, 2)
+  requiredNext   Decimal? @db.Decimal(14, 2)
   balanceSheet   ContractorMaterialBalanceSheet @relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)
   item           InventoryItem                  @relation("BalanceSheetItems", fields: [itemId], references: [id])
 
@@ -322,18 +334,18 @@ model ContractorBalanceSheetItem {
 }
 
 model StockIssue {
-  id            String           @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   issueNumber   String           @unique
-  storeId       String
-  issuedById    String
+  storeId       String @db.Uuid
+  issuedById    String @db.Uuid
   issueType     String
-  projectId     String?
-  contractorId  String?
-  teamId        String?
+  projectId     String? @db.Uuid
+  contractorId  String? @db.Uuid
+  teamId        String? @db.Uuid
   recipientName String
   remarks       String?
   status        String           @default("PENDING")
-  approvedById  String?
+  approvedById  String? @db.Uuid
   approvedAt    DateTime?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -347,13 +359,18 @@ model StockIssue {
   @@index([storeId])
   @@index([issueType])
   @@index([status])
+  @@index([issuedById])
+  @@index([projectId])
+  @@index([contractorId])
+  @@index([teamId])
+  @@index([approvedById])
 }
 
 model StockIssueItem {
-  id        String        @id @default(cuid())
-  issueId   String
-  itemId    String
-  quantity  Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  issueId   String @db.Uuid
+  itemId    String @db.Uuid
+  quantity  Decimal @db.Decimal(12, 4)
   remarks   String?
   createdAt DateTime      @default(now())
   issue     StockIssue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
@@ -364,13 +381,13 @@ model StockIssueItem {
 }
 
 model ProjectMaterialReturn {
-  id           String                      @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   returnNumber String                      @unique
-  projectId    String
-  storeId      String
-  returnedById String
+  projectId    String @db.Uuid
+  storeId      String @db.Uuid
+  returnedById String @db.Uuid
   status       String                      @default("PENDING")
-  approvedById String?
+  approvedById String? @db.Uuid
   approvedAt   DateTime?
   reason       String?
   createdAt    DateTime                    @default(now())
@@ -384,13 +401,15 @@ model ProjectMaterialReturn {
   @@index([projectId])
   @@index([storeId])
   @@index([status])
+  @@index([returnedById])
+  @@index([approvedById])
 }
 
 model ProjectMaterialReturnItem {
-  id        String                @id @default(cuid())
-  returnId  String
-  itemId    String
-  quantity  Float
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  returnId  String @db.Uuid
+  itemId    String @db.Uuid
+  quantity  Decimal @db.Decimal(12, 4)
   condition String                @default("GOOD")
   remarks   String?
   item      InventoryItem         @relation("ProjectReturnItems", fields: [itemId], references: [id])
@@ -401,11 +420,11 @@ model ProjectMaterialReturnItem {
 }
 
 model StockMovement {
-  id        String   @id @default(cuid())
-  storeId   String
-  itemId    String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  storeId   String @db.Uuid
+  itemId    String @db.Uuid
   type      String
-  quantity  Float
+  quantity  Decimal @db.Decimal(12, 4)
   reference String?
   remarks   String?
   createdAt DateTime @default(now())
@@ -416,13 +435,13 @@ model StockMovement {
 }
 
 model PurchaseOrder {
-  id               String    @id @default(cuid())
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   poNumber         String    @unique
   vendor           String
   expectedDelivery DateTime?
   status           String    @default("PENDING") // PENDING, APPROVED, ISSUED, COMPLETED
 
-  stockRequestId String
+  stockRequestId String @db.Uuid
   stockRequest   StockRequest @relation(fields: [stockRequestId], references: [id], onDelete: Restrict)
 
   items PurchaseOrderItem[]
@@ -435,16 +454,16 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id          String @id @default(cuid())
-  quantity    Float
-  unitPrice   Float  @default(0.0)
-  taxAmount   Float  @default(0.0)
-  totalAmount Float  @default(0.0)
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  quantity    Decimal @db.Decimal(12, 4)
+  unitPrice   Decimal @db.Decimal(14, 2) @default(0.0)
+  taxAmount   Decimal @db.Decimal(14, 2) @default(0.0)
+  totalAmount Decimal @db.Decimal(14, 2) @default(0.0)
 
-  purchaseOrderId String
+  purchaseOrderId String @db.Uuid
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 
-  stockRequestItemId String
+  stockRequestItemId String @db.Uuid
   stockRequestItem   StockRequestItem @relation(fields: [stockRequestItemId], references: [id], onDelete: Restrict)
 
   @@index([purchaseOrderId])

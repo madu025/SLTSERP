@@ -47,8 +47,8 @@ export class RetentionService {
 
     if (!retention) throw AppError.badRequest('RETENTION_RECORD_NOT_FOUND');
 
-    const newReleasedAmount = retention.releasedAmount + data.releaseAmount;
-    const balanceAmount = retention.retentionAmount - newReleasedAmount;
+    const newReleasedAmount = retention.releasedAmount.toNumber() + data.releaseAmount;
+    const balanceAmount = Number(retention.retentionAmount) - newReleasedAmount;
 
     if (balanceAmount < 0) {
       throw AppError.badRequest('RELEASE_AMOUNT_EXCEEDS_BALANCE');

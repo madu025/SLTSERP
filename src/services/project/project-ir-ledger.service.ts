@@ -276,9 +276,9 @@ export class ProjectIRLedgerService {
     const boqPlannedMap = new Map<string, number>();
     for (const item of boqItems) {
       if (item.materialId) {
-        boqPlannedMap.set(item.materialId, item.quantity);
+        boqPlannedMap.set(item.materialId, item.quantity.toNumber());
       }
-      boqPlannedMap.set(item.itemCode, item.quantity);
+      boqPlannedMap.set(item.itemCode, item.quantity.toNumber());
     }
 
     const ledgerMap = new Map<string, IRLedgerEntry>();

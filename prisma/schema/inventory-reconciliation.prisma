@@ -6,27 +6,27 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 model PreErpMaterialBalance {
-  id                     String                       @id @default(cuid())
-  opmcId                 String?
-  storeId                String?
-  itemId                 String
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  opmcId                 String? @db.Uuid
+  storeId                String? @db.Uuid
+  itemId                 String @db.Uuid
   itemCode               String
   itemName               String
   year                   Int // e.g., 2024, 2025, 2026
   month                  String // e.g., "JULY", "AUG", "SEP"
-  carryForwardQuantity   Float                        @default(0) // Opening balance
-  receivedQuantity       Float                        @default(0) // Inward received
-  totalInHandQuantity    Float                        @default(0) // Available
-  usageQuantity          Float                        @default(0) // Consumed in field
-  wastageQuantity        Float                        @default(0) // Scrap / Wastage
-  faultyQuantity         Float                        @default(0) // Damaged
-  totalUsageQuantity     Float                        @default(0) // Usage + Wastage
-  closingBalanceQuantity Float                        @default(0) // Computed remaining
-  receivedCostLkr        Float                        @default(0) // Financial value received
-  usageCostLkr           Float                        @default(0) // Financial value consumed
-  unitCostLkr            Float                        @default(0) // Unit price
+  carryForwardQuantity   Decimal @db.Decimal(12, 4) @default(0) // Opening balance
+  receivedQuantity       Decimal @db.Decimal(12, 4) @default(0) // Inward received
+  totalInHandQuantity    Decimal @db.Decimal(12, 4) @default(0) // Available
+  usageQuantity          Decimal @db.Decimal(12, 4) @default(0) // Consumed in field
+  wastageQuantity        Decimal @db.Decimal(12, 4) @default(0) // Scrap / Wastage
+  faultyQuantity         Decimal @db.Decimal(12, 4) @default(0) // Damaged
+  totalUsageQuantity     Decimal @db.Decimal(12, 4) @default(0) // Usage + Wastage
+  closingBalanceQuantity Decimal @db.Decimal(12, 4) @default(0) // Computed remaining
+  receivedCostLkr        Decimal @db.Decimal(14, 2) @default(0) // Financial value received
+  usageCostLkr           Decimal @db.Decimal(14, 2) @default(0) // Financial value consumed
+  unitCostLkr            Decimal @db.Decimal(14, 2) @default(0) // Unit price
   status                 String                       @default("UNRECONCILED") // UNRECONCILED | RECONCILED | ADJUSTED
-  createdById            String
+  createdById            String @db.Uuid
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
   opmc                   OPMC?                        @relation(fields: [opmcId], references: [id])
@@ -38,23 +38,25 @@ model PreErpMaterialBalance {
   @@index([itemId])
   @@index([year, month])
   @@index([status])
+  @@index([storeId])
+  @@index([createdById])
 }
 
 model MaterialVarianceAdjustment {
-  id                  String                @id @default(cuid())
-  balanceId           String
-  opmcId              String?
-  itemId              String
-  systemCalculatedQty Float // Quantity from monthly math
-  physicalAuditedQty  Float // Physical stock count
-  varianceQuantity    Float // Physical - System
+  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  balanceId           String @db.Uuid
+  opmcId              String? @db.Uuid
+  itemId              String @db.Uuid
+  systemCalculatedQty Decimal @db.Decimal(12, 4) // Quantity from monthly math
+  physicalAuditedQty  Decimal @db.Decimal(12, 4) // Physical stock count
+  varianceQuantity    Decimal @db.Decimal(12, 4) // Physical - System
   varianceReason      String // UNRECORDED_RECEIPT | BUFFER_STOCK | FIELD_SCRAP | OTHER
-  financialImpactLkr  Float // Variance * UnitCost
+  financialImpactLkr  Decimal @db.Decimal(14, 2) // Variance * UnitCost
   status              String                @default("PENDING") // PENDING | APPROVED | REJECTED
-  approvedById        String?
+  approvedById        String? @db.Uuid
   approvedAt          DateTime?
   rejectionReason     String?
-  createdById         String
+  createdById         String @db.Uuid
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   balance             PreErpMaterialBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
@@ -65,4 +67,6 @@ model MaterialVarianceAdjustment {
   @@index([opmcId])
   @@index([itemId])
   @@index([status])
+  @@index([approvedById])
+  @@index([createdById])
 }

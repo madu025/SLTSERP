@@ -39,6 +39,8 @@ export async function createUser(data: any) {
                 }
             }
 
+            const sysRole = await tx.systemRole.findUnique({ where: { code: role || 'ENGINEER' } });
+
             const user = await tx.user.create({
                 data: {
                     username,
@@ -46,6 +48,7 @@ export async function createUser(data: any) {
                     password: hashedPassword,
                     name,
                     role: role || 'ENGINEER',
+                    systemRole: sysRole ? { connect: { id: sysRole.id } } : undefined,
                     staff: staffId ? { connect: { id: staffId } } : undefined,
                     assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : undefined,
                     accessibleOpmcs: {
@@ -55,6 +58,7 @@ export async function createUser(data: any) {
                     },
                     supervisor: supervisorId ? { connect: { id: supervisorId } } : undefined
                 },
+
                 include: {
                     accessibleOpmcs: { select: { rtom: true } }
                 }
@@ -170,10 +174,13 @@ export async function updateUser(data: any) {
                 staffId = staff.id;
             }
 
+            const sysRole = await tx.systemRole.findUnique({ where: { code: role || 'ENGINEER' } });
+
             return await tx.user.update({
                 where: { id },
                 data: {
                     ...dataToUpdate,
+                    systemRole: sysRole ? { connect: { id: sysRole.id } } : undefined,
                     staff: staffId ? { connect: { id: staffId } } : undefined,
                     assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : { disconnect: true },
                     accessibleOpmcs: {
@@ -183,6 +190,7 @@ export async function updateUser(data: any) {
                     supervisor: supervisorId ? { connect: { id: supervisorId } } : { disconnect: true }
                 }
             });
+
         });
 
         const { password: _, ...userWithoutPassword } = result;

@@ -53,8 +53,8 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
     const boqItems = useMemo(() => project.boqItems || [], [project.boqItems]);
     const existingItems = useMemo(() => boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === 'EXISTING'), [boqItems]);
     const newItems = useMemo(() => boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === 'NEW'), [boqItems]);
-    const existingValue = useMemo(() => existingItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.amount || 0), 0), [existingItems]);
-    const newValue = useMemo(() => newItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.amount || 0), 0), [newItems]);
+    const existingValue = useMemo(() => existingItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + Number(i.amount || 0), 0), [existingItems]);
+    const newValue = useMemo(() => newItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + Number(i.amount || 0), 0), [newItems]);
 
     const filteredItems = useMemo(() => {
         if (sourceFilter === 'ALL') return boqItems;
@@ -183,7 +183,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
         }
     };
 
-    const totalBOQValue = boqItems.reduce((sum: number, item: import('@prisma/client').ProjectBOQItem) => sum + (item.amount || 0), 0);
+    const totalBOQValue = boqItems.reduce((sum: number, item: import('@prisma/client').ProjectBOQItem) => sum + Number(item.amount || 0), 0);
 
     return (
         <div className="space-y-6">
@@ -349,18 +349,18 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                                             {item.unit}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 text-right font-medium">
-                                            {item.quantity}
+                                            {Number(item.quantity)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right">
-                                            {formatCurrency(item.unitRate)}
+                                            {formatCurrency(Number(item.unitRate))}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 text-right">
-                                            {formatCurrency(item.amount)}
+                                            {formatCurrency(Number(item.amount))}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right">
-                                            {item.actualCost > 0 ? (
-                                                <span className={item.actualCost > item.amount ? 'text-red-600' : 'text-green-600'}>
-                                                    {formatCurrency(item.actualCost)}
+                                            {Number(item.actualCost) > 0 ? (
+                                                <span className={Number(item.actualCost) > Number(item.amount) ? 'text-red-600' : 'text-green-600'}>
+                                                    {formatCurrency(Number(item.actualCost))}
                                                 </span>
                                             ) : '-'}
                                         </td>
@@ -393,10 +393,10 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                                         Total{sourceFilter !== 'ALL' ? ` (${sourceFilter})` : ''}
                                     </td>
                                     <td className="px-6 py-4 text-right text-sm text-slate-900">
-                                        {formatCurrency(filteredItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.amount || 0), 0))}
+                                        {formatCurrency(filteredItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + Number(i.amount || 0), 0))}
                                     </td>
                                     <td className="px-6 py-4 text-right text-sm text-slate-900">
-                                        {formatCurrency(filteredItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + (i.actualCost || 0), 0))}
+                                        {formatCurrency(filteredItems.reduce((s: number, i: import('@prisma/client').ProjectBOQItem) => s + Number(i.actualCost || 0), 0))}
                                     </td>
                                     <td></td>
                                 </tr>

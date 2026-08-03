@@ -70,13 +70,13 @@ export class MaterialAuditReportService {
       }
 
       const summary = itemMap.get(code)!;
-      summary.totalReceivedQty += r.receivedQuantity;
-      summary.totalUsageQty += r.usageQuantity;
-      summary.totalWastageQty += r.wastageQuantity;
-      summary.totalFaultyQty += r.faultyQuantity;
-      summary.totalUsageAndWastageQty += r.totalUsageQuantity;
-      summary.totalReceivedCostLkr += r.receivedCostLkr;
-      summary.totalUsageCostLkr += r.usageCostLkr;
+      summary.totalReceivedQty += Number(r.receivedQuantity);
+      summary.totalUsageQty += Number(r.usageQuantity);
+      summary.totalWastageQty += Number(r.wastageQuantity);
+      summary.totalFaultyQty += Number(r.faultyQuantity);
+      summary.totalUsageAndWastageQty += Number(r.totalUsageQuantity);
+      summary.totalReceivedCostLkr += Number(r.receivedCostLkr);
+      summary.totalUsageCostLkr += Number(r.usageCostLkr);
       summary.recordsCount++;
     }
 

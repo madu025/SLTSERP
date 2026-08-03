@@ -160,8 +160,9 @@ export class TripService {
             where: { id: trip.vehicle_id },
           });
           if (vehicle?.fuel_cost_per_liter) {
-            fuelCost = fuelConsumedLiters * vehicle.fuel_cost_per_liter;
+            fuelCost = fuelConsumedLiters * Number(vehicle.fuel_cost_per_liter);
           }
+
         }
       }
 
@@ -243,11 +244,11 @@ export class TripService {
       : null;
 
     const avgSpeed = trip.actual_distance_km && duration
-      ? (trip.actual_distance_km / duration) * 60 // km/h
+      ? (Number(trip.actual_distance_km) / duration) * 60 // km/h
       : null;
 
     const fuelEfficiency = trip.actual_distance_km && trip.fuel_consumed_liters
-      ? trip.actual_distance_km / trip.fuel_consumed_liters // km/liter
+      ? Number(trip.actual_distance_km) / Number(trip.fuel_consumed_liters) // km/liter
       : null;
 
     return {

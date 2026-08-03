@@ -263,10 +263,10 @@ export class GRNService {
                     // Update received quantities for each item
                     for (const reqItem of request.items) {
                         const grnItem = items.find((gi) => gi.itemId === reqItem.itemId);
-                        const limitQty = reqItem.approvedQty > 0 ? reqItem.approvedQty : reqItem.requestedQty;
+                        const limitQty = Number(reqItem.approvedQty) > 0 ? Number(reqItem.approvedQty) : Number(reqItem.requestedQty);
                         
                         if (grnItem) {
-                            const newReceivedQty = reqItem.receivedQty + parseFloat(grnItem.quantity.toString());
+                            const newReceivedQty = reqItem.receivedQty.toNumber() + parseFloat(grnItem.quantity.toString());
                             if (newReceivedQty > limitQty) {
                                 throw AppError.badRequest(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
                             }
@@ -280,7 +280,7 @@ export class GRNService {
                                 allItemsCompleted = false;
                             }
                         } else {
-                            if (reqItem.receivedQty < limitQty) {
+                            if (Number(reqItem.receivedQty) < limitQty) {
                                 allItemsCompleted = false;
                             }
                         }

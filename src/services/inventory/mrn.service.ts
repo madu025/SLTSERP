@@ -132,9 +132,9 @@ export class MRNService {
                         select: { costPrice: true, unitPrice: true }
                     });
                     const costPrice = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
-                    totalMrnCost += costPrice * item.quantity;
+                    totalMrnCost += costPrice * Number(item.quantity);
 
-                    const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, item.quantity);
+                    const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, item.quantity.toNumber());
 
                     for (const picked of pickedBatches) {
                         if (!picked.batchId) continue;
@@ -158,8 +158,8 @@ export class MRNService {
                         transactionType: 'MRN_APPROVAL',
                         referenceType: 'MRN',
                         referenceId: mrn.id,
-                        quantityBefore: currentQtyAfter + item.quantity,
-                        quantityChange: -item.quantity,
+                        quantityBefore: currentQtyAfter + Number(item.quantity),
+                        quantityChange: -Number(item.quantity),
                         quantityAfter: currentQtyAfter,
                         performedById: approvedById
                     }, tx);

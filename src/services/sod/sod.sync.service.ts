@@ -101,8 +101,9 @@ export class SODSyncService {
                         await prisma.serviceOrder.update({
                             where: { id: order.id },
                             data: {
-                                opmcPatStatus: status,
+                                opmcPatStatus: status as import('@prisma/client').PatStatusEnum,
                                 opmcPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+
                                 isInvoicable: status === 'PAT_PASSED' &&
                                     order.hoPatStatus === 'PAT_PASSED' &&
                                     order.sltsPatStatus === 'PAT_PASSED'

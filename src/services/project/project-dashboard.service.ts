@@ -212,7 +212,7 @@ export class ProjectDashboardService {
                 date: si.createdAt ? new Date(si.createdAt).toISOString().split('T')[0] : '',
                 item: si.items[0]?.item?.name || 'Unknown',
                 type: 'Issue',
-                qty: si.items[0]?.quantity || 0,
+                qty: Number(si.items[0]?.quantity || 0),
                 ref: si.issueNumber || '',
                 status: si.status
             })),
@@ -220,7 +220,7 @@ export class ProjectDashboardService {
                 date: g.createdAt ? new Date(g.createdAt).toISOString().split('T')[0] : '',
                 item: g.items[0]?.description || 'Unknown',
                 type: 'GRN',
-                qty: g.items[0]?.quantityReceived || 0,
+                qty: Number(g.items[0]?.quantityReceived || 0),
                 ref: g.grnNumber || '',
                 status: g.status
             }))
@@ -341,8 +341,8 @@ export class ProjectDashboardService {
         const activeProjectsList = allProjects.filter(p => p.status !== 'COMPLETED' && p.status !== 'CANCELLED');
         const activeProjectsCount = activeProjectsList.length;
 
-        const totalBudget = allProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
-        const actualSpend = allProjects.reduce((sum, p) => sum + (p.actualCost || 0), 0);
+        const totalBudget = allProjects.reduce((sum, p) => sum + Number(p.budget || 0), 0);
+        const actualSpend = allProjects.reduce((sum, p) => sum + Number(p.actualCost || 0), 0);
 
         const delayedProjectsList = activeProjectsList.filter(p => {
             if (!p.endDate) return false;

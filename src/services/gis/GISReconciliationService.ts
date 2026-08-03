@@ -67,7 +67,7 @@ export class GISReconciliationService {
 
       for (const sp of approvedPoints) {
         if (sp.layerId === 'survey_existing_pole' || sp.layerId === 'survey_new_pole') {
-          const dist = this.getDistanceMeters(pole.latitude, pole.longitude, sp.latitude, sp.longitude);
+          const dist = this.getDistanceMeters(Number(pole.latitude), Number(pole.longitude), Number(sp.latitude), sp.longitude.toNumber());
           if (dist < minDist) {
             minDist = dist;
             bestMatch = sp;
@@ -78,14 +78,14 @@ export class GISReconciliationService {
       if (bestMatch) {
         polesToUpdate.push({
           id: pole.id,
-          latitude: bestMatch.latitude,
-          longitude: bestMatch.longitude,
+          latitude: Number(bestMatch.latitude),
+          longitude: Number(bestMatch.longitude),
         });
-        nodeCoordsMap.set(pole.id, [bestMatch.longitude, bestMatch.latitude]);
+        nodeCoordsMap.set(pole.id, [Number(bestMatch.longitude), Number(bestMatch.latitude)]);
         matchedSurveyPointIds.add(bestMatch.id);
         updatedPolesCount++;
       } else {
-        nodeCoordsMap.set(pole.id, [pole.longitude, pole.latitude]);
+        nodeCoordsMap.set(pole.id, [Number(pole.longitude), Number(pole.latitude)]);
       }
     }
 
@@ -97,7 +97,7 @@ export class GISReconciliationService {
 
       for (const sp of approvedPoints) {
         if (sp.layerId === 'survey_joint_closure' || sp.layerId === 'survey_fdp' || sp.layerId === 'survey_enclosure') {
-          const dist = this.getDistanceMeters(closure.latitude, closure.longitude, sp.latitude, sp.longitude);
+          const dist = this.getDistanceMeters(Number(closure.latitude), Number(closure.longitude), Number(sp.latitude), sp.longitude.toNumber());
           if (dist < minDist) {
             minDist = dist;
             bestMatch = sp;
@@ -108,14 +108,14 @@ export class GISReconciliationService {
       if (bestMatch) {
         closuresToUpdate.push({
           id: closure.id,
-          latitude: bestMatch.latitude,
-          longitude: bestMatch.longitude,
+          latitude: Number(bestMatch.latitude),
+          longitude: Number(bestMatch.longitude),
         });
-        nodeCoordsMap.set(`closure_${closure.id}`, [bestMatch.longitude, bestMatch.latitude]);
+        nodeCoordsMap.set(`closure_${closure.id}`, [Number(bestMatch.longitude), Number(bestMatch.latitude)]);
         matchedSurveyPointIds.add(bestMatch.id);
         updatedClosuresCount++;
       } else {
-        nodeCoordsMap.set(`closure_${closure.id}`, [closure.longitude, closure.latitude]);
+        nodeCoordsMap.set(`closure_${closure.id}`, [Number(closure.longitude), Number(closure.latitude)]);
       }
     }
 
@@ -156,7 +156,7 @@ export class GISReconciliationService {
               height: 9,
             },
           });
-          nodeCoordsMap.set(createdPole.id, [sp.longitude, sp.latitude]);
+          nodeCoordsMap.set(createdPole.id, [Number(sp.longitude), Number(sp.latitude)]);
           updatedPolesCount++;
         } else if (sp.layerId === 'survey_joint_closure' || sp.layerId === 'survey_fdp' || sp.layerId === 'survey_enclosure') {
           const createdClosure = await tx.gISClosure.create({
@@ -171,7 +171,7 @@ export class GISReconciliationService {
               notes: `Created from approved survey point: ${sp.layerName}`,
             },
           });
-          nodeCoordsMap.set(`closure_${createdClosure.id}`, [sp.longitude, sp.latitude]);
+          nodeCoordsMap.set(`closure_${createdClosure.id}`, [Number(sp.longitude), Number(sp.latitude)]);
           updatedClosuresCount++;
         }
       }

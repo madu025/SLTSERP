@@ -35,7 +35,7 @@ export class ProjectGISPRService {
             throw AppError.badRequest('No NEW (to procure) BOQ items found for this GIS route. All items may already be in stock.');
         }
 
-        const estimatedTotal = boqItems.reduce((sum, item) => sum + item.amount, 0);
+        const estimatedTotal = boqItems.reduce((sum, item) => sum + Number(item.amount), 0);
 
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
         const prSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();

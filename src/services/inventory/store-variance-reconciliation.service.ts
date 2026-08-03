@@ -48,7 +48,7 @@ export class StoreVarianceReconciliationService {
         const grnTotalByItem = new Map<string, number>();
         for (const item of grnItems) {
             const current = grnTotalByItem.get(item.itemId) || 0;
-            grnTotalByItem.set(item.itemId, current + item.quantity);
+            grnTotalByItem.set(item.itemId, current + item.quantity.toNumber());
         }
 
         // 3. Fetch Dispatches to Contractors
@@ -61,7 +61,7 @@ export class StoreVarianceReconciliationService {
         const dispatchTotalByItem = new Map<string, number>();
         for (const item of issueItems) {
             const current = dispatchTotalByItem.get(item.itemId) || 0;
-            dispatchTotalByItem.set(item.itemId, current + item.quantity);
+            dispatchTotalByItem.set(item.itemId, current + item.quantity.toNumber());
         }
 
         // 4. Fetch Returns
@@ -74,7 +74,7 @@ export class StoreVarianceReconciliationService {
         const returnTotalByItem = new Map<string, number>();
         for (const item of returnItems) {
             const current = returnTotalByItem.get(item.itemId) || 0;
-            returnTotalByItem.set(item.itemId, current + item.quantity);
+            returnTotalByItem.set(item.itemId, current + item.quantity.toNumber());
         }
 
         // 5. Build 3-Way Variance Matrix

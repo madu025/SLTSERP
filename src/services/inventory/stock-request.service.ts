@@ -625,8 +625,8 @@ export class StockRequestService {
                 const itemPayload = items?.find(i => i.id === reqItem.id);
                 const newlyIssuedQty = itemPayload ? StockService.round(itemPayload.issuedQty || 0) : 0;
                 
-                const targetQty = reqItem.approvedQty > 0 ? reqItem.approvedQty : reqItem.requestedQty;
-                const currentIssuedQty = reqItem.issuedQty || 0;
+                const targetQty = Number(reqItem.approvedQty.toNumber() > 0 ? reqItem.approvedQty : reqItem.requestedQty);
+                const currentIssuedQty = Number(reqItem.issuedQty || 0);
                 const totalIssuedQty = currentIssuedQty + newlyIssuedQty;
                 
                 if (totalIssuedQty < targetQty) {
@@ -845,8 +845,8 @@ export class StockRequestService {
                 if (!reqItem) continue;
                 if (incomingReceiveQty <= 0) continue;
                 
-                const newTotalReceived = StockService.round((reqItem.receivedQty || 0) + incomingReceiveQty);
-                reqItem.receivedQty = newTotalReceived; // Update in memory
+                const newTotalReceived = StockService.round(Number(reqItem.receivedQty || 0) + incomingReceiveQty);
+                (reqItem as unknown as { receivedQty: number }).receivedQty = newTotalReceived; // Update in memory
 
                 await StockRequestRepository.updateItem(reqItem.id, { receivedQty: newTotalReceived }, tx);
 
@@ -987,9 +987,9 @@ export class StockRequestService {
             let totalApproved = 0;
 
             for (const item of stockReq.items) {
-                totalIssued += StockService.round(item.issuedQty || 0);
-                totalReceived += StockService.round(item.receivedQty || 0);
-                totalApproved += StockService.round(item.approvedQty > 0 ? item.approvedQty : item.requestedQty);
+                totalIssued += StockService.round(Number(item.issuedQty || 0));
+                totalReceived += StockService.round(Number(item.receivedQty || 0));
+                totalApproved += StockService.round(item.approvedQty.toNumber() > 0 ? Number(item.approvedQty) : Number(item.requestedQty));
             }
 
             const hasUnissuedBalance = totalIssued < totalApproved;

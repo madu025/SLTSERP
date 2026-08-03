@@ -97,7 +97,7 @@ export class LDPenaltyService {
     } else if (status === 'WAIVED') {
       const waived = options?.waivedAmount !== undefined ? options.waivedAmount : penalty.amount;
       updateData.waivedAmount = waived;
-      updateData.netAmount = Math.max(0, penalty.amount - waived);
+      updateData.netAmount = Math.max(0, Number(penalty.amount) - Number(waived));
       updateData.approvedById = userId;
       updateData.approvedAt = new Date();
     }
@@ -117,7 +117,7 @@ export class LDPenaltyService {
       await AccountingPostingRegistry.postRetentionAndLd(prisma, {
         referenceId: updated.id,
         type: 'LD_PENALTY',
-        amount: updated.netAmount,
+        amount: Number(updated.netAmount),
         contractorName: updated.title,
         description: `LD Penalty Deduction for ${updated.title} (LKR ${updated.netAmount})`
       });

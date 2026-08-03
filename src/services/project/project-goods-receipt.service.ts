@@ -133,8 +133,8 @@ export class ProjectGoodsReceiptService {
                         where: { id: item.poItemId }
                     });
                     if (poItem) {
-                        const newReceived = (poItem.receivedQty || 0) + (item.quantityReceived || 0);
-                        const newBalance = (poItem.balanceQty || 0) - (item.quantityReceived || 0);
+                        const newReceived = Number(poItem.receivedQty || 0) + Number(item.quantityReceived || 0);
+                        const newBalance = Number(poItem.balanceQty || 0) - Number(item.quantityReceived || 0);
                         await tx.projectPurchaseOrderItem.update({
                             where: { id: item.poItemId },
                             data: {
@@ -150,14 +150,14 @@ export class ProjectGoodsReceiptService {
             const poItems = await tx.projectPurchaseOrderItem.findMany({
                 where: { poId }
             });
-            const allReceived = poItems.every(pi => (pi.balanceQty || 0) <= 0);
+            const allReceived = poItems.every(pi => Number(pi.balanceQty || 0) <= 0);
             if (allReceived) {
                 await tx.projectPurchaseOrder.update({
                     where: { id: poId },
                     data: { status: 'FULLY_RECEIVED' },
                 });
             } else {
-                const anyReceived = poItems.some(pi => (pi.receivedQty || 0) > 0);
+                const anyReceived = poItems.some(pi => Number(pi.receivedQty || 0) > 0);
                 if (anyReceived) {
                     await tx.projectPurchaseOrder.update({
                         where: { id: poId },
@@ -238,7 +238,7 @@ export class ProjectGoodsReceiptService {
 
                 // Calculate total cost of items received/accepted in this GRN:
                 const totalCost = grn.items.reduce((sum, item) => {
-                    return sum + (item.unitPrice || 0) * (item.quantityReceived || 0);
+                    return sum + Number(item.unitPrice || 0) * Number(item.quantityReceived || 0);
                 }, 0);
 
                 if (totalCost > 0) {

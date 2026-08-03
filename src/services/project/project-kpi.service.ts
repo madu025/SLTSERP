@@ -23,18 +23,19 @@ export class ProjectKPIService {
             throw AppError.notFound('Project not found');
         }
 
-        const budget = project.budget || 0;
-        const actualCost = project.actualCost || 0;
-        const progress = (project.progress || 0) / 100;
+        const budget = Number(project.budget || 0);
+        const actualCost = Number(project.actualCost || 0);
+        const progress = Number(project.progress || 0) / 100;
 
         const EV = budget * progress;
         const PV = budget * Math.min(progress + 0.1, 1);
         const AC = actualCost;
 
-        const SPI = PV > 0 ? EV / PV : (budget > 0 ? EV / (budget * 0.1) : 1);
+        const budgetNum = budget ? Number(budget) : 0;
+        const SPI = PV > 0 ? EV / PV : (budgetNum > 0 ? EV / (budgetNum * 0.1) : 1);
         const CPI = AC > 0 ? EV / AC : (EV > 0 ? 999 : 1);
 
-        const budgetUtilization = budget > 0 ? (actualCost / budget) * 100 : 0;
+        const budgetUtilization = budgetNum > 0 ? (actualCost / budgetNum) * 100 : 0;
 
         const now = new Date();
         const startDate = project.startDate;
@@ -68,7 +69,7 @@ export class ProjectKPIService {
                 projectCode: project.projectCode
             },
             metrics: {
-                budget,
+                budget: budgetNum,
                 actualCost: AC,
                 earnedValue: Number(EV.toFixed(2)),
                 plannedValue: Number(PV.toFixed(2)),
@@ -88,7 +89,7 @@ export class ProjectKPIService {
                 endDate: endDate?.toISOString() || null
             },
             status: {
-                costStatus: budget > 0 ? (CPI >= 1.0 ? 'UNDER_BUDGET' : 'OVER_BUDGET') : 'NOT_SET',
+                costStatus: budgetNum > 0 ? (CPI >= 1.0 ? 'UNDER_BUDGET' : 'OVER_BUDGET') : 'NOT_SET',
                 scheduleStatus: SPI >= 1.0 ? 'AHEAD_OF_SCHEDULE' : 'BEHIND_SCHEDULE'
             }
         };

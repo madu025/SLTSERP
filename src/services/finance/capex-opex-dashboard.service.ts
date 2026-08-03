@@ -148,8 +148,9 @@ export class CapexOpexDashboardService {
       take: limit,
     });
 
-    return rows.map((r: { id: string; description: string; amount: number; category: string; expenditureType: string; sourceType: string; transactionDate: Date; referenceNumber: string | null }) => ({
+    return rows.map((r) => ({
       ...r,
+      amount: Number(r.amount),
       category: r.category as SpendCategory,
       expenditureType: r.expenditureType as ExpenditureType,
     }));
