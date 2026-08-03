@@ -16,7 +16,6 @@ export class GRNService {
             include: {
                 store: true,
                 receivedBy: true,
-                purchaseOrder: true,
                 request: {
                     include: {
                         items: { include: { item: true } },
@@ -72,7 +71,6 @@ export class GRNService {
                     supplier,
                     receivedById,
                     requestId: requestId || null,
-                    purchaseOrderId: purchaseOrderId && purchaseOrderId !== 'ALL' ? purchaseOrderId : null,
                     reference: reference || sltReferenceId || null,
                     documentUrl: documentUrl || null,
                     items: {

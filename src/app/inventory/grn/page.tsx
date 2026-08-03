@@ -134,6 +134,19 @@ export default function GRNPage() {
     const [receivedItems, setReceivedItems] = useState<GRNItem[]>([]);
     const [grnRemarks, setGRNRemarks] = useState('');
     const [selectedPOId, setSelectedPOId] = useState<string>('ALL');
+    const [documentUrl, setDocumentUrl] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+    const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            setDocumentUrl(''); // reset URL for new file
+        } else {
+            setSelectedFile(null);
+        }
+    };
 
     // Auto-generate GRN Number when dialog opens
     useEffect(() => {
@@ -276,9 +289,11 @@ export default function GRNPage() {
         setReceivedItems([]);
         setGRNRemarks('');
         setGRNNumber(''); // Reset GRN number
+        setDocumentUrl('');
+        setInvoiceNumber('');
     };
 
-    const handleCreateGRN = () => {
+    const handleCreateGRN = async () => {
         if (!grnNumber) {
             toast.error('GRN Number is required');
             return;
@@ -301,6 +316,35 @@ export default function GRNPage() {
             }
         }
 
+        let finalDocumentUrl = documentUrl;
+
+        if (selectedFile && !documentUrl) {
+            setIsUploading(true);
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('bucket', 'grn-documents');
+
+            try {
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok && data.url) {
+                    finalDocumentUrl = data.url;
+                    setDocumentUrl(data.url);
+                } else {
+                    const errorMsg = typeof data.error === 'string' ? data.error : data.error?.message || 'Failed to upload document';
+                    toast.error(errorMsg);
+                    setIsUploading(false);
+                    return; // Abort GRN creation if upload fails
+                }
+            } catch (error) {
+                console.error('Failed to upload document:', error);
+                toast.error('Error uploading document');
+                setIsUploading(false);
+                return; // Abort GRN creation if upload fails
+            }
+            setIsUploading(false);
+        }
+
         const payload = {
             storeId: selectedRequest.fromStoreId,
             sourceType: selectedRequest.sourceType,
@@ -310,6 +354,7 @@ export default function GRNPage() {
             purchaseOrderId: selectedPOId !== 'ALL' ? selectedPOId : undefined,
             sltReferenceId: selectedRequest.irNumber || null,
             reference: invoiceNumber,
+            documentUrl: finalDocumentUrl || undefined,
             items: receivedItems.map(item => ({
                 itemId: item.itemId,
                 quantity: parseFloat(item.receivedQty.toString()),
@@ -600,23 +645,13 @@ export default function GRNPage() {
                                     
                                     {/* GRN References */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
-                                        <div className="grid grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">GRN Reference</label>
                                                 <Input
                                                     className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-mono font-bold text-slate-500 cursor-not-allowed border-dashed"
                                                     value={grnNumber}
                                                     readOnly
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Invoice / Delivery Note</label>
-                                                <Input
-                                                    type="text"
-                                                    placeholder="E.g. INV-2024-001"
-                                                    className="h-9 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
-                                                    value={invoiceNumber}
-                                                    onChange={e => setInvoiceNumber(e.target.value)}
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
@@ -628,6 +663,7 @@ export default function GRNPage() {
                                                     onChange={e => setReceivedDate(e.target.value)}
                                                 />
                                             </div>
+
                                         </div>
                                     </div>
 
@@ -652,9 +688,9 @@ export default function GRNPage() {
                                                      </Badge>
                                                  </div>
                                                  <select
+                                                     className="h-9 w-full rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-xs font-bold text-slate-700 dark:text-slate-300 px-3 outline-none focus:ring-2 focus:ring-blue-500/50"
                                                      value={selectedPOId}
-                                                     onChange={(e) => handleSelectPO(e.target.value)}
-                                                     className="w-full h-9 rounded-xl bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 text-xs font-bold px-3 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                                                     onChange={e => handleSelectPO(e.target.value)}
                                                  >
                                                      <option value="ALL">📦 Intake All Outstanding PO Items (Combined)</option>
                                                      {poList.map((po) => (
@@ -663,6 +699,34 @@ export default function GRNPage() {
                                                          </option>
                                                      ))}
                                                  </select>
+
+                                                 <div className="grid grid-cols-2 gap-4 mt-3">
+                                                     <div className="space-y-1.5">
+                                                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Invoice / Delivery Note</label>
+                                                         <Input
+                                                             type="text"
+                                                             placeholder="E.g. INV-2024-001"
+                                                             className="h-9 rounded-lg bg-white dark:bg-slate-900 border border-blue-200/50 dark:border-blue-800/50 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                             value={invoiceNumber}
+                                                             onChange={e => setInvoiceNumber(e.target.value)}
+                                                         />
+                                                     </div>
+                                                     <div className="space-y-1.5">
+                                                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Upload Invoice</label>
+                                                         <div className="flex gap-2 items-center">
+                                                             <Input
+                                                                 type="file"
+                                                                 accept=".pdf,image/*"
+                                                                 className="h-9 rounded-lg bg-white dark:bg-slate-900 border border-blue-200/50 dark:border-blue-800/50 text-xs font-semibold px-3 py-1 cursor-pointer focus-visible:ring-1 focus-visible:ring-blue-500 flex-1"
+                                                                 onChange={handleFileSelection}
+                                                                 disabled={isUploading || createGRNMutation.isPending}
+                                                             />
+                                                             {isUploading && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
+                                                             {(selectedFile || documentUrl) && !isUploading && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                                                         </div>
+                                                     </div>
+                                                 </div>
+
                                                  <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 font-medium">
                                                      Selecting a specific PO filters the checklist to show ONLY the materials authorized under that supplier&apos;s purchase order.
                                                  </p>

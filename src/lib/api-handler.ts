@@ -265,32 +265,37 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 let body: B = undefined as unknown as B;
 
                 if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-                    let rawText = '';
-                    try {
-                        rawText = await req.clone().text();
-                    } catch {
-                        // Body stream unreadable
-                    }
+                    const contentType = req.headers.get('content-type') || '';
+                    const isMultipart = contentType.includes('multipart/form-data');
 
-                    if (rawText.trim().length > 0) {
-                        let rawBody: unknown;
+                    if (!isMultipart) {
+                        let rawText = '';
                         try {
-                            rawBody = JSON.parse(rawText);
+                            rawText = await req.clone().text();
                         } catch {
-                            throw AppError.badRequest('Malformed JSON payload in request body');
+                            // Body stream unreadable
                         }
 
-                        if (options?.schema) {
-                            const validation = options.schema.safeParse(rawBody);
-                            if (!validation.success) {
-                                throw AppError.validation(
-                                    'Invalid input data',
-                                    validation.error.format()
-                                );
+                        if (rawText.trim().length > 0) {
+                            let rawBody: unknown;
+                            try {
+                                rawBody = JSON.parse(rawText);
+                            } catch {
+                                throw AppError.badRequest('Malformed JSON payload in request body');
                             }
-                            body = validation.data;
-                        } else {
-                            body = rawBody as B;
+
+                            if (options?.schema) {
+                                const validation = options.schema.safeParse(rawBody);
+                                if (!validation.success) {
+                                    throw AppError.validation(
+                                        'Invalid input data',
+                                        validation.error.format()
+                                    );
+                                }
+                                body = validation.data;
+                            } else {
+                                body = rawBody as B;
+                            }
                         }
                     }
                 }
