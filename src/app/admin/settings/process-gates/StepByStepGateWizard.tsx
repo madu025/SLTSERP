@@ -42,6 +42,8 @@ export function StepByStepGateWizard({
   const [domainActions, setDomainActions] = useState<{label: string; value: string; entityType: string; description?: string}[]>([]);
   const [dynamicStatuses, setDynamicStatuses] = useState<Record<string, Array<{ label: string; value: string }>>>({});
   const [usersList, setUsersList] = useState<Array<{ id: string; name: string; role: string; username?: string; employeeId?: string }>>([]);
+  // Dynamic role list — source of truth is the Postgres Role enum (AGENTS.md Rule 4: no hardcoded role lists)
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
 
   // Fetch registered Domain Actions and Workflow Statuses from API
   useEffect(() => {
@@ -70,6 +72,16 @@ export function StepByStepGateWizard({
         setUsersList(list);
       })
       .catch(err => console.error('Failed to load users for gate wizard', err));
+
+    fetch('/api/admin/role-options')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data.roles)) {
+          // Contractor portal roles are never approval authorities — exclude them
+          setRoleOptions(data.roles.filter((r: string) => !r.startsWith('CONTRACTOR')));
+        }
+      })
+      .catch(err => console.error('Failed to load role options for gate wizard', err));
   }, []);
 
   // Form State for Gate Policy
@@ -181,17 +193,24 @@ export function StepByStepGateWizard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to save gate policy');
 
-      const savedGateId = gate ? gate.id : data.data.id;
+      // POST returns {message, data: gate} inside the apiHandler envelope -> data.data.data.id
+      const savedGateId = gate ? gate.id : (data?.data?.data?.id ?? data?.data?.id);
+      if (!savedGateId) {
+        throw new Error('Gate saved but no ID returned — cannot save approval levels');
+      }
 
-      // 2. Save Approval Levels for Gate Policy
+      // 2. Bulk-replace Approval Levels for Gate Policy (atomic PUT).
+      // Previously this POSTed an array to the single-level POST endpoint which
+      // rejected it, silently dropping every configured approval chain.
       const levelsRes = await fetch(`/api/admin/process-gates/${savedGateId}/levels`, {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ levels })
       });
 
       if (!levelsRes.ok) {
-        console.warn('Warning: Level saving returned error, check logs');
+        const levelsData = await levelsRes.json().catch(() => null);
+        throw new Error(levelsData?.message || 'Failed to save approval levels');
       }
 
       toast.success(gate ? 'Process Gate updated successfully!' : 'New Process Gate activated successfully!');
@@ -315,6 +334,7 @@ export function StepByStepGateWizard({
                   <select
                     name="fromStatus"
                     value={formData.fromStatus}
+                    disabled={!!gate}
                     onChange={(e) => setFormData(prev => ({ ...prev, fromStatus: e.target.value }))}
                     className="w-full h-11 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
                   >
@@ -322,7 +342,7 @@ export function StepByStepGateWizard({
                       <option key={st.value} value={st.value}>{st.label}</option>
                     ))}
                   </select>
-                  <span className="text-[11px] text-slate-500 block">අනුමැතිය සඳහා Request එක යොමු වන මොහොතේ පවතින Status එක.</span>
+                  <span className="text-[11px] text-slate-500 block">අනුමැතිය සඳහා Request එක යොමු වන මොහොතේ පවතින Status එක.{gate && ' (Edit mode: transition key is locked)'}</span>
                 </div>
 
                 <div className="space-y-1.5">
@@ -330,6 +350,7 @@ export function StepByStepGateWizard({
                   <select
                     name="toStatus"
                     value={formData.toStatus}
+                    disabled={!!gate}
                     onChange={(e) => setFormData(prev => ({ ...prev, toStatus: e.target.value }))}
                     className="w-full h-11 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
                   >
@@ -490,13 +511,9 @@ export function StepByStepGateWizard({
                           onChange={(e) => updateLevelRole(index, e.target.value)}
                           className="w-full h-10 text-xs border border-slate-200 rounded-xl px-3 bg-slate-50 font-semibold text-slate-800"
                         >
-                          <option value="OSP_MANAGER">OSP_MANAGER (OSP Manager)</option>
-                          <option value="HEAD_OF_OSP">HEAD_OF_OSP (Head of Section / Department)</option>
-                          <option value="STORES_MANAGER">STORES_MANAGER (Stores Manager)</option>
-                          <option value="FINANCE_MANAGER">FINANCE_MANAGER (Finance Manager)</option>
-                          <option value="AREA_MANAGER">AREA_MANAGER (Area Manager)</option>
-                          <option value="ENGINEER">ENGINEER (Telecom Engineer)</option>
-                          <option value="ADMIN">ADMIN (System Administrator)</option>
+                          {(roleOptions.length > 0 ? roleOptions : [lvl.requiredRole]).map(role => (
+                            <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>
+                          ))}
                         </select>
                       </div>
 

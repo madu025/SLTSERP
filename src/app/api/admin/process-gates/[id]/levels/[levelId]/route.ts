@@ -17,4 +17,4 @@ export const DELETE = apiHandler(async (req, params) => {
       message: 'Approval Level deleted successfully',
       data: { success: true }
     };
-}, { roles: ROLE_GROUPS.ADMINS });
+}, { roles: ROLE_GROUPS.CORE_ADMINS });

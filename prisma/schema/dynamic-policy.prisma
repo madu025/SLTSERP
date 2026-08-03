@@ -48,7 +48,8 @@ model ProcessApprovalLevel {
   gatePolicy   ProcessGatePolicy @relation(fields: [gatePolicyId], references: [id], onDelete: Cascade)
   specificUser User?             @relation(fields: [specificUserId], references: [id])
 
-  @@index([gatePolicyId, level])
+  // Unique level numbers per gate — defense-in-depth against concurrent level inserts
+  @@unique([gatePolicyId, level])
   @@index([specificUserId])
 }
 

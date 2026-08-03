@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -18,7 +19,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, BadgeCheck } from "lucide-react";
-import { ROLE_CATEGORIES } from '../constants/roles';
 
 // Zod Schema
 const userSchema = z.object({
@@ -102,6 +102,33 @@ export function UserFormDrawer({
   const watchedOpmcIds = useWatch({ control: form.control, name: 'opmcIds' });
   const watchedRole = useWatch({ control: form.control, name: 'role' });
 
+  // Dynamic role options — source of truth is the Postgres Role enum (GET /api/admin/role-options)
+  const { data: roleOptions } = useQuery<{ roles: string[]; categories: Record<string, string[]> }>({
+    queryKey: ['role-options'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/role-options');
+      if (!res.ok) throw new Error('Failed to load role options');
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Group enum roles by category; unmapped roles land in "Other" so new enum values never vanish from the UI
+  const roleCategories = useMemo<Record<string, string[]>>(() => {
+    const roles = roleOptions?.roles || [];
+    const categories = roleOptions?.categories || {};
+    const grouped: Record<string, string[]> = {};
+    const mapped = new Set<string>();
+    for (const [cat, catRoles] of Object.entries(categories)) {
+      const present = catRoles.filter((r) => roles.includes(r));
+      if (present.length) grouped[cat] = present;
+      present.forEach((r) => mapped.add(r));
+    }
+    const other = roles.filter((r) => !mapped.has(r));
+    if (other.length) grouped['Other'] = other;
+    return grouped;
+  }, [roleOptions]);
+
   // Sync form and section when drawer opens/closes
   useEffect(() => {
     if (!open) return;
@@ -114,7 +141,7 @@ export function UserFormDrawer({
           opmcIds: initialData.opmcIds || [],
           status: initialData.status || 'active'
         });
-        const section = Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
+        const section = Object.entries(roleCategories).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
         setSelectedSection(section);
         setStep(1);
       } else {
@@ -135,7 +162,8 @@ export function UserFormDrawer({
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [open, initialData, form]);
+    // roleCategories in deps: re-resolve section for edit mode once async role options load
+  }, [open, initialData, form, roleCategories]);
 
   const handleSelectAllOpmcs = (checked: boolean) => {
     if (checked) {
@@ -339,7 +367,7 @@ export function UserFormDrawer({
 
               {/* STEP 2: Role & Department */}
               {step === 2 && (() => {
-                const currentSection = selectedSection || (watchedRole ? Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(watchedRole))?.[0] || null : null);
+                const currentSection = selectedSection || (watchedRole ? Object.entries(roleCategories).find(([, roles]) => roles.includes(watchedRole))?.[0] || null : null);
                 return (
                   <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="bg-indigo-50/60 border border-indigo-100 p-3.5 rounded-2xl flex items-center gap-3">
@@ -362,7 +390,7 @@ export function UserFormDrawer({
                           <SelectValue placeholder="-- Select Department --" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.keys(ROLE_CATEGORIES).map(cat => (
+                          {Object.keys(roleCategories).map(cat => (
                             <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                           ))}
                         </SelectContent>
@@ -382,7 +410,7 @@ export function UserFormDrawer({
                               <SelectValue placeholder={currentSection ? "-- Select System Role --" : "First select a department above..."} />
                             </SelectTrigger>
                             <SelectContent>
-                              {currentSection && ROLE_CATEGORIES[currentSection as keyof typeof ROLE_CATEGORIES]?.map(role => (
+                              {currentSection && roleCategories[currentSection]?.map((role: string) => (
                                 <SelectItem key={role} value={role} className="font-medium">
                                   {role.replace(/_/g, ' ')}
                                 </SelectItem>

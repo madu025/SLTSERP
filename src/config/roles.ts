@@ -1,4 +1,23 @@
 
+/**
+ * UI grouping of user roles for Administration dropdowns (user create/edit,
+ * category pages). Served by GET /api/admin/role-options alongside the live
+ * enum values. Roles absent from this map fall into "Other" on the client —
+ * so new enum values never disappear from the UI.
+ */
+export const ROLE_CATEGORIES: Record<string, string[]> = {
+    'System Admin': ['SUPER_ADMIN', 'ADMIN'],
+    'Main Management': ['CEO', 'HEAD_OF_OSP', 'HEAD_OF_SECTION', 'OSP_MANAGER', 'MANAGER'],
+    'OSP & Operations': ['AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER'],
+    'Stores & Inventory': ['STORES_MANAGER', 'STORES_ASSISTANT'],
+    'Finance': ['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER', 'AR_OFFICER'],
+    'Invoice Section': ['INVOICE_MANAGER', 'INVOICE_ASSISTANT'],
+    'Service Assurance': ['SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN'],
+    'SF Audit Section': ['SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER', 'RATE_AUDITOR'],
+    'Office Admin': ['OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
+    'Procurement': ['PROCUREMENT_OFFICER']
+};
+
 export const ROLE_GROUPS = {
     // Super-admin only tier (destructive / privilege-granting operations)
     SUPER_ADMINS: ['SUPER_ADMIN'],
@@ -42,6 +61,9 @@ export const ROLE_GROUPS = {
     BOM_IMPORT_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'STORES_MANAGER'],
     // Office / IT asset management (EAM)
     EAM_ASSET_MANAGERS: ['SUPER_ADMIN', 'SUPER_ADMIN_M', 'HR_MANAGER', 'OFFICE_ADMIN'],
+    // Read-only report viewers across all stores/areas (QA audit scope) —
+    // intentionally excluded from all store/inventory operational groups
+    SECTION_HEADS: ['HEAD_OF_SECTION'],
 
     // Contractor data read scopes
     CONTRACTOR_READERS: [

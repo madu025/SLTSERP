@@ -49,28 +49,8 @@ const USER_CATEGORIES = {
     }
 };
 
-const ALL_ROLES = [
-    { value: 'SUPER_ADMIN', label: 'Super Admin', category: 'ADMIN' },
-    { value: 'ADMIN', label: 'Admin', category: 'ADMIN' },
-    { value: 'OSP_MANAGER', label: 'OSP Manager', category: 'OSP_PROJECTS' },
-    { value: 'AREA_MANAGER', label: 'Area Manager', category: 'OSP_PROJECTS' },
-    { value: 'ENGINEER', label: 'Engineer', category: 'OSP_PROJECTS' },
-    { value: 'ASSISTANT_ENGINEER', label: 'Assistant Engineer', category: 'OSP_PROJECTS' },
-    { value: 'AREA_COORDINATOR', label: 'Area Coordinator', category: 'OSP_PROJECTS' },
-    { value: 'QC_OFFICER', label: 'QC Officer', category: 'OSP_PROJECTS' },
-    { value: 'MANAGER', label: 'Manager', category: 'NEW_CONNECTION' },
-    { value: 'SA_MANAGER', label: 'SA Manager', category: 'SERVICE_ASSURANCE' },
-    { value: 'SA_ASSISTANT', label: 'SA Assistant', category: 'SERVICE_ASSURANCE' },
-    { value: 'OFFICE_ADMIN', label: 'Office Admin', category: 'OFFICE_ADMIN' },
-    { value: 'OFFICE_ADMIN_ASSISTANT', label: 'Office Admin Assistant', category: 'OFFICE_ADMIN' },
-    { value: 'INVOICE_MANAGER', label: 'Invoice Manager', category: 'INVOICE' },
-    { value: 'INVOICE_ASSISTANT', label: 'Invoice Assistant', category: 'INVOICE' },
-    { value: 'STORES_MANAGER', label: 'Stores Manager', category: 'STORES' },
-    { value: 'STORES_ASSISTANT', label: 'Stores Assistant', category: 'STORES' },
-    { value: 'PROCUREMENT_OFFICER', label: 'Procurement Officer', category: 'PROCUREMENT' },
-    { value: 'FINANCE_MANAGER', label: 'Finance Manager', category: 'FINANCE' },
-    { value: 'FINANCE_ASSISTANT', label: 'Finance Assistant', category: 'FINANCE' }
-];
+// Role -> category is derived from the ROLE_GROUPS-backed USER_CATEGORIES map above;
+// no separate hardcoded role list (any role inside a category group resolves automatically).
 
 interface CategoryUser {
     id: string;
@@ -100,10 +80,10 @@ export default function UsersCategoryPage() {
         }
     });
 
-    // Get user's category
+    // Get user's category from the ROLE_GROUPS-backed map (unknown roles -> OTHER)
     const getUserCategory = (role: string) => {
-        const roleInfo = ALL_ROLES.find(r => r.value === role);
-        return roleInfo?.category || 'OTHER';
+        const entry = Object.entries(USER_CATEGORIES).find(([, c]) => c.roles.includes(role));
+        return entry?.[0] || 'OTHER';
     };
 
     // Filter users based on selected category and permissions
@@ -210,7 +190,7 @@ export default function UsersCategoryPage() {
                                                         <td className="px-4 py-3">{user.email || '-'}</td>
                                                         <td className="px-4 py-3">
                                                             <Badge className={getRoleBadgeColor(user.role || '')}>
-                                                                {ALL_ROLES.find(r => r.value === user.role)?.label || user.role}
+                                                                {(user.role || '').replace(/_/g, ' ')}
                                                             </Badge>
                                                         </td>
                                                         <td className="px-4 py-3">

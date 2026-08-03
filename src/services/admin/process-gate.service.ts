@@ -56,7 +56,11 @@ export class ProcessGateAdminService {
     reqDocUpload?: boolean;
     writeAuditLedger?: boolean;
     generateIssueNote?: boolean;
+    domainAction?: string | null;
   }) {
+    // Normalize empty webhook selection to NULL (column is nullable)
+    const payload = { ...data, domainAction: data.domainAction || null };
+
     // Check if unique constraint would be violated
     const existing = await prisma.processGatePolicy.findUnique({
       where: {
@@ -73,7 +77,7 @@ export class ProcessGateAdminService {
     }
 
     return prisma.processGatePolicy.create({
-      data,
+      data: payload,
       include: {
         approvalLevels: true
       }
@@ -84,6 +88,16 @@ export class ProcessGateAdminService {
    * Update an existing Process Gate Policy
    */
   static async updateGate(id: string, data: Prisma.ProcessGatePolicyUpdateInput) {
+    const gate = await prisma.processGatePolicy.findUnique({ where: { id }, select: { id: true } });
+    if (!gate) {
+      throw AppError.notFound('Process Gate Policy not found');
+    }
+
+    // Normalize empty webhook selection to NULL
+    if ('domainAction' in data && data.domainAction === '') {
+      data = { ...data, domainAction: null };
+    }
+
     return prisma.processGatePolicy.update({
       where: { id },
       data,
@@ -99,6 +113,23 @@ export class ProcessGateAdminService {
    * Delete a Process Gate Policy
    */
   static async deleteGate(id: string) {
+    const gate = await prisma.processGatePolicy.findUnique({ where: { id }, select: { id: true } });
+    if (!gate) {
+      throw AppError.notFound('Process Gate Policy not found');
+    }
+
+    // Guard: do not orphan in-flight approvals. UniversalApprovalInstance.policyId
+    // is onDelete: SetNull, so deleting mid-workflow would leave PENDING instances
+    // stranded with no policy chain.
+    const pendingCount = await prisma.universalApprovalInstance.count({
+      where: { policyId: id, status: 'PENDING' }
+    });
+    if (pendingCount > 0) {
+      throw AppError.badRequest(
+        `Cannot delete gate policy: ${pendingCount} approval instance(s) are still PENDING. Resolve or reject them first.`
+      );
+    }
+
     return prisma.processGatePolicy.delete({
       where: { id }
     });
@@ -144,6 +175,48 @@ export class ProcessGateAdminService {
           maxAmount: data.maxAmount !== undefined ? new Prisma.Decimal(data.maxAmount) : null,
         }
       });
+    });
+  }
+
+  /**
+   * Replace ALL approval levels of a gate atomically (wizard save path).
+   * Levels are re-numbered 1..N in array order.
+   */
+  static async replaceApprovalLevels(
+    gatePolicyId: string,
+    levels: Array<{
+      requiredRole: string;
+      specificUserId?: string | null;
+      description?: string | null;
+      minAmount?: number | null;
+      maxAmount?: number | null;
+    }>
+  ) {
+    const gate = await prisma.processGatePolicy.findUnique({
+      where: { id: gatePolicyId },
+      select: { id: true }
+    });
+    if (!gate) {
+      throw AppError.notFound('Process Gate Policy not found');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      await tx.processApprovalLevel.deleteMany({ where: { gatePolicyId } });
+      if (levels.length === 0) return [];
+
+      const created = await tx.processApprovalLevel.createMany({
+        data: levels.map((lvl, idx) => ({
+          gatePolicyId,
+          level: idx + 1,
+          requiredRole: lvl.requiredRole,
+          specificUserId: lvl.specificUserId ?? null,
+          description: lvl.description ?? null,
+          minAmount: lvl.minAmount != null ? new Prisma.Decimal(lvl.minAmount) : null,
+          maxAmount: lvl.maxAmount != null ? new Prisma.Decimal(lvl.maxAmount) : null
+        }))
+      });
+
+      return created;
     });
   }
 
@@ -200,8 +273,8 @@ export class ProcessGateAdminService {
           toStatus: 'HOS_APPROVAL',
           label: '2. Head of Section Signoff',
           isEnabled: true,
-          rolesToNotify: ['HOS'],
-          approvalLevels: [{ level: 1, requiredRole: 'HOS', description: 'HOS authorizes high-value material allocation' }]
+          rolesToNotify: ['HEAD_OF_SECTION'],
+          approvalLevels: [{ level: 1, requiredRole: 'HEAD_OF_SECTION', description: 'Head of Section authorizes high-value material allocation' }]
         },
         {
           entityType: 'MATERIAL_REQUEST',

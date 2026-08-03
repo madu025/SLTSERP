@@ -15,6 +15,8 @@ const updateGateSchema = z.object({
   reqDocUpload: z.boolean().optional(),
   writeAuditLedger: z.boolean().optional(),
   generateIssueNote: z.boolean().optional(),
+  // Zero-Coding webhook mapping from the Domain Action registry
+  domainAction: z.string().max(200).optional().nullable(),
 });
 
 export const PUT = apiHandler(async (req, params, body) => {
@@ -27,7 +29,7 @@ export const PUT = apiHandler(async (req, params, body) => {
       message: 'Process Gate Policy updated successfully',
       data: updatedGate
     };
-}, { roles: ROLE_GROUPS.ADMINS, schema: updateGateSchema });
+}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: updateGateSchema });
 
 export const DELETE = apiHandler(async (req, params) => {
     const id = params?.id as string;
@@ -40,4 +42,4 @@ export const DELETE = apiHandler(async (req, params) => {
       id,
       data: { id, success: true }
     };
-}, { roles: ROLE_GROUPS.ADMINS });
+}, { roles: ROLE_GROUPS.CORE_ADMINS });

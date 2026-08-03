@@ -545,3 +545,68 @@ Verification: prisma db push synced Supabase (all 7 columns confirmed text/nulla
 **Policy additions (.agent/AGENTS.md):** Rule 3 upgraded to "Secrets Handling (Fail-Closed)" (no env fallbacks, requireEnv); new Rule 4 "No Hardcoded Role Lists or Config Values" (ROLE_GROUPS + SystemConfig).
 
 Verification: npx tsc --noEmit clean; grep confirms 0 remaining secret fallbacks in src/.
+
+### QA Audit User Provisioning: kamal / HEAD_OF_SECTION (2026-08-03)
+
+**Requirement:** QA audit user `kamal`, role HEAD_OF_SECTION — read-only access to ALL stores/areas reports; NO stores operational access.
+
+**Discovery:** real user already existed (Kamal Wijayalath, kamal@slts.lk, role HEAD_OF_OSP, O365-imported). Aligned instead of duplicating (scripts/create-qa-audit-user.ts, id=019fc850-7496-3a64-6ea7-c0b9aa818963).
+
+**Changes:**
+
+| # | Change | Files |
+| :-- | :-- | :-- |
+| 1 | New enum value `HEAD_OF_SECTION` in Postgres enum Role | prisma/schema/enums.prisma + db push |
+| 2 | New ROLE_GROUPS.SECTION_HEADS role group (report viewers only, intentionally excluded from all stores/inventory operational groups) | src/config/roles.ts |
+| 3 | Sidebar grants: Reports parent (/reports/manager, /reports/arm, /reports/daily-operational), Stock Ledger Cardex report, Inventory section header | src/config/sidebar-menu.ts |
+| 4 | DEFAULT_ROLE_PERMISSIONS: HEAD_OF_SECTION -> ['dashboard'] | src/config/auth-defaults.ts |
+| 5 | DB: kamal role HEAD_OF_OSP -> HEAD_OF_SECTION, permissions -> ["dashboard"] | scripts/create-qa-audit-user.ts (ran live) |
+
+**Access verification:**
+- Granted: Dashboard, Executive Overview, Area Performance, Operational Reports, Daily Operational, Stock Ledger (Cardex) report.
+- Denied: all stores/inventory operational pages (GRN, MIN, stock, requisitions, wastage, audit) — SECTION_HEADS not in STORES/STORES_MANAGERS/STORES_ADMINS groups; store.service getAccessibleStores() returns EMPTY set for kamal (no managerId/OPMCs/assignedStore) so API-level store data is unreachable.
+
+**Note:** kamal has mustChangePassword=true — first login forces password change (existing password untouched). npx tsc --noEmit clean.
+
+### Frontend Role Hardcoding Audit (2026-08-03)
+
+**User question:** role add/edit in Administration — still hardcoded in the frontend?
+
+**Answer: YES — 3 hardcoded role lists found** (none read from the DB enum; new HEAD_OF_SECTION was invisible in all Admin UI dropdowns):
+
+| # | Location | Problem | Fix |
+| :-- | :-- | :-- | :-- |
+| 1 | admin/users UserFormDrawer via constants/roles.ts ROLE_CATEGORIES | Hardcoded category->role map for user create/edit | Deleted constants/roles.ts; drawer now fetches GET /api/admin/role-options; unmapped enum roles auto-group into "Other" |
+| 2 | admin/global-roles page ROLES[] | Hardcoded 20-role list | Replaced by useQuery on /api/admin/role-options |
+| 3 | admin/users/categories page ALL_ROLES[] | Hardcoded role->category list | Removed; derived from ROLE_GROUPS-backed USER_CATEGORIES map |
+
+**New single source of truth:** GET /api/admin/role-options (src/app/api/admin/role-options/route.ts) — reads the live Postgres Role enum via `SELECT unnest(enum_range(NULL::"Role"))` + serves the shared ROLE_CATEGORIES map (moved to src/config/roles.ts). Adding a future enum value now requires ZERO frontend changes.
+
+Bonus Rule-4 fix: admin/users page RoleGuard inline array -> [...ROLE_GROUPS.CORE_ADMINS, 'OSP_MANAGER'].
+
+Verification: npx tsc --noEmit clean; endpoint live-verified (401 without session = correct middleware gating, same as all /api/admin routes).
+
+### Process Gates Module Audit — /admin/settings/process-gates (2026-08-03)
+
+**Scope:** page.tsx, StepByStepGateWizard, 6 API routes, ProcessGateAdminService, ProcessGatePolicy/ProcessApprovalLevel schema, seed templates.
+
+**Findings & fixes (all Must-Have, auto-adopted):**
+
+| # | Auditor | Finding | Fix |
+| :-- | :-- | :-- | :-- |
+| 1 | A4 CRITICAL | Wizard approval levels NEVER persisted: POSTed `{levels:[...]}` to single-level POST endpoint -> Zod 400 -> console.warn + false success toast. Every gate ever created via wizard had 0 levels | New atomic bulk `PUT /[id]/levels` (replaceApprovalLevels: deleteMany + createMany + renumber in tx); wizard uses PUT and THROWS on failure |
+| 2 | A4 | Wizard read `data.data.id` but apiHandler double-envelopes -> PUT to `/undefined/levels` 500 | Defensive unwrap `data?.data?.data?.id ?? data?.data?.id` + explicit throw if missing |
+| 3 | A4 | `domainAction` (webhook mapping) stripped by Zod -> silently lost | Added to create/update schemas; '' normalized to NULL in service |
+| 4 | A1 | (gatePolicyId, level) only @@index -> duplicate levels possible under concurrency | @@unique([gatePolicyId, level]) + db push (dup pre-check: none) |
+| 5 | A1/A2 | specificUserId @db.Uuid FK with no format validation (P2023 bug class) | z.string().uuid() on level schema |
+| 6 | A2 | Gate mutations allowed ROLE_GROUPS.ADMINS (incl. CEO/HEAD_OF_OSP) -> approvers could edit their own approval chains | POST/PUT/DELETE gate + level routes -> CORE_ADMINS (GET stays ADMINS) |
+| 7 | A2 Rule-4 | Wizard role dropdown hardcoded 7 roles (no HEAD_OF_SECTION) | Dynamic fetch from /api/admin/role-options; CONTRACTOR_* excluded (never approval authorities) |
+| 8 | A4 | deleteGate with PENDING UniversalApprovalInstances -> orphaned approvals (policyId SetNull) | Guard: reject delete while PENDING instances exist; update/delete now 404 on missing gate |
+| 9 | A5 | Seed templates used non-existent role 'HOS' -> MRN level 2 could never match | -> HEAD_OF_SECTION (aligns with QA audit role) |
+| 10 | A4 | /api/admin/workflow-statuses returned NextResponse inside apiHandler without rawResponse -> serialized to {} -> empty From/To dropdowns | Return plain grouped object (standard envelope) |
+| 11 | A4 | WorkflowStatus table EMPTY in DB | Ran prisma/seed-workflow-statuses.ts (idempotent upserts) -> 8 statuses/module |
+| 12 | A4 | Edit mode allowed changing from/to status which Zod silently stripped | Selects disabled in edit mode (transition key immutable by design) |
+
+**E2E verified (Browser):** create gate via wizard -> POST 200 + PUT levels 200 -> table shows "1 Level" -> re-open Config shows persisted level -> delete 200 -> cleanup confirmed. Dynamic role dropdown shows 34 enum roles incl. HEAD OF SECTION. tsc clean.
+
+**Should-Have (logged, not done):** expose rejectionBehavior/approvalStrategy/conditions JSON fields in wizard UI (schema supports, engine supports, UI doesn't).

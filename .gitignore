@@ -83,4 +83,7 @@ check*.js
 scratch*.ts
 tsc_errors_*.txt
 
+# agent debug artifacts (screenshots, temp outputs)
+.agent/artifacts/
+
 

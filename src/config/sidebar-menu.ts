@@ -473,7 +473,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Inventory / Stores',
         path: '/inventory',
         icon: Warehouse,
-        allowedRoles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER'],
+        // SECTION_HEADS see the section but only the Cardex report item below
+        allowedRoles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS],
         permissionId: 'inventory',
         submenu: [
             {
@@ -546,7 +547,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Stock Ledger (Cardex)',
                 path: '/inventory/reports/cardex',
                 icon: HistoryIcon,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', ...ROLE_GROUPS.SECTION_HEADS]
             }
         ]
     },
@@ -744,13 +745,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Executive Overview',
                 path: '/reports/manager',
                 icon: LayoutDashboard,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', ...ROLE_GROUPS.SECTION_HEADS]
             },
             {
                 title: 'Area Performance',
                 path: '/reports/arm',
                 icon: Building2,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS]
             },
             {
                 title: 'Operational Reports',
@@ -762,7 +763,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Daily Operational',
                 path: '/reports/daily-operational',
                 icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS]
             }
         ]
     },

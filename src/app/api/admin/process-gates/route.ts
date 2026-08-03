@@ -19,6 +19,8 @@ const createGateSchema = z.object({
   reqDocUpload: z.boolean().optional(),
   writeAuditLedger: z.boolean().optional(),
   generateIssueNote: z.boolean().optional(),
+  // Zero-Coding webhook mapping from the Domain Action registry
+  domainAction: z.string().max(200).optional().nullable(),
 });
 
 export const GET = apiHandler(async () => {
@@ -26,6 +28,8 @@ export const GET = apiHandler(async () => {
     return gates;
 }, { roles: ROLE_GROUPS.ADMINS });
 
+// Gate policy configuration is privilege-granting (defines approval authority),
+// so mutations are restricted to SUPER_ADMIN/ADMIN only.
 export const POST = apiHandler(async (_req, _params, body) => {
     const newGate = await ProcessGateAdminService.createGate(body);
 
@@ -33,4 +37,4 @@ export const POST = apiHandler(async (_req, _params, body) => {
       message: 'Process Gate Policy created successfully',
       data: newGate
     };
-}, { roles: ROLE_GROUPS.ADMINS, schema: createGateSchema });
+}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: createGateSchema });

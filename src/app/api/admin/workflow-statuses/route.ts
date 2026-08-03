@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
 
@@ -28,5 +27,8 @@ export const GET = apiHandler(async () => {
     });
   }
 
-  return NextResponse.json({ data: grouped });
+  // Return the plain object — apiHandler wraps it in the standard
+  // {success, data} envelope. (Returning NextResponse here without rawResponse
+  // serialized the Response object to {} and emptied the wizard status dropdowns.)
+  return grouped;
 });

@@ -23,13 +23,8 @@ const AVAILABLE_PAGES = [
     { id: 'finance', name: 'Finance', icon: '🏦' }
 ];
 
-const ROLES = [
-    'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 
-    'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 
-    'AREA_COORDINATOR', 'QC_OFFICER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 
-    'SITE_OFFICE_STAFF', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 
-    'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'STORES_MANAGER', 'STORES_ASSISTANT'
-];
+// Roles are read dynamically from the live Postgres Role enum via /api/admin/role-options
+// so new enum values appear here without frontend code changes.
 
 interface Section {
     id: string;
@@ -43,6 +38,18 @@ export default function GlobalRolesPage() {
     const [rolePermissions, setRolePermissions] = useState<string[]>([]);
     const [roleSections, setRoleSections] = useState<string[]>([]);
     
+    // Fetch role list from the live Postgres enum
+    const { data: roleOptions } = useQuery<{ roles: string[] }>({
+        queryKey: ['role-options'],
+        queryFn: async () => {
+            const res = await fetch('/api/admin/role-options');
+            if (!res.ok) throw new Error('Failed to load role options');
+            return res.json();
+        },
+        staleTime: 5 * 60 * 1000
+    });
+    const ROLES = roleOptions?.roles || [];
+
     // Fetch all SystemConfig mappings
     const { data: configs, isLoading: configLoading } = useQuery({
         queryKey: ['system-configs'],
