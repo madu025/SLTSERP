@@ -166,7 +166,9 @@ export default function GRNPage() {
                 cache: 'no-store',
                 headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
             });
-            return res.json();
+            const json = await res.json();
+            const rawData = json.success ? json.data : json;
+            return Array.isArray(rawData) ? rawData : [];
         },
         enabled: activeTab === 'READY'
     });
@@ -180,11 +182,14 @@ export default function GRNPage() {
                 headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
             });
             const json = await res.json();
-            return json.success ? json.data : json;
+            const rawData = json.success ? json.data : json;
+            return Array.isArray(rawData) ? rawData : [];
         },
         enabled: activeTab === 'COMPLETED'
     });
 
+    const safeRequests = Array.isArray(requests) ? requests : [];
+    const safeCompletedGrns = Array.isArray(completedGrns) ? completedGrns : [];
     const isLoading = activeTab === 'READY' ? isLoadingRequests : isLoadingCompleted;
 
     const createGRNMutation = useMutation({
@@ -474,7 +479,7 @@ export default function GRNPage() {
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {activeTab === 'READY' ? (
-                                                requests.map((req) => (
+                                                safeRequests.map((req) => (
                                                     <tr key={req.id} className="hover:bg-slate-50/50 transition-colors duration-150">
                                                         <td className="px-4 py-1.5 font-bold text-slate-800">{req.requestNr}</td>
                                                         <td className="px-3 py-1.5">
@@ -535,7 +540,7 @@ export default function GRNPage() {
                                                     </tr>
                                                 ))
                                             ) : (
-                                                completedGrns.map((grn) => (
+                                                safeCompletedGrns.map((grn) => (
                                                     <tr key={grn.id} className="hover:bg-slate-50/50 transition-colors duration-150">
                                                         <td className="px-4 py-1.5 font-bold text-slate-800">{grn.grnNumber}</td>
                                                         <td className="px-3 py-1.5">
