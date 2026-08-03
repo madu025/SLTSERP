@@ -63,7 +63,6 @@ export class GRNService {
             // 1. Create GRN with an atomic document number
             const grnNumber = await AuditLedgerService.getNextDocumentNumber('GRN', tx);
             const grn = await tx.gRN.create({
-                // @ts-ignore - Prisma client needs regeneration after server restart
                 data: {
                     grnNumber,
                     storeId,
@@ -71,6 +70,7 @@ export class GRNService {
                     supplier,
                     receivedById,
                     requestId: requestId || null,
+                    purchaseOrderId: purchaseOrderId || null,
                     reference: reference || sltReferenceId || null,
                     documentUrl: documentUrl || null,
                     items: {
@@ -79,7 +79,7 @@ export class GRNService {
                             quantity: parseFloat(i.quantity.toString())
                         }))
                     }
-                } as any,
+                },
                 include: { items: true }
             });
 
