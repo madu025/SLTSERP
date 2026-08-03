@@ -1,6 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { resolveUserId } from '@/lib/uuid';
 import { BudgetAllocationService } from '@/services/finance/budget-allocation.service';
 import { z } from 'zod';
 
@@ -36,9 +37,12 @@ export const PUT = apiHandler(async (req, params, body) => {
 
   const userId = req.headers.get('x-user-id') ?? undefined;
 
+  // approvedById is a uuid column — never trust client placeholders like 'system'
+  const { approvedById: bodyApprover, ...rest } = body;
+
   const updated = await BudgetAllocationService.updateBudget(id, {
-    ...body,
-    ...(body.status === 'FROZEN' && { approvedById: userId }),
+    ...rest,
+    ...(body.status === 'FROZEN' && { approvedById: resolveUserId(bodyApprover, userId) ?? undefined }),
   });
 
   return { success: true, data: updated };

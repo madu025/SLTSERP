@@ -36,8 +36,9 @@ export class AgentSyncService {
      * Authenticates the agent using the static API key and returns a short-lived JWT.
      */
     static async authenticateAgent(apiKey: string): Promise<{ success: boolean; token?: string; expiresIn?: number } | null> {
-        const validApiKey = process.env.AGENT_API_KEY || 'slts-agent-secure-sync-key-2026';
-        if (apiKey !== validApiKey) {
+        // Fail-closed: without a configured key NO agent can authenticate
+        const validApiKey = process.env.AGENT_API_KEY;
+        if (!validApiKey || apiKey !== validApiKey) {
             return null;
         }
 

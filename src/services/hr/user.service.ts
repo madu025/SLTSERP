@@ -7,8 +7,12 @@ import { Role, Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { safe, safeSync } from '@/utils/safe-await.util';
 import { safeJsonParse } from '@/utils/safeJsonParse';
+import { requireEnv } from '@/lib/env';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+/** Fail-closed: JWT signing must never run on a hardcoded default secret */
+function getJwtSecret(): string {
+    return requireEnv('JWT_SECRET');
+}
 
 interface LoginCredentials {
     username: string;
@@ -496,7 +500,7 @@ export class UserService {
         // Generate temporary token
         const token = sign(
             { userId: user.id, step: 'verify' },
-            JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: '15m' }
         );
 
@@ -510,7 +514,7 @@ export class UserService {
      * Verifies the answer of forgot password security question
      */
     static async forgotPasswordVerifyAnswer(token: string, answer: string) {
-        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, JWT_SECRET));
+        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, getJwtSecret()));
         if (err || !decoded) {
             throw new Error('INVALID_TOKEN');
         }
@@ -539,7 +543,7 @@ export class UserService {
         // Generate reset token
         const resetToken = sign(
             { userId: user.id, step: 'reset' },
-            JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: '15m' }
         );
 
@@ -557,7 +561,7 @@ export class UserService {
             throw new Error('PASSWORD_TOO_SHORT');
         }
 
-        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, JWT_SECRET));
+        const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, getJwtSecret()));
         if (err || !decoded) {
             throw new Error('INVALID_TOKEN');
         }

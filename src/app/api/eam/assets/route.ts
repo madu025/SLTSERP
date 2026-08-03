@@ -1,5 +1,6 @@
 import { apiHandler, ApiHandlerMeta } from '@/lib/api-handler';
 import { OfficeAssetService } from '@/services/eam/office-asset.service';
+import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 import { OfficeAssetCategory } from '@prisma/client';
 
@@ -27,7 +28,7 @@ export const GET = apiHandler(
     return assets;
   },
   {
-    roles: ['HR_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN', 'SUPER_ADMIN_M'],
+    roles: ROLE_GROUPS.EAM_ASSET_MANAGERS,
     audit: { action: 'READ_EAM_ASSETS', entity: 'OfficeAsset' }
   }
 );
@@ -45,7 +46,7 @@ export const POST = apiHandler(
     return asset;
   },
   {
-    roles: ['HR_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN', 'SUPER_ADMIN_M'],
+    roles: ROLE_GROUPS.EAM_ASSET_MANAGERS,
     audit: { action: 'CREATE_EAM_ASSET', entity: 'OfficeAsset' }
   }
 );

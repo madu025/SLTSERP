@@ -84,8 +84,18 @@ deduction — all financial or quasi-financial state. The following rules are **
    upgrade multiple major versions at once. List current vs. latest version and any breaking
    changes from the changelog first, then upgrade one package at a time, running the full test
    suite (`npx tsc --noEmit` + `npm test` / `npx playwright test`) between each.
-3. **Secrets Handling**: Never hardcode secrets, API keys, or credentials in source. Confirm
-   `.env*` files are covered by `.gitignore` before committing.
+3. **Secrets Handling (Fail-Closed)**: Never hardcode secrets, API keys, or credentials in source.
+   Confirm `.env*` files are covered by `.gitignore` before committing.
+   **No hardcoded fallbacks**: `process.env.SECRET || 'some-default'` is forbidden — if a secret is
+   missing the operation must fail (throw via `requireEnv()` from `src/lib/env.ts`) or deny access,
+   never silently run on a known default. [AUDIT-DERIVED 2026-08-03: 8 hardcoded secret fallbacks
+   found & removed — JWT_SECRET x4, EXTENSION_SECRET x4, AGENT_API_KEY x1]
+4. **No Hardcoded Role Lists or Config Values [AUDIT-DERIVED]**: Role arrays must come from
+   `ROLE_GROUPS` in `src/config/roles.ts` (use the `hasRole()` helper) — never inline literals like
+   `['ADMIN', 'SUPER_ADMIN']` in routes. Runtime-tunable settings (intervals, thresholds, feature
+   flags) must come from the `SystemConfig` table via `SystemService.getConfig()` with a code
+   fallback, never magic numbers. [2026-08-03: 4 hardcoded role arrays centralized into
+   SLT_REGISTRY_ADMINS / BOM_IMPORT_ADMINS / EAM_ASSET_MANAGERS]
 
 
 ## 🧯 Error Handling Standards 🆕 [AUDIT-DERIVED]

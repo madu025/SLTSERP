@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
 import { SLTPortalAuthService } from '@/services/slt/slt-portal-auth.service';
+import { ROLE_GROUPS, hasRole } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 import { requestContext } from '@/lib/request-context';
@@ -14,13 +15,13 @@ export const POST = apiHandler(async (req, _params, body) => {
     const data = downloadSyncSchema.parse(body);
 
     const extensionKey = req.headers.get('x-extension-key');
-    const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
-    const isExtension = extensionKey === extensionSecret;
+    // Fail-closed: no hardcoded secret fallback — unset env means extension auth is disabled
+    const extensionSecret = process.env.EXTENSION_SECRET;
+    const isExtension = !!extensionSecret && extensionKey === extensionSecret;
 
     const authUserId = req.headers.get('x-user-id');
-    const userRole = req.headers.get('x-user-role') || 'UNKNOWN';
-    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'STORES_MANAGER'];
-    const hasAllowedRole = userRole && allowedRoles.includes(userRole);
+    const userRole = req.headers.get('x-user-role');
+    const hasAllowedRole = !!userRole && hasRole(userRole, ROLE_GROUPS.BOM_IMPORT_ADMINS);
 
     if (!isExtension && !hasAllowedRole) {
         throw AppError.forbidden('Permission Denied: Unauthorized to import BOM invoices.');

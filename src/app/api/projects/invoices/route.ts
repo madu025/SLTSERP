@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
 import { AppError } from '@/lib/error';
+import { resolveUserId } from '@/lib/uuid';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,13 +45,18 @@ export const POST = apiHandler(async (_request, _params, body) => {
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (request, _params, body) => {
     const id = body.id as string | undefined;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...updateFields } = body;
 
     if (!id) {
         throw AppError.badRequest('id is required');
+    }
+
+    // approvedById is a uuid column — never trust client placeholders like 'system'
+    if ('approvedById' in updateFields) {
+        updateFields.approvedById = resolveUserId(updateFields.approvedById, request.headers.get('x-user-id'));
     }
 
     try {

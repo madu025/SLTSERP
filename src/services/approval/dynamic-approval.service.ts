@@ -2,8 +2,12 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { EmailService } from '../notification/email.service';
 import { AppError } from '@/lib/error';
+import { requireEnv } from '@/lib/env';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-approval-key';
+/** Fail-closed: approval tokens must never be signed with a hardcoded default */
+function getJwtSecret(): string {
+    return requireEnv('JWT_SECRET');
+}
 
 export class DynamicApprovalService {
     
@@ -13,7 +17,7 @@ export class DynamicApprovalService {
     static generateActionToken(instanceId: string, action: 'APPROVED' | 'REJECTED', userId: string) {
         return jwt.sign(
             { instanceId, action, userId },
-            JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: '48h' }
         );
     }
@@ -214,7 +218,7 @@ export class DynamicApprovalService {
 
         let decoded: ApprovalTokenPayload;
         try {
-            decoded = jwt.verify(token, JWT_SECRET) as ApprovalTokenPayload;
+            decoded = jwt.verify(token, getJwtSecret()) as ApprovalTokenPayload;
         } catch (error) {
             throw AppError.badRequest('Invalid or expired action token.');
         }

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { requireEnv } from '@/lib/env';
 import { DynamicApprovalService } from './dynamic-approval.service';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
@@ -225,7 +226,7 @@ export class ProcessGateEngine {
 
             // Generate Cryptographic Digital Signature Hash
             const timestamp = new Date().toISOString();
-            const rawSignatureData = `${instanceId}:${userId}:${action}:${timestamp}:${process.env.JWT_SECRET || 'sltserp_secret'}`;
+            const rawSignatureData = `${instanceId}:${userId}:${action}:${timestamp}:${requireEnv('JWT_SECRET')}`;
             const signatureHash = crypto.createHash('sha256').update(rawSignatureData).digest('hex');
 
             // 1. Update current instance to APPROVED/REJECTED with signatureHash

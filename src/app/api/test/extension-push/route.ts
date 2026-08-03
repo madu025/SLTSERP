@@ -33,10 +33,11 @@ export async function OPTIONS() {
 
 export const POST = apiHandler(async (req, _params, body) => {
     const authHeader = req.headers.get('x-extension-key');
-    const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
-    
+    // Fail-closed: no hardcoded secret fallback — unset env means extension auth is disabled
+    const extensionSecret = process.env.EXTENSION_SECRET;
+
     let isAuthorized = false;
-    if (authHeader === extensionSecret) {
+    if (!!extensionSecret && authHeader === extensionSecret) {
         isAuthorized = true;
     } else {
         isAuthorized = await checkAdminAuth();

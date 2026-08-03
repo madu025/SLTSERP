@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { PaymentVoucherService } from '@/services/finance/payment-voucher.service';
 import { AppError } from '@/lib/error';
+import { resolveUserId } from '@/lib/uuid';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (request, _params, body) => {
     const id = body.id as string | undefined;
     const status = body.status as string | undefined;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -40,6 +41,11 @@ export const PATCH = apiHandler(async (_request, _params, body) => {
 
     if (!id || !status) {
         throw AppError.badRequest('id and status are required');
+    }
+
+    // approvedById is a uuid column — never trust client placeholders like 'system'
+    if ('approvedById' in options) {
+        options.approvedById = resolveUserId(options.approvedById, request.headers.get('x-user-id'));
     }
 
     try {

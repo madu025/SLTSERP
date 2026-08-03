@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectLDPenaltyService } from '@/services/project/project-ld-penalty.service';
 import { AppError } from '@/lib/error';
+import { resolveUserId } from '@/lib/uuid';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -46,9 +47,12 @@ const updatePenaltySchema = z.object({
     remarks: z.string().optional(),
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (request, _params, body) => {
     const data = updatePenaltySchema.parse(body);
     const { id, status, ...options } = data;
+
+    // approvedById is a uuid column — never trust client placeholders like 'system'
+    options.approvedById = resolveUserId(options.approvedById, request.headers.get('x-user-id')) ?? undefined;
     
     try {
         return await ProjectLDPenaltyService.updatePenalty(id, status, options);

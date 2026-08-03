@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectChangeOrderService } from '@/services/project/project-change-order.service';
 import { AppError } from '@/lib/error';
+import { resolveUserId } from '@/lib/uuid';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,10 +38,11 @@ export const POST = apiHandler(async (_request, _params, body) => {
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (request, _params, body) => {
     const coId = body.coId as string | undefined;
     const status = body.status as string | undefined;
-    const approvedById = body.approvedById as string | undefined;
+    // approvedById is a uuid column — never trust client placeholders like 'system'
+    const approvedById = resolveUserId(body.approvedById, request.headers.get('x-user-id')) ?? undefined;
     const rejectionReason = body.rejectionReason as string | undefined;
 
     if (!coId) {

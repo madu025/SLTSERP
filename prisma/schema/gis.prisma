@@ -250,12 +250,12 @@ model GISAuditLog {
   id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   projectId      String @db.Uuid
   entityType     String
-  entityId       String @db.Uuid
+  entityId       String // free-form: entity ids are UUIDs but kept text for resilience
   action         String
   fieldChanges   Json?
   locationBefore Json?
   locationAfter  Json?
-  performedById  String @db.Uuid
+  performedById  String? @db.Uuid // nullable: 'SYSTEM'/cron actors store null
   performedAt    DateTime @default(now())
   routeVersion   Int?
   source         String   @default("WEB_PORTAL")

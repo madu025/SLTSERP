@@ -206,10 +206,10 @@ model ProjectApprovalInstance {
 
 model WorkflowAuditLog {
   id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  userId     String @db.Uuid
+  userId     String? @db.Uuid // nullable: automation/cron actors store null
   action     String
   entityType String
-  entityId   String @db.Uuid
+  entityId   String // free-form: resilient against non-UUID entity ids
   details    Json?
   createdAt  DateTime @default(now())
   @@index([userId])

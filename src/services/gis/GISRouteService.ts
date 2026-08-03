@@ -1364,7 +1364,7 @@ export class GISRouteService {
         await prisma.gISAuditLog.create({
             data: {
                 projectId,
-                performedById: userId || 'system',
+                performedById: userId || null,
                 action: 'PRE_SURVEY_AI_GENERATED',
                 entityType: 'GISRoute',
                 entityId: newRoute.id,

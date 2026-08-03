@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectRetentionService } from '@/services/project/project-retention.service';
 import { AppError } from '@/lib/error';
+import { resolveUserId } from '@/lib/uuid';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -47,14 +48,17 @@ const patchRetentionSchema = z.object({
     defectLiabilityPeriod: z.number().optional().nullable(),
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (request, _params, body) => {
     const data = patchRetentionSchema.parse(body);
     const { id, action, releaseAmount, releaseDate, approvedById, remarks } = data;
+
+    // approvedById is a uuid column — never trust client placeholders
+    const resolvedApprover = resolveUserId(approvedById, request.headers.get('x-user-id')) ?? undefined;
 
     try {
         if (action === 'RELEASE') {
             if (releaseAmount === undefined) throw AppError.badRequest('releaseAmount is required');
-            return await ProjectRetentionService.releaseRetention(id, releaseAmount, releaseDate || undefined, approvedById, remarks);
+            return await ProjectRetentionService.releaseRetention(id, releaseAmount, releaseDate || undefined, resolvedApprover, remarks);
         }
 
         if (action === 'UPDATE') {

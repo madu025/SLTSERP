@@ -508,3 +508,40 @@ Note: Centralized error handling confirmed in src/lib/api-handler.ts single catc
 | Backfill | 156 welcome notifications + USER_CREATE audit rows written (scripts/backfill-welcome-notifications.ts) |
 
 Live DB proof: 156 AuditLog rows, 156 welcome notifications, 156 new ENGINEER users with mustChangePassword=true. npx tsc --noEmit clean.
+
+### System-Wide Sweep: Same UUID Over-Typing Bug Class (2026-08-03)
+
+**Question:** "Are there other places with the same bug?" - Full sweep of every @db.Uuid column receiving free-form strings.
+
+**Verified live DB:** InventoryLedger, WorkflowAuditLog, GISAuditLog, UniversalApprovalInstance ALL had 0 rows - same silent-failure pattern as AuditLog.
+
+| # | Table.Column | Bug | Fix |
+| :-- | :-- | :-- | :-- |
+| 1 | InventoryLedger.referenceId | uuid-typed but writers pass document numbers (requestNr, grnNumber, 'WASTAGE_xxx') | -> plain String |
+| 2 | InventoryLedger.performedById | uuid FK NOT NULL but writers pass 'SYSTEM'/'STOREKEEPER'/'system' | -> nullable, onDelete SetNull, UUID sanitize in AuditLedgerService.recordEntry (single choke-point covers all 8+ call sites) |
+| 3 | GISAuditLog.performedById | writers pass 'SYSTEM'/'system' | -> nullable; route-version.service (x2) + GISRouteService now pass null |
+| 4 | GISAuditLog.entityId / WorkflowAuditLog.entityId / UniversalApprovalInstance.entityId | uuid-typed; test-approval-simulation writes 'MRN-SIM-xxx' | -> plain String (defensive) |
+| 5 | WorkflowAuditLog.userId | non-null uuid; automation risk | -> nullable |
+| 6 | Routes trusting client body 'system'/'ADMIN_ID' for approvedById uuid columns | invoices, payment-vouchers, ld-penalties, retentions, change-orders, finance/budget PATCH/PUT | New src/lib/uuid.ts helper (isValidUuid / toUuidOrNull / resolveUserId) - body value replaced by session user (x-user-id) unless it is a valid UUID |
+
+**Not changed (verified safe):** OfficeAssetMovementLog/MaintenanceLog/AssetHandoverLog performedById - writers only pass real user ids; finance/ld-penalties already used session userId.
+
+Verification: prisma db push synced Supabase (all 7 columns confirmed text/nullable via information_schema); prisma generate ok; npx tsc --noEmit clean.
+
+### Route Try/Catch + Hardcoding Audit (2026-08-03)
+
+**User observation:** routes still contain try/catch blocks + question whether hardcoding was audited/added to policy.
+
+**Try/Catch census** (scripts/audit-route-trycatch.js): 422 route files | 51 files with try/catch | 86 try blocks | 24 catches without rethrow. Spot-check verdict: the swallows are legitimate allowed-pattern uses (health-check per-service probes, cache fallback DB->file->empty, external SLT portal HTTP graceful degradation, Redis lock best-effort, Vercel read-only FS ignores). No rule violations found — all are "third-party calls / expected non-fatal recovery" exceptions in AGENTS.md Rule 4.
+
+**Hardcoding audit — MUST-HAVE violations found & fixed:**
+
+| # | Finding | Files | Fix |
+| :-- | :-- | :-- | :-- |
+| 1 | 8 hardcoded SECRET FALLBACKS (`env \|\| 'default'`) — app silently ran on known defaults when env missing: JWT_SECRET (user.service, dynamic-approval.service, process-gate-engine signature), EXTENSION_SECRET x4 (slt-registry, slt-registry/download-sync, import-bom/csv, test/extension-push), AGENT_API_KEY (agent-sync.service) | 7 files | Fail-closed: new src/lib/env.ts requireEnv()/optionalEnv(); JWT secrets throw when missing, extension/agent auth DENIED when unset. EXTENSION_SECRET added to .env (current value preserved - deployed extension depends on it; rotate together with extension build). Must also be set in Vercel env. |
+| 2 | 4 hardcoded role arrays in routes | eam/assets, slt-registry, download-sync, import-bom/csv | Centralized: ROLE_GROUPS.EAM_ASSET_MANAGERS / SLT_REGISTRY_ADMINS / BOM_IMPORT_ADMINS + hasRole() |
+| 3 | `x-user-id \|\| 'ADMIN'` fake-identity fallback | import-bom/csv | -> `'EXTENSION_SYNC'` descriptive actor (audit-only param, not persisted) |
+
+**Policy additions (.agent/AGENTS.md):** Rule 3 upgraded to "Secrets Handling (Fail-Closed)" (no env fallbacks, requireEnv); new Rule 4 "No Hardcoded Role Lists or Config Values" (ROLE_GROUPS + SystemConfig).
+
+Verification: npx tsc --noEmit clean; grep confirms 0 remaining secret fallbacks in src/.

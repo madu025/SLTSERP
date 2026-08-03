@@ -72,7 +72,7 @@ export class RouteVersionService {
         entityType: 'GIS_ROUTE',
         entityId: newVersion.id,
         action: 'VERSION_CREATED',
-        performedById: 'SYSTEM',
+        performedById: null,
         fieldChanges: {
           fromVersion: currentRoute.version,
           toVersion: newVersion.version,
@@ -146,7 +146,7 @@ export class RouteVersionService {
         entityType: 'GIS_ROUTE',
         entityId: parentRoute.id,
         action: 'ROLLBACK',
-        performedById: 'SYSTEM',
+        performedById: null,
         fieldChanges: {
           fromVersion: currentRoute.version,
           toVersion: parentRoute.version,

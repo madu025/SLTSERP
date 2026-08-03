@@ -385,13 +385,13 @@ model InventoryLedger {
   batchId          String? @db.Uuid
   transactionType  String // GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, MRN_APPROVAL, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION
   referenceType    String // GRN, ContractorMaterialIssue, SOD, MRN, CycleCount
-  referenceId      String @db.Uuid
+  referenceId      String // free-form: may be a document number (GRN-xxx, requestNr), not always a UUID
   quantityBefore   Decimal  @default(0) @db.Decimal(12, 4)
   quantityChange   Decimal  @default(0) @db.Decimal(12, 4)
   quantityAfter    Decimal  @default(0) @db.Decimal(12, 4)
   unitPrice        Decimal  @default(0) @db.Decimal(12, 2)
   totalValue       Decimal  @default(0) @db.Decimal(14, 2)
-  performedById    String @db.Uuid
+  performedById    String? @db.Uuid // nullable: 'SYSTEM'/automation actors store null
   idempotencyKey   String?  @unique
   previousChecksum String?
   checksum         String // SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt + previousChecksum)
@@ -399,7 +399,7 @@ model InventoryLedger {
 
   store       InventoryStore @relation(fields: [storeId], references: [id])
   item        InventoryItem  @relation(fields: [itemId], references: [id])
-  performedBy User           @relation(fields: [performedById], references: [id])
+  performedBy User?          @relation(fields: [performedById], references: [id], onDelete: SetNull)
 
   @@index([storeId, itemId, createdAt])
   @@index([referenceType, referenceId])

@@ -21,6 +21,9 @@ export interface CreateLedgerEntryInput {
 type Decimal = Prisma.Decimal;
 
 export class AuditLedgerService {
+    /** Only real user UUIDs may be stored; 'SYSTEM'/'STOREKEEPER' actors map to null */
+    private static readonly UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     /**
      * Compute SHA-256 Checksum for tamper prevention using Hash Chaining
      */
@@ -125,7 +128,7 @@ export class AuditLedgerService {
                 quantityAfter: qtyAfter,
                 unitPrice: price,
                 totalValue: totalVal,
-                performedById: input.performedById,
+                performedById: this.UUID_RE.test(input.performedById) ? input.performedById : null,
                 idempotencyKey: input.idempotencyKey || null,
                 previousChecksum: previousChecksum,
                 checksum: checksum,

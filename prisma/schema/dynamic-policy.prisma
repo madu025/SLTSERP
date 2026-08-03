@@ -55,7 +55,7 @@ model ProcessApprovalLevel {
 model UniversalApprovalInstance {
   id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   entityType     String // "SOD", "INVOICE", "STOCK_ISSUE"
-  entityId       String @db.Uuid // The ID of the SOD, Invoice, etc.
+  entityId       String // The ID of the SOD, Invoice, etc. (free-form: may be non-UUID in simulations)
   policyId       String? @db.Uuid // Linked Gate Policy
   levelIndex     Int       @default(0) // Current Level Index in policy
   level          Int
