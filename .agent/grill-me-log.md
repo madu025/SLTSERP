@@ -490,3 +490,21 @@ Date: 2026-08-02
 Verification: npx tsc --noEmit clean after all S1-S7 changes.
 
 Note: Centralized error handling confirmed in src/lib/api-handler.ts single catch block - routes throw AppError, apiHandler maps to HTTP status + structured logging; no per-route try/catch needed.
+
+### Critical Discovery: O365 User Import + Broken Audit Ledger (2026-08-03)
+
+**Task:** Import 160 OSP users from 'OSP O365 License .xlsx' (user-approved decisions: role ENGINEER, skip Delete/User-Replace rows, password {EMP_NUMBER}@slts + mustChangePassword).
+
+**Result:** 156 users imported via UserService.createUser (scripts/import-o365-users.ts); 4 skipped (3 delete-flagged, 1 no email).
+
+**CRITICAL BUG FOUND (Must-Have, fixed):** UUID migration over-typed AuditLog columns - userId and entityId were @db.Uuid, but logEvent callers pass 'system' and free-form ids (soNum, config keys, 'N/A'). Result: AuditLog had 0 rows - EVERY audit write system-wide failed since migration.
+
+| Fix | Detail |
+| :-- | :-- |
+| Schema (prisma/schema/user.prisma) | AuditLog.entityId -> plain String; userId -> String? nullable; user relation onDelete: SetNull |
+| DB | prisma db push synced Supabase (FK rebuilt ON DELETE SET NULL) |
+| Code (services/core/system.service.ts) | logEvent sanitizes userId via UUID regex - non-UUID actors stored as null; notifications only for real users |
+| Consumer fix | project-dashboard.service.ts nullable log.user handling |
+| Backfill | 156 welcome notifications + USER_CREATE audit rows written (scripts/backfill-welcome-notifications.ts) |
+
+Live DB proof: 156 AuditLog rows, 156 welcome notifications, 156 new ENGINEER users with mustChangePassword=true. npx tsc --noEmit clean.

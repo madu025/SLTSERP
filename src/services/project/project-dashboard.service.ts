@@ -409,7 +409,7 @@ export class ProjectDashboardService {
             }
 
             return {
-                user: log.user.name || log.user.email,
+                user: log.user?.name || log.user?.email || 'System',
                 action: log.action,
                 target: `${log.entity} #${log.entityId}`,
                 time: formatDistanceToNow(new Date(log.createdAt), { addSuffix: true }),

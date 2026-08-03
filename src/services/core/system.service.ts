@@ -20,16 +20,23 @@ export interface SystemEvent {
 }
 
 export class SystemService {
+    /** UUID v4/v7 matcher - audit userId column only accepts real user UUIDs. */
+    private static readonly UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     /**
      * Unified method to log an audit event and optionally send a notification.
      * Use this to avoid duplicating logic across different API routes.
      */
     static async logEvent(event: SystemEvent) {
+        // Non-user actors ('system', cron, missing header) cannot satisfy the
+        // User FK - store null instead of corrupting the audit write.
+        const auditUserId = this.UUID_RE.test(event.userId) ? event.userId : null;
+
         const [error, auditLog] = await safe(prisma.$transaction(async (tx) => {
             // 1. Create Audit Log
             const log = await tx.auditLog.create({
                 data: {
-                    userId: event.userId,
+                    userId: auditUserId,
                     action: event.action,
                     entity: event.entity,
                     entityId: event.entityId,
@@ -40,11 +47,11 @@ export class SystemService {
                 }
             });
 
-            // 2. Create Notification if requested
-            if (event.notify && event.notifyTitle && event.notifyMessage) {
+            // 2. Create Notification if requested (only deliverable to real users)
+            if (event.notify && event.notifyTitle && event.notifyMessage && auditUserId) {
                 await tx.notification.create({
                     data: {
-                        userId: event.userId,
+                        userId: auditUserId,
                         title: event.notifyTitle,
                         message: event.notifyMessage,
                         type: event.notifyType || 'SYSTEM',
