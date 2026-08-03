@@ -378,6 +378,12 @@ export class NexusAgentService {
             response = low.lowStock.length > 0 
                 ? `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ:\n` + low.lowStock.map(s => `- ${s.itemName} in ${s.storeName}: Current ${s.qty}`).join('\n')
                 : `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`;
+        } else if (intent === 'PROCUREMENT') {
+            const data = await NexusContextService.getProcurementContext();
+            response = `මිලදී ගැනීමේ (Procurement) සාරාංශය:\n\n- Pending PRs: ${data.pendingPRsCount}\n- Pending POs: ${data.pendingPOsCount}\n- Pending GRNs: ${data.pendingGRNsCount}\n- Completed GRNs: ${data.completedGRNsCount}`;
+        } else if (intent === 'SERVICE_ORDER_PROGRESS') {
+            const data = await NexusContextService.getServiceOrderProgressContext();
+            response = `මෙන්න දෛනික සේවා ඇණවුම් (Service Order) ප්‍රගතිය:\n\n- Completed: ${data.totalCompleted}\n- In Hand: ${data.totalInHand}\n- Today's SODs: ${data.totalTodaysSOD}`;
         }
 
         const result = { intent, query: message, response, actions, suggestions };
