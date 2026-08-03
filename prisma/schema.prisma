@@ -4809,3 +4809,9 @@ model ChecklistItem {
 
     @@index([parentId])
 }
+
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "../prisma/ERD.svg"
+  theme    = "forest"
+}

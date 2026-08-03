@@ -8,3 +8,8 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+generator docs {
+  provider = "node node_modules/prisma-docs-generator"
+  output   = "../../docs/prisma"
+}

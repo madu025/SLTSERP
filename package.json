@@ -22,7 +22,8 @@
     "test:types": "tsc --noEmit",
     "worker:start": "npx tsx scripts/run-worker.ts",
     "codemap:update": "tsx scripts/generate-codemap.ts",
-    "audit:hardcode": "tsx scripts/audit-hardcode.ts"
+    "audit:hardcode": "tsx scripts/audit-hardcode.ts",
+    "prisma:erd": "prisma-editor"
   },
   "dependencies": {
     "@datastructures-js/priority-queue": "^6.3.5",
@@ -90,6 +91,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.16.0",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
@@ -101,6 +103,8 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "prisma-docs-generator": "^0.8.0",
+    "prisma-erd-generator": "^2.4.4",
     "tailwindcss": "^4",
     "tsx": "^4.22.5",
     "tw-animate-css": "^1.4.0",
