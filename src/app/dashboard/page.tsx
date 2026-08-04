@@ -18,6 +18,7 @@ const getDefaultTabForRole = (role?: string) => {
     if (role === 'PROCUREMENT_OFFICER') return 'procurement';
     if (['STORES_MANAGER', 'STORES_ASSISTANT'].includes(role)) return 'inventory';
     if (['FINANCE_MANAGER', 'FINANCE_ASSISTANT'].includes(role)) return 'finance';
+    if (['SA_MANAGER', 'SA_ASSISTANT'].includes(role)) return 'projects';
     return 'operations';
 };
 
@@ -61,7 +62,6 @@ export default function DashboardPage() {
     const [mounted, setMounted] = useState(false);
     const [selectedRegion, setSelectedRegion] = useState('ALL');
     const [selectedRtom, setSelectedRtom] = useState('ALL');
-    const [activeTab, setActiveTab] = useState(() => getDefaultTabForRole(user?.role));
 
     useEffect(() => {
         Promise.resolve().then(() => setMounted(true));
@@ -109,6 +109,28 @@ export default function DashboardPage() {
     const canViewProcurement = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.PROCUREMENT, 'MANAGER']);
     const canViewProjects = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS, 'MANAGER', 'AREA_COORDINATOR']);
     const canViewOperations = hasRole(user?.role, [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.ALL_OPS, 'MANAGER']);
+
+    // Compute the effective default tab, ensuring it maps to a visible tab for the current role
+    const effectiveDefaultTab = useMemo(() => {
+        const defaultTab = getDefaultTabForRole(user?.role);
+        const tabVisibility: Record<string, boolean> = {
+            operations: canViewOperations,
+            projects: canViewProjects,
+            procurement: canViewProcurement,
+            finance: canViewFinance,
+            inventory: canViewInventory,
+        };
+        if (tabVisibility[defaultTab]) return defaultTab;
+        // Fallback to first visible tab in priority order
+        const priority = ['operations', 'projects', 'procurement', 'finance', 'inventory'];
+        return priority.find(t => tabVisibility[t]) || 'operations';
+    }, [user?.role, canViewOperations, canViewProjects, canViewProcurement, canViewFinance, canViewInventory]);
+
+    const [activeTab, setActiveTab] = useState(() => effectiveDefaultTab);
+
+    useEffect(() => {
+        setActiveTab(effectiveDefaultTab);
+    }, [effectiveDefaultTab]);
 
     const rtomRegionMap = stats?.rtomRegionMap;
     const userAccessibleRtoms = stats?.userAccessibleRtoms;

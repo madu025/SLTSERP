@@ -1,5 +1,3 @@
-import { NextResponse } from 'next/server';
-
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { DashboardService } from '@/services/core/dashboard.service';
