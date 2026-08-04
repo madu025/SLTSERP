@@ -86,4 +86,7 @@ tsc_errors_*.txt
 # agent debug artifacts (screenshots, temp outputs)
 .agent/artifacts/
 
+# root-level test screenshots (ad-hoc QA artifacts)
+test-*.png
+
 
