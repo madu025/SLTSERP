@@ -833,7 +833,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
-                title: '3NF System Roles',
+                title: 'Section Role Permissions',
                 path: '/admin/roles',
                 icon: ShieldCheck,
                 allowedRoles: ROLE_GROUPS.ADMINS
@@ -854,12 +854,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Staff Hierarchy Master',
                 path: '/admin/staff',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            },
-            {
-                title: 'Global Roles Defaults',
-                path: '/admin/global-roles',
-                icon: Settings,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
 

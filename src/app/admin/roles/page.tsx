@@ -106,8 +106,8 @@ export default function SectionRolesPage() {
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Section Roles Management</h1>
-                                <p className="text-slate-500">Define job posts and permissions for each section</p>
+                                <h1 className="text-2xl font-bold text-slate-900">Section Role Permissions</h1>
+                                <p className="text-slate-500">Define job posts and page access permissions for each departmental section</p>
                             </div>
                             {selectedSection && (
                                 <Button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700">

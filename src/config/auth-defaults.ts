@@ -1,3 +1,11 @@
+/**
+ * DEPRECATED: This is now only a template for creating new SystemRole records.
+ * Runtime permissions are derived from SystemRole.permissions via sectionAssignments.
+ * See: scripts/migrate-global-roles.ts for the migration that populated SystemRole from this.
+ * 
+ * Legacy default permissions per Postgres enum role — used only when creating
+ * a brand new SystemRole that doesn't exist yet (edge case fallback).
+ */
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     SUPER_ADMIN: ['dashboard', 'service-orders', 'contractors', 'restore-requests', 'invoices', 'inventory', 'procurement', 'administration'],
     ADMIN: ['dashboard', 'service-orders', 'contractors', 'restore-requests', 'invoices', 'inventory', 'procurement', 'administration'],

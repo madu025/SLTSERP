@@ -45,7 +45,7 @@ export interface UpdateUserData {
     status?: string;
 }
 
-import { DEFAULT_ROLE_PERMISSIONS, SECTION_MAPPING, TEST_USERS } from '@/config/auth-defaults';
+import { DEFAULT_ROLE_PERMISSIONS, SECTION_MAPPING } from '@/config/auth-defaults';
 
 export class UserService {
     /**
@@ -89,27 +89,23 @@ export class UserService {
             contractorId: user.contractorId || undefined,
         });
 
-        const testUsersConfig = await SystemService.getConfig('TEST_USERS', TEST_USERS);
-        const isTestUser = testUsersConfig.includes(username.toLowerCase());
-
+        // Permission derivation priority (consolidated SystemRole system):
+        // 1. Explicit user.permissions column (admin override)
+        // 2. SystemRole permissions from sectionAssignments (unified role system)
+        // 3. Empty (helpdesk-only access — no fallback to legacy defaults)
         let permissions: string[] = [];
         if (user.permissions) {
             const parsed = safeJsonParse<string[]>(user.permissions, []);
             permissions = Array.isArray(parsed) ? parsed : [];
-        } else if (isTestUser) {
-            const perms: string[] = (user.sectionAssignments || []).flatMap((a) => {
+        } else if (user.sectionAssignments && user.sectionAssignments.length > 0) {
+            // Derive from SystemRole permissions (applies to ALL users with section assignments)
+            const perms: string[] = user.sectionAssignments.flatMap((a) => {
                 const parsed = safeJsonParse<string[]>(a.role?.permissions || '[]', []);
                 return Array.isArray(parsed) ? parsed : [];
             });
             permissions = [...new Set(perms)];
-            if (permissions.length === 0) {
-                const defaultRolePermissionsConfig = await SystemService.getConfig('DEFAULT_ROLE_PERMISSIONS', DEFAULT_ROLE_PERMISSIONS);
-                permissions = defaultRolePermissionsConfig[user.role] || [];
-            }
-        } else {
-            // Basic users get empty permissions to hide all sections and fallback to helpdesk tickets only
-            permissions = [];
         }
+        // No fallback — if no permissions derived, user gets helpdesk-only access
 
         return {
             token,
@@ -259,18 +255,18 @@ export class UserService {
                 });
 
                 const roleCode = `${sectionCode}_${role}`;
-                const systemRole = await tx.systemRole.upsert({
-                    where: { code: roleCode },
-                    create: {
-                        name: role.replace(/_/g, ' '),
-                        code: roleCode,
-                        sectionId: section.id,
-                        permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
-                    },
-                    update: {
-                        permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
-                    }
-                });
+                // Find or create SystemRole — don't overwrite existing permissions (admin customizations preserved)
+                let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
+                if (!systemRole) {
+                    systemRole = await tx.systemRole.create({
+                        data: {
+                            name: role.replace(/_/g, ' '),
+                            code: roleCode,
+                            sectionId: section.id,
+                            permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
+                        }
+                    });
+                }
 
                 await tx.userSectionAssignment.upsert({
                     where: {
@@ -379,18 +375,18 @@ export class UserService {
                     });
 
                     const roleCode = `${sectionCode}_${role}`;
-                    const systemRole = await tx.systemRole.upsert({
-                        where: { code: roleCode },
-                        create: {
-                            name: role.replace(/_/g, ' '),
-                            code: roleCode,
-                            sectionId: section.id,
-                            permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
-                        },
-                        update: {
-                            permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
-                        }
-                    });
+                    // Find or create SystemRole — don't overwrite existing permissions (admin customizations preserved)
+                    let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
+                    if (!systemRole) {
+                        systemRole = await tx.systemRole.create({
+                            data: {
+                                name: role.replace(/_/g, ' '),
+                                code: roleCode,
+                                sectionId: section.id,
+                                permissions: JSON.stringify(defaultRolePermissionsConfig[role] || ['dashboard'])
+                            }
+                        });
+                    }
 
                     await tx.userSectionAssignment.create({
                         data: {
