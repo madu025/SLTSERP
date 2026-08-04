@@ -49,16 +49,20 @@ export default function Header() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleLogout = () => {
-        localStorage.clear(); // Clear everything to prevent cross-user data leakage
-        const isContractor = user?.role?.startsWith('CONTRACTOR_') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/contractor'));
-        
-        // Use window.location.href to force a full reload and wipe React Query memory cache
-        if (isContractor) {
-            window.location.href = '/contractor/login';
-        } else {
-            window.location.href = '/login';
+    const handleLogout = async () => {
+        try {
+            // 1. Call logout API to clear the httpOnly token cookie
+            await fetch('/api/logout', { method: 'POST' });
+        } catch {
+            // Ignore errors, continue with client-side cleanup
         }
+
+        // 2. Clear all client-side storage
+        localStorage.clear();
+
+        // 3. Redirect to login (full page reload to wipe React Query cache)
+        const isContractor = user?.role?.startsWith('CONTRACTOR_') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/contractor'));
+        window.location.href = isContractor ? '/contractor/login' : '/login';
     };
 
     if (!mounted) {

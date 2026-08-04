@@ -159,6 +159,7 @@ export class UserService {
                     createdAt: true,
                     staffId: true,
                     assignedStoreId: true,
+                    permissions: true,
                     accessibleOpmcs: { select: { id: true, rtom: true } },
                     supervisor: { select: { id: true, name: true, username: true, role: true } },
                     sectionAssignments: {

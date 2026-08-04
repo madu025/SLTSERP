@@ -111,11 +111,21 @@ export async function middleware(request: NextRequest) {
         requestHeaders.set('x-contractor-id', verifiedToken.contractorId as string);
     }
 
-    return NextResponse.next({
+    // Prevent browser caching of protected pages (stops back-button from showing stale auth pages)
+    const response = NextResponse.next({
         request: {
             headers: requestHeaders,
         },
     });
+
+    // Add cache-busting headers for all authenticated page requests (not API/static)
+    if (!pathname.startsWith('/api') && !pathname.startsWith('/_next') && !pathname.startsWith('/static')) {
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        response.headers.set('Pragma', 'no-cache');
+        response.headers.set('Surrogate-Control', 'no-store');
+    }
+
+    return response;
 }
 
 // Apply to all routes except Next.js internals

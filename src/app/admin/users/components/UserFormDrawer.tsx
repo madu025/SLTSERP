@@ -20,6 +20,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, BadgeCheck, Plus, Trash2, Layers } from "lucide-react";
 
+// Available pages for permission override
+const AVAILABLE_PAGES = [
+    { id: 'dashboard', name: 'Dashboard', icon: '' },
+    { id: 'service-orders', name: 'Service Orders', icon: '' },
+    { id: 'contractors', name: 'Contractors', icon: '' },
+    { id: 'restore-requests', name: 'Restore Requests', icon: '' },
+    { id: 'invoices', name: 'Invoices', icon: '💰' },
+    { id: 'inventory', name: 'Inventory / Stores', icon: '📦' },
+    { id: 'procurement', name: 'Procurement', icon: '🛒' },
+    { id: 'administration', name: 'Administration', icon: '⚙️' }
+];
+
 // Zod Schema
 const userSchema = z.object({
   username: z.string().min(3, "Username required (min 3 chars)"),
@@ -32,6 +44,7 @@ const userSchema = z.object({
   supervisorId: z.string().optional(),
   assignedStoreId: z.string().optional(),
   status: z.string().optional(),
+  permissions: z.array(z.string()).optional(),
 });
 
 export type UserFormValues = z.infer<typeof userSchema>;
@@ -119,12 +132,14 @@ export function UserFormDrawer({
       opmcIds: [],
       supervisorId: '',
       assignedStoreId: 'none',
-      status: 'active'
+      status: 'active',
+      permissions: []
     }
   });
 
   const watchedOpmcIds = useWatch({ control: form.control, name: 'opmcIds' });
   const watchedRole = useWatch({ control: form.control, name: 'role' });
+  const watchedPermissions = useWatch({ control: form.control, name: 'permissions' });
 
   // Dynamic role options — source of truth is the Postgres Role enum (GET /api/admin/role-options)
   const { data: roleOptions } = useQuery<{ roles: string[]; categories: Record<string, string[]> }>({
@@ -163,7 +178,8 @@ export function UserFormDrawer({
           password: '', // Clear password field for security edit
           assignedStoreId: initialData.assignedStoreId || 'none',
           opmcIds: initialData.opmcIds || [],
-          status: initialData.status || 'active'
+          status: initialData.status || 'active',
+          permissions: initialData.permissions || []
         });
         const section = Object.entries(roleCategories).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
         setSelectedSection(section);
@@ -194,7 +210,8 @@ export function UserFormDrawer({
           opmcIds: [],
           supervisorId: '',
           assignedStoreId: 'none',
-          status: 'active'
+          status: 'active',
+          permissions: []
         });
         setSelectedSection(null);
         setStep(1);
@@ -694,6 +711,56 @@ export function UserFormDrawer({
                           </label>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Permission Override Section */}
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600 flex items-center gap-1.5">
+                        <Shield className="w-3.5 h-3.5 text-slate-400" />
+                        Permission Override (Optional)
+                      </FormLabel>
+                      <span className="text-[10px] text-slate-400">Leave empty to use role defaults</span>
+                    </div>
+
+                    <div className="p-3 bg-purple-50/60 border border-purple-100 rounded-xl">
+                      <p className="text-[10px] text-purple-900 mb-3">
+                        Override default role permissions. Leave unchecked to use role-based permissions from admin/roles.
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {AVAILABLE_PAGES.map((page) => {
+                          const isChecked = (watchedPermissions || []).includes(page.id);
+                          const togglePermission = (check: boolean) => {
+                            const current = form.getValues('permissions') || [];
+                            if (check) {
+                              if (!current.includes(page.id)) {
+                                form.setValue('permissions', [...current, page.id], { shouldDirty: true });
+                              }
+                            } else {
+                              form.setValue('permissions', current.filter(p => p !== page.id), { shouldDirty: true });
+                            }
+                          };
+
+                          return (
+                            <label
+                              key={page.id}
+                              className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex items-center gap-2 select-none ${
+                                isChecked
+                                  ? 'bg-purple-50 border-purple-500 text-purple-950 font-bold'
+                                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                              }`}
+                            >
+                              <Checkbox 
+                                checked={isChecked} 
+                                onCheckedChange={(checked) => togglePermission(!!checked)}
+                              />
+                              <span>{page.icon} {page.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>

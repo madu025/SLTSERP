@@ -30,6 +30,7 @@ interface SODSheetTableProps {
     sortConfig: { key: keyof ServiceOrder; direction: "asc" | "desc" } | null;
     onUpdateField: (id: string, data: Record<string, unknown>) => Promise<unknown>;
     onOpenModal: (order: ServiceOrder, type: "detail" | "schedule" | "comment" | "action") => void;
+    visibleColumns?: string[]; // Column keys from admin settings
 }
 
 function getSlaAgingBadge(receivedDate?: Date | string | null) {
@@ -107,8 +108,15 @@ export function SODSheetTable(props: SODSheetTableProps) {
         onSort,
         sortConfig,
         onUpdateField,
-        onOpenModal
+        onOpenModal,
+        visibleColumns
     } = props;
+
+    // Helper to check if a column is visible (if visibleColumns is not provided, show all)
+    const isColumnVisible = (columnKey: string): boolean => {
+        if (!visibleColumns || visibleColumns.length === 0) return true;
+        return visibleColumns.includes(columnKey);
+    };
     // Map to keep track of saving states per cell (key: "orderId-fieldName")
     const [savingStates, setSavingStates] = useState<Record<string, "saving" | "saved" | "error" | null>>({});
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -426,6 +434,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         {/* Dynamic columns based on filterType */}
                         {filterType === "completed" || filterType === "install_closed" ? (
                             <>
+                                {isColumnVisible('completedDate') && (
                                 <th className="w-[110px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
@@ -442,6 +451,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('customerName') && (
                                 <th className="w-[210px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
@@ -458,6 +469,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('voiceNumber') && (
                                 <th className="w-[125px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
@@ -474,6 +487,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('ontSerialNumber') && (
                                 <th className="w-[115px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("ontSerialNumber")}>
@@ -490,6 +505,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('teamId') && (
                                 <th className="w-[145px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("teamId")}>
@@ -521,6 +538,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('status') && (
                                 <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("status")}>
@@ -537,6 +556,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('comments') && (
                                 <th className="w-[165px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
@@ -553,15 +574,19 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('revenue') && (
                                 <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <span className="text-emerald-500 dark:text-emerald-400">Revenue</span>
                                         <span className="text-[7px] text-muted-foreground font-normal normal-case">Rs. Amount</span>
                                     </div>
                                 </th>
+                                )}
                             </>
                         ) : filterType === "return" ? (
                             <>
+                                {isColumnVisible('completedDate') && (
                                 <th className="w-[95px] px-2 py-1.5 border-r border-border/20 text-rose-455 dark:text-rose-400">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
@@ -578,6 +603,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('customerName') && (
                                 <th className="w-[175px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
@@ -594,6 +621,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('voiceNumber') && (
                                 <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
@@ -610,6 +639,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('contractorId') && (
                                 <th className="w-[135px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
@@ -631,6 +662,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('sltsStatus') && (
                                 <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
@@ -650,6 +683,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('returnReason') && (
                                 <th className="w-[140px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("returnReason")}>
@@ -666,6 +701,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('comments') && (
                                 <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
@@ -682,10 +719,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
                             </>
                         ) : (
                             // PENDING (Dispatcher Grid)
                             <>
+                                {isColumnVisible('customerName') && (
                                 <th className="w-[170px] min-w-[170px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
@@ -702,6 +741,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('voiceNumber') && (
                                 <th className="w-[95px] min-w-[95px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
@@ -718,6 +759,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('dp') && (
                                  <th className="w-[110px] min-w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dp")}>
@@ -734,6 +777,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('contractorId') && (
                                 <th className="w-[115px] min-w-[115px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
@@ -755,6 +800,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('sltsStatus') && (
                                 <th className="w-[95px] min-w-[95px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
@@ -776,6 +823,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('scheduledDate') && (
                                  <th className="w-[105px] min-w-[105px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("scheduledDate")}>
@@ -792,6 +841,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
+                                {isColumnVisible('comments') && (
                                 <th className="w-[125px] min-w-[125px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
@@ -808,6 +859,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
+                                )}
                             </>
                         )}
                         <th className="w-[100px] min-w-[100px] text-center md:sticky md:right-0 bg-muted/90 z-50">Actions</th>
@@ -899,6 +951,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 {/* COMPLETED & INSTALL CLOSED VIEW */}
                                 {(filterType === "completed" || filterType === "install_closed") && (
                                     <>
+                                        {isColumnVisible('completedDate') && (
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-emerald-500 font-mono">
                                             {order.completedDate 
                                                 ? new Date(order.completedDate).toLocaleDateString("en-GB") 
@@ -907,22 +960,24 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                     : "-"
                                             }
                                         </td>
+                                        )}
+                                        {isColumnVisible('customerName') && (
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[175px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
                                                 {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
-                                        
-                                        {/* Voice Number & Order Type (Read-only) */}
+                                        )}
+                                        {isColumnVisible('voiceNumber') && (
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] font-medium text-foreground truncate" title={`${order.voiceNumber || ""} - ${order.orderType || ""}`}>
                                             <div className="flex flex-col gap-0.5">
                                                 <span>{order.voiceNumber || "-"}</span>
                                                 {order.orderType && <span className="text-[8.5px] text-muted-foreground font-semibold uppercase">{order.orderType}</span>}
                                             </div>
                                         </td>
-
-                                        {/* ONT Serial */}
+                                        )}
+                                        {isColumnVisible('ontSerialNumber') && (
                                         <td className="relative border-r border-border/15 p-0">
                                             <input
                                                 type="text"
@@ -936,20 +991,20 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             />
                                             {renderCellStatus(order.id, "ontSerialNumber")}
                                         </td>
-
-                                        {/* Contractor Select */}
+                                        )}
+                                        {isColumnVisible('teamId') && (
                                         <td className="relative border-r border-border/15 p-0">
                                             {renderContractorTeamDropdown(order, index)}
                                         </td>
-
-                                        {/* Status (Read-only portal status) */}
+                                        )}
+                                        {isColumnVisible('status') && (
                                         <td className="px-2 border-r border-border/15">
                                             <span className={`px-2 py-0.5 rounded-full font-black text-[10px] uppercase border ${getStatusColorClass(order.status)}`}>
                                                 {order.status || "-"}
                                             </span>
                                         </td>
-
-                                        {/* Comments */}
+                                        )}
+                                        {isColumnVisible('comments') && (
                                         <td className="relative border-r border-border/15 p-0 group">
                                             <input
                                                 type="text"
@@ -973,44 +1028,48 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             )}
                                             {renderCellStatus(order.id, "comments")}
                                         </td>
-
-                                        {/* Revenue / Contractor Amount */}
+                                        )}
+                                        {isColumnVisible('revenue') && (
                                         <td className="px-2 border-r border-border/15 text-[10px]">
                                             <div className="flex flex-col gap-0.5">
                                                 <span className="font-black text-emerald-500 font-mono">{order.revenueAmount ? `Rs.${Number(order.revenueAmount).toLocaleString()}` : "-"}</span>
                                                 {order.contractorAmount ? <span className="text-[8px] text-blue-400 font-bold font-mono">Con: Rs.{Number(order.contractorAmount).toLocaleString()}</span> : null}
                                             </div>
                                         </td>
+                                        )}
                                     </>
                                 )}
 
                                 {/* RETURN VIEW */}
                                 {filterType === "return" && (
                                     <>
+                                        {isColumnVisible('completedDate') && (
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-rose-500 font-mono">
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
+                                        )}
+                                        {isColumnVisible('customerName') && (
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[210px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
                                                 {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
-                                        
-                                        {/* Voice Number & Order Type (Read-only) */}
+                                        )}
+                                        {isColumnVisible('voiceNumber') && (
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] font-medium text-foreground truncate" title={`${order.voiceNumber || ""} - ${order.orderType || ""}`}>
                                             <div className="flex flex-col gap-0.5">
                                                 <span>{order.voiceNumber || "-"}</span>
                                                 {order.orderType && <span className="text-[8.5px] text-muted-foreground font-semibold uppercase">{order.orderType}</span>}
                                             </div>
                                         </td>
-
-                                        {/* Contractor Select */}
+                                        )}
+                                        {isColumnVisible('contractorId') && (
                                         <td className="relative border-r border-border/15 p-0">
                                             {renderContractorTeamDropdown(order, index)}
                                         </td>
-
-                                        {/* Status Select */}
+                                        )}
+                                        {isColumnVisible('sltsStatus') && (
                                         <td className="relative border-r border-border/15 p-0">
                                             <select
                                                 value={order.sltsStatus}
@@ -1034,13 +1093,13 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             </select>
                                             {renderCellStatus(order.id, "sltsStatus")}
                                         </td>
-
-                                        {/* Return Reason (Read only from SLT Portal) */}
+                                        )}
+                                        {isColumnVisible('returnReason') && (
                                         <td className="px-2 border-r border-border/15 text-[10px] truncate font-semibold text-rose-500 uppercase" title={order.returnReason || order.status || ""}>
                                             {order.returnReason || order.status || "-"}
                                         </td>
-
-                                        {/* Comments */}
+                                        )}
+                                        {isColumnVisible('comments') && (
                                         <td className="relative border-r border-border/15 p-0 group">
                                             <input
                                                 type="text"
@@ -1064,39 +1123,40 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             )}
                                             {renderCellStatus(order.id, "comments")}
                                         </td>
+                                        )}
                                     </>
                                 )}
 
                                 {/* PENDING / DISPATCH VIEW */}
                                 {(filterType === "pending" || filterType === "disappeared") && (
                                     <>
-                                        {/* Customer Details */}
+                                        {isColumnVisible('customerName') && (
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[175px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
                                                 {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
-
-                                        {/* Voice/TP Number & Order Type (Read-only) */}
+                                        )}
+                                        {isColumnVisible('voiceNumber') && (
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] font-medium text-foreground truncate" title={`${order.voiceNumber || ""} - ${order.orderType || ""}`}>
                                             <div className="flex flex-col gap-0.5">
                                                 <span>{order.voiceNumber || "-"}</span>
                                                 {order.orderType && <span className="text-[8.5px] text-muted-foreground font-semibold uppercase">{order.orderType}</span>}
                                             </div>
                                         </td>
-
-                                        {/* DP (Read-only) */}
+                                        )}
+                                        {isColumnVisible('dp') && (
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] font-mono text-foreground truncate max-w-[120px]" title={order.dp || ""}>
                                             {order.dp || "-"}
                                         </td>
-
-                                        {/* Contractor Dropdown */}
+                                        )}
+                                        {isColumnVisible('contractorId') && (
                                         <td className="relative border-r border-border/15 p-0">
                                             {renderContractorTeamDropdown(order, index)}
                                         </td>
-
-                                        {/* SLTS Status Dropdown */}
+                                        )}
+                                        {isColumnVisible('sltsStatus') && (
                                         <td className="relative border-r border-border/15 p-0">
                                             <select
                                                 value={(order.status === "ASSIGNED" || order.status === "ASSIGN") ? "ASSIGNED" : order.sltsStatus}
@@ -1130,8 +1190,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             </select>
                                             {renderCellStatus(order.id, "sltsStatus")}
                                         </td>
-
-                                        {/* Appointment Inline */}
+                                        )}
+                                        {isColumnVisible('scheduledDate') && (
                                         <td className="relative border-r border-border/15 p-0 w-[105px] min-w-[105px]">
                                             <div className="relative w-full min-h-[32px] flex items-center justify-center px-1 py-0.5">
                                                 <input
@@ -1160,8 +1220,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             </div>
                                             {renderCellStatus(order.id, "scheduledDate")}
                                         </td>
-
-                                        {/* Comments */}
+                                        )}
+                                        {isColumnVisible('comments') && (
                                         <td className="relative border-r border-border/15 p-0 group">
                                             <input
                                                 type="text"
@@ -1185,6 +1245,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             )}
                                             {renderCellStatus(order.id, "comments")}
                                         </td>
+                                        )}
                                     </>
                                 )}
 

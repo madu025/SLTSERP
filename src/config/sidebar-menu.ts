@@ -827,12 +827,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
-                title: 'User Permissions',
-                path: '/admin/user-permissions',
-                icon: Shield,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            },
-            {
                 title: 'Section Role Permissions',
                 path: '/admin/roles',
                 icon: ShieldCheck,

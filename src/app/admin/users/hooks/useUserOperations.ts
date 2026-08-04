@@ -15,6 +15,7 @@ const userSchema = z.object({
     opmcIds: z.array(z.string()),
     supervisorId: z.string().optional(),
     assignedStoreId: z.string().optional(),
+    permissions: z.array(z.string()).optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;

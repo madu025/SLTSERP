@@ -52,6 +52,7 @@ interface UserData {
     role: { id: string; name: string };
     isPrimary: boolean;
   }>;
+  permissions?: string[];
 }
 
 interface OPMC {
@@ -120,12 +121,16 @@ export default function UserRegistrationPage() {
     setShowDrawer(true);
   };
 
-  const handleFormSubmit = async (values: UserFormValues & { sectionAssignments?: Array<{ sectionId: string; roleId: string; isPrimary: boolean }> }) => {
-    const { sectionAssignments, ...userValues } = values;
+  const handleFormSubmit = async (values: UserFormValues & { 
+    sectionAssignments?: Array<{ sectionId: string; roleId: string; isPrimary: boolean }>
+    permissions?: string[]
+  }) => {
+    const { sectionAssignments, permissions, ...userValues } = values;
     
     // Create or update user (this also creates the primary section assignment based on role)
     const result = await upsertMutation.mutateAsync({
       ...userValues,
+      permissions: permissions && permissions.length > 0 ? permissions : undefined,
       id: selectedUser?.id
     }) as { success: boolean; data?: { id: string }; error?: string };
     
@@ -539,7 +544,8 @@ export default function UserRegistrationPage() {
           assignedStoreId: selectedUser.assignedStoreId || 'none',
           opmcIds: selectedUser.accessibleOpmcs.map(o => o.id),
           status: selectedUser.status || 'active',
-          sectionAssignments: selectedUser.sectionAssignments
+          sectionAssignments: selectedUser.sectionAssignments,
+          permissions: selectedUser.permissions || []
         } : undefined, [selectedUser])}
         isSubmitting={upsertMutation.isPending}
         users={users}

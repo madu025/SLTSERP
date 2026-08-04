@@ -94,10 +94,20 @@ function SidebarContent() {
         : '??';
     const roleLabel = ROLE_LABELS[userRole] || userRole?.replace(/_/g, ' ') || 'User';
 
-    const handleLogout = () => {
-        const isContractor = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(userRole);
+    const handleLogout = async () => {
+        try {
+            // 1. Call logout API to clear the httpOnly token cookie
+            await fetch('/api/logout', { method: 'POST' });
+        } catch {
+            // Ignore errors, continue with client-side cleanup
+        }
+
+        // 2. Clear all client-side storage
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+
+        // 3. Redirect to appropriate login page
+        const isContractor = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(userRole);
         window.location.href = isContractor ? '/contractor/login' : '/login';
     };
 

@@ -10,7 +10,7 @@ export async function createUser(data: any) {
     const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
 
     try {
-        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = data;
+        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
 
         // Validate OPMC requirement
         const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
@@ -48,6 +48,7 @@ export async function createUser(data: any) {
                     password: hashedPassword,
                     name,
                     role: role || 'ENGINEER',
+                    permissions: permissions && permissions.length > 0 ? JSON.stringify(permissions) : null,
                     systemRole: sysRole ? { connect: { id: sysRole.id } } : undefined,
                     staff: staffId ? { connect: { id: staffId } } : undefined,
                     assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : undefined,
@@ -138,7 +139,7 @@ export async function updateUser(data: any) {
     const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
 
     try {
-        const { id, username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = data;
+        const { id, username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
 
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
         if (!existingUser) return { success: false, error: 'User not found' };
@@ -148,6 +149,10 @@ export async function updateUser(data: any) {
         }
 
         const dataToUpdate: any = { username, email, name, role };
+
+        if (permissions !== undefined) {
+            dataToUpdate.permissions = permissions && permissions.length > 0 ? JSON.stringify(permissions) : null;
+        }
 
         if (password && password.length > 0) {
             dataToUpdate.password = await bcrypt.hash(password, 10);

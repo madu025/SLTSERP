@@ -26,6 +26,7 @@ import { MaterialAssignment } from './MaterialAssignment';
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { TABLE_LABELS } from '@/config/table-columns';
 
 interface ColumnConfig {
     key: string;
@@ -38,13 +39,6 @@ interface TableSettings {
     availableColumns: ColumnConfig[];
     visibleColumns: string[];
 }
-
-const TABLE_LABELS: Record<string, string> = {
-    'pending_sod': 'Pending Service Orders',
-    'completed_sod': 'Completed Service Orders',
-    'return_sod': 'Return Service Orders',
-    'restore_request': 'Restore Requests'
-};
 
 const AdminDashboard = () => {
     const router = useRouter();
@@ -74,7 +68,8 @@ const AdminDashboard = () => {
         queryFn: async () => {
             const res = await fetch('/api/admin/table-settings');
             if (!res.ok) throw new Error('Failed to load table settings');
-            return res.json();
+            const json = await res.json();
+            return json.data || json; // Extract data from envelope
         },
         staleTime: 60000
     });

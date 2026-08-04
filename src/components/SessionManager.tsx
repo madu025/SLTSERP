@@ -36,6 +36,26 @@ export default function SessionManager() {
         }
     }, [pathname, router]);
 
+    // Detect browser back/forward cache (bfcache) restoration
+    // If the token cookie was cleared (user logged out), force redirect to login
+    useEffect(() => {
+        const handlePageShow = (event: PageTransitionEvent) => {
+            if (event.persisted) {
+                // Page was restored from bfcache - check if session is still valid
+                const hasUser = localStorage.getItem('user');
+                if (!hasUser) {
+                    // No user data means they logged out - force full reload
+                    console.log('[SESSION-MANAGER] bfcache restore detected after logout, redirecting to login');
+                    const isContractor = window.location.pathname.startsWith('/contractor');
+                    window.location.href = isContractor ? '/contractor/login' : '/login';
+                }
+            }
+        };
+
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+    }, []);
+
     const resetTimer = useCallback(() => {
         if (timerRef.current) clearTimeout(timerRef.current);
 

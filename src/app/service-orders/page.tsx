@@ -24,6 +24,7 @@ import { useSODOperations } from "./hooks/useSODOperations";
 import { useSODTable } from "./hooks/useSODTable";
 import { SODSummary } from "./components/SODSummary";
 import { SODSheetTable } from "./components/SODSheetTable";
+import { useTableColumnSettings } from "@/hooks/useTableColumnSettings";
 
 const ManualEntryModal = dynamic(() => import("@/components/modals/ManualEntryModal"), { ssr: false });
 const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"), { ssr: false });
@@ -112,6 +113,10 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
     // --- HOOKS ---
     const { syncMutation, addOrderMutation, updateStatusMutation, scheduleMutation, commentMutation } = useSODOperations(selectedRtomId, selectedRtom, filterType);
+
+    // Table column visibility settings from admin
+    const tableName = filterType === 'completed' || filterType === 'install_closed' ? 'completed_sod' : filterType === 'return' ? 'return_sod' : 'pending_sod';
+    const { visibleColumns } = useTableColumnSettings(tableName);
 
     // Fetch OPMCs for context
     const { data: opmcs = [] } = useQuery<OPMC[]>({
@@ -558,6 +563,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                     isAllSelected={isAllSelected}
                                     onSort={requestSort}
                                     sortConfig={sortConfig}
+                                    visibleColumns={visibleColumns}
                                     onUpdateField={async (id, data) => {
                                         return updateStatusMutation.mutateAsync({ id, ...data });
                                     }}
