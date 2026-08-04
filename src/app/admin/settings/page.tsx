@@ -27,6 +27,9 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TABLE_LABELS } from '@/config/table-columns';
+// TODO: Re-enable when Table Column Layout Builder is complete
+// import { TABLE_GROUPS } from '@/config/table-columns';
+// import { ColumnLayoutBuilder } from '@/components/ColumnLayoutBuilder';
 
 interface ColumnConfig {
     key: string;
@@ -136,7 +139,7 @@ const AdminDashboard = () => {
 
                         {/* Section-by-Section Categorized Tabs */}
                         <Tabs defaultValue="finance" value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-                            <TabsList className="bg-slate-200/80 p-1 rounded-2xl grid grid-cols-2 md:grid-cols-5 gap-1 h-auto">
+                            <TabsList className="bg-slate-200/80 p-1 rounded-2xl grid grid-cols-2 md:grid-cols-4 gap-1 h-auto">
                                 <TabsTrigger
                                     value="finance"
                                     className="rounded-xl py-2.5 text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm flex items-center justify-center gap-2"
@@ -169,6 +172,7 @@ const AdminDashboard = () => {
                                     <span>4. Operations & Maintenance</span>
                                 </TabsTrigger>
 
+                                {/* TODO: Table Column Layout Builder - under development
                                 <TabsTrigger
                                     value="tables"
                                     className="rounded-xl py-2.5 text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-slate-800 data-[state=active]:shadow-sm flex items-center justify-center gap-2"
@@ -176,6 +180,7 @@ const AdminDashboard = () => {
                                     <TableIcon className="w-4 h-4" />
                                     <span>5. Table Column Layouts</span>
                                 </TabsTrigger>
+                                */}
                             </TabsList>
 
                             {/* TAB 1: FINANCE SECTION */}
@@ -201,34 +206,7 @@ const AdminDashboard = () => {
                                 <AdvancedOperationsCard />
                             </TabsContent>
 
-                            {/* TAB 5: TABLE PREFERENCES SECTION */}
-                            <TabsContent value="tables">
-                                <Card className="border-slate-200 shadow-sm">
-                                    <CardHeader className="py-4 border-b border-slate-100">
-                                        <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-                                            <TableIcon className="w-5 h-5 text-blue-600" />
-                                            Table Column Visibility & Layout Preferences
-                                        </CardTitle>
-                                        <CardDescription className="text-xs">Customize visible columns and ordering for system data tables.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="p-6">
-                                        <div className="grid gap-6">
-                                            {Object.entries(settings || {}).map(([tableName, tableSettings]) => {
-                                                if (!tableSettings) return null;
-                                                return (
-                                                    <TableConfigCard
-                                                        key={tableName}
-                                                        tableName={tableName}
-                                                        settings={tableSettings}
-                                                        onSave={(cols) => mutation.mutate({ tableName, visibleColumns: cols })}
-                                                        isSaving={mutation.isPending}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
+                            {/* TODO: Table Column Layout Builder - under development */}
                         </Tabs>
                     </div>
                 </div>
@@ -881,64 +859,4 @@ function AdvancedOperationsCard() {
     );
 }
 
-// ----------------------------------------------------------------------
-// TABLE CONFIG CARD HELPER COMPONENT
-// ----------------------------------------------------------------------
-function TableConfigCard({ tableName, settings, onSave, isSaving }: { tableName: string, settings: TableSettings, onSave: (cols: string[]) => void, isSaving: boolean }) {
-    const initialVisible = Array.isArray(settings?.visibleColumns) ? settings.visibleColumns : [];
-    const availableCols = Array.isArray(settings?.availableColumns) ? settings.availableColumns : [];
-    const [visible, setVisible] = useState<string[]>(initialVisible);
 
-    const [prevPropsSettings, setPrevPropsSettings] = useState<string[]>(initialVisible);
-
-    if (Array.isArray(settings?.visibleColumns) && settings.visibleColumns.join(',') !== prevPropsSettings.join(',')) {
-        setPrevPropsSettings(settings.visibleColumns);
-        setVisible(settings.visibleColumns);
-    }
-
-    const toggleColumn = useCallback((key: string) => {
-        setVisible(prev =>
-            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-        );
-    }, []);
-
-    const label = TABLE_LABELS[tableName] || tableName.toUpperCase();
-
-    return (
-        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-            <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-900 uppercase">{label} ({visible.length} Columns Active)</span>
-                <Button
-                    size="sm"
-                    onClick={() => onSave(visible)}
-                    disabled={isSaving}
-                    className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                >
-                    {isSaving ? 'Saving...' : 'Save Layout'}
-                </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-                {availableCols.map((col) => {
-                    const isChecked = visible.includes(col.key);
-                    return (
-                        <button
-                            key={col.key}
-                            type="button"
-                            onClick={() => !col.required && toggleColumn(col.key)}
-                            disabled={col.required}
-                            className={cn(
-                                "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5",
-                                isChecked ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300",
-                                col.required && "opacity-60 cursor-not-allowed"
-                            )}
-                        >
-                            <span>{col.label}</span>
-                            {col.required && <span className="text-[10px] text-slate-400">(Required)</span>}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
