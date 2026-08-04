@@ -7,6 +7,10 @@ import { SODInvoicingService } from './sod.invoicing.service';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { eventBus } from '@/lib/events/event-bus';
 import { safe } from '@/utils/safe-await.util';
+import { SOD_EXTERNAL_COMPLETION_STATUSES, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
+
+/** Valid ServiceOrderStatus enum members — guards raw portal/UI strings before Prisma writes */
+export const SERVICE_ORDER_STATUS_VALUES = new Set<string>(Object.keys(ServiceOrderStatus));
 
 export class SODLifecycleService {
     /**
@@ -59,8 +63,14 @@ export class SODLifecycleService {
         if (comments !== undefined) updateData.comments = comments;
         if (otherData.wiredOnly !== undefined) updateData.wiredOnly = otherData.wiredOnly;
 
-        // SLT Status fields mapping
-        if (status) updateData.status = status as ServiceOrderStatus;
+        // SLT Status fields mapping (enum-guarded — raw portal strings must not hit Prisma unvalidated)
+        if (status) {
+            const statusUpper = String(status).toUpperCase().trim();
+            if (!SERVICE_ORDER_STATUS_VALUES.has(statusUpper)) {
+                throw AppError.badRequest(`INVALID_STATUS: ${statusUpper}`);
+            }
+            updateData.status = statusUpper as ServiceOrderStatus;
+        }
         if (statusDate) updateData.statusDate = new Date(statusDate);
         if (receivedDate) updateData.receivedDate = new Date(receivedDate);
 
@@ -142,14 +152,27 @@ export class SODLifecycleService {
         userId: string = 'SYSTEM',
         tx?: TransactionClient
     ) {
-        // Track status history if status changed
-        if (serviceOrder.status && serviceOrder.status !== oldOrder.status) {
+        // Track status history if legacy status changed
+        const legacyStatusChanged = !!serviceOrder.status && serviceOrder.status !== oldOrder.status;
+        if (legacyStatusChanged) {
             await ServiceOrderRepository.createStatusHistory({
                 serviceOrderId: serviceOrder.id,
                 status: serviceOrder.status as ServiceOrderStatus,
                 statusDate: updateData.statusDate 
                     ? new Date(updateData.statusDate as string | Date) 
                     : (oldOrder.statusDate || new Date())
+            }, tx || prisma);
+        }
+
+        // Track sltsStatus transitions (effective routing field) — skip exact duplicate of legacy row
+        const sltsStatusChanged = serviceOrder.sltsStatus !== oldOrder.sltsStatus;
+        if (sltsStatusChanged && (!legacyStatusChanged || serviceOrder.sltsStatus !== serviceOrder.status)) {
+            await ServiceOrderRepository.createStatusHistory({
+                serviceOrderId: serviceOrder.id,
+                status: serviceOrder.sltsStatus as ServiceOrderStatus,
+                statusDate: updateData.statusDate
+                    ? new Date(updateData.statusDate as string | Date)
+                    : (updateData.completedDate ? new Date(updateData.completedDate as string | Date) : new Date())
             }, tx || prisma);
         }
 
@@ -289,16 +312,14 @@ export class SODLifecycleService {
      */
     static mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN' {
         const conStatusUpper = (externalStatus || '').toUpperCase();
-        const completionStatuses = ['INSTALL_CLOSED', 'COMPLETED', 'FINISHED'];
-        const returnStatuses = ['RETURN', 'RETURNED', 'FIELD_RETURN', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
         
         const isPatRejection = conStatusUpper.includes('PAT') || conStatusUpper.includes('OPMC_REJECT') || conStatusUpper.includes('HO_REJECT');
         
-        if (completionStatuses.includes(conStatusUpper)) {
+        if ((SOD_EXTERNAL_COMPLETION_STATUSES as readonly string[]).includes(conStatusUpper)) {
             return 'COMPLETED';
         } else if (conStatusUpper === 'PROV_CLOSED') {
             return 'PROV_CLOSED';
-        } else if (!isPatRejection && (returnStatuses.includes(conStatusUpper) || conStatusUpper.includes('RETURN') || conStatusUpper.includes('CANCEL'))) {
+        } else if (!isPatRejection && ((SOD_RETURN_STATUSES as readonly string[]).includes(conStatusUpper) || conStatusUpper.includes('RETURN') || conStatusUpper.includes('CANCEL'))) {
             return 'RETURN';
         }
         return 'INPROGRESS';

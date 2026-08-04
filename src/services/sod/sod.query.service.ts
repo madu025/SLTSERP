@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrderStatus } from '@prisma/client';
 import { GetServiceOrdersParams } from './sod-types';
+import { SOD_QUERY_COMPLETION_STATUSES, SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
 
 interface ServiceOrderItemWithIptv {
     id: string;
@@ -149,19 +150,9 @@ export class SODQueryService {
             }
         }
 
-        // Status Filtering
-        const completionStatuses: ServiceOrderStatus[] = [
-            ServiceOrderStatus.COMPLETED,
-            ServiceOrderStatus.INSTALL_CLOSED,
-            ServiceOrderStatus.PAT_OPMC_PASSED,
-            ServiceOrderStatus.PAT_CORRECTED
-        ];
-        const excludedSltsStatuses: ServiceOrderStatus[] = [
-            ServiceOrderStatus.COMPLETED,
-            ServiceOrderStatus.INSTALL_CLOSED,
-            ServiceOrderStatus.RETURN,
-            ServiceOrderStatus.DISAPPEARED
-        ];
+        // Status Filtering (using centralized constants from sod-constants.ts)
+        const completionStatuses = SOD_QUERY_COMPLETION_STATUSES as unknown as ServiceOrderStatus[];
+        const excludedSltsStatuses = SOD_EXCLUDED_FROM_PENDING as unknown as ServiceOrderStatus[];
 
         if (filter === 'pending') {
             if (statusFilter === 'RETURN') {
@@ -174,8 +165,12 @@ export class SODQueryService {
             }
         } else if (filter === 'install_closed') {
             andFilters.push({
-                status: ServiceOrderStatus.INSTALL_CLOSED,
-                sltsStatus: { notIn: [ServiceOrderStatus.RETURN] }
+                OR: [
+                    { status: ServiceOrderStatus.INSTALL_CLOSED },
+                    { sltsStatus: ServiceOrderStatus.INSTALL_CLOSED }
+                ],
+                // DISAPPEARED (portal connection lost before completion) must never surface here
+                sltsStatus: { notIn: [ServiceOrderStatus.RETURN, ServiceOrderStatus.DISAPPEARED] }
             });
         } else if (filter === 'completed') {
             andFilters.push({
@@ -188,9 +183,7 @@ export class SODQueryService {
                     { sltsStatus: ServiceOrderStatus.PROV_CLOSED },
                     { sltsStatus: ServiceOrderStatus.RETURN },
                     { status: ServiceOrderStatus.RETURNED },
-                    { sltsStatus: ServiceOrderStatus.DISAPPEARED },
-                    { status: ServiceOrderStatus.PAT_OPMC_REJECTED },
-                    { status: ServiceOrderStatus.PAT_REJECTED }
+                    { sltsStatus: ServiceOrderStatus.DISAPPEARED }
                 ]
             });
         } else if (filter === 'disappeared') {
@@ -211,11 +204,13 @@ export class SODQueryService {
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
             if (statusFilter === 'ASSIGNED') {
                 andFilters.push({ status: { in: [ServiceOrderStatus.ASSIGNED, ServiceOrderStatus.ASSIGN] } });
+            } else if (statusFilter === 'OFFLINE') {
+                andFilters.push({ isOfflineWorkOrder: true });
             } else {
                 andFilters.push({ status: statusFilter as ServiceOrderStatus });
             }
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
-            andFilters.push({ status: { in: [ServiceOrderStatus.PENDING, ServiceOrderStatus.ASSIGNED, ServiceOrderStatus.ASSIGN, ServiceOrderStatus.INPROGRESS, ServiceOrderStatus.PROV_CLOSED, ServiceOrderStatus.OFFLINE] } });
+            andFilters.push({ status: { in: SOD_PENDING_DEFAULT_STATUSES as unknown as ServiceOrderStatus[] } });
         }
 
         if (patFilter && patFilter !== 'ALL') {

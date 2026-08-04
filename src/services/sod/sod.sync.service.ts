@@ -6,7 +6,7 @@ import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
-import { SODLifecycleService } from './sod.lifecycle.service';
+import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from './sod.lifecycle.service';
 import { SodUtils } from './sod.utils';
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
@@ -423,13 +423,14 @@ export class SODSyncService {
             let updated = 0;
             const results: Array<{ rtom: string; success: boolean; created?: number; updated?: number; error?: string }> = [];
 
-            // ── Optimization: Pre-load ALL INPROGRESS SODs across every OPMC in one query ──
+            // ── Optimization: Pre-load all open SODs across every OPMC in one query ──
             // This eliminates 44 per-OPMC findMany queries for disappeared SOD detection.
+            // PROV_CLOSED included per domain rule: stuck-in-PROV_CLOSED + portal drop-off = DISAPPEARED.
             const allOpmcIds = opmcs.map(o => o.id);
             const allPendingSods = await prisma.serviceOrder.findMany({
                 where: {
                     opmcId: { in: allOpmcIds },
-                    sltsStatus: 'INPROGRESS',
+                    sltsStatus: { in: ['INPROGRESS', 'PROV_CLOSED'] },
                     isOfflineWorkOrder: false,
                     isManualEntry: false,
                     isLegacyImport: false
@@ -578,7 +579,14 @@ export class SODSyncService {
         const uniqueSyncMap = new Map<string, SLTServiceOrderData>();
         sltData.forEach(item => {
             const existing = existingMap.get(item.SO_NUM);
-            if (existing?.sltsStatus === 'COMPLETED') return;
+            if (existing) {
+                const incomingStatus = (item.CON_STATUS || '').toUpperCase().trim();
+                const incomingMapped = SODLifecycleService.mapExternalStatusToSltsStatus(incomingStatus);
+                const isIncomingTerminal = ['COMPLETED', 'INSTALL_CLOSED', 'DISAPPEARED'].includes(incomingMapped);
+                const isExistingTerminal = ['COMPLETED', 'INSTALL_CLOSED', 'DISAPPEARED'].includes(existing.sltsStatus);
+                // Only skip if both existing and incoming are terminal AND same status (allow INSTALL_CLOSED correction)
+                if (isExistingTerminal && isIncomingTerminal && existing.sltsStatus === (incomingStatus === 'INSTALL_CLOSED' ? 'INSTALL_CLOSED' : incomingMapped)) return;
+            }
             const currentInMap = uniqueSyncMap.get(item.SO_NUM);
             if (currentInMap && currentInMap.CON_STATUS === 'INSTALL_CLOSED') return;
             uniqueSyncMap.set(item.SO_NUM, item);
@@ -596,6 +604,8 @@ export class SODSyncService {
             const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
             const cleanStatus = (item.CON_STATUS || '').toUpperCase().trim();
             const initialSltsStatus = SODLifecycleService.mapExternalStatusToSltsStatus(cleanStatus);
+            const isInstallClosed = cleanStatus === 'INSTALL_CLOSED';
+            const effectiveSltsStatus = isInstallClosed ? 'INSTALL_CLOSED' as const : initialSltsStatus;
 
             const isOfflineType = offlineOrderTypes.includes((item.ORDER_TYPE || '').toUpperCase());
             const isOfflineFlag = isOfflineType || cleanStatus === 'OFFLINE';
@@ -658,8 +668,8 @@ export class SODSyncService {
                 ospPhoneClass: item.CON_OSP_PHONE_CLASS,
                 phonePurchase: item.CON_PHN_PURCH,
                 sales: item.CON_SALES,
-                completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined,
-                sltsStatus: initialSltsStatus,
+                completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed) ? statusDate : undefined,
+                sltsStatus: effectiveSltsStatus,
                 isOfflineWorkOrder: isOfflineFlag ? true : undefined,
                 contractorId: contractorId || undefined,
                 teamId: teamId || undefined,
@@ -668,9 +678,9 @@ export class SODSyncService {
             };
 
             if (existing) {
-                toUpdate.push({ existing, updatePayload, initialSltsStatus });
+                toUpdate.push({ existing, updatePayload, initialSltsStatus: effectiveSltsStatus });
             } else {
-                const isFinished = initialSltsStatus === 'COMPLETED';
+                const isFinished = effectiveSltsStatus === 'COMPLETED' || effectiveSltsStatus === 'INSTALL_CLOSED';
                 const isRecent = statusDate.getFullYear() >= 2026;
                 if (!isFinished || isRecent) {
                     toCreate.push({
@@ -680,9 +690,9 @@ export class SODSyncService {
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
                         receivedDate: statusDate,
-                        completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : null,
-                        sltsStatus: initialSltsStatus,
-                        status: contractorId ? 'INPROGRESS' : 'PENDING'
+                        completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed) ? statusDate : null,
+                        sltsStatus: effectiveSltsStatus,
+                        status: isInstallClosed ? 'INSTALL_CLOSED' : (contractorId ? 'INPROGRESS' : 'PENDING')
                     } as Prisma.ServiceOrderUncheckedCreateInput);
                 }
             }
@@ -729,7 +739,7 @@ export class SODSyncService {
                 }
 
                 const [err] = await safe(prisma.$transaction(async (tx) => {
-                    await tx.serviceOrder.update({
+                    const updatedOrder = await tx.serviceOrder.update({
                         where: { id: existing.id },
                         data: {
                             ...updatePayload,
@@ -746,6 +756,15 @@ export class SODSyncService {
                         await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
                         await LedgerService.rollbackSodTransaction(tx, existing.id);
                     }
+
+                    // Audit trail: write status history + publish status-change event for sync-driven transitions
+                    await SODLifecycleService.handlePostUpdate(
+                        { status: existing.status, sltsStatus: existing.sltsStatus, statusDate: null },
+                        updatedOrder,
+                        updatePayload,
+                        'SYNC_SERVICE',
+                        tx
+                    );
                 }));
 
                 if (err) {
@@ -771,7 +790,9 @@ export class SODSyncService {
         const localPendingSods = preloadedPendingSods ?? await prisma.serviceOrder.findMany({
             where: {
                 opmcId,
-                sltsStatus: 'INPROGRESS',
+                // PROV_CLOSED included: a SOD stuck in PROV_CLOSED that drops off the portal
+                // (connection lost before COMPLETED) is the DISAPPEARED case per domain rule
+                sltsStatus: { in: ['INPROGRESS', 'PROV_CLOSED'] },
                 isOfflineWorkOrder: false,
                 isManualEntry: false,
                 isLegacyImport: false
@@ -809,31 +830,29 @@ export class SODSyncService {
                 if (extStatus) {
                     const statusUpper = String(extStatus.status || '').toUpperCase();
                     const statusDate = sltApiService.parseStatusDate(extStatus.statusDate) || new Date();
-                    const completionStatuses = ['INSTALL_CLOSED'];
-                    const returnStatuses = ['RETURN', 'RETURNED', 'FIELD_RETURN', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
-                    const isPatRejection = statusUpper.includes('PAT') || statusUpper.includes('OPMC_REJECT') || statusUpper.includes('HO_REJECT');
 
-                    let nextSltsStatus = 'INPROGRESS';
+                    // Canonical mapping: COMPLETED family, PROV_CLOSED, RETURN family
                     const rawItemObj = extStatus.rawItem as Record<string, unknown> | undefined;
                     const rawOrderType = (rawItemObj?.ORDER_TYPE as string | undefined) || '';
                     const isOfflineType = rawOrderType ? offlineOrderTypes.includes(rawOrderType.toUpperCase()) : false;
 
-                    if (completionStatuses.includes(extStatus.status)) {
+                    let nextSltsStatus: string = SODLifecycleService.mapExternalStatusToSltsStatus(statusUpper);
+                    if (statusUpper === SodStatus.INSTALL_CLOSED) {
+                        nextSltsStatus = SodStatus.INSTALL_CLOSED;
+                    } else if (nextSltsStatus === 'INPROGRESS') {
+                        // Found in completed/rejected lists with an unmapped status — treat as COMPLETED
+                        // (PAT_OPMC_REJECTED etc. are work-order complete per domain rule)
                         nextSltsStatus = 'COMPLETED';
-                    } else if (statusUpper === 'PROV_CLOSED') {
-                        nextSltsStatus = 'PROV_CLOSED';
-                    } else if (!isPatRejection && (returnStatuses.includes(statusUpper) || statusUpper.includes('RETURN') || statusUpper.includes('CANCEL'))) {
-                        nextSltsStatus = 'RETURN';
                     }
 
                     if (nextSltsStatus !== 'INPROGRESS') {
                         const [disError] = await safe(prisma.$transaction(async (tx) => {
                             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                                status: extStatus.status as import("@prisma/client").ServiceOrderStatus,
+                                status: SERVICE_ORDER_STATUS_VALUES.has(statusUpper) ? statusUpper as import("@prisma/client").ServiceOrderStatus : undefined,
                                 statusDate,
                                 sltsStatus: nextSltsStatus as import("@prisma/client").ServiceOrderStatus,
                                 completionMode: isOfflineType ? 'OFFLINE' : undefined,
-                                completedDate: nextSltsStatus === 'COMPLETED' ? statusDate : undefined,
+                                completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED') ? statusDate : undefined,
                                 returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined
                             };
 
@@ -860,7 +879,7 @@ export class SODSyncService {
                                 });
                             }
 
-                            await tx.serviceOrder.update({
+                            const updatedDisappeared = await tx.serviceOrder.update({
                                 where: { id: disappearedSod.id },
                                 data: updatePayload
                             });
@@ -869,6 +888,15 @@ export class SODSyncService {
                                 await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'SYNC_SERVICE');
                                 await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
                             }
+
+                            // Audit trail: record disappeared-SOD status transition
+                            await SODLifecycleService.handlePostUpdate(
+                                { status: disappearedSod.status, sltsStatus: disappearedSod.sltsStatus, statusDate: null },
+                                updatedDisappeared,
+                                updatePayload,
+                                'SYNC_SERVICE',
+                                tx
+                            );
                         }));
                         if (disError) {
                             console.error(`[SYNC-DISAPPEARED] Failed to process disappeared SOD ${disappearedSod.soNum}:`, disError);
@@ -880,7 +908,7 @@ export class SODSyncService {
                     // Disappeared and not found anywhere in completed or rejected -> mark as DISAPPEARED
                     console.log(`[SYNC-DISAPPEARED] SOD ${disappearedSod.soNum} not found in completed/rejected lists. Marking as DISAPPEARED.`);
                     const [disError] = await safe(prisma.$transaction(async (tx) => {
-                        await tx.serviceOrder.update({
+                        const markedDisappeared = await tx.serviceOrder.update({
                             where: { id: disappearedSod.id },
                             data: {
                                 status: 'DISAPPEARED',
@@ -892,6 +920,15 @@ export class SODSyncService {
                             }
                         });
                         // No material rollback for DISAPPEARED status
+
+                        // Audit trail: record DISAPPEARED transition
+                        await SODLifecycleService.handlePostUpdate(
+                            { status: disappearedSod.status, sltsStatus: disappearedSod.sltsStatus, statusDate: null },
+                            markedDisappeared,
+                            { statusDate: new Date() },
+                            'SYNC_SERVICE',
+                            tx
+                        );
                     }));
                     if (disError) {
                         console.error(`[SYNC-DISAPPEARED] Failed to process disappeared SOD ${disappearedSod.soNum}:`, disError);
@@ -1134,10 +1171,10 @@ export class SODSyncService {
         const currentStatus = statusStr.toUpperCase();
 
         const isCompletedStatus =
-            [SodStatus.COMPLETED, 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus);
+            [SodStatus.COMPLETED, 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus);
 
         if (isCompletedStatus && !isServiceReturn) {
-            dataToUpdate.sltsStatus = SodStatus.COMPLETED;
+            dataToUpdate.sltsStatus = currentStatus === 'INSTALL_CLOSED' ? SodStatus.INSTALL_CLOSED : SodStatus.COMPLETED;
 
             // 1. Work Done Date (INSTALL_CLOSED Date - Physical Field Work Completion)
             let installDate = serviceOrder?.completedDate;
@@ -1184,7 +1221,7 @@ export class SODSyncService {
                 dataToUpdate.sltsPatStatus = 'PASSED';
                 dataToUpdate.patStatus = 'PAT_OPMC_PASSED';
             }
-        } else if (isServiceReturn || SOD_RETURN_STATUSES.includes(currentStatus)) {
+        } else if (isServiceReturn || (SOD_RETURN_STATUSES as readonly string[]).includes(currentStatus)) {
             dataToUpdate.sltsStatus = SodStatus.RETURN;
             const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
             const classification = SODReturnClassifierService.classify(rawReason);

@@ -85,6 +85,47 @@ export class SLTApiService {
         return [];
     }
 
+    /**
+     * Fetch APPROVED (PAT_PASSED) SODs — fully completed with all PAT levels passed
+     */
+    async fetchApprovedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]> {
+        const endpoints = [
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load?x=ftth&z=${rtom}_${startDate}_${endDate}_APPROVED_SLTS`,
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=ftth&z=${rtom}_${startDate}_${endDate}_APPROVED_SLTS`
+        ];
+
+        for (const url of endpoints) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                    },
+                    signal: AbortSignal.timeout(30000),
+                });
+
+                if (response.ok) {
+                    const data: SLTApiResponse = await response.json();
+                    if (data && Array.isArray(data.data)) {
+                        return data.data.map((item) => {
+                            const status = item.CON_STATUS || 'PAT_PASSED';
+                            return {
+                                ...item,
+                                CON_STATUS: status === 'ASSIGN' ? 'ASSIGNED' : status,
+                                CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
+                            } as SLTServiceOrderData;
+                        });
+                    }
+                }
+            } catch {
+                // Try next endpoint
+            }
+        }
+        return [];
+    }
+
     async fetchServiceOrders(rtom: string): Promise<SLTServiceOrderData[]> {
         try {
             const url = `${this.baseUrl}?x=ftthpen&z=SLTS_${rtom}`;

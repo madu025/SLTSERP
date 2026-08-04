@@ -1,4 +1,32 @@
-# Grill-Me Session Log 鈥� Production Build Readiness Audit
+# Grill-Me Session Log 閳ワ拷 Production Build Readiness Audit
+
+## Session: 2026-08-04 — SOD Status Routing & 3-Endpoint Table Assignment
+
+**Scope**: Correct routing of SODs from SLT portal endpoints to Pending / Install Closed / Completed tables.
+
+### Portal Endpoints → Table Mapping (User-Confirmed Domain Rules)
+
+| Endpoint | Purpose | Statuses | Target Table |
+|---|---|---|---|
+| `ftthpen` | Active/pending work | ASSIGNED, INPROGRESS, PROV_CLOSED | Pending |
+| `ftthpen` | Install closed | INSTALL_CLOSED | Install Closed |
+| `_COMPLETED_SLTS` | Work order complete | INSTALL_CLOSED, PAT_OPMC_PASSED, PAT_OPMC_REJECTED | Completed |
+| `_APPROVED_SLTS` | Fully approved (PAT_PASSED) | PAT_PASSED | Completed |
+
+### Findings & Fixes
+
+| # | Auditor | Finding | Fix | File |
+|---|---|---|---|---|
+| M1 | Data Integrity | PAT_PASSED/PAT_OPMC_PASSED not in completion statuses → mapped to INPROGRESS | Added to SOD_EXTERNAL_COMPLETION_STATUSES | sod-constants.ts |
+| M2 | Data Integrity | PAT_OPMC_REJECTED from COMPLETED_SLTS mapped to INPROGRESS | Override in resolveSltsStatus → COMPLETED | completed-sod-sync.service.ts |
+| M3 | Integration | _APPROVED_SLTS endpoint never fetched | Added fetchApprovedSODs + integrated | slt-api.service.ts, completed-sod-sync.service.ts |
+| M4 | Query | Completed table NOT clause excluded PAT_OPMC_REJECTED/PAT_REJECTED | Removed from NOT clause | sod.query.service.ts |
+| M5 | Edge Case | isPatRejection guard blocked PAT statuses from completion in disappeared path | Removed guard — all found in completed/rejected lists → COMPLETED | sod.sync.service.ts |
+
+### Verification
+- `npx tsc --noEmit`: 0 errors
+
+---
 
 **Date**: 2026-07-28  
 **Scope**: Final Production Build Readiness & Quality Audit across SLTSERP
@@ -7,17 +35,17 @@
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | Wrap remaining raw API routes (`sod-auto-complete`, `gis/upload`, `contracts/slt/ai-parse`) with `apiHandler` | 馃懆馃捇 Architect | SAP BTP / ServiceNow unified API gateway | Low (~15 mins). No downside. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | Enforce Maker-Checker dual approvals on high-value invoice approvals (> LKR 1M) | 馃И QA & Security | Oracle Financials / Banking Segregation of Duties | Low (~20 mins). Adds 1 extra approval step for >1M invoices. | **Auto-Adopted** |
-| **3** | 馃敶 **Must-Have** | Enforce explicit MIN/MRN Issue Note numbers & SHA-256 checksum ledger tracking | 馃憯 OSP Domain SME | Salesforce Field Service Management (FSM) | Low. No downside. | **Auto-Adopted** |
-| **4** | 馃敶 **Must-Have** | Verify `force-dynamic` dynamic caching guards & clean `tsc` / `prisma validate` | 鈿� DevOps Eng. | Next.js High-Availability Production standard | Low. No downside. | **Auto-Adopted** |
-| **5** | 馃煛 **Should-Have** | Rate limiting middleware on public/auth endpoints | 馃И QA & Security | Cloudflare / AWS WAF standard | Medium (~30 mins). Adds Redis/In-memory counter overhead. | **Pending User Approval** |
-| **6** | 馃煛 **Should-Have** | Selective Prisma `select` blocks on heavy JSON blob tables | 鈿� DevOps Eng. | SAP HANA Egress Optimization | Medium (~45 mins). Requires explicit type mapping. | **Pending User Approval** |
-| **7** | 馃數 **Future Roadmap** | Automated multi-tier retention release schedule linked to DLP milestones | 馃搳 CFO | SAP S/4HANA Contract Liabilities | High (~3-5 days). Out of scope for initial release. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | Wrap remaining raw API routes (`sod-auto-complete`, `gis/upload`, `contracts/slt/ai-parse`) with `apiHandler` | 棣冩噯棣冩崌 Architect | SAP BTP / ServiceNow unified API gateway | Low (~15 mins). No downside. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | Enforce Maker-Checker dual approvals on high-value invoice approvals (> LKR 1M) | 棣冃� QA & Security | Oracle Financials / Banking Segregation of Duties | Low (~20 mins). Adds 1 extra approval step for >1M invoices. | **Auto-Adopted** |
+| **3** | 棣冩暥 **Must-Have** | Enforce explicit MIN/MRN Issue Note numbers & SHA-256 checksum ledger tracking | 棣冩啹 OSP Domain SME | Salesforce Field Service Management (FSM) | Low. No downside. | **Auto-Adopted** |
+| **4** | 棣冩暥 **Must-Have** | Verify `force-dynamic` dynamic caching guards & clean `tsc` / `prisma validate` | 閳匡拷 DevOps Eng. | Next.js High-Availability Production standard | Low. No downside. | **Auto-Adopted** |
+| **5** | 棣冪厸 **Should-Have** | Rate limiting middleware on public/auth endpoints | 棣冃� QA & Security | Cloudflare / AWS WAF standard | Medium (~30 mins). Adds Redis/In-memory counter overhead. | **Pending User Approval** |
+| **6** | 棣冪厸 **Should-Have** | Selective Prisma `select` blocks on heavy JSON blob tables | 閳匡拷 DevOps Eng. | SAP HANA Egress Optimization | Medium (~45 mins). Requires explicit type mapping. | **Pending User Approval** |
+| **7** | 棣冩暩 **Future Roadmap** | Automated multi-tier retention release schedule linked to DLP milestones | 棣冩惓 CFO | SAP S/4HANA Contract Liabilities | High (~3-5 days). Out of scope for initial release. | **Logged for Future** |
 
 ---
 
-## Grill-Me Session Log 鈥� Full-Project Hardcode Audit & Automated CLI Scanner
+## Grill-Me Session Log 閳ワ拷 Full-Project Hardcode Audit & Automated CLI Scanner
 
 **Date**: 2026-07-29  
 **Scope**: Complete Codebase Hardcode Detection, Fallback Credential Elimination & Automated Hardcode Audit CLI (`npm run audit:hardcode`)
@@ -26,15 +54,15 @@
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | Build automated CLI Hardcode Audit Script (`scripts/audit-hardcode.ts` + `npm run audit:hardcode`) to scan `src/` for 5 key categories (credentials, localhost URLs, magic enums, hardcoded IDs, financial constants) | 馃懆馃捇 Architect & 鈿� DevOps | SonarQube / ESLint Security AST rules | Low (~30 mins). Negligible runtime overhead; runs on-demand or pre-commit. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | Remove hardcoded fallback credentials (`'admin'`/`'admin'`) in `qfieldcloud-sync.service.ts` and require strict env variables via Zod env validator | 馃И QA & Security | OWASP Top 10 Hardcoded Credentials Prevention | Low (~10 mins). Requires `.env` to be populated in dev. | **Auto-Adopted** |
-| **3** | 馃敶 **Must-Have** | Replace hardcoded `http://localhost:3000` / `8100` fallback strings in workers & services with centralized `getAppUrl()` environment helper | 鈿� DevOps Eng. | 12-Factor App Config Standard | Low (~10 mins). Prevents broken URLs in Vercel/Docker production. | **Auto-Adopted** |
-| **4** | 馃煛 **Should-Have** | Enforce AST-level ESLint custom rule (`no-hardcoded-strings-in-services`) in CI build pipeline | 馃懆馃捇 Architect | Enterprise Monorepo Governance | Medium (~45 mins). Slightly increases CI build lint duration (+2s). | **Pending User Approval** |
-| **5** | 馃數 **Future Roadmap** | Real-time Git pre-commit hook enforcing zero-hardcode policy via Husky/lint-staged | 鈿� DevOps Eng. | GitHub Enterprise Security Shield | Medium (~1 hour). Requires local developer workstation Git hook configuration. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | Build automated CLI Hardcode Audit Script (`scripts/audit-hardcode.ts` + `npm run audit:hardcode`) to scan `src/` for 5 key categories (credentials, localhost URLs, magic enums, hardcoded IDs, financial constants) | 棣冩噯棣冩崌 Architect & 閳匡拷 DevOps | SonarQube / ESLint Security AST rules | Low (~30 mins). Negligible runtime overhead; runs on-demand or pre-commit. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | Remove hardcoded fallback credentials (`'admin'`/`'admin'`) in `qfieldcloud-sync.service.ts` and require strict env variables via Zod env validator | 棣冃� QA & Security | OWASP Top 10 Hardcoded Credentials Prevention | Low (~10 mins). Requires `.env` to be populated in dev. | **Auto-Adopted** |
+| **3** | 棣冩暥 **Must-Have** | Replace hardcoded `http://localhost:3000` / `8100` fallback strings in workers & services with centralized `getAppUrl()` environment helper | 閳匡拷 DevOps Eng. | 12-Factor App Config Standard | Low (~10 mins). Prevents broken URLs in Vercel/Docker production. | **Auto-Adopted** |
+| **4** | 棣冪厸 **Should-Have** | Enforce AST-level ESLint custom rule (`no-hardcoded-strings-in-services`) in CI build pipeline | 棣冩噯棣冩崌 Architect | Enterprise Monorepo Governance | Medium (~45 mins). Slightly increases CI build lint duration (+2s). | **Pending User Approval** |
+| **5** | 棣冩暩 **Future Roadmap** | Real-time Git pre-commit hook enforcing zero-hardcode policy via Husky/lint-staged | 閳匡拷 DevOps Eng. | GitHub Enterprise Security Shield | Medium (~1 hour). Requires local developer workstation Git hook configuration. | **Logged for Future** |
 
 ---
 
-## Grill-Me Session Log 鈥� Contractor Portal Tri-Lingual (EN/SI/TA) & Contractor Switcher Module
+## Grill-Me Session Log 閳ワ拷 Contractor Portal Tri-Lingual (EN/SI/TA) & Contractor Switcher Module
 
 **Date**: 2026-07-30  
 **Scope**: Contractor Portal Tri-Lingual Internationalization (English, Sinhala, Tamil) & Multi-Tenant Contractor Switcher Architecture
@@ -43,16 +71,16 @@
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | Built-in Tri-Lingual Dictionary & i18n Context (`src/i18n/contractor-translations.ts`, `src/context/ContractorI18nContext.tsx`) with instant language toggle selector (English / 喾冟窉喽傕穭喽� / 喈む�喈苦�喁�) in header | 馃懆馃捇 Architect | ServiceNow Mobile Multi-Language FSM | Low (~30 mins). $O(1)$ memory lookup; 0ms latency, zero bundle bloat. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | Dynamic Contractor Switcher Dropdown (`src/components/contractor/ContractorSwitcher.tsx`) in header for Admin/Manager roles with instant React Query cache invalidation (`['contractor-my-dashboard']`) | 馃懆馃捇 Architect & 鈿� DevOps | SAP Field Service Multi-Account Selector | Low (~25 mins). Allows admins/managers to switch contractors on the fly. | **Auto-Adopted** |
-| **3** | 馃敶 **Must-Have** | Tenant Isolation & RBAC Guard: Hide Contractor Switcher for regular contractor roles (`CONTRACTOR_SUPERVISOR`, `CONTRACTOR_TECHNICIAN`), enforcing strict single-tenant view | 馃И QA & Security | OWASP Multi-Tenant Data Isolation | Low (~10 mins). Zero security downside. | **Auto-Adopted** |
-| **4** | 馃敶 **Must-Have** | Technical Term Preservation: Retain industry-standard telecom acronyms (SOD, ONT, FAC, MIN, MRN, RTOM, OPMC) with natural transliteration in Sinhala/Tamil | 馃憯 OSP Domain SME | Salesforce Field Service Localization | Low (~10 mins). Prevents field technician confusion. | **Auto-Adopted** |
-| **5** | 馃煛 **Should-Have** | Localized Currency & Date Formatting: Auto-format LKR currency values ("LKR 150,000" / "喽秽窋. 150,000" / "喈班瘋. 150,000") and dates based on active language | 馃搳 CFO | SAP Financials Global Locale Standard | Medium (~20 mins). Minor UI formatting logic update. | **Pending User Approval** |
-| **6** | 馃數 **Future Roadmap** | Voice-Assisted SOD Status Logging in Sinhala/Tamil using Web Speech API | 馃憯 OSP Domain SME | ServiceNow Voice Assistant for Field Engineers | High (~2-3 days). Logged for future roadmap. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | Built-in Tri-Lingual Dictionary & i18n Context (`src/i18n/contractor-translations.ts`, `src/context/ContractorI18nContext.tsx`) with instant language toggle selector (English / 鍠惧啛绐夊柦鍌曠┉鍠斤拷 / 鍠堛個锟藉枅鑻︼拷鍠侊拷) in header | 棣冩噯棣冩崌 Architect | ServiceNow Mobile Multi-Language FSM | Low (~30 mins). $O(1)$ memory lookup; 0ms latency, zero bundle bloat. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | Dynamic Contractor Switcher Dropdown (`src/components/contractor/ContractorSwitcher.tsx`) in header for Admin/Manager roles with instant React Query cache invalidation (`['contractor-my-dashboard']`) | 棣冩噯棣冩崌 Architect & 閳匡拷 DevOps | SAP Field Service Multi-Account Selector | Low (~25 mins). Allows admins/managers to switch contractors on the fly. | **Auto-Adopted** |
+| **3** | 棣冩暥 **Must-Have** | Tenant Isolation & RBAC Guard: Hide Contractor Switcher for regular contractor roles (`CONTRACTOR_SUPERVISOR`, `CONTRACTOR_TECHNICIAN`), enforcing strict single-tenant view | 棣冃� QA & Security | OWASP Multi-Tenant Data Isolation | Low (~10 mins). Zero security downside. | **Auto-Adopted** |
+| **4** | 棣冩暥 **Must-Have** | Technical Term Preservation: Retain industry-standard telecom acronyms (SOD, ONT, FAC, MIN, MRN, RTOM, OPMC) with natural transliteration in Sinhala/Tamil | 棣冩啹 OSP Domain SME | Salesforce Field Service Localization | Low (~10 mins). Prevents field technician confusion. | **Auto-Adopted** |
+| **5** | 棣冪厸 **Should-Have** | Localized Currency & Date Formatting: Auto-format LKR currency values ("LKR 150,000" / "鍠界Ы绐�. 150,000" / "鍠堢彮鐦�. 150,000") and dates based on active language | 棣冩惓 CFO | SAP Financials Global Locale Standard | Medium (~20 mins). Minor UI formatting logic update. | **Pending User Approval** |
+| **6** | 棣冩暩 **Future Roadmap** | Voice-Assisted SOD Status Logging in Sinhala/Tamil using Web Speech API | 棣冩啹 OSP Domain SME | ServiceNow Voice Assistant for Field Engineers | High (~2-3 days). Logged for future roadmap. | **Logged for Future** |
 
 ---
 
-## Grill-Me Session Log 鈥� Advanced Telemetry & Observability Upgrade
+## Grill-Me Session Log 閳ワ拷 Advanced Telemetry & Observability Upgrade
 
 **Date**: 2026-07-30  
 **Scope**: Advanced System Health Monitoring, Automated Webhook Alerting, SHA-256 Tamper Audit, and Rate-Limit Telemetry
@@ -61,15 +89,15 @@
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | **Automated Webhook & Email Alert Dispatcher for Critical Errors**: Trigger instant notifications (via Webhook / Slack / Email) when critical errors (`EMAXCONNSESSION` or 500 spike >3 in 5m) occur. | 馃懆鈥嶐煉� Lead Architect | Datadog / PagerDuty / Sentry Alerting Rules | Low (~20 mins). Async background dispatch. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | **Financial & Inventory Ledger SHA-256 Checksum Tamper Audit**: Add a 1-click Security Audit button on the telemetry dashboard that validates `InventoryLedger` and `SystemErrorLog` SHA-256 hashes to detect manual SQL tampering. | 馃И QA & Security | Banking & SAP Audit Integrity Ledger | Low (~15 mins). $O(N)$ query over ledger hashes. | **Auto-Adopted** |
-| **3** | 馃煛 **Should-Have** | **Rate-Limiting & Brute-Force Traffic Inspector Panel**: Real-time counter of top offending IP addresses hitting 401/429 endpoints with 1-click IP temporary blocklist. | 馃И QA & Security | Cloudflare / WAF Threat Monitoring | Medium (~30 mins). Requires IP tracking in memory/DB. | **Pending User Approval** |
-| **4** | 馃煛 **Should-Have** | **Contractor Portal Sync & PAT Upload Telemetry Counter**: Real-time health gauge showing contractor offline queue size and pending PAT acceptance orders across RTOMs. | 馃憯 OSP Domain SME | ServiceNow Field Service Health Dashboard | Medium (~20 mins). Adds background query for pending SOD sync states. | **Pending User Approval** |
-| **5** | 馃數 **Future Roadmap** | **PostgreSQL Connection & Slow Query Profiler (`pg_stat_activity`)**: Real-time view of active DB client queries, locks, and query execution times >200ms. | 鈿� DevOps Eng. | SAP HANA / AWS RDS Performance Insights | High (~1-2 days). Requires Postgres superuser privileges in Supabase. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | **Automated Webhook & Email Alert Dispatcher for Critical Errors**: Trigger instant notifications (via Webhook / Slack / Email) when critical errors (`EMAXCONNSESSION` or 500 spike >3 in 5m) occur. | 棣冩噯閳ュ稅鐓夛拷 Lead Architect | Datadog / PagerDuty / Sentry Alerting Rules | Low (~20 mins). Async background dispatch. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | **Financial & Inventory Ledger SHA-256 Checksum Tamper Audit**: Add a 1-click Security Audit button on the telemetry dashboard that validates `InventoryLedger` and `SystemErrorLog` SHA-256 hashes to detect manual SQL tampering. | 棣冃� QA & Security | Banking & SAP Audit Integrity Ledger | Low (~15 mins). $O(N)$ query over ledger hashes. | **Auto-Adopted** |
+| **3** | 棣冪厸 **Should-Have** | **Rate-Limiting & Brute-Force Traffic Inspector Panel**: Real-time counter of top offending IP addresses hitting 401/429 endpoints with 1-click IP temporary blocklist. | 棣冃� QA & Security | Cloudflare / WAF Threat Monitoring | Medium (~30 mins). Requires IP tracking in memory/DB. | **Pending User Approval** |
+| **4** | 棣冪厸 **Should-Have** | **Contractor Portal Sync & PAT Upload Telemetry Counter**: Real-time health gauge showing contractor offline queue size and pending PAT acceptance orders across RTOMs. | 棣冩啹 OSP Domain SME | ServiceNow Field Service Health Dashboard | Medium (~20 mins). Adds background query for pending SOD sync states. | **Pending User Approval** |
+| **5** | 棣冩暩 **Future Roadmap** | **PostgreSQL Connection & Slow Query Profiler (`pg_stat_activity`)**: Real-time view of active DB client queries, locks, and query execution times >200ms. | 閳匡拷 DevOps Eng. | SAP HANA / AWS RDS Performance Insights | High (~1-2 days). Requires Postgres superuser privileges in Supabase. | **Logged for Future** |
 
 ---
 
-## Grill-Me Session Log 鈥� Dynamic Multi-Level Approval Workflow & Office 365 Actionable Email Engine
+## Grill-Me Session Log 閳ワ拷 Dynamic Multi-Level Approval Workflow & Office 365 Actionable Email Engine
 
 **Date**: 2026-07-30  
 **Scope**: Dynamic Admin-Configurable Multi-Level Approval Policy Engine, Office 365 Actionable Email & Signed 1-Click Action Links, Financial Authority Matrix & Immutable Audit Trail
@@ -78,18 +106,18 @@
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | **Office 365 Actionable Email Engine for Existing Dynamic Policy Schema (`ProcessGatePolicy`, `ProcessApprovalLevel`, `UniversalApprovalInstance`)**: Hook Office 365 email dispatch into existing dynamic approval gate policies with 0 hardcoded rules. | 馃懆鈥嶐煉� Lead Architect | SAP BTP Flexible Workflow / ServiceNow Flow Designer | Low (~25 mins). Hooks directly into existing `prisma/schema/dynamic-policy.prisma` models. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | **Cryptographically Signed Single-Use Action Tokens (JWT)**: Generate 1-click Approve/Decline URLs linked to `UniversalApprovalInstance` containing signed JWT tokens with 48h expiration and atomic single-use invalidation inside `prisma.$transaction()`. | 馃И QA & Security | OWASP Single-Use Action Token Standard | Low (~20 mins). Prevents replay attacks & duplicate approvals. | **Auto-Adopted** |
-| **3** | 馃敶 **Must-Have** | **Office 365 Interactive Email Engine**: Send rich HTML emails via Nodemailer/O365 SMTP featuring styled Approve/Decline buttons + Microsoft Adaptive Card support for native Outlook inline actionability. | 馃憯 OSP & 馃懆鈥嶐煉� Architect | Microsoft Outlook Actionable Messages / Workday Approval Emails | Low (~30 mins). Requires O365 SMTP credentials in `.env`. | **Auto-Adopted** |
-| **4** | 馃敶 **Must-Have** | **Financial Authority Matrix & Budget Commitment Hold**: Tie material/invoice approval steps to financial thresholds (e.g. <100k: Level 1, >500k: Level 3) with real-time budget hold. | 馃搳 CFO | SAP S/4HANA Purchase Requisition Commitments | Low (~25 mins). Ensures strict financial governance. | **Auto-Adopted** |
-| **5** | 馃煛 **Should-Have** | **Out-of-Office Escalation & Timeout Handler**: If an approver does not respond within 24 hours, automatically escalate to alternate delegate or send reminder. | 馃憯 OSP Domain SME | ServiceNow Auto-Escalation Engine | Medium (~30 mins). Runs via background cron check. | **Pending User Approval** |
-| **6** | 馃數 **Future Roadmap** | **Biometric / 2FA Re-Authentication for High-Value Approvals (> LKR 1M)**: Require OTP verification or WebAuthn biometric prompt when approving high-value requisitions via Web UI. | 馃И QA & Security | Banking Dual-Control & PCI-DSS Compliance | High (~2-3 days). Logged for future enterprise roadmap. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | **Office 365 Actionable Email Engine for Existing Dynamic Policy Schema (`ProcessGatePolicy`, `ProcessApprovalLevel`, `UniversalApprovalInstance`)**: Hook Office 365 email dispatch into existing dynamic approval gate policies with 0 hardcoded rules. | 棣冩噯閳ュ稅鐓夛拷 Lead Architect | SAP BTP Flexible Workflow / ServiceNow Flow Designer | Low (~25 mins). Hooks directly into existing `prisma/schema/dynamic-policy.prisma` models. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | **Cryptographically Signed Single-Use Action Tokens (JWT)**: Generate 1-click Approve/Decline URLs linked to `UniversalApprovalInstance` containing signed JWT tokens with 48h expiration and atomic single-use invalidation inside `prisma.$transaction()`. | 棣冃� QA & Security | OWASP Single-Use Action Token Standard | Low (~20 mins). Prevents replay attacks & duplicate approvals. | **Auto-Adopted** |
+| **3** | 棣冩暥 **Must-Have** | **Office 365 Interactive Email Engine**: Send rich HTML emails via Nodemailer/O365 SMTP featuring styled Approve/Decline buttons + Microsoft Adaptive Card support for native Outlook inline actionability. | 棣冩啹 OSP & 棣冩噯閳ュ稅鐓夛拷 Architect | Microsoft Outlook Actionable Messages / Workday Approval Emails | Low (~30 mins). Requires O365 SMTP credentials in `.env`. | **Auto-Adopted** |
+| **4** | 棣冩暥 **Must-Have** | **Financial Authority Matrix & Budget Commitment Hold**: Tie material/invoice approval steps to financial thresholds (e.g. <100k: Level 1, >500k: Level 3) with real-time budget hold. | 棣冩惓 CFO | SAP S/4HANA Purchase Requisition Commitments | Low (~25 mins). Ensures strict financial governance. | **Auto-Adopted** |
+| **5** | 棣冪厸 **Should-Have** | **Out-of-Office Escalation & Timeout Handler**: If an approver does not respond within 24 hours, automatically escalate to alternate delegate or send reminder. | 棣冩啹 OSP Domain SME | ServiceNow Auto-Escalation Engine | Medium (~30 mins). Runs via background cron check. | **Pending User Approval** |
+| **6** | 棣冩暩 **Future Roadmap** | **Biometric / 2FA Re-Authentication for High-Value Approvals (> LKR 1M)**: Require OTP verification or WebAuthn biometric prompt when approving high-value requisitions via Web UI. | 棣冃� QA & Security | Banking Dual-Control & PCI-DSS Compliance | High (~2-3 days). Logged for future enterprise roadmap. | **Logged for Future** |
 
 
 
 ---
 
-## Grill-Me Session Log � Dynamic State Transition (Zero-Hardcoding Workflow Engine)
+## Grill-Me Session Log 锟� Dynamic State Transition (Zero-Hardcoding Workflow Engine)
 
 **Date**: 2026-07-30  
 **Scope**: Removing hardcoded state transitions from domain logic and implementing a 100% database-driven Finite State Machine (FSM) for ERP standard compliance.
@@ -165,42 +193,42 @@ Date: 2026-07-30
 
 ## The 5-Perspective Expert Panel Evaluation
 
-### 1. 馃懆馃捇 Lead Architect & Senior Full-Stack Developer
+### 1. 棣冩噯棣冩崌 Lead Architect & Senior Full-Stack Developer
 * **Focus:** Decoupling API routes, caching guards, Idempotency.
 * **Recommendations:**
-  * 馃敶 **Must-Have:** Implement **Idempotency Keys** on all invoice generation and payment posting API endpoints (`/api/finance/invoices`). If a network request times out and the user clicks "Pay" twice, the DB must not deduct money twice. Use Prisma `$transaction()` for every payout batch.
-  * 馃煛 **Should-Have:** Move ledger postings to an Event-Driven architecture (e.g. `DomainActionDispatcher` emitting `INVOICE_GENERATED` events) rather than tight-coupling in the same controller.
-  * 馃數 **Future Roadmap:** Event Sourcing for the Financial Ledger. Every change is an immutable event that is replayed to get the current state.
+  * 棣冩暥 **Must-Have:** Implement **Idempotency Keys** on all invoice generation and payment posting API endpoints (`/api/finance/invoices`). If a network request times out and the user clicks "Pay" twice, the DB must not deduct money twice. Use Prisma `$transaction()` for every payout batch.
+  * 棣冪厸 **Should-Have:** Move ledger postings to an Event-Driven architecture (e.g. `DomainActionDispatcher` emitting `INVOICE_GENERATED` events) rather than tight-coupling in the same controller.
+  * 棣冩暩 **Future Roadmap:** Event Sourcing for the Financial Ledger. Every change is an immutable event that is replayed to get the current state.
 * **Cost/Complexity:** High. Requires adding `idempotency_keys` table/columns and ensuring front-end clients generate UUIDs for retries.
 
-### 2. 馃И QA Lead & Security Auditor
+### 2. 棣冃� QA Lead & Security Auditor
 * **Focus:** RBAC, Immutable audit logging (SHA-256).
 * **Recommendations:**
-  * 馃敶 **Must-Have:** **Maker-Checker Dual Approvals** for all Contractor Payouts over LKR 100,000. Finance Officer generates the payout (Maker), CFO approves (Checker). Enforce in `ProcessGateEngine`.
-  * 馃敶 **Must-Have:** Store immutable SHA-256 checksums of the payout record (`amount + contractorId + date`) to detect database tampering.
+  * 棣冩暥 **Must-Have:** **Maker-Checker Dual Approvals** for all Contractor Payouts over LKR 100,000. Finance Officer generates the payout (Maker), CFO approves (Checker). Enforce in `ProcessGateEngine`.
+  * 棣冩暥 **Must-Have:** Store immutable SHA-256 checksums of the payout record (`amount + contractorId + date`) to detect database tampering.
 * **Cost/Complexity:** Medium. We already built the `ProcessGateEngine`, so reusing it for Finance is straightforward, but defining the exact thresholds adds logic overhead.
 
-### 3. 馃憯 OSP & Enterprise Domain SME
+### 3. 棣冩啹 OSP & Enterprise Domain SME
 * **Focus:** Retention, Field operations accuracy, PAT acceptance.
 * **Recommendations:**
-  * 馃敶 **Must-Have:** **Retention Deductions**. Automatically withhold X% (e.g., 5-10%) of the payout for Contractor Quality Retention, payable only after 6 months if no defects arise.
-  * 馃煛 **Should-Have:** Automatic Penalties for SLA breaches (e.g., Late SOD completion) deducted from the final payout.
-  * 馃數 **Future Roadmap:** Salesforce-style automatic tiering (Gold/Silver contractors get paid faster or have lower retention).
+  * 棣冩暥 **Must-Have:** **Retention Deductions**. Automatically withhold X% (e.g., 5-10%) of the payout for Contractor Quality Retention, payable only after 6 months if no defects arise.
+  * 棣冪厸 **Should-Have:** Automatic Penalties for SLA breaches (e.g., Late SOD completion) deducted from the final payout.
+  * 棣冩暩 **Future Roadmap:** Salesforce-style automatic tiering (Gold/Silver contractors get paid faster or have lower retention).
 * **Cost/Complexity:** Medium. Requires adding `RetentionLedger` tables to track withheld amounts and release dates.
 
-### 4. 馃搳 Chief Financial Officer (CFO)
+### 4. 棣冩惓 Chief Financial Officer (CFO)
 * **Focus:** Revenue recognition (GAAP/IFRS), Full job costing.
 * **Recommendations:**
-  * 馃敶 **Must-Have:** **Unbilled WIP Receivables vs Deferred Revenue**. When a Service Order completes, accrue the cost immediately (ACCRUE_WIP) to recognize the liability, even before the contractor invoice is generated.
-  * 馃煛 **Should-Have:** Profit & Loss (P&L) per Service Order = (SLT Revenue - Contractor Payout - Material Cost).
-  * 馃數 **Future Roadmap:** Oracle Financials style multi-currency / forex gain-loss tracking.
+  * 棣冩暥 **Must-Have:** **Unbilled WIP Receivables vs Deferred Revenue**. When a Service Order completes, accrue the cost immediately (ACCRUE_WIP) to recognize the liability, even before the contractor invoice is generated.
+  * 棣冪厸 **Should-Have:** Profit & Loss (P&L) per Service Order = (SLT Revenue - Contractor Payout - Material Cost).
+  * 棣冩暩 **Future Roadmap:** Oracle Financials style multi-currency / forex gain-loss tracking.
 * **Cost/Complexity:** Very High. Requires deep modifications to how `InventoryLedger` and `FinanceLedger` talk to each other upon SOD completion.
 
-### 5. 鈿� Performance & DevOps Engineer
+### 5. 閳匡拷 Performance & DevOps Engineer
 * **Focus:** Zero database egress regress, high concurrency.
 * **Recommendations:**
-  * 馃敶 **Must-Have:** **Batch Processing for Monthly Payouts**. Running a script to generate 5,000 invoices on the 1st of the month will kill the Next.js API timeout. Must use an Async Background Queue (e.g., Redis/BullMQ) to process large payout generations.
-  * 馃煛 **Should-Have:** Selective Prisma `select` blocks on Invoice PDF generation to avoid pulling the entire SOD history into memory.
+  * 棣冩暥 **Must-Have:** **Batch Processing for Monthly Payouts**. Running a script to generate 5,000 invoices on the 1st of the month will kill the Next.js API timeout. Must use an Async Background Queue (e.g., Redis/BullMQ) to process large payout generations.
+  * 棣冪厸 **Should-Have:** Selective Prisma `select` blocks on Invoice PDF generation to avoid pulling the entire SOD history into memory.
 * **Cost/Complexity:** High. Requires setting up BullMQ/Redis infrastructure outside of standard Vercel serverless.
 
 ---
@@ -209,17 +237,17 @@ Date: 2026-07-30
 
 | Viewpoint | Recommendation | Tier | Trade-off / Complexity |
 | :--- | :--- | :--- | :--- |
-| **Architect** | Idempotency keys on Payouts | 馃敶 Must | Adds DB column, requires frontend UUID gen |
-| **QA/Sec** | Maker-Checker Dual Approvals | 馃敶 Must | Adds approval delay to workflow |
-| **QA/Sec** | SHA-256 Tamper Evident Log | 馃敶 Must | Slight compute overhead on write |
-| **OSP SME** | Retention % Withholding Logic | 馃敶 Must | Requires new ledger tables for retention |
-| **CFO** | WIP Accrual on SOD Complete | 馃敶 Must | Complex DB transaction locking |
-| **DevOps** | Async Queue for Bulk Invoicing | 馃敶 Must | Needs Redis/BullMQ infra setup |
-| **Architect** | Event-Driven Ledger | 馃煛 Should | Over-engineering for current scale |
-| **OSP SME** | SLA Breach Auto-Penalties | 馃煛 Should | High risk of contractor disputes |
-| **CFO** | P&L per Service Order | 馃煛 Should | Material cost data must be 100% accurate |
+| **Architect** | Idempotency keys on Payouts | 棣冩暥 Must | Adds DB column, requires frontend UUID gen |
+| **QA/Sec** | Maker-Checker Dual Approvals | 棣冩暥 Must | Adds approval delay to workflow |
+| **QA/Sec** | SHA-256 Tamper Evident Log | 棣冩暥 Must | Slight compute overhead on write |
+| **OSP SME** | Retention % Withholding Logic | 棣冩暥 Must | Requires new ledger tables for retention |
+| **CFO** | WIP Accrual on SOD Complete | 棣冩暥 Must | Complex DB transaction locking |
+| **DevOps** | Async Queue for Bulk Invoicing | 棣冩暥 Must | Needs Redis/BullMQ infra setup |
+| **Architect** | Event-Driven Ledger | 棣冪厸 Should | Over-engineering for current scale |
+| **OSP SME** | SLA Breach Auto-Penalties | 棣冪厸 Should | High risk of contractor disputes |
+| **CFO** | P&L per Service Order | 棣冪厸 Should | Material cost data must be 100% accurate |
 
-## 馃搮 2026-07-31: Process Gate Pipeline Conflicts & Gaps
+## 棣冩惍 2026-07-31: Process Gate Pipeline Conflicts & Gaps
 
 **Module:** Process Gate Engine (Admin Settings)
 **Context:** User invoked /grill-me stating that independent process gates in the wizard could lead to gaps or conflicts (overlapping origin statuses or disconnected pipelines).
@@ -228,10 +256,10 @@ Date: 2026-07-30
 
 | Feature | Expert View | Severity | Decision |
 | :--- | :--- | :--- | :--- |
-| **Strict Linear Pipeline Validation** | Architect | 馃敶 Must-Have | **ADOPTED** |
-| **Prevent Multiple Gates from Same Status** | QA / Security | 馃敶 Must-Have | **ADOPTED** |
-| **Visual Gap Warning Indicator** | OSP SME | 馃煛 Should-Have | DEFERRED |
-| **Block module if Pipeline Broken** | CFO | 馃數 Future Roadmap | REJECTED (Out of scope) |
+| **Strict Linear Pipeline Validation** | Architect | 棣冩暥 Must-Have | **ADOPTED** |
+| **Prevent Multiple Gates from Same Status** | QA / Security | 棣冩暥 Must-Have | **ADOPTED** |
+| **Visual Gap Warning Indicator** | OSP SME | 棣冪厸 Should-Have | DEFERRED |
+| **Block module if Pipeline Broken** | CFO | 棣冩暩 Future Roadmap | REJECTED (Out of scope) |
 
 **Implementation Notes:** 
 - Updated StepByStepGateWizard.tsx to automatically suggest the correct romStatus based on the leaf node of existing gates for the selected entityType (Strict Linear Pipeline).
@@ -299,14 +327,14 @@ Evaluated the strategy for allowing Managers to \"Recall\" or \"Revise\" a PRN a
 
 | Recommendation | Category | Expert | Cost/Complexity vs Benefit |
 | :--- | :---: | :---: | :--- |
-| **Apply Cache Busting (_t=Date.now()) to all Inventory Pages** | 馃敶 Must-Have | Architect | **Low Cost**: Simple string additions. **Benefit**: Fixes bugs where UI doesn't update after stock adjustments. |
-| **Remove redundant 	ry/catch inside piHandler** | 馃敶 Must-Have | Architect | **Low Cost**: Simple deletion. **Benefit**: Cleans up API responses and allows piHandler to standardize errors. |
-| **Refactor ny types to Strict Interfaces in Inventory Services** | 馃敶 Must-Have | QA Lead | **Medium Cost**: Requires careful typescript mapping. **Benefit**: Prevents catastrophic hidden data mismatch errors. |
-| **Enforce orce-dynamic strictly on all Inventory API GETs** | 馃敶 Must-Have | DevOps | **Low Cost**: 1 line of code per file. **Benefit**: Prevents Vercel static cache drift. |
-| **Optimistic UI Updates for Stock Requests/MRN** | 馃煛 Should-Have | OSP SME | **Medium Cost**: React state refactoring. **Benefit**: Flawless User Experience. |
+| **Apply Cache Busting (_t=Date.now()) to all Inventory Pages** | 棣冩暥 Must-Have | Architect | **Low Cost**: Simple string additions. **Benefit**: Fixes bugs where UI doesn't update after stock adjustments. |
+| **Remove redundant 	ry/catch inside piHandler** | 棣冩暥 Must-Have | Architect | **Low Cost**: Simple deletion. **Benefit**: Cleans up API responses and allows piHandler to standardize errors. |
+| **Refactor ny types to Strict Interfaces in Inventory Services** | 棣冩暥 Must-Have | QA Lead | **Medium Cost**: Requires careful typescript mapping. **Benefit**: Prevents catastrophic hidden data mismatch errors. |
+| **Enforce orce-dynamic strictly on all Inventory API GETs** | 棣冩暥 Must-Have | DevOps | **Low Cost**: 1 line of code per file. **Benefit**: Prevents Vercel static cache drift. |
+| **Optimistic UI Updates for Stock Requests/MRN** | 棣冪厸 Should-Have | OSP SME | **Medium Cost**: React state refactoring. **Benefit**: Flawless User Experience. |
 
 ### Conclusion
-**Adopted:** All 馃敶 Must-Have items were executed (Cache busting applied, strict typing enforced, redundant try/catch blocks removed).
+**Adopted:** All 棣冩暥 Must-Have items were executed (Cache busting applied, strict typing enforced, redundant try/catch blocks removed).
 
 
 ## System Architecture Review (Whole ERP Application)
@@ -334,15 +362,15 @@ Date: 2026-08-02
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | Convert financial amounts (`Float?`) to PostgreSQL `Decimal(14,2)` in Prisma schema | CFO & Architect | SAP S/4HANA & Oracle Financials GAAP Precision | Medium: Requires DTO transformation handling in service layers. Prevents binary floating point rounding bugs. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | Convert generic `String` status/type fields (`sltsPatStatus`, `hoPatStatus`, etc.) to explicit Prisma `Enum`s | QA Lead & Security | ServiceNow Enterprise FSM Strict State Machine | Medium: DB cleanup script needed for existing dirty string rows before Prisma migration. | **Auto-Adopted** |
-| **3** | 馃敶 **Must-Have** | Enforce explicit `@relation(..., onDelete: Restrict/Cascade)` constraints on all string foreign keys | QA Lead & Architect | Relational Database Referential Integrity (ACID) | Low: Schema update + migration. Prevents orphan records. | **Auto-Adopted** |
-| **4** | 馃煛 **Should-Have** | Decouple surrogate DB primary keys (`id` CUID/UUID) from human-readable business document codes (`soNum`, `minNo`, `grnNo`) | OSP Domain SME & CFO | Salesforce & SAP ERP Document Sequence Standards | Medium: Requires sequence generator service (`MIN-YYYY-MM-XXXX`). | **Pending User Approval** |
-| **5** | 馃煛 **Should-Have** | Extract queryable JSON fields (`delayReasonsRaw`, `scrapedData`) into typed 1-to-N relation models | Architect & DevOps | Relational Normalization (3NF) / Postgres Indexing | High: DB migration script + code update across APIs using the JSON object. | **Pending User Approval** |
-| **6** | 馃數 **Future Roadmap** | Migrate primary keys from `String @default(cuid())` to PostgreSQL native `UUID v7` (time-ordered binary 128-bit) | DevOps & Performance | SAP HANA & High-Concurrency PostgreSQL Benchmark | Very High: Requires cascading FK updates across 50+ tables & live database downtime. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | Convert financial amounts (`Float?`) to PostgreSQL `Decimal(14,2)` in Prisma schema | CFO & Architect | SAP S/4HANA & Oracle Financials GAAP Precision | Medium: Requires DTO transformation handling in service layers. Prevents binary floating point rounding bugs. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | Convert generic `String` status/type fields (`sltsPatStatus`, `hoPatStatus`, etc.) to explicit Prisma `Enum`s | QA Lead & Security | ServiceNow Enterprise FSM Strict State Machine | Medium: DB cleanup script needed for existing dirty string rows before Prisma migration. | **Auto-Adopted** |
+| **3** | 棣冩暥 **Must-Have** | Enforce explicit `@relation(..., onDelete: Restrict/Cascade)` constraints on all string foreign keys | QA Lead & Architect | Relational Database Referential Integrity (ACID) | Low: Schema update + migration. Prevents orphan records. | **Auto-Adopted** |
+| **4** | 棣冪厸 **Should-Have** | Decouple surrogate DB primary keys (`id` CUID/UUID) from human-readable business document codes (`soNum`, `minNo`, `grnNo`) | OSP Domain SME & CFO | Salesforce & SAP ERP Document Sequence Standards | Medium: Requires sequence generator service (`MIN-YYYY-MM-XXXX`). | **Pending User Approval** |
+| **5** | 棣冪厸 **Should-Have** | Extract queryable JSON fields (`delayReasonsRaw`, `scrapedData`) into typed 1-to-N relation models | Architect & DevOps | Relational Normalization (3NF) / Postgres Indexing | High: DB migration script + code update across APIs using the JSON object. | **Pending User Approval** |
+| **6** | 棣冩暩 **Future Roadmap** | Migrate primary keys from `String @default(cuid())` to PostgreSQL native `UUID v7` (time-ordered binary 128-bit) | DevOps & Performance | SAP HANA & High-Concurrency PostgreSQL Benchmark | Very High: Requires cascading FK updates across 50+ tables & live database downtime. | **Logged for Future** |
 
 ### Conclusion
-**Adopted:** 馃敶 Must-Have items (Decimal precision, Enum standardization, explicit Foreign Key relations) are marked for immediate execution planning.
+**Adopted:** 棣冩暥 Must-Have items (Decimal precision, Enum standardization, explicit Foreign Key relations) are marked for immediate execution planning.
 
 
 ## Session: PostgreSQL Native UUID v7 Adoption Feasibility Audit (2026-08-03)
@@ -353,14 +381,14 @@ Date: 2026-08-02
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | Adopt UUID v7 (`@db.Uuid`) as mandatory Primary Key for all NEW Prisma models | Architect & DevOps | High-Concurrency PostgreSQL 17 / SAP HANA Standard | Low: Zero migration risk for new tables. B-Tree page splitting eliminated. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | Create PL/pgSQL `uuid_generate_v7()` function in PostgreSQL migration for server-side generation | DevOps & Lead Dev | Standard PostgreSQL Extension pattern | Low: One-time SQL migration function script. | **Auto-Adopted** |
-| **3** | 馃煛 **Should-Have** | Phased dual-column migration (`cuid` + `uuid`) for existing legacy tables (`ServiceOrder`, `User`, `Contractor`) | QA Lead & Architect | Zero-Downtime Database Refactoring Standard | High: Requires dual column backfill script & code refactoring across API routes. | **Pending User Approval** |
-| **4** | 馃煛 **Should-Have** | Integrate client-side Node.js `uuidv7` generator in Service Layer DTOs for offline sync resilience | Lead Dev & SME | ServiceNow Mobile FSM Offline Architecture | Low: Single npm package `uuidv7` or Node crypto. | **Pending User Approval** |
-| **5** | 馃數 **Future Roadmap** | Complete total legacy `cuid` column drop after full database backfill & client API version upgrade | DevOps & CFO | SAP Enterprise Core Migration Standard | Very High: Requires scheduled maintenance window & full regression test suite. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | Adopt UUID v7 (`@db.Uuid`) as mandatory Primary Key for all NEW Prisma models | Architect & DevOps | High-Concurrency PostgreSQL 17 / SAP HANA Standard | Low: Zero migration risk for new tables. B-Tree page splitting eliminated. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | Create PL/pgSQL `uuid_generate_v7()` function in PostgreSQL migration for server-side generation | DevOps & Lead Dev | Standard PostgreSQL Extension pattern | Low: One-time SQL migration function script. | **Auto-Adopted** |
+| **3** | 棣冪厸 **Should-Have** | Phased dual-column migration (`cuid` + `uuid`) for existing legacy tables (`ServiceOrder`, `User`, `Contractor`) | QA Lead & Architect | Zero-Downtime Database Refactoring Standard | High: Requires dual column backfill script & code refactoring across API routes. | **Pending User Approval** |
+| **4** | 棣冪厸 **Should-Have** | Integrate client-side Node.js `uuidv7` generator in Service Layer DTOs for offline sync resilience | Lead Dev & SME | ServiceNow Mobile FSM Offline Architecture | Low: Single npm package `uuidv7` or Node crypto. | **Pending User Approval** |
+| **5** | 棣冩暩 **Future Roadmap** | Complete total legacy `cuid` column drop after full database backfill & client API version upgrade | DevOps & CFO | SAP Enterprise Core Migration Standard | Very High: Requires scheduled maintenance window & full regression test suite. | **Logged for Future** |
 
 ### Conclusion
-**Adopted:** 馃敶 Must-Have items (UUID v7 for greenfield models + PL/pgSQL DB function) are approved for immediate execution planning. Legacy table migration requires phased user approval.
+**Adopted:** 棣冩暥 Must-Have items (UUID v7 for greenfield models + PL/pgSQL DB function) are approved for immediate execution planning. Legacy table migration requires phased user approval.
 
 
 ## Session: Enterprise Master Database Audit & Data Migration Plan (2026-08-03)
@@ -371,15 +399,15 @@ Date: 2026-08-02
 
 | # | Tier | Table / Module Category | Expert Role | Findings & Required Upgrades | Target Data Types & Schema Fixes | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | 馃敶 **Must-Have** | **Service Orders & Forensic Audit** (`ServiceOrder`, `SODForensicAudit`, etc.) | CFO & Architect | Monetary fields stored as `Float?`, PAT statuses stored as generic `String?` | Convert `revenueAmount`, `contractorAmount` to `Decimal(14,2)`. Convert `sltsPatStatus`, `hoPatStatus` to Prisma `Enum`. | **Auto-Adopted** |
-| **2** | 馃敶 **Must-Have** | **Inventory & Material Ledger** (`InventoryItem`, `GRNItem`, `MRNItem`, `ContractorMaterialIssueItem`) | CFO & OSP SME | Stock quantities and unit prices using `Float`, store relations missing explicit FK constraints | Convert `quantity`, `unitPrice`, `totalPrice` to `Decimal(14,4)`. Enforce explicit `@relation(onDelete: Restrict)` on all items. | **Auto-Adopted** |
-| **3** | 馃敶 **Must-Have** | **Finance, Accounting & Ledger** (`Invoice`, `PettyCashTransaction`, `GeneralLedgerEntry`, `ProjectExpense`) | CFO & QA Lead | GAAP compliance violation: Monetary values in `Float?`, missing sequence constraints | Convert all monetary totals, tax amounts, and balances to PostgreSQL `Decimal(14,2)`. Enforce unique sequence codes. | **Auto-Adopted** |
-| **4** | 馃煛 **Should-Have** | **Surrogate Key Upgrade (New Models)** | DevOps & Architect | CUID text keys consume ~300% more index storage than native 16-byte UUID v7 | Apply `id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid` to all new/greenfield tables. | **Auto-Adopted** |
-| **5** | 馃煛 **Should-Have** | **Legacy Data Migration (Phased Migration Strategy)** | QA Lead & DevOps | Existing `cuid` strings in 50+ live tables cannot be auto-cast to Postgres `UUID` | Execute 3-Phase Zero-Downtime Data Migration Plan (Add `uuid_id` -> Backfill -> Switch FKs -> Drop old column). | **Pending User Approval** |
-| **6** | 馃數 **Future Roadmap** | **Partitioning High-Volume Log Tables** | DevOps Engineer | `AuditLog`, `SystemErrorLog`, `VMGPSLocation` tables will exceed millions of rows | Implement PostgreSQL Range Partitioning by `createdAt` month. | **Logged for Future** |
+| **1** | 棣冩暥 **Must-Have** | **Service Orders & Forensic Audit** (`ServiceOrder`, `SODForensicAudit`, etc.) | CFO & Architect | Monetary fields stored as `Float?`, PAT statuses stored as generic `String?` | Convert `revenueAmount`, `contractorAmount` to `Decimal(14,2)`. Convert `sltsPatStatus`, `hoPatStatus` to Prisma `Enum`. | **Auto-Adopted** |
+| **2** | 棣冩暥 **Must-Have** | **Inventory & Material Ledger** (`InventoryItem`, `GRNItem`, `MRNItem`, `ContractorMaterialIssueItem`) | CFO & OSP SME | Stock quantities and unit prices using `Float`, store relations missing explicit FK constraints | Convert `quantity`, `unitPrice`, `totalPrice` to `Decimal(14,4)`. Enforce explicit `@relation(onDelete: Restrict)` on all items. | **Auto-Adopted** |
+| **3** | 棣冩暥 **Must-Have** | **Finance, Accounting & Ledger** (`Invoice`, `PettyCashTransaction`, `GeneralLedgerEntry`, `ProjectExpense`) | CFO & QA Lead | GAAP compliance violation: Monetary values in `Float?`, missing sequence constraints | Convert all monetary totals, tax amounts, and balances to PostgreSQL `Decimal(14,2)`. Enforce unique sequence codes. | **Auto-Adopted** |
+| **4** | 棣冪厸 **Should-Have** | **Surrogate Key Upgrade (New Models)** | DevOps & Architect | CUID text keys consume ~300% more index storage than native 16-byte UUID v7 | Apply `id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid` to all new/greenfield tables. | **Auto-Adopted** |
+| **5** | 棣冪厸 **Should-Have** | **Legacy Data Migration (Phased Migration Strategy)** | QA Lead & DevOps | Existing `cuid` strings in 50+ live tables cannot be auto-cast to Postgres `UUID` | Execute 3-Phase Zero-Downtime Data Migration Plan (Add `uuid_id` -> Backfill -> Switch FKs -> Drop old column). | **Pending User Approval** |
+| **6** | 棣冩暩 **Future Roadmap** | **Partitioning High-Volume Log Tables** | DevOps Engineer | `AuditLog`, `SystemErrorLog`, `VMGPSLocation` tables will exceed millions of rows | Implement PostgreSQL Range Partitioning by `createdAt` month. | **Logged for Future** |
 
 ### Conclusion
-**Adopted:** 馃敶 Must-Have data type fixes (Decimal precision, Enum states, explicit Foreign Keys) & 馃煛 UUID v7 architecture adoption approved for immediate implementation planning.
+**Adopted:** 棣冩暥 Must-Have data type fixes (Decimal precision, Enum states, explicit Foreign Keys) & 棣冪厸 UUID v7 architecture adoption approved for immediate implementation planning.
 
 
 ## Session: Total Database Architecture Upgrade - All 28 Schemas (2026-08-03)
@@ -532,13 +560,13 @@ Verification: prisma db push synced Supabase (all 7 columns confirmed text/nulla
 
 **User observation:** routes still contain try/catch blocks + question whether hardcoding was audited/added to policy.
 
-**Try/Catch census** (scripts/audit-route-trycatch.js): 422 route files | 51 files with try/catch | 86 try blocks | 24 catches without rethrow. Spot-check verdict: the swallows are legitimate allowed-pattern uses (health-check per-service probes, cache fallback DB->file->empty, external SLT portal HTTP graceful degradation, Redis lock best-effort, Vercel read-only FS ignores). No rule violations found — all are "third-party calls / expected non-fatal recovery" exceptions in AGENTS.md Rule 4.
+**Try/Catch census** (scripts/audit-route-trycatch.js): 422 route files | 51 files with try/catch | 86 try blocks | 24 catches without rethrow. Spot-check verdict: the swallows are legitimate allowed-pattern uses (health-check per-service probes, cache fallback DB->file->empty, external SLT portal HTTP graceful degradation, Redis lock best-effort, Vercel read-only FS ignores). No rule violations found 鈥� all are "third-party calls / expected non-fatal recovery" exceptions in AGENTS.md Rule 4.
 
-**Hardcoding audit — MUST-HAVE violations found & fixed:**
+**Hardcoding audit 鈥� MUST-HAVE violations found & fixed:**
 
 | # | Finding | Files | Fix |
 | :-- | :-- | :-- | :-- |
-| 1 | 8 hardcoded SECRET FALLBACKS (`env \|\| 'default'`) — app silently ran on known defaults when env missing: JWT_SECRET (user.service, dynamic-approval.service, process-gate-engine signature), EXTENSION_SECRET x4 (slt-registry, slt-registry/download-sync, import-bom/csv, test/extension-push), AGENT_API_KEY (agent-sync.service) | 7 files | Fail-closed: new src/lib/env.ts requireEnv()/optionalEnv(); JWT secrets throw when missing, extension/agent auth DENIED when unset. EXTENSION_SECRET added to .env (current value preserved - deployed extension depends on it; rotate together with extension build). Must also be set in Vercel env. |
+| 1 | 8 hardcoded SECRET FALLBACKS (`env \|\| 'default'`) 鈥� app silently ran on known defaults when env missing: JWT_SECRET (user.service, dynamic-approval.service, process-gate-engine signature), EXTENSION_SECRET x4 (slt-registry, slt-registry/download-sync, import-bom/csv, test/extension-push), AGENT_API_KEY (agent-sync.service) | 7 files | Fail-closed: new src/lib/env.ts requireEnv()/optionalEnv(); JWT secrets throw when missing, extension/agent auth DENIED when unset. EXTENSION_SECRET added to .env (current value preserved - deployed extension depends on it; rotate together with extension build). Must also be set in Vercel env. |
 | 2 | 4 hardcoded role arrays in routes | eam/assets, slt-registry, download-sync, import-bom/csv | Centralized: ROLE_GROUPS.EAM_ASSET_MANAGERS / SLT_REGISTRY_ADMINS / BOM_IMPORT_ADMINS + hasRole() |
 | 3 | `x-user-id \|\| 'ADMIN'` fake-identity fallback | import-bom/csv | -> `'EXTENSION_SYNC'` descriptive actor (audit-only param, not persisted) |
 
@@ -548,7 +576,7 @@ Verification: npx tsc --noEmit clean; grep confirms 0 remaining secret fallbacks
 
 ### QA Audit User Provisioning: kamal / HEAD_OF_SECTION (2026-08-03)
 
-**Requirement:** QA audit user `kamal`, role HEAD_OF_SECTION — read-only access to ALL stores/areas reports; NO stores operational access.
+**Requirement:** QA audit user `kamal`, role HEAD_OF_SECTION 鈥� read-only access to ALL stores/areas reports; NO stores operational access.
 
 **Discovery:** real user already existed (Kamal Wijayalath, kamal@slts.lk, role HEAD_OF_OSP, O365-imported). Aligned instead of duplicating (scripts/create-qa-audit-user.ts, id=019fc850-7496-3a64-6ea7-c0b9aa818963).
 
@@ -564,15 +592,15 @@ Verification: npx tsc --noEmit clean; grep confirms 0 remaining secret fallbacks
 
 **Access verification:**
 - Granted: Dashboard, Executive Overview, Area Performance, Operational Reports, Daily Operational, Stock Ledger (Cardex) report.
-- Denied: all stores/inventory operational pages (GRN, MIN, stock, requisitions, wastage, audit) — SECTION_HEADS not in STORES/STORES_MANAGERS/STORES_ADMINS groups; store.service getAccessibleStores() returns EMPTY set for kamal (no managerId/OPMCs/assignedStore) so API-level store data is unreachable.
+- Denied: all stores/inventory operational pages (GRN, MIN, stock, requisitions, wastage, audit) 鈥� SECTION_HEADS not in STORES/STORES_MANAGERS/STORES_ADMINS groups; store.service getAccessibleStores() returns EMPTY set for kamal (no managerId/OPMCs/assignedStore) so API-level store data is unreachable.
 
-**Note:** kamal has mustChangePassword=true — first login forces password change (existing password untouched). npx tsc --noEmit clean.
+**Note:** kamal has mustChangePassword=true 鈥� first login forces password change (existing password untouched). npx tsc --noEmit clean.
 
 ### Frontend Role Hardcoding Audit (2026-08-03)
 
-**User question:** role add/edit in Administration — still hardcoded in the frontend?
+**User question:** role add/edit in Administration 鈥� still hardcoded in the frontend?
 
-**Answer: YES — 3 hardcoded role lists found** (none read from the DB enum; new HEAD_OF_SECTION was invisible in all Admin UI dropdowns):
+**Answer: YES 鈥� 3 hardcoded role lists found** (none read from the DB enum; new HEAD_OF_SECTION was invisible in all Admin UI dropdowns):
 
 | # | Location | Problem | Fix |
 | :-- | :-- | :-- | :-- |
@@ -580,13 +608,13 @@ Verification: npx tsc --noEmit clean; grep confirms 0 remaining secret fallbacks
 | 2 | admin/global-roles page ROLES[] | Hardcoded 20-role list | Replaced by useQuery on /api/admin/role-options |
 | 3 | admin/users/categories page ALL_ROLES[] | Hardcoded role->category list | Removed; derived from ROLE_GROUPS-backed USER_CATEGORIES map |
 
-**New single source of truth:** GET /api/admin/role-options (src/app/api/admin/role-options/route.ts) — reads the live Postgres Role enum via `SELECT unnest(enum_range(NULL::"Role"))` + serves the shared ROLE_CATEGORIES map (moved to src/config/roles.ts). Adding a future enum value now requires ZERO frontend changes.
+**New single source of truth:** GET /api/admin/role-options (src/app/api/admin/role-options/route.ts) 鈥� reads the live Postgres Role enum via `SELECT unnest(enum_range(NULL::"Role"))` + serves the shared ROLE_CATEGORIES map (moved to src/config/roles.ts). Adding a future enum value now requires ZERO frontend changes.
 
 Bonus Rule-4 fix: admin/users page RoleGuard inline array -> [...ROLE_GROUPS.CORE_ADMINS, 'OSP_MANAGER'].
 
 Verification: npx tsc --noEmit clean; endpoint live-verified (401 without session = correct middleware gating, same as all /api/admin routes).
 
-### Process Gates Module Audit — /admin/settings/process-gates (2026-08-03)
+### Process Gates Module Audit 鈥� /admin/settings/process-gates (2026-08-03)
 
 **Scope:** page.tsx, StepByStepGateWizard, 6 API routes, ProcessGateAdminService, ProcessGatePolicy/ProcessApprovalLevel schema, seed templates.
 
@@ -610,3 +638,28 @@ Verification: npx tsc --noEmit clean; endpoint live-verified (401 without sessio
 **E2E verified (Browser):** create gate via wizard -> POST 200 + PUT levels 200 -> table shows "1 Level" -> re-open Config shows persisted level -> delete 200 -> cleanup confirmed. Dynamic role dropdown shows 34 enum roles incl. HEAD OF SECTION. tsc clean.
 
 **Should-Have (logged, not done):** expose rejectionBehavior/approvalStrategy/conditions JSON fields in wizard UI (schema supports, engine supports, UI doesn't).
+
+---
+
+## 2026-08-04 � SOD Status Update Paths (SYNC + Manual) Audit
+
+**Scope:** every path that mutates ServiceOrder status � portal sync (`syncServiceOrders`), completed-SOD sync (`CompletedSODSyncService`), manual PATCH/PUT (`patchServiceOrder`), lifecycle service.
+
+| # | Auditor | Finding | Fix |
+|---|---|---|---|
+| 1 | A5 | `handlePostUpdate` only wrote history for legacy `status`; `sltsStatus` (routing field) never recorded | Track sltsStatus transitions in ServiceOrderStatusHistory (dedup vs legacy row) |
+| 2 | A5 | Sync update + disappeared paths bypassed handlePostUpdate -> zero history/events | handlePostUpdate called inside all 3 sync transactions (userId=SYNC_SERVICE) |
+| 3 | A5 | completed-sod-sync passed no userId -> AuditService.log skipped | Pass 'SYNC_SERVICE' |
+| 4 | A4 | Disappeared SOD found in completed list with CON_STATUS=COMPLETED fell through branches -> stayed INPROGRESS forever (regression) | Canonical `mapExternalStatusToSltsStatus` + unmapped non-PAT -> COMPLETED |
+| 5 | A4 | completed-sod-sync `resolveSltsStatus` routed PAT_*_REJECT to RETURN -> wrongful material/GL rollback | Delegate to canonical mapper (PAT rejections stay INPROGRESS) |
+| 6 | A1 | Unvalidated raw portal strings cast to ServiceOrderStatus enum (disappeared path, prepareStatusTransition, completed-sod-sync) -> Prisma 500s | `SERVICE_ORDER_STATUS_VALUES` enum guard (throw 400 / skip field) |
+| 7 | A1 | `serviceOrderPatchSchema.sltsStatus` Zod enum missing INSTALL_CLOSED -> manual PATCH 400 | Added INSTALL_CLOSED |
+| 8 | A1 | completed-sod-sync never set completedDate for INSTALL_CLOSED | isCompletionStatus covers COMPLETED + INSTALL_CLOSED |
+| 9 | A4 | Sync dedup skipped ALL COMPLETED/INSTALL_CLOSED SODs -> portal corrections blocked | Skip only when existing+incoming terminal statuses match (prior fix, verified here) |
+
+**Verified:** portal returns INSTALL_CLOSED SODs (R-KX sample: 3 of first 3). tsc clean (0 errors). No schema change required.
+
+**Should-Have (logged, needs sign-off):**
+- S1 RBAC: PATCH/PUT /api/service-orders pass no `roles` -> any authenticated role can flip status incl. COMPLETED (posts GL). Recommend ROLE_GROUPS.SOD_PROJECT.
+- S2 CompletedSODSyncService.startPeriodicSync has no re-entrancy guard (10-min interval; slow run overlaps).
+- S3 INSTALL_CLOSED posts no revenue/GL (only COMPLETED triggers ledger) � confirm domain intent.

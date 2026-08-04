@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { sltApiService } from '@/services/slt/slt-api.service';
 import { ServiceOrderService } from '@/services/sod/sod.service';
+import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from '@/services/sod/sod.lifecycle.service';
 import { SodStatus } from '@/lib/constants/sod-constants';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
@@ -46,11 +47,16 @@ export class CompletedSODSyncService {
 
                     // 1. Fetch Completed SODs
                     const completedResults = await sltApiService.fetchCompletedSODs(opmc.rtom, startDate, endDate);
-                    checkedCount += completedResults.length;
+
+                    // 2. Fetch APPROVED (PAT_PASSED) SODs — fully completed, merge into same processing
+                    const approvedResults = await sltApiService.fetchApprovedSODs(opmc.rtom, startDate, endDate);
+
+                    const allResults = [...completedResults, ...approvedResults];
+                    checkedCount += allResults.length;
 
                     // Deduplicate results to prevent collisions in the loop
                     const uniqueCompletedMap = new Map();
-                    completedResults.forEach(r => {
+                    allResults.forEach(r => {
                         if (r.SO_NUM) {
                             uniqueCompletedMap.set(r.SO_NUM, r);
                         }
@@ -80,12 +86,13 @@ export class CompletedSODSyncService {
 
                     const resolveSltsStatus = (conStatus: string): SodStatus => {
                         const statusUpper = (conStatus || '').toUpperCase();
+                        // Preserve INSTALL_CLOSED explicitly
                         if (statusUpper === 'INSTALL_CLOSED') return SodStatus.INSTALL_CLOSED;
-                        if (statusUpper === 'PROV_CLOSED') return SodStatus.PROV_CLOSED;
-                        if (statusUpper.includes('RETURN') || statusUpper.includes('REJECT') || statusUpper.includes('CANCEL')) {
-                            return SodStatus.RETURN;
-                        }
-                        return SodStatus.COMPLETED;
+                        // PAT_OPMC_REJECTED from COMPLETED_SLTS endpoint means work is done (quality issue only)
+                        // Per domain rule: all records from COMPLETED_SLTS are work-order complete
+                        if (statusUpper === 'PAT_OPMC_REJECTED') return SodStatus.COMPLETED;
+                        // Delegate the rest to the canonical mapper
+                        return SODLifecycleService.mapExternalStatusToSltsStatus(statusUpper) as SodStatus;
                     };
 
                     // Batch objects
@@ -102,6 +109,11 @@ export class CompletedSODSyncService {
                             const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
 
                             const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
+                            const isCompletionStatus = finalSltsStatus === SodStatus.COMPLETED || finalSltsStatus === SodStatus.INSTALL_CLOSED;
+                            // Enum-guard legacy status — raw portal strings outside the enum must not hit Prisma
+                            const legacyStatus = SERVICE_ORDER_STATUS_VALUES.has((sltData.CON_STATUS || '').toUpperCase())
+                                ? (sltData.CON_STATUS || '').toUpperCase()
+                                : undefined;
                             const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
                             const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
 
@@ -109,20 +121,27 @@ export class CompletedSODSyncService {
                                 // CASE A: Exists
                                 // Update if status differs or completedDate missing
                                 for (const localSOD of localSODs) {
-                                    if (localSOD.sltsStatus !== finalSltsStatus || !localSOD.completedDate) {
+                                    // INSTALL_CLOSED is a terminal status — never override to COMPLETED
+                                    // (COMPLETED_SLTS endpoint may return PAT_OPMC_PASSED for the same SOD)
+                                    const preserveInstallClosed = localSOD.sltsStatus === 'INSTALL_CLOSED' && finalSltsStatus !== SodStatus.INSTALL_CLOSED;
+                                    const effectiveSltsStatus = preserveInstallClosed ? SodStatus.INSTALL_CLOSED : finalSltsStatus;
+                                    const effectiveLegacyStatus = preserveInstallClosed ? 'INSTALL_CLOSED' : legacyStatus;
+
+                                    if (localSOD.sltsStatus !== effectiveSltsStatus || !localSOD.completedDate) {
                                         await ServiceOrderService.patchServiceOrder(
                                             localSOD.id,
                                             {
-                                                status: sltData.CON_STATUS,
-                                                sltsStatus: finalSltsStatus,
-                                                completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : localSOD.completedDate,
+                                                status: effectiveLegacyStatus,
+                                                sltsStatus: effectiveSltsStatus,
+                                                completedDate: isCompletionStatus ? completedDate : localSOD.completedDate,
                                                 wiredOnly: isWiredOnly,
                                                 dpDetails: sltData.DP,
                                                 ontSerialNumber: localSOD.ontSerialNumber ? localSOD.ontSerialNumber : (sltData.CON_WORO_SEIT || undefined),
                                                 iptvSerialNumbers: (sltData.IPTV && String(sltData.IPTV).trim().length > 5) ? [String(sltData.IPTV).trim()] : undefined,
                                                 dropWireDistance: dropWireDistance,
                                                 comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,
-                                            }
+                                            },
+                                            'SYNC_SERVICE'
                                         );
                                         completedCount++;
                                     }
@@ -151,14 +170,14 @@ export class CompletedSODSyncService {
                                     ftthInstSeit: sltData.FTTH_INST_SIET,
                                     ftthWifi: sltData.FTTH_WIFI,
 
-                                    // Status fields
-                                    status: sltData.CON_STATUS,
+                                    // Status fields (enum-safe: fall back to resolved sltsStatus, never raw portal strings)
+                                    status: (legacyStatus || finalSltsStatus) as Prisma.ServiceOrderCreateManyInput['status'],
                                     sltsStatus: finalSltsStatus,
 
                                     // Dates
                                     receivedDate: completedDate,
                                     statusDate: completedDate,
-                                    completedDate: finalSltsStatus === SodStatus.COMPLETED ? completedDate : null,
+                                    completedDate: isCompletionStatus ? completedDate : null,
 
                                     // Other
                                     comments: 'Auto-created from Missing History Sync',
