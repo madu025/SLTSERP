@@ -46,6 +46,12 @@ interface UserData {
   assignedStoreId?: string | null;
   accessibleOpmcs: { id: string; rtom: string }[];
   supervisor?: { id: string; name: string | null; username: string };
+  sectionAssignments?: Array<{
+    id: string;
+    section: { id: string; name: string };
+    role: { id: string; name: string };
+    isPrimary: boolean;
+  }>;
 }
 
 interface OPMC {
@@ -114,11 +120,46 @@ export default function UserRegistrationPage() {
     setShowDrawer(true);
   };
 
-  const handleFormSubmit = async (values: UserFormValues) => {
-    await upsertMutation.mutateAsync({
-      ...values,
+  const handleFormSubmit = async (values: UserFormValues & { sectionAssignments?: Array<{ sectionId: string; roleId: string; isPrimary: boolean }> }) => {
+    const { sectionAssignments, ...userValues } = values;
+    
+    // Create or update user (this also creates the primary section assignment based on role)
+    const result = await upsertMutation.mutateAsync({
+      ...userValues,
       id: selectedUser?.id
-    });
+    }) as { success: boolean; data?: { id: string }; error?: string };
+    
+    // Handle additional section assignments if provided
+    if (sectionAssignments && result.success && result.data?.id) {
+      const userId = result.data.id;
+      
+      // Get existing assignments to compare
+      const existingRes = await fetch(`/api/admin/users/${userId}/sections`);
+      const existingAssignments = existingRes.ok ? await existingRes.json() : [];
+      const existingIds = new Set(existingAssignments.map((a: { section: { id: string } }) => a.section.id));
+      
+      // Add new assignments that don't exist yet
+      for (const assignment of sectionAssignments) {
+        if (!existingIds.has(assignment.sectionId)) {
+          await fetch(`/api/admin/users/${userId}/sections`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(assignment)
+          });
+        }
+      }
+      
+      // Remove assignments that are no longer in the list
+      for (const existing of existingAssignments) {
+        const stillExists = sectionAssignments.some(a => a.sectionId === existing.section.id);
+        if (!stillExists && !existing.isPrimary) {
+          await fetch(`/api/admin/users/${userId}/sections/${existing.id}`, {
+            method: 'DELETE'
+          });
+        }
+      }
+    }
+    
     setShowDrawer(false);
     setSelectedUser(null);
   };
@@ -497,7 +538,8 @@ export default function UserRegistrationPage() {
           supervisorId: selectedUser.supervisor?.id || '',
           assignedStoreId: selectedUser.assignedStoreId || 'none',
           opmcIds: selectedUser.accessibleOpmcs.map(o => o.id),
-          status: selectedUser.status || 'active'
+          status: selectedUser.status || 'active',
+          sectionAssignments: selectedUser.sectionAssignments
         } : undefined, [selectedUser])}
         isSubmitting={upsertMutation.isPending}
         users={users}

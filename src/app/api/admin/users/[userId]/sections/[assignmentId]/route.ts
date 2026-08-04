@@ -9,8 +9,9 @@ export const DELETE = apiHandler(async (_req, params) => {
     
     await UserService.removeUserSection(assignmentId);
 
-    return Response.json({ message: 'Assignment removed successfully' });
+    return { message: 'Assignment removed successfully' };
 }, {
     roles: ROLE_GROUPS.ADMINS,
+    rawResponse: true,
     audit: { action: 'REMOVE_USER_SECTION', entity: 'User' }
 });

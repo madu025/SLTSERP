@@ -160,7 +160,15 @@ export class UserService {
                     staffId: true,
                     assignedStoreId: true,
                     accessibleOpmcs: { select: { id: true, rtom: true } },
-                    supervisor: { select: { id: true, name: true, username: true, role: true } }
+                    supervisor: { select: { id: true, name: true, username: true, role: true } },
+                    sectionAssignments: {
+                        select: {
+                            id: true,
+                            isPrimary: true,
+                            section: { select: { id: true, name: true } },
+                            role: { select: { id: true, name: true } }
+                        }
+                    }
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,

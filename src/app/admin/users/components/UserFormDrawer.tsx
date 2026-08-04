@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, BadgeCheck } from "lucide-react";
+import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, BadgeCheck, Plus, Trash2, Layers } from "lucide-react";
 
 // Zod Schema
 const userSchema = z.object({
@@ -44,6 +44,12 @@ export interface UserProp {
   accessibleOpmcs?: { id: string }[];
   contractorId?: string | null;
   employeeId?: string | null;
+  sectionAssignments?: Array<{
+    id: string;
+    section: { id: string; name: string };
+    role: { id: string; name: string };
+    isPrimary: boolean;
+  }>;
 }
 
 export interface OpmcProp {
@@ -61,8 +67,16 @@ export interface StoreProp {
 interface UserFormDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (values: UserFormValues) => void;
-  initialData?: UserFormValues & { id?: string };
+  onSubmit: (values: UserFormValues & { sectionAssignments?: Array<{ sectionId: string; roleId: string; isPrimary: boolean }> }) => void;
+  initialData?: UserFormValues & { 
+    id?: string;
+    sectionAssignments?: Array<{
+      id: string;
+      section: { id: string; name: string };
+      role: { id: string; name: string };
+      isPrimary: boolean;
+    }>;
+  };
   isSubmitting: boolean;
   users: UserProp[];
   opmcs: OpmcProp[];
@@ -81,6 +95,16 @@ export function UserFormDrawer({
 }: UserFormDrawerProps) {
   const [step, setStep] = useState(1);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [sectionAssignments, setSectionAssignments] = useState<Array<{
+    id?: string;
+    sectionId: string;
+    roleId: string;
+    sectionName?: string;
+    roleName?: string;
+    isPrimary: boolean;
+  }>>([]);
+  const [newAssignmentSection, setNewAssignmentSection] = useState('');
+  const [newAssignmentRole, setNewAssignmentRole] = useState('');
 
   const form = useForm<UserFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,6 +167,21 @@ export function UserFormDrawer({
         });
         const section = Object.entries(roleCategories).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
         setSelectedSection(section);
+        
+        // Load existing section assignments for edit mode
+        if (initialData.id && initialData.sectionAssignments) {
+          const assignments = initialData.sectionAssignments.map(a => ({
+            id: a.id,
+            sectionId: a.section.id,
+            roleId: a.role.id,
+            sectionName: a.section.name,
+            roleName: a.role.name,
+            isPrimary: a.isPrimary
+          }));
+          setSectionAssignments(assignments);
+        } else {
+          setSectionAssignments([]);
+        }
         setStep(1);
       } else {
         form.reset({
@@ -200,7 +239,12 @@ export function UserFormDrawer({
     onSubmit({
       ...data,
       assignedStoreId: data.assignedStoreId === 'none' ? undefined : data.assignedStoreId,
-      supervisorId: data.supervisorId === 'none' ? undefined : data.supervisorId
+      supervisorId: data.supervisorId === 'none' ? undefined : data.supervisorId,
+      sectionAssignments: sectionAssignments.map(a => ({
+        sectionId: a.sectionId,
+        roleId: a.roleId,
+        isPrimary: a.isPrimary
+      }))
     });
   };
 
@@ -462,6 +506,108 @@ export function UserFormDrawer({
                       <span>Configured Role: <strong>{watchedRole.replace(/_/g, ' ')}</strong></span>
                     </div>
                   )}
+
+                  {/* Section Assignments - Multi-section support */}
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <FormLabel className="text-[11px] font-bold uppercase text-slate-600 flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-slate-400" />
+                        Section Assignments
+                      </FormLabel>
+                      <span className="text-[10px] text-slate-400">{sectionAssignments.length} assigned</span>
+                    </div>
+
+                    {/* Existing Assignments */}
+                    {sectionAssignments.length > 0 && (
+                      <div className="space-y-2 mb-3">
+                        {sectionAssignments.map((assignment, idx) => (
+                          <div key={assignment.id || idx} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-slate-800 truncate">
+                                {assignment.sectionName || assignment.sectionId}
+                              </div>
+                              <div className="text-[10px] text-slate-500 truncate">
+                                {assignment.roleName || assignment.roleId}
+                                {assignment.isPrimary && <span className="ml-1.5 text-blue-600 font-bold">• PRIMARY</span>}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSectionAssignments(prev => prev.filter((_, i) => i !== idx))}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Remove assignment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add New Assignment */}
+                    <div className="space-y-2 p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
+                      <div className="text-[10px] font-bold text-blue-900 uppercase mb-2">Add Additional Section</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={newAssignmentSection}
+                          onValueChange={(val) => {
+                            setNewAssignmentSection(val);
+                            setNewAssignmentRole('');
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-xs bg-white">
+                            <SelectValue placeholder="-- Section --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.keys(roleCategories).map(cat => (
+                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <Select
+                          value={newAssignmentRole}
+                          onValueChange={setNewAssignmentRole}
+                          disabled={!newAssignmentSection}
+                        >
+                          <SelectTrigger className="h-9 text-xs bg-white">
+                            <SelectValue placeholder={newAssignmentSection ? "-- Role --" : "First select section"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {newAssignmentSection && roleCategories[newAssignmentSection]?.map((role: string) => (
+                              <SelectItem key={role} value={role}>{role.replace(/_/g, ' ')}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!newAssignmentSection || !newAssignmentRole}
+                        onClick={() => {
+                          if (newAssignmentSection && newAssignmentRole) {
+                            setSectionAssignments(prev => [
+                              ...prev,
+                              {
+                                sectionId: newAssignmentSection,
+                                roleId: newAssignmentRole,
+                                sectionName: newAssignmentSection,
+                                roleName: newAssignmentRole.replace(/_/g, ' '),
+                                isPrimary: false
+                              }
+                            ]);
+                            setNewAssignmentSection('');
+                            setNewAssignmentRole('');
+                          }
+                        }}
+                        className="w-full h-8 text-xs font-bold bg-white hover:bg-blue-50"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Assignment
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               );
             })()}

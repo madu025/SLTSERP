@@ -845,12 +845,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
-                title: 'User Section Assignments',
-                path: '/admin/user-assignments',
-                icon: UserCog,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            },
-            {
                 title: 'Staff Hierarchy Master',
                 path: '/admin/staff',
                 icon: Users,

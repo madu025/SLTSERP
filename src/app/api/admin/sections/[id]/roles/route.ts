@@ -16,9 +16,10 @@ const createRoleSchema = z.object({
 export const GET = apiHandler(async (_req, params) => {
     const { id } = await params;
     const roles = await RoleService.getRolesBySection(id);
-    return Response.json(roles);
+    return roles;
 }, {
-    roles: ROLE_GROUPS.ADMINS
+    roles: ROLE_GROUPS.ADMINS,
+    rawResponse: true
 });
 
 export const POST = apiHandler(async (_req, params, body) => {
@@ -30,8 +31,9 @@ export const POST = apiHandler(async (_req, params, body) => {
         sectionId: id
     });
 
-    return Response.json(role, { status: 201 });
+    return role;
 }, {
     roles: ROLE_GROUPS.SUPER_ADMINS,
+    rawResponse: true,
     audit: { action: 'CREATE_ROLE', entity: 'Admin' }
 });

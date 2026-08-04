@@ -16,9 +16,10 @@ export const GET = apiHandler(async (_req, params) => {
     const { userId } = await params;
     const assignments = await UserService.getUserSections(userId);
 
-    return Response.json(assignments);
+    return assignments;
 }, {
-    roles: ROLE_GROUPS.ADMINS
+    roles: ROLE_GROUPS.ADMINS,
+    rawResponse: true
 });
 
 // POST - Assign section/role to user
@@ -28,8 +29,9 @@ export const POST = apiHandler(async (_req, params, body) => {
 
     const assignment = await UserService.assignUserSection(userId, data);
 
-    return Response.json(assignment, { status: 201 });
+    return assignment;
 }, {
     roles: ROLE_GROUPS.ADMINS,
+    rawResponse: true,
     audit: { action: 'ASSIGN_USER_SECTION', entity: 'User' }
 });
