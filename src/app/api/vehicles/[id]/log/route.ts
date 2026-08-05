@@ -47,7 +47,7 @@ export const POST = apiHandler<VehicleLog, StartLogSchema>(
 
     return log;
   },
-  { schema: startLogSchema }
+  { schema: startLogSchema, roles: ['ALL'] }
 );
 
 /**
@@ -64,5 +64,5 @@ export const PUT = apiHandler<VehicleLog, EndLogSchema>(
 
     return log;
   },
-  { schema: endLogSchema }
+  { schema: endLogSchema, roles: ['ALL'] }
 );

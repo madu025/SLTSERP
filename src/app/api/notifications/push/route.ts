@@ -6,7 +6,7 @@ export const POST = apiHandler(async (request, params, body) => {
     const userId = params._userId || request.headers.get('x-user-id') || 'system';
     await PushNotificationService.saveSubscription(userId, body as any);
     return { success: true, message: 'Subscription saved' };
-});
+}, { roles: ['ALL'] });
 
 export const DELETE = apiHandler(async (request, params, body) => {
     const userId = params._userId || request.headers.get('x-user-id') || 'system';
@@ -15,4 +15,4 @@ export const DELETE = apiHandler(async (request, params, body) => {
         await PushNotificationService.removeSubscription(userId, endpoint as string);
     }
     return { success: true, message: 'Subscription removed' };
-});
+}, { roles: ['ALL'] });

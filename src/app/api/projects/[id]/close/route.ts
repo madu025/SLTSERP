@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectService } from '@/services/project/project.service';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export const POST = apiHandler(async (request, params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CLOSE', entity: 'PROJECT' },
     rawResponse: true // We handle a custom Response.json inside catch for specific 400 with payload
 });

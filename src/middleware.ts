@@ -81,6 +81,11 @@ export async function middleware(request: NextRequest) {
     requestHeaders.delete('x-user-role');
     requestHeaders.delete('x-contractor-id');
     requestHeaders.delete('x-token-version');
+    requestHeaders.delete('x-pathname');
+
+    // Propagate the request path so downstream server components can enforce
+    // path-scoped policies (e.g. forced password-change lockdown).
+    requestHeaders.set('x-pathname', pathname);
 
     // Check if the path is public
     const isPublicAuditSubmit = pathname === '/api/helpdesk/assets/audits' && request.method === 'POST';

@@ -27,6 +27,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await UserService.updateProfile(userId, { name, email });
 }, {
+    roles: ['ALL'],
     audit: { action: 'UPDATE_PROFILE', entity: 'USER_PROFILE' },
     rawResponse: true
 });

@@ -108,6 +108,13 @@ export class ProjectStockIssueService {
             throw AppError.badRequest('ISSUE_NOT_PENDING');
         }
 
+        // Segregation of duties: the requester cannot approve their own issue
+        // (mirrors stock-request.service.ts enforcement; SUPER_ADMIN exempt).
+        const approver = await prisma.user.findUnique({ where: { id: approvedById }, select: { role: true } });
+        if (approver?.role !== 'SUPER_ADMIN' && issue.issuedById === approvedById) {
+            throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: Issue creator cannot approve their own stock issue.');
+        }
+
         // Verify stock availability (batched to avoid N+1 queries)
         const issueItemIds = issue.items.map(i => i.itemId);
         const issueStocks = await prisma.inventoryStock.findMany({
@@ -308,6 +315,12 @@ export class ProjectStockIssueService {
 
         if (!returnReq || returnReq.status !== 'PENDING') {
             throw AppError.badRequest('INVALID_RETURN_REQUEST');
+        }
+
+        // Segregation of duties: the returner cannot approve their own return.
+        const returnApprover = await prisma.user.findUnique({ where: { id: approvedById }, select: { role: true } });
+        if (returnApprover?.role !== 'SUPER_ADMIN' && returnReq.returnedById === approvedById) {
+            throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: Return creator cannot approve their own material return.');
         }
 
         await prisma.$transaction(async (tx) => {

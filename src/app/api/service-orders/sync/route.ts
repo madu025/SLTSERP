@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 const syncSODSchema = z.object({
     rtomId: z.string().optional(),
@@ -32,6 +33,7 @@ export const POST = apiHandler<unknown, z.infer<typeof syncSODSchema>>(async (_r
     }
 }, {
     schema: syncSODSchema,
+    roles: ROLE_GROUPS.INVOICE_GENERATORS,
     audit: { action: 'SYNC_SERVICE_ORDERS', entity: 'ServiceOrder' },
     rawResponse: true
 });

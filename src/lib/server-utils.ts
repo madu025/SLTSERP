@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { verifyJWT } from './auth';
 import { validateSession } from './session-validator';
 
@@ -52,6 +52,14 @@ export async function getCurrentUser() {
     // changes take effect immediately (not the possibly-stale JWT claim).
     const session = await validateSession(userId, tokenVersion);
     if (!session.valid) return null;
+
+    // Forced password-change lockdown for server components/actions: flagged
+    // accounts may only interact with the profile page until they rotate.
+    if (session.mustChangePassword) {
+        const headerStore = await headers();
+        const pathname = headerStore.get('x-pathname') ?? '';
+        if (pathname !== '/profile') return null;
+    }
 
     return {
         id: userId,

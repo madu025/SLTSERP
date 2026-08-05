@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { TransactionService } from '@/services/inventory/transaction.service';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 const generateSchema = z.object({
     contractorId: z.string().min(1, "contractorId is required"),
@@ -21,5 +22,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
         balanceSheet
     });
 }, {
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'GENERATE_BALANCE_SHEET', entity: 'ContractorBalanceSheet' }
 });

@@ -50,7 +50,7 @@ export const PATCH = apiHandler(async (request) => {
         await NotificationService.markAllAsRead(userId);
     }
     return { success: true };
-});
+}, { roles: ['ALL'] });
 
 export const DELETE = apiHandler(async (request) => {
     const userId = request.headers.get('x-user-id');
@@ -59,6 +59,7 @@ export const DELETE = apiHandler(async (request) => {
     await NotificationService.deleteAll(userId);
     return { success: true };
 }, {
+    roles: ['ALL'],
     audit: {
         action: 'DELETE',
         entity: 'Notification'

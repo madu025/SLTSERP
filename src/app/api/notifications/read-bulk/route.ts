@@ -24,4 +24,4 @@ export const PATCH = apiHandler(async (req: Request) => {
         updatedCount,
         unreadCount
     });
-});
+}, { roles: ['ALL'] });

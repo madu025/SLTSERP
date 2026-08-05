@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { DisposalReason } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { AssetDisposalService } from '@/services/helpdesk/asset-disposal.service';
+import { ROLE_GROUPS } from '@/config/roles';
+
+// EAM disposal creators; approvals additionally allow finance approvers
+const DISPOSAL_CREATORS = ROLE_GROUPS.EAM_ASSET_MANAGERS;
+const DISPOSAL_APPROVERS = [...new Set([...ROLE_GROUPS.EAM_ASSET_MANAGERS, ...ROLE_GROUPS.FINANCE_APPROVERS])];
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +42,7 @@ export const POST = apiHandler(async (req: Request) => {
     const data = schema.parse(payload);
     return await AssetDisposalService.createDisposalRequest(userId, data);
 }, {
+    roles: DISPOSAL_CREATORS,
     rawResponse: true
 });
 
@@ -52,5 +58,6 @@ export const PUT = apiHandler(async (req: Request) => {
     const data = schema.parse(payload);
     return await AssetDisposalService.processDisposalApproval(userId, data);
 }, {
+    roles: DISPOSAL_APPROVERS,
     rawResponse: true
 });

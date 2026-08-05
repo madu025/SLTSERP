@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectBOQApprovalService } from '@/services/project/project-boq-approval.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,7 @@ export const POST = apiHandler(async (request, params, body) => {
 
     throw AppError.badRequest('Invalid action. Use: submit, approve, reject, revise');
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'APPROVE_BOQ', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });

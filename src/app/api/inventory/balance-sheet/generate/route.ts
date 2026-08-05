@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const POST = apiHandler(async (_request, _params, body) => {
     const contractorId = body.contractorId as string | undefined;
@@ -24,4 +25,4 @@ export const POST = apiHandler(async (_request, _params, body) => {
         storeId,
         items: reportData
     };
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.FINANCE_APPROVERS, rawResponse: true });

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 const createPoSchema = z.object({
     projectId: z.string().min(1, 'Project ID is required'),
@@ -28,5 +29,6 @@ export const POST = apiHandler(async (_req, _params, body) => {
 
     return Response.json(po);
 }, {
+    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
     audit: { action: 'GENERATE_DRAFT_PO', entity: 'Inventory' }
 });

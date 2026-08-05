@@ -768,7 +768,9 @@ export class UserService {
     }
 
     /**
-     * Update user permissions
+     * Direct permission override. Deliberately kept as the ONLY write path for
+     * User.permissions and exposed solely to SUPER_ADMIN via the admin route —
+     * granting permissions outside the role model is a super-admin power.
      */
     static async updateUserPermissions(userId: string, permissions: string[]) {
         return prisma.user.update({

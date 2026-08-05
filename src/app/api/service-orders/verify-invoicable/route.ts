@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,5 +24,6 @@ export const POST = apiHandler(async (req: Request) => {
         verifiedIds
     };
 }, {
+    roles: ROLE_GROUPS.INVOICE_GENERATORS,
     audit: { action: 'VERIFY_SOD_INVOICABLE', entity: 'ServiceOrder' }
 });

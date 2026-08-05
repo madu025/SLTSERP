@@ -3,6 +3,7 @@ import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSc
 import { apiHandler } from '@/lib/api-handler';
 import { AppError, ErrorCode } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { ROLE_GROUPS } from '@/config/roles';
 import type { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -109,7 +110,7 @@ export const POST = apiHandler(
 
         return { success: true, data: created };
     },
-    { schema: serviceOrderCreateSchema, rawResponse: true }
+    { schema: serviceOrderCreateSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }
 );
 
 // PUT - Update service order
@@ -124,7 +125,7 @@ export const PUT = apiHandler(
         const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
-    { schema: serviceOrderUpdateSchema, rawResponse: true }
+    { schema: serviceOrderUpdateSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }
 );
 
 // PATCH - Update SLTS Status query or Contractor assignment
@@ -139,5 +140,5 @@ export const PATCH = apiHandler(
         const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
-    { schema: serviceOrderPatchSchema, rawResponse: true }
+    { schema: serviceOrderPatchSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }
 );

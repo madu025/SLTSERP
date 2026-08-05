@@ -21,5 +21,5 @@ export const PATCH = apiHandler<Trip, EndTripSchema>(
 
         return trip;
     },
-    { schema: endTripSchema }
+    { schema: endTripSchema, roles: ['ALL'] }
 );

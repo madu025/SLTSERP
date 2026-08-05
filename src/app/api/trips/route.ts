@@ -59,5 +59,5 @@ export const POST = apiHandler<Trip, CreateTripSchema>(
 
         return trip;
     },
-    { schema: createTripSchema }
+    { schema: createTripSchema, roles: ['ALL'] }
 );

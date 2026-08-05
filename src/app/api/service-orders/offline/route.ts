@@ -4,6 +4,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { SODInvoicingService } from '@/services/service-order/sod.invoicing.service';
 import { SODLifecycleService } from '@/services/service-order/sod.lifecycle.service';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,7 +56,7 @@ export const PATCH = apiHandler(async (req) => {
             : `Work Order ${updated.soNum} unflagged from Offline mode.`,
         data: updated
     };
-});
+}, { roles: ROLE_GROUPS.INVOICE_GENERATORS });
 
 // POST Schema: Register New Offline Work Order manually
 const postSchema = z.object({
@@ -92,4 +93,4 @@ export const POST = apiHandler(async (req) => {
         message: 'Offline Work Order registered successfully!',
         data: order
     };
-});
+}, { roles: ROLE_GROUPS.INVOICE_GENERATORS });

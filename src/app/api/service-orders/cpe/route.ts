@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { CpeService } from '@/services/inventory/cpe.service';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,5 +27,5 @@ export const POST = apiHandler(
         const { ids, handbackReference } = body;
         return await CpeService.submitHandback(ids, handbackReference);
     },
-    { schema: cpeHandbackSchema, rawResponse: true }
+    { schema: cpeHandbackSchema, roles: ROLE_GROUPS.STORES, rawResponse: true }
 );

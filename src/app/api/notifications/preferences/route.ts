@@ -90,4 +90,4 @@ export const POST = apiHandler(async (req: Request) => {
         success: true,
         data: preference
     });
-});
+}, { roles: ['ALL'] });

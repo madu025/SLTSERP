@@ -4,7 +4,13 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-    const hashedPassword = await bcrypt.hash('Admin@123', 10);
+    // Seed credentials: overridable via env; the weak default is REFUSED in
+    // production so no prod environment can ship with Admin@123 accounts.
+    const seedPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
+    if (process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
+        throw new Error('SEED_ADMIN_PASSWORD must be set when seeding in production.');
+    }
+    const hashedPassword = await bcrypt.hash(seedPassword, 10);
 
     // ⚠️ WARNING: REMOVE ALL TEST USERS BEFORE PRODUCTION DEPLOYMENT ⚠️
     // These are for TESTING PURPOSES ONLY
@@ -76,6 +82,7 @@ async function main() {
             update: {
                 role: testUser.role,
                 password: hashedPassword,
+                mustChangePassword: true,
             },
             create: {
                 username: testUser.username,
@@ -83,6 +90,7 @@ async function main() {
                 password: hashedPassword,
                 name: testUser.name,
                 role: testUser.role,
+                mustChangePassword: true,
             },
         });
         console.log(`Test user created: ${testUser.username} (${testUser.role})`);

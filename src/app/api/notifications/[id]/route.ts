@@ -7,6 +7,7 @@ export const PATCH = apiHandler(async (_req, params) => {
     await NotificationService.markAsRead(id);
     return Response.json({ success: true });
 }, {
+    roles: ['ALL'],
     audit: { action: 'MARK_NOTIFICATION_AS_READ', entity: 'Notification' }
 });
 
@@ -19,5 +20,6 @@ export const DELETE = apiHandler(async (req, params) => {
     await NotificationService.delete(id, userId);
     return Response.json({ success: true });
 }, {
+    roles: ['ALL'],
     audit: { action: 'DELETE_NOTIFICATION', entity: 'Notification' }
 });

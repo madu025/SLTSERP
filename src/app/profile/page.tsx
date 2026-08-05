@@ -37,6 +37,7 @@ interface AccessibleOpmc {
 export default function ProfilePage() {
     const [user, setUser] = useState<ProfileUser | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [forcePw, setForcePw] = useState(false);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -48,6 +49,7 @@ export default function ProfilePage() {
                     console.error("Failed to parse user from localStorage", e);
                 }
             }
+            setForcePw(new URLSearchParams(window.location.search).get('forcePw') === '1');
             setMounted(true);
         }, 0);
         return () => clearTimeout(timer);
@@ -100,6 +102,11 @@ export default function ProfilePage() {
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
+            if (forcePw) {
+                // Token version was bumped by the rotation — send the user back
+                // to login so they pick up a fresh session.
+                setTimeout(() => { window.location.href = '/login'; }, 1200);
+            }
         },
         onError: (err: Error) => {
             setPwdError(err.message);
@@ -212,6 +219,13 @@ export default function ProfilePage() {
             <div className="flex-1 flex flex-col min-w-0">
                 <Header />
                 <main className="flex-1 overflow-y-auto pt-0">
+
+                    {/* Forced password-change lockdown banner */}
+                    {forcePw && (
+                        <div className="bg-amber-500 text-white px-8 py-3 text-center font-semibold">
+                            Your password must be changed before you can continue. Use the Security tab below.
+                        </div>
+                    )}
 
                     {/* Hero Header */}
                     <div className="h-48 bg-slate-900 relative">

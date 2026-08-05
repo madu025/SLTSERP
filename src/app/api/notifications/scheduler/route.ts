@@ -12,10 +12,9 @@ function isAuthorized(req: Request): boolean {
     const url = new URL(req.url);
     const apiKey = req.headers.get('x-api-key') || url.searchParams.get('key');
 
-    if (cronSecret && apiKey === cronSecret) return true;
-    if (process.env.NODE_ENV === 'development') return true;
-
-    return false;
+    // Fail-closed: without a configured secret only local dev may invoke this
+    if (!cronSecret) return process.env.NODE_ENV === 'development';
+    return apiKey === cronSecret;
 }
 
 const handleSchedulerRequest = async (req: Request) => {

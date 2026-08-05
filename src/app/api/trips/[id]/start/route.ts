@@ -21,5 +21,6 @@ export const PATCH = apiHandler<Trip, void>(
 
         const trip = await TripService.startTrip(params.id, actualStartTime);
         return trip;
-    }
+    },
+    { roles: ['ALL'] }
 );

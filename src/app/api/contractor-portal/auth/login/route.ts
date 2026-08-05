@@ -19,7 +19,8 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
 
         cookieStore.set('contractor_token', token, {
             httpOnly: true,
-            secure: false,
+            // HTTPS-only in production; local dev still serves over plain HTTP
+            secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 86400,
             path: '/',

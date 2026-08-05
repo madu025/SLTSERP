@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { TeamInput } from '@/types/contractor/contractor.types';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,5 +37,6 @@ export const POST = apiHandler(async (_req, params, body) => {
     await ContractorService.saveContractorTeams(id, data.teams as TeamInput[]);
     return { success: true, message: 'Teams saved successfully' };
 }, {
+    roles: ROLE_GROUPS.CONTRACTOR_TEAM_READERS,
     audit: { action: 'UPDATE_TEAMS', entity: 'Contractor' }
 });

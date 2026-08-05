@@ -7,6 +7,7 @@ import { requestContext } from './request-context';
 import { logger } from './logger';
 import { getMenuAllowedRoles } from '@/config/route-permissions';
 import { validateSession } from '@/lib/session-validator';
+import { getPrefixGuardRoles, PASSWORD_CHANGE_EXEMPT_PATHS } from '@/config/route-guard-defaults';
 
 // ─── Response Envelope ────────────────────────────────────────────────────────
 
@@ -205,28 +206,73 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                         );
                     }
                     if (session.role) userRole = session.role;
+
+                    // ── 0b. Forced password-change lockdown (fail-closed) ────
+                    // Accounts flagged with mustChangePassword may only reach the
+                    // password-change / session-exit endpoints until they rotate.
+                    if (session.mustChangePassword) {
+                        const pathname = new URL(req.url).pathname;
+                        const exempt = PASSWORD_CHANGE_EXEMPT_PATHS.has(pathname)
+                            || (pathname === '/api/profile' && req.method === 'GET');
+                        if (!exempt) {
+                            throw new AppError(
+                                'Password change required before continuing',
+                                ErrorCode.FORBIDDEN,
+                                403
+                            );
+                        }
+                    }
                 }
 
                 // ── 1. RBAC (fail-closed) ──────────────────────────────────
-                if (options?.roles && options.roles.length > 0 || options?.menuPath) {
-                    // Explicit `roles` win; otherwise resolve dynamically from the
-                    // sidebar menu config via `menuPath` (single source of truth)
-                    const effectiveRoles = options?.roles && options.roles.length > 0
-                        ? options.roles
-                        : getMenuAllowedRoles(options.menuPath as string) ?? undefined;
+                const pathname = new URL(req.url).pathname;
+                const declaredGuard = options?.roles && options.roles.length > 0 || options?.menuPath;
+                const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 
+                // Explicit `roles` win; otherwise resolve dynamically from the
+                // sidebar menu config via `menuPath`; undeclared mutating routes
+                // fall back to prefix-based departmental defaults (fail-closed).
+                const effectiveRoles = options?.roles && options.roles.length > 0
+                    ? options.roles
+                    : options?.menuPath
+                        ? getMenuAllowedRoles(options.menuPath) ?? undefined
+                        : isMutating
+                            ? getPrefixGuardRoles(pathname)
+                            : undefined;
+
+                if (declaredGuard || effectiveRoles) {
                     const allowed = !effectiveRoles || effectiveRoles.length === 0
                         ? true
                         : effectiveRoles.includes('ALL')
                             ? !!userRole // 'ALL' = any authenticated user, never anonymous
                             : !!userRole && effectiveRoles.includes(userRole);
                     if (!allowed) {
+                        // Denial traceability: record who tried to hit what with which role
+                        if (userId) {
+                            AuditService.log({
+                                userId,
+                                action: 'ACCESS_DENIED',
+                                entity: 'API',
+                                entityId: pathname,
+                                oldValue: null,
+                                newValue: { method: req.method, userRole: userRole ?? 'UNKNOWN' },
+                                ipAddress: req.headers.get('x-real-ip') ?? undefined,
+                                userAgent: req.headers.get('user-agent') ?? undefined,
+                            }).catch((err: unknown) =>
+                                logger.error('[AUDIT-LOG-FAIL]', { error: err, requestId })
+                            );
+                        }
+                        logger.warn('[RBAC-DENIED]', { path: pathname, method: req.method, userId, userRole, requestId });
                         throw new AppError(
                             'Forbidden: insufficient role',
                             ErrorCode.FORBIDDEN,
                             403
                         );
                     }
+                } else if (isMutating) {
+                    // No declared guard and no prefix default — surface for the
+                    // hardening backlog instead of failing silently.
+                    logger.warn('[RBAC-UNDECLARED-WRITE]', { path: pathname, method: req.method, userId, userRole, requestId });
                 }
 
                 // ── 2. Financial Write Guard & Redis Idempotency Lock ────────

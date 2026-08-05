@@ -8,7 +8,8 @@ export const POST = apiHandler(async (req) => {
     const authHeader = req.headers.get('authorization');
     const internalSecret = process.env.CRON_SECRET;
 
-    if (internalSecret && authHeader !== `Bearer ${internalSecret}`) {
+    // Fail-closed: refuse to run when CRON_SECRET is not configured
+    if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
         throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
     }
 
@@ -25,7 +26,8 @@ export const GET = apiHandler(async (req) => {
     const authHeader = req.headers.get('authorization');
     const internalSecret = process.env.CRON_SECRET;
 
-    if (internalSecret && authHeader !== `Bearer ${internalSecret}`) {
+    // Fail-closed: refuse to run when CRON_SECRET is not configured
+    if (!internalSecret || authHeader !== `Bearer ${internalSecret}`) {
         throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
     }
 

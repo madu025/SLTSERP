@@ -18,12 +18,13 @@ export const GET = apiHandler(async (_req, params) => {
 });
 
 // PATCH - Update user's permissions
+// Direct permission grants bypass the role model — SUPER_ADMIN only.
 export const PATCH = apiHandler(async (_req, params, body) => {
     const { permissions } = body;
     await UserService.updateUserPermissions(params.userId, permissions);
     return Response.json({ message: 'Permissions updated successfully' });
 }, {
     schema: updatePermissionsSchema,
-    roles: ROLE_GROUPS.ADMINS,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
     audit: { action: 'UPDATE_USER_PERMISSIONS', entity: 'User' }
 });

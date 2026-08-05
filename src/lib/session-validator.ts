@@ -4,6 +4,8 @@ export interface SessionValidity {
     valid: boolean;
     role?: string;
     status?: string;
+    /** Account must rotate its password before doing anything else. */
+    mustChangePassword?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ export async function validateSession(
 
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { tokenVersion: true, role: true, status: true },
+        select: { tokenVersion: true, role: true, status: true, mustChangePassword: true },
     });
 
     if (!user) return { valid: false };
@@ -32,5 +34,5 @@ export async function validateSession(
     const presented = tokenVersion ?? 0;
     if (presented !== user.tokenVersion) return { valid: false, role: user.role, status: user.status };
 
-    return { valid: true, role: user.role, status: user.status };
+    return { valid: true, role: user.role, status: user.status, mustChangePassword: user.mustChangePassword };
 }

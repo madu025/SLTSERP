@@ -20,6 +20,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         message: 'Password changed successfully'
     };
 }, {
+    roles: ['ALL'],
     audit: { action: 'UPDATE_PASSWORD', entity: 'USER_PROFILE' },
     rawResponse: true
 });

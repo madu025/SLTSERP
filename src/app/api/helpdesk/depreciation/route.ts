@@ -7,6 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async () => {
     return await ITAssetDepreciationService.getDepreciationSchedule();
+}, {
+    menuPath: '/helpdesk/depreciation'
 });
 
 export const POST = apiHandler(async (req: Request) => {
@@ -30,4 +32,6 @@ export const POST = apiHandler(async (req: Request) => {
         period,
         ...result
     };
+}, {
+    menuPath: '/helpdesk/depreciation'
 });

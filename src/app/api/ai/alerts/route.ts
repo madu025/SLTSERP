@@ -39,6 +39,7 @@ export const PATCH = apiHandler(async (_req, _params, body) => {
 
     throw AppError.badRequest('Invalid request');
 }, {
+    roles: ['ALL'],
     audit: { action: 'MARK_AI_ALERT_READ', entity: 'AI' }
 });
 // Turbopack refresh
