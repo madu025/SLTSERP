@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod/sod.service';
+import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { bridgeSyncSchema } from '@/lib/validations/service-order.schema';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';

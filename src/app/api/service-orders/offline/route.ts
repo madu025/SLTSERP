@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
-import { SODInvoicingService } from '@/services/sod/sod.invoicing.service';
-import { SODLifecycleService } from '@/services/sod/sod.lifecycle.service';
+import { SODInvoicingService } from '@/services/service-order/sod.invoicing.service';
+import { SODLifecycleService } from '@/services/service-order/sod.lifecycle.service';
 
 export const dynamic = 'force-dynamic';
 

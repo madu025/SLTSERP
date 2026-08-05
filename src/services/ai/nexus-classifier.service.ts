@@ -7,8 +7,8 @@ interface ModelData {
   vocabSize: number;
 }
 
-const MODEL_PATH = path.join(process.cwd(), 'src/services/nexus-model.json');
-const DYNAMIC_TRAINING_PATH = path.join(process.cwd(), 'src/services/nexus-training-data.json');
+const MODEL_PATH = path.join(process.cwd(), 'src/services/ai/data/nexus-model.json');
+const DYNAMIC_TRAINING_PATH = path.join(process.cwd(), 'src/services/ai/data/nexus-training-data.json');
 
 const TRAINING_DATA: { intent: string; text: string }[] = [
   // ===== FINANCE =====

@@ -10,7 +10,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Strategy: Async Burst Sync (Phoenix Bridge) with Local Dev Auto-Routing
         chrome.storage.local.get(['erpOrigin'], (res) => {
             const origin = res.erpOrigin || 'https://sltserp.vercel.app';
-            const targetUrl = `${origin.replace(/\/+$/, '')}/api/test/extension-push`;
+            const targetUrl = `${origin.replace(/\/+$/, '')}/api/service-orders/extension-push`;
 
             console.log(`[PHOENIX-PROXY] Attempting to push to ERP at: ${targetUrl}`);
             fetch(targetUrl, {

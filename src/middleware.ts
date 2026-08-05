@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyJWT } from '@/lib/auth';
+import { hasRouteAccess } from '@/config/route-permissions';
 
 // Define paths that do NOT require authentication
 const publicPaths = [
@@ -22,7 +23,7 @@ const publicPaths = [
     '/api/team-members/public',
     '/api/health',
     '/api/cron',
-    '/api/test/extension-push',
+    '/api/service-orders/extension-push',
     '/api/service-orders/bridge-sync',
     '/api/service-orders/bridge-data',
     '/api/opmcs',
@@ -106,9 +107,19 @@ export async function middleware(request: NextRequest) {
     if (uid) {
         requestHeaders.set('x-user-id', uid);
     }
-    requestHeaders.set('x-user-role', verifiedToken.role as string);
+    const userRole = verifiedToken.role as string;
+    requestHeaders.set('x-user-role', userRole);
     if (verifiedToken.contractorId) {
         requestHeaders.set('x-contractor-id', verifiedToken.contractorId as string);
+    }
+
+    // Route-level RBAC enforcement: block direct URL access to pages the role shouldn't reach
+    // (sidebar-menu.ts only hides nav items client-side; this blocks actual page loads)
+    if (!pathname.startsWith('/api') && !pathname.startsWith('/contractor/') && !pathname.startsWith('/login')) {
+        if (!hasRouteAccess(pathname, userRole)) {
+            const forbiddenUrl = new URL('/dashboard', request.url);
+            return NextResponse.redirect(forbiddenUrl);
+        }
     }
 
     // Prevent browser caching of protected pages (stops back-button from showing stale auth pages)

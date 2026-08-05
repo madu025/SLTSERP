@@ -213,7 +213,7 @@ export default function ExtensionTestPage() {
     const { data, isLoading } = useQuery({
         queryKey: ['extension-logs'],
         queryFn: async () => {
-            const resp = await fetch('/api/test/extension-push');
+            const resp = await fetch('/api/service-orders/extension-push');
             if (!resp.ok) throw new Error('Failed to fetch logs');
             return resp.json();
         },
@@ -222,7 +222,7 @@ export default function ExtensionTestPage() {
 
     const clearMutation = useMutation({
         mutationFn: async () => {
-            const resp = await fetch('/api/test/extension-push', { method: 'DELETE' });
+            const resp = await fetch('/api/service-orders/extension-push', { method: 'DELETE' });
             if (!resp.ok) throw new Error('Failed to clear logs');
             return resp.json();
         },

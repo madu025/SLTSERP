@@ -103,10 +103,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/dashboard',
         icon: LayoutDashboard,
         allowedRoles: [
-            'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
+            'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
             'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 
             'FINANCE_MANAGER', 'FINANCE_ASSISTANT',
-            'PROCUREMENT_OFFICER', 'OFFICE_ADMIN', 'SITE_OFFICE_STAFF', 'SA_MANAGER', 'SA_ASSISTANT'
+            'STORES_MANAGER', 'STORES_ASSISTANT',
+            'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER',
+            'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER', 'RATE_AUDITOR',
+            'PROCUREMENT_OFFICER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF',
+            'SA_MANAGER', 'SA_ASSISTANT', 'HEAD_OF_SECTION'
         ],
         permissionId: 'dashboard'
     },
@@ -783,7 +787,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Drivers Directory',
-                path: '/drivers',
+                path: '/fleet/drivers',
                 icon: Users,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },

@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
-import { ServiceOrderService } from '@/services/sod/sod.service';
+import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from '@/config/roles';
 

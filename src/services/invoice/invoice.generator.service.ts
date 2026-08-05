@@ -72,7 +72,7 @@ export class InvoiceGeneratorService {
 
         let totalGrossAmount = 0;
         // Import SODInvoicingService dynamically to prevent circular dependencies if they exist
-        const { SODInvoicingService } = await import('../sod/sod.invoicing.service');
+        const { SODInvoicingService } = await import('../service-order/sod.invoicing.service');
         
         for (const sod of sods) {
             const dwUsage = sod.materialUsage.find((m) => {

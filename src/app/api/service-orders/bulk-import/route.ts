@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod/sod.service';
+import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { bulkImportSchema } from '@/lib/validations/service-order.schema';
 
 export const POST = apiHandler(async (_req, _params, body) => {

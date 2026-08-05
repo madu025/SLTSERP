@@ -21,7 +21,7 @@ export default function DriverDetailPage() {
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
                     <div className="max-w-4xl mx-auto space-y-4">
                         <div className="flex items-center gap-3">
-                            <Button variant="ghost" onClick={() => router.push('/drivers')} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
+                            <Button variant="ghost" onClick={() => router.push('/fleet/drivers')} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
                                 <ArrowLeft className="w-4 h-4" />
                             </Button>
                             <div>
@@ -39,7 +39,7 @@ export default function DriverDetailPage() {
                                     Driver detail view is coming soon. You will be able to view driver profile,
                                     license information, trip history, and compliance documents here.
                                 </p>
-                                <Button onClick={() => router.push('/drivers')} className="mt-4 h-8 px-4 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold">
+                                <Button onClick={() => router.push('/fleet/drivers')} className="mt-4 h-8 px-4 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold">
                                     Back to Drivers
                                 </Button>
                             </CardContent>

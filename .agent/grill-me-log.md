@@ -662,4 +662,42 @@ Verification: npx tsc --noEmit clean; endpoint live-verified (401 without sessio
 **Should-Have (logged, needs sign-off):**
 - S1 RBAC: PATCH/PUT /api/service-orders pass no `roles` -> any authenticated role can flip status incl. COMPLETED (posts GL). Recommend ROLE_GROUPS.SOD_PROJECT.
 - S2 CompletedSODSyncService.startPeriodicSync has no re-entrancy guard (10-min interval; slow run overlaps).
-- S3 INSTALL_CLOSED posts no revenue/GL (only COMPLETED triggers ledger) � confirm domain intent.
+- S3 INSTALL_CLOSED posts no revenue/GL (only COMPLETED triggers ledger) - confirm domain intent.
+
+---
+
+## Session: 2026-08-05 -- Post-Refactor Directory Discipline Audit (Phase 5)
+
+**Scope**: 5-QA Auditor cross-examination of the full directory structure after the 4-phase Module Directory Restructure.
+
+### Audit Findings: 7 Must-Have, 9 Should-Have
+
+**Must-Have Fixes Applied:**
+
+| # | Finding | Fix Applied |
+|---|---------|-------------|
+| A1 | `services/sod/` naming vs `service-orders/` domain mismatch (25 importers + 4 relative imports) | `git mv src/services/sod src/services/service-order` + updated all 29 import references |
+| A2 | `nexus-model.json` + `nexus-training-data.json` at services root (data files in code dir) | Moved to `src/services/ai/data/` + updated `nexus-classifier.service.ts` paths |
+| B1 | Test/debug API routes in production (`api/test/debug-sync`, `api/test-approval-simulation`) | Deleted `debug-sync` + `test-approval-simulation`; moved `extension-push` to `api/service-orders/extension-push/` + updated middleware, admin test page, slt-bridge extension |
+| C1 | `src/context/` empty directory (dead) | Deleted |
+| C2 | `src/scripts/` empty directory (dead) | Deleted |
+| D4 | `app/drivers/` orphaned at top level (belongs under `fleet/`) | `git mv src/app/drivers src/app/fleet/drivers` + sidebar + router.push updates |
+
+**Deferred (auth flow risk -- separate PR):**
+
+| # | Finding | Reason |
+|---|---------|--------|
+| D1 | 4 contractor top-level dirs | Touches middleware auth, token-based registration URLs, session management, browser extension routing |
+
+**Should-Have (logged for follow-up):**
+- C3: `services/eam/` single-file dir -> merge into `services/admin/`
+- C4: `services/system/` single-file dir -> merge into `services/admin/`
+- C5: Dead barrel `OrderActionModal.tsx` at modals root -> delete
+- D2: `services/core/` dumping ground (11 files) -> split by domain
+- D3: `services/slt/` mixed sub-domains (5 files) -> split
+- D5: `app/presentation/` (16 slides) at top level -> move under `admin/`
+- D6: `api/trips/`, `api/vehicles/`, `api/payments/` at API root -> move under `api/fleet/`
+- D7: `services/contractor-portal/` separate from `services/contractor/` -> merge
+- A3: `src/data/slt-config.json` orphan -> move to `src/config/`
+
+**Verified:** tsc clean (0 errors). 30+ files changed.

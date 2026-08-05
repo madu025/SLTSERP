@@ -3,7 +3,7 @@ process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
 import { QUEUE_NAMES, statsUpdateQueue, addJob } from '../lib/queue';
-import { ServiceOrderService } from '../services/sod/sod.service';
+import { ServiceOrderService } from '../services/service-order/sod.service';
 import { SLTPATData } from '../services/slt/slt-api.service';
 
 export const sodSyncWorker = new Worker(
@@ -37,7 +37,7 @@ export const sodSyncWorker = new Worker(
                 return result;
             } else if (type as any === 'PERIODIC_COMPLETED_SYNC') {
                 console.log(`[SOD-SYNC-WORKER] Starting Periodic Completed SOD Sync (Job ID: ${job.id})`);
-                const { CompletedSODSyncService } = await import('../services/sod/completed-sod-sync.service');
+                const { CompletedSODSyncService } = await import('../services/service-order/completed-sod-sync.service');
                 const result = await CompletedSODSyncService.syncCompletedSODs();
                 console.log(`[SOD-SYNC-WORKER] Completed Periodic Completed SOD Sync.`);
                 return result;

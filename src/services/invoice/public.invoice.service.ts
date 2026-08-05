@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { SODInvoicingService } from '@/services/sod/sod.invoicing.service';
+import { SODInvoicingService } from '@/services/service-order/sod.invoicing.service';
 import { AppError } from '@/lib/error';
 
 export class PublicInvoiceService {

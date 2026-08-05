@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod';
+import { ServiceOrderService } from '@/services/service-order';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

@@ -1,4 +1,4 @@
-import { ServiceOrderDashboardService } from '@/services/sod/sod-dashboard.service';
+import { ServiceOrderDashboardService } from '@/services/service-order/sod-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
 import { withTracing } from '@/lib/tracing-utils';
 import { AppError } from '@/lib/error';

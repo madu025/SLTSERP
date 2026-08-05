@@ -25,7 +25,7 @@ export const GET = apiHandler(async (req) => {
     // 1. SOD Sync
     if (process.env.VERCEL) {
         console.log('[CRON] Vercel environment detected. Executing SOD Sync synchronously...');
-        const { ServiceOrderService } = await import('@/services/sod/sod.service');
+        const { ServiceOrderService } = await import('@/services/service-order/sod.service');
         await ServiceOrderService.syncAllOpmcs();
         console.log('[CRON] Synchronous SOD Sync completed.');
     } else {
@@ -42,7 +42,7 @@ export const GET = apiHandler(async (req) => {
     if (currentMinute >= 25 && currentMinute <= 40) {
         if (process.env.VERCEL) {
             console.log('[CRON] Executing Hourly PAT Sync synchronously...');
-            const { ServiceOrderService } = await import('@/services/sod/sod.service');
+            const { ServiceOrderService } = await import('@/services/service-order/sod.service');
             await ServiceOrderService.syncHoApprovedResults();
             await ServiceOrderService.syncHoRejectedResults();
             console.log('[CRON] Synchronous PAT Sync completed.');

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod/sod.service';
+import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
 
 /**

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
-import { ServiceOrderService } from '@/services/sod/sod.service';
+import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
 
 const syncSODSchema = z.object({

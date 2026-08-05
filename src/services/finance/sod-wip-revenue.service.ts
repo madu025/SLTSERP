@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { safeJsonParse } from '@/utils/safeJsonParse';
-import { SODInvoicingService } from '../sod/sod.invoicing.service';
+import { SODInvoicingService } from '../service-order/sod.invoicing.service';
 import { LedgerService, JournalPostingLineInput } from './ledger.service';
 import { ACCOUNTS } from './account-codes';
 

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler, castBody } from '@/lib/api-handler';
-import { SODAutoCompletionService } from '@/services/sod/sod-auto-completion.service';
+import { SODAutoCompletionService } from '@/services/service-order/sod-auto-completion.service';
 import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from "@/config/roles";
 
