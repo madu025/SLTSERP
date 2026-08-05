@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
 import { z } from 'zod';
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 
 // specificUserId targets a @db.Uuid FK — validate format to avoid P2023 runtime errors
 const levelSchema = z.object({
@@ -21,7 +22,7 @@ const replaceLevelsSchema = z.object({
 
 export const POST = apiHandler(async (req, params, body) => {
     const gateId = params?.id as string;
-    if (!gateId) throw new Error('Gate ID is required');
+    if (!gateId) throw AppError.badRequest('Gate ID is required');
 
     const parsedBody = createLevelSchema.parse(body);
 
@@ -45,7 +46,7 @@ export const POST = apiHandler(async (req, params, body) => {
 // Bulk replace ALL levels of a gate (wizard save path) — atomic delete + renumber
 export const PUT = apiHandler(async (req, params, body) => {
     const gateId = params?.id as string;
-    if (!gateId) throw new Error('Gate ID is required');
+    if (!gateId) throw AppError.badRequest('Gate ID is required');
 
     const parsed = replaceLevelsSchema.parse(body);
     const result = await ProcessGateAdminService.replaceApprovalLevels(gateId, parsed.levels);

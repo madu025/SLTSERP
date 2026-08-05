@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProcessGateAdminService } from '@/services/admin/process-gate.service';
 import { z } from 'zod';
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 
 const updateGateSchema = z.object({
   label: z.string().optional(),
@@ -21,7 +22,7 @@ const updateGateSchema = z.object({
 
 export const PUT = apiHandler(async (req, params, body) => {
     const id = params?.id as string;
-    if (!id) throw new Error('ID is required');
+    if (!id) throw AppError.badRequest('ID is required');
 
     const updatedGate = await ProcessGateAdminService.updateGate(id, body);
     
@@ -33,7 +34,7 @@ export const PUT = apiHandler(async (req, params, body) => {
 
 export const DELETE = apiHandler(async (req, params) => {
     const id = params?.id as string;
-    if (!id) throw new Error('ID is required');
+    if (!id) throw AppError.badRequest('ID is required');
 
     await ProcessGateAdminService.deleteGate(id);
     

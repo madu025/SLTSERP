@@ -1657,6 +1657,7 @@
         workflowStage?: string;
         sourceType?: string;
         procurementStatus?: string;
+        awaitingApproval?: boolean;
     }): any`
     * `processStockRequestAction(data: StockRequestActionData): any`
 
@@ -2652,6 +2653,216 @@
     * `markNotificationAsRead(id: string): any`
     * `markAllNotificationsAsRead(params: { contractorId?: string; teamId?: string }): any`
 
+### [completed-sod-sync.service.ts](src/services/service-order/completed-sod-sync.service.ts)
+* **Class**: `CompletedSODSyncService`
+  * **Methods**:
+    * `syncCompletedSODs(customStartDate?: string): Promise<{
+        checked: number;
+        completed: number;
+        errors: string[];
+    }>`
+    * `startPeriodicSync(): void`
+    * `stopPeriodicSync(): void`
+
+### [index.ts](src/services/service-order/index.ts)
+* **Class**: `ServiceOrderService`
+  * **Methods**:
+    * `getServiceOrders(_userId: string, params: GetServiceOrdersParams): any`
+    * `getContractorAssignedSODs(params: {
+        contractorId: string;
+        search?: string;
+        sltsStatus?: string;
+        teamId?: string;
+        page?: number;
+        limit?: number;
+    }): any`
+    * `getServiceOrderBySoNum(soNum: string): any`
+    * `bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string): any`
+    * `patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder>`
+    * `syncPatResults(opmcId: string, rtom: string): any`
+    * `syncHoApprovedResults(): any`
+    * `syncHoRejectedResults(): any`
+    * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
+    * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
+    * `syncServiceOrders(opmcId: string, rtom: string): any`
+    * `getExtensionRawData(soNum: string): any`
+    * `getPatResults(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        rtom?: string;
+        region?: string;
+        startDate?: string;
+        endDate?: string;
+    }): any`
+    * `getOspFtthItems(): any`
+    * `bulkImportLegacyServiceOrders(rows: Parameters<typeof SODImportService.bulkImportLegacyServiceOrders>[0], skipMaterials?: boolean): any`
+    * `bridgeSync(payload: Parameters<typeof SODSyncService.bridgeSync>[0]): any`
+    * `fixDates(execute: boolean): any`
+    * `debugSync(soNum: string): any`
+    * `saveExtensionRawData(soNum: string | null, body: {
+            currentUser?: string | null;
+            activeTab?: string | null;
+            url?: string | null;
+            [key: string]: unknown;
+        }): any`
+    * `getExtensionLogs(): any`
+    * `clearExtensionLogs(): any`
+    * `verifyInvoicable(sodIds: string[], userId: string, notes?: string): any`
+
+### [sod-auto-completion.service.ts](src/services/service-order/sod-auto-completion.service.ts)
+* **Class**: `SODAutoCompletionService`
+  * **Methods**:
+    * `fetchCompletedSODsFromSLT(rtom: string, startDate: string, endDate: string): Promise<SLTCompletedSOD[]>`
+    * `processCompletedSODs(): Promise<{
+        checked: number;
+        completed: number;
+        errors: string[];
+    }>`
+    * `startBackgroundProcess(): void`
+    * `stopBackgroundProcess(): void`
+    * `getStatus(): { isRunning: boolean; hasInterval: boolean }`
+
+### [sod-dashboard.service.ts](src/services/service-order/sod-dashboard.service.ts)
+* **Class**: `ServiceOrderDashboardService`
+  * **Methods**:
+    * `getServiceOrderStats(params: { userId: string, filterRegion: string, filterRtom: string }): any`
+
+### [sod-return-classifier.service.ts](src/services/service-order/sod-return-classifier.service.ts)
+* **Class**: `SODReturnClassifierService`
+  * **Methods**:
+    * `classify(comment: string): { category: string; originalComment: string }`
+
+### [sod-scraper.service.ts](src/services/service-order/sod-scraper.service.ts)
+* **Class**: `SODDetailsScraper`
+  * **Methods**:
+    * `fetchSODDetails(soNum: string, status: string = 'COMPLETED', workOrderId: string = '', serviceType: string = 'FTTH'): Promise<SODDetailsData | null>`
+    * `extractTableData(html: string): Record<string, string>[]`
+    * `saveHTMLForAnalysis(soNum: string): Promise<void>`
+
+### [sod.import.service.ts](src/services/service-order/sod.import.service.ts)
+* **Class**: `SODImportService`
+  * **Methods**:
+    * `bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string): any`
+    * `bulkImportLegacyServiceOrders(rows: Array<{
+            rtom: string;
+            voiceNumber?: string;
+            orderType?: string;
+            receivedDate?: Date | string | null;
+            completedDate?: Date | string | null;
+            package?: string;
+            dropWireDistance?: number;
+            contractorName?: string;
+            directTeamName?: string;
+            materials?: Record<string, number>;
+        }>, skipMaterials: boolean = false): any`
+
+### [sod.invoicing.service.ts](src/services/service-order/sod.invoicing.service.ts)
+* **Class**: `SODInvoicingService`
+  * **Methods**:
+    * `capDropWireDistance(distance: number): number`
+    * `calculatePoleAdminFee(poleCount: number, materialSource?: string | null): number`
+    * `calculateSlaDelayPenalty(receivedDate: Date | null | undefined, completedDate: Date | null | undefined, hasPoles: boolean): number`
+    * `resolveAreaGroup(rtomOrName?: string | null): 'CEN' | 'HK' | 'OTHER'`
+    * `calculateAmounts(opmcIdOrRtom: string, rawDistance: number, options?: {
+            materialSource?: string | null;
+            poleCount?: number;
+            serviceType?: string | null;
+            poleType?: string | null;
+            poleMethod?: string | null;
+            completedDate?: Date | null;
+        }): any`
+    * `determineInvoicableStatus(sltsPatStatus: string | null | undefined, opmcPatStatus: string | null | undefined, hoPatStatus: string | null | undefined): boolean`
+
+### [sod.lifecycle.service.ts](src/services/service-order/sod.lifecycle.service.ts)
+* **Class**: `SODLifecycleService`
+  * **Methods**:
+    * `validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string): any`
+    * `prepareStatusTransition(oldOrder: { sltsStatus: string; status: string | null; statusDate: Date | null; comments: string | null; returnReason: string | null; sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isInvoicable?: boolean }, data: ServiceOrderUpdateData): Promise<Prisma.ServiceOrderUncheckedUpdateInput>`
+    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
+    * `toggleOfflineWorkOrder(id: string, isOffline: boolean, offlineReference?: string, reason?: string): any`
+    * `getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null): any`
+    * `registerOfflineOrder(data: {
+        soNum: string;
+        rtom: string;
+        opmcId: string;
+        customerName?: string;
+        voiceNumber?: string;
+        serviceType: string;
+        orderType: string;
+        sltsStatus: ServiceOrderStatus;
+        dropWireDistance: number;
+        contractorId?: string;
+        teamId?: string;
+        offlineReference?: string;
+        comments?: string;
+        completedDate?: Date;
+    }): any`
+    * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN'`
+
+### [sod.material.service.ts](src/services/service-order/sod.material.service.ts)
+* **Class**: `SODMaterialService`
+  * **Methods**:
+    * `processMaterialUsage(tx: TransactionClient, serviceOrderId: string, opmcId: string, contractorId: string | null, materialUsage: MaterialUsageInput[], inventoryService: {
+            pickContractorBatchesFIFO: (tx: TransactionClient, contractorId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
+            pickStoreBatchesFIFO: (tx: TransactionClient, storeId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
+        }, userId: string = 'SYSTEM'): any`
+    * `rollbackMaterialUsage(tx: TransactionClient, serviceOrderId: string, userId: string = 'SYSTEM'): any`
+
+### [sod.query.service.ts](src/services/service-order/sod.query.service.ts)
+* **Class**: `SODQueryService`
+  * **Methods**:
+    * `getServiceOrders(params: GetServiceOrdersParams): any`
+    * `getServiceOrderBySoNum(soNum: string): any`
+    * `getExtensionRawData(soNum: string): any`
+    * `getPatResults(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        rtom?: string;
+        region?: string;
+        startDate?: string;
+        endDate?: string;
+    }): any`
+    * `getOspFtthItems(): any`
+    * `getContractorAssignedSODs(params: {
+        contractorId: string;
+        search?: string;
+        sltsStatus?: string;
+        teamId?: string;
+        page?: number;
+        limit?: number;
+    }): any`
+
+### [sod.sync.service.ts](src/services/service-order/sod.sync.service.ts)
+* **Class**: `SODSyncService`
+  * **Methods**:
+    * `syncPatResults(opmcId: string, rtom: string): any`
+    * `syncHoApprovedResults(): any`
+    * `syncHoRejectedResults(): any`
+    * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
+    * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
+    * `syncServiceOrders(opmcId: string, rtom: string, preloadedPendingSods?: { id: string; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: string }[]): any`
+    * `bridgeSync(payload: {
+        soNum?: string;
+        allTabs?: Record<string, Record<string, string>>;
+        teamDetails?: Record<string, string>;
+        forensicAudit?: unknown[];
+        materialDetails?: MaterialDetailInput[];
+        currentUser?: string;
+        activeTab?: string;
+        url?: string;
+        commentsList?: { date?: string; user?: string; comment?: string }[];
+    }): any`
+
+### [sod.utils.ts](src/services/service-order/sod.utils.ts)
+* **Class**: `SodUtils`
+  * **Methods**:
+    * `deepParse(masterData: Record<string, string>): Record<string, string>`
+    * `safeParseDate(dateStr: string | Date | undefined | null): Date | undefined`
+
 ### [header-mapping.service.ts](src/services/sf-audit/header-mapping.service.ts)
 * **Class**: `HeaderMappingService`
   * **Methods**:
@@ -2715,216 +2926,6 @@
 * **Class**: `SLTPortalAuthService`
   * **Methods**:
     * `getOrRefreshCookie(): Promise<string>`
-
-### [completed-sod-sync.service.ts](src/services/sod/completed-sod-sync.service.ts)
-* **Class**: `CompletedSODSyncService`
-  * **Methods**:
-    * `syncCompletedSODs(customStartDate?: string): Promise<{
-        checked: number;
-        completed: number;
-        errors: string[];
-    }>`
-    * `startPeriodicSync(): void`
-    * `stopPeriodicSync(): void`
-
-### [index.ts](src/services/sod/index.ts)
-* **Class**: `ServiceOrderService`
-  * **Methods**:
-    * `getServiceOrders(_userId: string, params: GetServiceOrdersParams): any`
-    * `getContractorAssignedSODs(params: {
-        contractorId: string;
-        search?: string;
-        sltsStatus?: string;
-        teamId?: string;
-        page?: number;
-        limit?: number;
-    }): any`
-    * `getServiceOrderBySoNum(soNum: string): any`
-    * `bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string): any`
-    * `patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder>`
-    * `syncPatResults(opmcId: string, rtom: string): any`
-    * `syncHoApprovedResults(): any`
-    * `syncHoRejectedResults(): any`
-    * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
-    * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
-    * `syncServiceOrders(opmcId: string, rtom: string): any`
-    * `getExtensionRawData(soNum: string): any`
-    * `getPatResults(params: {
-        page?: number;
-        limit?: number;
-        search?: string;
-        status?: string;
-        rtom?: string;
-        region?: string;
-        startDate?: string;
-        endDate?: string;
-    }): any`
-    * `getOspFtthItems(): any`
-    * `bulkImportLegacyServiceOrders(rows: Parameters<typeof SODImportService.bulkImportLegacyServiceOrders>[0], skipMaterials?: boolean): any`
-    * `bridgeSync(payload: Parameters<typeof SODSyncService.bridgeSync>[0]): any`
-    * `fixDates(execute: boolean): any`
-    * `debugSync(soNum: string): any`
-    * `saveExtensionRawData(soNum: string | null, body: {
-            currentUser?: string | null;
-            activeTab?: string | null;
-            url?: string | null;
-            [key: string]: unknown;
-        }): any`
-    * `getExtensionLogs(): any`
-    * `clearExtensionLogs(): any`
-    * `verifyInvoicable(sodIds: string[], userId: string, notes?: string): any`
-
-### [sod-auto-completion.service.ts](src/services/sod/sod-auto-completion.service.ts)
-* **Class**: `SODAutoCompletionService`
-  * **Methods**:
-    * `fetchCompletedSODsFromSLT(rtom: string, startDate: string, endDate: string): Promise<SLTCompletedSOD[]>`
-    * `processCompletedSODs(): Promise<{
-        checked: number;
-        completed: number;
-        errors: string[];
-    }>`
-    * `startBackgroundProcess(): void`
-    * `stopBackgroundProcess(): void`
-    * `getStatus(): { isRunning: boolean; hasInterval: boolean }`
-
-### [sod-dashboard.service.ts](src/services/sod/sod-dashboard.service.ts)
-* **Class**: `ServiceOrderDashboardService`
-  * **Methods**:
-    * `getServiceOrderStats(params: { userId: string, filterRegion: string, filterRtom: string }): any`
-
-### [sod-return-classifier.service.ts](src/services/sod/sod-return-classifier.service.ts)
-* **Class**: `SODReturnClassifierService`
-  * **Methods**:
-    * `classify(comment: string): { category: string; originalComment: string }`
-
-### [sod-scraper.service.ts](src/services/sod/sod-scraper.service.ts)
-* **Class**: `SODDetailsScraper`
-  * **Methods**:
-    * `fetchSODDetails(soNum: string, status: string = 'COMPLETED', workOrderId: string = '', serviceType: string = 'FTTH'): Promise<SODDetailsData | null>`
-    * `extractTableData(html: string): Record<string, string>[]`
-    * `saveHTMLForAnalysis(soNum: string): Promise<void>`
-
-### [sod.import.service.ts](src/services/sod/sod.import.service.ts)
-* **Class**: `SODImportService`
-  * **Methods**:
-    * `bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string): any`
-    * `bulkImportLegacyServiceOrders(rows: Array<{
-            rtom: string;
-            voiceNumber?: string;
-            orderType?: string;
-            receivedDate?: Date | string | null;
-            completedDate?: Date | string | null;
-            package?: string;
-            dropWireDistance?: number;
-            contractorName?: string;
-            directTeamName?: string;
-            materials?: Record<string, number>;
-        }>, skipMaterials: boolean = false): any`
-
-### [sod.invoicing.service.ts](src/services/sod/sod.invoicing.service.ts)
-* **Class**: `SODInvoicingService`
-  * **Methods**:
-    * `capDropWireDistance(distance: number): number`
-    * `calculatePoleAdminFee(poleCount: number, materialSource?: string | null): number`
-    * `calculateSlaDelayPenalty(receivedDate: Date | null | undefined, completedDate: Date | null | undefined, hasPoles: boolean): number`
-    * `resolveAreaGroup(rtomOrName?: string | null): 'CEN' | 'HK' | 'OTHER'`
-    * `calculateAmounts(opmcIdOrRtom: string, rawDistance: number, options?: {
-            materialSource?: string | null;
-            poleCount?: number;
-            serviceType?: string | null;
-            poleType?: string | null;
-            poleMethod?: string | null;
-            completedDate?: Date | null;
-        }): any`
-    * `determineInvoicableStatus(sltsPatStatus: string | null | undefined, opmcPatStatus: string | null | undefined, hoPatStatus: string | null | undefined): boolean`
-
-### [sod.lifecycle.service.ts](src/services/sod/sod.lifecycle.service.ts)
-* **Class**: `SODLifecycleService`
-  * **Methods**:
-    * `validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string): any`
-    * `prepareStatusTransition(oldOrder: { sltsStatus: string; status: string | null; statusDate: Date | null; comments: string | null; returnReason: string | null; sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isInvoicable?: boolean }, data: ServiceOrderUpdateData): Promise<Prisma.ServiceOrderUncheckedUpdateInput>`
-    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
-    * `toggleOfflineWorkOrder(id: string, isOffline: boolean, offlineReference?: string, reason?: string): any`
-    * `getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null): any`
-    * `registerOfflineOrder(data: {
-        soNum: string;
-        rtom: string;
-        opmcId: string;
-        customerName?: string;
-        voiceNumber?: string;
-        serviceType: string;
-        orderType: string;
-        sltsStatus: ServiceOrderStatus;
-        dropWireDistance: number;
-        contractorId?: string;
-        teamId?: string;
-        offlineReference?: string;
-        comments?: string;
-        completedDate?: Date;
-    }): any`
-    * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN'`
-
-### [sod.material.service.ts](src/services/sod/sod.material.service.ts)
-* **Class**: `SODMaterialService`
-  * **Methods**:
-    * `processMaterialUsage(tx: TransactionClient, serviceOrderId: string, opmcId: string, contractorId: string | null, materialUsage: MaterialUsageInput[], inventoryService: {
-            pickContractorBatchesFIFO: (tx: TransactionClient, contractorId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
-            pickStoreBatchesFIFO: (tx: TransactionClient, storeId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
-        }, userId: string = 'SYSTEM'): any`
-    * `rollbackMaterialUsage(tx: TransactionClient, serviceOrderId: string, userId: string = 'SYSTEM'): any`
-
-### [sod.query.service.ts](src/services/sod/sod.query.service.ts)
-* **Class**: `SODQueryService`
-  * **Methods**:
-    * `getServiceOrders(params: GetServiceOrdersParams): any`
-    * `getServiceOrderBySoNum(soNum: string): any`
-    * `getExtensionRawData(soNum: string): any`
-    * `getPatResults(params: {
-        page?: number;
-        limit?: number;
-        search?: string;
-        status?: string;
-        rtom?: string;
-        region?: string;
-        startDate?: string;
-        endDate?: string;
-    }): any`
-    * `getOspFtthItems(): any`
-    * `getContractorAssignedSODs(params: {
-        contractorId: string;
-        search?: string;
-        sltsStatus?: string;
-        teamId?: string;
-        page?: number;
-        limit?: number;
-    }): any`
-
-### [sod.sync.service.ts](src/services/sod/sod.sync.service.ts)
-* **Class**: `SODSyncService`
-  * **Methods**:
-    * `syncPatResults(opmcId: string, rtom: string): any`
-    * `syncHoApprovedResults(): any`
-    * `syncHoRejectedResults(): any`
-    * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
-    * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
-    * `syncServiceOrders(opmcId: string, rtom: string, preloadedPendingSods?: { id: string; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: string }[]): any`
-    * `bridgeSync(payload: {
-        soNum?: string;
-        allTabs?: Record<string, Record<string, string>>;
-        teamDetails?: Record<string, string>;
-        forensicAudit?: unknown[];
-        materialDetails?: MaterialDetailInput[];
-        currentUser?: string;
-        activeTab?: string;
-        url?: string;
-        commentsList?: { date?: string; user?: string; comment?: string }[];
-    }): any`
-
-### [sod.utils.ts](src/services/sod/sod.utils.ts)
-* **Class**: `SodUtils`
-  * **Methods**:
-    * `deepParse(masterData: Record<string, string>): Record<string, string>`
-    * `safeParseDate(dateStr: string | Date | undefined | null): Date | undefined`
 
 ### [traffic.service.ts](src/services/system/traffic.service.ts)
 * **Class**: `TrafficService`
@@ -3328,6 +3329,7 @@
 | `/api/service-orders/bulk-import` | [route.ts](src/app/api/service-orders/bulk-import/route.ts) | `POST` |
 | `/api/service-orders/core-data/[soNum]` | [route.ts](src/app/api/service-orders/core-data/[soNum]/route.ts) | `GET` |
 | `/api/service-orders/cpe` | [route.ts](src/app/api/service-orders/cpe/route.ts) | `GET`, `POST` |
+| `/api/service-orders/extension-push` | [route.ts](src/app/api/service-orders/extension-push/route.ts) | `OPTIONS`, `POST`, `GET`, `DELETE` |
 | `/api/service-orders/import/enqueue` | [route.ts](src/app/api/service-orders/import/enqueue/route.ts) | `POST`, `GET` |
 | `/api/service-orders/import` | [route.ts](src/app/api/service-orders/import/route.ts) | `GET`, `POST` |
 | `/api/service-orders/offline` | [route.ts](src/app/api/service-orders/offline/route.ts) | `GET`, `PATCH`, `POST` |
@@ -3344,9 +3346,6 @@
 | `/api/tax-configs` | [route.ts](src/app/api/tax-configs/route.ts) | `GET`, `POST` |
 | `/api/team-members/generate-link` | [route.ts](src/app/api/team-members/generate-link/route.ts) | `POST` |
 | `/api/team-members/public` | [route.ts](src/app/api/team-members/public/route.ts) | `GET`, `POST` |
-| `/api/test/debug-sync` | [route.ts](src/app/api/test/debug-sync/route.ts) | `GET` |
-| `/api/test/extension-push` | [route.ts](src/app/api/test/extension-push/route.ts) | `OPTIONS`, `POST`, `GET`, `DELETE` |
-| `/api/test-approval-simulation` | [route.ts](src/app/api/test-approval-simulation/route.ts) | `GET` |
 | `/api/trips` | [route.ts](src/app/api/trips/route.ts) | `GET`, `POST` |
 | `/api/trips/[id]/end` | [route.ts](src/app/api/trips/[id]/end/route.ts) | `PATCH` |
 | `/api/trips/[id]/metrics` | [route.ts](src/app/api/trips/[id]/metrics/route.ts) | `GET` |
@@ -7511,6 +7510,7 @@
   * `assignedStoreId: String?` `[@db.Uuid]`
   * `contractorId: String?` `[@db.Uuid]`
   * `mustChangePassword: Boolean` `[@default(false)]`
+  * `tokenVersion: Int` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `permissions: String?`

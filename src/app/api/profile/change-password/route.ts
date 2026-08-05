@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get('x-user-id');
 
     if (!userId || !currentPassword || !newPassword) {
-        throw new Error('All fields are required and user must be authenticated');
+        throw AppError.badRequest('All fields are required and user must be authenticated');
     }
 
     await UserService.changePassword(userId, currentPassword, newPassword);
