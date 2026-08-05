@@ -124,6 +124,7 @@ export const POST = apiHandler(async (req: Request) => {
         };
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    // Same scope as the /finance/slt-contracts page that hosts this upload
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'MANAGER'],
     rawResponse: true
 });

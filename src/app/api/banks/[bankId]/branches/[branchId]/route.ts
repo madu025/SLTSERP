@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/finance/bank.service';
+import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,7 @@ export const PUT = apiHandler(async (uestreq$3: Request, params: Record<string, 
     const data = updateBranchSchema.parse(body);
     return await BankService.updateBranch(bankId, branchId, data);
 }, {
+    roles: [...ROLE_GROUPS.CORE_ADMINS, 'CEO', 'FINANCE_MANAGER'],
     audit: { action: 'UPDATE', entity: 'BankBranch' },
     rawResponse: true
 });
@@ -23,6 +25,7 @@ export const DELETE = apiHandler(async (uestreq$3: Request, params: Record<strin
     await BankService.deleteBranch(branchId);
     return { message: "Branch deleted successfully" };
 }, {
+    roles: [...ROLE_GROUPS.CORE_ADMINS, 'CEO', 'FINANCE_MANAGER'],
     audit: { action: 'DELETE', entity: 'BankBranch' },
     rawResponse: true
 });

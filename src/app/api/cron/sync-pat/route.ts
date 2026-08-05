@@ -3,7 +3,7 @@ export const maxDuration = 300;
 
 import { apiHandler } from "@/lib/api-handler";
 import { ServiceOrderService } from "@/services/service-order/sod.service";
-import { AppError } from "@/lib/error";
+import { assertCronAuth } from "@/lib/cron-auth";
 
 /**
  * GET /api/cron/sync-pat
@@ -11,12 +11,7 @@ import { AppError } from "@/lib/error";
  * Designed to be called every 30 minutes by GitHub Actions.
  */
 export const GET = apiHandler(async (req) => {
-    const { searchParams } = new URL(req.url);
-    const secret = req.headers.get("authorization")?.replace("Bearer ", "") || searchParams.get("secret");
-
-    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-        throw AppError.unauthorized("Unauthorized: Invalid CRON_SECRET");
-    }
+    assertCronAuth(req);
 
     console.log(`[CRON] Starting PAT Sync at ${new Date().toISOString()}...`);
     const startTime = Date.now();

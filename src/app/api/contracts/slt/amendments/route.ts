@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { SLTContractService, CreateAmendmentInput } from '@/services/slt/slt-contract.service';
+import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 const createAmendmentSchema = z.object({
@@ -23,6 +24,9 @@ const createAmendmentSchema = z.object({
     approvedBy: z.string().optional()
 });
 
+// Amendments revise billing rates/targets — manager-level write scope
+const CONTRACT_WRITERS = [...ROLE_GROUPS.CORE_ADMINS, 'CEO', 'FINANCE_MANAGER'];
+
 export const POST = apiHandler<Record<string, unknown>, CreateAmendmentInput>(
     async (req, params, body) => {
         const userName = req.headers.get('x-user-name') || 'Commercial Manager';
@@ -31,6 +35,7 @@ export const POST = apiHandler<Record<string, unknown>, CreateAmendmentInput>(
     },
     {
         schema: createAmendmentSchema,
+        roles: CONTRACT_WRITERS,
         audit: { action: 'SLT_AMENDMENT_CREATE', entity: 'SLTContractAmendment' }
     }
 );

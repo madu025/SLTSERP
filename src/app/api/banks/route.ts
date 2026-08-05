@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BankService } from '@/services/finance/bank.service';
+import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,9 @@ export const POST = apiHandler(async (_request: Request, _params: Record<string,
     const data = createBankSchema.parse(body);
     return await BankService.createBank(data);
 }, {
+    // GET stays public (contractor registration form lookup); bank master data
+    // writes restricted to finance/admin
+    roles: [...ROLE_GROUPS.CORE_ADMINS, 'CEO', 'FINANCE_MANAGER'],
     audit: { action: 'CREATE', entity: 'Bank' },
     rawResponse: true
 });

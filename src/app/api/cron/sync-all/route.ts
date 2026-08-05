@@ -2,20 +2,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Allow up to 5 minutes on Vercel Pro (60s on Hobby)
 import { apiHandler } from '@/lib/api-handler';
 import { AppointmentNotificationService } from '@/services/notification/notification.service';
-import { AppError } from '@/lib/error';
+import { assertCronAuth } from '@/lib/cron-auth';
 
 /**
  * Scheduled Sync for all Service Orders from SLT API
  * Can be triggered by a Cron Job service (e.g., Vercel Cron, GitHub Actions)
  */
 export const GET = apiHandler(async (req) => {
-    const { searchParams } = new URL(req.url);
-
-    // Basic Security: Check for Cron Secret
-    const secret = req.headers.get('authorization')?.replace('Bearer ', '') || searchParams.get('secret');
-    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-        throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
-    }
+    assertCronAuth(req);
 
     console.log('[CRON] Starting Master Cron Job (Enqueueing to Background Workers)...');
     const startTime = Date.now();

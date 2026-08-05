@@ -1,7 +1,11 @@
 import { apiHandler } from '@/lib/api-handler';
 import { SLTContractService } from '@/services/slt/slt-contract.service';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
+
+// Contract deletion is destructive — manager-level write scope
+const CONTRACT_WRITERS = [...ROLE_GROUPS.CORE_ADMINS, 'CEO', 'FINANCE_MANAGER'];
 
 export const DELETE = apiHandler(
     async (req: Request, params: Record<string, unknown>) => {
@@ -15,5 +19,9 @@ export const DELETE = apiHandler(
 
         const result = await SLTContractService.deleteContract(id);
         return result;
+    },
+    {
+        roles: CONTRACT_WRITERS,
+        audit: { action: 'SLT_CONTRACT_DELETE', entity: 'SLTContract' }
     }
 );

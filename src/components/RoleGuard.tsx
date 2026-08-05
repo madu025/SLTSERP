@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { hasAccess } from '@/config/sidebar-menu';
+import { isContractorRole } from '@/config/roles';
 import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -55,8 +56,8 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
     const isAuthorized = user ? hasAccess(user.role, allowedRoles, true, undefined, permissionId, user.permissions) : false;
 
     if (!isAuthorized) {
-        const isContractorRole = user ? ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(user.role) : false;
-        const dashboardPath = isContractorRole ? '/contractor/dashboard' : '/dashboard';
+        const contractorRedirect = isContractorRole(user?.role);
+        const dashboardPath = contractorRedirect ? '/contractor/dashboard' : '/dashboard';
 
         return (
             <div className="h-screen w-full flex items-center justify-center bg-slate-900/5 dark:bg-background text-foreground p-6">

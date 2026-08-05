@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection, ProcurementSection } from './components';
 import type { Stats } from './components';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { ROLE_GROUPS, hasRole, isContractorRole } from '@/config/roles';
 
 const getDefaultTabForRole = (role?: string) => {
     if (!role) return 'operations';
@@ -70,8 +70,8 @@ export default function DashboardPage() {
             return;
         }
 
-        const isContractorRole = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(user.role);
-        if (isContractorRole) {
+        const contractorRedirect = isContractorRole(user.role);
+        if (contractorRedirect) {
             router.push("/contractor/dashboard");
             return;
         }

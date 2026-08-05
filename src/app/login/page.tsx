@@ -7,6 +7,7 @@ import "./login.css";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { isContractorRole, isStoresRole } from "@/config/roles";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,12 +90,12 @@ export default function LoginPage() {
           localStorage.setItem("token", data.token);
         }
 
-        const isContractorRole = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(data.user?.role);
-        const isStoresRole = ['STORES_MANAGER', 'STORES_ASSISTANT'].includes(data.user?.role);
+        const contractorLogin = isContractorRole(data.user?.role);
+        const storesLogin = isStoresRole(data.user?.role);
 
-        if (isContractorRole) {
+        if (contractorLogin) {
           router.push("/contractor/dashboard");
-        } else if (isStoresRole) {
+        } else if (storesLogin) {
           router.push("/inventory");
         } else {
           router.push("/dashboard");

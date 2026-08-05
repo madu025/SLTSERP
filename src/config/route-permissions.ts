@@ -14,61 +14,39 @@ interface RoutePermission {
 }
 
 /**
- * Recursively extract all path -> allowedRoles pairs from the menu tree.
- * Uses the TOP-LEVEL menu item's path prefix for enforcement (not sub-paths).
+ * Recursively extract path -> allowedRoles pairs from the FULL menu tree
+ * (top-level AND every submenu level). Keys are the item's own path so
+ * submenu restrictions are preserved — longest-prefix match at lookup time
+ * picks the most specific rule.
  */
 function extractRoutePermissions(items: MenuItem[]): Map<string, string[]> {
     const map = new Map<string, string[]>();
 
-    for (const item of items) {
-        // Use the top-level path as the prefix for route guarding
-        const prefix = getPrefixFromPath(item.path);
-        if (prefix) {
-            if (map.has(prefix)) {
-                // MERGE roles when multiple menu items share the same prefix
-                const existing = map.get(prefix)!;
-                const merged = [...new Set([...existing, ...item.allowedRoles])];
-                map.set(prefix, merged);
-            } else {
-                map.set(prefix, [...item.allowedRoles]);
-            }
-        }
+    const add = (path: string, roles: string[]) => {
+        if (!path || path === '/') return;
+        const existing = map.get(path);
+        // MERGE roles when multiple menu items declare the same path
+        map.set(path, existing ? [...new Set([...existing, ...roles])] : [...roles]);
+    };
 
-        // Recurse into submenu and merge roles there too
-        if (item.submenu) {
-            for (const sub of item.submenu) {
-                const subPrefix = getPrefixFromPath(sub.path);
-                if (subPrefix) {
-                    if (map.has(subPrefix)) {
-                        const existing = map.get(subPrefix)!;
-                        const merged = [...new Set([...existing, ...sub.allowedRoles])];
-                        map.set(subPrefix, merged);
-                    } else {
-                        map.set(subPrefix, [...sub.allowedRoles]);
-                    }
-                }
-            }
+    const walk = (list: MenuItem[]) => {
+        for (const item of list) {
+            add(item.path, item.allowedRoles);
+            if (item.submenu) walk(item.submenu);
         }
-    }
+    };
+    walk(items);
 
     return map;
 }
 
-/**
- * Extract the root prefix from a full path.
- * '/service-orders/work-order' -> '/service-orders'
- * '/dashboard' -> '/dashboard'
- * '/fleet/vehicles' -> '/fleet'
- */
-function getPrefixFromPath(path: string): string | null {
-    if (!path || path === '/') return null;
-    const segments = path.split('/').filter(Boolean);
-    if (segments.length === 0) return null;
-    return '/' + segments[0];
-}
-
 // Build the permission map once at module load (singleton)
 const permissionMap = extractRoutePermissions(SIDEBAR_MENU);
+
+// Pre-sorted by path length descending so the first prefix hit is the most specific
+const sortedPrefixes: RoutePermission[] = [...permissionMap.entries()]
+    .map(([prefix, allowedRoles]) => ({ prefix, allowedRoles }))
+    .sort((a, b) => b.prefix.length - a.prefix.length);
 
 /**
  * Resolve the allowedRoles of an EXACT menu path (including submenu items).
@@ -99,15 +77,19 @@ export function hasRouteAccess(pathname: string, userRole: string): boolean {
     // Super Admin always has access to everything
     if (userRole === 'SUPER_ADMIN') return true;
 
-    // Find the matching prefix for this pathname
-    const segments = pathname.split('/').filter(Boolean);
-    if (segments.length === 0) return true;
+    const normalized = pathname.split('?')[0].replace(/\/+$/, '') || '/';
 
-    const prefix = '/' + segments[0];
-    const allowedRoles = permissionMap.get(prefix);
+    // LONGEST-prefix match over the full menu path map so submenu-level
+    // restrictions win over their parent section's broader rule
+    const rule = sortedPrefixes.find(
+        (p) => normalized === p.prefix || normalized.startsWith(p.prefix + '/')
+    );
 
     // No permission rule found -> allow any authenticated user
-    if (!allowedRoles) return true;
+    if (!rule) return true;
 
-    return allowedRoles.includes(userRole);
+    // 'ALL' wildcard = every authenticated role
+    if (rule.allowedRoles.includes('ALL')) return true;
+
+    return rule.allowedRoles.includes(userRole);
 }

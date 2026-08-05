@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { hasAccess } from '@/config/sidebar-menu';
+import { isContractorRole } from '@/config/roles';
 import SyncStatus from './SyncStatus';
 import { ChevronLeft, ChevronRight, LogOut, Bell } from 'lucide-react';
 import { toast } from 'sonner';
@@ -107,7 +108,7 @@ function SidebarContent() {
         localStorage.removeItem('token');
 
         // 3. Redirect to appropriate login page
-        const isContractor = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(userRole);
+        const isContractor = isContractorRole(userRole);
         window.location.href = isContractor ? '/contractor/login' : '/login';
     };
 

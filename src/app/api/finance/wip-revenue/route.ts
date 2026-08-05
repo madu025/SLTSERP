@@ -1,5 +1,6 @@
 import { SODWipRevenueService } from '@/services/finance/sod-wip-revenue.service';
 import { apiHandler } from '@/lib/api-handler';
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -18,4 +19,9 @@ export const POST = apiHandler(async (request) => {
     const userId = request.headers.get('x-user-id') || undefined;
     const result = await SODWipRevenueService.postWipAccrualJournal(userId);
     return NextResponse.json(result);
+}, {
+    // GL journal posting — finance team scope only
+    roles: ROLE_GROUPS.FINANCE,
+    rawResponse: true,
+    audit: { action: 'WIP_ACCRUAL_POST', entity: 'GLJournal' }
 });

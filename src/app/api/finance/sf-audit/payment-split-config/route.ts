@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { SfAuditService } from '@/services/finance/sf-audit.service';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,10 @@ const postSchema = z.object({
 export const POST = apiHandler(async (req) => {
     const body = await req.json();
     const validated = postSchema.parse(body);
-
     const payload = await SfAuditService.savePaymentSplitConfig(validated);
 
     return { success: true, message: 'Payment split configuration saved successfully', data: payload };
+}, {
+    // Payment split ratios drive auditor claim payouts — SF Audit + finance scope
+    roles: ROLE_GROUPS.SF_AUDITING
 });

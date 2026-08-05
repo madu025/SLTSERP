@@ -52,7 +52,7 @@ export const ROLE_GROUPS = {
     MATERIAL_REQUESTERS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER', 'CONTRACTOR_SUPERVISOR'],
     PURCHASE_ORDER_MANAGERS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'PROCUREMENT_OFFICER'],
     AREA_MANAGERS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER'],
-    SF_AUDITORS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'FINANCE_MANAGER', 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER'],
+    SF_AUDITORS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'FINANCE_MANAGER', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'RATE_AUDITOR'],
     OFFICE_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
     CONTRACTORS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'],
 
@@ -60,18 +60,28 @@ export const ROLE_GROUPS = {
     SLT_REGISTRY_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'],
     BOM_IMPORT_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'STORES_MANAGER'],
     // Office / IT asset management (EAM)
-    EAM_ASSET_MANAGERS: ['SUPER_ADMIN', 'SUPER_ADMIN_M', 'HR_MANAGER', 'OFFICE_ADMIN'],
+    EAM_ASSET_MANAGERS: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
     // Read-only report viewers across all stores/areas (QA audit scope) —
     // intentionally excluded from all store/inventory operational groups
     SECTION_HEADS: ['HEAD_OF_SECTION'],
+
+    // Union of every page that can trigger contractor invoice generation
+    // (/invoices + /service-orders/invoicable) — composed from existing groups
+    INVOICE_GENERATORS: [
+        ...['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP'],
+        ...['INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER'],
+        ...['FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER'],
+        ...['OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+        'MANAGER'
+    ],
 
     // Contractor data read scopes
     CONTRACTOR_READERS: [
         'SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT',
         'OSP_MANAGER', 'AREA_MANAGER', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT',
         'SITE_OFFICE_STAFF', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR',
-        'MANAGER', 'QC_OFFICER', 'STORES_MANAGER', 'STORES_OFFICER',
-        'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'
+        'MANAGER', 'QC_OFFICER', 'STORES_MANAGER',
+        'CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'
     ],
     CONTRACTOR_TEAM_READERS: [
         'SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT',
@@ -82,6 +92,23 @@ export const ROLE_GROUPS = {
 };
 
 export type RoleGroup = keyof typeof ROLE_GROUPS;
+
+/**
+ * Contractor portal roles — single shared definition so client role checks
+ * (sidebar, login redirect, RoleGuard) never drift apart.
+ */
+export const CONTRACTOR_ROLES = ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE'] as const;
+
+export function isContractorRole(role: string | null | undefined): boolean {
+    return !!role && (CONTRACTOR_ROLES as readonly string[]).includes(role);
+}
+
+/** Stores operational roles — shared by login redirect and stores-scoped checks */
+export const STORES_ROLES = ['STORES_MANAGER', 'STORES_ASSISTANT'] as const;
+
+export function isStoresRole(role: string | null | undefined): boolean {
+    return !!role && (STORES_ROLES as readonly string[]).includes(role);
+}
 
 export function hasRole(userRole: string | undefined | null, roleGroup: string[]): boolean {
     if (!userRole) return false;

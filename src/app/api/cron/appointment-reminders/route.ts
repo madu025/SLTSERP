@@ -2,15 +2,10 @@ export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
 import { AppointmentNotificationService } from '@/services/notification/notification.service';
-import { AppError } from '@/lib/error';
+import { assertCronAuth } from '@/lib/cron-auth';
 
 export const GET = apiHandler(async (req) => {
-    const { searchParams } = new URL(req.url);
-    const secret = searchParams.get('secret');
-
-    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-        throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
-    }
+    assertCronAuth(req);
 
     console.log('[CRON] Initiating appointment reminder sweep...');
     await AppointmentNotificationService.checkAndNotify();

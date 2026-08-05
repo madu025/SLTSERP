@@ -87,5 +87,10 @@ export const POST = apiHandler<unknown, CreatePaymentSchema>(
 
         return payment;
     },
-    { schema: createPaymentSchema }
+    {
+        schema: createPaymentSchema,
+        // Roles resolve dynamically from the /finance/payments sidebar entry
+        menuPath: '/finance/payments',
+        audit: { action: 'CREATE_PAYMENT', entity: 'Payment' }
+    }
 );

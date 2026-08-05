@@ -12,6 +12,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:sync": "node scripts/db-sync.js",
+    "rbac:check": "node scripts/rbac-sync.js",
+    "rbac:sync": "node scripts/rbac-sync.js --write",
     "qa:seed": "node prisma/qa-seed.js",
     "qa:reset": "node prisma/qa-reset.js",
     "test": "playwright test",

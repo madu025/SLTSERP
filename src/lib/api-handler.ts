@@ -5,6 +5,7 @@ import { AuditService } from '@/services/audit/audit.service';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 import { requestContext } from './request-context';
 import { logger } from './logger';
+import { getMenuAllowedRoles } from '@/config/route-permissions';
 
 // ─── Response Envelope ────────────────────────────────────────────────────────
 
@@ -64,6 +65,13 @@ export interface ApiHandlerMeta {
 export interface ApiHandlerOptions<B> {
     schema?: ZodSchema<B>;
     roles?: string[];
+    /**
+     * Dynamic RBAC: resolve allowed roles at runtime from the SIDEBAR_MENU
+     * entry at this path (single source of truth). Prefer this over `roles`
+     * whenever the route backs a page declared in the sidebar menu — no
+     * hardcoded role lists to drift.
+     */
+    menuPath?: string;
     audit?: {
         action: string;
         entity: string;
@@ -180,8 +188,19 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
         return await requestContext.run({ requestId }, async () => {
             try {
                 // ── 1. RBAC (fail-closed) ──────────────────────────────────
-                if (options?.roles && options.roles.length > 0) {
-                    if (!userRole || !options.roles.includes(userRole)) {
+                if (options?.roles && options.roles.length > 0 || options?.menuPath) {
+                    // Explicit `roles` win; otherwise resolve dynamically from the
+                    // sidebar menu config via `menuPath` (single source of truth)
+                    const effectiveRoles = options?.roles && options.roles.length > 0
+                        ? options.roles
+                        : getMenuAllowedRoles(options.menuPath as string) ?? undefined;
+
+                    const allowed = !effectiveRoles || effectiveRoles.length === 0
+                        ? true
+                        : effectiveRoles.includes('ALL')
+                            ? !!userRole // 'ALL' = any authenticated user, never anonymous
+                            : !!userRole && effectiveRoles.includes(userRole);
+                    if (!allowed) {
                         throw new AppError(
                             'Forbidden: insufficient role',
                             ErrorCode.FORBIDDEN,

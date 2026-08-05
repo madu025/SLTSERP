@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
-import { AppError } from '@/lib/error';
+import { assertCronAuth } from '@/lib/cron-auth';
 
 /**
  * GET /api/cron/sync-sod
@@ -11,14 +11,8 @@ import { AppError } from '@/lib/error';
  * Designed to be called by a cron job every 30 minutes.
  */
 export const GET = apiHandler(async (req) => {
+    assertCronAuth(req);
     const { searchParams } = new URL(req.url);
-    const secret = req.headers.get('authorization')?.replace('Bearer ', '') || searchParams.get('secret');
-
-    // Simple security: check for a secret token in the URL
-    // In production, this should match an environment variable like CRON_SECRET
-    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-        throw AppError.unauthorized('Unauthorized: Invalid CRON_SECRET');
-    }
 
     const offset = parseInt(searchParams.get('offset') || '0');
     const limit = parseInt(searchParams.get('limit') || '15');

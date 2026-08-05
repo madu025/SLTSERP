@@ -343,32 +343,32 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'SF Audit Division',
         path: '/finance/sf-audit/governance',
         icon: ShieldCheck,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR'],
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.SF_AUDITING],
         permissionId: 'sf-audit',
         submenu: [
             {
                 title: 'SF Audit Governance',
                 path: '/finance/sf-audit/governance',
                 icon: ShieldCheck,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.SF_AUDITING]
             },
             {
                 title: 'Contractor Invoice Pricing Audit',
                 path: '/finance/sf-audit/pricing-audit',
                 icon: Calculator,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.SF_AUDITING]
             },
             {
                 title: 'Header & Material Mapping Config',
                 path: '/finance/sf-audit/header-mapping',
                 icon: Settings,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.SF_AUDITING]
             },
             {
                 title: 'Payment Split Rules Configurator',
                 path: '/finance/sf-audit/payment-split-config',
                 icon: Calculator,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.SF_AUDITING]
             }
         ]
     },
@@ -525,7 +525,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Office Assets (EAM)',
                 path: '/eam/assets',
                 icon: HardHat,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'OFFICE_ADMIN']
+                allowedRoles: ROLE_GROUPS.EAM_ASSET_MANAGERS
             },
             {
                 title: 'Inventory Adjustments (Wastage)',

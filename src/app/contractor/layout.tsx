@@ -1,5 +1,5 @@
 "use client";
-import { ROLE_GROUPS } from '@/config/roles';
+import { ROLE_GROUPS, isContractorRole } from '@/config/roles';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -110,7 +110,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
         if (storedUser) {
             try {
                 const parsed = JSON.parse(storedUser) as { role?: string };
-                if (parsed.role && ['CONTRACTOR_SUPERVISOR', 'CONTRACTOR_TECHNICIAN', 'CONTRACTOR_FINANCE', 'CONTRACTOR'].includes(parsed.role)) {
+                if (isContractorRole(parsed.role)) {
                     localStorage.removeItem('user');
                     localStorage.removeItem('token');
                 }

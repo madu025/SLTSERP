@@ -3,7 +3,9 @@ import type { NextRequest } from 'next/server';
 import { verifyJWT } from '@/lib/auth';
 import { hasRouteAccess } from '@/config/route-permissions';
 
-// Define paths that do NOT require authentication
+// Paths that do NOT require authentication.
+// EXACT match only — prefix matching leaked sub-routes (e.g. anonymous writes
+// on /api/contracts/slt). Truly public endpoints must be listed explicitly.
 const publicPaths = [
     '/login',
     '/contractor/login',
@@ -15,9 +17,7 @@ const publicPaths = [
     '/contractor-registration',
     '/api/contractors/public',
     '/api/contractors/public-register',
-    '/api/banks',
     '/api/branches',
-    '/api/inventory/stores',
     '/api/upload',
     '/team-upload',
     '/api/team-members/public',
@@ -37,11 +37,36 @@ const publicPaths = [
     '/api/assets/sync',
     '/api/assets/register',
     '/api/agent/version',
-    '/api/contracts',
     '/public/invoices',
     '/api/public/invoices',
-    '/api/approvals/webhook'
+    '/api/approvals/webhook',
 ];
+
+// Public prefixes kept INTENTIONALLY narrow (GET-only, bounded depth).
+// These back public contractor registration forms which need supporting
+// lookups (banks -> branches, stores list) without a session. Every write
+// method under these prefixes requires full authentication.
+const publicPrefixes: Array<{ prefix: string; maxDepth: number }> = [
+    { prefix: '/api/banks', maxDepth: 2 },
+    { prefix: '/api/inventory/stores', maxDepth: 1 },
+];
+
+function isPublicPath(pathname: string, method: string): boolean {
+    if (publicPaths.includes(pathname)) {
+        // Public parent routes expose reads only — their write methods must
+        // pass authentication and apiHandler role guards
+        if (pathname === '/api/banks' && method !== 'GET') return false;
+        return true;
+    }
+    for (const { prefix, maxDepth } of publicPrefixes) {
+        if (pathname.startsWith(prefix + '/')) {
+            if (method !== 'GET') return false;
+            const extraSegments = pathname.slice(prefix.length + 1).split('/').filter(Boolean).length;
+            return extraSegments <= maxDepth;
+        }
+    }
+    return false;
+}
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
@@ -58,12 +83,19 @@ export async function middleware(request: NextRequest) {
 
     // Check if the path is public
     const isPublicAuditSubmit = pathname === '/api/helpdesk/assets/audits' && request.method === 'POST';
+
+    // Static asset bypass: only when the LAST segment contains a dot AND the
+    // path is not an API route (previously `pathname.includes('.')` let any
+    // dotted API path such as /api/x.y skip authentication entirely)
+    const lastSegment = pathname.split('/').pop() ?? '';
+    const isStaticAsset = lastSegment.includes('.') && !pathname.startsWith('/api');
+
     if (
         isPublicAuditSubmit ||
-        publicPaths.some((path) => pathname.startsWith(path)) ||
+        isPublicPath(pathname, request.method) ||
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||
-        pathname.includes('.')
+        isStaticAsset
     ) {
         return NextResponse.next({
             request: { headers: requestHeaders }

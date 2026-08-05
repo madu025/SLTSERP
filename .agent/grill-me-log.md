@@ -717,3 +717,57 @@ Verification: npx tsc --noEmit clean; endpoint live-verified (401 without sessio
 - Gate-driven queue intentionally excludes the terminal dispatch gate (toStatus=ISSUED) — that stage belongs to the MIN issue flow.
 
 **E2E result:** GRN-2026-08-0001 created via browser; PRN-20260805-1844 -> workflowStage/status/procurementStatus all COMPLETED; receivedQty matches requestedQty (100/50/50/200); InventoryStock at Kaduwela verified; 4 immutable InventoryLedger (GRN_RECEIPT) entries written. tsc clean.
+
+---
+
+## 2026-08-05 — RBAC Grill-Me Audit: STORES_MANAGER + All Roles
+
+**Scope:** sidebar-menu.ts allowedRoles, route-permissions.ts middleware mapping, middleware.ts public/auth bypasses, apiHandler route roles, ROLE_GROUPS consistency.
+
+**STORES_MANAGER answer (verified):** accessible modules = Dashboard + Inventory (items [SM-only], grn, requests, stock, issues, wastage, mrns, audit, cardex) + Approvals > Material Requests. Excluded from /procurement top-level, /admin, /finance. Pre-fix, URL-level enforcement collapsed everything to first-segment prefixes and part of stores data was anonymously readable.
+
+**Findings & verdicts:**
+
+| # | Finding | Severity | Verdict |
+|---|---------|----------|---------|
+| M1 | Middleware `pathname.includes('.')` skipped ALL auth for any dotted path | CRITICAL | Fixed — dot bypass only on last segment, never for /api |
+| M2 | publicPaths `startsWith` leaked sub-routes: anonymous POST/DELETE `/api/contracts/slt*`, anonymous reads `/api/inventory/stores/[id]`+`/low-stock`, unauthenticated `/api/banks` writes | CRITICAL | Fixed — exact-match publicPaths + GET-only bounded publicPrefixes; `/api/contracts` removed entirely |
+| M3 | `hasRouteAccess` first-segment prefix merge destroyed submenu restrictions (AREA_MANAGER URL-access to /inventory/admin/wastage); 'ALL' literal never matched -> /reports + /helpdesk blocked for every non-super-admin | HIGH | Fixed — full-menu path map, longest-prefix match, 'ALL' wildcard honored; 9/9 behavioral cases pass |
+| M4 | Critical anonymous/unscoped writes: contracts/slt POST+DELETE, amendments, ai-parse, banks POST/PUT/DELETE + branches, vendors/[id] PUT/DELETE, sf-audit payment-split-config POST, wip-revenue GL POST | CRITICAL | Fixed — role guards added (CONTRACT_WRITERS = CORE_ADMINS+CEO+FINANCE_MANAGER; PROCUREMENT for vendors; SF_AUDITING for split config; FINANCE for GL posting) |
+| M5 | Phantom roles absent from Prisma Role enum: SF_AUDIT, AUDITOR, HR_MANAGER, STORES_OFFICER, SUPER_ADMIN_M, CONTRACTOR | MEDIUM | Report-only — enum change needs user decision |
+| M6 | ~140 authenticated-but-unscoped mutating route files (any logged-in role can call them) | MEDIUM | Should-Have phase 2 — pending user sign-off (scanner: scripts/audit-rbac-routes.js) |
+| M7 | Cron routes fail-open when CRON_SECRET env unset (`if (process.env.CRON_SECRET && ...)`) | LOW | Future roadmap — GET-only sync endpoints |
+
+**Decisions:**
+- `/api/banks` GET stays public (contractor registration bank->branch cascade); all writes require auth + CORE_ADMINS/CEO/FINANCE_MANAGER.
+- SLT contract writes restricted to manager tier (FINANCE_ASSISTANT excluded from rate/target creation).
+- wip-revenue POST gained `rawResponse: true` — frontend reads `data.posted` top-level, which was unreachable through the envelope (latent response-shape bug).
+- Admin config routes (access-policies, sections, system-config) already had manual `hasRole` guards — scanner false positives, no change.
+
+**Verification:** `npx tsc --noEmit` clean; hasRouteAccess 9/9 pass (reports/helpdesk ALL-wildcard, wastage submenu restriction, grn SM-only, undeclared paths open).
+
+---
+
+## 2026-08-05 (cont.) — World-Class RBAC Hardening: M5/M6/M7 (zero hardcode)
+
+**Directive:** implement recommendations at Oracle/ERP-grade, dynamic only — no hardcoded role lists.
+
+**M5 phantom roles — resolved via database-as-source-of-truth:**
+- New `scripts/rbac-sync.js` (`npm run rbac:check` / `rbac:sync`): parses `enum Role` from enums.prisma, regenerates `src/config/valid-roles.ts` (auto-generated mirror, 37 roles), and validates every role literal in roles.ts + sidebar-menu.ts against the enum. Exit 1 on drift — CI-ready.
+- `SF_AUDIT`/`AUDITOR` replaced by `ROLE_GROUPS.SF_AUDITING` spread in sidebar (group reference, not literals).
+- `HR_MANAGER`/`SUPER_ADMIN_M` removed; EAM_ASSET_MANAGERS = SUPER_ADMIN + ADMIN + OFFICE_ADMIN; sidebar EAM entry uses the group.
+- `STORES_OFFICER`/`CONTRACTOR` removed from CONTRACTOR_READERS; contractors route GET scope now derives from the shared group (22-line hardcoded list deleted).
+- 5 duplicated client contractor-role checks (dashboard, login, RoleGuard, Sidebar, contractor layout) replaced by shared `isContractorRole()` / `CONTRACTOR_ROLES`; added `isStoresRole()` / `STORES_ROLES`.
+
+**M7 cron fail-open — resolved:**
+- New `src/lib/cron-auth.ts` `assertCronAuth()`: rejects when CRON_SECRET env is UNSET (fail-closed) or mismatched. All 5 cron routes migrated; inline duplicated checks deleted. 3/3 runtime tests pass.
+
+**M6 unscoped routes — dynamic mechanism + phase-2 start:**
+- `apiHandler` gained `menuPath` option: roles resolve at runtime from SIDEBAR_MENU via `getMenuAllowedRoles()` — single source of truth, zero role literals in routes. Supports `ALL` wildcard (authenticated, never anonymous).
+- Applied: POST /api/payments (menuPath /finance/payments + audit), POST /api/invoices/generate (new `ROLE_GROUPS.INVOICE_GENERATORS` = union of /invoices + /service-orders/invoicable page scopes).
+- Remaining ~138 unscoped files = ongoing phase 2, each via menuPath/group (no literals).
+
+**Verification:** tsc clean; rbac:check OK (37 roles, 0 drift); assertCronAuth 3/3 pass.
+
+**Follow-up noted:** process-gate.service.ts gate config uses requiredRole `CONTRACTOR` for the execution gate — contractor users hold CONTRACTOR_SUPERVISOR/TECHNICIAN/FINANCE; verify gate evaluator matching separately.
+
