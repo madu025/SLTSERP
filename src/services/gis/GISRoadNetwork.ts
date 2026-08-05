@@ -1,6 +1,6 @@
 import RBush from 'rbush';
 import { MinPriorityQueue } from '@datastructures-js/priority-queue';
-import { RoadSegment, Building, RoadIndexItem } from './types';
+import { RoadSegment, Building, RoadIndexItem } from '@/types/gis/gis-service.types';
 import { GISGeometry } from './GISGeometry';
 import { safeSync } from '@/utils/safe-await.util';
 

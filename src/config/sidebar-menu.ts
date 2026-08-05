@@ -112,7 +112,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
     },
     {
         title: 'Service Orders',
-        path: '/service-orders',
+        path: '/service-orders/work-order',
         icon: FileText,
         // Service Orders are main work for New Connection & Ops
         allowedRoles: ROLE_GROUPS.ALL_OPS,
@@ -120,31 +120,31 @@ export const SIDEBAR_MENU: MenuItem[] = [
         submenu: [
             {
                 title: 'Pending SOD',
-                path: '/service-orders',
+                path: '/service-orders/work-order',
                 icon: FileText,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
                 title: 'Install Closed SOD',
-                path: '/service-orders/install-closed',
+                path: '/service-orders/work-order/install-closed',
                 icon: CheckCircle2,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
                 title: 'Return SOD',
-                path: '/service-orders/return',
+                path: '/service-orders/work-order/return',
                 icon: FileText,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
                 title: 'Disappeared SODs',
-                path: '/service-orders/disappeared',
+                path: '/service-orders/work-order/disappeared',
                 icon: EyeOff,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
                 title: 'Completed SOD',
-                path: '/service-orders/completed',
+                path: '/service-orders/work-order/completed',
                 icon: FileCheck2,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
@@ -156,13 +156,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'PAT Status Monitor',
-                path: '/service-orders/pat',
+                path: '/service-orders/work-order/pat',
                 icon: ClipboardCheck,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
                 title: 'Offline Work Orders',
-                path: '/service-orders/offline-work-orders',
+                path: '/service-orders/work-order/offline-work-orders',
                 icon: Tag,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             }
@@ -337,32 +337,32 @@ export const SIDEBAR_MENU: MenuItem[] = [
 
     {
         title: 'SF Audit Division',
-        path: '/sf-audit/governance',
+        path: '/finance/sf-audit/governance',
         icon: ShieldCheck,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR'],
         permissionId: 'sf-audit',
         submenu: [
             {
                 title: 'SF Audit Governance',
-                path: '/sf-audit/governance',
+                path: '/finance/sf-audit/governance',
                 icon: ShieldCheck,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
             },
             {
                 title: 'Contractor Invoice Pricing Audit',
-                path: '/sf-audit/pricing-audit',
+                path: '/finance/sf-audit/pricing-audit',
                 icon: Calculator,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
             },
             {
                 title: 'Header & Material Mapping Config',
-                path: '/sf-audit/header-mapping',
+                path: '/finance/sf-audit/header-mapping',
                 icon: Settings,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
             },
             {
                 title: 'Payment Split Rules Configurator',
-                path: '/sf-audit/payment-split-config',
+                path: '/finance/sf-audit/payment-split-config',
                 icon: Calculator,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, 'SF_AUDIT', 'SF_AUDIT_OFFICER', 'SF_AUDIT_MANAGER', 'AUDITOR']
             }
@@ -770,14 +770,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
 
     {
         title: 'Vehicle & Fleet Management',
-        path: '/vehicles',
+        path: '/fleet/vehicles',
         icon: Car,
         allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'],
         permissionId: 'administration',
         submenu: [
             {
                 title: 'All Vehicles',
-                path: '/vehicles',
+                path: '/fleet/vehicles',
                 icon: Car,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },
@@ -789,7 +789,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             {
                 title: 'Fleet Payments',
-                path: '/payments',
+                path: '/fleet/payments',
                 icon: Banknote,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },

@@ -7,7 +7,7 @@ import {
     RegistrationLinkParams,
     TeamInput,
     TeamMemberInput
-} from './contractor-types';
+} from '@/types/contractor/contractor.types';
 
 export type { 
     ContractorUpdateData, 

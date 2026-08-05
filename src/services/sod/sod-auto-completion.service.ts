@@ -211,7 +211,7 @@ export class SODAutoCompletionService {
                     message: `${completedCount} service order(s) auto-completed from SLT data.`,
                     type: 'PROJECT',
                     priority: 'MEDIUM',
-                    link: '/service-orders/completed',
+                    link: '/service-orders/work-order/completed',
                     metadata: { batchCount: completedCount }
                 });
             }

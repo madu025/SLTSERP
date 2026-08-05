@@ -4,7 +4,7 @@ import { safe } from '@/utils/safe-await.util';
 import crypto from 'crypto';
 import { Prisma, ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
-import { RegistrationLinkParams, ContractorUpdateData, TeamMemberInput } from './contractor-types';
+import { RegistrationLinkParams, ContractorUpdateData, TeamMemberInput } from '@/types/contractor/contractor.types';
 import { ContractorQueryService } from './contractor.query.service';
 import { eventBus } from '@/lib/events/event-bus';
 

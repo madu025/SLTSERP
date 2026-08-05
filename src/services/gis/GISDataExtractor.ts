@@ -1,4 +1,4 @@
-import { OSMNode, OSMWay, Building, RoadSegment } from './types';
+import { OSMNode, OSMWay, Building, RoadSegment } from '@/types/gis/gis-service.types';
 import { GISGeometry } from './GISGeometry';
 
 export class GISDataExtractor {

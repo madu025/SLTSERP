@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function AdminSFAuditRedirect() {
     const router = useRouter();
     useEffect(() => {
-        router.replace('/sf-audit/governance');
+        router.replace('/finance/sf-audit/governance');
     }, [router]);
 
     return (

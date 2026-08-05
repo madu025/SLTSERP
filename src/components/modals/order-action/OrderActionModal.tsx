@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useOrderAction } from "./useOrderAction";
 import { OrderSheetMode } from "./OrderSheetMode";
 import { ReturnReasonSection } from "./ReturnReasonSection";
-import { OrderActionData, Contractor, InventoryItem, OrderCompletionData } from "./types";
+import { OrderActionData, Contractor, InventoryItem, OrderCompletionData } from "@/types/service-order/order-action.types";
 
 interface OrderActionModalProps {
     isOpen: boolean;

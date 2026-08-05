@@ -47,6 +47,7 @@
     reqDocUpload?: boolean;
     writeAuditLedger?: boolean;
     generateIssueNote?: boolean;
+    domainAction?: string | null;
   }): any`
     * `updateGate(id: string, data: Prisma.ProcessGatePolicyUpdateInput): any`
     * `deleteGate(id: string): any`
@@ -57,6 +58,13 @@
     minAmount?: number;
     maxAmount?: number;
   }): any`
+    * `replaceApprovalLevels(gatePolicyId: string, levels: Array<{
+      requiredRole: string;
+      specificUserId?: string | null;
+      description?: string | null;
+      minAmount?: number | null;
+      maxAmount?: number | null;
+    }>): any`
     * `deleteApprovalLevel(gatePolicyId: string, levelId: string): any`
     * `seedIndustrialTemplates(): any`
 
@@ -102,8 +110,8 @@
     * `resetSystemData(): any`
     * `getSystemStats(): any`
     * `getSyncStats(): any`
-    * `getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, any[]> = {}): any`
-    * `updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, any[]>): any`
+    * `getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, TableColumnDef[]> = {}): any`
+    * `updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, TableColumnDef[]>): any`
 
 ### [ai-prediction.service.ts](src/services/ai/ai-prediction.service.ts)
 * **Class**: `AiPredictionService`
@@ -141,6 +149,7 @@
     * `addTrainingExample(intent: string, text: string): Promise<void>`
     * `startContinuousTraining(intervalMs: number = 3600000): void`
     * `train(): Promise<void>`
+    * `predictWithConfidence(message: string): { intent: string; confidence: number }`
     * `predict(message: string): string`
 
 ### [nexus-context.service.ts](src/services/ai/nexus-context.service.ts)
@@ -158,6 +167,8 @@
     * `getBOMInvoicesContext(): any`
     * `getRTOMMismatchesContext(): any`
     * `getSummaryContext(): any`
+    * `getServiceOrderProgressContext(opmcCode?: string): any`
+    * `getJobCostingContext(args?: { rtom?: string, monthYYYYMM?: string, status?: string }): any`
 
 ### [nexus-memory.service.ts](src/services/ai/nexus-memory.service.ts)
 * **Class**: `NexusMemoryService`
@@ -351,7 +362,7 @@
   * **Methods**:
     * `getSections(): any`
     * `createSection(data: { name: string, code: string, description?: string, icon?: string, color?: string }, userId: string): any`
-    * `updateSection(id: string, data: { name?: string, code?: string, description?: string, icon?: string, color?: string, isActive?: boolean }, userId: string): any`
+    * `updateSection(id: string, data: { name?: string, code?: string, description?: string | null, icon?: string | null, color?: string | null, isActive?: boolean }, userId: string): any`
     * `deleteSection(id: string, userId: string): any`
 
 ### [software-license.service.ts](src/services/core/software-license.service.ts)
@@ -1812,12 +1823,7 @@
   * **Methods**:
     * `processAutoReleases(): Promise<RetentionReleaseResult[]>`
 
-### [public.invoice.service.ts](src/services/invoice/public.invoice.service.ts)
-* **Class**: `PublicInvoiceService`
-  * **Methods**:
-    * `getPublicInvoiceDetails(id: string): any`
-
-### [invoice.service.ts](src/services/invoice.service.ts)
+### [invoice.service.ts](src/services/invoice/invoice.service.ts)
 * **Class**: `InvoiceService`
   * **Methods**:
     * `proposePenalty(invoiceId: string, amount: number, reason: string, description: string | undefined, serviceOrderId: string | undefined, userId: string, userRole: string): any`
@@ -1832,6 +1838,11 @@
     * `updateInvoice(data: UpdateInvoiceDTO): any`
     * `deleteInvoice(id: string): any`
     * `approveBySfAudit(invoiceId: string, userId: string): any`
+
+### [public.invoice.service.ts](src/services/invoice/public.invoice.service.ts)
+* **Class**: `PublicInvoiceService`
+  * **Methods**:
+    * `getPublicInvoiceDetails(id: string): any`
 
 ### [analytics.service.ts](src/services/notification/analytics.service.ts)
 * **Class**: `NotificationAnalyticsService`
@@ -2669,6 +2680,7 @@
 * **Class**: `SLTApiService`
   * **Methods**:
     * `fetchCompletedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]>`
+    * `fetchApprovedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]>`
     * `fetchServiceOrders(rtom: string): Promise<SLTServiceOrderData[]>`
     * `fetchPATResults(rtom: string): Promise<SLTPATData[]>`
     * `fetchHOApprovedGlobal(): Promise<SLTPATData[]>`
@@ -2949,12 +2961,13 @@
 | `/api/admin/process-gates` | [route.ts](src/app/api/admin/process-gates/route.ts) | `GET`, `POST` |
 | `/api/admin/process-gates/seed` | [route.ts](src/app/api/admin/process-gates/seed/route.ts) | `POST` |
 | `/api/admin/process-gates/simulate` | [route.ts](src/app/api/admin/process-gates/simulate/route.ts) | `POST` |
-| `/api/admin/process-gates/[id]/levels` | [route.ts](src/app/api/admin/process-gates/[id]/levels/route.ts) | `POST` |
+| `/api/admin/process-gates/[id]/levels` | [route.ts](src/app/api/admin/process-gates/[id]/levels/route.ts) | `POST`, `PUT` |
 | `/api/admin/process-gates/[id]/levels/[levelId]` | [route.ts](src/app/api/admin/process-gates/[id]/levels/[levelId]/route.ts) | `DELETE` |
 | `/api/admin/process-gates/[id]` | [route.ts](src/app/api/admin/process-gates/[id]/route.ts) | `PUT`, `DELETE` |
 | `/api/admin/qc/inspect` | [route.ts](src/app/api/admin/qc/inspect/route.ts) | `POST` |
 | `/api/admin/rate-matrix` | [route.ts](src/app/api/admin/rate-matrix/route.ts) | `GET`, `PUT` |
 | `/api/admin/reports/dynamic` | [route.ts](src/app/api/admin/reports/dynamic/route.ts) | `POST` |
+| `/api/admin/role-options` | [route.ts](src/app/api/admin/role-options/route.ts) | `GET` |
 | `/api/admin/sections` | [route.ts](src/app/api/admin/sections/route.ts) | `GET`, `POST` |
 | `/api/admin/sections/[id]/roles` | [route.ts](src/app/api/admin/sections/[id]/roles/route.ts) | `GET`, `POST` |
 | `/api/admin/sections/[id]/roles/[roleId]` | [route.ts](src/app/api/admin/sections/[id]/roles/[roleId]/route.ts) | `PATCH`, `DELETE` |
@@ -3320,9 +3333,9 @@
 | `/api/service-orders/offline` | [route.ts](src/app/api/service-orders/offline/route.ts) | `GET`, `PATCH`, `POST` |
 | `/api/service-orders/pat` | [route.ts](src/app/api/service-orders/pat/route.ts) | `GET` |
 | `/api/service-orders` | [route.ts](src/app/api/service-orders/route.ts) | `GET`, `POST`, `PUT`, `PATCH` |
+| `/api/service-orders/scrape-details` | [route.ts](src/app/api/service-orders/scrape-details/route.ts) | `GET` |
 | `/api/service-orders/sync` | [route.ts](src/app/api/service-orders/sync/route.ts) | `POST` |
-| `/api/sod/scrape-details` | [route.ts](src/app/api/sod/scrape-details/route.ts) | `GET` |
-| `/api/sod/verify-invoicable` | [route.ts](src/app/api/sod/verify-invoicable/route.ts) | `POST` |
+| `/api/service-orders/verify-invoicable` | [route.ts](src/app/api/service-orders/verify-invoicable/route.ts) | `POST` |
 | `/api/staff` | [route.ts](src/app/api/staff/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
 | `/api/stores` | [route.ts](src/app/api/stores/route.ts) | `GET`, `POST` |
 | `/api/stores/[storeId]` | [route.ts](src/app/api/stores/[storeId]/route.ts) | `GET`, `PUT`, `DELETE` |
@@ -3354,11 +3367,11 @@
 
 ### [ChartOfAccount](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `code: String` `[@unique]`
   * `name: String`
   * `type: AccountType`
-  * `parentId: String?`
+  * `parentId: String?` `[@db.Uuid]`
   * `isPostable: Boolean` `[@default(true)]`
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -3372,7 +3385,7 @@
 
 ### [GLMappingConfig](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `sourceModule: String` `[// e.g. "OSP_IOU", "OSP_RENT", "SOD_INVOICE"]`
   * `transactionType: String` `[// e.g. "ISSUE_ADVANCE", "PAY_RENT", "RECOGNIZE_REVENUE"]`
   * `debitAccountCode: String`
@@ -3385,11 +3398,11 @@
 
 ### [FiscalPeriod](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `year: Int`
   * `month: Int`
   * `status: FiscalPeriodStatus` `[@default(OPEN)]`
-  * `closedById: String?`
+  * `closedById: String?` `[@db.Uuid]`
   * `closedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -3397,14 +3410,14 @@
 
 ### [Customer](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `code: String` `[@unique]`
   * `name: String`
   * `contactPerson: String?`
   * `email: String?`
   * `phone: String?`
   * `taxNumber: String?`
-  * `creditLimit: Float` `[@default(0)]`
+  * `creditLimit: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -3412,16 +3425,16 @@
 
 ### [CustomerReceipt](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `receiptNumber: String` `[@unique]`
-  * `customerId: String?`
-  * `invoiceId: String?`
-  * `amount: Float` `[@default(0)]`
+  * `customerId: String?` `[@db.Uuid]`
+  * `invoiceId: String?` `[@db.Uuid]`
+  * `amount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `paymentMethod: String` `[@default("BANK_TRANSFER")]`
   * `referenceNumber: String?`
   * `receiptDate: DateTime` `[@default(now())]`
   * `notes: String?`
-  * `createdById: String?`
+  * `createdById: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `customer: Customer?` `[@relation(fields: [customerId], references: [id])]`
@@ -3429,14 +3442,14 @@
 
 ### [BankAccount](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `accountNumber: String` `[@unique]`
   * `bankName: String`
   * `branchName: String?`
   * `glAccountCode: String` `[@default("BANK-1000")]`
   * `currency: String` `[@default("LKR")]`
-  * `openingBalance: Float` `[@default(0)]`
-  * `currentBalance: Float` `[@default(0)]`
+  * `openingBalance: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `currentBalance: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -3444,15 +3457,15 @@
 
 ### [BankStatementLine](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `bankAccountId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `bankAccountId: String` `[@db.Uuid]`
   * `statementDate: DateTime`
   * `description: String`
   * `referenceNumber: String?`
-  * `debit: Float` `[@default(0)]`
-  * `credit: Float` `[@default(0)]`
+  * `debit: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `credit: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `isReconciled: Boolean` `[@default(false)]`
-  * `reconciledJournalLineId: String?`
+  * `reconciledJournalLineId: String?` `[@db.Uuid]`
   * `reconciledAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -3460,21 +3473,21 @@
 
 ### [FixedAsset](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `assetNumber: String` `[@unique]`
   * `name: String`
   * `category: String` `[@default("EQUIPMENT")]`
   * `subCategory: String?`
   * `acquisitionDate: DateTime` `[@default(now())]`
   * `purchasedYear: String?`
-  * `cost: Float` `[@default(0)]`
+  * `cost: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `usefulLifeYears: Int` `[@default(5)]`
   * `depreciationMethod: String` `[@default("STRAIGHT_LINE")]`
   * `glAssetCode: String` `[@default("FA-1410")]`
   * `glDepExpCode: String` `[@default("EXP-DEP-6010")]`
   * `glAccumDepCode: String` `[@default("ACC-DEP-1510")]`
-  * `accumulatedDepreciation: Float` `[@default(0)]`
-  * `netBookValue: Float` `[@default(0)]`
+  * `accumulatedDepreciation: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `netBookValue: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `locationCode: String?`
   * `locationName: String?`
   * `details: String?`
@@ -3487,61 +3500,61 @@
 
 ### [DepreciationLog](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `fixedAssetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `fixedAssetId: String` `[@db.Uuid]`
   * `year: Int`
   * `month: Int`
-  * `depreciationAmount: Float`
-  * `accumulatedAfter: Float`
-  * `netBookValueAfter: Float`
-  * `postedJournalId: String?`
+  * `depreciationAmount: Decimal` `[@db.Decimal(14, 2)]`
+  * `accumulatedAfter: Decimal` `[@db.Decimal(14, 2)]`
+  * `netBookValueAfter: Decimal` `[@db.Decimal(14, 2)]`
+  * `postedJournalId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `fixedAsset: FixedAsset` `[@relation(fields: [fixedAssetId], references: [id], onDelete: Cascade)]`
 
 ### [PayrollExpense](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `period: String`
-  * `opmcId: String?`
-  * `amount: Float` `[@default(0)]`
+  * `opmcId: String?` `[@db.Uuid]`
+  * `amount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `referenceNumber: String?`
   * `notes: String?`
   * `status: String` `[@default("POSTED")]`
-  * `createdById: String?`
-  * `postedJournalId: String?`
+  * `createdById: String?` `[@db.Uuid]`
+  * `postedJournalId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [CreditDebitNote](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `noteNumber: String` `[@unique]`
   * `type: String` `[@default("CREDIT_NOTE") // CREDIT_NOTE | DEBIT_NOTE]`
-  * `invoiceId: String?`
-  * `amount: Float` `[@default(0)]`
+  * `invoiceId: String?` `[@db.Uuid]`
+  * `amount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `reason: String`
   * `status: String` `[@default("POSTED")]`
-  * `createdById: String?`
-  * `postedJournalId: String?`
+  * `createdById: String?` `[@db.Uuid]`
+  * `postedJournalId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `invoice: ProjectInvoice?` `[@relation(fields: [invoiceId], references: [id])]`
 
 ### [ApprovalMatrix](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `module: String` `[@default("INVOICE")]`
-  * `minAmount: Float` `[@default(0)]`
-  * `maxAmount: Float`
+  * `minAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `maxAmount: Decimal` `[@db.Decimal(14, 2)]`
   * `requiredRole: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [CurrencyExchange](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `currencyCode: String` `[// e.g. "USD", "EUR"]`
-  * `exchangeRate: Float`
+  * `exchangeRate: Decimal` `[@db.Decimal(14, 2)]`
   * `effectiveDate: DateTime`
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -3549,22 +3562,22 @@
 
 ### [AccountBalanceRollup](prisma/schema/accounting.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `accountCode: String`
-  * `fiscalPeriodId: String`
+  * `fiscalPeriodId: String` `[@db.Uuid]`
   * `year: Int`
   * `month: Int`
-  * `totalDebit: Float` `[@default(0)]`
-  * `totalCredit: Float` `[@default(0)]`
-  * `closingBalance: Float` `[@default(0)]`
+  * `totalDebit: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `totalCredit: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `closingBalance: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `lastCalculatedAt: DateTime` `[@default(now())]`
   * `account: ChartOfAccount` `[@relation("RollupBalances", fields: [accountCode], references: [code], onDelete: Cascade)]`
   * `fiscalPeriod: FiscalPeriod` `[@relation(fields: [fiscalPeriodId], references: [id], onDelete: Cascade)]`
 
 ### [AssetSyncLog](prisma/schema/agent-sync.prisma)
 * **Fields**:
-  * `id: Int` `[@id @default(autoincrement())]`
-  * `assetId: String?` `[@map("asset_id")]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String?` `[@db.Uuid  @map("asset_id")]`
   * `reportedEmployeeNumber: String?` `[@map("reported_employee_number")]`
   * `reportedEmployeeUsername: String?` `[@map("reported_employee_username")]`
   * `ipAddress: String?` `[@map("ip_address")]`
@@ -3573,18 +3586,18 @@
 
 ### [FinanceBudgetAllocation](prisma/schema/capex-opex.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `opmcId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `opmcId: String` `[@db.Uuid]`
   * `fiscalYear: Int` `[// e.g., 2025]`
   * `quarter: Int?` `[// 1-4, null = full year]`
   * `expenditureType: String` `[// CAPEX | OPEX]`
   * `category: String` `[// NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER]`
-  * `allocatedAmount: Float` `[@default(0)]`
+  * `allocatedAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `description: String?`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `status: String` `[@default("ACTIVE") // ACTIVE | FROZEN | REVISED]`
-  * `createdById: String`
+  * `createdById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id])]`
@@ -3592,23 +3605,23 @@
 
 ### [CapexOpexLedgerEntry](prisma/schema/capex-opex.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `budgetId: String?`
-  * `opmcId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `budgetId: String?` `[@db.Uuid]`
+  * `opmcId: String` `[@db.Uuid]`
   * `expenditureType: String` `[// CAPEX | OPEX]`
   * `category: String` `[// NETWORK_INFRA | MAINTENANCE | CONTRACTOR_PAYMENT | PETTY_CASH | VEHICLE | EQUIPMENT | OTHER]`
   * `sourceType: String` `[// PROJECT_EXPENSE | INVOICE | PETTY_CASH | PURCHASE_ORDER | VEHICLE_TRIP | MANUAL]`
-  * `sourceId: String` `[// Polymorphic FK to the originating record]`
-  * `amount: Float` `[@default(0)]`
+  * `sourceId: String` `[@db.Uuid // Polymorphic FK to the originating record]`
+  * `amount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `transactionDate: DateTime` `[@default(now())]`
   * `fiscalYear: Int`
   * `quarter: Int` `[// 1-4, computed from transactionDate]`
   * `description: String`
   * `referenceNumber: String?` `[// PO/Invoice/Voucher reference number]`
-  * `vendorId: String?`
-  * `projectId: String?`
-  * `approvedById: String?`
-  * `createdById: String`
+  * `vendorId: String?` `[@db.Uuid]`
+  * `projectId: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
+  * `createdById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `budget: FinanceBudgetAllocation?` `[@relation(fields: [budgetId], references: [id])]`
@@ -3616,7 +3629,7 @@
 
 ### [Contractor](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `contactNumber: String?`
   * `email: String?`
@@ -3638,18 +3651,18 @@
   * `agreementDuration: Int?` `[@default(1)]`
   * `brCertUrl: String?`
   * `armApprovedAt: DateTime?`
-  * `armApprovedById: String?`
+  * `armApprovedById: String?` `[@db.Uuid]`
   * `ospApprovedAt: DateTime?`
-  * `ospApprovedById: String?`
+  * `ospApprovedById: String?` `[@db.Uuid]`
   * `rejectionReason: String?`
-  * `rejectionById: String?`
+  * `rejectionById: String?` `[@db.Uuid]`
   * `rejectedAt: DateTime?`
   * `registrationToken: String?` `[@unique]`
   * `registrationTokenExpiry: DateTime?`
   * `registrationStartedAt: DateTime?`
   * `registrationDraft: Json?`
-  * `siteOfficeStaffId: String?`
-  * `opmcId: String?`
+  * `siteOfficeStaffId: String?` `[@db.Uuid]`
+  * `opmcId: String?` `[@db.Uuid]`
   * `bankName: String?`
   * `bankBranch: String?`
   * `bankAccountNumber: String?`
@@ -3683,12 +3696,13 @@
   * `serviceOrders: ServiceOrder[]`
   * `stockIssues: StockIssue[]` `[@relation("ContractorIssues")]`
   * `teamMembers: TeamMember[]`
+  * `users: User[]` `[@relation("ContractorUsers")]`
 
 ### [ContractorStock](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractorId: String`
-  * `itemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractorId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
   * `quantity: Decimal` `[@default(0)]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id], onDelete: Cascade)]`
@@ -3696,11 +3710,11 @@
 
 ### [ContractorTeam](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `status: String` `[@default("ACTIVE")]`
-  * `contractorId: String`
-  * `opmcId: String?`
+  * `contractorId: String` `[@db.Uuid]`
+  * `opmcId: String?` `[@db.Uuid]`
   * `sltCode: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -3712,9 +3726,9 @@
 
 ### [TeamStoreAssignment](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `teamId: String`
-  * `storeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `teamId: String` `[@db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
   * `isPrimary: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id], onDelete: Cascade)]`
@@ -3722,7 +3736,7 @@
 
 ### [TeamMember](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `idCopyNumber: String?`
   * `contractorIdCopyNumber: String?`
@@ -3739,8 +3753,8 @@
   * `passportPhotoUrl: String?`
   * `uploadToken: String?` `[@unique]`
   * `uploadTokenExpiry: DateTime?`
-  * `contractorId: String`
-  * `teamId: String?`
+  * `contractorId: String` `[@db.Uuid]`
+  * `teamId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id], onDelete: Cascade)]`
@@ -3748,8 +3762,8 @@
 
 ### [ContractorPaymentConfig](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `rtomId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `rtomId: String?` `[@db.Uuid]`
   * `effectiveFrom: DateTime?`
   * `effectiveTo: DateTime?`
   * `isActive: Boolean` `[@default(true)]`
@@ -3762,23 +3776,23 @@
 
 ### [ContractorPaymentTier](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `configId: String`
-  * `minDistance: Float`
-  * `maxDistance: Float`
-  * `amount: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `configId: String` `[@db.Uuid]`
+  * `minDistance: Decimal` `[@db.Decimal(12, 4)]`
+  * `maxDistance: Decimal` `[@db.Decimal(12, 4)]`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
   * `config: ContractorPaymentConfig` `[@relation(fields: [configId], references: [id], onDelete: Cascade)]`
 
 ### [Penalty](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `amount: Decimal` `[@default(0)]`
   * `reason: String`
   * `description: String?`
   * `status: String` `[@default("PENDING")]`
   * `proposedBy: String?`
-  * `invoiceId: String?`
-  * `serviceOrderId: String?`
+  * `invoiceId: String?` `[@db.Uuid]`
+  * `serviceOrderId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `invoice: Invoice?` `[@relation(fields: [invoiceId], references: [id], onDelete: Cascade)]`
@@ -3786,31 +3800,31 @@
 
 ### [ContractorPerformanceScore](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractorId: String`
-  * `projectId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractorId: String` `[@db.Uuid]`
+  * `projectId: String?` `[@db.Uuid]`
   * `evaluationMonth: String`
-  * `score: Float` `[@default(0)]`
-  * `productivityScore: Float?`
-  * `qualityScore: Float?`
-  * `safetyScore: Float?`
-  * `slaComplianceScore: Float?`
-  * `scheduleScore: Float?`
+  * `score: Decimal` `[@db.Decimal(8, 4) @default(0)]`
+  * `productivityScore: Decimal?` `[@db.Decimal(8, 4)]`
+  * `qualityScore: Decimal?` `[@db.Decimal(8, 4)]`
+  * `safetyScore: Decimal?` `[@db.Decimal(8, 4)]`
+  * `slaComplianceScore: Decimal?` `[@db.Decimal(8, 4)]`
+  * `scheduleScore: Decimal?` `[@db.Decimal(8, 4)]`
   * `ncrCount: Int` `[@default(0)]`
   * `ncrClosedCount: Int` `[@default(0)]`
   * `hseIncidentCount: Int` `[@default(0)]`
   * `completedTasksCount: Int` `[@default(0)]`
   * `delayedTasksCount: Int` `[@default(0)]`
   * `totalTasksAssigned: Int` `[@default(0)]`
-  * `averageRating: Float?`
+  * `averageRating: Decimal?` `[@db.Decimal(8, 4)]`
   * `inspectionCount: Int` `[@default(0)]`
   * `inspectionPassCount: Int` `[@default(0)]`
-  * `patPassPct: Float?`
-  * `materialWastagePct: Float?`
+  * `patPassPct: Decimal?` `[@db.Decimal(8, 4)]`
+  * `materialWastagePct: Decimal?` `[@db.Decimal(8, 4)]`
   * `reworkCount: Int?`
-  * `timelineAdherencePct: Float?`
+  * `timelineAdherencePct: Decimal?` `[@db.Decimal(8, 4)]`
   * `autoCalculated: Boolean` `[@default(false)]`
-  * `evaluatedById: String?`
+  * `evaluatedById: String?` `[@db.Uuid]`
   * `evaluatedAt: DateTime` `[@default(now())]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -3820,13 +3834,13 @@
 
 ### [ContractorRateRule](prisma/schema/contractor.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `workType: String`
   * `workDescription: String`
-  * `minDistance: Float` `[@default(0)]`
-  * `maxDistance: Float` `[@default(9999)]`
+  * `minDistance: Decimal` `[@db.Decimal(12, 4) @default(0)]`
+  * `maxDistance: Decimal` `[@db.Decimal(12, 4) @default(9999)]`
   * `areaGroup: String`
-  * `rateAmount: Float` `[@default(0)]`
+  * `rateAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `poleType: String?`
   * `poleMethod: String?`
   * `isActive: Boolean` `[@default(true)]`
@@ -3835,7 +3849,7 @@
 
 ### [ProcessGatePolicy](prisma/schema/dynamic-policy.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `entityType: String` `[// "SOD", "PROJECT", "INVOICE", "STOCK_TRANSFER", "MRN", "GRN", "PURCHASE_ORDER"]`
   * `fromStatus: String` `[// "COMPLETED", "DRAFT", "PENDING"]`
   * `toStatus: String` `[// "INVOICABLE", "APPROVED", "ISSUED"]`
@@ -3857,11 +3871,11 @@
 
 ### [ProcessApprovalLevel](prisma/schema/dynamic-policy.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `gatePolicyId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `gatePolicyId: String` `[@db.Uuid]`
   * `level: Int` `[// 1, 2, 3...]`
   * `requiredRole: String` `[// e.g. "ENGINEER", "AREA_MANAGER", "FINANCE_MANAGER"]`
-  * `specificUserId: String?` `[// Optional specific user assignment]`
+  * `specificUserId: String?` `[@db.Uuid // Optional specific user assignment]`
   * `description: String?` `[// Instructions for approver]`
   * `minAmount: Decimal?` `[// Condition: Only apply if amount >= X]`
   * `maxAmount: Decimal?` `[// Condition: Only apply if amount <= X]`
@@ -3871,17 +3885,17 @@
 
 ### [UniversalApprovalInstance](prisma/schema/dynamic-policy.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `entityType: String` `[// "SOD", "INVOICE", "STOCK_ISSUE"]`
-  * `entityId: String` `[// The ID of the SOD, Invoice, etc.]`
-  * `policyId: String?` `[// Linked Gate Policy]`
+  * `entityId: String` `[// The ID of the SOD, Invoice, etc. (free-form: may be non-UUID in simulations)]`
+  * `policyId: String?` `[@db.Uuid // Linked Gate Policy]`
   * `levelIndex: Int` `[@default(0) // Current Level Index in policy]`
   * `level: Int`
   * `requiredRole: String`
-  * `assignedUserId: String?`
-  * `makerId: String?` `[// The ID of the original creator/requester of the entity]`
+  * `assignedUserId: String?` `[@db.Uuid]`
+  * `makerId: String?` `[@db.Uuid // The ID of the original creator/requester of the entity]`
   * `status: String` `[@default("PENDING") // "PENDING", "APPROVED", "REJECTED"]`
-  * `actionedById: String?`
+  * `actionedById: String?` `[@db.Uuid]`
   * `actionedAt: DateTime?`
   * `comments: String?`
   * `payload: Json?` `[// Payload data attached during approval (e.g. qty, deductions)]`
@@ -3893,7 +3907,7 @@
 
 ### [WorkflowStatus](prisma/schema/dynamic-policy.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `entityType: String` `[// e.g. "MATERIAL_REQUEST", "SERVICE_ORDER"]`
   * `value: String` `[// e.g. "DRAFT", "PENDING"]`
   * `label: String` `[// e.g. "DRAFT (Initial Material Request)"]`
@@ -3910,28 +3924,28 @@
 
 ### [GISRoute](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `name: String`
   * `description: String?`
   * `sourceFile: String?`
   * `sourceFormat: String?`
-  * `routeLength: Float?`
-  * `poleSpacing: Float?`
+  * `routeLength: Decimal?` `[@db.Decimal(12, 4)]`
+  * `poleSpacing: Decimal?` `[@db.Decimal(12, 4)]`
   * `calculatedPoles: Int?`
   * `status: String` `[@default("DRAFT")]`
   * `geojsonData: Json?`
   * `metadata: Json?`
-  * `createdById: String?`
-  * `approvedById: String?`
+  * `createdById: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `version: Int` `[@default(1)]`
-  * `parentVersionId: String?`
-  * `childVersionId: String?`
+  * `parentVersionId: String?` `[@db.Uuid]`
+  * `childVersionId: String?` `[@db.Uuid]`
   * `versionType: String` `[@default("PLANNED")]`
-  * `changeRequestId: String?`
+  * `changeRequestId: String?` `[@db.Uuid]`
   * `isActive: Boolean` `[@default(true)]`
   * `polygonData: Json?`
   * `osmData: Json?`
@@ -3945,14 +3959,14 @@
 ### [GISPole](prisma/schema/gis.prisma)
 * **Fields**:
   * `properties: Json?`
-  * `id: String` `[@id @default(cuid())]`
-  * `routeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `routeId: String` `[@db.Uuid]`
   * `poleNumber: Int`
-  * `latitude: Float`
-  * `longitude: Float`
-  * `elevation: Float?`
+  * `latitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `elevation: Decimal?` `[@db.Decimal(11, 8)]`
   * `poleType: String?`
-  * `height: Float?`
+  * `height: Decimal?` `[@db.Decimal(12, 4)]`
   * `status: String` `[@default("PLANNED")]`
   * `installationDate: DateTime?`
   * `notes: String?`
@@ -3964,13 +3978,13 @@
 
 ### [GISChamber](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `routeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `routeId: String` `[@db.Uuid]`
   * `chamberNumber: Int`
   * `chamberType: String?`
-  * `latitude: Float`
-  * `longitude: Float`
-  * `depth: Float?`
+  * `latitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `depth: Decimal?` `[@db.Decimal(12, 4)]`
   * `dimensions: String?`
   * `status: String` `[@default("PLANNED")]`
   * `installationDate: DateTime?`
@@ -3984,12 +3998,12 @@
 ### [GISClosure](prisma/schema/gis.prisma)
 * **Fields**:
   * `properties: Json?`
-  * `id: String` `[@id @default(cuid())]`
-  * `routeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `routeId: String` `[@db.Uuid]`
   * `closureNumber: Int`
   * `closureType: String?`
-  * `latitude: Float`
-  * `longitude: Float`
+  * `latitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal` `[@db.Decimal(11, 8)]`
   * `capacity: Int?`
   * `status: String` `[@default("PLANNED")]`
   * `installationDate: DateTime?`
@@ -4001,14 +4015,14 @@
 ### [GISCableSegment](prisma/schema/gis.prisma)
 * **Fields**:
   * `properties: Json?`
-  * `id: String` `[@id @default(cuid())]`
-  * `routeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `routeId: String` `[@db.Uuid]`
   * `segmentNumber: Int`
-  * `fromPoleId: String?`
-  * `toPoleId: String?`
-  * `fromChamberId: String?`
-  * `toChamberId: String?`
-  * `length: Float`
+  * `fromPoleId: String?` `[@db.Uuid]`
+  * `toPoleId: String?` `[@db.Uuid]`
+  * `fromChamberId: String?` `[@db.Uuid]`
+  * `toChamberId: String?` `[@db.Uuid]`
+  * `length: Decimal` `[@db.Decimal(12, 4)]`
   * `cableType: String?`
   * `fiberCount: Int?`
   * `ductCount: Int?`
@@ -4026,14 +4040,14 @@
 
 ### [GISGeneratedBOQ](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `routeId: String`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `routeId: String` `[@db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `status: String` `[@default("DRAFT")]`
-  * `totalEstimated: Float` `[@default(0)]`
+  * `totalEstimated: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `notes: String?`
-  * `createdById: String?`
-  * `approvedById: String?`
+  * `createdById: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -4043,15 +4057,15 @@
 
 ### [GISGeneratedBOQItem](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `boqId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `boqId: String` `[@db.Uuid]`
   * `itemCategory: String`
   * `itemCode: String`
   * `description: String`
   * `unit: String`
-  * `quantity: Float`
-  * `unitRate: Float` `[@default(0)]`
-  * `amount: Float` `[@default(0)]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `unitRate: Decimal` `[@db.Decimal(12, 4) @default(0)]`
+  * `amount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `sourceType: String?`
   * `sourceReference: String?`
   * `remarks: String?`
@@ -4060,8 +4074,8 @@
 
 ### [QFieldCloudSyncLog](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `syncType: String`
   * `status: String`
   * `featuresCount: Int` `[@default(0)]`
@@ -4071,9 +4085,9 @@
 
 ### [MobileSurveySession](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `supervisorId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `supervisorId: String` `[@db.Uuid]`
   * `status: String` `[@default("IN_PROGRESS")]`
   * `pointsCount: Int` `[@default(0)]`
   * `syncStatus: String` `[@default("PENDING")]`
@@ -4087,21 +4101,21 @@
 
 ### [SurveyPoint](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `sessionId: String`
-  * `projectId: String`
-  * `layerId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `sessionId: String` `[@db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `layerId: String` `[@db.Uuid]`
   * `layerName: String`
-  * `latitude: Float`
-  * `longitude: Float`
+  * `latitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal` `[@db.Decimal(11, 8)]`
   * `attributes: Json`
   * `photoUrls: String[]` `[@default([])]`
-  * `supervisorId: String?`
+  * `supervisorId: String?` `[@db.Uuid]`
   * `verificationStatus: String` `[@default("PENDING_VERIFICATION")]`
   * `verificationStep: String` `[@default("SUPERVISOR")]`
-  * `verifiedById: String?`
+  * `verifiedById: String?` `[@db.Uuid]`
   * `verifiedAt: DateTime?`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4111,15 +4125,15 @@
 
 ### [GISAuditLog](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `entityType: String`
-  * `entityId: String`
+  * `entityId: String` `[// free-form: entity ids are UUIDs but kept text for resilience]`
   * `action: String`
   * `fieldChanges: Json?`
   * `locationBefore: Json?`
   * `locationAfter: Json?`
-  * `performedById: String`
+  * `performedById: String?` `[@db.Uuid // nullable: 'SYSTEM'/cron actors store null]`
   * `performedAt: DateTime` `[@default(now())]`
   * `routeVersion: Int?`
   * `source: String` `[@default("WEB_PORTAL")]`
@@ -4127,9 +4141,9 @@
 
 ### [QFieldFieldConfig](prisma/schema/gis.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `layerId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `layerId: String` `[@db.Uuid]`
   * `fieldName: String`
   * `options: String[]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4143,14 +4157,14 @@
   * `wayFbid: String?`
   * `highwayTag: String?`
   * `createdAt: DateTime` `[@default(now())]`
-  * `maxLat: Float?`
-  * `maxLon: Float?`
-  * `minLat: Float?`
-  * `minLon: Float?`
+  * `maxLat: Decimal?` `[@db.Decimal(11, 8)]`
+  * `maxLon: Decimal?` `[@db.Decimal(11, 8)]`
+  * `minLat: Decimal?` `[@db.Decimal(11, 8)]`
+  * `minLon: Decimal?` `[@db.Decimal(11, 8)]`
 
 ### [ITAsset](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `assetNumber: String` `[@unique]`
   * `serialNumber: String` `[@unique]`
   * `deviceType: ITDeviceType`
@@ -4161,11 +4175,11 @@
   * `status: ITAssetStatus` `[@default(ACTIVE)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `purchaseCost: Float?`
+  * `purchaseCost: Decimal?` `[@db.Decimal(14, 2)]`
   * `purchaseDate: DateTime?`
   * `warrantyExpiry: DateTime?`
-  * `siteOfficeId: String?`
-  * `assignedStaffId: String?`
+  * `siteOfficeId: String?` `[@db.Uuid]`
+  * `assignedStaffId: String?` `[@db.Uuid]`
   * `agreementReceived: Boolean` `[@default(false)]`
   * `repairRemarks: String?`
   * `imei2: String?`
@@ -4178,7 +4192,7 @@
   * `lastSyncedAt: DateTime?`
   * `macAddress: String?`
   * `osVersion: String?`
-  * `assignedUserId: String?`
+  * `assignedUserId: String?` `[@db.Uuid]`
   * `lastSeenEmployeeNumber: String?`
   * `lastSeenEmployeeUsername: String?`
   * `pendingAssignmentReview: Boolean` `[@default(false)]`
@@ -4190,24 +4204,24 @@
   * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("AssetSoftwareLicenses")]`
   * `tickets: Ticket[]`
   * `syncLogs: AssetSyncLog[]`
-  * `dataPlanLimit: Float?`
-  * `mdmDeviceId: String?`
+  * `dataPlanLimit: Decimal?` `[@db.Decimal(12, 4)]`
+  * `mdmDeviceId: String?` `[@db.Uuid]`
   * `childRelationships: CMDBRelationship[]` `[@relation("CMDBParent")]`
   * `parentRelationships: CMDBRelationship[]` `[@relation("CMDBChild")]`
   * `disposalRequests: AssetDisposalRequest[]`
 
 ### [Ticket](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `ticketNumber: String` `[@unique]`
-  * `assetId: String?`
-  * `userId: String`
+  * `assetId: String?` `[@db.Uuid]`
+  * `userId: String` `[@db.Uuid]`
   * `category: IssueCategory`
   * `description: String`
   * `priority: TicketPriority` `[@default(MEDIUM)]`
   * `status: TicketStatus` `[@default(OPEN)]`
-  * `assignedToId: String?`
-  * `anydeskId: String?`
+  * `assignedToId: String?` `[@db.Uuid]`
+  * `anydeskId: String?` `[@db.Uuid]`
   * `anydeskSession: String?`
   * `photoUrls: String[]` `[@default([])]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4227,9 +4241,9 @@
 
 ### [TicketUpdate](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `ticketId: String`
-  * `userId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `ticketId: String` `[@db.Uuid]`
+  * `userId: String` `[@db.Uuid]`
   * `message: String`
   * `statusFrom: TicketStatus`
   * `statusTo: TicketStatus`
@@ -4240,7 +4254,7 @@
 
 ### [KnowledgeBaseArticle](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `title: String`
   * `content: String`
   * `category: String`
@@ -4250,14 +4264,14 @@
 
 ### [SiteOfficeAgreement](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `siteOfficeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `siteOfficeId: String` `[@db.Uuid]`
   * `agreementType: String`
   * `contractNumber: String`
   * `startDate: DateTime`
   * `endDate: DateTime?`
   * `terms: String`
-  * `monthlyRent: Float` `[@default(0.0)]`
+  * `monthlyRent: Decimal` `[@db.Decimal(14, 2) @default(0.0)]`
   * `landlordName: String?`
   * `landlordPhone: String?`
   * `documentUrl: String?`
@@ -4268,12 +4282,12 @@
 
 ### [SiteOfficeRequest](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `siteOfficeId: String`
-  * `requestedById: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `siteOfficeId: String` `[@db.Uuid]`
+  * `requestedById: String` `[@db.Uuid]`
   * `itemType: String`
   * `description: String`
-  * `estimatedCost: Float` `[@default(0.0)]`
+  * `estimatedCost: Decimal` `[@db.Decimal(14, 2) @default(0.0)]`
   * `priority: String` `[@default("MEDIUM")]`
   * `status: String` `[@default("PENDING")]`
   * `notes: String?`
@@ -4284,8 +4298,8 @@
 
 ### [SiteOfficeVehicle](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `siteOfficeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `siteOfficeId: String` `[@db.Uuid]`
   * `vehicleRegNo: String`
   * `makeModel: String`
   * `assignedDriver: String?`
@@ -4299,31 +4313,31 @@
 
 ### [SiteOfficeTender](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `siteOfficeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `siteOfficeId: String` `[@db.Uuid]`
   * `tenderNo: String`
   * `title: String`
   * `description: String`
-  * `budget: Float` `[@default(0.0)]`
+  * `budget: Decimal` `[@db.Decimal(14, 2) @default(0.0)]`
   * `publishDate: DateTime`
   * `closingDate: DateTime`
   * `status: String` `[@default("DRAFT")]`
   * `winnerVendor: String?`
-  * `winnerBidAmount: Float?`
+  * `winnerBidAmount: Decimal?` `[@db.Decimal(14, 2)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `siteOffice: InventoryStore` `[@relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)]`
 
 ### [AssetHandoverLog](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
   * `transactionType: AssetTransactionType`
-  * `performedById: String`
+  * `performedById: String` `[@db.Uuid]`
   * `condition: String?`
   * `remarks: String?`
   * `date: DateTime` `[@default(now())]`
-  * `targetStaffId: String?`
+  * `targetStaffId: String?` `[@db.Uuid]`
   * `asset: ITAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
   * `performedBy: User` `[@relation("HandoverPerformed", fields: [performedById], references: [id])]`
   * `targetStaff: Staff?` `[@relation("HandoverReceived", fields: [targetStaffId], references: [id])]`
@@ -4331,13 +4345,13 @@
 
 ### [SoftwareLicense](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `key: String?`
   * `vendor: String?`
   * `purchaseDate: DateTime?`
   * `expiryDate: DateTime?`
-  * `purchaseCost: Float?`
+  * `purchaseCost: Decimal?` `[@db.Decimal(14, 2)]`
   * `totalLicenses: Int` `[@default(1)]`
   * `status: String` `[@default("ACTIVE")]`
   * `remarks: String?`
@@ -4347,25 +4361,25 @@
 
 ### [SoftwareLicenseAssignment](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `softwareLicenseId: String`
-  * `assignedAssetId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `softwareLicenseId: String` `[@db.Uuid]`
+  * `assignedAssetId: String?` `[@db.Uuid]`
   * `assignedAt: DateTime` `[@default(now())]`
   * `remarks: String?`
   * `assignedEmail: String?`
-  * `assignedUserId: String?`
+  * `assignedUserId: String?` `[@db.Uuid]`
   * `assignedAsset: ITAsset?` `[@relation("AssetSoftwareLicenses", fields: [assignedAssetId], references: [id])]`
   * `assignedUser: User?` `[@relation("UserSoftwareLicenses", fields: [assignedUserId], references: [id])]`
   * `softwareLicense: SoftwareLicense` `[@relation(fields: [softwareLicenseId], references: [id], onDelete: Cascade)]`
 
 ### [ITAssetUnit](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
   * `serialNumber: String` `[@unique]`
   * `unitNumber: String?` `[@unique]`
   * `status: String` `[@default("IN_HAND_STORES")]`
-  * `assignedStaffId: String?`
+  * `assignedStaffId: String?` `[@db.Uuid]`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -4374,7 +4388,7 @@
 
 ### [ITAssetAudit](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `serialNumber: String`
   * `assetNumber: String?`
   * `deviceType: ITDeviceType`
@@ -4392,14 +4406,14 @@
   * `department: String?`
   * `isRejected: Boolean` `[@default(false)]`
   * `location: String?`
-  * `siteOfficeId: String?`
+  * `siteOfficeId: String?` `[@db.Uuid]`
   * `isPersonal: Boolean` `[@default(false)]`
 
 ### [CMDBRelationship](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `parentAssetId: String`
-  * `childAssetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `parentAssetId: String` `[@db.Uuid]`
+  * `childAssetId: String` `[@db.Uuid]`
   * `relationshipType: CMDBRelationshipType`
   * `createdAt: DateTime` `[@default(now())]`
   * `parentAsset: ITAsset` `[@relation("CMDBParent", fields: [parentAssetId], references: [id], onDelete: Cascade)]`
@@ -4407,12 +4421,12 @@
 
 ### [AssetDisposalRequest](prisma/schema/helpdesk.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
-  * `requestedById: String`
-  * `approvedById: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
+  * `requestedById: String` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `reason: DisposalReason`
-  * `salvageValue: Float` `[@default(0.0)]`
+  * `salvageValue: Decimal` `[@db.Decimal(14, 2) @default(0.0)]`
   * `status: ApprovalStatus` `[@default(PENDING)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -4422,27 +4436,27 @@
 
 ### [PreErpMaterialBalance](prisma/schema/inventory-reconciliation.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `opmcId: String?`
-  * `storeId: String?`
-  * `itemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `opmcId: String?` `[@db.Uuid]`
+  * `storeId: String?` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
   * `itemCode: String`
   * `itemName: String`
   * `year: Int` `[// e.g., 2024, 2025, 2026]`
   * `month: String` `[// e.g., "JULY", "AUG", "SEP"]`
-  * `carryForwardQuantity: Float` `[@default(0) // Opening balance]`
-  * `receivedQuantity: Float` `[@default(0) // Inward received]`
-  * `totalInHandQuantity: Float` `[@default(0) // Available]`
-  * `usageQuantity: Float` `[@default(0) // Consumed in field]`
-  * `wastageQuantity: Float` `[@default(0) // Scrap / Wastage]`
-  * `faultyQuantity: Float` `[@default(0) // Damaged]`
-  * `totalUsageQuantity: Float` `[@default(0) // Usage + Wastage]`
-  * `closingBalanceQuantity: Float` `[@default(0) // Computed remaining]`
-  * `receivedCostLkr: Float` `[@default(0) // Financial value received]`
-  * `usageCostLkr: Float` `[@default(0) // Financial value consumed]`
-  * `unitCostLkr: Float` `[@default(0) // Unit price]`
+  * `carryForwardQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Opening balance]`
+  * `receivedQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Inward received]`
+  * `totalInHandQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Available]`
+  * `usageQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Consumed in field]`
+  * `wastageQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Scrap / Wastage]`
+  * `faultyQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Damaged]`
+  * `totalUsageQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Usage + Wastage]`
+  * `closingBalanceQuantity: Decimal` `[@db.Decimal(12, 4) @default(0) // Computed remaining]`
+  * `receivedCostLkr: Decimal` `[@db.Decimal(14, 2) @default(0) // Financial value received]`
+  * `usageCostLkr: Decimal` `[@db.Decimal(14, 2) @default(0) // Financial value consumed]`
+  * `unitCostLkr: Decimal` `[@db.Decimal(14, 2) @default(0) // Unit price]`
   * `status: String` `[@default("UNRECONCILED") // UNRECONCILED | RECONCILED | ADJUSTED]`
-  * `createdById: String`
+  * `createdById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `opmc: OPMC?` `[@relation(fields: [opmcId], references: [id])]`
@@ -4451,20 +4465,20 @@
 
 ### [MaterialVarianceAdjustment](prisma/schema/inventory-reconciliation.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `balanceId: String`
-  * `opmcId: String?`
-  * `itemId: String`
-  * `systemCalculatedQty: Float` `[// Quantity from monthly math]`
-  * `physicalAuditedQty: Float` `[// Physical stock count]`
-  * `varianceQuantity: Float` `[// Physical - System]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `balanceId: String` `[@db.Uuid]`
+  * `opmcId: String?` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `systemCalculatedQty: Decimal` `[@db.Decimal(12, 4) // Quantity from monthly math]`
+  * `physicalAuditedQty: Decimal` `[@db.Decimal(12, 4) // Physical stock count]`
+  * `varianceQuantity: Decimal` `[@db.Decimal(12, 4) // Physical - System]`
   * `varianceReason: String` `[// UNRECORDED_RECEIPT | BUFFER_STOCK | FIELD_SCRAP | OTHER]`
-  * `financialImpactLkr: Float` `[// Variance * UnitCost]`
+  * `financialImpactLkr: Decimal` `[@db.Decimal(14, 2) // Variance * UnitCost]`
   * `status: String` `[@default("PENDING") // PENDING | APPROVED | REJECTED]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
-  * `createdById: String`
+  * `createdById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `balance: PreErpMaterialBalance` `[@relation(fields: [balanceId], references: [id], onDelete: Cascade)]`
@@ -4473,16 +4487,16 @@
 
 ### [InventoryStore](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `type: String` `[@default("SUB")]`
   * `location: String?`
-  * `managerId: String?`
+  * `managerId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `coveringRt: String?`
   * `gpsLocation: String?`
-  * `officeAdminId: String?`
+  * `officeAdminId: String?` `[@db.Uuid]`
   * `balanceSheets: ContractorMaterialBalanceSheet[]` `[@relation("BalanceSheets")]`
   * `materialIssues: ContractorMaterialIssue[]` `[@relation("MaterialIssues")]`
   * `materialReturns: ContractorMaterialReturn[]` `[@relation("MaterialReturns")]`
@@ -4516,7 +4530,7 @@
 
 ### [InventoryItem](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `code: String` `[@unique]`
   * `name: String`
   * `description: String?`
@@ -4565,9 +4579,9 @@
 
 ### [InventoryStock](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `storeId: String`
-  * `itemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
   * `quantity: Decimal` `[@default(0)]`
   * `allocatedQuantity: Decimal` `[@default(0)]`
   * `minLevel: Decimal` `[@default(0)]`
@@ -4578,10 +4592,10 @@
 
 ### [InventoryBatch](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `batchNumber: String?`
-  * `itemId: String`
-  * `grnId: String?`
+  * `itemId: String` `[@db.Uuid]`
+  * `grnId: String?` `[@db.Uuid]`
   * `initialQty: Decimal`
   * `costPrice: Decimal` `[@default(0)]`
   * `unitPrice: Decimal` `[@default(0)]`
@@ -4598,14 +4612,14 @@
 
 ### [InventoryBatchStock](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `storeId: String`
-  * `itemId: String`
-  * `batchId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `batchId: String` `[@db.Uuid]`
   * `quantity: Decimal` `[@default(0)]`
   * `allocatedQuantity: Decimal` `[@default(0)]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `locatorId: String?`
+  * `locatorId: String?` `[@db.Uuid]`
   * `batch: InventoryBatch` `[@relation(fields: [batchId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
@@ -4613,30 +4627,30 @@
 
 ### [InventoryTransaction](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `type: String`
-  * `storeId: String`
-  * `referenceId: String?`
+  * `storeId: String` `[@db.Uuid]`
+  * `referenceId: String?` `[@db.Uuid]`
   * `notes: String?`
   * `date: DateTime` `[@default(now())]`
-  * `userId: String`
+  * `userId: String` `[@db.Uuid]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
   * `items: InventoryTransactionItem[]`
 
 ### [InventoryTransactionItem](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `transactionId: String`
-  * `itemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `transactionId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
   * `quantity: Decimal`
-  * `batchId: String?`
+  * `batchId: String?` `[@db.Uuid]`
   * `batch: InventoryBatch?` `[@relation(fields: [batchId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `transaction: InventoryTransaction` `[@relation(fields: [transactionId], references: [id], onDelete: Cascade)]`
 
 ### [MaterialCategory](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String` `[@unique]`
   * `description: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4645,10 +4659,10 @@
 
 ### [MaterialStandard](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `categoryId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `categoryId: String` `[@db.Uuid]`
   * `packageType: String`
-  * `itemId: String`
+  * `itemId: String` `[@db.Uuid]`
   * `standardQty: Decimal`
   * `maxQty: Decimal?`
   * `wastagePercent: Decimal` `[@default(5)]`
@@ -4659,25 +4673,25 @@
 
 ### [CurrentStock](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `storeId: String`
-  * `itemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
   * `quantity: Decimal` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [InventoryItemSerial](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `itemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
   * `serialNumber: String` `[@unique]`
   * `status: String` `[@default("IN_STORE")]`
-  * `storeId: String?`
-  * `contractorId: String?`
-  * `sodId: String?`
+  * `storeId: String?` `[@db.Uuid]`
+  * `contractorId: String?` `[@db.Uuid]`
+  * `sodId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `assignedStaffId: String?`
+  * `assignedStaffId: String?` `[@db.Uuid]`
   * `locator: String?`
   * `assignedStaff: Staff?` `[@relation(fields: [assignedStaffId], references: [id])]`
   * `contractor: Contractor?` `[@relation(fields: [contractorId], references: [id])]`
@@ -4687,8 +4701,8 @@
 
 ### [JournalEntry](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `referenceId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `referenceId: String?` `[@db.Uuid]`
   * `referenceType: String?`
   * `idempotencyKey: String?` `[@unique]`
   * `sha256Hash: String?`
@@ -4696,31 +4710,31 @@
   * `status: String` `[@default("DRAFT") // DRAFT, PENDING_APPROVAL, POSTED, REVERSED]`
   * `isLocked: Boolean` `[@default(false)]`
   * `postedAt: DateTime?`
-  * `createdById: String?`
-  * `approvedById: String?`
-  * `reversalOfId: String?`
+  * `createdById: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
+  * `reversalOfId: String?` `[@db.Uuid]`
   * `date: DateTime` `[@default(now())]`
   * `createdAt: DateTime` `[@default(now())]`
   * `lines: JournalLine[]`
 
 ### [JournalLine](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `entryId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `entryId: String` `[@db.Uuid]`
   * `accountCode: String`
   * `accountName: String`
   * `debit: Decimal` `[@default(0)]`
   * `credit: Decimal` `[@default(0)]`
   * `description: String?`
   * `currency: String` `[@default("LKR")]`
-  * `exchangeRate: Float` `[@default(1.0)]`
+  * `exchangeRate: Decimal` `[@db.Decimal(14, 2) @default(1.0)]`
   * `entry: JournalEntry` `[@relation(fields: [entryId], references: [id], onDelete: Cascade)]`
   * `account: ChartOfAccount?` `[@relation(fields: [accountCode], references: [code], onDelete: Restrict)]`
 
 ### [WarehouseLocator](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `storeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
   * `code: String`
   * `aisle: String?`
   * `rack: String?`
@@ -4735,15 +4749,15 @@
 
 ### [CycleCountHeader](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `countNumber: String` `[@unique]`
-  * `storeId: String`
+  * `storeId: String` `[@db.Uuid]`
   * `status: String` `[@default("DRAFT")]`
   * `countType: String` `[@default("BLIND")]`
   * `plannedDate: DateTime` `[@default(now())]`
   * `completedDate: DateTime?`
-  * `countedById: String`
-  * `approvedById: String?`
+  * `countedById: String` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `remarks: String?`
   * `totalVarianceValue: Decimal` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4755,10 +4769,10 @@
 
 ### [CycleCountLine](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `headerId: String`
-  * `itemId: String`
-  * `batchId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `headerId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `batchId: String?` `[@db.Uuid]`
   * `systemQty: Decimal` `[@default(0)]`
   * `countedQty: Decimal` `[@default(0)]`
   * `varianceQty: Decimal` `[@default(0)]`
@@ -4771,45 +4785,45 @@
 
 ### [DocumentCounter](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `type: String` `[// MIN | MRN | GRN | ISS | GRN-IR | ISS-IR | MRN-IR]`
   * `period: String` `[// YYYY-MM]`
   * `sequence: Int` `[@default(0)]`
 
 ### [InventoryLedger](prisma/schema/inventory.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `storeId: String`
-  * `itemId: String`
-  * `batchId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `batchId: String?` `[@db.Uuid]`
   * `transactionType: String` `[// GRN_RECEIPT, CONTRACTOR_ISSUE, CONTRACTOR_RETURN, MRN_APPROVAL, SOD_INSTALLATION, WASTAGE_ADJUSTMENT, CYCLE_COUNT_CORRECTION]`
   * `referenceType: String` `[// GRN, ContractorMaterialIssue, SOD, MRN, CycleCount]`
-  * `referenceId: String`
+  * `referenceId: String` `[// free-form: may be a document number (GRN-xxx, requestNr), not always a UUID]`
   * `quantityBefore: Decimal` `[@default(0) @db.Decimal(12, 4)]`
   * `quantityChange: Decimal` `[@default(0) @db.Decimal(12, 4)]`
   * `quantityAfter: Decimal` `[@default(0) @db.Decimal(12, 4)]`
   * `unitPrice: Decimal` `[@default(0) @db.Decimal(12, 2)]`
   * `totalValue: Decimal` `[@default(0) @db.Decimal(14, 2)]`
-  * `performedById: String`
+  * `performedById: String?` `[@db.Uuid // nullable: 'SYSTEM'/automation actors store null]`
   * `idempotencyKey: String?` `[@unique]`
   * `previousChecksum: String?`
   * `checksum: String` `[// SHA-256 hash of (id + storeId + itemId + quantityAfter + createdAt + previousChecksum)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
-  * `performedBy: User` `[@relation(fields: [performedById], references: [id])]`
+  * `performedBy: User?` `[@relation(fields: [performedById], references: [id], onDelete: SetNull)]`
 
 ### [NexusConversation](prisma/schema/nexus.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `userId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `userId: String` `[@db.Uuid]`
   * `messages: Json`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [NexusAlert](prisma/schema/nexus.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `title: String`
   * `message: String`
   * `type: String`
@@ -4821,20 +4835,20 @@
 
 ### [OfficeAsset](prisma/schema/office-asset.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `assetNumber: String` `[@unique]`
   * `serialNumber: String?` `[@unique]`
   * `name: String`
   * `category: OfficeAssetCategory`
   * `status: OfficeAssetStatus` `[@default(ACTIVE)]`
-  * `assignedStaffId: String?`
-  * `assignedUserId: String?`
-  * `siteOfficeId: String?` `[// Maps to InventoryStore as a site location]`
+  * `assignedStaffId: String?` `[@db.Uuid]`
+  * `assignedUserId: String?` `[@db.Uuid]`
+  * `siteOfficeId: String?` `[@db.Uuid // Maps to InventoryStore as a site location]`
   * `locationDetails: String?` `[// specific room/floor]`
-  * `fixedAssetId: String?` `[@unique]`
+  * `fixedAssetId: String?` `[@db.Uuid @unique]`
   * `brand: String?`
   * `model: String?`
-  * `purchaseCost: Float?`
+  * `purchaseCost: Decimal?` `[@db.Decimal(14, 2)]`
   * `purchaseDate: DateTime?`
   * `warrantyExpiry: DateTime?`
   * `metadata: Json?` `[// Dynamic properties without hardcoding]`
@@ -4849,15 +4863,15 @@
 
 ### [OfficeAssetMovementLog](prisma/schema/office-asset.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
-  * `fromStaffId: String?`
-  * `toStaffId: String?`
-  * `fromSiteId: String?`
-  * `toSiteId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
+  * `fromStaffId: String?` `[@db.Uuid]`
+  * `toStaffId: String?` `[@db.Uuid]`
+  * `fromSiteId: String?` `[@db.Uuid]`
+  * `toSiteId: String?` `[@db.Uuid]`
   * `action: String` `[// e.g. "ASSIGNED", "RETURNED", "TRANSFERRED"]`
   * `remarks: String?`
-  * `performedById: String`
+  * `performedById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `asset: OfficeAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
   * `fromStaff: Staff?` `[@relation("HandedOverFromStaff", fields: [fromStaffId], references: [id])]`
@@ -4868,26 +4882,26 @@
 
 ### [OfficeAssetMaintenanceLog](prisma/schema/office-asset.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
   * `serviceDate: DateTime`
   * `nextServiceDate: DateTime?`
   * `vendorName: String?`
-  * `cost: Float?`
+  * `cost: Decimal?` `[@db.Decimal(14, 2)]`
   * `description: String`
-  * `performedById: String`
+  * `performedById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `asset: OfficeAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
   * `performedBy: User` `[@relation("PerformedAssetMaintenances", fields: [performedById], references: [id])]`
 
 ### [OPMC](prisma/schema/opmc.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String` `[@default("")]`
   * `rtom: String` `[@unique]`
   * `region: String` `[@default("METRO")]`
   * `province: String` `[@default("METRO 01")]`
-  * `storeId: String?`
+  * `storeId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `contractors: Contractor[]`
@@ -4907,13 +4921,13 @@
 
 ### [OspPettyCashIou](prisma/schema/osp-account.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `iouNumber: String`
-  * `opmcId: String?`
+  * `opmcId: String?` `[@db.Uuid]`
   * `staffName: String`
   * `staffServiceNo: String?`
   * `type: String` `[@default("PETTY_CASH")]`
-  * `amount: Float`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
   * `issuedDate: DateTime?`
   * `reason: String?`
   * `noOfDays: Int?` `[@default(0)]`
@@ -4925,43 +4939,43 @@
 
 ### [OspProjectAdvance](prisma/schema/osp-account.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `refNumber: String` `[@unique]`
   * `type: String` `[@default("PROJECT")]`
   * `supplierName: String?`
   * `description: String`
   * `invoiceNo: String?`
-  * `amount: Float`
-  * `vatAmount: Float` `[@default(0)]`
-  * `totalAmount: Float`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
+  * `vatAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `totalAmount: Decimal` `[@db.Decimal(14, 2)]`
   * `status: String` `[@default("PENDING")]`
   * `approvedAt: DateTime?`
-  * `opmcId: String?`
+  * `opmcId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [OspPropertyRentPayment](prisma/schema/osp-account.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `accountNo: String?`
   * `supplierName: String`
-  * `amount: Float`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
   * `category: String` `[@default("Office Rent")]`
   * `slipNo: String`
   * `slipDate: DateTime?`
   * `status: String` `[@default("PENDING")]`
   * `approvedAt: DateTime?`
-  * `opmcId: String?`
+  * `opmcId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [OspFuelDepositLedger](prisma/schema/osp-account.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `officeLocation: String`
-  * `opmcId: String?`
+  * `opmcId: String?` `[@db.Uuid]`
   * `stationName: String`
-  * `actualDeposit: Float`
+  * `actualDeposit: Decimal` `[@db.Decimal(14, 2)]`
   * `status: String` `[@default("PENDING")]`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -4969,24 +4983,24 @@
 
 ### [OspVehicleHiringPayment](prisma/schema/osp-account.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `vehicleNo: String?`
   * `bankCode: String?`
   * `accountNo: String?`
   * `accountName: String`
-  * `amount: Float`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
   * `slipNo: String`
   * `slipDate: DateTime?`
   * `paidDate: DateTime?`
   * `status: String` `[@default("PENDING")]`
   * `approvedAt: DateTime?`
-  * `opmcId: String?`
+  * `opmcId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [AuthorityEntity](prisma/schema/permits.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `shortName: String?`
   * `contactPerson: String?`
@@ -5000,11 +5014,11 @@
 
 ### [PermitType](prisma/schema/permits.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `code: String` `[@unique]`
   * `description: String?`
-  * `authorityId: String`
+  * `authorityId: String` `[@db.Uuid]`
   * `defaultDuration: Int?`
   * `requiresRenewal: Boolean` `[@default(false)]`
   * `isActive: Boolean` `[@default(true)]`
@@ -5015,9 +5029,9 @@
 
 ### [ProjectPermit](prisma/schema/permits.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `permitTypeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `permitTypeId: String` `[@db.Uuid]`
   * `permitNumber: String?`
   * `status: String` `[@default("DRAFT")]`
   * `applicationDate: DateTime?`
@@ -5027,9 +5041,9 @@
   * `rejectionReason: String?`
   * `approvalDocument: String?`
   * `remarks: String?`
-  * `appliedById: String?`
-  * `approvedById: String?`
-  * `cost: Float?`
+  * `appliedById: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
+  * `cost: Decimal?` `[@db.Decimal(14, 2)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `approvalSteps: PermitApprovalStep[]`
@@ -5039,37 +5053,37 @@
 
 ### [ProjectPermitDocument](prisma/schema/permits.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `permitId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `permitId: String` `[@db.Uuid]`
   * `documentType: String`
   * `fileName: String`
   * `fileUrl: String`
-  * `uploadedById: String`
+  * `uploadedById: String` `[@db.Uuid]`
   * `uploadedAt: DateTime` `[@default(now())]`
   * `permit: ProjectPermit` `[@relation(fields: [permitId], references: [id], onDelete: Cascade)]`
 
 ### [PermitApprovalStep](prisma/schema/permits.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `permitId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `permitId: String` `[@db.Uuid]`
   * `stepNumber: Int`
   * `roleRequired: String`
-  * `assignedUserId: String?`
+  * `assignedUserId: String?` `[@db.Uuid]`
   * `status: String` `[@default("PENDING")]`
-  * `actionedById: String?`
+  * `actionedById: String?` `[@db.Uuid]`
   * `actionedAt: DateTime?`
   * `comment: String?`
   * `permit: ProjectPermit` `[@relation(fields: [permitId], references: [id], onDelete: Cascade)]`
 
 ### [PettyCashAccount](prisma/schema/petty-cash.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
-  * `opmcId: String` `[@unique]`
-  * `imprestLimit: Float` `[@default(0)]`
-  * `currentBalance: Float` `[@default(0)]`
+  * `opmcId: String` `[@db.Uuid                   @unique]`
+  * `imprestLimit: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `currentBalance: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `status: String` `[@default("ACTIVE")]`
-  * `createdById: String?`
+  * `createdById: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `opmc: OPMC` `[@relation(fields: [opmcId], references: [id], onDelete: Cascade)]`
@@ -5078,22 +5092,22 @@
 
 ### [PettyCashVoucher](prisma/schema/petty-cash.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `accountId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `accountId: String` `[@db.Uuid]`
   * `voucherNumber: String` `[@unique]`
   * `date: DateTime` `[@default(now())]`
   * `title: String`
   * `description: String?`
-  * `amount: Float` `[@default(0)]`
+  * `amount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `category: String`
   * `status: String` `[@default("DRAFT")]`
   * `recipientName: String?`
   * `receiptUrl: String?`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
-  * `reimbursementId: String?`
-  * `createdById: String?`
+  * `reimbursementId: String?` `[@db.Uuid]`
+  * `createdById: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `account: PettyCashAccount` `[@relation(fields: [accountId], references: [id], onDelete: Cascade)]`
@@ -5101,13 +5115,13 @@
 
 ### [PettyCashReimbursement](prisma/schema/petty-cash.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `accountId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `accountId: String` `[@db.Uuid]`
   * `reimbursementNumber: String` `[@unique]`
-  * `totalAmount: Float` `[@default(0)]`
+  * `totalAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `status: String` `[@default("PENDING")]`
-  * `paymentVoucherId: String?`
-  * `createdById: String?`
+  * `paymentVoucherId: String?` `[@db.Uuid]`
+  * `createdById: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `account: PettyCashAccount` `[@relation(fields: [accountId], references: [id], onDelete: Cascade)]`
@@ -5115,8 +5129,8 @@
 
 ### [ProjectRisk](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `description: String`
   * `probability: Int`
@@ -5124,22 +5138,22 @@
   * `score: Int`
   * `mitigationPlan: String?`
   * `status: String` `[@default("OPEN")]`
-  * `identifiedById: String`
+  * `identifiedById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectInspection](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `category: String`
   * `status: String` `[@default("PENDING")]`
   * `checklist: Json`
   * `correctiveAction: String?`
   * `photoUrls: String[]` `[@default([])]`
-  * `inspectorId: String`
+  * `inspectorId: String` `[@db.Uuid]`
   * `inspectedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5147,22 +5161,22 @@
 
 ### [ProjectEVM](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String` `[@unique]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid        @unique]`
   * `lastCalculatedAt: DateTime` `[@default(now())]`
-  * `pvTotal: Float` `[@default(0)]`
-  * `pvCurrentPeriod: Float` `[@default(0)]`
-  * `evTotal: Float` `[@default(0)]`
-  * `evCurrentPeriod: Float` `[@default(0)]`
-  * `acTotal: Float` `[@default(0)]`
-  * `acCurrentPeriod: Float` `[@default(0)]`
-  * `spi: Float?`
-  * `cpi: Float?`
-  * `scheduleVariance: Float?`
-  * `costVariance: Float?`
-  * `estimateAtCompletion: Float?`
-  * `estimateToComplete: Float?`
-  * `varianceAtCompletion: Float?`
+  * `pvTotal: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `pvCurrentPeriod: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `evTotal: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `evCurrentPeriod: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `acTotal: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `acCurrentPeriod: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `spi: Decimal?` `[@db.Decimal(8, 4)]`
+  * `cpi: Decimal?` `[@db.Decimal(8, 4)]`
+  * `scheduleVariance: Decimal?` `[@db.Decimal(14, 2)]`
+  * `costVariance: Decimal?` `[@db.Decimal(14, 2)]`
+  * `estimateAtCompletion: Decimal?` `[@db.Decimal(14, 2)]`
+  * `estimateToComplete: Decimal?` `[@db.Decimal(14, 2)]`
+  * `varianceAtCompletion: Decimal?` `[@db.Decimal(14, 2)]`
   * `status: String` `[@default("GREEN")]`
   * `statusNotes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5172,30 +5186,30 @@
 
 ### [EVMSnapshot](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `evmId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `evmId: String` `[@db.Uuid]`
   * `snapshotDate: DateTime` `[@default(now())]`
-  * `pvCumulative: Float` `[@default(0)]`
-  * `evCumulative: Float` `[@default(0)]`
-  * `acCumulative: Float` `[@default(0)]`
-  * `spi: Float?`
-  * `cpi: Float?`
-  * `scheduleVariance: Float?`
-  * `costVariance: Float?`
+  * `pvCumulative: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `evCumulative: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `acCumulative: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `spi: Decimal?` `[@db.Decimal(8, 4)]`
+  * `cpi: Decimal?` `[@db.Decimal(8, 4)]`
+  * `scheduleVariance: Decimal?` `[@db.Decimal(14, 2)]`
+  * `costVariance: Decimal?` `[@db.Decimal(14, 2)]`
   * `periodLabel: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `evm: ProjectEVM` `[@relation(fields: [evmId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectAsset](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `assetType: String`
   * `assetCode: String?`
   * `assetName: String`
   * `description: String?`
-  * `latitude: Float?`
-  * `longitude: Float?`
+  * `latitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal?` `[@db.Decimal(11, 8)]`
   * `address: String?`
   * `routeIdentifier: String?`
   * `fiberCount: Int?`
@@ -5209,14 +5223,14 @@
   * `installationDate: DateTime?`
   * `commissionedDate: DateTime?`
   * `sourceType: String?`
-  * `sourceId: String?`
+  * `sourceId: String?` `[@db.Uuid]`
   * `sourceDescription: String?`
   * `transferredToNOC: Boolean` `[@default(false)]`
   * `transferDate: DateTime?`
-  * `nocAssetId: String?`
+  * `nocAssetId: String?` `[@db.Uuid]`
   * `transferNotes: String?`
-  * `createdById: String`
-  * `verifiedById: String?`
+  * `createdById: String` `[@db.Uuid]`
+  * `verifiedById: String?` `[@db.Uuid]`
   * `verifiedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5228,14 +5242,14 @@
 
 ### [ProjectAssetCable](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
   * `cableNumber: Int`
   * `fiberCount: Int`
   * `fiberFrom: Int?`
   * `fiberTo: Int?`
   * `direction: String?`
-  * `connectedToAssetId: String?`
+  * `connectedToAssetId: String?` `[@db.Uuid]`
   * `connectedToPort: String?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5243,13 +5257,13 @@
 
 ### [ProjectAssetConnection](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
-  * `connectedAssetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
+  * `connectedAssetId: String` `[@db.Uuid]`
   * `connectionType: String`
   * `fiberNumber: Int?`
-  * `loss: Float?`
-  * `testReferenceId: String?`
+  * `loss: Decimal?` `[@db.Decimal(12, 4)]`
+  * `testReferenceId: String?` `[@db.Uuid]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `asset: ProjectAsset` `[@relation("AssetConnections", fields: [assetId], references: [id], onDelete: Cascade)]`
@@ -5257,28 +5271,28 @@
 
 ### [ProjectAssetDocument](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `assetId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `assetId: String` `[@db.Uuid]`
   * `documentType: String`
   * `fileName: String`
   * `fileUrl: String`
-  * `uploadedById: String`
+  * `uploadedById: String` `[@db.Uuid]`
   * `uploadedAt: DateTime` `[@default(now())]`
   * `asset: ProjectAsset` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectChangeRequest](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `requestNumber: String` `[@unique]`
   * `changeType: String`
   * `title: String`
   * `description: String?`
-  * `costImpact: Float?`
+  * `costImpact: Decimal?` `[@db.Decimal(14, 2)]`
   * `timeImpact: Int?`
   * `routeChangeData: Json?`
   * `status: String` `[@default("DRAFT")]`
-  * `requestedById: String?`
+  * `requestedById: String?` `[@db.Uuid]`
   * `submittedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5287,13 +5301,13 @@
 
 ### [ChangeApproval](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `changeRequestId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `changeRequestId: String` `[@db.Uuid]`
   * `stepOrder: Int` `[@default(1)]`
   * `role: String`
   * `status: String` `[@default("PENDING")]`
-  * `approverId: String?`
-  * `approvedById: String?`
+  * `approverId: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `remarks: String?`
   * `comment: String?`
@@ -5302,16 +5316,16 @@
 
 ### [AiPrediction](prisma/schema/project-advanced.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String?` `[@db.Uuid]`
   * `predictionType: String`
   * `riskLevel: String`
-  * `probabilityPct: Float`
+  * `probabilityPct: Decimal` `[@db.Decimal(8, 4)]`
   * `predictedImpact: String`
   * `currentMetrics: Json`
   * `rootCause: String?`
   * `recommendation: String?`
-  * `confidenceScore: Float?`
+  * `confidenceScore: Decimal?` `[@db.Decimal(8, 4)]`
   * `isResolved: Boolean` `[@default(false)]`
   * `resolvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5319,7 +5333,7 @@
 
 ### [Job](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `jobCode: String` `[@unique]`
   * `name: String`
   * `description: String?`
@@ -5330,8 +5344,8 @@
   * `district: String?`
   * `status: JobStatus` `[@default(PENDING_SURVEY)]`
   * `priority: TaskPriority` `[@default(MEDIUM)]`
-  * `assignedToId: String?`
-  * `projectId: String?` `[@unique]`
+  * `assignedToId: String?` `[@db.Uuid]`
+  * `projectId: String?` `[@db.Uuid      @unique]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `assignedTo: Staff?` `[@relation(fields: [assignedToId], references: [id])]`
@@ -5339,33 +5353,33 @@
 
 ### [Project](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `projectCode: String` `[@unique]`
   * `name: String`
   * `description: String?`
   * `type: String` `[@default("OSP_FTTH")]`
   * `location: String?`
   * `status: ProjectStatus` `[@default(PLANNING)]`
-  * `progress: Float` `[@default(0)]`
-  * `jobId: String?`
-  * `budget: Float?`
-  * `actualCost: Float` `[@default(0)]`
-  * `variance: Float?`
+  * `progress: Decimal` `[@db.Decimal(8, 4) @default(0)]`
+  * `jobId: String?` `[@db.Uuid]`
+  * `budget: Decimal?` `[@db.Decimal(14, 2)]`
+  * `actualCost: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `variance: Decimal?` `[@db.Decimal(14, 2)]`
   * `startDate: DateTime?`
   * `endDate: DateTime?`
   * `estimatedDuration: Int?`
   * `actualDuration: Int?`
-  * `areaManagerId: String?`
-  * `contractorId: String?`
-  * `opmcId: String?`
+  * `areaManagerId: String?` `[@db.Uuid]`
+  * `contractorId: String?` `[@db.Uuid]`
+  * `opmcId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `projectTypeId: String?`
+  * `projectTypeId: String?` `[@db.Uuid]`
   * `gisMapping: Json?`
   * `routeType: String?`
   * `routeFrom: String?`
   * `routeTo: String?`
-  * `routeLength: Float?`
+  * `routeLength: Decimal?` `[@db.Decimal(12, 4)]`
   * `surveyLayers: String[]` `[@default([])]`
   * `aiPredictions: AiPrediction[]`
   * `boqApprovals: BOQApproval[]`
@@ -5419,19 +5433,19 @@
 
 ### [ProjectBOQItem](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `itemCode: String`
   * `description: String`
   * `unit: String`
-  * `quantity: Float`
-  * `unitRate: Float`
-  * `amount: Float`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `unitRate: Decimal` `[@db.Decimal(12, 4)]`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
   * `category: String?`
   * `source: String` `[@default("NEW")]`
-  * `actualQuantity: Float` `[@default(0)]`
-  * `actualCost: Float` `[@default(0)]`
-  * `materialId: String?`
+  * `actualQuantity: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `actualCost: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `materialId: String?` `[@db.Uuid]`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5440,25 +5454,25 @@
 
 ### [ProjectMilestone](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `name: String`
   * `description: String?`
   * `targetDate: DateTime`
   * `completedDate: DateTime?`
   * `status: TaskStatus` `[@default(PENDING)]`
-  * `progress: Float` `[@default(0)]`
+  * `progress: Decimal` `[@db.Decimal(8, 4) @default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectExpense](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `type: String`
   * `description: String`
-  * `amount: Float`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
   * `date: DateTime` `[@default(now())]`
   * `invoiceRef: String?`
   * `remarks: String?`
@@ -5468,9 +5482,9 @@
 
 ### [ProjectTask](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `parentId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `parentId: String?` `[@db.Uuid]`
   * `wbsCode: String`
   * `name: String`
   * `description: String?`
@@ -5483,14 +5497,14 @@
   * `actualEndDate: DateTime?`
   * `plannedDuration: Int?`
   * `actualDuration: Int?`
-  * `plannedProgress: Float` `[@default(0)]`
-  * `actualProgress: Float` `[@default(0)]`
-  * `estimatedCost: Float?`
-  * `actualCost: Float?`
+  * `plannedProgress: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `actualProgress: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `estimatedCost: Decimal?` `[@db.Decimal(14, 2)]`
+  * `actualCost: Decimal?` `[@db.Decimal(14, 2)]`
   * `order: Int` `[@default(0)]`
   * `isCritical: Boolean` `[@default(false)]`
   * `assigneeType: String?`
-  * `assigneeId: String?`
+  * `assigneeId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `parent: ProjectTask?` `[@relation("TaskHierarchy", fields: [parentId], references: [id])]`
@@ -5503,9 +5517,9 @@
 
 ### [TaskDependency](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `taskId: String`
-  * `dependsOnTaskId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `taskId: String` `[@db.Uuid]`
+  * `dependsOnTaskId: String` `[@db.Uuid]`
   * `type: String` `[@default("FINISH_TO_START")]`
   * `lagDays: Int` `[@default(0)]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5514,30 +5528,30 @@
 
 ### [TaskProgressLog](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `taskId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `taskId: String` `[@db.Uuid]`
   * `date: DateTime` `[@default(now())]`
-  * `progress: Float` `[@default(0)]`
+  * `progress: Decimal` `[@db.Decimal(8, 4) @default(0)]`
   * `description: String?`
   * `photoUrls: String[]` `[@default([])]`
-  * `gpsLatitude: Float?`
-  * `gpsLongitude: Float?`
-  * `loggedById: String?`
+  * `gpsLatitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `gpsLongitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `loggedById: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `task: ProjectTask` `[@relation(fields: [taskId], references: [id], onDelete: Cascade)]`
 
 ### [Timesheet](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `taskId: String`
-  * `staffId: String?`
-  * `contractorId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `taskId: String` `[@db.Uuid]`
+  * `staffId: String?` `[@db.Uuid]`
+  * `contractorId: String?` `[@db.Uuid]`
   * `date: DateTime`
-  * `hours: Float`
+  * `hours: Decimal` `[@db.Decimal(12, 4)]`
   * `description: String?`
   * `status: String` `[@default("PENDING")]`
-  * `verifiedById: String?`
+  * `verifiedById: String?` `[@db.Uuid]`
   * `verifiedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5546,13 +5560,13 @@
 
 ### [ProjectResource](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `resourceType: String`
-  * `resourceId: String`
+  * `resourceId: String` `[@db.Uuid]`
   * `name: String`
   * `role: String?`
-  * `allocationPercentage: Float` `[@default(100)]`
+  * `allocationPercentage: Decimal` `[@db.Decimal(8, 4) @default(100)]`
   * `startDate: DateTime`
   * `endDate: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5561,15 +5575,15 @@
 
 ### [ProjectDocument](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
   * `category: String`
   * `status: String` `[@default("DRAFT")]`
   * `currentVersion: Int` `[@default(1)]`
   * `fileUrl: String`
-  * `uploadedById: String`
+  * `uploadedById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `approvals: ProjectApprovalRequest[]`
@@ -5579,18 +5593,18 @@
 
 ### [ProjectDocumentVersion](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `documentId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `documentId: String` `[@db.Uuid]`
   * `versionNumber: Int`
   * `fileUrl: String`
   * `changeSummary: String?`
-  * `uploadedById: String`
+  * `uploadedById: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `document: ProjectDocument` `[@relation(fields: [documentId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectType](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String` `[@unique]`
   * `description: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5600,13 +5614,13 @@
 
 ### [BOQRateConfig](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String?` `[@db.Uuid]`
   * `itemCategory: String`
   * `itemCode: String` `[@unique]`
   * `description: String?`
   * `unit: String` `[@default("UNIT")]`
-  * `unitRate: Float` `[@default(0)]`
+  * `unitRate: Decimal` `[@db.Decimal(12, 4) @default(0)]`
   * `isActive: Boolean` `[@default(true)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5614,16 +5628,16 @@
 
 ### [BOQApproval](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `boqId: String`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `boqId: String` `[@db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `status: String` `[@default("PENDING")]`
   * `currentStep: String` `[@default("SUPERVISOR")]`
-  * `supervisorId: String?`
+  * `supervisorId: String?` `[@db.Uuid]`
   * `supervisorApprovedAt: DateTime?`
-  * `pmId: String?`
+  * `pmId: String?` `[@db.Uuid]`
   * `pmApprovedAt: DateTime?`
-  * `financeId: String?`
+  * `financeId: String?` `[@db.Uuid]`
   * `financeApprovedAt: DateTime?`
   * `rejectionReason: String?`
   * `notes: String?`
@@ -5633,32 +5647,32 @@
 
 ### [DailyProgress](prisma/schema/project-core.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `reportDate: DateTime` `[@default(now())]`
   * `polesErected: Int` `[@default(0)]`
-  * `cablePulled: Float` `[@default(0)]`
+  * `cablePulled: Decimal` `[@db.Decimal(12, 4) @default(0)]`
   * `chambersInstalled: Int` `[@default(0)]`
   * `closuresInstalled: Int` `[@default(0)]`
   * `jointsCompleted: Int` `[@default(0)]`
   * `fdpsInstalled: Int` `[@default(0)]`
   * `teamSize: Int?`
-  * `hoursWorked: Float?`
-  * `laborCost: Float` `[@default(0)]`
+  * `hoursWorked: Decimal?` `[@db.Decimal(12, 4)]`
+  * `laborCost: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `photoUrls: String[]` `[@default([])]`
-  * `progressPct: Float` `[@default(0)]`
+  * `progressPct: Decimal` `[@db.Decimal(8, 4) @default(0)]`
   * `notes: String?`
-  * `reportedById: String?`
+  * `reportedById: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `project: Project` `[@relation(fields: [projectId], references: [id], onDelete: Cascade)]`
 
 ### [Invoice](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `invoiceNumber: String` `[@unique]`
-  * `contractorId: String`
-  * `projectId: String?`
+  * `contractorId: String` `[@db.Uuid]`
+  * `projectId: String?` `[@db.Uuid]`
   * `year: Int?`
   * `month: Int?`
   * `totalAmount: Decimal` `[@default(0)]`
@@ -5678,9 +5692,9 @@
   * `vatAmount: Decimal` `[@default(0)]`
   * `ssclAmount: Decimal` `[@default(0)]`
   * `whtAmount: Decimal` `[@default(0)]`
-  * `vatPercent: Float` `[@default(18)]`
-  * `ssclPercent: Float` `[@default(2.5)]`
-  * `whtPercent: Float` `[@default(5)]`
+  * `vatPercent: Decimal` `[@db.Decimal(8, 4) @default(18)]`
+  * `ssclPercent: Decimal` `[@db.Decimal(8, 4) @default(2.5)]`
+  * `whtPercent: Decimal` `[@db.Decimal(8, 4) @default(5)]`
   * `dueDate: DateTime?`
   * `date: DateTime` `[@default(now())]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5698,8 +5712,8 @@
 
 ### [InvoiceAmendmentRequest](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `invoiceId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `invoiceId: String` `[@db.Uuid]`
   * `originalAmount: Decimal`
   * `requestedAmount: Decimal`
   * `originalAmountA: Decimal`
@@ -5708,8 +5722,8 @@
   * `requestedAmountB: Decimal`
   * `reason: String`
   * `status: String` `[@default("PENDING_SF_APPROVAL")]`
-  * `requestedById: String`
-  * `approvedById: String?`
+  * `requestedById: String` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5720,7 +5734,7 @@
 
 ### [Bank](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `code: String` `[@unique]`
   * `name: String`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5729,8 +5743,8 @@
 
 ### [BankBranch](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `bankId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `bankId: String` `[@db.Uuid]`
   * `code: String`
   * `name: String`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5739,7 +5753,7 @@
 
 ### [Vendor](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `code: String` `[@unique]`
   * `name: String`
   * `contactPerson: String?`
@@ -5763,9 +5777,9 @@
 
 ### [ProjectRequisition](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `prNumber: String` `[@unique]`
-  * `projectId: String`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
   * `priority: String` `[@default("MEDIUM")]`
@@ -5773,12 +5787,12 @@
   * `type: String` `[@default("MATERIAL")]`
   * `deliveryLocation: String?`
   * `requiredDate: DateTime?`
-  * `requestedById: String`
-  * `approvedById: String?`
+  * `requestedById: String` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
-  * `vendorId: String?`
-  * `estimatedTotal: Float` `[@default(0)]`
+  * `vendorId: String?` `[@db.Uuid]`
+  * `estimatedTotal: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5790,36 +5804,36 @@
 
 ### [ProjectRequisitionItem](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `requisitionId: String`
-  * `boqItemId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `requisitionId: String` `[@db.Uuid]`
+  * `boqItemId: String?` `[@db.Uuid]`
   * `itemCode: String`
   * `description: String`
   * `unit: String`
-  * `quantity: Float`
-  * `estimatedPrice: Float` `[@default(0)]`
-  * `totalEstimated: Float` `[@default(0)]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `estimatedPrice: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `totalEstimated: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `requisition: ProjectRequisition` `[@relation(fields: [requisitionId], references: [id], onDelete: Cascade)]`
 
 ### [Quotation](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `quoteNumber: String` `[@unique]`
-  * `requisitionId: String`
-  * `vendorId: String`
+  * `requisitionId: String` `[@db.Uuid]`
+  * `vendorId: String` `[@db.Uuid]`
   * `vendorName: String`
   * `quoteDate: DateTime` `[@default(now())]`
   * `validUntil: DateTime?`
-  * `totalAmount: Float` `[@default(0)]`
+  * `totalAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `status: String` `[@default("PENDING")]`
   * `currency: String` `[@default("LKR")]`
   * `deliveryDays: Int?`
   * `warrantyPeriod: String?`
   * `paymentTerms: String?`
   * `remarks: String?`
-  * `acceptedById: String?`
+  * `acceptedById: String?` `[@db.Uuid]`
   * `acceptedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5829,14 +5843,14 @@
 
 ### [QuotationItem](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `quotationId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `quotationId: String` `[@db.Uuid]`
   * `itemCode: String`
   * `description: String`
   * `unit: String`
-  * `quantity: Float`
-  * `unitPrice: Float`
-  * `totalPrice: Float`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `unitPrice: Decimal` `[@db.Decimal(14, 2)]`
+  * `totalPrice: Decimal` `[@db.Decimal(14, 2)]`
   * `deliveryDays: Int?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5844,11 +5858,11 @@
 
 ### [ProjectPurchaseOrder](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `poNumber: String` `[@unique]`
-  * `projectId: String`
-  * `requisitionId: String?`
-  * `vendorId: String`
+  * `projectId: String` `[@db.Uuid]`
+  * `requisitionId: String?` `[@db.Uuid]`
+  * `vendorId: String` `[@db.Uuid]`
   * `vendorName: String`
   * `title: String`
   * `description: String?`
@@ -5859,19 +5873,19 @@
   * `orderDate: DateTime` `[@default(now())]`
   * `expectedDelivery: DateTime?`
   * `deliveryLocation: String?`
-  * `subtotal: Float` `[@default(0)]`
-  * `taxAmount: Float` `[@default(0)]`
-  * `discountAmount: Float` `[@default(0)]`
-  * `totalAmount: Float` `[@default(0)]`
+  * `subtotal: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `taxAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `discountAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `totalAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `currency: String` `[@default("LKR")]`
   * `paymentTerms: String?`
   * `deliveryTerms: String?`
   * `notes: String?`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
-  * `issuedById: String?`
+  * `issuedById: String?` `[@db.Uuid]`
   * `issuedAt: DateTime?`
-  * `closedById: String?`
+  * `closedById: String?` `[@db.Uuid]`
   * `closedAt: DateTime?`
   * `cancellationReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5883,17 +5897,17 @@
 
 ### [ProjectPurchaseOrderItem](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `poId: String`
-  * `requisitionItemId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `poId: String` `[@db.Uuid]`
+  * `requisitionItemId: String?` `[@db.Uuid]`
   * `itemCode: String`
   * `description: String`
   * `unit: String`
-  * `quantity: Float`
-  * `unitPrice: Float`
-  * `totalPrice: Float`
-  * `receivedQty: Float` `[@default(0)]`
-  * `balanceQty: Float` `[@default(0)]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `unitPrice: Decimal` `[@db.Decimal(14, 2)]`
+  * `totalPrice: Decimal` `[@db.Decimal(14, 2)]`
+  * `receivedQty: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `balanceQty: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `deliveryDate: DateTime?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5901,18 +5915,18 @@
 
 ### [ProjectGoodsReceipt](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `grnNumber: String` `[@unique]`
-  * `poId: String`
-  * `projectId: String`
-  * `receivedById: String`
+  * `poId: String` `[@db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `receivedById: String` `[@db.Uuid]`
   * `receivedDate: DateTime` `[@default(now())]`
   * `status: String` `[@default("PENDING")]`
   * `deliveryNoteRef: String?`
   * `invoiceRef: String?`
   * `remarks: String?`
-  * `storeId: String?`
-  * `approvedById: String?`
+  * `storeId: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -5922,19 +5936,19 @@
 
 ### [ProjectGoodsReceiptItem](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `goodsReceiptId: String`
-  * `poItemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `goodsReceiptId: String` `[@db.Uuid]`
+  * `poItemId: String` `[@db.Uuid]`
   * `itemCode: String`
   * `description: String`
   * `unit: String`
-  * `quantityOrdered: Float`
-  * `quantityReceived: Float`
-  * `quantityAccepted: Float`
-  * `quantityRejected: Float` `[@default(0)]`
+  * `quantityOrdered: Decimal` `[@db.Decimal(14, 2)]`
+  * `quantityReceived: Decimal` `[@db.Decimal(14, 2)]`
+  * `quantityAccepted: Decimal` `[@db.Decimal(14, 2)]`
+  * `quantityRejected: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `rejectionReason: String?`
-  * `unitPrice: Float`
-  * `totalPrice: Float`
+  * `unitPrice: Decimal` `[@db.Decimal(14, 2)]`
+  * `totalPrice: Decimal` `[@db.Decimal(14, 2)]`
   * `batchNumber: String?`
   * `serialNumbers: String[]` `[@default([])]`
   * `notes: String?`
@@ -5943,34 +5957,34 @@
 
 ### [ProjectInvoice](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `invoiceNumber: String` `[@unique]`
-  * `projectId: String`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
   * `status: String` `[@default("DRAFT")]`
   * `type: String` `[@default("CLIENT")]`
   * `invoiceDate: DateTime` `[@default(now())]`
   * `dueDate: DateTime?`
-  * `subtotal: Float` `[@default(0)]`
-  * `taxAmount: Float` `[@default(0)]`
-  * `discountAmount: Float` `[@default(0)]`
-  * `vatAmount: Float` `[@default(0)]`
-  * `ssclAmount: Float` `[@default(0)]`
-  * `whtAmount: Float` `[@default(0)]`
-  * `vatPercent: Float` `[@default(18)]`
-  * `ssclPercent: Float` `[@default(2.5)]`
-  * `whtPercent: Float` `[@default(5)]`
-  * `totalAmount: Float` `[@default(0)]`
-  * `paidAmount: Float` `[@default(0)]`
-  * `balanceAmount: Float` `[@default(0)]`
+  * `subtotal: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `taxAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `discountAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `vatAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `ssclAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `whtAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `vatPercent: Decimal` `[@db.Decimal(8, 4) @default(18)]`
+  * `ssclPercent: Decimal` `[@db.Decimal(8, 4) @default(2.5)]`
+  * `whtPercent: Decimal` `[@db.Decimal(8, 4) @default(5)]`
+  * `totalAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `paidAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `balanceAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `currency: String` `[@default("LKR")]`
   * `notes: String?`
   * `referenceNumber: String?`
   * `periodFrom: DateTime?`
   * `periodTo: DateTime?`
-  * `createdById: String?`
-  * `approvedById: String?`
+  * `createdById: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `cancelledReason: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5985,14 +5999,14 @@
 
 ### [ProjectInvoiceItem](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `invoiceId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `invoiceId: String` `[@db.Uuid]`
   * `description: String`
-  * `quantity: Float` `[@default(1)]`
-  * `unitPrice: Float` `[@default(0)]`
-  * `totalPrice: Float` `[@default(0)]`
-  * `boqItemId: String?`
-  * `taskId: String?`
+  * `quantity: Decimal` `[@db.Decimal(12, 4) @default(1)]`
+  * `unitPrice: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `totalPrice: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `boqItemId: String?` `[@db.Uuid]`
+  * `taskId: String?` `[@db.Uuid]`
   * `itemType: String` `[@default("SERVICE")]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6000,17 +6014,17 @@
 
 ### [PaymentVoucher](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `pvNumber: String` `[@unique]`
-  * `projectId: String`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
   * `status: String` `[@default("DRAFT")]`
   * `type: String` `[@default("CONTRACTOR")]`
   * `expenditureType: String` `[@default("OPEX") // CAPEX | OPEX]`
   * `payeeName: String`
-  * `payeeId: String?`
-  * `invoiceId: String?`
+  * `payeeId: String?` `[@db.Uuid]`
+  * `invoiceId: String?` `[@db.Uuid]`
   * `amount: Decimal` `[@default(0)]`
   * `paymentDate: DateTime?`
   * `paymentMethod: String?`
@@ -6022,12 +6036,12 @@
   * `taxWithheld: Decimal` `[@default(0)]`
   * `netAmount: Decimal` `[@default(0)]`
   * `retentionAmount: Decimal` `[@default(0)]`
-  * `retentionReleaseId: String?`
+  * `retentionReleaseId: String?` `[@db.Uuid]`
   * `notes: String?`
-  * `createdById: String?`
-  * `approvedById: String?`
+  * `createdById: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
-  * `paidById: String?`
+  * `paidById: String?` `[@db.Uuid]`
   * `paidAt: DateTime?`
   * `rejectionReason: String?`
   * `cancelledReason: String?`
@@ -6038,23 +6052,23 @@
 
 ### [ProjectLDPenalty](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
   * `type: String` `[@default("LD")]`
   * `category: String` `[@default("DELAY")]`
-  * `amount: Float` `[@default(0)]`
-  * `percentage: Float?`
+  * `amount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `percentage: Decimal?` `[@db.Decimal(14, 2)]`
   * `referenceTable: String?`
-  * `referenceId: String?`
+  * `referenceId: String?` `[@db.Uuid]`
   * `referenceDesc: String?`
-  * `waivedAmount: Float` `[@default(0)]`
-  * `netAmount: Float` `[@default(0)]`
+  * `waivedAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `netAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `status: String` `[@default("PROPOSED")]`
   * `appliedDate: DateTime?`
-  * `leviedById: String?`
-  * `approvedById: String?`
+  * `leviedById: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6063,15 +6077,15 @@
 
 ### [ProjectRetention](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `invoiceId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `invoiceId: String?` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
-  * `retentionPercent: Float` `[@default(10)]`
-  * `retentionAmount: Float` `[@default(0)]`
-  * `releasedAmount: Float` `[@default(0)]`
-  * `balanceAmount: Float` `[@default(0)]`
+  * `retentionPercent: Decimal` `[@db.Decimal(8, 4) @default(10)]`
+  * `retentionAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `releasedAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `balanceAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `status: String` `[@default("HELD")]`
   * `releaseCondition: String?`
   * `defectLiabilityPeriod: Int?`
@@ -6084,12 +6098,12 @@
 
 ### [RetentionRelease](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `retentionId: String`
-  * `releaseAmount: Float` `[@default(0)]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `retentionId: String` `[@db.Uuid]`
+  * `releaseAmount: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `releaseDate: DateTime` `[@default(now())]`
-  * `paymentVoucherId: String?`
-  * `approvedById: String?`
+  * `paymentVoucherId: String?` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6097,9 +6111,9 @@
 
 ### [ProjectChangeOrder](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `coNumber: String` `[@unique]`
-  * `projectId: String`
+  * `projectId: String` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
   * `type: String` `[@default("SCOPE")]`
@@ -6107,20 +6121,20 @@
   * `priority: String` `[@default("MEDIUM")]`
   * `reason: String?`
   * `referenceTable: String?`
-  * `referenceId: String?`
-  * `originalValue: Float?`
-  * `newValue: Float?`
-  * `costImpact: Float` `[@default(0)]`
+  * `referenceId: String?` `[@db.Uuid]`
+  * `originalValue: Decimal?` `[@db.Decimal(14, 2)]`
+  * `newValue: Decimal?` `[@db.Decimal(14, 2)]`
+  * `costImpact: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `timeImpact: Int?`
   * `scopeImpact: String?`
   * `riskAssessment: String?`
   * `supportingDocs: String[]` `[@default([])]`
-  * `requestedById: String?`
+  * `requestedById: String?` `[@db.Uuid]`
   * `requestedDate: DateTime` `[@default(now())]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `rejectionReason: String?`
-  * `implementedById: String?`
+  * `implementedById: String?` `[@db.Uuid]`
   * `implementedAt: DateTime?`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6129,22 +6143,22 @@
 
 ### [ProjectPayment](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `paymentNumber: String` `[@unique]`
-  * `amount: Float`
+  * `amount: Decimal` `[@db.Decimal(14, 2)]`
   * `description: String?`
   * `invoiceRef: String?`
   * `level1Status: String` `[@default("PENDING")]`
-  * `level1UserId: String?`
+  * `level1UserId: String?` `[@db.Uuid]`
   * `level1At: DateTime?`
   * `level1Notes: String?`
   * `level2Status: String` `[@default("PENDING")]`
-  * `level2UserId: String?`
+  * `level2UserId: String?` `[@db.Uuid]`
   * `level2At: DateTime?`
   * `level2Notes: String?`
   * `level3Status: String` `[@default("PENDING")]`
-  * `level3UserId: String?`
+  * `level3UserId: String?` `[@db.Uuid]`
   * `level3At: DateTime?`
   * `level3Notes: String?`
   * `status: String` `[@default("PENDING")]`
@@ -6155,12 +6169,12 @@
 
 ### [CostAllocationMemo](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `memoNumber: String` `[@unique]`
   * `title: String`
   * `description: String?`
-  * `totalCost: Float` `[@default(0)]`
-  * `journalEntryId: String?`
+  * `totalCost: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `journalEntryId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `allocationTarget: String?`
@@ -6171,24 +6185,24 @@
 
 ### [CostAllocationMemoItem](prisma/schema/project-finance.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `memoId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `memoId: String` `[@db.Uuid]`
   * `itemName: String`
   * `quantity: Int` `[@default(1)]`
-  * `unitCost: Float` `[@default(0)]`
-  * `totalCost: Float` `[@default(0)]`
+  * `unitCost: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `totalCost: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `memo: CostAllocationMemo` `[@relation(fields: [memoId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectApprovalRequest](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `type: String`
-  * `referenceId: String`
-  * `documentId: String?`
+  * `referenceId: String` `[@db.Uuid]`
+  * `documentId: String?` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
-  * `amount: Float?`
+  * `amount: Decimal?` `[@db.Decimal(14, 2)]`
   * `status: String` `[@default("PENDING")]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -6198,13 +6212,13 @@
 
 ### [ProjectApprovalStep](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `requestId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `requestId: String` `[@db.Uuid]`
   * `stepNumber: Int`
   * `roleRequired: String`
-  * `assignedUserId: String?`
+  * `assignedUserId: String?` `[@db.Uuid]`
   * `status: String` `[@default("PENDING")]`
-  * `actionedById: String?`
+  * `actionedById: String?` `[@db.Uuid]`
   * `actionedAt: DateTime?`
   * `comment: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6215,10 +6229,10 @@
 
 ### [WorkflowTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String` `[@unique]`
   * `description: String?`
-  * `projectTypeId: String`
+  * `projectTypeId: String` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `isActive: Boolean` `[@default(true)]`
@@ -6227,11 +6241,11 @@
 
 ### [WorkflowStageTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `description: String?`
   * `sequence: Int`
-  * `workflowTemplateId: String`
+  * `workflowTemplateId: String` `[@db.Uuid]`
   * `reqApproval: Boolean` `[@default(false)]`
   * `reqChecklist: Boolean` `[@default(false)]`
   * `reqPhotos: Boolean` `[@default(false)]`
@@ -6249,45 +6263,45 @@
 
 ### [WorkflowTaskTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `description: String?`
   * `priority: String` `[@default("MEDIUM")]`
-  * `stageTemplateId: String`
+  * `stageTemplateId: String` `[@db.Uuid]`
   * `stageTemplate: WorkflowStageTemplate` `[@relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)]`
 
 ### [WorkflowChecklistTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `label: String`
   * `isMandatory: Boolean` `[@default(true)]`
   * `reqPhoto: Boolean` `[@default(false)]`
-  * `stageTemplateId: String`
+  * `stageTemplateId: String` `[@db.Uuid]`
   * `stageTemplate: WorkflowStageTemplate` `[@relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)]`
 
 ### [WorkflowApprovalTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `level: Int` `[@default(1)]`
   * `role: String`
-  * `stageTemplateId: String`
+  * `stageTemplateId: String` `[@db.Uuid]`
   * `stageTemplate: WorkflowStageTemplate` `[@relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)]`
 
 ### [WorkflowConditionTemplate](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `field: String`
   * `operator: String`
   * `value: String`
   * `action: String`
-  * `stageTemplateId: String`
+  * `stageTemplateId: String` `[@db.Uuid]`
   * `stageTemplate: WorkflowStageTemplate` `[@relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectWorkflowInstance](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String` `[@unique]`
-  * `currentStageId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid                 @unique]`
+  * `currentStageId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `stages: ProjectStageInstance[]`
@@ -6295,12 +6309,12 @@
 
 ### [ProjectStageInstance](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `description: String?`
   * `sequence: Int`
   * `status: String` `[@default("PENDING")]`
-  * `projectWorkflowInstanceId: String`
+  * `projectWorkflowInstanceId: String` `[@db.Uuid]`
   * `reqApproval: Boolean`
   * `reqChecklist: Boolean`
   * `reqPhotos: Boolean`
@@ -6319,56 +6333,56 @@
 
 ### [ProjectTaskInstance](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `description: String?`
   * `priority: String` `[@default("MEDIUM")]`
   * `status: String` `[@default("PENDING")]`
-  * `assignedTeamId: String?`
-  * `assignedUserId: String?`
+  * `assignedTeamId: String?` `[@db.Uuid]`
+  * `assignedUserId: String?` `[@db.Uuid]`
   * `plannedStart: DateTime?`
   * `plannedFinish: DateTime?`
   * `actualStart: DateTime?`
   * `actualFinish: DateTime?`
-  * `progress: Float` `[@default(0)]`
-  * `stageId: String`
+  * `progress: Decimal` `[@db.Decimal(8, 4) @default(0)]`
+  * `stageId: String` `[@db.Uuid]`
   * `stage: ProjectStageInstance` `[@relation(fields: [stageId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectChecklistInstance](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `label: String`
   * `isMandatory: Boolean`
   * `isCompleted: Boolean` `[@default(false)]`
   * `photoUrl: String?`
-  * `stageId: String`
+  * `stageId: String` `[@db.Uuid]`
   * `stage: ProjectStageInstance` `[@relation(fields: [stageId], references: [id], onDelete: Cascade)]`
 
 ### [ProjectApprovalInstance](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `level: Int`
   * `role: String`
   * `status: String` `[@default("PENDING")]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `comments: String?`
-  * `stageId: String`
+  * `stageId: String` `[@db.Uuid]`
   * `stage: ProjectStageInstance` `[@relation(fields: [stageId], references: [id], onDelete: Cascade)]`
 
 ### [WorkflowAuditLog](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `userId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `userId: String?` `[@db.Uuid // nullable: automation/cron actors store null]`
   * `action: String`
   * `entityType: String`
-  * `entityId: String`
+  * `entityId: String` `[// free-form: resilient against non-UUID entity ids]`
   * `details: Json?`
   * `createdAt: DateTime` `[@default(now())]`
 
 ### [StageGateRule](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `stageFrom: String`
   * `stageTo: String`
   * `ruleType: String`
@@ -6381,9 +6395,9 @@
 
 ### [ProjectSupervisorAssignment](prisma/schema/project-workflow.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `supervisorId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `supervisorId: String` `[@db.Uuid]`
   * `role: String` `[@default("PRIMARY")]`
   * `status: String` `[@default("ASSIGNED")]`
   * `assignedAt: DateTime` `[@default(now())]`
@@ -6392,7 +6406,7 @@
 
 ### [ServiceOrder](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `rtom: String`
   * `lea: String?`
   * `soNum: String` `[@unique]`
@@ -6423,15 +6437,15 @@
   * `ontSerialNumber: String?`
   * `dpDetails: String?`
   * `patStatus: String?`
-  * `sltsPatStatus: String?` `[@default("PENDING")]`
+  * `sltsPatStatus: PatStatusEnum?` `[@default(PENDING)]`
   * `sltsPatDate: DateTime?`
-  * `opmcPatStatus: String?` `[@default("PENDING")]`
+  * `opmcPatStatus: PatStatusEnum?` `[@default(PENDING)]`
   * `opmcPatDate: DateTime?`
-  * `hoPatStatus: String?` `[@default("PENDING")]`
+  * `hoPatStatus: PatStatusEnum?` `[@default(PENDING)]`
   * `hoPatDate: DateTime?`
   * `isInvoicable: Boolean` `[@default(false)]`
   * `invoiced: Boolean` `[@default(false)]`
-  * `invoiceId: String?`
+  * `invoiceId: String?` `[@db.Uuid]`
   * `wiredOnly: Boolean` `[@default(false)]`
   * `delayReasonsRaw: Json?` `[@map("delayReasons")]`
   * `delayReasons: ServiceOrderDelayReason[]`
@@ -6443,12 +6457,12 @@
   * `materialSource: String?`
   * `directTeam: String?`
   * `photoUrls: String[]` `[@default([])]`
-  * `dropWireDistance: Float?`
-  * `revenueAmount: Float?`
-  * `contractorAmount: Float?`
-  * `opmcId: String`
-  * `contractorId: String?`
-  * `teamId: String?`
+  * `dropWireDistance: Decimal?` `[@db.Decimal(10, 2)]`
+  * `revenueAmount: Decimal?` `[@db.Decimal(14, 2)]`
+  * `contractorAmount: Decimal?` `[@db.Decimal(14, 2)]`
+  * `opmcId: String` `[@db.Uuid]`
+  * `contractorId: String?` `[@db.Uuid]`
+  * `teamId: String?` `[@db.Uuid]`
   * `isManualEntry: Boolean` `[@default(false)]`
   * `isLegacyImport: Boolean` `[@default(false)]`
   * `isOfflineWorkOrder: Boolean` `[@default(false)]`
@@ -6459,7 +6473,7 @@
   * `qcInspectedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `projectInvoiceId: String?`
+  * `projectInvoiceId: String?` `[@db.Uuid]`
   * `collectedCPEs: CollectedCPE[]` `[@relation("CollectedCPEs")]`
   * `materialReturns: ContractorMaterialReturn[]` `[@relation("SODMaterialReturns")]`
   * `penalties: Penalty[]`
@@ -6478,7 +6492,7 @@
 
 ### [SODForensicAudit](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `soNum: String` `[@unique]`
   * `auditData: Json`
   * `voiceTestStatus: String?`
@@ -6488,7 +6502,7 @@
 
 ### [ExtensionRawData](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `soNum: String?`
   * `sltUser: String?`
   * `activeTab: String?`
@@ -6499,8 +6513,8 @@
 
 ### [ServiceOrderStatusHistory](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
   * `status: ServiceOrderStatus`
   * `statusDate: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6508,10 +6522,10 @@
 
 ### [ServiceOrderComment](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
   * `comment: String`
-  * `authorId: String?`
+  * `authorId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `author: User?` `[@relation("UserComments", fields: [authorId], references: [id])]`
@@ -6519,12 +6533,12 @@
 
 ### [RestoreRequest](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
-  * `requestedById: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
+  * `requestedById: String` `[@db.Uuid]`
   * `reason: String`
   * `status: String` `[@default("PENDING")]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvalComment: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -6534,16 +6548,16 @@
 
 ### [SODMaterialUsage](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
-  * `itemId: String`
-  * `quantity: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
   * `unit: String`
   * `usageType: String`
-  * `batchId: String?`
-  * `unitPrice: Float?` `[@default(0)]`
-  * `costPrice: Float?` `[@default(0)]`
-  * `wastagePercent: Float?`
+  * `batchId: String?` `[@db.Uuid]`
+  * `unitPrice: Decimal?` `[@db.Decimal(14, 2) @default(0)]`
+  * `costPrice: Decimal?` `[@db.Decimal(14, 2) @default(0)]`
+  * `wastagePercent: Decimal?` `[@db.Decimal(8, 4)]`
   * `exceedsLimit: Boolean` `[@default(false)]`
   * `comment: String?`
   * `serialNumber: String?`
@@ -6557,9 +6571,9 @@
 
 ### [SODRevenueConfig](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `rtomId: String?`
-  * `revenuePerSOD: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `rtomId: String?` `[@db.Uuid]`
+  * `revenuePerSOD: Decimal` `[@db.Decimal(14, 2)]`
   * `effectiveFrom: DateTime?`
   * `effectiveTo: DateTime?`
   * `circularRef: String?`
@@ -6572,7 +6586,7 @@
 
 ### [SLTPATStatus](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `soNum: String` `[@unique]`
   * `rtom: String?`
   * `lea: String?`
@@ -6591,8 +6605,8 @@
 
 ### [PATSession](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `patType: String`
   * `status: String` `[@default("PENDING")]`
   * `sltOfficers: Json?`
@@ -6601,8 +6615,8 @@
   * `totalPoints: Int` `[@default(0)]`
   * `passedPoints: Int` `[@default(0)]`
   * `failedPoints: Int` `[@default(0)]`
-  * `passRate: Float?`
-  * `conductedById: String?`
+  * `passRate: Decimal?` `[@db.Decimal(8, 4)]`
+  * `conductedById: String?` `[@db.Uuid]`
   * `conductedAt: DateTime?`
   * `completedAt: DateTime?`
   * `notes: String?`
@@ -6613,14 +6627,14 @@
 
 ### [PATPointResult](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `patSessionId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `patSessionId: String` `[@db.Uuid]`
   * `pointReference: String`
-  * `measuredPower: Float?`
-  * `acceptedPower: Float?`
+  * `measuredPower: Decimal?` `[@db.Decimal(12, 4)]`
+  * `acceptedPower: Decimal?` `[@db.Decimal(12, 4)]`
   * `powerStatus: String?` `[@default("PENDING")]`
-  * `verifiedLat: Float?`
-  * `verifiedLng: Float?`
+  * `verifiedLat: Decimal?` `[@db.Decimal(11, 8)]`
+  * `verifiedLng: Decimal?` `[@db.Decimal(11, 8)]`
   * `fineTuneNeeded: Boolean` `[@default(false)]`
   * `fineTuneType: String?`
   * `fineTuneNotes: String?`
@@ -6630,9 +6644,9 @@
 
 ### [CollectedCPE](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
-  * `contractorId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
+  * `contractorId: String` `[@db.Uuid]`
   * `deviceType: String`
   * `serialNumber: String`
   * `condition: String` `[@default("FAULTY")]`
@@ -6647,8 +6661,8 @@
 
 ### [SODErectedPole](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
   * `poleType: String`
   * `poleNumber: String` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6657,8 +6671,8 @@
 
 ### [SODIptvSerial](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
   * `serialNumber: String` `[@unique]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -6666,15 +6680,15 @@
 
 ### [ServiceOrderDelayReason](prisma/schema/service-order.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `serviceOrderId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `serviceOrderId: String` `[@db.Uuid]`
   * `reason: String`
   * `createdAt: DateTime` `[@default(now())]`
   * `serviceOrder: ServiceOrder` `[@relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)]`
 
 ### [SLTContract](prisma/schema/slt-contract.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `contractNumber: String` `[@unique // e.g. AGR-2026-0101]`
   * `title: String` `[// e.g. SLT OSP Fiber Connection Agreement 2026]`
   * `startDate: DateTime`
@@ -6683,15 +6697,15 @@
   * `notes: String?`
   * `documentUrl: String?` `[// Signed Master Commercial Agreement PDF URL]`
   * `tenderNo: String?` `[// Tender / Project reference e.g. L/0076/2024]`
-  * `ceilingValue: Float?` `[// Maximum financial ceiling value (Rs.)]`
+  * `ceilingValue: Decimal?` `[@db.Decimal(14, 2) // Maximum financial ceiling value (Rs.)]`
   * `model1AQty: Int?` `[// Model 1A connection quantity]`
   * `model1BQty: Int?` `[// Model 1B connection quantity]`
-  * `poleRate56: Float?` `[// Concrete pole supply rate 5.6m]`
-  * `poleRate67: Float?` `[// Concrete pole supply rate 6.7m]`
-  * `poleRate80: Float?` `[// Concrete pole supply rate 8.0m]`
-  * `poleErectRate: Float?` `[// Additional pole erecting service cost (beyond 15%)]`
-  * `poleAdminFee: Float?` `[// Concrete pole administrative fee (per pole)]`
-  * `peoTvRate: Float?` `[// PEO TV provisioning rate]`
+  * `poleRate56: Decimal?` `[@db.Decimal(14, 2) // Concrete pole supply rate 5.6m]`
+  * `poleRate67: Decimal?` `[@db.Decimal(14, 2) // Concrete pole supply rate 6.7m]`
+  * `poleRate80: Decimal?` `[@db.Decimal(14, 2) // Concrete pole supply rate 8.0m]`
+  * `poleErectRate: Decimal?` `[@db.Decimal(14, 2) // Additional pole erecting service cost (beyond 15%)]`
+  * `poleAdminFee: Decimal?` `[@db.Decimal(14, 2) // Concrete pole administrative fee (per pole)]`
+  * `peoTvRate: Decimal?` `[@db.Decimal(14, 2) // PEO TV provisioning rate]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `targets: SLTContractTarget[]`
@@ -6700,38 +6714,38 @@
 
 ### [SLTContractTarget](prisma/schema/slt-contract.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractId: String` `[@db.Uuid]`
   * `year: Int` `[// e.g. 2026]`
   * `month: Int` `[// 1-12 (1 = Jan, 2 = Feb)]`
   * `targetVolume: Int` `[// e.g. 6000 for Jan, 8000 for Feb]`
-  * `baseUnitRate: Float` `[// Base LKR rate per connection e.g. 10000.00]`
-  * `poleRate: Float?` `[@default(4500) // LKR surcharge per pole planted]`
-  * `perMeterRate: Float?` `[@default(250) // LKR surcharge per extra meter beyond threshold]`
-  * `distanceThresholdMeters: Float?` `[@default(50) // Free span threshold (e.g. 50 meters)]`
+  * `baseUnitRate: Decimal` `[@db.Decimal(14, 2) // Base LKR rate per connection e.g. 10000.00]`
+  * `poleRate: Decimal?` `[@db.Decimal(14, 2) @default(4500) // LKR surcharge per pole planted]`
+  * `perMeterRate: Decimal?` `[@db.Decimal(14, 2) @default(250) // LKR surcharge per extra meter beyond threshold]`
+  * `distanceThresholdMeters: Decimal?` `[@db.Decimal(12, 4) @default(50) // Free span threshold (e.g. 50 meters)]`
   * `customSurcharges: Json?` `[// Flexible JSON store for arbitrary custom SLT rate variables]`
-  * `penaltyPerShortfall: Float` `[@default(0) // Optional LKR penalty per missing order below target]`
-  * `bonusPerOverachieve: Float` `[@default(0) // Optional LKR bonus per extra order above target]`
+  * `penaltyPerShortfall: Decimal` `[@db.Decimal(14, 2) @default(0) // Optional LKR penalty per missing order below target]`
+  * `bonusPerOverachieve: Decimal` `[@db.Decimal(14, 2) @default(0) // Optional LKR bonus per extra order above target]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `contract: SLTContract` `[@relation(fields: [contractId], references: [id], onDelete: Cascade)]`
 
 ### [SLTContractAmendment](prisma/schema/slt-contract.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractId: String` `[@db.Uuid]`
   * `amendmentNumber: String` `[// e.g. AMD-2026-01]`
   * `effectiveDate: DateTime`
   * `reason: String` `[// e.g. Crisis Fuel Surcharge Adjustment, Monsoon Rate Increase]`
-  * `revisedUnitRate: Float?` `[// Revised LKR rate per connection (if rate amended)]`
+  * `revisedUnitRate: Decimal?` `[@db.Decimal(14, 2) // Revised LKR rate per connection (if rate amended)]`
   * `revisedTargetVolume: Int?` `[// Revised target SOD volume (if volume amended)]`
-  * `revisedPoleRate: Float?` `[// Revised pole planting rate]`
-  * `revisedPerMeterRate: Float?` `[// Revised per-meter distance rate]`
-  * `revisedDistanceThreshold: Float?` `[// Revised free distance threshold]`
+  * `revisedPoleRate: Decimal?` `[@db.Decimal(14, 2) // Revised pole planting rate]`
+  * `revisedPerMeterRate: Decimal?` `[@db.Decimal(14, 2) // Revised per-meter distance rate]`
+  * `revisedDistanceThreshold: Decimal?` `[@db.Decimal(14, 2) // Revised free distance threshold]`
   * `revisedEndDate: DateTime?` `[// For period-extension amendments]`
-  * `ceilingValue: Float?` `[// Revised total financial ceiling limit (Rs.)]`
-  * `ceilingIncrease: Float?` `[// Ceiling increase amount for this amendment (Rs.)]`
-  * `parentAmendmentId: String?` `[// Lineage: prior amendment this one references/supersedes]`
+  * `ceilingValue: Decimal?` `[@db.Decimal(14, 2) // Revised total financial ceiling limit (Rs.)]`
+  * `ceilingIncrease: Decimal?` `[@db.Decimal(14, 2) // Ceiling increase amount for this amendment (Rs.)]`
+  * `parentAmendmentId: String?` `[@db.Uuid // Lineage: prior amendment this one references/supersedes]`
   * `customSurcharges: Json?` `[// Revised dynamic custom rate rules]`
   * `status: AmendmentStatus` `[@default(ACTIVE)]`
   * `approvedBy: String?`
@@ -6744,8 +6758,8 @@
 
 ### [SLTContractAudit](prisma/schema/slt-contract.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractId: String` `[@db.Uuid]`
   * `action: String` `[// CONTRACT_CREATED, TARGET_SET, AMENDMENT_FILED, RATE_REVISED]`
   * `details: String`
   * `performedBy: String`
@@ -6754,10 +6768,10 @@
 
 ### [ContractorBatchStock](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractorId: String`
-  * `itemId: String`
-  * `batchId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractorId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `batchId: String` `[@db.Uuid]`
   * `quantity: Decimal` `[@default(0)]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `batch: InventoryBatch` `[@relation(fields: [batchId], references: [id])]`
@@ -6766,16 +6780,16 @@
 
 ### [StockRequest](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `requestNr: String` `[@unique @default(cuid())]`
   * `issueNoteNumber: String?`
-  * `fromStoreId: String?`
-  * `toStoreId: String?`
+  * `fromStoreId: String?` `[@db.Uuid]`
+  * `toStoreId: String?` `[@db.Uuid]`
   * `status: String` `[@default("PENDING")]`
-  * `requestedById: String`
-  * `approvedById: String?`
+  * `requestedById: String` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `remarks: String?`
-  * `sltReferenceId: String?`
+  * `sltReferenceId: String?` `[@db.Uuid]`
   * `priority: String` `[@default("MEDIUM")]`
   * `requiredDate: DateTime?`
   * `purpose: String?`
@@ -6789,19 +6803,19 @@
   * `armAction: String?`
   * `armDate: DateTime?`
   * `armRemarks: String?`
-  * `armApprovedById: String?`
+  * `armApprovedById: String?` `[@db.Uuid]`
   * `storesManagerAction: String?`
   * `storesManagerDate: DateTime?`
   * `storesManagerRemarks: String?`
-  * `storesManagerApprovedById: String?`
+  * `storesManagerApprovedById: String?` `[@db.Uuid]`
   * `hsOspAction: String?`
   * `hsOspDate: DateTime?`
   * `managerAction: String?`
   * `managerDate: DateTime?`
-  * `releasedById: String?`
+  * `releasedById: String?` `[@db.Uuid]`
   * `releasedDate: DateTime?`
   * `releasedRemarks: String?`
-  * `receivedById: String?`
+  * `receivedById: String?` `[@db.Uuid]`
   * `receivedDate: DateTime?`
   * `receivedRemarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -6820,13 +6834,13 @@
 
 ### [StockRequestItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `requestId: String`
-  * `itemId: String`
-  * `requestedQty: Float`
-  * `approvedQty: Float` `[@default(0)]`
-  * `issuedQty: Float?`
-  * `receivedQty: Float` `[@default(0)]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `requestId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `requestedQty: Decimal` `[@db.Decimal(14, 2)]`
+  * `approvedQty: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `issuedQty: Decimal?` `[@db.Decimal(14, 2)]`
+  * `receivedQty: Decimal` `[@db.Decimal(14, 2) @default(0)]`
   * `remarks: String?`
   * `make: String?`
   * `model: String?`
@@ -6838,19 +6852,20 @@
 
 ### [GRN](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `grnNumber: String` `[@unique]`
-  * `storeId: String`
+  * `storeId: String` `[@db.Uuid]`
   * `sourceType: String`
   * `supplier: String?`
-  * `requestId: String?`
-  * `receivedById: String`
+  * `requestId: String?` `[@db.Uuid]`
+  * `receivedById: String` `[@db.Uuid]`
   * `reference: String?`
+  * `documentUrl: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `receivedBy: User` `[@relation(fields: [receivedById], references: [id])]`
   * `request: StockRequest?` `[@relation(fields: [requestId], references: [id])]`
-  * `purchaseOrderId: String?`
+  * `purchaseOrderId: String?` `[@db.Uuid]`
   * `purchaseOrder: PurchaseOrder?` `[@relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)]`
   * `store: InventoryStore` `[@relation(fields: [storeId], references: [id])]`
   * `items: GRNItem[]`
@@ -6858,11 +6873,11 @@
 
 ### [GRNItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `grnId: String`
-  * `itemId: String`
-  * `quantity: Float`
-  * `batchId: String?` `[@unique]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `grnId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `batchId: String?` `[@db.Uuid         @unique]`
   * `createdAt: DateTime` `[@default(now())]`
   * `batch: InventoryBatch?` `[@relation(fields: [batchId], references: [id])]`
   * `grn: GRN` `[@relation(fields: [grnId], references: [id], onDelete: Cascade)]`
@@ -6870,17 +6885,17 @@
 
 ### [MRN](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `mrnNumber: String` `[@unique]`
-  * `storeId: String`
+  * `storeId: String` `[@db.Uuid]`
   * `returnType: String`
   * `returnTo: String?`
   * `supplier: String?`
   * `reason: String?`
-  * `grnId: String?`
-  * `returnedById: String`
+  * `grnId: String?` `[@db.Uuid]`
+  * `returnedById: String` `[@db.Uuid]`
   * `status: String` `[@default("PENDING")]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `approvedBy: User?` `[@relation("MRNApprover", fields: [approvedById], references: [id])]`
@@ -6890,10 +6905,10 @@
 
 ### [MRNItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `mrnId: String`
-  * `itemId: String`
-  * `quantity: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `mrnId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
   * `reason: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
@@ -6901,10 +6916,10 @@
 
 ### [ContractorMaterialIssue](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `issueNumber: String` `[@unique]`
-  * `contractorId: String`
-  * `storeId: String`
+  * `contractorId: String` `[@db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
   * `issueDate: DateTime` `[@default(now())]`
   * `month: String`
   * `issuedBy: String?`
@@ -6920,21 +6935,21 @@
 
 ### [ContractorMaterialIssueItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `issueId: String`
-  * `itemId: String`
-  * `quantity: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `issueId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
   * `unit: String`
   * `issue: ContractorMaterialIssue` `[@relation(fields: [issueId], references: [id], onDelete: Cascade)]`
   * `item: InventoryItem` `[@relation("IssueItems", fields: [itemId], references: [id])]`
 
 ### [ContractorMaterialReturn](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `returnNumber: String` `[@unique]`
-  * `contractorId: String`
-  * `storeId: String`
-  * `serviceOrderId: String?`
+  * `contractorId: String` `[@db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
+  * `serviceOrderId: String?` `[@db.Uuid]`
   * `returnDate: DateTime` `[@default(now())]`
   * `month: String`
   * `reason: String?`
@@ -6949,11 +6964,11 @@
 
 ### [ContractorMaterialReturnItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `returnId: String`
-  * `itemId: String`
-  * `quantity: Float`
-  * `acceptedQuantity: Float?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `returnId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `acceptedQuantity: Decimal?` `[@db.Decimal(14, 2)]`
   * `unit: String`
   * `condition: String` `[@default("GOOD")]`
   * `item: InventoryItem` `[@relation("ReturnItems", fields: [itemId], references: [id])]`
@@ -6961,14 +6976,14 @@
 
 ### [ContractorWastage](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractorId: String`
-  * `storeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractorId: String` `[@db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
   * `date: DateTime` `[@default(now())]`
   * `month: String`
   * `description: String?`
   * `status: String` `[@default("APPROVED")]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `contractor: Contractor` `[@relation(fields: [contractorId], references: [id], onDelete: Cascade)]`
@@ -6977,23 +6992,23 @@
 
 ### [ContractorWastageItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `wastageId: String`
-  * `itemId: String`
-  * `quantity: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `wastageId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
   * `unit: String`
   * `item: InventoryItem` `[@relation(fields: [itemId], references: [id])]`
   * `wastage: ContractorWastage` `[@relation(fields: [wastageId], references: [id], onDelete: Cascade)]`
 
 ### [ContractorMaterialBalanceSheet](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `contractorId: String`
-  * `storeId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `contractorId: String` `[@db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
   * `month: String`
-  * `totalValue: Float?`
-  * `usageRate: Float?`
-  * `wastageRate: Float?`
+  * `totalValue: Decimal?` `[@db.Decimal(14, 2)]`
+  * `usageRate: Decimal?` `[@db.Decimal(8, 4)]`
+  * `wastageRate: Decimal?` `[@db.Decimal(8, 4)]`
   * `generatedAt: DateTime` `[@default(now())]`
   * `generatedBy: String?`
   * `items: ContractorBalanceSheetItem[]`
@@ -7002,33 +7017,33 @@
 
 ### [ContractorBalanceSheetItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `balanceSheetId: String`
-  * `itemId: String`
-  * `openingBalance: Float`
-  * `received: Float`
-  * `returned: Float` `[@default(0)]`
-  * `used: Float`
-  * `wastage: Float`
-  * `closingBalance: Float`
-  * `requiredNext: Float?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `balanceSheetId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `openingBalance: Decimal` `[@db.Decimal(14, 2)]`
+  * `received: Decimal` `[@db.Decimal(14, 2)]`
+  * `returned: Decimal` `[@db.Decimal(14, 2) @default(0)]`
+  * `used: Decimal` `[@db.Decimal(14, 2)]`
+  * `wastage: Decimal` `[@db.Decimal(14, 2)]`
+  * `closingBalance: Decimal` `[@db.Decimal(14, 2)]`
+  * `requiredNext: Decimal?` `[@db.Decimal(14, 2)]`
   * `balanceSheet: ContractorMaterialBalanceSheet` `[@relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)]`
   * `item: InventoryItem` `[@relation("BalanceSheetItems", fields: [itemId], references: [id])]`
 
 ### [StockIssue](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `issueNumber: String` `[@unique]`
-  * `storeId: String`
-  * `issuedById: String`
+  * `storeId: String` `[@db.Uuid]`
+  * `issuedById: String` `[@db.Uuid]`
   * `issueType: String`
-  * `projectId: String?`
-  * `contractorId: String?`
-  * `teamId: String?`
+  * `projectId: String?` `[@db.Uuid]`
+  * `contractorId: String?` `[@db.Uuid]`
+  * `teamId: String?` `[@db.Uuid]`
   * `recipientName: String`
   * `remarks: String?`
   * `status: String` `[@default("PENDING")]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -7041,10 +7056,10 @@
 
 ### [StockIssueItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `issueId: String`
-  * `itemId: String`
-  * `quantity: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `issueId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `issue: StockIssue` `[@relation(fields: [issueId], references: [id], onDelete: Cascade)]`
@@ -7052,13 +7067,13 @@
 
 ### [ProjectMaterialReturn](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `returnNumber: String` `[@unique]`
-  * `projectId: String`
-  * `storeId: String`
-  * `returnedById: String`
+  * `projectId: String` `[@db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
+  * `returnedById: String` `[@db.Uuid]`
   * `status: String` `[@default("PENDING")]`
-  * `approvedById: String?`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `reason: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -7071,10 +7086,10 @@
 
 ### [ProjectMaterialReturnItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `returnId: String`
-  * `itemId: String`
-  * `quantity: Float`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `returnId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
   * `condition: String` `[@default("GOOD")]`
   * `remarks: String?`
   * `item: InventoryItem` `[@relation("ProjectReturnItems", fields: [itemId], references: [id])]`
@@ -7082,23 +7097,23 @@
 
 ### [StockMovement](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `storeId: String`
-  * `itemId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `storeId: String` `[@db.Uuid]`
+  * `itemId: String` `[@db.Uuid]`
   * `type: String`
-  * `quantity: Float`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
   * `reference: String?`
   * `remarks: String?`
   * `createdAt: DateTime` `[@default(now())]`
 
 ### [PurchaseOrder](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `poNumber: String` `[@unique]`
   * `vendor: String`
   * `expectedDelivery: DateTime?`
   * `status: String` `[@default("PENDING") // PENDING, APPROVED, ISSUED, COMPLETED]`
-  * `stockRequestId: String`
+  * `stockRequestId: String` `[@db.Uuid]`
   * `stockRequest: StockRequest` `[@relation(fields: [stockRequestId], references: [id], onDelete: Restrict)]`
   * `items: PurchaseOrderItem[]`
   * `grns: GRN[]`
@@ -7107,35 +7122,35 @@
 
 ### [PurchaseOrderItem](prisma/schema/stock-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `quantity: Float`
-  * `unitPrice: Float` `[@default(0.0)]`
-  * `taxAmount: Float` `[@default(0.0)]`
-  * `totalAmount: Float` `[@default(0.0)]`
-  * `purchaseOrderId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `unitPrice: Decimal` `[@db.Decimal(14, 2) @default(0.0)]`
+  * `taxAmount: Decimal` `[@db.Decimal(14, 2) @default(0.0)]`
+  * `totalAmount: Decimal` `[@db.Decimal(14, 2) @default(0.0)]`
+  * `purchaseOrderId: String` `[@db.Uuid]`
   * `purchaseOrder: PurchaseOrder` `[@relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)]`
-  * `stockRequestItemId: String`
+  * `stockRequestItemId: String` `[@db.Uuid]`
   * `stockRequestItem: StockRequestItem` `[@relation(fields: [stockRequestItemId], references: [id], onDelete: Restrict)]`
 
 ### [SurveyRequest](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `requestNumber: String` `[@unique]`
   * `title: String`
   * `description: String?`
   * `surveyType: String`
   * `priority: String` `[@default("MEDIUM")]`
   * `status: String` `[@default("PENDING")]`
-  * `assignedTeamId: String?`
-  * `assignedToId: String?`
+  * `assignedTeamId: String?` `[@db.Uuid]`
+  * `assignedToId: String?` `[@db.Uuid]`
   * `scheduledDate: DateTime?`
   * `completedDate: DateTime?`
-  * `estimatedBOQ: Float?`
-  * `finalBOQ: Float?`
+  * `estimatedBOQ: Decimal?` `[@db.Decimal(14, 2)]`
+  * `finalBOQ: Decimal?` `[@db.Decimal(14, 2)]`
   * `remarks: String?`
-  * `createdById: String`
-  * `approvedById: String?`
+  * `createdById: String` `[@db.Uuid]`
+  * `approvedById: String?` `[@db.Uuid]`
   * `approvedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -7146,58 +7161,58 @@
 
 ### [SurveyCheckIn](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `surveyRequestId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `surveyRequestId: String` `[@db.Uuid]`
   * `checkInType: String`
   * `timestamp: DateTime` `[@default(now())]`
-  * `latitude: Float?`
-  * `longitude: Float?`
+  * `latitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal?` `[@db.Decimal(11, 8)]`
   * `address: String?`
-  * `userId: String`
+  * `userId: String` `[@db.Uuid]`
   * `remarks: String?`
   * `surveyRequest: SurveyRequest` `[@relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)]`
 
 ### [SurveyPhoto](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `surveyRequestId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `surveyRequestId: String` `[@db.Uuid]`
   * `fileName: String`
   * `fileUrl: String`
-  * `latitude: Float?`
-  * `longitude: Float?`
-  * `altitude: Float?`
-  * `bearing: Float?`
+  * `latitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `altitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `bearing: Decimal?` `[@db.Decimal(11, 8)]`
   * `photoType: String`
   * `description: String?`
-  * `uploadedById: String`
+  * `uploadedById: String` `[@db.Uuid]`
   * `uploadedAt: DateTime` `[@default(now())]`
   * `surveyRequest: SurveyRequest` `[@relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)]`
 
 ### [SurveyFinding](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `surveyRequestId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `surveyRequestId: String` `[@db.Uuid]`
   * `findingType: String`
   * `description: String`
   * `severity: String` `[@default("MEDIUM")]`
-  * `latitude: Float?`
-  * `longitude: Float?`
+  * `latitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal?` `[@db.Decimal(11, 8)]`
   * `recommendation: String?`
   * `status: String` `[@default("OPEN")]`
   * `resolvedAt: DateTime?`
-  * `resolvedById: String?`
-  * `photoId: String?`
+  * `resolvedById: String?` `[@db.Uuid]`
+  * `photoId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `surveyRequest: SurveyRequest` `[@relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)]`
 
 ### [FieldTask](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `taskInstanceId: String?`
-  * `assignedTeamId: String?`
-  * `assignedUserId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `taskInstanceId: String?` `[@db.Uuid]`
+  * `assignedTeamId: String?` `[@db.Uuid]`
+  * `assignedUserId: String?` `[@db.Uuid]`
   * `title: String`
   * `description: String?`
   * `status: String` `[@default("ASSIGNED")]`
@@ -7206,11 +7221,11 @@
   * `startedAt: DateTime?`
   * `completedAt: DateTime?`
   * `durationMinutes: Int?`
-  * `latitude: Float?`
-  * `longitude: Float?`
+  * `latitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal?` `[@db.Decimal(11, 8)]`
   * `address: String?`
   * `syncStatus: String` `[@default("PENDING")]`
-  * `deviceId: String?`
+  * `deviceId: String?` `[@db.Uuid]`
   * `appVersion: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -7221,20 +7236,20 @@
 
 ### [FieldPhoto](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `fieldTaskId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `fieldTaskId: String` `[@db.Uuid]`
   * `fileName: String`
   * `fileUrl: String`
   * `photoType: String`
-  * `latitude: Float?`
-  * `longitude: Float?`
+  * `latitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal?` `[@db.Decimal(11, 8)]`
   * `uploadedAt: DateTime` `[@default(now())]`
   * `fieldTask: FieldTask` `[@relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)]`
 
 ### [FieldChecklist](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `fieldTaskId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `fieldTaskId: String` `[@db.Uuid]`
   * `label: String`
   * `isMandatory: Boolean` `[@default(true)]`
   * `isCompleted: Boolean` `[@default(false)]`
@@ -7245,8 +7260,8 @@
 
 ### [FieldSignature](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `fieldTaskId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `fieldTaskId: String` `[@db.Uuid]`
   * `signatoryName: String`
   * `signatureDataUrl: String`
   * `role: String?`
@@ -7255,9 +7270,9 @@
 
 ### [OTDRTest](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
-  * `cableSegmentId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
+  * `cableSegmentId: String?` `[@db.Uuid]`
   * `testNumber: String` `[@unique]`
   * `testDate: DateTime` `[@default(now())]`
   * `testType: String`
@@ -7266,24 +7281,24 @@
   * `traceFileName: String?`
   * `traceFileUrl: String?`
   * `fileFormat: String?`
-  * `totalLength: Float?`
-  * `endToEndLoss: Float?`
-  * `lossPerKm: Float?`
-  * `orl: Float?`
-  * `spliceLoss: Float?`
-  * `connectorLoss: Float?`
+  * `totalLength: Decimal?` `[@db.Decimal(12, 4)]`
+  * `endToEndLoss: Decimal?` `[@db.Decimal(12, 4)]`
+  * `lossPerKm: Decimal?` `[@db.Decimal(12, 4)]`
+  * `orl: Decimal?` `[@db.Decimal(12, 4)]`
+  * `spliceLoss: Decimal?` `[@db.Decimal(12, 4)]`
+  * `connectorLoss: Decimal?` `[@db.Decimal(12, 4)]`
   * `spliceCount: Int?`
   * `eventCount: Int?`
-  * `lossLimit: Float?`
-  * `orlLimit: Float?`
+  * `lossLimit: Decimal?` `[@db.Decimal(12, 4)]`
+  * `orlLimit: Decimal?` `[@db.Decimal(12, 4)]`
   * `autoResult: String?`
   * `failureReason: String?`
-  * `testedById: String`
+  * `testedById: String` `[@db.Uuid]`
   * `equipmentModel: String?`
   * `equipmentSerial: String?`
   * `remarks: String?`
   * `status: String` `[@default("PENDING_REVIEW")]`
-  * `reviewedById: String?`
+  * `reviewedById: String?` `[@db.Uuid]`
   * `reviewedAt: DateTime?`
   * `reviewNotes: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -7294,21 +7309,21 @@
 
 ### [OTDRTestEvent](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `testId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `testId: String` `[@db.Uuid]`
   * `eventNumber: Int`
   * `eventType: String`
-  * `distance: Float`
-  * `loss: Float?`
-  * `reflectance: Float?`
-  * `cumulativeLoss: Float?`
+  * `distance: Decimal` `[@db.Decimal(14, 2)]`
+  * `loss: Decimal?` `[@db.Decimal(12, 4)]`
+  * `reflectance: Decimal?` `[@db.Decimal(12, 4)]`
+  * `cumulativeLoss: Decimal?` `[@db.Decimal(12, 4)]`
   * `comment: String?`
   * `test: OTDRTest` `[@relation(fields: [testId], references: [id], onDelete: Cascade)]`
 
 ### [HSESafetyLog](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `projectId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `projectId: String` `[@db.Uuid]`
   * `logType: String`
   * `title: String`
   * `description: String?`
@@ -7323,15 +7338,15 @@
   * `incidentType: String?`
   * `injuryCount: Int?` `[@default(0)]`
   * `fatalityCount: Int?` `[@default(0)]`
-  * `propertyDamage: Float?`
+  * `propertyDamage: Decimal?` `[@db.Decimal(12, 4)]`
   * `rootCause: String?`
   * `correctiveAction: String?`
   * `ppeChecklist: Json?`
   * `allCompliant: Boolean?` `[@default(false)]`
   * `photoUrls: String[]` `[@default([])]`
   * `documentUrls: String[]` `[@default([])]`
-  * `recordedById: String`
-  * `closedById: String?`
+  * `recordedById: String` `[@db.Uuid]`
+  * `closedById: String?` `[@db.Uuid]`
   * `closedAt: DateTime?`
   * `blocksStage: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -7341,8 +7356,8 @@
 
 ### [HSEAttendee](prisma/schema/survey.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `safetyLogId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `safetyLogId: String` `[@db.Uuid]`
   * `name: String`
   * `designation: String?`
   * `signatureUrl: String?`
@@ -7351,7 +7366,7 @@
 
 ### [TableColumnSettings](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `tableName: String` `[@unique]`
   * `columns: String`
   * `createdAt: DateTime` `[@default(now())]`
@@ -7359,7 +7374,7 @@
 
 ### [Section](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String` `[@unique]`
   * `code: String` `[@unique]`
   * `description: String?`
@@ -7373,25 +7388,35 @@
 
 ### [SystemRole](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `code: String` `[@unique]`
-  * `sectionId: String`
+  * `sectionId: String?` `[@db.Uuid]`
   * `description: String?`
   * `level: Int` `[@default(1)]`
+  * `approvalLimit: Decimal?` `[@db.Decimal(14, 2)]`
   * `isActive: Boolean` `[@default(true)]`
-  * `permissions: String`
+  * `permissions: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-  * `section: Section` `[@relation(fields: [sectionId], references: [id], onDelete: Cascade)]`
+  * `section: Section?` `[@relation(fields: [sectionId], references: [id], onDelete: Cascade)]`
   * `userAssignments: UserSectionAssignment[]`
+  * `users: User[]` `[@relation("UserSystemRole")]`
+  * `rolePermissions: RolePermission[]`
+
+### [RolePermission](prisma/schema/system.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `roleId: String` `[@db.Uuid]`
+  * `permission: String`
+  * `role: SystemRole` `[@relation(fields: [roleId], references: [id], onDelete: Cascade)]`
 
 ### [UserSectionAssignment](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `userId: String`
-  * `sectionId: String`
-  * `roleId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `userId: String` `[@db.Uuid]`
+  * `sectionId: String` `[@db.Uuid]`
+  * `roleId: String` `[@db.Uuid]`
   * `isPrimary: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `role: SystemRole` `[@relation(fields: [roleId], references: [id], onDelete: Cascade)]`
@@ -7407,7 +7432,7 @@
 
 ### [SystemConfigVersion](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `category: String` `[// FINANCE, SOD, INVENTORY]`
   * `key: String` `[// e.g. FINANCE_VAT_PERCENT, INVENTORY_DROP_WIRE_RATE]`
   * `value: String` `[// e.g. "18.0"]`
@@ -7419,15 +7444,15 @@
 
 ### [SystemSetting](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `key: String` `[@unique]`
   * `value: Json`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [DashboardStat](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `opmcId: String` `[@unique]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `opmcId: String` `[@db.Uuid   @unique]`
   * `rtom: String`
   * `pending: Int` `[@default(0)]`
   * `completed: Int` `[@default(0)]`
@@ -7439,14 +7464,14 @@
 
 ### [SystemErrorLog](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `statusCode: Int` `[@default(500)]`
   * `errorCode: String` `[@default("INTERNAL_ERROR")]`
   * `message: String`
   * `stackTrace: String?` `[@db.Text]`
   * `path: String`
   * `method: String` `[@default("GET")]`
-  * `userId: String?`
+  * `userId: String?` `[@db.Uuid]`
   * `userRole: String?`
   * `ipAddress: String?`
   * `userAgent: String?`
@@ -7458,10 +7483,10 @@
 
 ### [QCNotification](prisma/schema/system.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `soNum: String`
-  * `contractorId: String?`
-  * `teamId: String?`
+  * `contractorId: String?` `[@db.Uuid]`
+  * `teamId: String?` `[@db.Uuid]`
   * `title: String`
   * `message: String`
   * `severity: String` `[@default("WARNING") // WARNING, CRITICAL, INFO]`
@@ -7470,26 +7495,28 @@
 
 ### [User](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `email: String` `[@unique]`
   * `username: String` `[@unique]`
   * `password: String`
   * `name: String?`
   * `role: Role` `[@default(ENGINEER)]`
-  * `staffId: String?` `[@unique]`
+  * `roleId: String?` `[@db.Uuid]`
+  * `systemRole: SystemRole?` `[@relation("UserSystemRole", fields: [roleId], references: [id])]`
+  * `staffId: String?` `[@db.Uuid                       @unique]`
   * `securityQuestion: String?`
   * `securityAnswer: String?`
   * `employeeId: String?` `[@unique]`
-  * `supervisorId: String?`
-  * `assignedStoreId: String?`
-  * `contractorId: String?`
+  * `supervisorId: String?` `[@db.Uuid]`
+  * `assignedStoreId: String?` `[@db.Uuid]`
+  * `contractorId: String?` `[@db.Uuid]`
   * `mustChangePassword: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `permissions: String?`
   * `status: String` `[@default("active")]`
   * `isOOO: Boolean` `[@default(false)]`
-  * `delegatedUserId: String?`
+  * `delegatedUserId: String?` `[@db.Uuid]`
   * `handoversPerformed: AssetHandoverLog[]` `[@relation("HandoverPerformed")]`
   * `auditLogs: AuditLog[]`
   * `armApprovedContractors: Contractor[]` `[@relation("ContractorArmApproval")]`
@@ -7532,6 +7559,7 @@
   * `amendmentRequestsRequested: InvoiceAmendmentRequest[]` `[@relation("AmendmentRequestedBy")]`
   * `amendmentRequestsApproved: InvoiceAmendmentRequest[]` `[@relation("AmendmentApprovedBy")]`
   * `assignedStore: InventoryStore?` `[@relation("UserAssignedStore", fields: [assignedStoreId], references: [id])]`
+  * `contractor: Contractor?` `[@relation("ContractorUsers", fields: [contractorId], references: [id])]`
   * `staff: Staff?` `[@relation(fields: [staffId], references: [id])]`
   * `supervisor: User?` `[@relation("UserSupervisor", fields: [supervisorId], references: [id])]`
   * `subordinates: User[]` `[@relation("UserSupervisor")]`
@@ -7551,9 +7579,9 @@
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `userId: String`
-  * `tenantId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `userId: String` `[@db.Uuid]`
+  * `tenantId: String?` `[@db.Uuid]`
   * `title: String`
   * `message: String`
   * `type: String` `[@default("SYSTEM")]`
@@ -7570,7 +7598,7 @@
 
 ### [NotificationTemplate](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `code: String` `[@unique]`
   * `title: String`
   * `message: String`
@@ -7580,8 +7608,8 @@
 
 ### [NotificationEvent](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `tenantId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `tenantId: String?` `[@db.Uuid]`
   * `eventType: String`
   * `payload: Json`
   * `status: String` `[@default("PENDING")]`
@@ -7591,27 +7619,27 @@
 
 ### [AuditLog](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `userId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `userId: String?` `[@db.Uuid // nullable: 'system'/non-user events store null]`
   * `action: String`
   * `entity: String`
-  * `entityId: String`
+  * `entityId: String` `[// free-form: may be UUID, soNum, config key or 'N/A']`
   * `oldValue: Json?`
   * `newValue: Json?`
   * `ipAddress: String?`
   * `userAgent: String?`
   * `createdAt: DateTime` `[@default(now())]`
-  * `user: User` `[@relation(fields: [userId], references: [id])]`
+  * `user: User?` `[@relation(fields: [userId], references: [id], onDelete: SetNull)]`
 
 ### [Staff](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `employeeId: String` `[@unique]`
   * `designation: Role`
   * `area: String?`
-  * `opmcId: String?`
-  * `reportsToId: String?`
+  * `opmcId: String?` `[@db.Uuid]`
+  * `reportsToId: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `handoversReceived: AssetHandoverLog[]` `[@relation("HandoverReceived")]`
@@ -7630,9 +7658,9 @@
 
 ### [NotificationPreference](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `userId: String`
-  * `tenantId: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `userId: String` `[@db.Uuid]`
+  * `tenantId: String?` `[@db.Uuid]`
   * `type: String`
   * `enabled: Boolean` `[@default(true)]`
   * `inApp: Boolean` `[@default(true)]`
@@ -7646,8 +7674,8 @@
 
 ### [PushSubscription](prisma/schema/user.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `userId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `userId: String` `[@db.Uuid]`
   * `endpoint: String`
   * `p256dh: String`
   * `auth: String`
@@ -7657,7 +7685,7 @@
 
 ### [Vehicle](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `registration: String` `[@unique]`
   * `make: String?`
   * `model: String?`
@@ -7666,14 +7694,14 @@
   * `licensePhotoUrl: String?`
   * `driverName: String?`
   * `ownerType: String` `[@default("HIRED")]`
-  * `rentAmount: Float?`
-  * `fuelLimit: Float?`
+  * `rentAmount: Decimal?` `[@db.Decimal(14, 2)]`
+  * `fuelLimit: Decimal?` `[@db.Decimal(14, 2)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
 
 ### [VMSite](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `name: String`
   * `code: String` `[@unique]`
   * `address: String`
@@ -7681,12 +7709,12 @@
   * `state: String`
   * `postal_code: String`
   * `country: String`
-  * `latitude: Float`
-  * `longitude: Float`
+  * `latitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal` `[@db.Decimal(11, 8)]`
   * `contact_person: String`
   * `phone: String`
   * `email: String`
-  * `manager_id: String`
+  * `manager_id: String` `[@db.Uuid]`
   * `status: String` `[@default("ACTIVE")]`
   * `vehicle_pool_capacity: Int` `[@default(50)]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -7698,7 +7726,7 @@
 
 ### [VMVehicle](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `registration_number: String` `[@unique]`
   * `chassis_number: String` `[@unique]`
   * `engine_number: String`
@@ -7710,20 +7738,20 @@
   * `ownership: OwnershipTypeEnum`
   * `status: VehicleStatusEnum` `[@default(AVAILABLE)]`
   * `capacity_passengers: Int`
-  * `capacity_cargo_weight_kg: Float`
-  * `capacity_cargo_volume_m3: Float`
-  * `site_id: String`
-  * `current_driver_id: String?`
-  * `latitude: Float?`
-  * `longitude: Float?`
+  * `capacity_cargo_weight_kg: Decimal` `[@db.Decimal(12, 4)]`
+  * `capacity_cargo_volume_m3: Decimal` `[@db.Decimal(12, 4)]`
+  * `site_id: String` `[@db.Uuid]`
+  * `current_driver_id: String?` `[@db.Uuid]`
+  * `latitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal?` `[@db.Decimal(11, 8)]`
   * `location_timestamp: DateTime?`
   * `location_accuracy_meters: Int?`
   * `registration_date: DateTime`
   * `decommissioned_date: DateTime?`
-  * `purchase_cost: Float?`
-  * `insurance_cost_annual: Float?`
-  * `fuel_cost_per_liter: Float?`
-  * `last_odometer: Float` `[@default(0)]`
+  * `purchase_cost: Decimal?` `[@db.Decimal(14, 2)]`
+  * `insurance_cost_annual: Decimal?` `[@db.Decimal(14, 2)]`
+  * `fuel_cost_per_liter: Decimal?` `[@db.Decimal(10, 2)]`
+  * `last_odometer: Decimal` `[@db.Decimal(12, 4) @default(0)]`
   * `photo_url: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -7742,17 +7770,17 @@
 
 ### [VMOwnedVehicle](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String` `[@unique]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid    @unique]`
   * `purchase_date: DateTime`
-  * `purchase_cost: Float`
-  * `depreciation_rate_percent: Float`
+  * `purchase_cost: Decimal` `[@db.Decimal(14, 2)]`
+  * `depreciation_rate_percent: Decimal` `[@db.Decimal(8, 4)]`
   * `depreciation_schedule: String`
-  * `book_value: Float`
-  * `salvage_value: Float`
+  * `book_value: Decimal` `[@db.Decimal(14, 2)]`
+  * `salvage_value: Decimal` `[@db.Decimal(14, 2)]`
   * `finance_type: String`
-  * `loan_amount: Float?`
-  * `loan_remaining: Float?`
+  * `loan_amount: Decimal?` `[@db.Decimal(14, 2)]`
+  * `loan_remaining: Decimal?` `[@db.Decimal(14, 2)]`
   * `loan_end_date: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -7760,30 +7788,30 @@
 
 ### [VMRentalVehicle](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String` `[@unique]`
-  * `supplier_id: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid                          @unique]`
+  * `supplier_id: String` `[@db.Uuid]`
   * `supplier_contact: String?`
-  * `rental_contract_id: String` `[@unique]`
+  * `rental_contract_id: String` `[@db.Uuid                          @unique]`
   * `rental_start_date: DateTime`
   * `rental_end_date: DateTime`
-  * `rental_cost_daily: Float`
-  * `rental_cost_weekly: Float?`
-  * `rental_cost_monthly: Float?`
+  * `rental_cost_daily: Decimal` `[@db.Decimal(14, 2)]`
+  * `rental_cost_weekly: Decimal?` `[@db.Decimal(14, 2)]`
+  * `rental_cost_monthly: Decimal?` `[@db.Decimal(14, 2)]`
   * `fuel_included: Boolean` `[@default(false)]`
   * `maintenance_included: Boolean` `[@default(false)]`
   * `insurance_included: Boolean` `[@default(false)]`
   * `mileage_limit_monthly: Int?`
-  * `excess_mileage_cost_per_km: Float?`
+  * `excess_mileage_cost_per_km: Decimal?` `[@db.Decimal(10, 2)]`
   * `contract_terms: String`
-  * `driver_portion_monthly: Float?`
+  * `driver_portion_monthly: Decimal?` `[@db.Decimal(14, 2)]`
   * `expected_working_days: Int?`
-  * `rate_per_additional_km: Float?`
-  * `absent_deduction_rate: Float?`
-  * `fuel_allowance_per_km: Float?`
+  * `rate_per_additional_km: Decimal?` `[@db.Decimal(10, 2)]`
+  * `absent_deduction_rate: Decimal?` `[@db.Decimal(14, 2)]`
+  * `fuel_allowance_per_km: Decimal?` `[@db.Decimal(10, 2)]`
   * `driver_term: String?`
   * `fuel_supplying: String?`
-  * `fuel_efficiency: Float?`
+  * `fuel_efficiency: Decimal?` `[@db.Decimal(8, 4)]`
   * `bank_name: String?`
   * `bank_account_number: String?`
   * `bank_branch: String?`
@@ -7796,39 +7824,39 @@
 
 ### [VMRentedVehicleMonthlySummary](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `rentalVehicleId: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `rentalVehicleId: String` `[@db.Uuid]`
   * `year: Int`
   * `month: Int`
-  * `rental_cost_monthly: Float`
-  * `driver_portion_monthly: Float?`
+  * `rental_cost_monthly: Decimal` `[@db.Decimal(14, 2)]`
+  * `driver_portion_monthly: Decimal?` `[@db.Decimal(14, 2)]`
   * `expected_working_days: Int?`
-  * `rate_per_additional_km: Float?`
-  * `absent_deduction_rate: Float?`
-  * `fuel_allowance_per_km: Float?`
+  * `rate_per_additional_km: Decimal?` `[@db.Decimal(10, 2)]`
+  * `absent_deduction_rate: Decimal?` `[@db.Decimal(14, 2)]`
+  * `fuel_allowance_per_km: Decimal?` `[@db.Decimal(10, 2)]`
   * `fuel_supplying: String?`
-  * `fuel_efficiency: Float?`
+  * `fuel_efficiency: Decimal?` `[@db.Decimal(8, 4)]`
   * `mileage_limit_monthly: Int?`
-  * `excess_mileage_cost_per_km: Float?`
+  * `excess_mileage_cost_per_km: Decimal?` `[@db.Decimal(10, 2)]`
   * `fuel_included: Boolean` `[@default(false)]`
   * `total_days_worked: Int?`
   * `absent_days: Int?`
-  * `total_km_traveled: Float?`
-  * `base_rental: Float`
-  * `fuel_allowance_amount: Float`
-  * `driver_overtime_pay: Float`
-  * `absent_deductions: Float`
-  * `additional_km_charges: Float`
-  * `net_payment: Float`
+  * `total_km_traveled: Decimal?` `[@db.Decimal(14, 2)]`
+  * `base_rental: Decimal` `[@db.Decimal(14, 2)]`
+  * `fuel_allowance_amount: Decimal` `[@db.Decimal(14, 2)]`
+  * `driver_overtime_pay: Decimal` `[@db.Decimal(14, 2)]`
+  * `absent_deductions: Decimal` `[@db.Decimal(14, 2)]`
+  * `additional_km_charges: Decimal` `[@db.Decimal(14, 2)]`
+  * `net_payment: Decimal` `[@db.Decimal(14, 2)]`
   * `status: SummaryStatusEnum` `[@default(DRAFT)]`
-  * `prepared_by_id: String?`
+  * `prepared_by_id: String?` `[@db.Uuid]`
   * `prepared_by_name: String?`
   * `prepared_at: DateTime?`
-  * `checked_by_id: String?`
+  * `checked_by_id: String?` `[@db.Uuid]`
   * `checked_by_name: String?`
   * `checked_at: DateTime?`
   * `checked_remarks: String?`
-  * `recommended_by_id: String?`
+  * `recommended_by_id: String?` `[@db.Uuid]`
   * `recommended_by_name: String?`
   * `recommended_at: DateTime?`
   * `recommended_remarks: String?`
@@ -7839,7 +7867,7 @@
 
 ### [VMDriver](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `first_name: String`
   * `last_name: String`
   * `email: String` `[@unique]`
@@ -7862,9 +7890,9 @@
   * `trips_completed: Int` `[@default(0)]`
   * `employment_date: DateTime`
   * `employment_status: EmploymentStatusEnum` `[@default(ACTIVE)]`
-  * `site_id: String?`
-  * `base_hourly_rate: Float`
-  * `ot_hourly_rate: Float`
+  * `site_id: String?` `[@db.Uuid]`
+  * `base_hourly_rate: Decimal` `[@db.Decimal(10, 2)]`
+  * `ot_hourly_rate: Decimal` `[@db.Decimal(10, 2)]`
   * `photo_url: String?`
   * `license_front_url: String?`
   * `license_back_url: String?`
@@ -7881,20 +7909,20 @@
 
 ### [VMDriverOT](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `driver_id: String`
-  * `trip_id: String?` `[@unique]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `driver_id: String` `[@db.Uuid]`
+  * `trip_id: String?` `[@db.Uuid            @unique]`
   * `date: DateTime`
   * `shift_start_time: DateTime`
   * `shift_end_time: DateTime`
-  * `regular_hours: Float`
-  * `overtime_hours: Float`
+  * `regular_hours: Decimal` `[@db.Decimal(12, 4)]`
+  * `overtime_hours: Decimal` `[@db.Decimal(12, 4)]`
   * `break_duration_minutes: Int` `[@default(0)]`
-  * `ot_threshold_hours: Float` `[@default(8)]`
-  * `ot_rate_multiplier: Float` `[@default(1.5)]`
-  * `regular_pay: Float`
-  * `ot_pay: Float`
-  * `total_pay: Float`
+  * `ot_threshold_hours: Decimal` `[@db.Decimal(12, 4) @default(8)]`
+  * `ot_rate_multiplier: Decimal` `[@db.Decimal(8, 4) @default(1.5)]`
+  * `regular_pay: Decimal` `[@db.Decimal(14, 2)]`
+  * `ot_pay: Decimal` `[@db.Decimal(14, 2)]`
+  * `total_pay: Decimal` `[@db.Decimal(14, 2)]`
   * `status: DriverOTStatusEnum` `[@default(DRAFT)]`
   * `approved_by: String?`
   * `approved_at: DateTime?`
@@ -7905,29 +7933,29 @@
 
 ### [VMTrip](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String`
-  * `driver_id: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid]`
+  * `driver_id: String` `[@db.Uuid]`
   * `start_location_name: String`
-  * `start_location_lat: Float`
-  * `start_location_lng: Float`
+  * `start_location_lat: Decimal` `[@db.Decimal(11, 8)]`
+  * `start_location_lng: Decimal` `[@db.Decimal(11, 8)]`
   * `start_location_address: String?`
   * `end_location_name: String`
-  * `end_location_lat: Float`
-  * `end_location_lng: Float`
+  * `end_location_lat: Decimal` `[@db.Decimal(11, 8)]`
+  * `end_location_lng: Decimal` `[@db.Decimal(11, 8)]`
   * `end_location_address: String?`
   * `scheduled_start_time: DateTime`
   * `actual_start_time: DateTime?`
   * `scheduled_end_time: DateTime`
   * `actual_end_time: DateTime?`
-  * `planned_distance_km: Float?`
-  * `actual_distance_km: Float?`
+  * `planned_distance_km: Decimal?` `[@db.Decimal(12, 4)]`
+  * `actual_distance_km: Decimal?` `[@db.Decimal(12, 4)]`
   * `planned_duration_minutes: Int?`
   * `actual_duration_minutes: Int?`
   * `trip_status: TripStatusEnum` `[@default(PLANNED)]`
   * `trip_type: String`
-  * `fuel_consumed_liters: Float?`
-  * `fuel_cost: Float?`
+  * `fuel_consumed_liters: Decimal?` `[@db.Decimal(12, 4)]`
+  * `fuel_cost: Decimal?` `[@db.Decimal(14, 2)]`
   * `notes: String?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
@@ -7938,16 +7966,16 @@
 
 ### [VMFuelLog](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String`
-  * `trip_id: String?` `[@unique]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid]`
+  * `trip_id: String?` `[@db.Uuid   @unique]`
   * `fuel_type: String`
-  * `quantity_liters: Float`
-  * `cost_per_liter: Float`
-  * `total_cost: Float`
-  * `odometer_reading_km: Float`
-  * `previous_odometer_km: Float?`
-  * `fuel_efficiency_km_per_liter: Float?`
+  * `quantity_liters: Decimal` `[@db.Decimal(12, 4)]`
+  * `cost_per_liter: Decimal` `[@db.Decimal(12, 4)]`
+  * `total_cost: Decimal` `[@db.Decimal(14, 2)]`
+  * `odometer_reading_km: Decimal` `[@db.Decimal(12, 4)]`
+  * `previous_odometer_km: Decimal?` `[@db.Decimal(12, 4)]`
+  * `fuel_efficiency_km_per_liter: Decimal?` `[@db.Decimal(8, 4)]`
   * `fuel_date: DateTime`
   * `fuel_station: String?`
   * `createdAt: DateTime` `[@default(now())]`
@@ -7957,21 +7985,21 @@
 
 ### [VMInsurancePolicy](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String?`
-  * `driver_id: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String?` `[@db.Uuid]`
+  * `driver_id: String?` `[@db.Uuid]`
   * `policy_number: String` `[@unique]`
   * `insurer_name: String`
   * `insurer_contact: String`
   * `insurance_type: InsuranceTypeEnum`
-  * `coverage_limit: Float`
-  * `excess_amount: Float`
-  * `insured_value: Float`
+  * `coverage_limit: Decimal` `[@db.Decimal(14, 2)]`
+  * `excess_amount: Decimal` `[@db.Decimal(14, 2)]`
+  * `insured_value: Decimal` `[@db.Decimal(14, 2)]`
   * `issue_date: DateTime`
   * `start_date: DateTime`
   * `renewal_date: DateTime`
   * `expiry_date: DateTime`
-  * `premium_amount: Float`
+  * `premium_amount: Decimal` `[@db.Decimal(14, 2)]`
   * `premium_frequency: String`
   * `next_premium_due_date: DateTime`
   * `status: InsuranceStatusEnum` `[@default(ACTIVE)]`
@@ -7984,8 +8012,8 @@
 
 ### [VMWarranty](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid]`
   * `warranty_type: String`
   * `start_date: DateTime`
   * `expiry_date: DateTime`
@@ -8003,8 +8031,8 @@
 
 ### [VMComplianceStatus](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid]`
   * `compliance_type: ComplianceTypeEnum`
   * `compliance_due_date: DateTime`
   * `compliance_status: String`
@@ -8018,15 +8046,15 @@
 
 ### [VMPayment](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `invoice_id: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `invoice_id: String` `[@db.Uuid]`
   * `payment_type: PaymentTypeEnum`
-  * `reference_id: String`
-  * `base_amount: Float`
-  * `tax_amount: Float`
-  * `total_amount: Float`
-  * `tax_config_id: String?`
-  * `tax_rate_percent: Float?`
+  * `reference_id: String` `[@db.Uuid]`
+  * `base_amount: Decimal` `[@db.Decimal(14, 2)]`
+  * `tax_amount: Decimal` `[@db.Decimal(14, 2)]`
+  * `total_amount: Decimal` `[@db.Decimal(14, 2)]`
+  * `tax_config_id: String?` `[@db.Uuid]`
+  * `tax_rate_percent: Decimal?` `[@db.Decimal(8, 4)]`
   * `tax_type: String?`
   * `payment_date: DateTime?`
   * `payment_method: String`
@@ -8042,15 +8070,15 @@
 
 ### [VMInvoice](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `invoice_number: String` `[@unique]`
-  * `site_id: String`
-  * `issued_to_customer_id: String?`
-  * `subtotal: Float`
-  * `discount: Float?` `[@default(0)]`
+  * `site_id: String` `[@db.Uuid]`
+  * `issued_to_customer_id: String?` `[@db.Uuid]`
+  * `subtotal: Decimal` `[@db.Decimal(14, 2)]`
+  * `discount: Decimal?` `[@db.Decimal(14, 2) @default(0)]`
   * `tax_before_discount: Boolean` `[@default(false)]`
-  * `total_tax: Float`
-  * `total_amount: Float`
+  * `total_tax: Decimal` `[@db.Decimal(14, 2)]`
+  * `total_amount: Decimal` `[@db.Decimal(14, 2)]`
   * `invoice_date: DateTime`
   * `due_date: DateTime`
   * `status: String`
@@ -8063,17 +8091,17 @@
 
 ### [VMInvoiceItem](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `invoice_id: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `invoice_id: String` `[@db.Uuid]`
   * `description: String`
-  * `quantity: Float`
-  * `unit_price: Float`
-  * `line_total: Float`
-  * `tax_config_id: String?`
-  * `tax_rate_percent: Float?`
-  * `line_tax: Float`
+  * `quantity: Decimal` `[@db.Decimal(12, 4)]`
+  * `unit_price: Decimal` `[@db.Decimal(14, 2)]`
+  * `line_total: Decimal` `[@db.Decimal(14, 2)]`
+  * `tax_config_id: String?` `[@db.Uuid]`
+  * `tax_rate_percent: Decimal?` `[@db.Decimal(8, 4)]`
+  * `line_tax: Decimal` `[@db.Decimal(14, 2)]`
   * `item_type: PaymentTypeEnum`
-  * `reference_id: String?`
+  * `reference_id: String?` `[@db.Uuid]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `invoice: VMInvoice` `[@relation(fields: [invoice_id], references: [id], onDelete: Cascade)]`
@@ -8081,10 +8109,10 @@
 
 ### [VMTaxConfig](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
   * `tax_name: String`
   * `tax_type: TaxTypeEnum`
-  * `tax_rate_percent: Float`
+  * `tax_rate_percent: Decimal` `[@db.Decimal(8, 4)]`
   * `effective_from_date: DateTime`
   * `effective_to_date: DateTime?`
   * `applicable_to: String`
@@ -8098,11 +8126,11 @@
 
 ### [VMDispatchOrder](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `site_id: String`
-  * `vehicle_id: String`
-  * `driver_id: String`
-  * `trip_id: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `site_id: String` `[@db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid]`
+  * `driver_id: String` `[@db.Uuid]`
+  * `trip_id: String?` `[@db.Uuid]`
   * `assignment_date: DateTime`
   * `scheduled_start_time: DateTime`
   * `scheduled_end_time: DateTime`
@@ -8119,14 +8147,14 @@
 
 ### [VMGPSLocation](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String`
-  * `trip_id: String?`
-  * `latitude: Float`
-  * `longitude: Float`
-  * `altitude: Float?`
-  * `speed_kmh: Float?`
-  * `heading: Float?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid]`
+  * `trip_id: String?` `[@db.Uuid]`
+  * `latitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `longitude: Decimal` `[@db.Decimal(11, 8)]`
+  * `altitude: Decimal?` `[@db.Decimal(11, 8)]`
+  * `speed_kmh: Decimal?` `[@db.Decimal(12, 4)]`
+  * `heading: Decimal?` `[@db.Decimal(11, 8)]`
   * `accuracy_meters: Int?`
   * `recorded_at: DateTime`
   * `createdAt: DateTime` `[@default(now())]`
@@ -8134,8 +8162,8 @@
 
 ### [VMGeofence](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `site_id: String?`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `site_id: String?` `[@db.Uuid]`
   * `name: String`
   * `fence_type: FenceTypeEnum`
   * `boundary_points: String`
@@ -8151,14 +8179,14 @@
 
 ### [VMVehicleLog](prisma/schema/vehicle-management.prisma)
 * **Fields**:
-  * `id: String` `[@id @default(cuid())]`
-  * `vehicle_id: String`
-  * `driver_id: String`
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `vehicle_id: String` `[@db.Uuid]`
+  * `driver_id: String` `[@db.Uuid]`
   * `start_time: DateTime` `[@default(now())]`
   * `end_time: DateTime?`
-  * `start_odometer: Float`
-  * `end_odometer: Float?`
-  * `expected_start_odometer: Float`
+  * `start_odometer: Decimal` `[@db.Decimal(12, 4)]`
+  * `end_odometer: Decimal?` `[@db.Decimal(12, 4)]`
+  * `expected_start_odometer: Decimal` `[@db.Decimal(12, 4)]`
   * `odometer_mismatch: Boolean` `[@default(false)]`
   * `mismatch_reason: String?`
   * `passengers: String?`

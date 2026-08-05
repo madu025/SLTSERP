@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
-import { InvoiceService } from '@/services/invoice.service';
+import { InvoiceService } from '@/services/invoice/invoice.service';
 import { prisma } from '@/lib/prisma';
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';

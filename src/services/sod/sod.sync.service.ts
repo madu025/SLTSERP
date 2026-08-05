@@ -10,7 +10,7 @@ import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from './sod.lifecycl
 import { SodUtils } from './sod.utils';
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
-import { MaterialUsageInput } from './sod-types';
+import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
 import { format, subMonths } from 'date-fns';
 import { safe } from '@/utils/safe-await.util';
 
@@ -1486,7 +1486,7 @@ export class SODSyncService {
                         message: `Service Order ${syncedOrder.soNum} was marked as RETURN via Extension. Reason: ${mapping.returnReason || 'N/A'}.`,
                         type: 'PROJECT',
                         priority: 'HIGH',
-                        link: '/service-orders/return',
+                        link: '/service-orders/work-order/return',
                         opmcId: syncedOrder.opmcId,
                         metadata: { soNum: syncedOrder.soNum, id: syncedOrder.id, opmcId: syncedOrder.opmcId }
                     });

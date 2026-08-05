@@ -1,4 +1,4 @@
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
 

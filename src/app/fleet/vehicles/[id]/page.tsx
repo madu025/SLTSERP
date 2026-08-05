@@ -73,7 +73,7 @@ export default function VehicleDetailPage() {
                 alert(err.error?.message || 'Failed to delete');
                 return;
             }
-            router.push('/vehicles');
+            router.push('/fleet/vehicles');
         } catch (error) {
             console.error(error);
             alert('Error deleting vehicle');
@@ -127,7 +127,7 @@ export default function VehicleDetailPage() {
                         <div className="max-w-4xl mx-auto py-20 text-center text-slate-400">
                             <Car className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             <p className="text-sm font-bold">Vehicle not found</p>
-                            <Button onClick={() => router.push('/vehicles')} className="mt-3 h-8 px-4 bg-blue-600 text-white rounded-lg text-xs">Back to Vehicles</Button>
+                            <Button onClick={() => router.push('/fleet/vehicles')} className="mt-3 h-8 px-4 bg-blue-600 text-white rounded-lg text-xs">Back to Vehicles</Button>
                         </div>
                     </div>
                 </main>
@@ -145,7 +145,7 @@ export default function VehicleDetailPage() {
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <Button variant="ghost" onClick={() => router.push('/vehicles')} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
+                                <Button variant="ghost" onClick={() => router.push('/fleet/vehicles')} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
                                     <ArrowLeft className="w-4 h-4" />
                                 </Button>
                                 <div>

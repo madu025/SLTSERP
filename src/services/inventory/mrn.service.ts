@@ -7,7 +7,7 @@ import { NotificationService } from '@/services/notification/notification.servic
 import { emitSystemEvent } from '@/lib/events';
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
-import { TransactionClient } from './types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { LedgerService } from '../finance/ledger.service';
 
 export class MRNService {

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
 import { AuditService } from '@/services/audit/audit.service';
 import { AuditLedgerService } from './audit-ledger.service';
-import { TransactionClient } from './types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { LedgerService } from '../finance/ledger.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { InventoryRepository } from '@/repositories/inventory.repository';

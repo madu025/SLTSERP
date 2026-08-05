@@ -209,7 +209,7 @@ export default function VehicleScanPage() {
               <h3 className="text-base font-bold text-slate-800">Scanned QR Code Invalid</h3>
               <p className="text-xs text-slate-500 mt-1">This vehicle ID is not recognized in the SLTS ERP database.</p>
             </div>
-            <Button onClick={() => router.push('/vehicles')} className="h-8 text-xs bg-slate-900 text-white rounded-lg px-4">
+            <Button onClick={() => router.push('/fleet/vehicles')} className="h-8 text-xs bg-slate-900 text-white rounded-lg px-4">
               Back to Fleet
             </Button>
           </div>

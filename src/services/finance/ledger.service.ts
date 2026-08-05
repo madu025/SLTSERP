@@ -1,4 +1,4 @@
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { AppError } from '@/lib/error';
 import { ACCOUNTS } from './account-codes';

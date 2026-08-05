@@ -1,6 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
-import { InvoiceService } from '@/services/invoice.service';
+import { InvoiceService } from '@/services/invoice/invoice.service';
 import { createInvoiceSchema, updateInvoiceSchema, CreateInvoiceDTO, UpdateInvoiceDTO } from '@/lib/validations/invoice.schema';
 import { AppError, ErrorCode } from '@/lib/error';
 

@@ -4,3 +4,4 @@ export * from './workflow.types';
 export * from './analytics.types';
 export * from './api.types';
 export * from './constants.types';
+export * from './gis-service.types';

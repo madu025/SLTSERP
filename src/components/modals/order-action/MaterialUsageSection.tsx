@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MaterialUsageRow, InventoryItem } from "./types";
+import { MaterialUsageRow, InventoryItem } from "@/types/service-order/order-action.types";
 import { SelectGroup, SelectLabel } from "@/components/ui/select";
 import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 

@@ -171,7 +171,7 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                             <span className="w-2 h-4 bg-emerald-500 rounded-full"></span>
                             RTOM PAT Summary
                         </h3>
-                        <Link href="/service-orders/pat" className="text-xs text-primary font-bold hover:underline">View All →</Link>
+                        <Link href="/service-orders/work-order/pat" className="text-xs text-primary font-bold hover:underline">View All →</Link>
                     </div>
                     <div className="overflow-x-auto max-h-[480px]">
                         <table className="w-full">

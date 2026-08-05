@@ -1,4 +1,4 @@
-import { InvoiceCalculationResult } from './invoice-types';
+import { InvoiceCalculationResult } from '@/types/finance/invoice-service.types';
 
 export interface StatutoryInvoiceBreakdown {
     subtotal: number;

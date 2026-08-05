@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
-import { TransactionClient } from './types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export interface CreateLedgerEntryInput {
     storeId: string;

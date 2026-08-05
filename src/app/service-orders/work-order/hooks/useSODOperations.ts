@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
 
-import { OrderCompletionData } from "@/components/modals/order-action/types";
+import { OrderCompletionData } from "@/types/service-order/order-action.types";
 
 interface ServiceOrdersResponse {
     items: ServiceOrder[];

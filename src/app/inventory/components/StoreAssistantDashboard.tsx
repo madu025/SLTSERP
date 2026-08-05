@@ -17,7 +17,7 @@ import {
     Lock
 } from "lucide-react";
 import Link from 'next/link';
-import { DashboardProps } from './types';
+import { DashboardProps } from '@/types/inventory/dashboard.types';
 
 export default function StoreAssistantDashboard({
     kpiData, isLoading, refetch, stores, selectedStoreId

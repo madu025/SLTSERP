@@ -4,8 +4,8 @@ import { Prisma } from '@prisma/client';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { MaterialRepository } from '@/repositories/material.repository';
-import { MaterialUsageInput } from './sod-types';
-import { TransactionClient } from '../inventory/types';
+import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export class SODMaterialService {
     /**

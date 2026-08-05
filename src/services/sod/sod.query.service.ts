@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrderStatus } from '@prisma/client';
-import { GetServiceOrdersParams } from './sod-types';
+import { GetServiceOrdersParams } from '@/types/service-order/sod-sync.types';
 import { SOD_QUERY_COMPLETION_STATUSES, SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
 
 interface ServiceOrderItemWithIptv {

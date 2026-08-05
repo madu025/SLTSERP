@@ -6,7 +6,7 @@ import { InventoryRepository } from '@/repositories/inventory.repository';
 import { emitSystemEvent } from '@/lib/events';
 import { eventBus } from '@/lib/events/event-bus';
 import { StockService } from './stock.service';
-import { StockRequestActionData, TransactionClient } from './types';
+import { StockRequestActionData, TransactionClient } from '@/types/inventory/inventory-service.types';
 import { prisma } from '@/lib/prisma';
 import { ProcessGateEngine } from '../approval/process-gate-engine';
 import { AuditLedgerService } from './audit-ledger.service';

@@ -106,7 +106,7 @@ export default function TripsPage() {
                                 <p className="text-xs text-slate-500">Plan, track, and manage fleet trips and journeys.</p>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <Button onClick={() => router.push('/trips/new')} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                <Button onClick={() => router.push('/fleet/trips/new')} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
                                     <Plus className="w-4 h-4 mr-1.5" /> New Trip
                                 </Button>
                             </div>
@@ -198,7 +198,7 @@ export default function TripsPage() {
                                 <div className="py-20 flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-slate-200 text-slate-400">
                                     <Route className="w-10 h-10 opacity-20 mb-3" />
                                     <p className="text-xs font-bold">No trips found.</p>
-                                    <Button onClick={() => router.push('/trips/new')} className="mt-3 h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs">
+                                    <Button onClick={() => router.push('/fleet/trips/new')} className="mt-3 h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs">
                                         <Plus className="w-4 h-4 mr-1.5" /> Plan Your First Trip
                                     </Button>
                                 </div>

@@ -1,7 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
-import { TeamInput } from '@/services/contractor/contractor-types';
+import { TeamInput } from '@/types/contractor/contractor.types';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';

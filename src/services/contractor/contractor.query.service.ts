@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { ContractorQueryParams } from './contractor-types';
+import { ContractorQueryParams } from '@/types/contractor/contractor.types';
 
 export class ContractorQueryService {
     /**

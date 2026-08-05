@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { FiscalPeriodStatus } from '@prisma/client';
 import { AppError } from '@/lib/error';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export class FiscalPeriodService {
     /**

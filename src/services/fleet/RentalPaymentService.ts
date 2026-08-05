@@ -16,7 +16,7 @@ import { AppError } from '@/lib/error';
  */
 
 import { prisma as db } from '@/lib/prisma';
-import { SummaryStatus } from '@/types/finance/rental-payment.types';
+import { SummaryStatus } from '@/types/fleet/rental-payment.types';
 
 export interface MonthlySummaryInput {
   rentalVehicleId: string;

@@ -4,7 +4,7 @@ import { ContractorRepository } from '@/repositories/contractor.repository';
 import { Prisma, InventoryItem } from '@prisma/client';
 import { safe } from '@/utils/safe-await.util';
 import { emitSystemEvent } from '@/lib/events';
-import { CreateItemData, TransactionClient } from './types';
+import { CreateItemData, TransactionClient } from '@/types/inventory/inventory-service.types';
 import { prisma } from '@/lib/prisma';
 
 /** Normalize alias arrays for exact-match storage: trim + uppercase, drop blanks, dedupe. */

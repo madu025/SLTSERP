@@ -210,7 +210,7 @@ export class DomainNotificationPolicies {
             message: `SO #${order.soNum} for ${order.customerName || 'customer'} has been completed${detailStr}.`,
             type: 'PROJECT',
             priority: 'HIGH',
-            link: '/service-orders/completed',
+            link: '/service-orders/work-order/completed',
             opmcId: order.opmcId,
             metadata: { soNum: order.soNum, status: 'COMPLETED' },
         });

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { ACCOUNTS } from './account-codes';
 
 export interface CustomerReceiptPayload {

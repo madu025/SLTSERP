@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { InvoiceService } from '@/services/invoice.service';
+import { InvoiceService } from '@/services/invoice/invoice.service';
 
 export const dynamic = 'force-dynamic';
 

@@ -7,7 +7,7 @@ import {
   AutoPlanResult,
   SERVICE_RADIUS,
   Building
-} from './types';
+} from '@/types/gis/gis-service.types';
 import { GISGeometry } from './GISGeometry';
 import { GISRoadNetwork } from './GISRoadNetwork';
 import { GISCandidateScoring } from './GISCandidateScoring';

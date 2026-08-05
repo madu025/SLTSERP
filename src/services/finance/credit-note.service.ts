@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { LedgerService } from './ledger.service';
 import { ACCOUNTS } from './account-codes';
 

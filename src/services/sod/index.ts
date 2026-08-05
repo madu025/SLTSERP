@@ -1,6 +1,6 @@
 import { AppError } from '@/lib/error';
 import { ServiceOrder, Prisma } from '@prisma/client';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { SODMaterialService } from './sod.material.service';
 import { SODLifecycleService } from './sod.lifecycle.service';
@@ -8,7 +8,7 @@ import { SODSyncService } from './sod.sync.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODQueryService } from './sod.query.service';
 import { SODImportService } from './sod.import.service';
-import { GetServiceOrdersParams, ServiceOrderUpdateData } from './sod-types';
+import { GetServiceOrdersParams, ServiceOrderUpdateData } from '@/types/service-order/sod-sync.types';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { prisma } from '@/lib/prisma';
 

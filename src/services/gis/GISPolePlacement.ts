@@ -1,4 +1,4 @@
-import { PlannedCable, PlannedClosure, PlannedPole, RoadSegment } from './types';
+import { PlannedCable, PlannedClosure, PlannedPole, RoadSegment } from '@/types/gis/gis-service.types';
 import { GISGeometry } from './GISGeometry';
 import { GISRoadNetwork } from './GISRoadNetwork';
 import { safeSync } from '@/utils/safe-await.util';

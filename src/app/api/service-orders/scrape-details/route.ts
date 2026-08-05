@@ -5,7 +5,7 @@ import { AppError } from '@/lib/error';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/sod/scrape-details?soNum=CEN202512230062322
+ * GET /api/service-orders/scrape-details?soNum=CEN202512230062322
  * Fetch and parse SOD details from SLT HTML page
  */
 export const GET = apiHandler(async (request) => {

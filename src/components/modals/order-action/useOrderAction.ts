@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData } from "./types";
+import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData } from "@/types/service-order/order-action.types";
 import { formatMaterialUsage } from "./utils";
 
 interface BridgeMaterialDetail {

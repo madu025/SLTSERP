@@ -4,7 +4,7 @@ import { safe } from '@/utils/safe-await.util';
 import { GRN, Prisma } from '@prisma/client';
 import { NotificationService } from '@/services/notification/notification.service';
 import { emitSystemEvent } from '@/lib/events';
-import { CreateGRNData, TransactionClient } from './types';
+import { CreateGRNData, TransactionClient } from '@/types/inventory/inventory-service.types';
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { LedgerService } from '../finance/ledger.service';

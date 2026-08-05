@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { ProjectService } from '@/services/project.service';
+import { ProjectService } from '@/services/project/project.service';
 
 export const dynamic = 'force-dynamic';
 

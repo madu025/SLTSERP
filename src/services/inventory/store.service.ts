@@ -5,7 +5,7 @@ import { InventoryStore, Prisma } from '@prisma/client';
 import { eventBus } from '@/lib/events/event-bus';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
-import { StoreWithDetails } from './types';
+import { StoreWithDetails } from '@/types/inventory/inventory-service.types';
 
 export class StoreService {
     /** Anti-spam: cooldown map for low-stock alerts (key = storeId:itemId, value = last alert timestamp) */

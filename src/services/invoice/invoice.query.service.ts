@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { SODWithOPMC, RegionalInvoiceGroup } from './invoice-types';
+import { SODWithOPMC, RegionalInvoiceGroup } from '@/types/finance/invoice-service.types';
 
 export class InvoiceQueryService {
     /**

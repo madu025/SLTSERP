@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { LedgerService } from './ledger.service';
 import { ACCOUNTS } from './account-codes';
 import { AppError } from '@/lib/error';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export interface InvoiceTaxPostingPayload {
     invoiceId: string;

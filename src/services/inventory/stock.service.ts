@@ -2,7 +2,7 @@ import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
 import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue } from '@prisma/client';
-import { TransactionClient, PickedBatch } from './types';
+import { TransactionClient, PickedBatch } from '@/types/inventory/inventory-service.types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { AuditLedgerService } from './audit-ledger.service';

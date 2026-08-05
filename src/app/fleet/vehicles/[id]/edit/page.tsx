@@ -102,7 +102,7 @@ export default function EditVehiclePage() {
         } catch (error) {
             console.error(error);
             alert('Failed to load vehicle');
-            router.push('/vehicles');
+            router.push('/fleet/vehicles');
         } finally {
             setLoading(false);
         }

@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { TransactionClient } from './types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { AuditService } from '@/services/audit/audit.service';
 import { InventoryService } from '@/services/inventory/inventory.service';
 

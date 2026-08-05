@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { Prisma } from '@prisma/client';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { LedgerService } from './ledger.service';
 import crypto from 'crypto';
 

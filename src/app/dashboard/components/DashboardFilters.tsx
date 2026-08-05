@@ -160,7 +160,7 @@ export function DashboardFilters({
             {/* ── PAT Rejection Alert Banner ──────────────── */}
             {patRejectedCount > 0 && (
                 <Link
-                    href="/service-orders/pat"
+                    href="/service-orders/work-order/pat"
                     className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/30 rounded-2xl text-rose-500 hover:bg-rose-500/15 transition-all group shadow-md"
                 >
                     <span className="relative flex h-3 w-3 shrink-0">

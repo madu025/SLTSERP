@@ -3,10 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
-import { ContractorUpdateData, TeamInput, TeamMemberInput } from './contractor-types';
+import { ContractorUpdateData, TeamInput, TeamMemberInput } from '@/types/contractor/contractor.types';
 import { ContractorQueryService } from './contractor.query.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { eventBus } from '@/lib/events/event-bus';
 
 export class ContractorLifecycleService {

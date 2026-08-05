@@ -56,7 +56,7 @@ export default function ServiceOrderDetailPage() {
             <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-4">
                 <p className="text-lg font-bold text-slate-800">Order {soNum} not found</p>
                 <button 
-                    onClick={() => router.push('/service-orders/pat')}
+                    onClick={() => router.push('/service-orders/work-order/pat')}
                     className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition"
                 >
                     Back to PAT Orders
@@ -69,7 +69,7 @@ export default function ServiceOrderDetailPage() {
         <div className="min-h-screen bg-slate-50 p-8 flex items-center justify-center">
             <DetailModal 
                 isOpen={true} 
-                onClose={() => router.push('/service-orders/pat')} 
+                onClose={() => router.push('/service-orders/work-order/pat')} 
                 selectedOrder={order} 
             />
         </div>

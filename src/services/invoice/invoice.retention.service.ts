@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { RetentionReleaseResult } from './invoice-types';
+import { RetentionReleaseResult } from '@/types/finance/invoice-service.types';
 
 export class InvoiceRetentionService {
     /**

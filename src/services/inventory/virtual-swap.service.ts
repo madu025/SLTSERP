@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
-import { TransactionClient } from './types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { AuditLedgerService } from './audit-ledger.service';
 
 export class VirtualSwapService {

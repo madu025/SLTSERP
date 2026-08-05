@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
-import { InvoiceService } from '@/services/invoice.service';
+import { InvoiceService } from '@/services/invoice/invoice.service';
 import { z } from 'zod';
 import { requestContext } from '@/lib/request-context';
 import { AppError } from '@/lib/error';

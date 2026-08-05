@@ -396,7 +396,7 @@ export default function AdminGuidePage() {
             questionEn: 'How does SF Audit Division verify contractor invoice pricing against the dynamic rate matrix?',
             summary: 'කොන්ත්‍රාත්කරුවන් ඉදිරිපත් කරන බිල්පත් වල මුදල් අගයන් Dynamic Rate Matrix එක සමග සසඳා Audit කරන ආකාරය.',
             steps: [
-                { num: 1, title: 'Pricing Audit Module එකට යාම', description: '/sf-audit/pricing-audit පිටුවට යන්න.' },
+                { num: 1, title: 'Pricing Audit Module එකට යාම', description: '/finance/sf-audit/pricing-audit පිටුවට යන්න.' },
                 { num: 2, title: 'Invoice එක තේරීම', description: 'Audit කළ යුතු Contractor Invoice එක Select කරන්න.' },
                 { num: 3, title: 'System Auto-Variance Calculation', description: 'පද්ධතිය මගින් Billed Amount සහ Dynamic Rate Matrix එකෙන් ආ යුතු Expected Amount සසඳා Variance % එක පෙන්වයි.' },
                 { num: 4, title: 'Auditor Approval / Flagging', description: 'වෙනසක් නැතිනම් "Approve Audit" ඔබන්න. වැඩිපුර බිල් කර ඇත්නම් "Flag Overcharge" කර Reject කරන්න.' }
@@ -406,7 +406,7 @@ export default function AdminGuidePage() {
                 'අනුමත වූ නිවැරදි බිල්පත් පමණක් Finance Payment Vouchers සඳහා නිකුත් වීම.'
             ],
             tags: ['sf audit', 'pricing audit', 'invoice audit', 'variance'],
-            actionRoute: '/sf-audit/pricing-audit',
+            actionRoute: '/finance/sf-audit/pricing-audit',
             actionLabel: 'Pricing Audit Module'
         },
 

@@ -188,7 +188,7 @@ export default function TripDetailPage() {
                         <div className="max-w-4xl mx-auto py-20 text-center text-slate-400">
                             <Route className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             <p className="text-sm font-bold">Trip not found</p>
-                            <Button onClick={() => router.push('/trips')} className="mt-3 h-8 px-4 bg-blue-600 text-white rounded-lg text-xs">Back to Trips</Button>
+                            <Button onClick={() => router.push('/fleet/trips')} className="mt-3 h-8 px-4 bg-blue-600 text-white rounded-lg text-xs">Back to Trips</Button>
                         </div>
                     </div>
                 </main>
@@ -210,7 +210,7 @@ export default function TripDetailPage() {
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <Button variant="ghost" onClick={() => router.push('/trips')} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
+                                <Button variant="ghost" onClick={() => router.push('/fleet/trips')} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
                                     <ArrowLeft className="w-4 h-4" />
                                 </Button>
                                 <div>

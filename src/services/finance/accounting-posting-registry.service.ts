@@ -1,5 +1,5 @@
 import { LedgerService, JournalPostingLineInput } from './ledger.service';
-import { TransactionClient } from '../inventory/types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { ACCOUNTS } from './account-codes';
 
 export interface ContractorInvoicePostingPayload {

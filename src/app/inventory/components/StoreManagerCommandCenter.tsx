@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
-import { DashboardProps } from './types';
+import { DashboardProps } from '@/types/inventory/dashboard.types';
 
 export default function StoreManagerCommandCenter({
     user, stores, kpiData, isLoading, refetch, selectedStoreId, setSelectedStoreId

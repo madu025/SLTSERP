@@ -94,7 +94,7 @@ export default function VehiclesPage() {
                                 <p className="text-xs text-slate-500">Manage fleet vehicles, track status and assignments.</p>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <Button onClick={() => router.push('/vehicles/new')} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                <Button onClick={() => router.push('/fleet/vehicles/new')} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
                                     <Plus className="w-4 h-4 mr-1.5" /> Add Vehicle
                                 </Button>
                             </div>
@@ -199,7 +199,7 @@ export default function VehiclesPage() {
                                 <div className="py-20 flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-slate-200 text-slate-400">
                                     <Car className="w-10 h-10 opacity-20 mb-3" />
                                     <p className="text-xs font-bold">No vehicles found.</p>
-                                    <Button onClick={() => router.push('/vehicles/new')} className="mt-3 h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs">
+                                    <Button onClick={() => router.push('/fleet/vehicles/new')} className="mt-3 h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs">
                                         <Plus className="w-4 h-4 mr-1.5" /> Add Your First Vehicle
                                     </Button>
                                 </div>

@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { hasRole } from '@/config/roles';
 import StoreManagerCommandCenter from './components/StoreManagerCommandCenter';
 import StoreAssistantDashboard from './components/StoreAssistantDashboard';
-import { User, StoreType, KpiData } from './components/types';
+import { User, StoreType, KpiData } from '@/types/inventory/dashboard.types';
 
 export default function StoresManagerDashboardPage() {
     const [user] = useState<User | null>(() => {

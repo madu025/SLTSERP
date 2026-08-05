@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { OSMNode, OSMWay } from './types';
+import { OSMNode, OSMWay } from '@/types/gis/gis-service.types';
 import { safe } from '@/utils/safe-await.util';
 
 export class GISGeoPackageService {

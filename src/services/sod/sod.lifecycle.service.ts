@@ -1,8 +1,8 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrderStatus } from '@prisma/client';
-import { ServiceOrderUpdateData } from './sod-types';
-import { TransactionClient } from '../inventory/types';
+import { ServiceOrderUpdateData } from '@/types/service-order/sod-sync.types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { eventBus } from '@/lib/events/event-bus';

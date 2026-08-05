@@ -60,7 +60,7 @@ export default function NewVehiclePage() {
                 alert(err.error?.message || "Failed to create vehicle");
                 return;
             }
-            router.push("/vehicles");
+            router.push("/fleet/vehicles");
         } catch (error) {
             console.error(error);
             alert("Error creating vehicle");
@@ -78,7 +78,7 @@ export default function NewVehiclePage() {
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
                     <div className="max-w-3xl mx-auto space-y-4">
                         <div className="flex items-center gap-3">
-                            <Button variant="ghost" onClick={() => router.push("/vehicles")} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
+                            <Button variant="ghost" onClick={() => router.push("/fleet/vehicles")} className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600">
                                 <ArrowLeft className="w-4 h-4" />
                             </Button>
                             <div>
@@ -184,7 +184,7 @@ export default function NewVehiclePage() {
                             </Card>
 
                             <div className="flex justify-end gap-3 mt-4">
-                                <Button type="button" variant="outline" onClick={() => router.push("/vehicles")} className="h-10 px-6 rounded-lg text-xs font-bold">
+                                <Button type="button" variant="outline" onClick={() => router.push("/fleet/vehicles")} className="h-10 px-6 rounded-lg text-xs font-bold">
                                     Cancel
                                 </Button>
                                 <Button type="submit" disabled={loading} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs">

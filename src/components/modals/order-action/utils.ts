@@ -1,4 +1,4 @@
-import { MaterialUsageRow } from "./types";
+import { MaterialUsageRow } from "@/types/service-order/order-action.types";
 
 export function formatMaterialUsage(rows: MaterialUsageRow[]) {
     const flat = rows.flatMap(row => {

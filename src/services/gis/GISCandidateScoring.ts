@@ -1,5 +1,5 @@
 import RBush from 'rbush';
-import { RoadSegment, Building, PlannedClosure, CandidateDP, BuildingIndexItem, ROAD_PRIORITY, SERVICE_RADIUS, MIN_DP_SPACING, MAX_BUILDINGS_PER_DP } from './types';
+import { RoadSegment, Building, PlannedClosure, CandidateDP, BuildingIndexItem, ROAD_PRIORITY, SERVICE_RADIUS, MIN_DP_SPACING, MAX_BUILDINGS_PER_DP } from '@/types/gis/gis-service.types';
 import { GISGeometry } from './GISGeometry';
 import { GISRoadNetwork } from './GISRoadNetwork';
 

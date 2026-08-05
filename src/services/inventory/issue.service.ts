@@ -6,7 +6,7 @@ import { StockService } from './stock.service';
 import { StoreService } from './store.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { emitSystemEvent } from '@/lib/events';
-import { TransactionClient } from './types';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 

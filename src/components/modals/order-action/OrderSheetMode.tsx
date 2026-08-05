@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Contractor, InventoryItem, MaterialUsageRow, OrderActionData } from "./types";
+import { Contractor, InventoryItem, MaterialUsageRow, OrderActionData } from "@/types/service-order/order-action.types";
 import { OrderAssignmentSection } from "./OrderAssignmentSection";
 import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 import { toast } from "sonner";

@@ -1,10 +1,10 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { InvoiceQueryService } from './invoice/invoice.query.service';
-import { InvoiceGeneratorService } from './invoice/invoice.generator.service';
-import { InvoiceCalculatorService } from './invoice/invoice.calculator.service';
-import { InvoiceRetentionService } from './invoice/invoice.retention.service';
+import { InvoiceQueryService } from './invoice.query.service';
+import { InvoiceGeneratorService } from './invoice.generator.service';
+import { InvoiceCalculatorService } from './invoice.calculator.service';
+import { InvoiceRetentionService } from './invoice.retention.service';
 import { CreateInvoiceDTO, UpdateInvoiceDTO } from '@/lib/validations/invoice.schema';
 import { AppError, ErrorCode } from '@/lib/error';
 

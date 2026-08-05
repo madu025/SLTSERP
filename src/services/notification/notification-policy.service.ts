@@ -138,7 +138,7 @@ export class NotificationPolicyService {
             message: `Service Order ${sod.soNum} has been marked as RETURN. Reason: ${sod.returnReason || 'No reason provided'}.`,
             type: 'PROJECT',
             priority: 'HIGH',
-            link: '/service-orders/return',
+            link: '/service-orders/work-order/return',
             opmcId: sod.opmcId,
             metadata: { soNum: sod.soNum, id: sod.id }
         });

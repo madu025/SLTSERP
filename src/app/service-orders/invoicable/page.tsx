@@ -143,7 +143,7 @@ function InvoicableServiceOrdersContent() {
         setNotice(null);
 
         try {
-            const res = await fetch('/api/sod/verify-invoicable', {
+            const res = await fetch('/api/service-orders/verify-invoicable', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sodIds: targetIds, notes: 'Batch Engineer Approval Verification' })
