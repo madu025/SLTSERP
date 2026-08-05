@@ -701,3 +701,19 @@ Verification: npx tsc --noEmit clean; endpoint live-verified (401 without sessio
 - A3: `src/data/slt-config.json` orphan -> move to `src/config/`
 
 **Verified:** tsc clean (0 errors). 30+ files changed.
+
+## Session 2026-08-05 — Procurement E2E Browser Audit (4x OSP-NC materials)
+
+**Scope:** Full workflow browser test: PRN (Sanjewa/STORES_MANAGER, Kaduwela, LOCAL_PURCHASE) -> OSP approval -> procurement authorization -> PO-202608-3162 -> GRN -> store receipt.
+
+| Gap | Root Cause | Fix (dynamic) |
+|---|---|---|
+| GRN HTTP 200 but zero rows persisted | `grn.service.ts` row-lock raw SQL compared `uuid = text` (Postgres 42883), whole transaction rolled back | Explicit `::uuid` cast on the bound parameter |
+| Approvals PENDING queue missed HOS_APPROVAL, hardcoded stage list | Static `workflowStage=REQUEST,HOS_APPROVAL` filter | New `awaitingApproval` filter resolves stages from live `ProcessGatePolicy` (MATERIAL_REQUEST, enabled, non-ISSUED gates) + legacy PENDING/REQUEST aliases |
+| `createGRN` 500 for PROCUREMENT_OFFICER despite page access | Hardcoded role array drifted from sidebar | New `getMenuAllowedRoles('/inventory/grn')` — action authorization now derives from SIDEBAR_MENU (single source of truth, static fallback) |
+
+**Decisions:**
+- Sidebar GRN entry gained STORES_ASSISTANT (was already allowed by the action) to keep the single source of truth complete.
+- Gate-driven queue intentionally excludes the terminal dispatch gate (toStatus=ISSUED) — that stage belongs to the MIN issue flow.
+
+**E2E result:** GRN-2026-08-0001 created via browser; PRN-20260805-1844 -> workflowStage/status/procurementStatus all COMPLETED; receivedQty matches requestedQty (100/50/50/200); InventoryStock at Kaduwela verified; 4 immutable InventoryLedger (GRN_RECEIPT) entries written. tsc clean.

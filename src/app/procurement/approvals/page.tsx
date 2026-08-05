@@ -75,8 +75,9 @@ export default function ApprovalsPage() {
         queryFn: async () => {
             let url = "";
             if (activeTab === "PENDING") {
-                // PENDING: Only procurement requests awaiting manager approval
-                url = `/api/inventory/requests?workflowStage=REQUEST&status=PENDING&_t=${Date.now()}`;
+                // PENDING: approval queue resolved dynamically from ProcessGatePolicy
+                // (MATERIAL_REQUEST gates) on the server — no hardcoded stage list here
+                url = `/api/inventory/requests?awaitingApproval=true&status=PENDING&_t=${Date.now()}`;
             } else {
                 // HISTORY: Show ALL approved/rejected requests (procurement + internal transfers)
                 // This gives managers a unified view of all their approval decisions

@@ -23,16 +23,29 @@ function extractRoutePermissions(items: MenuItem[]): Map<string, string[]> {
     for (const item of items) {
         // Use the top-level path as the prefix for route guarding
         const prefix = getPrefixFromPath(item.path);
-        if (prefix && !map.has(prefix)) {
-            map.set(prefix, item.allowedRoles);
+        if (prefix) {
+            if (map.has(prefix)) {
+                // MERGE roles when multiple menu items share the same prefix
+                const existing = map.get(prefix)!;
+                const merged = [...new Set([...existing, ...item.allowedRoles])];
+                map.set(prefix, merged);
+            } else {
+                map.set(prefix, [...item.allowedRoles]);
+            }
         }
 
-        // Recurse into submenu but only register NEW prefixes
+        // Recurse into submenu and merge roles there too
         if (item.submenu) {
             for (const sub of item.submenu) {
                 const subPrefix = getPrefixFromPath(sub.path);
-                if (subPrefix && !map.has(subPrefix)) {
-                    map.set(subPrefix, sub.allowedRoles);
+                if (subPrefix) {
+                    if (map.has(subPrefix)) {
+                        const existing = map.get(subPrefix)!;
+                        const merged = [...new Set([...existing, ...sub.allowedRoles])];
+                        map.set(subPrefix, merged);
+                    } else {
+                        map.set(subPrefix, [...sub.allowedRoles]);
+                    }
                 }
             }
         }
@@ -56,6 +69,26 @@ function getPrefixFromPath(path: string): string | null {
 
 // Build the permission map once at module load (singleton)
 const permissionMap = extractRoutePermissions(SIDEBAR_MENU);
+
+/**
+ * Resolve the allowedRoles of an EXACT menu path (including submenu items).
+ * Lets server actions derive their authorization from the same sidebar config
+ * that drives route-level RBAC — single source of truth, zero duplication.
+ * Returns null when the path is not declared in the sidebar menu.
+ */
+export function getMenuAllowedRoles(path: string): string[] | null {
+    const search = (items: MenuItem[]): string[] | null => {
+        for (const item of items) {
+            if (item.path === path) return item.allowedRoles;
+            if (item.submenu) {
+                const found = search(item.submenu);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+    return search(SIDEBAR_MENU);
+}
 
 /**
  * Check if a given role has access to a specific pathname.

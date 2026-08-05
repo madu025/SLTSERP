@@ -1,8 +1,9 @@
 'use server';
 
 import { InventoryService } from '@/services/inventory/inventory.service';
-import { requireAuth } from '@/lib/server-utils';
+import { requireAuth, toSerializable } from '@/lib/server-utils';
 import { ROLE_GROUPS } from '@/config/roles';
+import { getMenuAllowedRoles } from '@/config/route-permissions';
 import { revalidatePath } from 'next/cache';
 
 // --- ITEM MANAGEMENT ---
@@ -12,7 +13,7 @@ export async function createItem(data: any) {
     try {
         const item = await InventoryService.createItem(data);
         revalidatePath('/inventory/items');
-        return { success: true, data: item };
+        return { success: true, data: toSerializable(item) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error creating item' };
     }
@@ -23,7 +24,7 @@ export async function updateItem(id: string, data: any) {
     try {
         const item = await InventoryService.updateItem(id, data);
         revalidatePath('/inventory/items');
-        return { success: true, data: item };
+        return { success: true, data: toSerializable(item) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error updating item' };
     }
@@ -69,7 +70,7 @@ export async function createStore(data: any) {
     try {
         const store = await InventoryService.createStore(data);
         revalidatePath('/admin/stores');
-        return { success: true, data: store };
+        return { success: true, data: toSerializable(store) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error creating store' };
     }
@@ -80,7 +81,7 @@ export async function updateStore(id: string, data: any) {
     try {
         const store = await InventoryService.updateStore(id, data);
         revalidatePath('/admin/stores');
-        return { success: true, data: store };
+        return { success: true, data: toSerializable(store) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error updating store' };
     }
@@ -99,8 +100,13 @@ export async function deleteStore(id: string) {
 
 // --- GRN / MRN OPERATIONS ---
 
+// Authorization derived from the sidebar menu (single source of truth) so the
+// GRN page and its write action can never drift apart. Fallback keeps the
+// action safe if the menu entry is ever removed.
+const GRN_ALLOWED_ROLES = getMenuAllowedRoles('/inventory/grn') ?? ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'];
+
 export async function createGRN(data: any) {
-    const user = await requireAuth(['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN']);
+    const user = await requireAuth(GRN_ALLOWED_ROLES);
     try {
         const result = await InventoryService.createGRN({
             ...data,
@@ -108,7 +114,9 @@ export async function createGRN(data: any) {
         });
         revalidatePath('/inventory/grn');
         revalidatePath('/inventory/stock');
-        return { success: true, data: result };
+        // Return only plain serializable fields — the raw Prisma GRN carries Decimal
+        // quantities which cannot cross the Server Action serialization boundary
+        return { success: true, data: { id: result.id, grnNumber: result.grnNumber } };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error creating GRN' };
     }
@@ -119,7 +127,7 @@ export async function createMRN(data: any) {
     try {
         const result = await InventoryService.createMRN(data);
         revalidatePath('/inventory/mrn');
-        return { success: true, data: result };
+        return { success: true, data: toSerializable(result) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error creating MRN' };
     }
@@ -131,7 +139,7 @@ export async function updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT
         const result = await InventoryService.updateMRNStatus(mrnId, action, user.id);
         revalidatePath('/inventory/mrn');
         revalidatePath('/inventory/stock');
-        return { success: true, data: result };
+        return { success: true, data: toSerializable(result) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error updating MRN status' };
     }
@@ -147,7 +155,7 @@ export async function createStockRequest(data: any) {
             requestedById: user.id
         });
         revalidatePath('/inventory/requests');
-        return { success: true, data: result };
+        return { success: true, data: toSerializable(result) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error creating stock request' };
     }
@@ -162,7 +170,7 @@ export async function createStockIssue(data: any) {
         });
         revalidatePath('/inventory/issues');
         revalidatePath('/inventory/stock');
-        return { success: true, data: result };
+        return { success: true, data: toSerializable(result) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error creating stock issue' };
     }
@@ -178,7 +186,7 @@ export async function processStockRequestAction(data: any) {
         revalidatePath('/inventory/requests');
         revalidatePath('/inventory/stock');
         revalidatePath('/inventory/grn');
-        return { success: true, data: result };
+        return { success: true, data: toSerializable(result) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error processing stock request' };
     }
@@ -195,7 +203,7 @@ export async function issueMaterial(data: any) {
         });
         revalidatePath('/inventory/issuance');
         revalidatePath('/inventory/stock');
-        return { success: true, data: result };
+        return { success: true, data: toSerializable(result) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error issuing material' };
     }
@@ -210,7 +218,7 @@ export async function recordWastage(data: any) {
         });
         revalidatePath('/inventory/wastage');
         revalidatePath('/inventory/stock');
-        return { success: true, data: result };
+        return { success: true, data: toSerializable(result) };
     } catch (error: any) {
         return { success: false, error: error.message || 'Error recording wastage' };
     }

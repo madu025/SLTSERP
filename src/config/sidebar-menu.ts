@@ -499,7 +499,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Goods Receipt (GRN)',
                 path: '/inventory/grn',
                 icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER']
             },
             {
                 // Single Unified Hub: Stock Requests + Material Requests + Approvals
@@ -572,7 +572,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Procurement Approvals',
                 path: '/procurement/approvals',
                 icon: FileSignature,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER']
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'PROCUREMENT_OFFICER']
             },
             {
                 title: 'Contractor Registration Approvals',

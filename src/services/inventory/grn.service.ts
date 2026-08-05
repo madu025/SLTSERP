@@ -246,7 +246,9 @@ export class GRNService {
             // 4. Update Request Status if linked
             if (requestId) {
                 // Lock the StockRequest row to prevent concurrent race conditions
-                await tx.$executeRaw`SELECT id FROM "StockRequest" WHERE id = ${requestId} FOR UPDATE`;
+                // Explicit ::uuid cast — Prisma binds the parameter as text and Postgres
+                // has no implicit text->uuid operator, which would fail the whole transaction
+                await tx.$executeRaw`SELECT id FROM "StockRequest" WHERE id = ${requestId}::uuid FOR UPDATE`;
 
                 const request = await tx.stockRequest.findUnique({
                     where: { id: requestId },

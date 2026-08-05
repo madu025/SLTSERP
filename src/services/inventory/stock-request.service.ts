@@ -176,6 +176,7 @@ export class StockRequestService {
         workflowStage?: string;
         sourceType?: string;
         procurementStatus?: string;
+        awaitingApproval?: boolean;
     }) {
         const where: Prisma.StockRequestWhereInput = {};
 
@@ -194,6 +195,22 @@ export class StockRequestService {
 
         if (filters.workflowStage) {
             const stages = filters.workflowStage.split(',');
+            where.workflowStage = { in: stages };
+        }
+
+        // Gate-driven approval queue: stages are resolved from the live ProcessGatePolicy
+        // table (MATERIAL_REQUEST) instead of a hardcoded stage list, so adding/renaming
+        // gates under Admin > Process Gates automatically reshapes the approval queue.
+        // The terminal dispatch gate (toStatus = ISSUED) is excluded — that stage is
+        // handled by the stock-issue flow, not the approval screen.
+        if (filters.awaitingApproval) {
+            const gates = await prisma.processGatePolicy.findMany({
+                where: { entityType: 'MATERIAL_REQUEST', isEnabled: true, NOT: { toStatus: 'ISSUED' } },
+                select: { fromStatus: true }
+            });
+            // 'PENDING'/'REQUEST' are legacy aliases resolved to the first approval
+            // stage by handleGatePassed, so legacy records stay visible in the queue.
+            const stages = [...new Set([...gates.map(g => g.fromStatus), 'PENDING', 'REQUEST'])];
             where.workflowStage = { in: stages };
         }
 
