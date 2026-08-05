@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { verifyJWT } from './auth';
+import { validateSession } from './session-validator';
 
 /**
  * Recursively convert Prisma results into plain serializable values so they can
@@ -43,9 +44,18 @@ export async function getCurrentUser() {
     const payload = await verifyJWT(token);
     if (!payload) return null;
 
+    const userId = payload.id as string;
+    const tokenVersion = typeof payload.tokenVersion === 'number' ? payload.tokenVersion : null;
+
+    // Fail-closed freshness check: account must exist, be active, and the
+    // token version must match the DB. Returns the live DB role so privilege
+    // changes take effect immediately (not the possibly-stale JWT claim).
+    const session = await validateSession(userId, tokenVersion);
+    if (!session.valid) return null;
+
     return {
-        id: payload.id as string,
-        role: payload.role as string,
+        id: userId,
+        role: session.role as string,
         username: payload.username as string,
         name: payload.name as string
     };

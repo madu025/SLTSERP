@@ -6,6 +6,7 @@ import { SystemMonitoringService } from '@/services/admin/system-monitoring.serv
 import { requestContext } from './request-context';
 import { logger } from './logger';
 import { getMenuAllowedRoles } from '@/config/route-permissions';
+import { validateSession } from '@/lib/session-validator';
 
 // ─── Response Envelope ────────────────────────────────────────────────────────
 
@@ -180,13 +181,32 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
         const start = Date.now();
 
         const userId         = req.headers.get('x-user-id');
-        const userRole       = req.headers.get('x-user-role');
+        let userRole         = req.headers.get('x-user-role');
         const rawReqId       = req.headers.get('x-request-id');
         const requestId      = rawReqId ?? crypto.randomUUID();
         const idempotencyKey = req.headers.get('x-idempotency-key');
 
         return await requestContext.run({ requestId }, async () => {
             try {
+                // ── 0. Session freshness (fail-closed) ───────────────────────
+                // Verifies the account still exists, is active, and the token
+                // version matches the DB — role/status changes invalidate all
+                // existing tokens immediately. The DB role replaces the JWT
+                // claim so privilege changes take effect without re-login delay.
+                if (userId) {
+                    const rawVersion = req.headers.get('x-token-version');
+                    const parsedVersion = rawVersion === null || rawVersion === '' ? NaN : Number(rawVersion);
+                    const session = await validateSession(userId, Number.isFinite(parsedVersion) ? parsedVersion : null);
+                    if (!session.valid) {
+                        throw new AppError(
+                            'Session expired: account deactivated or credentials changed',
+                            ErrorCode.UNAUTHORIZED,
+                            401
+                        );
+                    }
+                    if (session.role) userRole = session.role;
+                }
+
                 // ── 1. RBAC (fail-closed) ──────────────────────────────────
                 if (options?.roles && options.roles.length > 0 || options?.menuPath) {
                     // Explicit `roles` win; otherwise resolve dynamically from the

@@ -80,6 +80,7 @@ export async function middleware(request: NextRequest) {
     requestHeaders.delete('x-user-id');
     requestHeaders.delete('x-user-role');
     requestHeaders.delete('x-contractor-id');
+    requestHeaders.delete('x-token-version');
 
     // Check if the path is public
     const isPublicAuditSubmit = pathname === '/api/helpdesk/assets/audits' && request.method === 'POST';
@@ -143,6 +144,10 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-user-role', userRole);
     if (verifiedToken.contractorId) {
         requestHeaders.set('x-contractor-id', verifiedToken.contractorId as string);
+    }
+    // Propagate the token version so downstream handlers can verify session freshness
+    if (verifiedToken.tokenVersion !== undefined) {
+        requestHeaders.set('x-token-version', String(verifiedToken.tokenVersion));
     }
 
     // Route-level RBAC enforcement: block direct URL access to pages the role shouldn't reach

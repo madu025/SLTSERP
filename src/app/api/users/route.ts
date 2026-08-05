@@ -35,6 +35,9 @@ export const POST = apiHandler(async (request, _params, body) => {
         if (errorMsg === 'OPMC_REQUIRED') {
             throw AppError.badRequest('OPMC selection is required for New Connection and Service Assurance roles');
         }
+        if (errorMsg === 'CANNOT_ASSIGN_SUPER_ADMIN') {
+            throw AppError.forbidden('Only a Super Admin can assign the SUPER_ADMIN role');
+        }
         throw error;
     }
 }, {
@@ -60,6 +63,12 @@ export const PUT = apiHandler(async (request, _params, body) => {
         }
         if (errorMsg === 'CANNOT_DEMOTE_SUPER_ADMIN') {
             throw AppError.forbidden('Cannot demote Super Admin');
+        }
+        if (errorMsg === 'CANNOT_ASSIGN_SUPER_ADMIN') {
+            throw AppError.forbidden('Only a Super Admin can assign the SUPER_ADMIN role');
+        }
+        if (errorMsg === 'CANNOT_MODIFY_SUPER_ADMIN') {
+            throw AppError.forbidden('Only a Super Admin can modify a Super Admin account');
         }
         throw error;
     }

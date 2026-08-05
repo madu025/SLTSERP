@@ -12,6 +12,11 @@ export async function createUser(data: any) {
     try {
         const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
 
+        // Privilege escalation guard: only SUPER_ADMIN may grant SUPER_ADMIN
+        if (role === 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+            return { success: false, error: 'Only a Super Admin can assign the SUPER_ADMIN role' };
+        }
+
         // Validate OPMC requirement
         const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
         if (requiresOPMC && (!opmcIds || opmcIds.length === 0)) {
@@ -144,9 +149,19 @@ export async function updateUser(data: any) {
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
         if (!existingUser) return { success: false, error: 'User not found' };
 
+        if (existingUser.role === 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+            return { success: false, error: 'Only a Super Admin can modify a Super Admin account' };
+        }
+        if (role === 'SUPER_ADMIN' && existingUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+            return { success: false, error: 'Only a Super Admin can assign the SUPER_ADMIN role' };
+        }
         if (existingUser.role === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
             return { success: false, error: 'Cannot demote Super Admin' };
         }
+
+        const roleChanged = existingUser.role !== role;
+        const statusChanged = !!data.status && existingUser.status !== data.status;
+        const passwordChanged = !!(password && password.length > 0);
 
         const dataToUpdate: any = { username, email, name, role };
 
@@ -157,6 +172,12 @@ export async function updateUser(data: any) {
         if (password && password.length > 0) {
             dataToUpdate.password = await bcrypt.hash(password, 10);
             dataToUpdate.mustChangePassword = true;
+        }
+
+        // Any privilege-affecting change bumps the token version, instantly
+        // invalidating every token issued before this update.
+        if (roleChanged || statusChanged || passwordChanged) {
+            dataToUpdate.tokenVersion = { increment: 1 };
         }
 
         const result = await prisma.$transaction(async (tx) => {

@@ -87,6 +87,7 @@ export class UserService {
             username: user.username,
             role: user.role,
             contractorId: user.contractorId || undefined,
+            tokenVersion: user.tokenVersion,
         });
 
         // Permission derivation priority (consolidated SystemRole system):
@@ -193,6 +194,15 @@ export class UserService {
      */
     static async createUser(data: CreateUserData, currentUserId: string) {
         const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
+
+        // Privilege escalation guard: only an existing SUPER_ADMIN may grant the
+        // SUPER_ADMIN role (the /api/users guard also allows CEO/HEAD_OF_OSP).
+        if (role === 'SUPER_ADMIN') {
+            const caller = await prisma.user.findUnique({ where: { id: currentUserId }, select: { role: true } });
+            if (caller?.role !== 'SUPER_ADMIN') {
+                throw new Error('CANNOT_ASSIGN_SUPER_ADMIN');
+            }
+        }
 
         // Validate OPMC requirement for New Connection & Service Assurance
         const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
@@ -322,9 +332,24 @@ export class UserService {
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
         if (!existingUser) throw new Error('USER_NOT_FOUND');
 
+        // Privilege escalation guards (fail-closed when caller can't be resolved)
+        const caller = await prisma.user.findUnique({ where: { id: currentUserId }, select: { role: true } });
+        const callerRole = caller?.role ?? null;
+
+        if (existingUser.role === 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
+            throw new Error('CANNOT_MODIFY_SUPER_ADMIN');
+        }
+        if (role === 'SUPER_ADMIN' && existingUser.role !== 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
+            throw new Error('CANNOT_ASSIGN_SUPER_ADMIN');
+        }
+
         if (existingUser.role === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
             throw new Error('CANNOT_DEMOTE_SUPER_ADMIN');
         }
+
+        const roleChanged = existingUser.role !== role;
+        const statusChanged = !!status && existingUser.status !== status;
+        const passwordChanged = !!(password && password.length > 0);
 
         const dataToUpdate: {
             username: string;
@@ -334,6 +359,7 @@ export class UserService {
             password?: string;
             mustChangePassword?: boolean;
             status?: string;
+            tokenVersion?: { increment: number };
         } = {
             username,
             email,
@@ -345,6 +371,12 @@ export class UserService {
         if (password && password.length > 0) {
             dataToUpdate.password = await bcrypt.hash(password, 10);
             dataToUpdate.mustChangePassword = true;
+        }
+
+        // Any privilege-affecting change bumps the token version, instantly
+        // invalidating every token issued before this update.
+        if (roleChanged || statusChanged || passwordChanged) {
+            dataToUpdate.tokenVersion = { increment: 1 };
         }
 
         const sectionMappingConfig = await SystemService.getConfig<Record<string, string[]>>('SECTION_MAPPING', SECTION_MAPPING);
@@ -675,7 +707,9 @@ export class UserService {
         await prisma.user.update({
             where: { id: userId },
             data: {
-                password: hashedNewPassword
+                password: hashedNewPassword,
+                // Invalidate all existing sessions on password change
+                tokenVersion: { increment: 1 }
             }
         });
 

@@ -15,10 +15,11 @@ function walk(dir) {
                 new RegExp(`export const ${m}\\b`).test(src)
             );
             if (mutators.length === 0) continue;
-            const hasRoles = /roles:\s*\[|roles:\s*ROLE_GROUPS/.test(src);
+            const hasRoles = /roles:\s*(\[|ROLE_GROUPS|[A-Za-z_$][\w$]*)/.test(src) || /menuPath:\s*['"]/.test(src);
             const hasRequireAuth = /requireAuth/.test(src);
             const hasManualRoleCheck = /x-user-role/.test(src) && /(includes|===|!==)/.test(src);
-            if (!hasRoles && !hasRequireAuth && !hasManualRoleCheck) {
+            const hasCronAuth = /assertCronAuth/.test(src);
+            if (!hasRoles && !hasRequireAuth && !hasManualRoleCheck && !hasCronAuth) {
                 results.push({ file: path.relative(apiRoot, full), mutators: mutators.join(',') });
             }
         }
