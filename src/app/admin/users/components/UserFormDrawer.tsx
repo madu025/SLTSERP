@@ -177,7 +177,9 @@ export function UserFormDrawer({
           assignedStoreId: initialData.assignedStoreId || 'none',
           opmcIds: initialData.opmcIds || [],
           status: initialData.status || 'active',
-          permissions: initialData.permissions || []
+          permissions: typeof initialData.permissions === 'string'
+            ? JSON.parse(initialData.permissions)
+            : (initialData.permissions || [])
         });
         const section = Object.entries(roleCategories).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
         setSelectedSection(section);

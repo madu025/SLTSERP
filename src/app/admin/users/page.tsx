@@ -545,7 +545,9 @@ export default function UserRegistrationPage() {
           opmcIds: selectedUser.accessibleOpmcs.map(o => o.id),
           status: selectedUser.status || 'active',
           sectionAssignments: selectedUser.sectionAssignments,
-          permissions: selectedUser.permissions || []
+          permissions: typeof selectedUser.permissions === 'string'
+            ? JSON.parse(selectedUser.permissions)
+            : (selectedUser.permissions || [])
         } : undefined, [selectedUser])}
         isSubmitting={upsertMutation.isPending}
         users={users}
