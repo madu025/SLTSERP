@@ -11,8 +11,11 @@ export const dynamic = 'force-dynamic';
 // GET service orders with pagination and summary metrics
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
+    // Normalize "ALL" sentinel to empty string — rtomId is a UUID column and
+    // passing the literal "ALL" to Prisma causes a 500 UUID parse error.
+    const rawRtomId = searchParams.get('rtomId') || searchParams.get('opmcId') || searchParams.get('rtom') || '';
     const params = {
-        rtomId: searchParams.get('rtomId') || searchParams.get('opmcId') || searchParams.get('rtom') || '',
+        rtomId: rawRtomId && rawRtomId !== 'ALL' ? rawRtomId : '',
         filter: searchParams.get('filter') || 'pending',
         search: searchParams.get('search') || undefined,
         statusFilter: searchParams.get('statusFilter') || undefined,

@@ -84,8 +84,10 @@ export class SODQueryService {
             if (targetOpmcId) {
                 // If filtering by specific RTOM, ensure it's in their accessible list
                 if (!params.accessibleOpmcs.includes(targetOpmcId)) {
-                    // Force an empty result if trying to access unauthorized OPMC
-                    andFilters.push({ opmcId: 'unauthorized_access_blocked' });
+                    // Force an empty result if trying to access unauthorized OPMC.
+                    // Must be a VALID UUID literal — non-UUID strings crash the
+                    // query engine with "Error creating UUID".
+                    andFilters.push({ opmcId: '00000000-0000-0000-0000-000000000000' });
                 } else {
                     andFilters.push({ opmcId: targetOpmcId });
                 }
@@ -366,7 +368,17 @@ export class SODQueryService {
             prisma.serviceOrder.groupBy({ by: ['hoPatStatus'], where: summaryWhereClause, _count: true }),
             prisma.serviceOrder.groupBy({ by: ['sltsPatStatus'], where: summaryWhereClause, _count: true }),
             prisma.serviceOrder.count({
-                where: { opmcId, sltsStatus: 'RETURN' }
+                // FIX: raw opmcId can be the "ALL" sentinel — reuse the resolved
+                // OPMC scope (targetOpmcId / accessibleOpmcs) instead of passing
+                // the literal string into the UUID column.
+                where: {
+                    ...(targetOpmcId
+                        ? { opmcId: targetOpmcId }
+                        : params.accessibleOpmcs && params.accessibleOpmcs.length > 0
+                            ? { opmcId: { in: params.accessibleOpmcs } }
+                            : {}),
+                    sltsStatus: 'RETURN'
+                }
             }),
             prisma.serviceOrder.count({
                 where: {
