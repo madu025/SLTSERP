@@ -142,10 +142,17 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                      const filtered = allOpmcs.filter((o) => assignedIds.includes(o.id));
                      if (filtered.length > 0) return filtered;
                  }
+             
+                 // FIX: Non-admin with ZERO accessible OPMCs → show no OPMC options.
+                 // Previously fell through to `return allOpmcs` which leaked all
+                 // regional OPMCs in the dropdown even though the API blocks access.
+                 if (Array.isArray(user.accessibleOpmcs)) {
+                     return []; // Empty accessible list = no OPMC access
+                 }
              } catch (e) {
                  console.error("Error parsing user from localStorage:", e);
              }
-
+             
              return allOpmcs;
         }
     });

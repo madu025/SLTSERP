@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrderStatus } from '@prisma/client';
 import { GetServiceOrdersParams } from '@/types/service-order/sod-sync.types';
 import { SOD_QUERY_COMPLETION_STATUSES, SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
+import { isValidUuid } from '@/lib/uuid';
 
 interface ServiceOrderItemWithIptv {
     id: string;
@@ -65,18 +66,22 @@ export class SODQueryService {
         
         let targetOpmcId: string | undefined = undefined;
         if (opmcId && opmcId !== 'ALL') {
-            // Resolve whether opmcId is a CUID or RTOM code string (e.g. 'R-KX' / 'r-kx')
+            // Resolve whether opmcId is a UUID or RTOM code string (e.g. 'R-KX' / 'r-kx').
+            // FIX: OPMC.id is a @db.Uuid column — passing a non-UUID string like
+            // 'R-KX' to { id: opmcId } crashes Prisma with "Error creating UUID".
+            // Only include the id match when opmcId is a valid UUID.
+            const opmcOr: Prisma.OPMCWhereInput[] = [];
+            if (isValidUuid(opmcId)) {
+                opmcOr.push({ id: opmcId });
+            }
+            opmcOr.push({ rtom: { equals: opmcId, mode: 'insensitive' } });
+            opmcOr.push({ name: { contains: opmcId, mode: 'insensitive' } });
+
             const matchedOpmc = await prisma.oPMC.findFirst({
-                where: {
-                    OR: [
-                        { id: opmcId },
-                        { rtom: { equals: opmcId, mode: 'insensitive' } },
-                        { name: { contains: opmcId, mode: 'insensitive' } }
-                    ]
-                },
+                where: { OR: opmcOr },
                 select: { id: true }
             });
-            targetOpmcId = matchedOpmc ? matchedOpmc.id : opmcId;
+            targetOpmcId = matchedOpmc ? matchedOpmc.id : undefined;
         }
 
         // Apply accessibleOpmcs boundary if provided (User is not global admin)
@@ -95,7 +100,14 @@ export class SODQueryService {
                 // Limit ALL view to only accessible OPMCs
                 andFilters.push({ opmcId: { in: params.accessibleOpmcs } });
             }
+        } else if (params.accessibleOpmcs) {
+            // FIX [F1]: Non-admin user with ZERO accessible OPMCs.
+            // Empty array means "no regional access granted" — must return empty
+            // results, NOT all data. This prevents RBAC bypass when a user has
+            // a non-admin role but no OPMC assignments.
+            andFilters.push({ opmcId: '00000000-0000-0000-0000-000000000000' });
         } else if (targetOpmcId) {
+            // Admin user (accessibleOpmcs undefined) filtering by specific OPMC
             andFilters.push({ opmcId: targetOpmcId });
         }
 
@@ -371,12 +383,15 @@ export class SODQueryService {
                 // FIX: raw opmcId can be the "ALL" sentinel — reuse the resolved
                 // OPMC scope (targetOpmcId / accessibleOpmcs) instead of passing
                 // the literal string into the UUID column.
+                // Also: non-admin with 0 OPMCs must return 0 (nil-UUID guard).
                 where: {
                     ...(targetOpmcId
                         ? { opmcId: targetOpmcId }
                         : params.accessibleOpmcs && params.accessibleOpmcs.length > 0
                             ? { opmcId: { in: params.accessibleOpmcs } }
-                            : {}),
+                            : params.accessibleOpmcs !== undefined
+                                ? { opmcId: '00000000-0000-0000-0000-000000000000' }
+                                : {}),
                     sltsStatus: 'RETURN'
                 }
             }),
