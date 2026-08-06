@@ -93,11 +93,10 @@ export default function LoginPage() {
         const contractorLogin = isContractorRole(data.user?.role);
         const storesLogin = isStoresRole(data.user?.role);
 
-        if (data.user?.mustChangePassword) {
-          // Forced rotation: lock the account down to the profile page until
-          // the password is changed (server-side enforcement backs this up).
-          router.push("/profile?forcePw=1");
-        } else if (contractorLogin) {
+        // Note: mustChangePassword users are no longer redirected to /profile.
+        // The global ForcePasswordChangeModal handles the forced rotation UX
+        // on any page, so users can land on their normal destination.
+        if (contractorLogin) {
           router.push("/contractor/dashboard");
         } else if (storesLogin) {
           router.push("/inventory");
