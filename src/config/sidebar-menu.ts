@@ -798,6 +798,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },
             {
+                title: 'Trip Management',
+                path: '/fleet/trips',
+                icon: Truck,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
+            },
+            {
                 title: 'Fleet Reports',
                 path: '/reports/fleet',
                 icon: BarChart3,
@@ -997,7 +1003,11 @@ export const hasAccess = (
         return !!itemTitle && ['IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
     }
 
-    // Super Admin & Admin always have full visibility
+    // Misconfiguration guard: an empty allowedRoles list must never grant visibility
+    if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) return false;
+
+    // Super Admin & Admin always have full visibility. hasRouteAccess grants the
+    // same bypass so menu visibility and actual page access never diverge.
     if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true;
     
     // Strict isolation for Contractor Roles: ONLY allow items where role is explicitly listed

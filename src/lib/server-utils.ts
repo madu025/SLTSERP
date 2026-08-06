@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { verifyJWT } from './auth';
 import { validateSession } from './session-validator';
+import { AppError } from './error';
 
 /**
  * Recursively convert Prisma results into plain serializable values so they can
@@ -73,11 +74,11 @@ export async function requireAuth(roles?: string[]) {
     const user = await getCurrentUser();
 
     if (!user) {
-        throw new Error('Authentication required');
+        throw AppError.unauthorized('Authentication required');
     }
 
     if (roles && !roles.includes('ALL') && !roles.includes(user.role)) {
-        throw new Error('Forbidden: Insufficient permissions');
+        throw AppError.forbidden('Forbidden: Insufficient permissions');
     }
 
     return user;

@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { approveReturnSchema, ApproveReturnSchema } from '@/lib/validations/project-stock.schema';
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 
 /**
  * POST: Approve a pending material return request
@@ -11,7 +12,7 @@ export const POST = apiHandler<{ success: boolean }, ApproveReturnSchema>(
     async (request: Request, params: unknown, body) => {
         const approvedById = request.headers.get('x-user-id');
         if (!approvedById) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const result = await ProjectStockIssueService.approveReturnRequest(body.returnId, approvedById);

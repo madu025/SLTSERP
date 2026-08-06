@@ -5,6 +5,8 @@ import VehicleLogService from '@/services/fleet/VehicleLogService';
 import VehicleService from '@/services/fleet/VehicleService';
 import { startLogSchema, endLogSchema, StartLogSchema, EndLogSchema } from '@/lib/validations/vehicle.schema';
 import { VehicleLog } from '@/types/fleet/vehicle.types';
+import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 
 /**
  * GET: Get active log status, last odometer, and active driver list
@@ -14,7 +16,7 @@ export const GET = apiHandler<unknown, void>(
     const { id } = params;
     const vehicle = await VehicleService.getVehicle(id);
     if (!vehicle) {
-      throw new Error('Vehicle not found');
+      throw AppError.notFound('Vehicle not found');
     }
 
     const activeLog = await VehicleLogService.getActiveLog(id);
@@ -47,7 +49,7 @@ export const POST = apiHandler<VehicleLog, StartLogSchema>(
 
     return log;
   },
-  { schema: startLogSchema, roles: ['ALL'] }
+  { schema: startLogSchema, roles: ROLE_GROUPS.OFFICE_ADMINS }
 );
 
 /**
@@ -64,5 +66,5 @@ export const PUT = apiHandler<VehicleLog, EndLogSchema>(
 
     return log;
   },
-  { schema: endLogSchema, roles: ['ALL'] }
+  { schema: endLogSchema, roles: ROLE_GROUPS.OFFICE_ADMINS }
 );

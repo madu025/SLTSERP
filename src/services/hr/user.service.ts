@@ -54,7 +54,7 @@ export class UserService {
      */
     static async login({ username, password }: LoginCredentials) {
         if (!username || !password) {
-            throw new Error('USERNAME_PASSWORD_REQUIRED');
+            throw AppError.badRequest('USERNAME_PASSWORD_REQUIRED');
         }
 
         const user = await prisma.user.findFirst({
@@ -72,13 +72,13 @@ export class UserService {
         });
 
         if (!user || user.status?.toLowerCase() !== 'active') {
-            throw new Error('INVALID_CREDENTIALS');
+            throw AppError.unauthorized('INVALID_CREDENTIALS');
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
         if (!isPasswordValid) {
-            throw new Error('INVALID_CREDENTIALS');
+            throw AppError.unauthorized('INVALID_CREDENTIALS');
         }
 
         // Generate JWT Token
@@ -200,18 +200,18 @@ export class UserService {
         if (role === 'SUPER_ADMIN') {
             const caller = await prisma.user.findUnique({ where: { id: currentUserId }, select: { role: true } });
             if (caller?.role !== 'SUPER_ADMIN') {
-                throw new Error('CANNOT_ASSIGN_SUPER_ADMIN');
+                throw AppError.forbidden('CANNOT_ASSIGN_SUPER_ADMIN');
             }
         }
 
         // Validate OPMC requirement for New Connection & Service Assurance
         const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
         if (requiresOPMC && (!opmcIds || opmcIds.length === 0)) {
-            throw new Error('OPMC_REQUIRED');
+            throw AppError.badRequest('OPMC_REQUIRED');
         }
 
         if (!password) {
-            throw new Error('PASSWORD_REQUIRED');
+            throw AppError.badRequest('PASSWORD_REQUIRED');
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -330,21 +330,21 @@ export class UserService {
         const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
 
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
-        if (!existingUser) throw new Error('USER_NOT_FOUND');
+        if (!existingUser) throw AppError.notFound('USER_NOT_FOUND');
 
         // Privilege escalation guards (fail-closed when caller can't be resolved)
         const caller = await prisma.user.findUnique({ where: { id: currentUserId }, select: { role: true } });
         const callerRole = caller?.role ?? null;
 
         if (existingUser.role === 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
-            throw new Error('CANNOT_MODIFY_SUPER_ADMIN');
+            throw AppError.forbidden('CANNOT_MODIFY_SUPER_ADMIN');
         }
         if (role === 'SUPER_ADMIN' && existingUser.role !== 'SUPER_ADMIN' && callerRole !== 'SUPER_ADMIN') {
-            throw new Error('CANNOT_ASSIGN_SUPER_ADMIN');
+            throw AppError.forbidden('CANNOT_ASSIGN_SUPER_ADMIN');
         }
 
         if (existingUser.role === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
-            throw new Error('CANNOT_DEMOTE_SUPER_ADMIN');
+            throw AppError.forbidden('CANNOT_DEMOTE_SUPER_ADMIN');
         }
 
         const roleChanged = existingUser.role !== role;
@@ -478,10 +478,10 @@ export class UserService {
 
     static async deleteUser(id: string) {
         const user = await prisma.user.findUnique({ where: { id } });
-        if (!user) throw new Error('USER_NOT_FOUND');
+        if (!user) throw AppError.notFound('USER_NOT_FOUND');
 
         if (user.role === 'SUPER_ADMIN') {
-            throw new Error('CANNOT_DELETE_SUPER_ADMIN');
+            throw AppError.forbidden('CANNOT_DELETE_SUPER_ADMIN');
         }
 
         const [err] = await safe(prisma.$transaction(async (tx) => {
@@ -524,14 +524,14 @@ export class UserService {
             }
         });
 
-        if (!user) throw new Error('USER_NOT_FOUND');
+        if (!user) throw AppError.notFound('USER_NOT_FOUND');
 
         if (user.employeeId !== employeeId) {
-            throw new Error('EMPLOYEE_ID_MISMATCH');
+            throw AppError.badRequest('EMPLOYEE_ID_MISMATCH');
         }
 
         if (!user.securityQuestion || !user.securityAnswer) {
-            throw new Error('SECURITY_QUESTION_NOT_SET');
+            throw AppError.badRequest('SECURITY_QUESTION_NOT_SET');
         }
 
         // Generate temporary token
@@ -553,11 +553,11 @@ export class UserService {
     static async forgotPasswordVerifyAnswer(token: string, answer: string) {
         const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, getJwtSecret()));
         if (err || !decoded) {
-            throw new Error('INVALID_TOKEN');
+            throw AppError.unauthorized('INVALID_TOKEN');
         }
 
         if (typeof decoded === 'string' || decoded.step !== 'verify') {
-            throw new Error('INVALID_TOKEN');
+            throw AppError.unauthorized('INVALID_TOKEN');
         }
 
         const user = await prisma.user.findUnique({
@@ -569,12 +569,12 @@ export class UserService {
         });
 
         if (!user || !user.securityAnswer) {
-            throw new Error('USER_NOT_FOUND');
+            throw AppError.notFound('USER_NOT_FOUND');
         }
 
         const isCorrect = await bcrypt.compare(answer.toLowerCase().trim(), user.securityAnswer);
         if (!isCorrect) {
-            throw new Error('INCORRECT_ANSWER');
+            throw AppError.unauthorized('INCORRECT_ANSWER');
         }
 
         // Generate reset token
@@ -595,23 +595,28 @@ export class UserService {
      */
     static async forgotPasswordReset(token: string, newPassword: string) {
         if (newPassword.length < 6) {
-            throw new Error('PASSWORD_TOO_SHORT');
+            throw AppError.badRequest('PASSWORD_TOO_SHORT');
         }
 
         const [err, decoded] = safeSync<string | JwtPayload>(() => verify(token, getJwtSecret()));
         if (err || !decoded) {
-            throw new Error('INVALID_TOKEN');
+            throw AppError.unauthorized('INVALID_TOKEN');
         }
 
         if (typeof decoded === 'string' || decoded.step !== 'reset') {
-            throw new Error('INVALID_TOKEN');
+            throw AppError.unauthorized('INVALID_TOKEN');
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+        // Bump tokenVersion to invalidate all existing sessions
+        // (prevents a compromised old token from surviving a password reset)
         await prisma.user.update({
             where: { id: decoded.userId },
-            data: { password: hashedPassword }
+            data: {
+                password: hashedPassword,
+                tokenVersion: { increment: 1 }
+            }
         });
 
         return { success: true };
@@ -675,7 +680,7 @@ export class UserService {
             }
         });
 
-        if (!user) throw new Error('USER_NOT_FOUND');
+        if (!user) throw AppError.notFound('USER_NOT_FOUND');
         return user;
     }
 
@@ -684,7 +689,7 @@ export class UserService {
      */
     static async changePassword(userId: string, currentPassword: string, newPassword: string) {
         if (newPassword.length < 6) {
-            throw new Error('PASSWORD_TOO_SHORT');
+            throw AppError.badRequest('PASSWORD_TOO_SHORT');
         }
 
         const user = await prisma.user.findUnique({
@@ -695,11 +700,11 @@ export class UserService {
             }
         });
 
-        if (!user) throw new Error('USER_NOT_FOUND');
+        if (!user) throw AppError.notFound('USER_NOT_FOUND');
 
         const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
         if (!isPasswordValid) {
-            throw new Error('INCORRECT_PASSWORD');
+            throw AppError.unauthorized('INCORRECT_PASSWORD');
         }
 
         const hashedNewPassword = await bcrypt.hash(newPassword, 10);
@@ -720,7 +725,7 @@ export class UserService {
      * Updates basic user profile details (Name, Email)
      */
     static async updateProfile(userId: string, data: { name?: string; email?: string }) {
-        if (!userId) throw new Error('USER_ID_REQUIRED');
+        if (!userId) throw AppError.badRequest('USER_ID_REQUIRED');
         
         return prisma.user.update({
             where: { id: userId },

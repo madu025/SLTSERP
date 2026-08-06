@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { SLTContractService } from '@/services/slt/slt-contract.service';
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export const DELETE = apiHandler(
         const id = resolvedParams?.id || urlPathId;
 
         if (!id) {
-            throw new Error('Contract ID is required');
+            throw AppError.badRequest('Contract ID is required');
         }
 
         const result = await SLTContractService.deleteContract(id);

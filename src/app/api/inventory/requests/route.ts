@@ -2,6 +2,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { createStockRequest, processStockRequestAction } from '@/actions/inventory-actions';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ export const GET = apiHandler(async (req) => {
 export const POST = apiHandler(async (req, _params, body) => {
     const result = await createStockRequest(body);
     if (!result.success) {
-        throw new Error(result.error || 'Failed to create request');
+        throw AppError.badRequest(result.error || 'Failed to create request');
     }
     return result.data;
 }, {
@@ -41,7 +42,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 export const PATCH = apiHandler(async (req, _params, body) => {
     const result = await processStockRequestAction(body);
     if (!result.success) {
-        throw new Error(result.error || 'Failed to process request');
+        throw AppError.badRequest(result.error || 'Failed to process request');
     }
     return result.data;
 }, {

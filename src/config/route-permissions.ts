@@ -74,8 +74,9 @@ export function getMenuAllowedRoles(path: string): string[] | null {
  * Paths not in the sidebar menu are allowed for any authenticated user.
  */
 export function hasRouteAccess(pathname: string, userRole: string): boolean {
-    // Super Admin always has access to everything
-    if (userRole === 'SUPER_ADMIN') return true;
+    // Super Admin & Admin always have access to everything. Mirrors the
+    // hasAccess sidebar bypass so visible items are never blocked on click.
+    if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true;
 
     const normalized = pathname.split('?')[0].replace(/\/+$/, '') || '/';
 
@@ -87,6 +88,10 @@ export function hasRouteAccess(pathname: string, userRole: string): boolean {
 
     // No permission rule found -> allow any authenticated user
     if (!rule) return true;
+
+    // Misconfiguration guard: an empty allowedRoles list denies everyone
+    // (consistent with apiHandler fail-closed policy)
+    if (rule.allowedRoles.length === 0) return false;
 
     // 'ALL' wildcard = every authenticated role
     if (rule.allowedRoles.includes('ALL')) return true;

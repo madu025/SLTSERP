@@ -3,6 +3,7 @@ import PaymentService from '@/services/finance/PaymentService';
 import { PaymentTypeEnum, PaymentStatusEnum } from '@prisma/client';
 import { PaymentType } from '@/types/finance/payment.types';
 import { createPaymentSchema, CreatePaymentSchema } from '@/lib/validations/payment.schema';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,7 +58,7 @@ export const POST = apiHandler<unknown, CreatePaymentSchema>(
         // Verify invoice exists using Service layer instead of direct prisma access
         const invoice = await PaymentService.getInvoice(body.invoice_id);
         if (!invoice) {
-            throw new Error('Invoice not found');
+            throw AppError.notFound('Invoice not found');
         }
 
         const payment = await PaymentService.createPayment({

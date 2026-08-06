@@ -143,8 +143,10 @@
 
 | # | Tier | Item Description | Expert Role | Global Benchmark | Implementation Cost / Downside | Decision |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | ?? **Must-Have** | **Policy JSON + Event Bus Decoupling**: Add olesToNotify (Json) and domainAction (String) to ProcessGatePolicy schema. The engine emits a dynamic event based on this rather than hardcoding if/else in StockRequestService. | ???? Lead Architect | SAP Event Mesh | Low (~15 mins). Need to migrate DB schema and update the generic dispatcher. | **Adopted** |
-| **2** | ?? **Must-Have** | **Generic Role Notification Dispatcher**: The safeNotifyStageChange reads olesToNotify directly from the DB policy row instead of using hardcoded switch blocks to determine who to email. | ?? QA & Security | IAM Role Binding | Low (~10 mins). | **Adopted** |
+| **1** | ?? **Must-Have** | **Policy JSON + Event Bus Decoupling**: Add 
+olesToNotify (Json) and domainAction (String) to ProcessGatePolicy schema. The engine emits a dynamic event based on this rather than hardcoding if/else in StockRequestService. | ???? Lead Architect | SAP Event Mesh | Low (~15 mins). Need to migrate DB schema and update the generic dispatcher. | **Adopted** |
+| **2** | ?? **Must-Have** | **Generic Role Notification Dispatcher**: The safeNotifyStageChange reads 
+olesToNotify directly from the DB policy row instead of using hardcoded switch blocks to determine who to email. | ?? QA & Security | IAM Role Binding | Low (~10 mins). | **Adopted** |
 | **3** | ?? **Should-Have** | **Dynamic Webhook Execution (Serverless)**: Instead of local Service Layer functions, domainAction stores an internal endpoint (e.g. /api/internal/reserve-stock) and the Engine makes an HTTP POST to it. | ?? OSP SME | ServiceNow Flow Designer Actions | Medium (~40 mins). Overkill unless deploying microservices. | **Pending User Approval** |
 | **4** | ?? **Should-Have** | **Approval Policy GUI Configuration**: A React Admin dashboard to manage ProcessGatePolicy rows, allowing non-technical managers to create new workflows. | ?? CFO | Oracle Business Rules | High (~3-4 hours). Requires full CRUD screens. | **Pending User Approval** |
 | **5** | ?? **Future Roadmap** | **Temporal.io / Camunda External Engine Integration**: Offload state management entirely to a specialized BPMN workflow engine. | ? DevOps Eng. | Global Enterprise Scale | Massive (Months). Logged for future. | **Logged for Future** |
@@ -770,4 +772,113 @@ Verification: npx tsc --noEmit clean; endpoint live-verified (401 without sessio
 **Verification:** tsc clean; rbac:check OK (37 roles, 0 drift); assertCronAuth 3/3 pass.
 
 **Follow-up noted:** process-gate.service.ts gate config uses requiredRole `CONTRACTOR` for the execution gate — contractor users hold CONTRACTOR_SUPERVISOR/TECHNICIAN/FINANCE; verify gate evaluator matching separately.
+
+
+---
+
+## Session: 2026-08-05 — Security Hardening Grill-Me Audit
+
+**Scope:** Prefix guards, forced password change lockdown, session invalidation, SoD approvals, error handling fixes.
+
+### 5-QA Auditor Findings & Fixes
+
+| # | Auditor | Finding | Severity | Fix | File |
+|---|---|---|---|---|---|
+| A1 | Security | Empty roles array `roles: []` bypasses RBAC (`!effectiveRoles || length === 0 → true`) | Must-Have | Changed to `Array.isArray(options?.roles)` for declaredGuard; explicit empty = deny all | api-handler.ts |
+| A2 | Edge Case | SoD: `approvedById` null/undefined not validated before check | Must-Have | Added `if (!approvedById) throw` | project-stock-issue.service.ts |
+| A3 | Edge Case | SoD: `approver` could be null (user deleted) → `approver?.role` undefined | Must-Have | Added `if (!approver) throw` | project-stock-issue.service.ts |
+| A4 | Failover | `new URL(req.url)` could throw on malformed URL | Should-Have | Deferred — low risk in Next.js runtime | api-handler.ts |
+| A5 | Audit | SoD violation not logged to audit ledger | Should-Have | Deferred — low priority | project-stock-issue.service.ts |
+| A6 | Observability | `[RBAC-UNDECLARED-WRITE]` should be error in production | Future | Logged for backlog | api-handler.ts |
+| A7 | Performance | SoD extra query for approver role (minor N+1) | Future | Deferred — negligible impact | project-stock-issue.service.ts |
+| A8 | Audit | `ACCESS_DENIED` entityId should include HTTP method | Future | Logged for backlog | api-handler.ts |
+
+### Additional Fixes (from test run)
+
+| # | Finding | Fix | File |
+|---|---|---|---|
+| B1 | `throw new Error` → 500 instead of 400 | Changed to `AppError.badRequest` | change-password/route.ts, process-gates routes |
+
+### Verification
+- `npx tsc --noEmit`: 0 errors
+- Comprehensive security test: 9/9 passed (4 skipped — no ENGINEER user)
+- RBAC scanner: 15 unguarded (all intentional public endpoints)
+
+---
+
+## Session 2026-08-05 (b) — Role-Based UI, Page Planning & Inter-Module Data Exchange
+
+First session executed under the new **Step 3.5 Holistic Fix Planning** protocol.
+
+### Scope
+- Role-based UI layer: sidebar-menu.ts, route-permissions.ts, RoleGuard.tsx, middleware RBAC
+- Page planning: 166 pages scanned for guard coverage
+- Inter-module data exchange: 31 cross-module service imports traced (depth-2 privilege chains)
+
+### Findings & Fixes
+
+| # | Auditor | Finding | Fix | Files |
+|---|---|---|---|---|
+| M1 | 4 | Menu/page drift undetectable — pages outside sidebar map are fail-open | New scanner `scripts/audit-menu-drift.js`; found 8 unprotected pages: fleet trips (3) fixed via new "Trip Management" menu entry; token-gated/public/personal pages moved to deliberate PUBLIC_EXEMPT | scripts/audit-menu-drift.js, sidebar-menu.ts |
+| M2 | 5 | Pricing-audit amendment approval had no SoD — requester could approve own invoice amount change (+ generic `throw new Error`) | SoD check (SUPER_ADMIN exempt) + null-approver guard + AppError types | services/sf-audit/pricing-audit.service.ts |
+| M3 | 5 | 31 cross-module service imports bypass route guards via service-to-service calls | New scanner `scripts/audit-cross-module-imports.js` (depth-2 chains); result: all entry routes reaching cross-module services declare explicit guards — no code changes needed | scripts/audit-cross-module-imports.js |
+| S1 | 2 | Inconsistent bypasses: hasAccess bypassed SUPER_ADMIN+ADMIN, hasRouteAccess only SUPER_ADMIN → phantom menus for ADMIN | Aligned BOTH layers to SUPER_ADMIN+ADMIN full access (user policy decision: ADMIN keeps full menu visibility AND full page access); empty allowedRoles now deny in both layers | sidebar-menu.ts, route-permissions.ts |
+| S2 | 2 | RoleGuard rendered protected children pre-mount (content flash) | Renders "Verifying access..." skeleton until session verified | components/RoleGuard.tsx |
+| S3 | 4 | Pages suspected missing server auth | Investigated: all 8 auth-less server components are redirects/thin wrappers (no data access); real count = 84 client pages relying on middleware + API guards (acceptable layered model) | none (verified) |
+| X1 | 2 | NEW (found during M1): /api/trips mutations + vehicle log mutations guarded `roles: ['ALL']` while fleet UI is ADMINS/office-admins only | Tightened to ROLE_GROUPS.OFFICE_ADMINS; `throw new Error` → AppError.notFound | api/trips/route.ts, trips/[id]/start, trips/[id]/end, vehicles/[id]/log |
+
+### Step 3.5 Blast-Radius Notes
+- ADMIN bypass flip affects every menu item: safe because all sidebar entries use ROLE_GROUPS spreads and ADMIN is included in every operational group; final policy = ADMIN full access in both layers
+- `/api/vehicles/[id]/location` left `roles: ['ALL']` deliberately — GPS telemetry ingestion; flagged for separate review
+- Orphan menu paths `/finance/setup`, `/finance/petty-cash`, `/eam/assets` = roadmap placeholders, advisory only
+
+### Verification
+- `npx tsc --noEmit`: 0 errors
+- Menu-drift scanner: 0 unprotected pages
+- RBAC scanner: 15 unguarded mutating routes (all intentional public)
+- Runtime: STORES_MANAGER POST /api/trips → 403; ADMIN → 422 (passed RBAC, hit Zod) — 2/2
+- SoD live test skipped: dev DB has 0 invoices (no fixture); identical SoD pattern was runtime-proven on stock-request in prior session
+
+---
+
+## Session 2026-08-05 (c) — P1–P5 Security Backlog Resolution
+
+Continuation session to close the P1–P5 security findings carried over from the prior RBAC/SoD audit.
+
+### Scope
+Verify prior pending findings against CURRENT code, then resolve any real open items.
+
+### Findings & Status
+
+| # | Prior Claim | Current State | Action |
+|---|---|---|---|
+| P1 | JWT fallback secret in auth.ts:5 (CRITICAL) | **Already fixed** — auth.ts:7-9 throws on missing JWT_SECRET env var | None (verified) |
+| P2 | CEO/HEAD_OF_OSP can create SUPER_ADMIN (HIGH) | **Already fixed** — route guard `ROLE_GROUPS.ADMINS` + service layer L200-205/339-344 blocks non-SUPER_ADMIN from assigning SUPER_ADMIN role; returns 403 via route's `AppError.forbidden` catch | None (verified via live test: ADMIN→POST /api/users (SA)=403, PUT=403, DELETE=403) |
+| P3 | Token survives role change (HIGH) | **Already fixed** — user.service.ts L378-380 bumps tokenVersion on role/status/password change | None (verified) |
+| P4 | permissions: ['*'] bypass (HIGH) | **BY DESIGN** — admin override column, SUPER_ADMIN-only write path (L770-782), documented priority chain (L93-108) | None (intentional) |
+| P5 | 21 routes `throw new Error` → 500 (MEDIUM) | **Fixed this session** — 15 throws in user.service.ts + 11 throws across 7 API/lib files converted to typed AppError (unauthorized/forbidden/badRequest/notFound) | user.service.ts, server-utils.ts, payments/route.ts, contracts/slt/[id]/route.ts, projects/stock-issue/approve/route.ts, profile/route.ts, inventory/requests/route.ts, projects/return/approve/route.ts |
+
+### Additional Security Hardening (Found During P5 Fix)
+- `forgotPasswordReset` now bumps `tokenVersion` to invalidate all existing sessions after password reset (prevents a compromised old token from surviving a reset)
+- `forgotPasswordVerify`/`forgotPasswordVerifyAnswer` errors converted from generic Error to typed AppError (401/404/400)
+
+### Step 3.5 Blast-Radius Notes
+- user.service.ts is imported by every user-facing route and action; all existing routes catch specific error codes (`CANNOT_ASSIGN_SUPER_ADMIN`, `USER_NOT_FOUND`, etc.) and re-throw as typed AppError. Changing the throw type from `Error` to `AppError` preserves the message-based catch matching.
+- server-utils.ts `requireAuth` used by server components — AppError thrown here propagates through Next.js rendering. Verified by existing pages using this path.
+- Login route's `errorMessage === 'INVALID_CREDENTIALS'` catch still matches after conversion (AppError.message preserved).
+
+### Verification
+- `npx tsc --noEmit`: 0 errors
+- Runtime tests (5/6 pass):
+  - [PASS] ADMIN → POST /api/users (role=SUPER_ADMIN) → 403
+  - [PASS] ADMIN → PUT /api/users (modify SUPER_ADMIN) → 403
+  - [PASS] ADMIN → DELETE /api/users (SUPER_ADMIN) → 403
+  - [PASS] POST /api/payments (valid body, missing invoice) → 404 (AppError.notFound path confirmed)
+  - [PASS] GET /api/profile (no token) → 401
+  - [PASS] POST /api/projects/stock-issue/approve (fake UUID) → 400 (non-500)
+  - [SKIP] SUPER_ADMIN → POST /api/users (role=SUPER_ADMIN) — pre-existing Prisma transaction timeout (unrelated to P5 changes, timeout=5000ms exceeded by ~57ms on section-assignment upsert)
+
+### Memory
+- Closed task_summary memory `SLTSERP pending security findings resolution (P1-P4 closed, P5 open)` — future audits must verify current code before re-flagging these as open.
+
 

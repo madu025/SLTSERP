@@ -226,13 +226,15 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
 
                 // ── 1. RBAC (fail-closed) ──────────────────────────────────
                 const pathname = new URL(req.url).pathname;
-                const declaredGuard = options?.roles && options.roles.length > 0 || options?.menuPath;
+                // declaredGuard is true if `roles` is explicitly set (even if empty)
+                // or if `menuPath` is set — prevents `roles: []` from bypassing RBAC.
+                const declaredGuard = Array.isArray(options?.roles) || !!options?.menuPath;
                 const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 
-                // Explicit `roles` win; otherwise resolve dynamically from the
-                // sidebar menu config via `menuPath`; undeclared mutating routes
-                // fall back to prefix-based departmental defaults (fail-closed).
-                const effectiveRoles = options?.roles && options.roles.length > 0
+                // Explicit `roles` win (even if empty = deny all); otherwise resolve
+                // dynamically from the sidebar menu config via `menuPath`; undeclared
+                // mutating routes fall back to prefix-based departmental defaults (fail-closed).
+                const effectiveRoles = Array.isArray(options?.roles) && options.roles.length > 0
                     ? options.roles
                     : options?.menuPath
                         ? getMenuAllowedRoles(options.menuPath) ?? undefined
@@ -241,11 +243,23 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                             : undefined;
 
                 if (declaredGuard || effectiveRoles) {
-                    const allowed = !effectiveRoles || effectiveRoles.length === 0
-                        ? true
-                        : effectiveRoles.includes('ALL')
-                            ? !!userRole // 'ALL' = any authenticated user, never anonymous
-                            : !!userRole && effectiveRoles.includes(userRole);
+                    // Allowed logic:
+                    // - `roles: []` (explicit empty) = deny all (no roles permitted)
+                    // - `effectiveRoles = undefined` with `declaredGuard` = fail-closed (misconfigured)
+                    // - `effectiveRoles = ['ALL']` = any authenticated user
+                    // - Otherwise check role membership
+                    let allowed: boolean;
+                    if (Array.isArray(options?.roles) && options.roles.length === 0) {
+                        // Explicit empty roles array = deny all
+                        allowed = false;
+                    } else if (!effectiveRoles) {
+                        // declaredGuard true but no effectiveRoles = misconfiguration, fail-closed
+                        allowed = false;
+                    } else if (effectiveRoles.includes('ALL')) {
+                        allowed = !!userRole; // 'ALL' = any authenticated user, never anonymous
+                    } else {
+                        allowed = !!userRole && effectiveRoles.includes(userRole);
+                    }
                     if (!allowed) {
                         // Denial traceability: record who tried to hit what with which role
                         if (userId) {

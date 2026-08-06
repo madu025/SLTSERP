@@ -52,8 +52,49 @@ Present a unified review table with categorized fixes:
 - Should-Have: improves architecture — requires user sign-off.
 - Future Roadmap: global benchmark features — logged for later.
 
+### Step 3.5: Holistic Fix Planning (MANDATORY before ANY edit)
+
+Repeated audit rounds happen when fixes are applied per-finding without
+thinking through the whole picture. Before touching code, complete ALL of
+the following for every Must-Have / approved Should-Have fix:
+
+**A. Blast-Radius Trace**
+- Shared/infra code (`api-handler`, `middleware`, `session-validator`,
+  `server-utils`, `prisma` singleton, role configs): grep for ALL callers
+  and list every affected route/service BEFORE editing.
+- Schema changes: list every service, route, and script touching the model.
+- Rule: no edit until the complete call-site list exists in the working notes.
+
+**B. Adversarial Edge-Case Checklist (apply to each fix)**
+Ask for every value involved:
+- Can it be `null` / `undefined`? (deleted users, missing IDs, system actors)
+- Can a collection be EMPTY? (`roles: []`, empty arrays/maps must not bypass logic)
+- Can input be LEGACY? (old tokens without new claims, pre-migration rows)
+- Boundary values, type coercion, malformed URLs/payloads?
+- Concurrent execution / race conditions?
+
+**C. Fix-Impact Review**
+For each proposed change answer explicitly:
+1. What NEW attack surface does this fix itself create?
+2. What existing behavior relied on the OLD behavior? (breaking a
+   legitimate flow is a bug, not a fix)
+3. Which tests, seeds, workers, or cron jobs could break?
+
+**D. One-Shot Change Plan**
+- Produce the full list of files + edits covering the ENTIRE finding family
+  (e.g. all routes with the same bug pattern, not just the one found) BEFORE
+  the first edit.
+- Fixes applied in multiple rounds for the same issue class are a protocol
+  failure — plan once, apply once, verify once.
+
 ### Step 4: Code Refactoring & Verification
 
-1. Apply code and schema edits.
-2. Run `npx tsc --noEmit` and `npx prisma db push`.
-3. Append session decisions to `.agent/grill-me-log.md`.
+1. Apply code and schema edits exactly per the Step 3.5 plan.
+2. Static check: run `npx tsc --noEmit` (and `npx prisma db push` for schema changes).
+3. Runtime verification is MANDATORY for behavior changes (guards, status
+   codes, validation, auth flows) — tsc cannot catch wrong HTTP status codes
+   or bypassed guards. Hit the affected endpoints against the dev server
+   (positive + negative + edge cases from Step 3.5B).
+4. Re-run any relevant scanner/lint (e.g. `node scripts/audit-rbac-routes.js`).
+5. Append session decisions to `.agent/grill-me-log.md` including the
+   Step 3.5 blast-radius and edge-case notes.

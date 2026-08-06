@@ -110,8 +110,14 @@ export class ProjectStockIssueService {
 
         // Segregation of duties: the requester cannot approve their own issue
         // (mirrors stock-request.service.ts enforcement; SUPER_ADMIN exempt).
+        if (!approvedById) {
+            throw AppError.badRequest('APPROVER_ID_REQUIRED: approvedById must be provided.');
+        }
         const approver = await prisma.user.findUnique({ where: { id: approvedById }, select: { role: true } });
-        if (approver?.role !== 'SUPER_ADMIN' && issue.issuedById === approvedById) {
+        if (!approver) {
+            throw AppError.badRequest('APPROVER_NOT_FOUND: The approver account may have been deleted.');
+        }
+        if (approver.role !== 'SUPER_ADMIN' && issue.issuedById && issue.issuedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: Issue creator cannot approve their own stock issue.');
         }
 
@@ -318,8 +324,14 @@ export class ProjectStockIssueService {
         }
 
         // Segregation of duties: the returner cannot approve their own return.
+        if (!approvedById) {
+            throw AppError.badRequest('APPROVER_ID_REQUIRED: approvedById must be provided.');
+        }
         const returnApprover = await prisma.user.findUnique({ where: { id: approvedById }, select: { role: true } });
-        if (returnApprover?.role !== 'SUPER_ADMIN' && returnReq.returnedById === approvedById) {
+        if (!returnApprover) {
+            throw AppError.badRequest('APPROVER_NOT_FOUND: The approver account may have been deleted.');
+        }
+        if (returnApprover.role !== 'SUPER_ADMIN' && returnReq.returnedById && returnReq.returnedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: Return creator cannot approve their own material return.');
         }
 

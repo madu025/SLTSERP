@@ -48,9 +48,15 @@ export default function RoleGuard({ children, allowedRoles, permissionId, fallba
         return () => clearTimeout(timer);
     }, [router, fallbackLoginPath]);
 
-    // During SSR and initial client hydration, render children to ensure 100% matching DOM tree (prevents hydration mismatch)
+    // During SSR and initial client hydration render a neutral skeleton instead
+    // of the protected content. Rendering children before the localStorage
+    // session is verified flashes restricted UI to unauthorized users.
     if (!mounted) {
-        return <>{children}</>;
+        return (
+            <div className="h-screen w-full flex items-center justify-center bg-background">
+                <div className="animate-pulse text-muted-foreground text-sm font-medium">Verifying access...</div>
+            </div>
+        );
     }
 
     const isAuthorized = user ? hasAccess(user.role, allowedRoles, true, undefined, permissionId, user.permissions) : false;

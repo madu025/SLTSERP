@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (req) => {
     const userId = req.headers.get('x-user-id');
     if (!userId) {
-        throw new Error('Unauthorized');
+        throw AppError.unauthorized('Unauthorized');
     }
 
     return await UserService.getProfile(userId);
@@ -22,7 +23,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get('x-user-id');
 
     if (!userId) {
-        throw new Error('Unauthorized');
+        throw AppError.unauthorized('Unauthorized');
     }
 
     return await UserService.updateProfile(userId, { name, email });

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
 import { InvoiceCalculatorService } from '@/services/invoice/invoice.calculator.service';
 
@@ -210,7 +211,7 @@ export class PricingAuditService {
         });
 
         if (!invoice) {
-            throw new Error('Invoice not found');
+            throw AppError.notFound('Invoice not found');
         }
 
         const split = InvoiceCalculatorService.calculateSplit(requestedAmount);
@@ -243,11 +244,21 @@ export class PricingAuditService {
         });
 
         if (!amendmentRequest) {
-            throw new Error('Amendment Request not found');
+            throw AppError.notFound('Amendment Request not found');
         }
 
         if (amendmentRequest.status !== 'PENDING_SF_APPROVAL') {
-            throw new Error(`Request already processed with status ${amendmentRequest.status}`);
+            throw AppError.badRequest(`Request already processed with status ${amendmentRequest.status}`);
+        }
+
+        // Segregation of Duties: the user who created the amendment request
+        // cannot approve/reject it. SUPER_ADMIN is the only exempt role.
+        const approver = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+        if (!approver) {
+            throw AppError.badRequest('APPROVER_NOT_FOUND: The approving account may have been deleted.');
+        }
+        if (approver.role !== 'SUPER_ADMIN' && amendmentRequest.requestedById === userId) {
+            throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: The amendment requester cannot approve or reject their own request.');
         }
 
         if (status === 'REJECTED') {
