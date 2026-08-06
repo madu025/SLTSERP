@@ -6,6 +6,7 @@ import Providers from "@/components/Providers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SessionManager from "@/components/SessionManager";
 import NexusAgent from "@/components/NexusAgent";
+import ForcePasswordChangeModal from "@/components/ForcePasswordChangeModal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,6 +67,7 @@ export default function RootLayout({
               <SessionManager />
               {children}
               <NexusAgent />
+              <ForcePasswordChangeModal />
             </ThemeProvider>
           </Providers>
         </ErrorBoundary>
