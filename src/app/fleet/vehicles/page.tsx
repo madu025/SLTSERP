@@ -48,7 +48,9 @@ export default function VehiclesPage() {
             const res = await fetch(`/api/vehicles?${params}`);
             if (!res.ok) throw new Error('Failed to fetch');
             const json = await res.json();
-            setVehicles(json.data || []);
+            // apiHandler wraps the route result: json.data = { data: [...], meta }
+            const list = Array.isArray(json.data) ? json.data : (json.data?.data ?? []);
+            setVehicles(Array.isArray(list) ? list : []);
         } catch (error) {
             console.error('Error fetching vehicles:', error);
         } finally {
