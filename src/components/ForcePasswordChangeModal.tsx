@@ -221,6 +221,25 @@ export default function ForcePasswordChangeModal() {
                         After changing your password, you will be able to access all features.
                     </p>
                 </form>
+
+                {/* Logout link for users who want to sign out */}
+                <div className="px-6 pb-4 text-center">
+                    <button
+                        onClick={async () => {
+                            try {
+                                await fetch('/api/logout', { method: 'POST' });
+                            } catch {
+                                // ignore errors
+                            }
+                            localStorage.clear();
+                            setShow(false);
+                            window.location.href = '/login';
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-700 underline"
+                    >
+                        Sign out without changing password
+                    </button>
+                </div>
             </div>
         </div>
     );
