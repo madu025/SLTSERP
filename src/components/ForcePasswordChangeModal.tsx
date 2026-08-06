@@ -26,6 +26,8 @@ export default function ForcePasswordChangeModal() {
                     const user = JSON.parse(storedUser);
                     if (user?.mustChangePassword === true) {
                         setShow(true);
+                        // Prevent back button bypass - push state to block navigation
+                        window.history.pushState(null, '', window.location.href);
                     }
                 }
             } catch {
@@ -42,11 +44,21 @@ export default function ForcePasswordChangeModal() {
         // Also check periodically for same-tab changes (storage event only fires for other tabs)
         const interval = setInterval(checkMustChangePassword, 1000);
 
+        // Prevent back button bypass when modal is showing
+        const handlePopState = () => {
+            if (show) {
+                // Push state again to prevent going back
+                window.history.pushState(null, '', window.location.href);
+            }
+        };
+        window.addEventListener('popstate', handlePopState);
+
         return () => {
             window.removeEventListener('storage', checkMustChangePassword);
+            window.removeEventListener('popstate', handlePopState);
             clearInterval(interval);
         };
-    }, []);
+    }, [show]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
