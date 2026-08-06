@@ -89,7 +89,12 @@ export default function DashboardPage() {
             if (!user?.id) return null;
             const params = new URLSearchParams({ userId: user.id, region: selectedRegion, rtom: selectedRtom });
             const resp = await fetch(`/api/dashboard/stats?${params}`);
-            if (!resp.ok) throw new Error('Failed to fetch stats');
+            if (!resp.ok) {
+                if (resp.status === 403) {
+                    throw new Error('Please change your password to access dashboard data');
+                }
+                throw new Error('Failed to fetch stats');
+            }
             return resp.json();
         },
         enabled: !!user?.id,
