@@ -49,6 +49,8 @@ const publicPaths = [
 const publicPrefixes: Array<{ prefix: string; maxDepth: number }> = [
     { prefix: '/api/banks', maxDepth: 2 },
     { prefix: '/api/inventory/stores', maxDepth: 1 },
+    // Cron endpoints use CRON_SECRET auth (not JWT) - allow all methods
+    { prefix: '/api/cron', maxDepth: 1 },
 ];
 
 function isPublicPath(pathname: string, method: string): boolean {
