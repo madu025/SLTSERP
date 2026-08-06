@@ -197,8 +197,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Projects',
         path: '/projects',
         icon: FolderKanban,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS],
-        permissionId: 'service-orders',
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.SOD_PROJECT],
+        permissionId: 'projects',
         submenu: [
             {
                 title: 'All Projects',
@@ -343,7 +343,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'SF Audit Division',
         path: '/finance/sf-audit/governance',
         icon: ShieldCheck,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.SF_AUDITING],
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.SF_AUDITING],
         permissionId: 'sf-audit',
         submenu: [
             {
