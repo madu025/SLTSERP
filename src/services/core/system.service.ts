@@ -17,6 +17,8 @@ export interface SystemEvent {
     notifyType?: 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE';
     notifyPriority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     notifyLink?: string;
+    /** Override notification recipient (defaults to userId). Use when the actor and recipient differ. */
+    notifyUserId?: string;
 }
 
 export class SystemService {
@@ -48,17 +50,23 @@ export class SystemService {
             });
 
             // 2. Create Notification if requested (only deliverable to real users)
-            if (event.notify && event.notifyTitle && event.notifyMessage && auditUserId) {
-                await tx.notification.create({
-                    data: {
-                        userId: auditUserId,
-                        title: event.notifyTitle,
-                        message: event.notifyMessage,
-                        type: event.notifyType || 'SYSTEM',
-                        priority: event.notifyPriority || 'MEDIUM',
-                        link: event.notifyLink,
-                    }
-                });
+            if (event.notify && event.notifyTitle && event.notifyMessage) {
+                // Use explicit notifyUserId if provided, otherwise fall back to the actor
+                const notificationUserId = event.notifyUserId && this.UUID_RE.test(event.notifyUserId)
+                    ? event.notifyUserId
+                    : auditUserId;
+                if (notificationUserId) {
+                    await tx.notification.create({
+                        data: {
+                            userId: notificationUserId,
+                            title: event.notifyTitle,
+                            message: event.notifyMessage,
+                            type: event.notifyType || 'SYSTEM',
+                            priority: event.notifyPriority || 'MEDIUM',
+                            link: event.notifyLink,
+                        }
+                    });
+                }
             }
 
             return log;

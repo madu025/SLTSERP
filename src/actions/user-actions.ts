@@ -228,10 +228,12 @@ export async function updateUser(data: any) {
             entityId: result.id as string,
             oldValue: existingUser,
             newValue: userWithoutPassword,
+            // Notification goes to the user whose profile was updated, not the admin
             notify: true,
             notifyTitle: 'Profile Updated',
-            notifyMessage: `Your account details have been updated.`,
-            notifyType: 'SYSTEM'
+            notifyMessage: `Your account details have been updated by an administrator.`,
+            notifyType: 'SYSTEM',
+            notifyUserId: id
         });
 
         revalidatePath('/admin/users');
