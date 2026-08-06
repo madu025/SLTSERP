@@ -19,17 +19,33 @@ export default function ForcePasswordChangeModal() {
     const router = useRouter();
 
     useEffect(() => {
-        try {
-            const storedUser = localStorage.getItem('user');
-            if (storedUser) {
-                const user = JSON.parse(storedUser);
-                if (user?.mustChangePassword === true) {
-                    setShow(true);
+        const checkMustChangePassword = () => {
+            try {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    if (user?.mustChangePassword === true) {
+                        setShow(true);
+                    }
                 }
+            } catch {
+                // ignore parse errors
             }
-        } catch {
-            // ignore parse errors
-        }
+        };
+
+        // Check on mount
+        checkMustChangePassword();
+
+        // Listen for localStorage changes (login, logout, etc.)
+        window.addEventListener('storage', checkMustChangePassword);
+
+        // Also check periodically for same-tab changes (storage event only fires for other tabs)
+        const interval = setInterval(checkMustChangePassword, 1000);
+
+        return () => {
+            window.removeEventListener('storage', checkMustChangePassword);
+            clearInterval(interval);
+        };
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
