@@ -109,6 +109,20 @@ export class ServiceOrderDashboardService {
             filteredRtoms = user.accessibleOpmcs.map((o: { id: string; rtom: string }) => o.rtom);
         }
 
+        // Regional isolation (fail-closed): non-global users must never see data
+        // for RTOMs outside their accessible OPMCs. Out-of-scope rtom/region
+        // filters intersect to an empty set so invoice/PAT aggregates cannot leak.
+        if (!canFilterGlobally) {
+            const accessibleRtoms = new Set(user.accessibleOpmcs.map((o: { rtom: string }) => o.rtom));
+            filteredRtoms = (filteredRtoms ?? [...accessibleRtoms]).filter(r => accessibleRtoms.has(r));
+        }
+
+        // Invoice scope for regionally-scoped users: restrict to their RTOMs
+        // (fail-closed to an empty list when no RTOMs resolve). Admins see all.
+        const invoiceScopeWhere: Prisma.InvoiceWhereInput = canFilterGlobally
+            ? {}
+            : { rtomArea: { in: filteredRtoms ?? [] } };
+
         const now = new Date();
         const firstDayOfMonth = startOfMonth(now);
         const lastDayOfMonth = endOfMonth(now);
@@ -244,14 +258,27 @@ export class ServiceOrderDashboardService {
             prisma.serviceOrder.count({
                 where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 2) } }
             }),
-            prisma.invoice.aggregate({ _sum: { totalAmount: true } }).catch(() => ({ _sum: { totalAmount: 0 } })),
-            prisma.invoice.aggregate({ where: { status: 'PENDING' }, _count: { _all: true }, _sum: { totalAmount: true } }).catch(() => ({ _count: { _all: 0 }, _sum: { totalAmount: 0 } })),
+            // Regional isolation: global Invoice/VM/Vendor/Survey aggregates
+            // must never leak to regionally-scoped users. Invoices are scoped
+            // by rtomArea; models without any OPMC relation return zeros.
+            prisma.invoice.aggregate({ where: { ...invoiceScopeWhere }, _sum: { totalAmount: true } }).catch(() => ({ _sum: { totalAmount: 0 } })),
+            prisma.invoice.aggregate({ where: { ...invoiceScopeWhere, status: 'PENDING' }, _count: { _all: true }, _sum: { totalAmount: true } }).catch(() => ({ _count: { _all: 0 }, _sum: { totalAmount: 0 } })),
             prisma.serviceOrder.aggregate({ where: { ...whereClause, sltsStatus: 'COMPLETED', isInvoicable: true, invoiceId: null }, _sum: { revenueAmount: true } }).catch(() => ({ _sum: { revenueAmount: 0 } })),
-            prisma.vMVehicle?.count({ where: { status: 'AVAILABLE' } }).catch(() => 0) ?? Promise.resolve(0),
-            prisma.vMTrip?.count({ where: { createdAt: { gte: firstDayOfMonth } } }).catch(() => 0) ?? Promise.resolve(0),
-            prisma.vMPayment?.aggregate({ where: { status: 'PENDING' }, _sum: { total_amount: true } }).catch(() => ({ _sum: { total_amount: 0 } })) ?? Promise.resolve({ _sum: { total_amount: 0 } }),
-            prisma.surveyRequest?.count({ where: { status: 'PENDING' } }).catch(() => 0) ?? Promise.resolve(0),
-            prisma.vendor?.count().catch(() => 0) ?? Promise.resolve(0)
+            canFilterGlobally
+                ? (prisma.vMVehicle?.count({ where: { status: 'AVAILABLE' } }).catch(() => 0) ?? Promise.resolve(0))
+                : Promise.resolve(0),
+            canFilterGlobally
+                ? (prisma.vMTrip?.count({ where: { createdAt: { gte: firstDayOfMonth } } }).catch(() => 0) ?? Promise.resolve(0))
+                : Promise.resolve(0),
+            canFilterGlobally
+                ? (prisma.vMPayment?.aggregate({ where: { status: 'PENDING' }, _sum: { total_amount: true } }).catch(() => ({ _sum: { total_amount: 0 } })) ?? Promise.resolve({ _sum: { total_amount: 0 } }))
+                : Promise.resolve({ _sum: { total_amount: 0 } }),
+            canFilterGlobally
+                ? (prisma.surveyRequest?.count({ where: { status: 'PENDING' } }).catch(() => 0) ?? Promise.resolve(0))
+                : Promise.resolve(0),
+            canFilterGlobally
+                ? (prisma.vendor?.count().catch(() => 0) ?? Promise.resolve(0))
+                : Promise.resolve(0)
         ]);
 
         const totalRevenue = Number(financialAggregates._sum.revenueAmount || 0);

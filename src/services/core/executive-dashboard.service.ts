@@ -1,11 +1,16 @@
 import { prisma } from '@/lib/prisma';
+import { NIL_UUID } from '@/lib/opmc-scope';
 
 export class ExecutiveDashboardService {
   /**
    * Full executive dashboard data for CEO/Director view
    */
   static async getDashboardData(opmcIds?: string[]) {
-    const projectWhere = opmcIds?.length ? { opmcId: { in: opmcIds } } : {};
+    // Tri-state scope: undefined = global view; [] must deny ALL (never fall
+    // through to an unfiltered query); otherwise restrict to the given OPMCs.
+    const projectWhere: Record<string, unknown> = opmcIds === undefined
+      ? {}
+      : { opmcId: opmcIds.length > 0 ? { in: opmcIds } : NIL_UUID };
 
     const [
       projectStats,

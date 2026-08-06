@@ -15,7 +15,9 @@ export const POST = apiHandler(async (req, _params, body) => {
 
     return { 
         message: 'Materials issued successfully and inventory updated', 
-        issueId: issue.id 
+        issueId: issue.id,
+        // Mandatory Store Material Issue Note Number (MIN ref) display
+        issueNumber: issue.issueNumber
     };
 }, {
     schema: materialIssueSchema,

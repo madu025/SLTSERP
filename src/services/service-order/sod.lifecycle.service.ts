@@ -214,12 +214,24 @@ export class SODLifecycleService {
     /**
      * Get paginated offline work orders
      */
-    static async getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null) {
+    static async getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null, accessibleOpmcs?: string[]) {
         const whereClause: Record<string, unknown> = {
             isOfflineWorkOrder: true
         };
 
-        if (opmcId && opmcId !== 'ALL') {
+        // Tri-state OPMC isolation: undefined = admin/global; [] = deny all;
+        // client opmcId is intersected with the resolved scope.
+        if (accessibleOpmcs !== undefined) {
+            if (opmcId && opmcId !== 'ALL') {
+                whereClause.opmcId = accessibleOpmcs.includes(opmcId)
+                    ? opmcId
+                    : '00000000-0000-0000-0000-000000000000';
+            } else {
+                whereClause.opmcId = accessibleOpmcs.length > 0
+                    ? { in: accessibleOpmcs }
+                    : '00000000-0000-0000-0000-000000000000';
+            }
+        } else if (opmcId && opmcId !== 'ALL') {
             whereClause.opmcId = opmcId;
         }
 

@@ -1,8 +1,37 @@
 # Grill-Me Session Log 閳ワ拷 Production Build Readiness Audit
 
-## Session: 2026-08-04 — SOD Status Routing & 3-Endpoint Table Assignment
+## Session: 2026-08-06 — OPMC RBAC Bypass & UUID Crash Audit
 
-**Scope**: Correct routing of SODs from SLT portal endpoints to Pending / Install Closed / Completed tables.
+**Scope**: Service Orders OPMC access boundary enforcement for non-admin users.
+**Trigger**: User `prasad` (ENGINEER, 0 accessible OPMCs) could see ALL 1,228 service orders.
+
+### Findings
+
+| # | Severity | Finding | Root Cause | Fix |
+|---|----------|---------|------------|-----|
+| F1 | **P0** | Empty `accessibleOpmcs=[]` bypassed OPMC filter | `length > 0` false for `[]` → no filter pushed | Added `else-if (params.accessibleOpmcs)` → nil-UUID block |
+| F2 | **P0** | `OPMC.findFirst` crashed on RTOM code strings | `{ id: 'R-KX' }` in OR → UUID parse error | `isValidUuid()` guard before `{ id: }` |
+| F3 | **P1** | Frontend leaked all 43 OPMCs in dropdown | Fell through to `return allOpmcs` for empty array | Return `[]` when accessibleOpmcs is defined but empty |
+| F4 | **P2** | Return-count query missed nil-UUID guard | Same empty-array bypass as F1 | Added `accessibleOpmcs !== undefined` check |
+
+### Files Modified
+- `src/services/service-order/sod.query.service.ts` (F1, F2, F4)
+- `src/app/service-orders/work-order/page.tsx` (F3)
+
+### Test Results (all PASS)
+- ENGINEER + 0 OPMCs → 0 results (was: 1228)
+- Admin (undefined) → 1226 results
+- RTOM code 'R-KT' → 100 results (was: 500 crash)
+- All RTOMs + 3 OPMCs → 197 results (was: 500 crash)
+- tsc: 0 errors
+
+### Blast Radius
+- `index.ts:25-36` sets `params.accessibleOpmcs` for all non-admin users
+- `sod-dashboard.service.ts` already handled empty correctly (`opmcId: { in: [] }`)
+- No other services use `accessibleOpmcs` filter directly
+
+---
+
 
 ### Portal Endpoints → Table Mapping (User-Confirmed Domain Rules)
 
@@ -880,5 +909,94 @@ Verify prior pending findings against CURRENT code, then resolve any real open i
 
 ### Memory
 - Closed task_summary memory `SLTSERP pending security findings resolution (P1-P4 closed, P5 open)` — future audits must verify current code before re-flagging these as open.
+
+---
+
+## Session 2026-08-06 (d) — Multi-Agent QA Audit: RBAC Core + OPMC Guard + Stores Guard
+
+Multi-agent audit split into three work packages: WP1 OPMC/dashboard services, WP2 inventory services, WP3 RBAC core / role config / auth edges (this entry covers WP3; WP1/WP2 findings fixed by their owners in the same pass).
+
+### Scope (WP3)
+Authentication edges (upload route, agent auth, telemetry), middleware publicPaths, users admin guards, role configuration constants, dead auth-bypass config, stale Prisma enum, phantom roles.
+
+### Key Findings Fixed (this session)
+
+| # | Finding | Fix |
+|---|---------|-----|
+| U1 | `/api/upload` fully public + SUPABASE_SERVICE_ROLE_KEY bypassing RLS with caller-chosen bucket | Fail-closed auth gate in route: staff session JWT (cookie/Bearer) OR scoped public upload token (`publicToken` + `tokenType` contractor/team/contractor-registration validated via existing services). Extension whitelist + 10MB cap kept; POST-only in middleware. Public token pages updated to send their tokens |
+| U2 | Hardcoded agent key fallback `slts-agent-secure-sync-key-2026` in agent-auth.ts | Removed; `AGENT_API_KEY` unset now fails closed (static-key branch never authenticates). Key present in .env so local dev unaffected |
+| U3 | `/api/helpdesk/agent/telemetry` GET/POST unguarded | validateAgentAuth + per-IP rateLimit (60/min) on both methods, mirroring `/api/assets/sync`; added to middleware publicPaths so agent-key clients can reach it |
+| U4 | `/api/users` PATCH surface unguarded (audit flagged unguarded OPMC reassignment) | Verified: no PATCH handler exists today; added explicit deny-all `roles: []` PATCH export so the route stays fail-closed against future additions |
+| U5 | `/api/inventory/stores` public GET prefix exposed store list anonymously | Removed from publicPrefixes — store list now requires authentication |
+| U6 | `/api/contractor-portal/auth/login` missing from publicPaths (old `/api/contractor-portal/auth` entry matched no route) | Exact path added; harmless legacy entry kept |
+| U7 | Dead `TEST_USERS` permission-bypass config (auth-defaults.ts + seed-auth-config.ts) | Config constant removed; seed no longer writes it and deletes legacy SystemConfig row. No runtime consumer existed |
+| U8 | Stale 32-value Role enum in root prisma/schema.prisma vs 37-value active enum | Synced to exact 37 values of prisma/schema/enums.prisma (active schema confirmed = prisma/schema directory); `npx prisma validate` passes |
+| U9 | Phantom role `FIELD_ENGINEER` in contractor impersonation allowlist | Removed from contractor.service.ts resolveContractorContext |
+| U10 | `CONTRACTOR_SUPERVISOR` in MATERIAL_REQUESTERS; `HEAD_OF_SECTION` in INVENTORY_WRITERS | Removed both — contractors use the portal (no internal MRN callers found); HEAD_OF_SECTION documented read-only, no inventory write flow exists |
+
+### Cross-Agent Findings (fixed by WP1/WP2 owners in the same audit)
+- OPMC empty-array bypasses in contractor/project-dashboard, dashboard userId impersonation, unguarded regional reads, cross-region SOD writes (WP1)
+- MRN return guards/SoD/unique+transaction, store-scope enforcement, ledger chain fixes (WP2)
+
+### Deferred to Inventory Agent (WP3 not permitted to edit src/services/inventory or src/app/api/inventory)
+- stock-request.service.ts ~L278 RELEASE stage hardcoded `['STORES_MANAGER','STORES_ASSISTANT','ADMIN','SUPER_ADMIN']` = STORES_ALL minus CEO. Replace with `ROLE_GROUPS.STORES_ALL` (already includes SUPER_ADMIN/ADMIN/CEO + stores pair; no separate CORE_ADMINS union needed)
+- grn/route.ts ~L16 GRN POST guard `STORES_ALL` excludes PROCUREMENT_OFFICER though sidebar-menu.ts:502 grants the page. Change roles to `[...ROLE_GROUPS.STORES_ALL, 'PROCUREMENT_OFFICER']`
+
+### Decisions
+- `/api/service-orders/bridge-data` intentionally left public (SLT-Bridge extension integration)
+- `/api/upload` kept in middleware publicPaths by design: anonymous public token flows (contractor-upload, team-upload, contractor registration) depend on it; authentication enforced inside the route instead
+- Admin-tier consistency review and ledger checksum backfill deferred by user
+
+### Verification
+- `node scripts/rbac-sync.js` — OK (all role references match 37-role enum)
+- `node scripts/audit-rbac-routes.js` — only the pre-existing intentionally role-less public endpoints listed (login, agent-key routes, public token flows); no new drift
+- `node scripts/audit-menu-drift.js` — 0 unprotected pages (3 advisory orphan menu entries pre-existing)
+- `npx prisma validate` — valid
+- `npx tsc --noEmit` — 0 errors
+
+### Review fix rounds addendum
+
+**Round 2 (ultra review, 3 perspectives):**
+
+*Completeness* — all in-scope findings covered. One note: migration SQL matched .gitignore `*.sql` rule; must `git add -f prisma/migrations/20260806000000_mrn_issue_number_unique/migration.sql` at commit time.
+
+*Correctness* — initial 3 findings refuted as stale-snapshot artifacts except a harmless fail-closed approver guard added; deep pass then found and fixed:
+
+| # | Finding | Fix |
+|---|---------|-----|
+| R1 | sod-dashboard client rtom filter not intersected with accessible RTOMs (invoice/PAT leak via out-of-scope filter) | Filter intersected with accessible RTOMs |
+| R2 | emergency-petty-purchase replay double-increment | Replay guard |
+| R3 | cycle-count idempotency key missing line identity + check-then-act status race | Key extended + atomic status transition |
+| R4 | MRN approve/reject check-then-act race | Atomic conditional update |
+| R5 | finance dashboard dropping in-scope rtom filter | Filter restored |
+| R6 | upload bucket unsanitized | Bucket sanitized |
+| R7 | assertStoreWriteAccess global-client-in-tx + null toStoreId | Tx client used; null toStoreId handled |
+
+*Impact* — critical fixes:
+
+| # | Finding | Fix |
+|---|---------|-----|
+| I1 | patchServiceOrder `Uuid` lookup crashed SYNC_SERVICE/SYSTEM_AUTO_COMPLETE markers (completed-SOD sync broken) | `isValidUuid` gate before lookup |
+| I2 | GET /api/projects menuPath broke cross-department dropdowns | Switched to roles `['ALL']` with server-side OPMC scoping retained |
+| I3 | projects/return guard too narrow | Widened to STORES_ALL + PROJECT_MANAGERS |
+| I4 | wip-revenue missing tier | Added OSP_MANAGER |
+| I5 | SoD bypass only SUPER_ADMIN | Extended SUPER_ADMIN→CORE_ADMINS |
+| I6 | dashboard-kpis unguarded tier | STORES-tier guard added |
+| I7 | contractor-portal/dashboard roles | Set to ALL |
+| I8 | projects/stock-issue menuPath | '/projects' |
+| I9 | dashboard/stats menuPath | '/dashboard' |
+| I10 | middleware bridge-data entry | Exact entry, GET-only |
+
+**Round 3:** all round-2 correctness/impact items applied; contractor-portal dashboard now returns empty payload for staff without contractor identity instead of 500.
+
+**Decisions:**
+- SLT-Bridge bridge-data intentionally public GET-only (user directive)
+- Ledger recordEntry stays inside $transaction with tx client (moving before tx would orphan entries)
+- Admin-tier SOD consistency, ledger checksum backfill, and middleware→proxy migration deferred by user
+
+**Operational follow-ups (not code):**
+- Backfill accessibleOpmcs for non-admin users operating bulk-import/sync/dashboards before release
+- Verify store linkage (assignedStoreId/managerId) for stores and procurement users before release
+- Confirm two distinct approvers per store or accept ADMIN SoD bypass
 
 

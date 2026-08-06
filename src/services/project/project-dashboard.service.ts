@@ -2,6 +2,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { formatDistanceToNow } from 'date-fns';
 import { Prisma } from '@prisma/client';
+import { NIL_UUID } from '@/lib/opmc-scope';
 
 export class ProjectDashboardService {
     
@@ -21,8 +22,11 @@ export class ProjectDashboardService {
         }
 
         const projectWhere: Prisma.ProjectWhereInput = {};
-        if (!isAdmin && accessibleOpmcIds.length > 0) {
-            projectWhere.opmcId = { in: accessibleOpmcIds };
+        if (!isAdmin) {
+            // Tri-state: empty OPMC scope must yield ZERO projects, never all.
+            projectWhere.opmcId = accessibleOpmcIds.length > 0
+                ? { in: accessibleOpmcIds }
+                : NIL_UUID;
         }
 
         const accessibleProjects = await prisma.project.findMany({
@@ -38,8 +42,9 @@ export class ProjectDashboardService {
         const projectIds = await this.getAccessibleProjectIds(userId, userRole);
 
         const projectWhere: Prisma.ProjectWhereInput = {};
-        if (!isAdmin && projectIds.length > 0) {
-            projectWhere.id = { in: projectIds };
+        if (!isAdmin) {
+            // Tri-state: empty project list must deny ALL data, never return all.
+            projectWhere.id = projectIds.length > 0 ? { in: projectIds } : NIL_UUID;
         }
 
         // =====================================================
@@ -325,8 +330,9 @@ export class ProjectDashboardService {
         const projectIds = await this.getAccessibleProjectIds(userId, userRole);
         
         const projectWhere: Prisma.ProjectWhereInput = {};
-        if (!isAdmin && projectIds.length > 0) {
-            projectWhere.id = { in: projectIds };
+        if (!isAdmin) {
+            // Tri-state: empty project list must deny ALL data, never return all.
+            projectWhere.id = projectIds.length > 0 ? { in: projectIds } : NIL_UUID;
         }
 
         const now = new Date();

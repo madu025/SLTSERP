@@ -27,12 +27,14 @@ const GIS_WRITERS = [...new Set([
     ...CONTRACTOR_ROLES,
 ])];
 
-/** Inventory writes — stores, procurement and finance approvers (+ section heads for report generation). */
+/** Inventory writes — stores, procurement and finance approvers.
+ * QA audit: SECTION_HEADS (HEAD_OF_SECTION) removed — the role is documented
+ * read-only (see ROLE_GROUPS.SECTION_HEADS in roles.ts) and has no legitimate
+ * /api/inventory write flow. */
 const INVENTORY_WRITERS = [...new Set([
     ...ROLE_GROUPS.STORES_ALL,
     ...ROLE_GROUPS.PROCUREMENT,
     ...ROLE_GROUPS.FINANCE_APPROVERS,
-    ...ROLE_GROUPS.SECTION_HEADS,
 ])];
 
 export const PREFIX_WRITE_GUARDS: ReadonlyArray<{ prefix: string; roles: string[] }> = [

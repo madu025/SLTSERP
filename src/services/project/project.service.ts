@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { calculateProjectProgress } from '@/lib/project-progress';
+import { NIL_UUID } from '@/lib/opmc-scope';
 
 interface ProjectFilters {
     status?: string | null;
@@ -44,7 +45,7 @@ export class ProjectService {
     /**
      * Get all projects with optional filters and pagination
      */
-    static async getProjects(filters: ProjectFilters, pagination: { page?: number; limit?: number; isPaginated?: boolean }) {
+    static async getProjects(filters: ProjectFilters, pagination: { page?: number; limit?: number; isPaginated?: boolean }, accessibleOpmcs?: string[]) {
         const { status, type, opmcId, contractorId, projectTypeId, search } = filters;
         const { page = 1, limit = 50, isPaginated = false } = pagination;
         const skip = (page - 1) * limit;
@@ -57,7 +58,18 @@ export class ProjectService {
             where.status = { not: 'COMPLETED' };
         }
         if (type && type !== 'ALL') where.type = type;
-        if (opmcId && opmcId !== 'ALL') where.opmcId = opmcId;
+        // Tri-state OPMC isolation: undefined = admin/global; [] = deny all.
+        // A client-supplied opmcId filter is intersected with the resolved
+        // scope — values outside it are ignored.
+        if (accessibleOpmcs !== undefined) {
+            if (opmcId && opmcId !== 'ALL') {
+                where.opmcId = accessibleOpmcs.includes(opmcId) ? opmcId : NIL_UUID;
+            } else {
+                where.opmcId = accessibleOpmcs.length > 0 ? { in: accessibleOpmcs } : NIL_UUID;
+            }
+        } else if (opmcId && opmcId !== 'ALL') {
+            where.opmcId = opmcId;
+        }
         if (contractorId && contractorId !== 'ALL') where.contractorId = contractorId;
         if (projectTypeId && projectTypeId !== 'ALL') where.projectTypeId = projectTypeId;
 

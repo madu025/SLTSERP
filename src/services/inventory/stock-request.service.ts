@@ -10,6 +10,8 @@ import { StockRequestActionData, TransactionClient } from '@/types/inventory/inv
 import { prisma } from '@/lib/prisma';
 import { ProcessGateEngine } from '../approval/process-gate-engine';
 import { AuditLedgerService } from './audit-ledger.service';
+import { StoreService } from './store.service';
+import { ROLE_GROUPS } from '@/config/roles';
 export class StockRequestService {
     private static generateRequestId(sourceType?: string): string {
         const date = new Date();
@@ -275,7 +277,9 @@ export class StockRequestService {
 
         // Stage-Specific Role Isolation Enforcement
         if (action === 'RELEASE') {
-            if (!['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+            // Aligned with ROLE_GROUPS.STORES_ALL (src/config/roles.ts) so the
+            // guard includes CEO and never drifts from the stores group definition.
+            if (!(ROLE_GROUPS.STORES_ALL as readonly string[]).includes(user.role)) {
                 throw AppError.forbidden("ROLE_PERMISSION_DENIED: Only Main Stores Officers can perform MIN Release and dispatch warehouse stock.");
             }
         } else if (action === 'ARM_APPROVE') {
@@ -610,6 +614,11 @@ export class StockRequestService {
 
             if (!stockReq) throw AppError.badRequest("REQUEST_NOT_FOUND");
             if (stockReq.workflowStage !== 'MAIN_STORE_RELEASE') throw AppError.badRequest("INVALID_WORKFLOW_STAGE");
+
+            // Store-Scope Enforcement: the releasing officer must be authorized
+            // for the dispatching (main) store before warehouse stock moves.
+            if (!stockReq.toStoreId) throw AppError.badRequest('REQUEST_MISSING_DESTINATION_STORE');
+            await StoreService.assertStoreWriteAccess(userId, stockReq.toStoreId, tx);
 
             const issueNoteNumber = (stockReq as Record<string, unknown>).issueNoteNumber as string | null || await AuditLedgerService.generateMINNumber(tx);
             const transitStoreId = await this.getOrCreateTransitStore(tx);

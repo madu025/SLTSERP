@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { DEFAULT_ROLE_PERMISSIONS, SECTION_MAPPING, TEST_USERS } from '../src/config/auth-defaults';
+import { DEFAULT_ROLE_PERMISSIONS, SECTION_MAPPING } from '../src/config/auth-defaults';
 
 const prisma = new PrismaClient();
 
@@ -32,17 +32,10 @@ async function main() {
     }
   });
 
-  await prisma.systemConfig.upsert({
-    where: { key: 'TEST_USERS' },
-    update: {
-      value: JSON.stringify(TEST_USERS),
-      description: 'List of test users that bypass permission checks'
-    },
-    create: {
-      key: 'TEST_USERS',
-      value: JSON.stringify(TEST_USERS),
-      description: 'List of test users that bypass permission checks'
-    }
+  // QA audit: the TEST_USERS permission-bypass config was removed. No runtime
+  // consumer exists, so we stop seeding it and clean up any legacy row.
+  await prisma.systemConfig.delete({ where: { key: 'TEST_USERS' } }).catch(() => {
+    // Row may not exist on fresh environments — safe to ignore
   });
 
   console.log('Auth configurations seeded successfully.');

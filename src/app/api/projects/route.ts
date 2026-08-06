@@ -1,11 +1,12 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectService } from '@/services/project/project.service';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export const dynamic = 'force-dynamic';
 
 // GET all projects (rawResponse for compatibility)
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
     const type = searchParams.get('type');
@@ -21,8 +22,16 @@ export const GET = apiHandler(async (req) => {
     const filters = { status, type, opmcId, contractorId, projectTypeId, search };
     const pagination = { page, limit, isPaginated };
 
-    return await ProjectService.getProjects(filters, pagination);
+    // Server-side OPMC scope — client opmcId is intersected with it inside
+    // the service (admins unrestricted, empty scope denies all).
+    const accessibleOpmcs = await resolveOpmcScope(params._userId);
+
+    return await ProjectService.getProjects(filters, pagination, accessibleOpmcs);
 }, {
+    // Shared dropdown source for stores/finance/invoice/procurement pages —
+    // any authenticated user may list; real protection is the server-side
+    // resolveOpmcScope filtering applied above in ProjectService.
+    roles: ['ALL'],
     rawResponse: true
 });
 

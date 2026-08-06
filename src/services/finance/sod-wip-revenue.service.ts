@@ -122,7 +122,7 @@ export class SODWipRevenueService {
     /**
      * Get comprehensive Monthly Build-up WIP Revenue, Inventory COGS, Vehicle, Site Office & Staff Cost Allocation Summary
      */
-    static async getWipSummary(opmcId?: string): Promise<{ metrics: WipSummaryMetrics; items: WipSodItem[] }> {
+    static async getWipSummary(opmcId?: string, accessibleOpmcs?: string[]): Promise<{ metrics: WipSummaryMetrics; items: WipSodItem[] }> {
         const splitConfig = await this.getPaymentSplitConfig();
 
         // Accounting Rule: Only physically completed field jobs (COMPLETED, INSTALL_CLOSED, PROV_CLOSED)
@@ -135,7 +135,17 @@ export class SODWipRevenueService {
             invoiced: { not: true }
         };
 
-        if (opmcId && opmcId !== 'ALL') {
+        // Tri-state OPMC scope: undefined = admin/global; [] = deny all.
+        // A client-supplied opmcId is intersected with the caller's scope —
+        // values outside it are ignored.
+        if (accessibleOpmcs !== undefined) {
+            const scoped = opmcId && opmcId !== 'ALL'
+                ? accessibleOpmcs.filter(id => id === opmcId)
+                : accessibleOpmcs;
+            whereClause.opmcId = scoped.length > 0
+                ? { in: scoped }
+                : '00000000-0000-0000-0000-000000000000';
+        } else if (opmcId && opmcId !== 'ALL') {
             whereClause.opmcId = opmcId;
         }
 

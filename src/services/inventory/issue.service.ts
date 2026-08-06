@@ -38,6 +38,9 @@ export class IssueService {
     }, tx?: TransactionClient) {
         const { contractorId, storeId, month, items, userId } = data;
 
+        // Store-Scope Enforcement: caller must be authorized for the issuing store
+        await StoreService.assertStoreWriteAccess(userId, storeId);
+
         const execute = async (transaction: TransactionClient) => {
             // Generate MIN issue number atomically
             const issueNumber = await AuditLedgerService.generateMINNumber(transaction);
@@ -209,6 +212,9 @@ export class IssueService {
         if (!contractorId || !storeId || !month || !items || !Array.isArray(items) || items.length === 0) {
             throw AppError.badRequest('MISSING_FIELDS');
         }
+
+        // Store-Scope Enforcement: caller must be authorized for the receiving store
+        await StoreService.assertStoreWriteAccess(userId, storeId);
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // 1. Create Return Record with atomic MRN number

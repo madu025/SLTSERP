@@ -11,6 +11,7 @@ const publicPaths = [
     '/contractor/login',
     '/api/login',
     '/api/contractor-portal/auth',
+    '/api/contractor-portal/auth/login',
     '/api/metrics',
     '/public',
     '/contractor-upload',
@@ -36,6 +37,7 @@ const publicPaths = [
     '/api/auth/agent-login',
     '/api/assets/sync',
     '/api/assets/register',
+    '/api/helpdesk/agent/telemetry',
     '/api/agent/version',
     '/public/invoices',
     '/api/public/invoices',
@@ -44,11 +46,17 @@ const publicPaths = [
 
 // Public prefixes kept INTENTIONALLY narrow (GET-only, bounded depth).
 // These back public contractor registration forms which need supporting
-// lookups (banks -> branches, stores list) without a session. Every write
-// method under these prefixes requires full authentication.
+// lookups (banks -> branches) without a session. Every write method under
+// these prefixes requires full authentication.
+// NOTE: /api/inventory/stores was removed from this list (QA audit) — the
+// store list now requires authentication.
 const publicPrefixes: Array<{ prefix: string; maxDepth: number }> = [
     { prefix: '/api/banks', maxDepth: 2 },
-    { prefix: '/api/inventory/stores', maxDepth: 1 },
+    // SLT-Bridge extension reads SO data anonymously by SO number
+    // (/api/service-orders/bridge-data/<soNum>). Intentionally public,
+    // GET-only, depth-1 — the exact-match publicPaths entry above covers the
+    // base path itself. Non-GET methods under this prefix require auth.
+    { prefix: '/api/service-orders/bridge-data', maxDepth: 1 },
     // Cron endpoints use CRON_SECRET auth (not JWT) - allow all methods
     { prefix: '/api/cron', maxDepth: 1 },
 ];
@@ -58,6 +66,12 @@ function isPublicPath(pathname: string, method: string): boolean {
         // Public parent routes expose reads only — their write methods must
         // pass authentication and apiHandler role guards
         if (pathname === '/api/banks' && method !== 'GET') return false;
+        // SLT-Bridge base path exposes reads only — anonymous writes on
+        // /api/service-orders/bridge-data must pass authentication
+        if (pathname === '/api/service-orders/bridge-data' && method !== 'GET') return false;
+        // /api/upload is POST-only; its own handler enforces fail-closed auth
+        // (session JWT or scoped public upload token) for anonymous callers
+        if (pathname === '/api/upload' && method !== 'POST') return false;
         return true;
     }
     for (const { prefix, maxDepth } of publicPrefixes) {

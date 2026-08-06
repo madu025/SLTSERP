@@ -7,12 +7,19 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
+    // Identity MUST come from the session header set by middleware — never
+    // trust a client-supplied ?userId (impersonation vector). The param is
+    // only accepted for backward compatibility and must equal the session
+    // user.
+    const userId = request.headers.get('x-user-id');
     const queryUserId = searchParams.get('userId');
-    const headerUserId = request.headers.get('x-user-id');
-    const userId = queryUserId || headerUserId;
 
     if (!userId) {
-        throw AppError.badRequest('User ID required');
+        throw AppError.unauthorized('Unauthorized');
+    }
+
+    if (queryUserId && queryUserId !== userId) {
+        throw AppError.forbidden('userId parameter does not match the authenticated session');
     }
 
     const filterRegion = searchParams.get('region') || 'ALL';
@@ -25,4 +32,10 @@ export const GET = apiHandler(async (request) => {
     });
 
     return data;
-}, { rawResponse: true });
+}, {
+    // Role gate first: apiHandler RBAC runs before the handler body, so role
+    // denial precedes the userId session check. Resolved dynamically from the
+    // /dashboard sidebar entry (the page that renders these SO stats).
+    menuPath: '/dashboard',
+    rawResponse: true
+});

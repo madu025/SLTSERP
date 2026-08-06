@@ -128,7 +128,7 @@ export function useContractorRegistration(token: string) {
     const handleUpload = async (file: File, fieldName: string) => {
         const [err, url] = await safe(ContractorRegistrationApi.uploadFile(file, fieldName, (p: number) => {
             setUploadProgress(prev => ({ ...prev, [fieldName]: p }));
-        }));
+        }, token));
         
         if (err || !url) {
             toast.error(`Upload failed for ${fieldName}`);

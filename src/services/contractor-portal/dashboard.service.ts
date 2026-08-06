@@ -1,5 +1,24 @@
 import { prisma } from '@/lib/prisma';
 
+/**
+ * Empty dashboard payload for unresolvable contractor identities (e.g. a staff
+ * JWT without contractorId when no ACTIVE contractor row exists). Returning
+ * this shape instead of throwing keeps the portal route from 500-ing; genuine
+ * contractor sessions always resolve a real contractor below.
+ */
+const EMPTY_DASHBOARD = {
+    contractor: null,
+    teams: [] as never[],
+    stats: {
+        dropWireMeters: 0,
+        ontCount: 0,
+        facCount: 0,
+        pendingAcceptances: 0,
+        activeSodsCount: 0,
+        totalTeamsCount: 0
+    }
+};
+
 export class ContractorDashboardService {
     static async getDashboardData(contractorId?: string) {
         // Fallback: If no contractorId from token, find first ACTIVE contractor
@@ -11,7 +30,7 @@ export class ContractorDashboardService {
         }
 
         if (!contractorId) {
-            throw new Error('Contractor session not found');
+            return EMPTY_DASHBOARD;
         }
 
         // Fetch Contractor profile with ALL teams
@@ -32,7 +51,7 @@ export class ContractorDashboardService {
         });
 
         if (!contractor) {
-            throw new Error('Contractor details not found');
+            return EMPTY_DASHBOARD;
         }
 
         const teamIds = contractor.teams.map(t => t.id);

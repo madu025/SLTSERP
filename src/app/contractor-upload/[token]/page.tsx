@@ -73,6 +73,9 @@ export default function PublicUploadPage() {
 
         const formData = new FormData();
         formData.append('file', file);
+        // Scoped public upload token — /api/upload rejects anonymous uploads
+        formData.append('publicToken', token);
+        formData.append('tokenType', 'contractor');
 
         const toastId = toast.loading("Uploading...");
 

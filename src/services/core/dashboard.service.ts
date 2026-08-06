@@ -1,11 +1,28 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { NIL_UUID } from '@/lib/opmc-scope';
 
 export class DashboardService {
-    static async getFinanceMetrics(rtom: string = 'ALL') {
+    static async getFinanceMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]) {
+        // Tri-state regional scope: undefined = admin/global; [] = deny all.
+        // A client-supplied rtom outside the caller's scope yields no data.
+        let scopedRtoms: string[] | undefined;
+        if (accessibleOpmcs !== undefined) {
+            scopedRtoms = accessibleOpmcs.length > 0
+                ? (await prisma.oPMC.findMany({ where: { id: { in: accessibleOpmcs } }, select: { rtom: true } })).map(o => o.rtom)
+                : [];
+            // When the caller is scoped and the requested rtom is in scope,
+            // collapse to exactly that rtom instead of aggregating every
+            // accessible rtom; out-of-scope requests yield an empty set.
+            if (rtom !== 'ALL') {
+                scopedRtoms = scopedRtoms.includes(rtom) ? [rtom] : [];
+            }
+        }
+
         const whereClause: Record<string, unknown> = {};
-        
-        if (rtom !== 'ALL') {
+        if (scopedRtoms !== undefined) {
+            whereClause.rtom = { in: scopedRtoms };
+        } else if (rtom !== 'ALL') {
             whereClause.rtom = rtom;
         }
 
@@ -28,7 +45,9 @@ export class DashboardService {
 
         // 2. Invoice Aging & Contractor Payouts (From Invoices)
         const invoiceWhere: Record<string, unknown> = {};
-        if (rtom !== 'ALL') {
+        if (scopedRtoms !== undefined) {
+            invoiceWhere.rtomArea = { in: scopedRtoms };
+        } else if (rtom !== 'ALL') {
             invoiceWhere.rtomArea = rtom;
         }
 
@@ -67,11 +86,21 @@ export class DashboardService {
         };
     }
 
-    static async getInventoryMetrics(rtom: string = 'ALL') {
-        // Get Stores matching Region/RTOM logic
+    static async getInventoryMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]) {
+        // Get Stores matching Region/RTOM logic, intersected with the caller's
+        // OPMC scope (tri-state): undefined = admin/global; [] = deny all.
         const storeWhere: Prisma.InventoryStoreWhereInput = {};
+        const opmcConditions: Prisma.OPMCWhereInput[] = [];
         if (rtom !== 'ALL') {
-            storeWhere.opmcs = { some: { rtom: rtom } };
+            opmcConditions.push({ rtom });
+        }
+        if (accessibleOpmcs !== undefined) {
+            opmcConditions.push(accessibleOpmcs.length > 0 ? { id: { in: accessibleOpmcs } } : { id: NIL_UUID });
+        }
+        if (opmcConditions.length === 1) {
+            storeWhere.opmcs = { some: opmcConditions[0] };
+        } else if (opmcConditions.length > 1) {
+            storeWhere.opmcs = { some: { AND: opmcConditions } };
         }
 
         const lowStockItems = await prisma.inventoryStock.findMany({
@@ -108,10 +137,20 @@ export class DashboardService {
         };
     }
 
-    static async getProcurementMetrics(rtom: string = 'ALL') {
+    static async getProcurementMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]) {
+        // Tri-state OPMC scope: undefined = admin/global; [] = deny all.
         const storeWhere: Prisma.InventoryStoreWhereInput = {};
+        const opmcConditions: Prisma.OPMCWhereInput[] = [];
         if (rtom !== 'ALL') {
-            storeWhere.opmcs = { some: { rtom: rtom } };
+            opmcConditions.push({ rtom });
+        }
+        if (accessibleOpmcs !== undefined) {
+            opmcConditions.push(accessibleOpmcs.length > 0 ? { id: { in: accessibleOpmcs } } : { id: NIL_UUID });
+        }
+        if (opmcConditions.length === 1) {
+            storeWhere.opmcs = { some: opmcConditions[0] };
+        } else if (opmcConditions.length > 1) {
+            storeWhere.opmcs = { some: { AND: opmcConditions } };
         }
 
         const [

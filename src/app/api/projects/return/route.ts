@@ -2,6 +2,7 @@ import { ProjectMaterialReturn } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { createReturnSchema, CreateReturnSchema } from '@/lib/validations/project-stock.schema';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +26,7 @@ export const POST = apiHandler<ProjectMaterialReturn, CreateReturnSchema>(
 
         return returnReq;
     },
-    { schema: createReturnSchema }
+    { schema: createReturnSchema, roles: [...ROLE_GROUPS.STORES_ALL, ...ROLE_GROUPS.PROJECT_MANAGERS] }
 );
 
 /**

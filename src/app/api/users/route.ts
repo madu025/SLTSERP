@@ -78,6 +78,14 @@ export const PUT = apiHandler(async (request, _params, body) => {
     rawResponse: true
 });
 
+// PATCH is intentionally NOT supported on /api/users. User updates (including
+// OPMC reassignment) must go through the ADMINS-guarded PUT handler above.
+// This explicit deny-all export keeps the route fail-closed: any future PATCH
+// handler added here inherits `roles: []` (deny everyone) until reviewed.
+export const PATCH = apiHandler(async () => {
+    throw AppError.badRequest('PATCH is not supported on /api/users; use PUT');
+}, { roles: [], rawResponse: true });
+
 // DELETE user
 export const DELETE = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);

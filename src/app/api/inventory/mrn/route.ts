@@ -5,10 +5,17 @@ import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (_request, _params, body) => {
-    const result = await InventoryService.createMRN(
-        castBody<Parameters<typeof InventoryService.createMRN>[0]>(body)
-    );
+export const POST = apiHandler(async (request, _params, body) => {
+    const userId = request.headers.get('x-user-id');
+    if (!userId) {
+        throw AppError.unauthorized('Unauthorized');
+    }
+
+    const result = await InventoryService.createMRN({
+        ...castBody<Omit<Parameters<typeof InventoryService.createMRN>[0], 'returnedById'>>(body),
+        // Creator identity is session-derived — never trust the request body
+        returnedById: userId
+    });
     return result;
 }, {
     roles: ROLE_GROUPS.STORES_ALL,
@@ -28,12 +35,17 @@ export const GET = apiHandler(async (request) => {
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (request, _params, body) => {
     const mrnId = body.mrnId as string | undefined;
     const action = body.action as string | undefined;
-    const approvedById = body.approvedById as string | undefined;
-    if (!mrnId || !action || !approvedById) {
-        throw AppError.badRequest('mrnId, action, and approvedById are required');
+    // Approver identity is session-derived (middleware-set header) —
+    // any approvedById supplied in the request body is ignored.
+    const approvedById = request.headers.get('x-user-id');
+    if (!mrnId || !action) {
+        throw AppError.badRequest('mrnId and action are required');
+    }
+    if (!approvedById) {
+        throw AppError.unauthorized('Unauthorized');
     }
     try {
         const result = await InventoryService.updateMRNStatus(mrnId, action as 'APPROVE' | 'REJECT', approvedById);

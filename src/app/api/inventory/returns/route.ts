@@ -14,7 +14,7 @@ export const POST = apiHandler(async (request, _params, body) => {
         userId: userEmail || 'System'
     });
 
-    return { message: 'Return processed successfully', id: result.id };
+    return { message: 'Return processed successfully', id: result.id, returnNumber: result.returnNumber };
 }, {
     schema: materialReturnSchema,
     roles: ROLE_GROUPS.STORES_ALL,
@@ -32,4 +32,4 @@ export const GET = apiHandler(async (request) => {
 
     const returns = await InventoryService.getMaterialReturns(filters);
     return returns;
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.STORES_ALL, rawResponse: true });

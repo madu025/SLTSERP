@@ -72,8 +72,3 @@ export const SECTION_MAPPING: Record<string, string[]> = {
     'SUPER_ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN'],
     'ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN']
 };
-
-export const TEST_USERS: string[] = [
-    'admin', 'testadmin', 'ospmanager', 'areamanager', 'storesmanager', 
-    'coordinator', 'qcofficer', 'finance', 'stores', 'engineer'
-];

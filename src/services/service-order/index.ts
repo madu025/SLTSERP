@@ -11,6 +11,8 @@ import { SODImportService } from './sod.import.service';
 import { GetServiceOrdersParams, ServiceOrderUpdateData } from '@/types/service-order/sod-sync.types';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { prisma } from '@/lib/prisma';
+import { ROLE_GROUPS } from '@/config/roles';
+import { isValidUuid } from '@/lib/uuid';
 
 /**
  * ServiceOrderService (Facade)
@@ -71,6 +73,26 @@ export class ServiceOrderService {
 
         const oldOrder = await ServiceOrderRepository.findById(id, { materialUsage: true });
         if (!oldOrder) throw AppError.badRequest('ORDER_NOT_FOUND');
+
+        // 0. REGIONAL OWNERSHIP CHECK (fail-closed)
+        // Non-admin users may only modify SODs inside their accessible OPMCs.
+        // Admin tier (ROLE_GROUPS.ADMINS) is unrestricted. System integrations
+        // (audit markers like 'SYNC_SERVICE' with no DB user record) bypass.
+        // Non-UUID system markers must skip the lookup entirely — User.id is
+        // @db.Uuid, so passing a marker string makes Prisma throw instead of
+        // returning null (breaks sync workers / automation endpoints).
+        if (userId && isValidUuid(userId)) {
+            const actingUser = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { role: true, accessibleOpmcs: { select: { id: true } } }
+            });
+            if (actingUser && !ROLE_GROUPS.ADMINS.includes(actingUser.role)) {
+                const accessibleIds = actingUser.accessibleOpmcs.map(o => o.id);
+                if (!oldOrder.opmcId || !accessibleIds.includes(oldOrder.opmcId)) {
+                    throw AppError.forbidden('Service order is outside your OPMC access');
+                }
+            }
+        }
 
         // 1. UNIQUE CONSTRAINT PROTECTION
         const collisionId = await SODLifecycleService.validateStatusTransition(id, oldOrder.soNum, data.status, oldOrder.status);
@@ -326,6 +348,7 @@ export class ServiceOrderService {
         region?: string;
         startDate?: string;
         endDate?: string;
+        accessibleRtoms?: string[];
     }) {
         return SODQueryService.getPatResults(params);
     }

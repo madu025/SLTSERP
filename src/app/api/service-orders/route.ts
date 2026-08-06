@@ -4,6 +4,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { AppError, ErrorCode } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { ROLE_GROUPS } from '@/config/roles';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 import type { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,13 @@ export const POST = apiHandler(
         });
         if (!opmc) {
             throw AppError.badRequest(`OPMC not found for ID: ${body.rtomId}`);
+        }
+
+        // Regional ownership check: non-admin users may only create SODs in
+        // their accessible OPMCs (admins unrestricted).
+        const scope = await resolveOpmcScope(userId);
+        if (scope !== undefined && !scope.includes(opmc.id)) {
+            throw AppError.forbidden('Target OPMC is outside your regional access');
         }
 
         // Generate soNum if not provided (manual entries may omit it)

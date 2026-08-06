@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
+import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -155,4 +156,9 @@ export const GET = apiHandler(async (req, params) => {
         pendingDispatches,
         pendingGrns,
     });
+}, {
+    // Roles mirror the /inventory "Dashboard Overview" sidebar entry
+    // (STORES group + operational OSP/AREA managers) — the only page that
+    // consumes these KPIs.
+    roles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER']
 });

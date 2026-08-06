@@ -13,7 +13,8 @@ export const POST = apiHandler(async (req, _params, body) => {
     });
 }, { 
     schema: grnSchema,
-    roles: ROLE_GROUPS.STORES_ALL,
+    // Matches sidebar-menu.ts GRN page access: stores group + procurement
+    roles: [...ROLE_GROUPS.STORES_ALL, 'PROCUREMENT_OFFICER'],
     audit: { action: 'CREATE', entity: 'GRN' }
 });
 

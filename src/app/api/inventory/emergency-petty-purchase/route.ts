@@ -1,7 +1,8 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from '@/config/roles';
-import crypto from 'crypto';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,9 +28,15 @@ export const POST = apiHandler(async (request, _params, body) => {
       throw new Error(`Stock Request #${requestId} not found`);
     }
 
+    // Replay guard: a duplicate POST must not re-increment stock or re-create
+    // the petty cash voucher. Fulfilled requests are rejected with 409.
+    if (stockReq.status === 'COMPLETED' || stockReq.workflowStage === 'EMERGENCY_FULFILLED') {
+      throw AppError.conflict('EMERGENCY_ALREADY_FULFILLED: This stock request has already been fulfilled via the emergency petty purchase flow.');
+    }
+
     const storeId = stockReq.fromStoreId || '';
     let totalVal = 0;
-    const itemsProcessed = [];
+    const itemsProcessed: { itemId: string; qty: number; unitPrice: number; quantityBefore: number; quantityAfter: number }[] = [];
 
     // Increment stock in the requesting store directly (Emergency GRN)
     for (const item of stockReq.items) {
@@ -38,6 +45,13 @@ export const POST = apiHandler(async (request, _params, body) => {
       totalVal += qty * unitPrice;
 
       if (qty > 0) {
+        // Capture the true pre-increment balance for the immutable ledger chain
+        const existingStock = await tx.inventoryStock.findUnique({
+          where: { storeId_itemId: { storeId, itemId: item.itemId } },
+          select: { quantity: true }
+        });
+        const quantityBefore = existingStock ? Number(existingStock.quantity) : 0;
+
         // Upsert stock in store using InventoryStock model
         await tx.inventoryStock.upsert({
           where: {
@@ -59,7 +73,9 @@ export const POST = apiHandler(async (request, _params, body) => {
         itemsProcessed.push({
           itemId: item.itemId,
           qty,
-          unitPrice
+          unitPrice,
+          quantityBefore,
+          quantityAfter: quantityBefore + qty
         });
       }
     }
@@ -97,27 +113,23 @@ export const POST = apiHandler(async (request, _params, body) => {
       }
     });
 
-    // Write SHA-256 Checksum Audit Ledger Entry
-    const checksumStr = `${updatedReq.id}_${storeId}_${totalVal}_${Date.now()}`;
-    const hash = crypto.createHash('sha256').update(checksumStr).digest('hex');
-
-    if (itemsProcessed.length > 0) {
-      await tx.inventoryLedger.create({
-        data: {
-          storeId: storeId,
-          itemId: itemsProcessed[0].itemId,
-          transactionType: 'EMERGENCY_LOCAL_PURCHASE',
-          referenceType: 'STOCK_REQUEST',
-          referenceId: stockReq.id,
-          quantityBefore: 0,
-          quantityChange: itemsProcessed[0].qty,
-          quantityAfter: itemsProcessed[0].qty,
-          unitPrice: itemsProcessed[0].unitPrice,
-          totalValue: itemsProcessed[0].qty * itemsProcessed[0].unitPrice,
-          performedById: userId,
-          checksum: hash
-        }
-      });
+    // Write immutable SHA-256 chained ledger entries via the ONLY approved
+    // ledger write path (AuditLedgerService.recordEntry) — one entry per item
+    // with the true quantityBefore read from current stock.
+    for (const processed of itemsProcessed) {
+      await AuditLedgerService.recordEntry({
+        storeId,
+        itemId: processed.itemId,
+        transactionType: 'EMERGENCY_LOCAL_PURCHASE',
+        referenceType: 'StockRequest',
+        referenceId: stockReq.id,
+        quantityBefore: processed.quantityBefore,
+        quantityChange: processed.qty,
+        quantityAfter: processed.quantityAfter,
+        unitPrice: processed.unitPrice,
+        performedById: userId,
+        idempotencyKey: `emergency-petty-${stockReq.id}-${processed.itemId}`
+      }, tx);
     }
 
     return {

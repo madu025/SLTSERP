@@ -5,12 +5,95 @@ import { InventoryStore, Prisma } from '@prisma/client';
 import { eventBus } from '@/lib/events/event-bus';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
-import { StoreWithDetails } from '@/types/inventory/inventory-service.types';
+import { StoreWithDetails, TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export class StoreService {
     /** Anti-spam: cooldown map for low-stock alerts (key = storeId:itemId, value = last alert timestamp) */
     private static lowStockCooldown = new Map<string, number>();
     private static readonly LOW_STOCK_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+    /** Only real user UUIDs may perform store-scoped writes; 'SYSTEM' actors are rejected */
+    private static readonly UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    /**
+     * Store-Scope Enforcement (write paths).
+     *
+     * Resolves the caller's permitted stores from User.assignedStoreId,
+     * Store.managerId and OPMC-linked stores (mirrors getAccessibleStores)
+     * and throws a 403 STORE_SCOPE_VIOLATION when the target store is out
+     * of scope. ADMINS (SUPER_ADMIN/ADMIN/CEO/HEAD_OF_OSP) bypass; stores
+     * staff holding MAIN-store access inherit all-store access exactly like
+     * the read path does.
+     */
+    static async assertStoreWriteAccess(userId: string | null | undefined, storeId: string, tx?: TransactionClient): Promise<void> {
+        // Share the caller's transaction snapshot when a tx client is provided
+        // so the permission read is consistent with the surrounding write.
+        const db = (tx ?? prisma) as unknown as typeof prisma;
+        if (!userId || !StoreService.UUID_RE.test(userId)) {
+            throw AppError.forbidden('STORE_SCOPE_VIOLATION: An authenticated user identity is required for store write operations.');
+        }
+
+        const dbUser = await db.user.findUnique({
+            where: { id: userId },
+            select: {
+                role: true,
+                assignedStoreId: true,
+                accessibleOpmcs: { select: { id: true } }
+            }
+        });
+
+        if (!dbUser) {
+            throw AppError.forbidden('STORE_SCOPE_VIOLATION: USER_NOT_FOUND');
+        }
+
+        // Admin-tier bypass (mirrors getAccessibleStores isAdmin)
+        if ((ROLE_GROUPS.ADMINS as readonly string[]).includes(dbUser.role)) {
+            return;
+        }
+
+        if (dbUser.assignedStoreId === storeId) {
+            return;
+        }
+
+        const store = await db.inventoryStore.findUnique({
+            where: { id: storeId },
+            select: { id: true, type: true, managerId: true, opmcs: { select: { id: true } } }
+        });
+
+        if (!store) {
+            throw AppError.notFound('STORE_NOT_FOUND');
+        }
+
+        const accessibleOpmcIds = dbUser.accessibleOpmcs.map(o => o.id);
+        const accessibleOpmcSet = new Set(accessibleOpmcIds);
+
+        // Direct grants: store manager or OPMC-linked store
+        if (store.managerId === userId || store.opmcs.some(o => accessibleOpmcSet.has(o.id))) {
+            return;
+        }
+
+        // Stores staff with MAIN-store access inherit all-store access
+        // (mirrors the isStoreStaff escalation in getAccessibleStores)
+        const isStoreStaff = dbUser.role === 'STORES_MANAGER' || dbUser.role === 'STORES_ASSISTANT';
+        if (isStoreStaff) {
+            const mainStoreWhere: Prisma.InventoryStoreWhereInput = {
+                type: 'MAIN',
+                OR: [
+                    { managerId: userId },
+                    { opmcs: { some: { id: { in: accessibleOpmcIds } } } },
+                    ...(dbUser.assignedStoreId ? [{ id: dbUser.assignedStoreId }] : [])
+                ]
+            };
+            const hasMainAccess = await db.inventoryStore.findFirst({
+                where: mainStoreWhere,
+                select: { id: true }
+            });
+            if (hasMainAccess) {
+                return;
+            }
+        }
+
+        throw AppError.forbidden(`STORE_SCOPE_VIOLATION: User does not have write access to store ${storeId}.`);
+    }
 
     static async getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]> {
         const isAdmin = (ROLE_GROUPS.ADMINS as readonly string[]).includes(userRole);

@@ -578,8 +578,9 @@ export class SODQueryService {
         region?: string;
         startDate?: string;
         endDate?: string;
+        accessibleRtoms?: string[];
     }) {
-        const { page = 1, limit = 20, search = '', status = 'ALL', rtom = 'ALL', region = 'ALL', startDate, endDate } = params;
+        const { page = 1, limit = 20, search = '', status = 'ALL', rtom = 'ALL', region = 'ALL', startDate, endDate, accessibleRtoms } = params;
         const skip = (page - 1) * limit;
 
         const where: Prisma.SLTPATStatusWhereInput = {};
@@ -588,14 +589,24 @@ export class SODQueryService {
             where.soNum = { contains: search, mode: 'insensitive' };
         }
 
+        // Tri-state OPMC isolation applied via the caller's accessible RTOMs:
+        // undefined = admin/global; [] (or out-of-scope request) = deny all.
         if (rtom !== 'ALL') {
-            where.rtom = rtom;
+            where.rtom = (accessibleRtoms && !accessibleRtoms.includes(rtom))
+                ? { in: [] }
+                : rtom;
         } else if (region !== 'ALL') {
             const regionOpmcs = await prisma.oPMC.findMany({
                 where: { region },
                 select: { rtom: true }
             });
-            where.rtom = { in: regionOpmcs.map(o => o.rtom) };
+            let regionRtoms = regionOpmcs.map(o => o.rtom);
+            if (accessibleRtoms) {
+                regionRtoms = regionRtoms.filter(r => accessibleRtoms.includes(r));
+            }
+            where.rtom = { in: regionRtoms };
+        } else if (accessibleRtoms) {
+            where.rtom = { in: accessibleRtoms };
         }
 
         if (startDate && endDate) {

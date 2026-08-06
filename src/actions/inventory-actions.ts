@@ -123,9 +123,10 @@ export async function createGRN(data: any) {
 }
 
 export async function createMRN(data: any) {
-    await requireAuth(['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN']);
+    const user = await requireAuth(['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN']);
     try {
-        const result = await InventoryService.createMRN(data);
+        // Creator identity is session-derived — never trust client-supplied returnedById
+        const result = await InventoryService.createMRN({ ...data, returnedById: user.id });
         revalidatePath('/inventory/mrn');
         return { success: true, data: toSerializable(result) };
     } catch (error: any) {

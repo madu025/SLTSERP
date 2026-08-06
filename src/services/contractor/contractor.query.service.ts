@@ -2,30 +2,49 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ContractorQueryParams } from '@/types/contractor/contractor.types';
+import { ROLE_GROUPS } from '@/config/roles';
+import { NIL_UUID } from '@/lib/opmc-scope';
 
 export class ContractorQueryService {
     /**
      * Get all contractors (Lightweight for List View)
      */
     static async getAllContractors(params: ContractorQueryParams) {
-        const { opmcIds: initialOpmcIds, page = 1, limit = 50, userId, userRole } = params;
+        const { opmcIds: clientOpmcIds, page = 1, limit = 50, userId, userRole } = params;
 
         const where: Prisma.ContractorWhereInput = {};
-        
-        let opmcIds = initialOpmcIds;
 
-        if (!opmcIds && ['AREA_MANAGER', 'SITE_OFFICE_STAFF', 'OFFICE_ADMIN'].includes(userRole || '') && userId) {
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { accessibleOpmcs: { select: { id: true } } }
-            });
-            if (user) {
-                opmcIds = user.accessibleOpmcs.map((o: { id: string }) => o.id);
+        // Tri-state OPMC isolation (mirrors the sod.query.service F1 fix):
+        //  - admin tier          → unrestricted (client filter honoured as-is)
+        //  - non-admin + scope   → restricted to accessibleOpmcs
+        //  - non-admin + empty   → DENY ALL (previously `[]` returned ALL rows)
+        const isAdmin = !!userRole && ROLE_GROUPS.ADMINS.includes(userRole);
+
+        if (!isAdmin) {
+            let accessible: { id: string; rtom: string }[] = [];
+            if (userId) {
+                const user = await prisma.user.findUnique({
+                    where: { id: userId },
+                    include: { accessibleOpmcs: { select: { id: true, rtom: true } } }
+                });
+                if (user) {
+                    accessible = user.accessibleOpmcs;
+                }
             }
-        }
-        
-        if (opmcIds && opmcIds.length > 0) {
-            where.opmcId = { in: opmcIds };
+
+            // Intersect any client-supplied rtomId/opmcId with the resolved
+            // scope — values outside it are ignored (deny, never escalate).
+            // Client values may be UUIDs or RTOM codes (e.g. 'R-KX').
+            let scopedIds = accessible.map(o => o.id);
+            if (clientOpmcIds && clientOpmcIds.length > 0) {
+                scopedIds = clientOpmcIds
+                    .map(v => accessible.find(o => o.id === v || o.rtom.toLowerCase() === v.toLowerCase())?.id)
+                    .filter((id): id is string => !!id);
+            }
+
+            where.opmcId = scopedIds.length > 0 ? { in: scopedIds } : NIL_UUID;
+        } else if (clientOpmcIds && clientOpmcIds.length > 0) {
+            where.opmcId = { in: clientOpmcIds };
         }
 
         const skip = (page - 1) * limit;

@@ -56,9 +56,10 @@ export class ContractorRegistrationApi {
     }
     
     /**
-     * Upload a file
+     * Upload a file. Requires the public registration token — /api/upload
+     * rejects anonymous uploads (fail-closed auth gate).
      */
-    static async uploadFile(file: File, fieldName: string, onProgress?: (p: number) => void) {
+    static async uploadFile(file: File, fieldName: string, onProgress?: (p: number) => void, registrationToken?: string) {
         return new Promise<string>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/upload');
@@ -83,6 +84,11 @@ export class ContractorRegistrationApi {
             
             const formData = new FormData();
             formData.append('file', file);
+            if (registrationToken) {
+                // Scoped public upload token for the registration flow
+                formData.append('publicToken', registrationToken);
+                formData.append('tokenType', 'contractor-registration');
+            }
             xhr.send(formData);
         });
     }

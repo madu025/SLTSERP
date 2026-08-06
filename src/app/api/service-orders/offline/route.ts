@@ -5,18 +5,24 @@ import { z } from 'zod';
 import { SODInvoicingService } from '@/services/service-order/sod.invoicing.service';
 import { SODLifecycleService } from '@/services/service-order/sod.lifecycle.service';
 import { ROLE_GROUPS } from '@/config/roles';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
 // GET: Fetch Work Orders flagged as Offline Work Orders
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     const opmcId = searchParams.get('opmcId');
     const status = searchParams.get('status');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    const result = await SODLifecycleService.getOfflineOrders(page, limit, opmcId, status);
+    // Server-side OPMC scope — client opmcId is intersected with it inside
+    // the service (admins unrestricted, empty scope denies all).
+    const accessibleOpmcs = await resolveOpmcScope(params._userId);
+
+    const result = await SODLifecycleService.getOfflineOrders(page, limit, opmcId, status, accessibleOpmcs);
 
     return {
         success: true,
@@ -27,7 +33,7 @@ export const GET = apiHandler(async (req) => {
         totalPages: result.totalPages,
         items: result.orders
     };
-});
+}, { roles: ROLE_GROUPS.ALL_OPS });
 
 // PATCH Schema: Toggle Offline Status on any ISHAMP Work Order (CREATE, CREATE-UPGRD, SAME_NO)
 const patchSchema = z.object({
@@ -38,9 +44,21 @@ const patchSchema = z.object({
 });
 
 // PATCH: Mark / Unmark an existing Work Order as Offline
-export const PATCH = apiHandler(async (req) => {
+export const PATCH = apiHandler(async (req, params) => {
     const body = await req.json();
     const validated = patchSchema.parse(body);
+
+    // OPMC membership check on the fetched SOD (admins unrestricted).
+    const scope = await resolveOpmcScope(params._userId);
+    if (scope !== undefined) {
+        const target = await prisma.serviceOrder.findUnique({
+            where: { id: validated.id },
+            select: { opmcId: true }
+        });
+        if (!target || !target.opmcId || !scope.includes(target.opmcId)) {
+            throw AppError.forbidden('Service order is outside your OPMC access');
+        }
+    }
 
     const updated = await SODLifecycleService.toggleOfflineWorkOrder(
         validated.id,
@@ -77,9 +95,16 @@ const postSchema = z.object({
 });
 
 // POST: Register New Offline Work Order
-export const POST = apiHandler(async (req) => {
+export const POST = apiHandler(async (req, params) => {
     const body = await req.json();
     const validated = postSchema.parse(body);
+
+    // Regional ownership check: non-admin users may only register offline
+    // work orders inside their accessible OPMCs (admins unrestricted).
+    const scope = await resolveOpmcScope(params._userId);
+    if (scope !== undefined && !scope.includes(validated.opmcId)) {
+        throw AppError.forbidden('Target OPMC is outside your regional access');
+    }
 
     const compDate = validated.completedDate ? new Date(validated.completedDate) : new Date();
 

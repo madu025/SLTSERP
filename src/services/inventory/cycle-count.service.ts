@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { LedgerService } from '../finance/ledger.service';
+import { AuditLedgerService } from './audit-ledger.service';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { Prisma } from '@prisma/client';
 
 export interface CreateCycleCountInput {
@@ -180,15 +182,59 @@ export class CycleCountService {
             throw AppError.notFound("Cycle count header not found");
         }
 
+        // Fast pre-check only — the atomic updateMany claim inside the
+        // transaction below is the real concurrency gate.
         if (header.status !== 'PENDING_APPROVAL') {
             throw AppError.badRequest("Cycle count is not pending approval.");
         }
 
-        await prisma.$transaction(async (tx) => {
+        // Fail closed BEFORE the counter-vs-approver comparison: a null/empty/missing
+        // approver identity must never reach the SoD inequality check (where it would
+        // silently pass), and must not be persisted as approvedById.
+        if (!approvedById) {
+            throw AppError.unauthorized('APPROVER_ID_MISSING');
+        }
+
+        // Segregation of Duties (SoD): the counter cannot approve their own count.
+        // SUPER_ADMIN bypass follows the stock-request precedent.
+        const approver = await prisma.user.findUnique({
+            where: { id: approvedById },
+            select: { role: true }
+        });
+        if (!approver) {
+            throw AppError.unauthorized('USER_NOT_FOUND');
+        }
+        if (approver.role !== 'SUPER_ADMIN' && approver.role !== 'ADMIN' && header.countedById === approvedById) {
+            throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: The cycle counter cannot approve their own count.');
+        }
+
+        await prisma.$transaction(async (tx: TransactionClient) => {
+            // Atomic approval claim: flip PENDING_APPROVAL → APPROVED in a single
+            // conditional write so two concurrent approvals cannot both proceed.
+            const claimed = await tx.cycleCountHeader.updateMany({
+                where: { id: headerId, status: 'PENDING_APPROVAL' },
+                data: { status: 'APPROVED', approvedById }
+            });
+            if (claimed.count === 0) {
+                throw AppError.conflict('CYCLE_COUNT_ALREADY_PROCESSED: This cycle count is no longer pending approval.');
+            }
+
             // Apply adjustments to stock
             for (const line of header.lines) {
                 const varQty = Number(line.varianceQty);
                 if (varQty === 0) continue;
+
+                // Capture true pre-adjustment balance for the immutable ledger chain
+                const existingStock = await tx.inventoryStock.findUnique({
+                    where: {
+                        storeId_itemId: {
+                            storeId: header.storeId,
+                            itemId: line.itemId
+                        }
+                    },
+                    select: { quantity: true }
+                });
+                const quantityBefore = existingStock ? Number(existingStock.quantity) : 0;
 
                 // Update InventoryStock
                 await tx.inventoryStock.upsert({
@@ -207,6 +253,22 @@ export class CycleCountService {
                         quantity: Number(line.countedQty)
                     }
                 });
+
+                // Write immutable Inventory Ledger entry (approved correction path)
+                await AuditLedgerService.recordEntry({
+                    storeId: header.storeId,
+                    itemId: line.itemId,
+                    batchId: line.batchId,
+                    transactionType: 'CYCLE_COUNT_CORRECTION',
+                    referenceType: 'CycleCount',
+                    referenceId: header.id,
+                    quantityBefore,
+                    quantityChange: varQty,
+                    quantityAfter: quantityBefore + varQty,
+                    unitPrice: Number(line.unitCost || 0),
+                    performedById: approvedById,
+                    idempotencyKey: `cycle-count-${header.id}-${line.id}`
+                }, tx);
             }
 
             // Log Inventory Transaction
@@ -236,15 +298,6 @@ export class CycleCountService {
                     `Physical Stock Adjustment - ${header.countNumber}`
                 );
             }
-
-            // Update Header Status
-            await tx.cycleCountHeader.update({
-                where: { id: headerId },
-                data: {
-                    status: 'APPROVED',
-                    approvedById
-                }
-            });
         });
 
         return { message: "Cycle count approved and stock adjusted successfully" };

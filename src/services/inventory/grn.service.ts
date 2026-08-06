@@ -7,6 +7,7 @@ import { emitSystemEvent } from '@/lib/events';
 import { CreateGRNData, TransactionClient } from '@/types/inventory/inventory-service.types';
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
+import { StoreService } from './store.service';
 import { LedgerService } from '../finance/ledger.service';
 
 export class GRNService {
@@ -37,6 +38,9 @@ export class GRNService {
 
     static async createGRN(data: CreateGRNData): Promise<GRN> {
         const { storeId, sourceType, supplier, receivedById, items, requestId, purchaseOrderId, sltReferenceId, reference, documentUrl } = data;
+
+        // Store-Scope Enforcement: caller must be authorized for the receiving store
+        await StoreService.assertStoreWriteAccess(receivedById, storeId);
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // Promote CUSTOM/Unregistered items to standard SLTS type

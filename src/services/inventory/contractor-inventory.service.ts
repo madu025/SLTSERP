@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export interface TeamMaterialBalanceParams {
     contractorId: string;
@@ -219,32 +220,36 @@ export class ContractorInventoryService {
             throw new Error('Material item not found');
         }
 
-        const returnNumber = await AuditLedgerService.generateMRNNumber();
         const now = new Date();
         const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-        return prisma.contractorMaterialReturn.create({
-            data: {
-                returnNumber,
-                contractorId,
-                storeId: mainStore.id,
-                month,
-                reason: data.reason || data.condition || 'MATERIAL_RETURN',
-                status: 'PENDING',
-                items: {
-                    create: [
-                        {
-                            itemId: data.itemId,
-                            quantity: Number(data.quantity),
-                            unit: item.unit || 'Pcs',
-                            condition: data.condition || 'GOOD',
-                        }
-                    ]
+        // Atomic write: MRN number reservation + header + item rows in one transaction
+        return prisma.$transaction(async (tx: TransactionClient) => {
+            const returnNumber = await AuditLedgerService.generateMRNNumber(tx);
+
+            return await tx.contractorMaterialReturn.create({
+                data: {
+                    returnNumber,
+                    contractorId,
+                    storeId: mainStore.id,
+                    month,
+                    reason: data.reason || data.condition || 'MATERIAL_RETURN',
+                    status: 'PENDING',
+                    items: {
+                        create: [
+                            {
+                                itemId: data.itemId,
+                                quantity: Number(data.quantity),
+                                unit: item.unit || 'Pcs',
+                                condition: data.condition || 'GOOD',
+                            }
+                        ]
+                    }
+                },
+                include: {
+                    items: { include: { item: true } }
                 }
-            },
-            include: {
-                items: { include: { item: true } }
-            }
+            });
         });
     }
 

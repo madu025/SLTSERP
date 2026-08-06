@@ -5,9 +5,10 @@ import { logger } from './logger';
 
 const rawAgentKey = process.env.AGENT_API_KEY;
 
-// Production check moved inside validation function to prevent build crashes
-
-const validApiKey = rawAgentKey || 'slts-agent-secure-sync-key-2026';
+// Fail-closed: when AGENT_API_KEY is not configured, the static-key branch
+// NEVER authenticates (no hardcoded fallback). Callers must still fall
+// through to the Bearer JWT branch. Local dev: set AGENT_API_KEY in .env.
+const validApiKey: string | null = rawAgentKey && rawAgentKey.length > 0 ? rawAgentKey : null;
 
 /**
  * Resolves the client IP address from request headers.
@@ -56,8 +57,8 @@ export async function validateAgentAuth(req: Request): Promise<{ success: boolea
     
     // Validate agent key
 
-    // 1. Check static API key with timing-safe comparison
-    if (apiKeyHeader && safeCompare(apiKeyHeader, validApiKey)) {
+    // 1. Check static API key with timing-safe comparison (fail-closed when env unset)
+    if (apiKeyHeader && validApiKey !== null && safeCompare(apiKeyHeader, validApiKey)) {
         return { success: true };
     }
     

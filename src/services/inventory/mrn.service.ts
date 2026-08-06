@@ -7,6 +7,7 @@ import { NotificationService } from '@/services/notification/notification.servic
 import { emitSystemEvent } from '@/lib/events';
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
+import { StoreService } from './store.service';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { LedgerService } from '../finance/ledger.service';
 
@@ -22,27 +23,34 @@ export class MRNService {
         items: { itemId: string; quantity: string | number; reason?: string }[];
     }): Promise<MRN> {
         const { storeId, returnType, returnTo, supplier, reason, grnId, returnedById, items } = data;
-        const mrnNumber = await AuditLedgerService.generateMRNNumber();
 
-        const mrn = await prisma.mRN.create({
-            data: {
-                mrnNumber,
-                storeId,
-                returnType,
-                returnTo: returnTo || null,
-                supplier: supplier || null,
-                reason: reason || null,
-                grnId: grnId || null,
-                returnedById,
-                status: 'PENDING',
-                items: {
-                    create: items.map((i) => ({
-                        itemId: i.itemId,
-                        quantity: parseFloat(i.quantity.toString()),
-                        reason: i.reason || null
-                    }))
+        // Store-Scope Enforcement: creator must be authorized for the returning store
+        await StoreService.assertStoreWriteAccess(returnedById, storeId);
+
+        // Atomic multi-step write: document number reservation + MRN header + item rows
+        const mrn = await prisma.$transaction(async (tx: TransactionClient) => {
+            const mrnNumber = await AuditLedgerService.generateMRNNumber(tx);
+
+            return await tx.mRN.create({
+                data: {
+                    mrnNumber,
+                    storeId,
+                    returnType,
+                    returnTo: returnTo || null,
+                    supplier: supplier || null,
+                    reason: reason || null,
+                    grnId: grnId || null,
+                    returnedById,
+                    status: 'PENDING',
+                    items: {
+                        create: items.map((i) => ({
+                            itemId: i.itemId,
+                            quantity: parseFloat(i.quantity.toString()),
+                            reason: i.reason || null
+                        }))
+                    }
                 }
-            }
+            });
         });
 
         const [nErr] = await safe(NotificationService.notifyByRole({
@@ -80,15 +88,54 @@ export class MRNService {
     }
 
     static async updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT', approvedById: string): Promise<MRN> {
+        // Approver identity must be a real authenticated user (session-derived)
+        const approver = await prisma.user.findUnique({
+            where: { id: approvedById },
+            select: { role: true }
+        });
+        if (!approver) {
+            throw AppError.unauthorized('USER_NOT_FOUND');
+        }
+
+        // Segregation of Duties (SoD): MRN creator cannot approve/reject their own
+        // return note. SUPER_ADMIN/ADMIN bypass follows the stock-request precedent
+        // (single-staff stores otherwise deadlock; ADMIN is the operational
+        // escalation role).
+        const targetMrn = await prisma.mRN.findUnique({
+            where: { id: mrnId },
+            select: { returnedById: true, status: true }
+        });
+        if (!targetMrn) {
+            throw AppError.notFound('MRN_NOT_FOUND');
+        }
+        if (!ROLE_GROUPS.CORE_ADMINS.includes(approver.role) && targetMrn.returnedById === approvedById) {
+            throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: MRN creator cannot approve or reject their own material return note.');
+        }
+        if (targetMrn.status !== 'PENDING') {
+            throw AppError.badRequest('MRN_ALREADY_PROCESSED');
+        }
+
         if (action === 'REJECT') {
-            const updated = await prisma.mRN.update({
-                where: { id: mrnId },
+            // Atomic claim: a single conditional write flips PENDING → REJECTED,
+            // so concurrent approve/reject calls cannot both succeed.
+            const claimed = await prisma.mRN.updateMany({
+                where: { id: mrnId, status: 'PENDING' },
                 data: {
                     status: 'REJECTED',
                     approvedById
-                },
+                }
+            });
+            if (claimed.count === 0) {
+                throw AppError.conflict('MRN_ALREADY_PROCESSED: This material return note has already been approved or rejected.');
+            }
+
+            const updated = await prisma.mRN.findUnique({
+                where: { id: mrnId },
                 include: { returnedBy: true }
             });
+            if (!updated) {
+                throw AppError.notFound('MRN_NOT_FOUND');
+            }
 
             const [nErr] = await safe(NotificationService.send({
                 userId: updated.returnedById,
@@ -107,22 +154,27 @@ export class MRNService {
 
         if (action === 'APPROVE') {
             return await prisma.$transaction(async (tx: TransactionClient) => {
-                const mrn = await tx.mRN.findUnique({
-                    where: { id: mrnId },
-                    include: { items: true }
-                });
-
-                if (!mrn) throw AppError.badRequest("MRN_NOT_FOUND");
-                if (!mrn.storeId) throw AppError.badRequest("MRN_STORE_REQUIRED");
-                const storeId = mrn.storeId;
-
-                const updatedMrn = await tx.mRN.update({
-                    where: { id: mrnId },
+                // Atomic claim: a single conditional write flips PENDING → COMPLETED,
+                // replacing the non-atomic findUnique re-check as the concurrency gate.
+                const claimed = await tx.mRN.updateMany({
+                    where: { id: mrnId, status: 'PENDING' },
                     data: {
                         status: 'COMPLETED',
                         approvedById
                     }
                 });
+                if (claimed.count === 0) {
+                    throw AppError.conflict('MRN_ALREADY_PROCESSED: This material return note has already been approved or rejected.');
+                }
+
+                const mrn = await tx.mRN.findUnique({
+                    where: { id: mrnId },
+                    include: { items: true }
+                });
+
+                if (!mrn) throw AppError.notFound("MRN_NOT_FOUND");
+                if (!mrn.storeId) throw AppError.badRequest("MRN_STORE_REQUIRED");
+                const storeId = mrn.storeId;
 
                 const transactionItems: { itemId: string; quantity: number }[] = [];
                 let totalMrnCost = 0;
@@ -186,9 +238,9 @@ export class MRNService {
                 await LedgerService.logMrnReturn(tx, mrn.id, totalMrnCost);
 
                 const [nErr] = await safe(NotificationService.send({
-                    userId: updatedMrn.returnedById,
+                    userId: mrn.returnedById,
                     title: 'MRN Completed',
-                    message: `Your Material Return Note ${updatedMrn.mrnNumber} has been approved and stock updated.`,
+                    message: `Your Material Return Note ${mrn.mrnNumber} has been approved and stock updated.`,
                     type: 'INVENTORY',
                     priority: 'MEDIUM',
                     link: '/admin/inventory/mrns'
@@ -199,7 +251,7 @@ export class MRNService {
                 }
 
                 emitSystemEvent('INVENTORY_UPDATE');
-                return updatedMrn;
+                return mrn;
             });
         }
 

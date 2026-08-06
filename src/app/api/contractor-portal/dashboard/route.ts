@@ -31,4 +31,8 @@ export const GET = apiHandler(async (req) => {
 
     const dashboardData = await ContractorDashboardService.getDashboardData(contractorId);
     return dashboardData;
+}, {
+    // Any authenticated user (apiHandler resolves 'ALL' as authenticated-only;
+    // anonymous callers are rejected before the handler runs).
+    roles: ['ALL']
 });

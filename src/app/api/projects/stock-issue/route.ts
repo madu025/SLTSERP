@@ -26,7 +26,14 @@ export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
 
         return stockIssue;
     },
-    { schema: createStockIssueSchema }
+    {
+        schema: createStockIssueSchema,
+        // Caller page is /projects (ProjectMaterialIssues) — resolve roles from
+        // its sidebar entry (ADMINS + OSP_PROJECTS + SOD_PROJECT) so engineering
+        // staff (OSP_MANAGER, ENGINEER, ...) keep write access. Same convention
+        // as /api/projects.
+        menuPath: '/projects'
+    }
 );
 
 /**
@@ -48,5 +55,6 @@ export const GET = apiHandler<unknown[], void>(
 
         const issues = await ProjectStockIssueService.getProjectIssues(projectId);
         return issues;
-    }
+    },
+    { menuPath: '/projects' }
 );

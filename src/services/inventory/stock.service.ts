@@ -6,6 +6,7 @@ import { TransactionClient, PickedBatch } from '@/types/inventory/inventory-serv
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { AuditLedgerService } from './audit-ledger.service';
+import { StoreService } from './store.service';
 
 export class StockService {
     // Round to 4 decimal places to prevent floating point issues
@@ -224,6 +225,9 @@ export class StockService {
     static async initializeStock(storeId: string, items: { itemId: string; quantity: string | number }[], reason?: string, userId?: string) {
         if (!storeId || !Array.isArray(items)) throw AppError.badRequest('INVALID_PAYLOAD');
 
+        // Store-Scope Enforcement: caller must be authorized for the target store
+        await StoreService.assertStoreWriteAccess(userId, storeId);
+
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const transactionItems: { itemId: string; quantity: number; beforeQty: number; afterQty: number }[] = [];
 
@@ -311,6 +315,9 @@ export class StockService {
         if (!storeId || !issuedById || !recipientName || !items || items.length === 0) {
             throw AppError.badRequest('MISSING_FIELDS');
         }
+
+        // Store-Scope Enforcement: caller must be authorized for the issuing store
+        await StoreService.assertStoreWriteAccess(issuedById, storeId);
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const issueNumber = await AuditLedgerService.getNextDocumentNumber('ISS', tx);

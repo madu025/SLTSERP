@@ -76,6 +76,9 @@ export default function PublicTeamUploadPage() {
 
         const payload = new FormData();
         payload.append('file', file);
+        // Scoped public upload token — /api/upload rejects anonymous uploads
+        payload.append('publicToken', token);
+        payload.append('tokenType', 'team');
         const toastId = toast.loading("Uploading...");
 
         try {
