@@ -88,6 +88,9 @@ export class UserService {
             role: user.role,
             contractorId: user.contractorId || undefined,
             tokenVersion: user.tokenVersion,
+            // Forced password-change lockdown flag — middleware uses this claim
+            // to block page navigation until the password is rotated.
+            mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword || undefined,
         });
 
         // Permission derivation priority (consolidated SystemRole system):
@@ -709,16 +712,31 @@ export class UserService {
 
         const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-        await prisma.user.update({
+        const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: {
                 password: hashedNewPassword,
+                // Clear the forced-rotation flag once the password is rotated —
+                // otherwise the account stays locked after re-login (infinite loop).
+                mustChangePassword: false,
                 // Invalidate all existing sessions on password change
                 tokenVersion: { increment: 1 }
-            }
+            },
+            select: { id: true, username: true, role: true, contractorId: true, tokenVersion: true }
         });
 
-        return { success: true };
+        // Issue a fresh session token carrying the bumped tokenVersion and no
+        // mustChangePassword claim — the client swaps its cookie in-place and
+        // continues without a forced re-login.
+        const token = await signJWT({
+            id: updatedUser.id,
+            username: updatedUser.username,
+            role: updatedUser.role,
+            contractorId: updatedUser.contractorId || undefined,
+            tokenVersion: updatedUser.tokenVersion,
+        });
+
+        return { success: true, token };
     }
 
     /**

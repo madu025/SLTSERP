@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,20 @@ export const POST = apiHandler(async (req, _params, body) => {
         throw AppError.badRequest('All fields are required and user must be authenticated');
     }
 
-    await UserService.changePassword(userId, currentPassword, newPassword);
+    const result = await UserService.changePassword(userId, currentPassword, newPassword);
+
+    // Swap the session cookie in-place with the fresh token (bumped tokenVersion,
+    // no mustChangePassword claim) so forced-rotation users continue seamlessly.
+    if (result.token) {
+        const cookieStore = await cookies();
+        cookieStore.set('token', result.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 86400,
+            path: '/',
+        });
+    }
 
     return {
         success: true,

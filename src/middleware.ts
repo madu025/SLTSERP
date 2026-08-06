@@ -164,6 +164,17 @@ export async function middleware(request: NextRequest) {
         }
     }
 
+    // Forced password-change lockdown: first-time login users (mustChangePassword)
+    // are confined to the profile page until they rotate their password.
+    // API-level lockdown lives in api-handler.ts; this blocks page navigation.
+    if (verifiedToken.mustChangePassword === true && !pathname.startsWith('/api')) {
+        if (!pathname.startsWith('/profile') && !pathname.startsWith('/login')) {
+            const lockUrl = new URL('/profile', request.url);
+            lockUrl.searchParams.set('forcePw', '1');
+            return NextResponse.redirect(lockUrl);
+        }
+    }
+
     // Prevent browser caching of protected pages (stops back-button from showing stale auth pages)
     const response = NextResponse.next({
         request: {

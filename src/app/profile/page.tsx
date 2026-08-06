@@ -103,9 +103,17 @@ export default function ProfilePage() {
             setNewPassword('');
             setConfirmPassword('');
             if (forcePw) {
-                // Token version was bumped by the rotation — send the user back
-                // to login so they pick up a fresh session.
-                setTimeout(() => { window.location.href = '/login'; }, 1200);
+                // The rotation cleared mustChangePassword and the API swapped the
+                // session cookie in-place — release the lockdown and go to dashboard.
+                try {
+                    const storedUser = localStorage.getItem('user');
+                    if (storedUser) {
+                        const parsed = JSON.parse(storedUser);
+                        parsed.mustChangePassword = false;
+                        localStorage.setItem('user', JSON.stringify(parsed));
+                    }
+                } catch { /* non-critical */ }
+                setTimeout(() => { window.location.href = '/dashboard'; }, 1200);
             }
         },
         onError: (err: Error) => {
