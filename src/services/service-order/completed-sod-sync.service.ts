@@ -148,13 +148,16 @@ export class CompletedSODSyncService {
                                             'SYNC_SERVICE'
                                         );
 
-                                        // Clear stale "[AUTO-SYNC] Disappeared" text from comments column
-                                        // patchServiceOrder creates a new comment record but doesn't clear
-                                        // the `comments` field in the serviceOrder table
+                                        // FIX: When recovering from DISAPPEARED, ensure status field is also updated
+                                        // patchServiceOrder may not update status if there's a collision check
+                                        // Also clear stale "[AUTO-SYNC] Disappeared" text from comments column
                                         if (wasDisappeared) {
                                             await prisma.serviceOrder.update({
                                                 where: { id: localSOD.id },
-                                                data: { comments: null },
+                                                data: {
+                                                    status: effectiveSltsStatus,
+                                                    comments: null,
+                                                },
                                             });
                                         }
 
