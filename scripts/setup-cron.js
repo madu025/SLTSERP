@@ -47,6 +47,11 @@ const jobs = [
         title: "SLTSERP - Master Sync (Every 15 Mins)",
         url: `${baseUrl}/api/cron/sync-all?secret=${CRON_SECRET}`,
         schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [0, 15, 30, 45], months: [-1], wdays: [-1] }
+    },
+    {
+        title: "SLTSERP - Notification Cleanup (Weekly)",
+        url: `${baseUrl}/api/notifications/cleanup?secret=${CRON_SECRET}`,
+        schedule: { timezone: "Asia/Colombo", hours: [2], mdays: [-1], minutes: [0], months: [-1], wdays: [0] }
     }
 ];
 
