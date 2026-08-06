@@ -28,10 +28,17 @@ export default function ForcePasswordChangeModal() {
                         setShow(true);
                         // Prevent back button bypass - push state to block navigation
                         window.history.pushState(null, '', window.location.href);
+                    } else {
+                        // Different user or mustChangePassword is false - hide modal
+                        setShow(false);
                     }
+                } else {
+                    // User logged out - hide modal
+                    setShow(false);
                 }
             } catch {
                 // ignore parse errors
+                setShow(false);
             }
         };
 
