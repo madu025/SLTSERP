@@ -128,6 +128,10 @@ export class CompletedSODSyncService {
                                     const effectiveLegacyStatus = preserveInstallClosed ? 'INSTALL_CLOSED' : legacyStatus;
 
                                     if (localSOD.sltsStatus !== effectiveSltsStatus || !localSOD.completedDate) {
+                                        // If SOD was previously DISAPPEARED, clear the stale
+                                        // "[AUTO-SYNC] Disappeared from active portal list" comment
+                                        const wasDisappeared = localSOD.sltsStatus === SodStatus.DISAPPEARED;
+
                                         await ServiceOrderService.patchServiceOrder(
                                             localSOD.id,
                                             {
@@ -143,6 +147,17 @@ export class CompletedSODSyncService {
                                             },
                                             'SYNC_SERVICE'
                                         );
+
+                                        // Clear stale "[AUTO-SYNC] Disappeared" text from comments column
+                                        // patchServiceOrder creates a new comment record but doesn't clear
+                                        // the `comments` field in the serviceOrder table
+                                        if (wasDisappeared) {
+                                            await prisma.serviceOrder.update({
+                                                where: { id: localSOD.id },
+                                                data: { comments: null },
+                                            });
+                                        }
+
                                         completedCount++;
                                     }
                                 }

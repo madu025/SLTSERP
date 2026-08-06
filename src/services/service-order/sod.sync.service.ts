@@ -853,7 +853,9 @@ export class SODSyncService {
                                 sltsStatus: nextSltsStatus as import("@prisma/client").ServiceOrderStatus,
                                 completionMode: isOfflineType ? 'OFFLINE' : undefined,
                                 completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED') ? statusDate : undefined,
-                                returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined
+                                returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined,
+                                // Clear stale "[AUTO-SYNC] Disappeared" comment when recovering from DISAPPEARED
+                                comments: null,
                             };
 
                             if (rawItemObj) {
