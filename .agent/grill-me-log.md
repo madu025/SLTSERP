@@ -1000,3 +1000,83 @@ Authentication edges (upload route, agent auth, telemetry), middleware publicPat
 - Confirm two distinct approvers per store or accept ADMIN SoD bypass
 
 
+## Session: 2026-08-07 — Sidebar Role-Menu Cross-Reference Audit
+
+**Scope**: Cross-check every role against sidebar menu items for phantom menus (visible parent, inaccessible submenus) and incorrect access grants.
+**Trigger**: User asked whether Finance Manager can see SODs they shouldn't, and whether sidebar items are accurate per role.
+
+### Methodology
+- Full code-level cross-reference of `sidebar-menu.ts` allowedRoles vs `roles.ts` ROLE_GROUPS
+- Runtime verification via backend HTTP tests (login + page access per role)
+- Browser verification for FINANCE_ASSISTANT, FINANCE_MANAGER, STORES_MANAGER, STORES_ASSISTANT
+
+### Findings
+
+| # | Severity | Finding | Root Cause | Fix |
+|---|----------|---------|------------|-----|
+| F1 | **P1** | CEO/HEAD_OF_OSP saw Administration parent but 403 on all 14 submenus | `ROLE_GROUPS.ADMINS` includes CEO/HOO but submenus used CORE_ADMINS-only | Changed parent + all submenus to `ROLE_GROUPS.CORE_ADMINS`; Settings uses `CORE_ADMINS + OFFICE_ADMINS` |
+| F2 | **P1** | CEO/HEAD_OF_OSP saw Inventory parent but 403 on all submenus | `ROLE_GROUPS.STORES` includes CEO/HOO but no inventory submenu grants them access | Changed parent to explicit list excluding CEO/HOO; Dashboard Overview + Inventory Balance submenus also fixed |
+| F3 | **P2** | OFFICE_ADMIN saw Administration parent with only Settings accessible | `ROLE_GROUPS.OFFICE_ADMINS` in parent but submenus are ADMINS-only | Removed OFFICE_ADMINS from Administration parent; Settings still accessible via `CORE_ADMINS + OFFICE_ADMINS` |
+| F4 | **Fixed prior** | Central Finance + OSP Accounts empty parents for FINANCE_ASSISTANT/CASHIER | Parent used `...ROLE_GROUPS.FINANCE` but submenus FINANCE_MANAGER-only | Restricted parents to match submenu roles |
+| F5 | **Fixed prior** | No session invalidation propagation to frontend | No global 401 interceptor; stale localStorage after admin role change | Added fetch interceptor in SessionManager + login page session expired banner |
+
+### Blast-Radius Notes
+- `ROLE_GROUPS.ADMINS` and `ROLE_GROUPS.STORES` definitions NOT changed (used in 25+ API routes/services)
+- Only sidebar-menu.ts parent + submenu allowedRoles modified
+- Route-permissions.ts dynamically extracts from sidebar — submenu changes automatically propagate to middleware RBAC
+
+### Runtime Verification Results
+| Role | /admin/users | /inventory | /inventory/reports/cardex | /admin/settings |
+|------|-------------|------------|--------------------------|----------------|
+| CEO | REDIRECT (fixed) | REDIRECT (fixed) | REDIRECT | OK (via OFFICE_ADMINS) |
+| SUPER_ADMIN | OK | OK | OK | OK |
+| STORES_MANAGER | REDIRECT | OK | OK | REDIRECT |
+| HEAD_OF_SECTION | REDIRECT | OK | OK (Cardex) | REDIRECT |
+
+### Files Modified
+- `src/config/sidebar-menu.ts` (F1, F2, F3, F4)
+- `src/components/SessionManager.tsx` (F5 — global 401 fetch interceptor)
+- `src/app/login/page.tsx` (F5 — session expired banner)
+
+---
+
+## Session: 2026-08-07 — Dynamic Permission System (End-to-End)
+
+**Scope**: Make admin-configured role permissions work end-to-end without hardcoding.
+**Trigger**: Admin UI at `/admin/roles` had 8 hardcoded permission options; middleware ignored DB permissions.
+
+### Findings
+
+| # | Severity | Finding | Root Cause | Fix |
+|---|----------|---------|------------|-----|
+| 1 | P1 | Admin UI shows only 8 permission options | Hardcoded `PAGE_PERMISSIONS` array in `RoleFormDialog.tsx` | Dynamic generation from `SIDEBAR_MENU` — new menus auto-appear |
+| 2 | P1 | Middleware ignores DB permissions | `hasRouteAccess()` only checked hardcoded `allowedRoles` | Added `userPermissions` param; checks DB permission matching `permissionId` |
+| 3 | P1 | JWT lacks permissions claim | `signJWT()` call didn't include permissions | Added `permissions` to JWT payload from DB-derived permissions |
+
+### Architecture
+
+```
+BEFORE: hardcoded allowedRoles → sidebar + middleware (DB permissions ignored)
+AFTER:  hardcoded allowedRoles (default)
+        + DB permissions (admin override via /admin/roles)
+        = sidebar + middleware both respect DB permissions
+```
+
+### Blast Radius
+- `src/app/admin/roles/components/RoleFormDialog.tsx` — dynamic PAGE_PERMISSIONS
+- `src/services/hr/user.service.ts` — permissions moved before JWT signing; added to JWT payload
+- `src/config/route-permissions.ts` — `hasRouteAccess()` accepts `userPermissions` param; new `getMenuPermissionForPath()` helper
+- `src/middleware.ts` — reads `permissions` from JWT; passes to `hasRouteAccess()`
+
+### Runtime Verification
+- BEFORE: FINANCE_ASSISTANT with no inventory perm → /inventory REDIRECT (correct)
+- AFTER: FINANCE_ASSISTANT with inventory perm in DB → /inventory OK (dynamic override works)
+- AFTER: FINANCE_ASSISTANT with inventory perm → /admin/users still REDIRECT (no admin perm)
+- SUPER_ADMIN: all routes OK (bypass unchanged)
+- CEO: /admin/users REDIRECT, /inventory REDIRECT (phantom menu fixes preserved)
+- Admin UI: 16 dynamic permission options shown (up from 8 hardcoded)
+
+### Notes
+- `tokenVersion` increment on permission change forces re-login with new permissions
+- Menus without `permissionId` (Reports, IT Help Desk) are open to all — correctly excluded from permission options
+- Existing `hasAccess()` in sidebar-menu.ts already had dynamic permission fallback — no change needed

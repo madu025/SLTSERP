@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useMemo } from "react";
+import { SIDEBAR_MENU } from "@/config/sidebar-menu";
 
 interface RoleFormDialogProps {
     open: boolean;
@@ -16,16 +18,29 @@ interface RoleFormDialogProps {
     isSubmitting: boolean;
 }
 
-const PAGE_PERMISSIONS = [
-    { value: 'dashboard', label: 'Dashboard' },
-    { value: 'service-orders', label: 'Service Orders' },
-    { value: 'contractors', label: 'Contractors' },
-    { value: 'restore-requests', label: 'Restore Requests' },
-    { value: 'invoices', label: 'Invoices' },
-    { value: 'inventory', label: 'Inventory / Stores' },
-    { value: 'procurement', label: 'Procurement' },
-    { value: 'administration', label: 'Administration' }
-];
+// Dynamic permission options derived from SIDEBAR_MENU — no hardcoding.
+// When a new menu is added to sidebar-menu.ts with a permissionId, it
+// automatically appears here without code changes.
+// Computed inside the component to avoid module-load-time evaluation issues.
+// Deduplicates by permissionId since multiple menus may share the same permission.
+function getPagePermissions(): Array<{ value: string; label: string }> {
+    try {
+        if (!SIDEBAR_MENU || !Array.isArray(SIDEBAR_MENU)) {
+            return [];
+        }
+        const seen = new Set<string>();
+        return SIDEBAR_MENU
+            .filter((item): item is typeof item & { permissionId: string } => 
+                !!item?.permissionId && !seen.has(item.permissionId)
+            )
+            .map(item => {
+                seen.add(item.permissionId);
+                return { value: item.permissionId, label: item.title || item.permissionId };
+            });
+    } catch {
+        return [];
+    }
+}
 
 export function RoleFormDialog({
     open,
@@ -34,6 +49,8 @@ export function RoleFormDialog({
     initialData,
     isSubmitting
 }: RoleFormDialogProps) {
+    // Compute dynamically to avoid module-load-time evaluation issues
+    const pagePermissions = useMemo(() => getPagePermissions(), []);
     const [formData, setFormData] = useState({
         name: '',
         code: '',
@@ -136,7 +153,7 @@ export function RoleFormDialog({
                             Page Permissions
                         </label>
                         <div className="grid grid-cols-2 gap-2">
-                            {PAGE_PERMISSIONS.map(perm => (
+                            {pagePermissions.filter(p => p && p.value).map(perm => (
                                 <label
                                     key={perm.value}
                                     className="flex items-center gap-2 p-2 rounded border hover:bg-slate-50 cursor-pointer"

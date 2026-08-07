@@ -81,18 +81,6 @@ export class UserService {
             throw AppError.unauthorized('INVALID_CREDENTIALS');
         }
 
-        // Generate JWT Token
-        const token = await signJWT({
-            id: user.id,
-            username: user.username,
-            role: user.role,
-            contractorId: user.contractorId || undefined,
-            tokenVersion: user.tokenVersion,
-            // Forced password-change lockdown flag — middleware uses this claim
-            // to block page navigation until the password is rotated.
-            mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword || undefined,
-        });
-
         // Permission derivation priority (consolidated SystemRole system):
         // 1. Explicit user.permissions column (admin override)
         // 2. SystemRole permissions from sectionAssignments (unified role system)
@@ -110,6 +98,21 @@ export class UserService {
             permissions = [...new Set(perms)];
         }
         // No fallback — if no permissions derived, user gets helpdesk-only access
+
+        // Generate JWT Token
+        const token = await signJWT({
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            contractorId: user.contractorId || undefined,
+            tokenVersion: user.tokenVersion,
+            // Permissions from DB — middleware uses these for route-level RBAC
+            // so admin-configured permissions work end-to-end without hardcoding.
+            permissions: permissions.length > 0 ? permissions : undefined,
+            // Forced password-change lockdown flag — middleware uses this claim
+            // to block page navigation until the password is rotated.
+            mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword || undefined,
+        });
 
         return {
             token,

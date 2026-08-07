@@ -72,8 +72,14 @@ export function getMenuAllowedRoles(path: string): string[] | null {
  * Check if a given role has access to a specific pathname.
  * Returns true if access is allowed, false otherwise.
  * Paths not in the sidebar menu are allowed for any authenticated user.
+ *
+ * @param pathname - The page path to check
+ * @param userRole - The user's primary role
+ * @param userPermissions - Optional permissions from DB (admin-configured).
+ *   If the user has a permission matching the route's permissionId, access
+ *   is granted even if the role is not in the hardcoded allowedRoles.
  */
-export function hasRouteAccess(pathname: string, userRole: string): boolean {
+export function hasRouteAccess(pathname: string, userRole: string, userPermissions?: string[]): boolean {
     // Super Admin & Admin always have access to everything. Mirrors the
     // hasAccess sidebar bypass so visible items are never blocked on click.
     if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return true;
@@ -96,5 +102,42 @@ export function hasRouteAccess(pathname: string, userRole: string): boolean {
     // 'ALL' wildcard = every authenticated role
     if (rule.allowedRoles.includes('ALL')) return true;
 
-    return rule.allowedRoles.includes(userRole);
+    // Role-based check (hardcoded default)
+    if (rule.allowedRoles.includes(userRole)) return true;
+
+    // Dynamic permission check (admin-configured via /admin/roles).
+    // Find the permissionId for this route by matching the most specific
+    // menu item's permissionId. If the user has that permission, grant access.
+    if (userPermissions && userPermissions.length > 0) {
+        const menuPermission = getMenuPermissionForPath(normalized);
+        if (menuPermission && userPermissions.includes(menuPermission)) return true;
+    }
+
+    return false;
+}
+
+/**
+ * Resolve the permissionId for a given path by finding the most specific
+ * menu item that matches. Returns undefined if no permissionId is found.
+ */
+function getMenuPermissionForPath(pathname: string): string | undefined {
+    // Use the same longest-prefix match as hasRouteAccess
+    const rule = sortedPrefixes.find(
+        (p) => pathname === p.prefix || pathname.startsWith(p.prefix + '/')
+    );
+    if (!rule) return undefined;
+
+    // Walk the menu tree to find the permissionId for this specific path
+    const findPermissionId = (items: import('./sidebar-menu').MenuItem[], targetPath: string): string | undefined => {
+        for (const item of items) {
+            if (item.path === targetPath && item.permissionId) return item.permissionId;
+            if (item.submenu) {
+                const found = findPermissionId(item.submenu, targetPath);
+                if (found) return found;
+            }
+        }
+        return undefined;
+    };
+
+    return findPermissionId(SIDEBAR_MENU, rule.prefix);
 }

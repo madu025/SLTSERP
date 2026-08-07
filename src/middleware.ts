@@ -173,8 +173,11 @@ export async function middleware(request: NextRequest) {
 
     // Route-level RBAC enforcement: block direct URL access to pages the role shouldn't reach
     // (sidebar-menu.ts only hides nav items client-side; this blocks actual page loads)
+    // Also checks admin-configured DB permissions (via JWT) so dynamic permissions
+    // work end-to-end without hardcoding.
     if (!pathname.startsWith('/api') && !pathname.startsWith('/contractor/') && !pathname.startsWith('/login')) {
-        if (!hasRouteAccess(pathname, userRole)) {
+        const userPermissions = verifiedToken.permissions as string[] | undefined;
+        if (!hasRouteAccess(pathname, userRole, userPermissions)) {
             const forbiddenUrl = new URL('/dashboard', request.url);
             return NextResponse.redirect(forbiddenUrl);
         }

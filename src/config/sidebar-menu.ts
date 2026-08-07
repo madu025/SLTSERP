@@ -483,15 +483,18 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Inventory / Stores',
         path: '/inventory',
         icon: Warehouse,
-        // SECTION_HEADS see the section but only the Cardex report item below
-        allowedRoles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS],
+        // QA audit: ROLE_GROUPS.STORES includes CEO/HEAD_OF_OSP but no inventory submenu
+        // grants them access — they saw a phantom parent with 100% 403 submenus.
+        // Explicit list excludes CEO/HEAD_OF_OSP while keeping SECTION_HEADS for Cardex.
+        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS],
         permissionId: 'inventory',
         submenu: [
             {
                 title: 'Dashboard Overview',
                 path: '/inventory',
                 icon: LayoutDashboard,
-                allowedRoles: [...ROLE_GROUPS.STORES, 'OSP_MANAGER', 'AREA_MANAGER']
+                // QA audit: ROLE_GROUPS.STORES includes CEO/HEAD_OF_OSP — use explicit list.
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER']
             },
             // 1. Setup & Master Data
             {
@@ -519,7 +522,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Inventory Balance',
                 path: '/inventory/stock',
                 icon: BarChart3,
-                allowedRoles: ROLE_GROUPS.STORES
+                // QA audit: ROLE_GROUPS.STORES includes CEO/HEAD_OF_OSP who have no inventory access.
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
                 title: 'Goods Issue (MIN)',
@@ -821,44 +825,48 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Administration',
         path: '/admin',
         icon: UserCog,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS],
+        // QA audit: ROLE_GROUPS.ADMINS includes CEO/HEAD_OF_OSP but all submenus are
+        // SUPER_ADMIN/ADMIN only — they saw a phantom parent with 100% 403 submenus.
+        // ROLE_GROUPS.OFFICE_ADMINS also included CEO + OFFICE_ADMIN who only see Settings.
+        // Fix: restrict to CORE_ADMINS (SUPER_ADMIN + ADMIN) — the only roles with real access.
+        allowedRoles: ROLE_GROUPS.CORE_ADMINS,
         permissionId: 'administration',
         submenu: [
             {
                 title: 'User Guide & Docs',
                 path: '/admin/guide',
                 icon: FileText,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'User Management',
                 path: '/admin/users',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Bulk User Import',
                 path: '/admin/users/import',
                 icon: Upload,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Section Role Permissions',
                 path: '/admin/roles',
                 icon: ShieldCheck,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Department Sections',
                 path: '/admin/sections',
                 icon: Layers,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Staff Hierarchy Master',
                 path: '/admin/staff',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
 
 
@@ -866,56 +874,56 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'System Audit Log',
                 path: '/admin/audit-logs',
                 icon: HistoryIcon,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'System Health & Monitoring',
                 path: '/admin/monitoring',
                 icon: Activity,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'RTOM Management',
                 path: '/projects/opmcs',
                 icon: Building2,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Store Management',
                 path: '/inventory/stores',
                 icon: Warehouse,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
 
             {
                 title: 'Settings',
                 path: '/admin/settings',
                 icon: Settings,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS]
+                allowedRoles: [...ROLE_GROUPS.CORE_ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS]
             },
             {
                 title: 'Process Gates Engine',
                 path: '/admin/settings/process-gates',
                 icon: ShieldCheck,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'SMTP Email Config',
                 path: '/admin/settings/smtp',
                 icon: Mail,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'SOD Import',
                 path: '/service-orders/import',
                 icon: Upload,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             },
             {
                 title: 'Phoenix Bridge Monitor',
                 path: '/admin/test-extension',
                 icon: Terminal,
-                allowedRoles: ROLE_GROUPS.ADMINS
+                allowedRoles: ROLE_GROUPS.CORE_ADMINS
             }
         ]
     },
