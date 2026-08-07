@@ -1,0 +1,1318 @@
+{
+  "timestamp": "2026-08-07T05:53:57.905Z",
+  "totalRoles": 10,
+  "completed": 10,
+  "skipped": 0,
+  "results": [
+    {
+      "role": "SUPER_ADMIN",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 5
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 500,
+          "allowed": true,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "ADMIN",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 5
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 500,
+          "allowed": true,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "ASSISTANT_ENGINEER",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "STORES_MANAGER",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 5
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "FINANCE_MANAGER",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 500,
+          "allowed": true,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "OSP_MANAGER",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 5
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 500,
+          "allowed": true,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "AREA_MANAGER",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 5
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "ENGINEER",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "PROCUREMENT_OFFICER",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    },
+    {
+      "role": "OFFICE_ADMIN",
+      "status": "COMPLETED",
+      "opmcCount": 4,
+      "sectionCount": 1,
+      "results": [
+        {
+          "category": "Admin",
+          "path": "/api/admin/role-options",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "Role options for admin dropdowns",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 2
+        },
+        {
+          "category": "Admin",
+          "path": "/api/admin/users",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP"
+          ],
+          "description": "User management list",
+          "status": 404,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Projects",
+          "path": "/api/projects",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Project list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 0
+        },
+        {
+          "category": "Service Orders",
+          "path": "/api/service-orders",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Service orders list (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 3
+        },
+        {
+          "category": "Dashboard",
+          "path": "/api/dashboard/stats",
+          "method": "GET",
+          "opmcScoped": true,
+          "description": "Dashboard statistics (filtered by OPMC)",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 16
+        },
+        {
+          "category": "Inventory",
+          "path": "/api/inventory/dashboard-kpis",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "STORES_MANAGER",
+            "STORES_ASSISTANT",
+            "OSP_MANAGER",
+            "AREA_MANAGER"
+          ],
+          "description": "Inventory dashboard KPIs",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Finance",
+          "path": "/api/finance/wip-revenue",
+          "method": "GET",
+          "allowedRoles": [
+            "SUPER_ADMIN",
+            "ADMIN",
+            "CEO",
+            "HEAD_OF_OSP",
+            "FINANCE_MANAGER",
+            "FINANCE_ASSISTANT",
+            "CASHIER",
+            "OSP_MANAGER"
+          ],
+          "opmcScoped": true,
+          "description": "WIP Revenue summary",
+          "status": 403,
+          "allowed": false,
+          "dataSize": 4
+        },
+        {
+          "category": "Profile",
+          "path": "/api/profile",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User profile",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 29
+        },
+        {
+          "category": "Notifications",
+          "path": "/api/notifications",
+          "method": "GET",
+          "allowedRoles": [
+            "ALL_AUTHENTICATED"
+          ],
+          "description": "User notifications",
+          "status": 200,
+          "allowed": true,
+          "dataSize": 50
+        }
+      ]
+    }
+  ]
+}

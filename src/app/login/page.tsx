@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { NexusLogoMaster } from "@/components/ui/NexusLogo";
 import "./login.css";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isContractorRole, isStoresRole } from "@/config/roles";
@@ -42,6 +42,10 @@ export default function LoginPage() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Session expired banner (set by global 401 interceptor in SessionManager)
+  const sessionExpired = searchParams.get('session') === 'expired';
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -183,6 +187,16 @@ export default function LoginPage() {
             <h2 className="slt-form-title">Welcome back</h2>
             <p className="slt-form-sub">Sign in to your SLTS account to continue</p>
           </div>
+
+          {/* Session expired banner */}
+{sessionExpired && (
+            <div className="p-3 mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>Your session was updated by an administrator. Please login again.</span>
+            </div>
+          )}
 
           {/* Error alert */}
           {error && (

@@ -197,7 +197,9 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Projects',
         path: '/projects',
         icon: FolderKanban,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.SOD_PROJECT],
+        // QA audit: removed SOD_PROJECT (ASSISTANT_ENGINEER, AREA_COORDINATOR, QC_OFFICER have no submenu access)
+        // Parent roles = union of all submenu allowedRoles
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS, 'AREA_MANAGER'],
         permissionId: 'projects',
         submenu: [
             {
@@ -421,7 +423,9 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Central Finance',
         path: '/finance',
         icon: Receipt,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE],
+        // QA audit: parent roles must match submenu roles — General Ledger is FINANCE_MANAGER-only,
+        // so FINANCE_ASSISTANT/CASHIER would see an empty expandable button. Restrict parent to match.
+        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
         permissionId: 'finance',
         submenu: [
             {
@@ -437,7 +441,9 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'OSP Accounts',
         path: '/finance/osp-account',
         icon: Receipt,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER'],
+        // QA audit: all submenus are FINANCE_MANAGER + OSP_MANAGER only.
+        // FINANCE_ASSISTANT/CASHIER would see empty expandable button. Restrict parent to match.
+        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
         permissionId: 'finance',
         submenu: [
             {

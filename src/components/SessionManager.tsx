@@ -9,6 +9,7 @@ export default function SessionManager() {
     const router = useRouter();
     const pathname = usePathname();
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const fetchPatchedRef = useRef(false);
 
     const handleLogout = useCallback(async () => {
         try {
@@ -35,6 +36,40 @@ export default function SessionManager() {
             router.push(isContractor ? '/contractor/login' : '/login');
         }
     }, [pathname, router]);
+
+    // ── Global 401 Fetch Interceptor ──────────────────────────────────────
+    // When the backend returns 401 (session invalidated by role/status change),
+    // clear stale localStorage and redirect to login with a message.
+    // Patched once per page load via ref guard.
+    useEffect(() => {
+        if (fetchPatchedRef.current) return;
+        fetchPatchedRef.current = true;
+
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async function patchedFetch(...args: Parameters<typeof fetch>) {
+            const response = await originalFetch(...args);
+
+            if (response.status === 401) {
+                const requestUrl = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0]?.url ?? '';
+                // Only intercept API 401s, not login/auth endpoint responses
+                if (requestUrl.includes('/api/') && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth')) {
+                    // Avoid redirect loops if already on login page
+                    if (window.location.pathname !== '/login' && window.location.pathname !== '/contractor/login') {
+                        console.warn('[SESSION-MANAGER] 401 intercepted — session invalidated, redirecting to login');
+                        localStorage.removeItem('user');
+                        localStorage.removeItem('token');
+                        const isContractor = window.location.pathname.startsWith('/contractor');
+                        const targetLogin = isContractor ? '/contractor/login?session=expired' : '/login?session=expired';
+                        window.location.href = targetLogin;
+                        // Return a never-resolving promise to halt the calling code
+                        return new Promise(() => {});
+                    }
+                }
+            }
+
+            return response;
+        };
+    }, []);
 
     // Detect browser back/forward cache (bfcache) restoration
     // If the token cookie was cleared (user logged out), force redirect to login
