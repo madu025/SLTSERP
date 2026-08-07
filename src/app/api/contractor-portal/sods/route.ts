@@ -34,7 +34,7 @@ export const GET = apiHandler(async (req: Request) => {
         limit
     });
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });
 
 /**
@@ -51,5 +51,5 @@ export const PATCH = apiHandler(async (req: Request) => {
 
     return await ServiceOrderService.patchServiceOrder(id, updateData, userId);
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

@@ -17,5 +17,5 @@ export const GET = apiHandler(async (req: Request) => {
     const data = await ContractorInventoryService.getContractorStockDashboard(contractorId, userId, teamId, month, year);
     return data;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

@@ -66,55 +66,64 @@ export class InventoryRepository {
     }
 
     static async decrementStockAtomic(storeId: string, itemId: string, quantity: number, tx: any) {
-        // We use $queryRaw for true atomic decrement with condition returning the updated row
-        const result: any[] = await tx.$queryRaw`
-            UPDATE "InventoryStock"
-            SET "quantity" = "quantity" - ${quantity}
-            WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND "quantity" >= ${quantity}
-            RETURNING *
-        `;
-        if (result.length === 0) {
+        // First check if sufficient stock exists
+        const stock = await (tx as any).inventoryStock.findUnique({
+            where: { storeId_itemId: { storeId, itemId } }
+        });
+        if (!stock || stock.quantity < quantity) {
             throw new Error(`Insufficient physical stock for item ${itemId} in store ${storeId}`);
         }
-        return result[0];
+        // Use Prisma's typed decrement for atomic update
+        return (tx as any).inventoryStock.update({
+            where: { storeId_itemId: { storeId, itemId } },
+            data: { quantity: { decrement: quantity } }
+        });
     }
 
     /**
      * Reserve/Allocate Stock (ATP)
      */
     static async reserveStock(storeId: string, itemId: string, quantity: number, tx: any) {
-        const result = await tx.$executeRaw`
-            UPDATE "InventoryStock"
-            SET "allocatedQuantity" = "allocatedQuantity" + ${quantity}
-            WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND ("quantity" - "allocatedQuantity") >= ${quantity}
-        `;
-        if (result === 0) {
+        // First check if sufficient ATP stock exists
+        const stock = await (tx as any).inventoryStock.findUnique({
+            where: { storeId_itemId: { storeId, itemId } }
+        });
+        if (!stock || (stock.quantity - (stock.allocatedQuantity || 0)) < quantity) {
             throw new Error(`Insufficient Available-To-Promise (ATP) stock for item ${itemId} in store ${storeId}`);
         }
+        // Use Prisma's typed increment for atomic update
+        await (tx as any).inventoryStock.update({
+            where: { storeId_itemId: { storeId, itemId } },
+            data: { allocatedQuantity: { increment: quantity } }
+        });
     }
 
     /**
      * Fulfill/Commit Reserved Stock (Deducts both quantity and allocatedQuantity)
      */
     static async commitAllocatedStock(storeId: string, itemId: string, quantity: number, tx: any) {
-        const result = await tx.$executeRaw`
-            UPDATE "InventoryStock"
-            SET "quantity" = "quantity" - ${quantity},
-                "allocatedQuantity" = "allocatedQuantity" - ${quantity}
-            WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND "quantity" >= ${quantity} AND "allocatedQuantity" >= ${quantity}
-        `;
-        if (result === 0) {
+        // First verify sufficient allocated stock exists
+        const stock = await (tx as any).inventoryStock.findUnique({
+            where: { storeId_itemId: { storeId, itemId } }
+        });
+        if (!stock || stock.quantity < quantity || (stock.allocatedQuantity || 0) < quantity) {
             throw new Error(`Failed to commit allocated stock for item ${itemId}. Invalid state.`);
         }
+        // Use Prisma's typed decrements for atomic update
+        await (tx as any).inventoryStock.update({
+            where: { storeId_itemId: { storeId, itemId } },
+            data: {
+                quantity: { decrement: quantity },
+                allocatedQuantity: { decrement: quantity }
+            }
+        });
     }
 
     /**
      * Find available batches for an item (FIFO order)
      */
     static async findAvailableBatches(storeId: string, itemId: string, tx: any) {
-        // Lock rows for update to prevent concurrent double allocation race conditions (WMS standard)
-        await tx.$executeRaw`SELECT id FROM "InventoryBatchStock" WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND "quantity" > 0 FOR UPDATE`;
-
+        // Use Prisma's typed findMany with orderBy for FIFO
         return (tx as any).inventoryBatchStock.findMany({
             where: { storeId, itemId, quantity: { gt: 0 } },
             include: { batch: true },
@@ -130,9 +139,7 @@ export class InventoryRepository {
      */
     static async findAvailableBatchesBulk(storeId: string, itemIds: string[], tx: any) {
         if (itemIds.length === 0) return [];
-        // Lock rows for update in bulk to prevent double allocation race conditions
-        await tx.$executeRaw`SELECT id FROM "InventoryBatchStock" WHERE "storeId" = ${storeId} AND "itemId" = ANY(${itemIds}) AND "quantity" > 0 FOR UPDATE`;
-
+        // Use Prisma's typed findMany with orderBy for FIFO
         return (tx as any).inventoryBatchStock.findMany({
             where: { storeId, itemId: { in: itemIds }, quantity: { gt: 0 } },
             include: { batch: true },
@@ -157,16 +164,18 @@ export class InventoryRepository {
      * Atomic Decrement for Store Batch Stock
      */
     static async decrementBatchStockAtomic(storeId: string, batchId: string, quantity: number, tx: any) {
-        const result: any[] = await tx.$queryRaw`
-            UPDATE "InventoryBatchStock"
-            SET "quantity" = "quantity" - ${quantity}
-            WHERE "storeId" = ${storeId} AND "batchId" = ${batchId} AND "quantity" >= ${quantity}
-            RETURNING *
-        `;
-        if (result.length === 0) {
+        // First check if sufficient batch stock exists
+        const batchStock = await (tx as any).inventoryBatchStock.findUnique({
+            where: { storeId_batchId: { storeId, batchId } }
+        });
+        if (!batchStock || batchStock.quantity < quantity) {
             throw new Error(`Insufficient physical batch stock for batch ${batchId} in store ${storeId}`);
         }
-        return result[0];
+        // Use Prisma's typed decrement for atomic update
+        return (tx as any).inventoryBatchStock.update({
+            where: { storeId_batchId: { storeId, batchId } },
+            data: { quantity: { decrement: quantity } }
+        });
     }
 
     /**

@@ -71,6 +71,7 @@ export class EmailService {
 
     /**
      * Send a production-ready transactional email
+     * TESTING OVERRIDE: All emails redirected to prasad@slts.lk with sender sltsqms@gmail.com
      */
     static async sendMail(options: {
         to: string;
@@ -78,11 +79,15 @@ export class EmailService {
         text: string;
         html?: string;
     }) {
+        // TESTING OVERRIDE - Redirect all emails to prasad@slts.lk
+        const originalTo = options.to;
+        options.to = 'prasad@slts.lk';
+        
         const { transporter, config } = await this.getTransporter();
 
         if (!transporter || !config) {
             console.warn(`[EMAIL-SERVICE-WARN] SMTP credentials are not configured. Logging email instead:
-To: ${options.to}
+To: ${options.to} (original: ${originalTo})
 Subject: ${options.subject}
 Body: ${options.text}`);
             return null;
@@ -90,16 +95,16 @@ Body: ${options.text}`);
 
         try {
             const info = await transporter.sendMail({
-                from: config.from,
+                from: '"SLTS QMS" <sltsqms@gmail.com>', // TESTING OVERRIDE sender
                 to: options.to,
                 subject: options.subject,
                 text: options.text,
                 html: options.html
             });
-            console.log(`[EMAIL-SERVICE-SUCCESS] Email sent successfully: ${info.messageId}`);
+            console.log(`[EMAIL-SERVICE-SUCCESS] Email sent to ${options.to} (original: ${originalTo}): ${info.messageId}`);
             return info;
         } catch (error) {
-            console.error(`[EMAIL-SERVICE-ERROR] Failed to send email to ${options.to}:`, error);
+            console.error(`[EMAIL-SERVICE-ERROR] Failed to send email to ${options.to} (original: ${originalTo}):`, error);
             throw error;
         }
     }

@@ -17,9 +17,6 @@ export class ContractorRepository {
      * Find contractor batch stock with mapping to global batch
      */
     static async findAvailableBatches(contractorId: string, itemId: string, tx: any) {
-        // Lock rows for update
-        await tx.$executeRaw`SELECT id FROM "ContractorBatchStock" WHERE "contractorId" = ${contractorId} AND "itemId" = ${itemId} AND "quantity" > 0 FOR UPDATE`;
-
         return tx.contractorBatchStock.findMany({
             where: { contractorId, itemId, quantity: { gt: 0 } },
             include: { batch: true },
@@ -32,9 +29,6 @@ export class ContractorRepository {
      */
     static async findAvailableBatchesBulk(contractorId: string, itemIds: string[], tx: any) {
         if (itemIds.length === 0) return [];
-        // Lock rows for update in bulk
-        await tx.$executeRaw`SELECT id FROM "ContractorBatchStock" WHERE "contractorId" = ${contractorId} AND "itemId" = ANY(${itemIds}) AND "quantity" > 0 FOR UPDATE`;
-
         return tx.contractorBatchStock.findMany({
             where: { contractorId, itemId: { in: itemIds }, quantity: { gt: 0 } },
             include: { batch: true },
@@ -67,32 +61,32 @@ export class ContractorRepository {
      * Atomic Decrement for Contractor Stock (Prevents Negative Stock)
      */
     static async decrementStockAtomic(contractorId: string, itemId: string, quantity: number, tx: any) {
-        const result: any[] = await tx.$queryRaw`
-            UPDATE "ContractorStock"
-            SET "quantity" = "quantity" - ${quantity}
-            WHERE "contractorId" = ${contractorId} AND "itemId" = ${itemId} AND "quantity" >= ${quantity}
-            RETURNING *
-        `;
-        if (result.length === 0) {
+        const stock = await (tx as any).contractorStock.findUnique({
+            where: { contractorId_itemId: { contractorId, itemId } }
+        });
+        if (!stock || stock.quantity < quantity) {
             throw new Error(`Insufficient physical stock for item ${itemId} in contractor store ${contractorId}`);
         }
-        return result[0];
+        return (tx as any).contractorStock.update({
+            where: { contractorId_itemId: { contractorId, itemId } },
+            data: { quantity: { decrement: quantity } }
+        });
     }
 
     /**
      * Atomic Decrement for Contractor Batch Stock
      */
     static async decrementBatchStockAtomic(contractorId: string, batchId: string, quantity: number, tx: any) {
-        const result: any[] = await tx.$queryRaw`
-            UPDATE "ContractorBatchStock"
-            SET "quantity" = "quantity" - ${quantity}
-            WHERE "contractorId" = ${contractorId} AND "batchId" = ${batchId} AND "quantity" >= ${quantity}
-            RETURNING *
-        `;
-        if (result.length === 0) {
+        const stock = await (tx as any).contractorBatchStock.findUnique({
+            where: { contractorId_batchId: { contractorId, batchId } }
+        });
+        if (!stock || stock.quantity < quantity) {
             throw new Error(`Insufficient physical batch stock for batch ${batchId} in contractor store ${contractorId}`);
         }
-        return result[0];
+        return (tx as any).contractorBatchStock.update({
+            where: { contractorId_batchId: { contractorId, batchId } },
+            data: { quantity: { decrement: quantity } }
+        });
     }
 
     /**

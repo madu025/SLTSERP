@@ -19,7 +19,7 @@ export const GET = apiHandler(async (req) => {
 
     return result;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });
 
 export const PATCH = apiHandler(async (req) => {
@@ -42,5 +42,5 @@ export const PATCH = apiHandler(async (req) => {
     const updated = await QCInspectionService.markNotificationAsRead(id);
     return updated;
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

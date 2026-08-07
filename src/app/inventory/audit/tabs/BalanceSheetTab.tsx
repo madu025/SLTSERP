@@ -95,8 +95,10 @@ export default function BalanceSheetTab() {
         }
     });
 
-    const contractors: Contractor[] = Array.isArray(contractorsData?.contractors)
-        ? contractorsData.contractors
+    const contractors: Contractor[] = Array.isArray((contractorsData as any)?.data?.contractors)
+        ? (contractorsData as any).data.contractors
+        : Array.isArray((contractorsData as any)?.contractors)
+        ? (contractorsData as any).contractors
         : [];
 
     // Get selected contractor's teams
@@ -110,10 +112,10 @@ export default function BalanceSheetTab() {
     // Auto-select primary store when team changes
     useEffect(() => {
         if (selectedTeam) {
-            const primaryStore = selectedTeam.storeAssignments.find(sa => sa.isPrimary);
+            const primaryStore = (selectedTeam.storeAssignments || []).find(sa => sa.isPrimary);
             if (primaryStore) {
                 setSelectedStoreId(primaryStore.storeId);
-            } else if (selectedTeam.storeAssignments.length > 0) {
+            } else if ((selectedTeam.storeAssignments || []).length > 0) {
                 setSelectedStoreId(selectedTeam.storeAssignments[0].storeId);
             }
         }
@@ -151,7 +153,7 @@ export default function BalanceSheetTab() {
 
         const groups: Record<string, BalanceSheetItem[]> = {};
 
-        balanceSheet.items.forEach(item => {
+        (balanceSheet.items || []).forEach(item => {
             const category = item.item.category || "OTHERS";
             if (!groups[category]) groups[category] = [];
             groups[category].push(item);
@@ -197,9 +199,9 @@ export default function BalanceSheetTab() {
         if (!balanceSheet) return;
 
         const csvRows = [
-            ["Contractor", balanceSheet.contractor.name],
-            ["Registration No", balanceSheet.contractor.registrationNumber || 'N/A'],
-            ["Store", balanceSheet.store.name],
+            ["Contractor", balanceSheet.contractor?.name || 'N/A'],
+            ["Registration No", balanceSheet.contractor?.registrationNumber || 'N/A'],
+            ["Store", balanceSheet.store?.name || 'N/A'],
             ["Month", balanceSheet.month],
             [],
             ["Category", "Item Code", "Item Name", "Unit", "Opening", "Received", "Used", "Wastage", "Returned", "Closing"]
@@ -227,12 +229,12 @@ export default function BalanceSheetTab() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `balance-sheet-${balanceSheet.contractor.name}-${balanceSheet.month}.csv`;
+        a.download = `balance-sheet-${balanceSheet.contractor?.name || 'contractor'}-${balanceSheet.month}.csv`;
         a.click();
     };
 
     // Calculate totals
-    const totals = balanceSheet?.items.reduce((acc, item) => ({
+    const totals = (balanceSheet?.items || []).reduce((acc, item) => ({
         opening: acc.opening + item.openingBalance,
         received: acc.received + item.received,
         used: acc.used + item.used,
@@ -287,7 +289,7 @@ export default function BalanceSheetTab() {
                                         <SelectContent>
                                             {teams.map((t) => (
                                                 <SelectItem key={t.id} value={t.id} className="text-xs">
-                                                    {t.name} ({t.opmc.name})
+                                                    {t.name} ({t.opmc?.name || 'N/A'})
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -348,12 +350,12 @@ export default function BalanceSheetTab() {
                         </div>
 
                         {/* Preview Card - Show before generation */}
-                        {!balanceSheet && previewData && previewData.summary.hasData && (
+                        {!balanceSheet && previewData && previewData.summary?.hasData && (
                             <Card className="mb-4 border-blue-100 bg-blue-50/50 shadow-sm print:hidden">
                                 <CardHeader className="py-2.5 px-4">
                                     <CardTitle className="text-sm font-bold text-blue-900">Balance Sheet Preview</CardTitle>
                                     <p className="text-xs text-blue-700">
-                                        {previewData.contractor.name} - {previewData.store.name} ({previewData.month})
+                                        {previewData.contractor?.name || 'Unknown Contractor'} - {previewData.store?.name || 'Unknown Store'} ({previewData.month})
                                     </p>
                                 </CardHeader>
                                 <CardContent className="p-4 pt-0">
@@ -361,19 +363,19 @@ export default function BalanceSheetTab() {
                                         <div className="bg-white p-3 rounded-lg border border-blue-100/70">
                                             <div className="text-xs text-slate-500 mb-0.5">Material Issues</div>
                                             <div className="text-xl font-bold text-green-600">
-                                                {previewData.summary.materialIssues}
+                                                {previewData.summary?.materialIssues}
                                             </div>
                                         </div>
                                         <div className="bg-white p-3 rounded-lg border border-blue-100/70">
                                             <div className="text-xs text-slate-500 mb-0.5">SOD Usage</div>
                                             <div className="text-xl font-bold text-blue-600">
-                                                {previewData.summary.sodUsage}
+                                                {previewData.summary?.sodUsage}
                                             </div>
                                         </div>
                                         <div className="bg-white p-3 rounded-lg border border-blue-100/70">
                                             <div className="text-xs text-slate-500 mb-0.5">Material Returns</div>
                                             <div className="text-xl font-bold text-purple-600">
-                                                {previewData.summary.materialReturns}
+                                                {previewData.summary?.materialReturns}
                                             </div>
                                         </div>
                                     </div>
@@ -385,7 +387,7 @@ export default function BalanceSheetTab() {
                         )}
 
                         {/* No Data Message */}
-                        {!balanceSheet && previewData && !previewData.summary.hasData && (
+                        {!balanceSheet && previewData && !previewData.summary?.hasData && (
                             <Card className="mb-4 border-amber-100 bg-amber-50/50 shadow-sm print:hidden">
                                 <CardContent className="py-6 text-center text-xs">
                                     <p className="text-amber-800 font-bold">No material transactions found for this period</p>
@@ -438,12 +440,12 @@ export default function BalanceSheetTab() {
                                         <div className="grid grid-cols-2 gap-6 mt-4">
                                             <div>
                                                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Contractor Details</h3>
-                                                <div className="text-slate-900 font-bold text-sm">{balanceSheet.contractor.name}</div>
-                                                <div className="text-slate-500 text-xs">Reg No: {balanceSheet.contractor.registrationNumber || 'N/A'}</div>
+                                                <div className="text-slate-900 font-bold text-sm">{balanceSheet.contractor?.name || 'N/A'}</div>
+                                                <div className="text-slate-500 text-xs">Reg No: {balanceSheet.contractor?.registrationNumber || 'N/A'}</div>
                                             </div>
                                             <div className="text-right">
                                                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Store Details</h3>
-                                                <div className="text-slate-900 font-bold text-sm">{balanceSheet.store.name}</div>
+                                                <div className="text-slate-900 font-bold text-sm">{balanceSheet.store?.name || 'N/A'}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -500,7 +502,7 @@ export default function BalanceSheetTab() {
                                                     </React.Fragment>
                                                 ))}
                                             </tbody>
-                                            {totals && balanceSheet.items.length > 0 && (
+                                            {totals && (balanceSheet.items || []).length > 0 && (
                                                 <tfoot>
                                                     <tr className="bg-slate-50 font-bold border-t-2 border-slate-300">
                                                         <td className="border border-slate-200 px-3 py-1.5 text-right text-[11px]" colSpan={3}>TOTAL:</td>
@@ -516,7 +518,7 @@ export default function BalanceSheetTab() {
                                         </table>
                                     </div>
 
-                                    {balanceSheet.items.length === 0 && (
+                                    {(!balanceSheet.items || balanceSheet.items.length === 0) && (
                                         <div className="text-center py-12 text-slate-400 border border-slate-200 rounded-lg mt-4 text-xs italic">
                                             No material movements recorded for this period.
                                         </div>

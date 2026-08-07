@@ -61,7 +61,7 @@ function InvoicableServiceOrdersContent() {
         setLoading(true);
         try {
             const [sodRes, contractorRes] = await Promise.all([
-                fetch(`/api/service-orders?status=COMPLETED&limit=200&_t=${Date.now()}`, {
+                fetch(`/api/service-orders?filter=completed&limit=200&_t=${Date.now()}`, {
                     cache: 'no-store',
                     headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
                 }),

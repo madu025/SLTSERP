@@ -290,7 +290,7 @@ export default function ComplianceAuditTab() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-0">
-                                <div className="text-2xl font-black text-slate-900 dark:text-white">{report?.summary.sodsAudited ?? 0}</div>
+                                <div className="text-2xl font-black text-slate-900 dark:text-white">{report?.summary?.sodsAudited ?? 0}</div>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Completed orders checked against ledger</p>
                             </CardContent>
                         </Card>
@@ -305,7 +305,7 @@ export default function ComplianceAuditTab() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-0">
-                                <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{report?.summary.discrepancyCount ?? 0}</div>
+                                <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{report?.summary?.discrepancyCount ?? 0}</div>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Items requiring verification</p>
                             </CardContent>
                         </Card>
@@ -320,7 +320,7 @@ export default function ComplianceAuditTab() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-0">
-                                <div className="text-2xl font-black text-rose-600 dark:text-rose-400">{report?.summary.highSeverityCount ?? 0}</div>
+                                <div className="text-2xl font-black text-rose-600 dark:text-rose-400">{report?.summary?.highSeverityCount ?? 0}</div>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Missing GL entries or material gaps</p>
                             </CardContent>
                         </Card>
@@ -336,7 +336,7 @@ export default function ComplianceAuditTab() {
                             </CardHeader>
                             <CardContent className="p-4 pt-0">
                                 <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                                    {report?.summary.discrepancyCount === 0 ? '100%' : `${Math.max(70, 100 - (report?.summary.highSeverityCount || 0) * 5)}%`}
+                                    {report?.summary?.discrepancyCount === 0 ? '100%' : `${Math.max(70, 100 - (report?.summary?.highSeverityCount || 0) * 5)}%`}
                                 </div>
                                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">Audit Grade A</p>
                             </CardContent>
