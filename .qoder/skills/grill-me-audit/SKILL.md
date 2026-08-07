@@ -44,9 +44,27 @@ Run a structured debate where all 5 QA auditors cross-examine the target code li
 - Auditor 4: Edge cases / missing error handling / `any` types.
 - Auditor 5: Domain ledger / MIN audit compliance gaps.
 
+### Step 2.5: Runtime Verification (MANDATORY before reporting findings)
+
+Before presenting findings as real issues, verify each finding against the running dev server:
+
+1. Start dev server (`npm run dev`) if not already running
+2. For each finding from Step 2, construct a test case:
+   - Security findings: attempt the attack (unauthenticated request, role bypass, etc.)
+   - Edge case findings: trigger the edge case (empty array, null value, etc.)
+   - Race condition findings: assess if the window is practically exploitable
+3. Classify each finding:
+   - **CONFIRMED**: Reproduced the issue via HTTP request or code path
+   - **FALSE POSITIVE**: Safeguard exists elsewhere (middleware, JWT contract, etc.) that prevents the issue
+   - **THEORETICAL**: Cannot occur in practice due to system design
+4. Only CONFIRMED findings proceed to Step 3 (Fix Matrix)
+5. FALSE POSITIVE and THEORETICAL findings are logged but NOT presented as actionable issues
+
+This step prevents reporting "issues" that are actually prevented by other layers of the system (middleware auth, JWT structure, apiHandler validation, etc.).
+
 ### Step 3: Consolidated QA Fix Matrix
 
-Present a unified review table with categorized fixes:
+Present a unified review table with categorized fixes (ONLY for CONFIRMED findings from Step 2.5):
 
 - Must-Have: blocks correctness, security, or data integrity — auto-adopted.
 - Should-Have: improves architecture — requires user sign-off.
