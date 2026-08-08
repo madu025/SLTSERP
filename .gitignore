@@ -67,6 +67,9 @@ test-results/
 setup_*.sql
 repair_*.ps1
 
+# generated Prisma schema docs (build artifact, ~80MB)
+docs/prisma/
+
 # performance and scalability docs (if generated)
 PERFORMANCE_*.md
 SCALABILITY_*.md
