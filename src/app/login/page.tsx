@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { NexusLogoMaster } from "@/components/ui/NexusLogo";
 import "./login.css";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -37,7 +37,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginContent() {
   const [error, setError] = useState("");
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
@@ -338,5 +338,13 @@ export default function LoginPage() {
 
       {/* login.css styles are loaded statically */}
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }

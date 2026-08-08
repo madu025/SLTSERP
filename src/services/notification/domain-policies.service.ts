@@ -496,6 +496,7 @@ export class DomainNotificationPolicies {
 
             // Send digest email
             const { EmailService } = await import('./email.service');
+            const { NotificationTemplateEngineService } = await import('./template-engine.service');
             const htmlRows = unread.slice(0, 10).map((n: Record<string, unknown>) =>
                 `<tr>
                     <td style="padding:8px;border-bottom:1px solid #e2e8f0;">
@@ -506,12 +507,25 @@ export class DomainNotificationPolicies {
                 </tr>`
             ).join('');
 
+            const notifListHtml = unread.slice(0, 10).map((n: Record<string, unknown>) =>
+                `<li><strong>${n.title}</strong> - ${n.message}</li>`
+            ).join('');
+
+            const dailyVars: Record<string, string> = {
+                user: userEmail,
+                unreadCount: String(unread.length),
+                notifications: notifListHtml,
+                date: new Date().toLocaleDateString()
+            };
+
+            const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('NOTIFICATION_DAILY_SUMMARY', dailyVars);
+
             await EmailService.sendMail({
                 to: userEmail,
-                subject: `[SLTS NEXUS] Daily Summary - ${unread.length} Unread Notifications`,
-                text: summary,
-                html: `<div style="font-family:sans-serif;padding:20px;max-width:600px;">
-                    <h2>📋 Daily Notification Summary</h2>
+                subject: dbTemplate?.subject || `[SLTS NEXUS] Daily Summary - ${unread.length} Unread Notifications`,
+                text: dbTemplate?.text || summary,
+                html: dbTemplate?.html || `<div style="font-family:sans-serif;padding:20px;max-width:600px;">
+                    <h2>Daily Notification Summary</h2>
                     <p>${summary}</p>
                     <table style="width:100%;border-collapse:collapse;margin:16px 0;">${htmlRows}</table>
                     <p style="font-size:12px;color:#94a3b8;">Login to <a href="${process.env.NEXT_PUBLIC_APP_URL}">SLTS NEXUS</a> to view all notifications.</p>

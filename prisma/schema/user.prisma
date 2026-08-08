@@ -122,14 +122,20 @@ model Notification {
 
 model NotificationTemplate {
   id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  code      String   @unique
-  title     String
-  message   String
-  channels  String[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  code        String   @unique
+  title       String
+  message     String
+  subject     String?
+  htmlBody    String?
+  entityType  String?
+  isActive    Boolean  @default(true)
+  channels    String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([code])
+  @@index([entityType])
+  @@index([isActive])
 }
 
 model NotificationEvent {

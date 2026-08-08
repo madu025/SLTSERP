@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { EmailService } from '../notification/email.service';
+import { NotificationTemplateEngineService } from '../notification/template-engine.service';
 import { AppError } from '@/lib/error';
 import { requireEnv } from '@/lib/env';
 
@@ -71,7 +72,21 @@ export class DynamicApprovalService {
             ]
         };
 
-        const html = `
+        const templateVars: Record<string, string> = {
+            user: approverEmail,
+            entityType,
+            entityId,
+            approveUrl,
+            rejectUrl,
+            expiryHours: '48',
+            amount: amount ? amount.toLocaleString() : '',
+            status: 'PENDING'
+        };
+
+        // Try DB template first, fallback to hardcoded
+        const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('APPROVAL_GENERIC', templateVars);
+
+        const html = dbTemplate?.html || `
             <html>
                 <head>
                     <script type="application/ld+json">
@@ -91,10 +106,13 @@ export class DynamicApprovalService {
             </html>
         `;
 
+        const subject = dbTemplate?.subject || `Action Required: ${entityType} Approval`;
+        const text = dbTemplate?.text || `Please approve or reject the ${entityType} request. Approve: ${approveUrl} | Reject: ${rejectUrl}`;
+
         await EmailService.sendMail({
             to: approverEmail,
-            subject: `Action Required: ${entityType} Approval`,
-            text: `Please approve or reject the ${entityType} request. Approve: ${approveUrl} | Reject: ${rejectUrl}`,
+            subject,
+            text,
             html
         });
     }
@@ -172,7 +190,31 @@ export class DynamicApprovalService {
             ]
         };
 
-        const html = `
+        const itemsHtml = stockRequest.items.map(i =>
+            `<li>${i.item.name || i.item.code} - ${i.requestedQty} ${i.item.unit}</li>`
+        ).join('');
+
+        const templateVars: Record<string, string> = {
+            user: approverEmail,
+            entityType: 'Material Request',
+            entityId: stockRequest.requestNr,
+            entityName: stockRequest.purpose || 'N/A',
+            approveUrl,
+            rejectUrl,
+            expiryHours: '48',
+            status: stockRequest.workflowStage,
+            userRole: requiredRole,
+            items: itemsHtml,
+            priority: stockRequest.priority,
+            purpose: stockRequest.purpose || 'N/A',
+            fromStore: stockRequest.fromStore?.name || 'External/Vendor',
+            toStore: stockRequest.toStore?.name || 'N/A'
+        };
+
+        // Try DB template first, fallback to hardcoded
+        const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('APPROVAL_MATERIAL_REQUEST', templateVars);
+
+        const html = dbTemplate?.html || `
             <html>
                 <head>
                     <script type="application/ld+json">
@@ -186,7 +228,7 @@ export class DynamicApprovalService {
                     <p><strong>Purpose:</strong> ${stockRequest.purpose || 'N/A'}</p>
                     <h3>Material Summary</h3>
                     <ul>
-                        ${stockRequest.items.map(i => `<li>${i.item.name || i.item.code} - ${i.requestedQty} ${i.item.unit}</li>`).join('')}
+                        ${itemsHtml}
                     </ul>
                     <div style="margin-top: 20px;">
                         <a href="${approveUrl}" style="background-color: #22c55e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Approve</a>
@@ -197,11 +239,14 @@ export class DynamicApprovalService {
             </html>
         `;
 
+        const subject = dbTemplate?.subject || `Action Required: Material Request ${stockRequest.requestNr}`;
+        const text = dbTemplate?.text || `Please approve or reject Material Request ${stockRequest.requestNr}. Approve: ${approveUrl} | Reject: ${rejectUrl}`;
+
         // Fire and forget to avoid blocking API
         EmailService.sendMail({
             to: approverEmail,
-            subject: `Action Required: Material Request ${stockRequest.requestNr}`,
-            text: `Please approve or reject Material Request ${stockRequest.requestNr}. Approve: ${approveUrl} | Reject: ${rejectUrl}`,
+            subject,
+            text,
             html
         }).catch(err => console.error('[DynamicApprovalService] Async Email Dispatch Failed:', err));
     }

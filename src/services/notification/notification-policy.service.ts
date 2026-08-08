@@ -2,6 +2,7 @@ import { Role } from '@prisma/client';
 import { ROLE_GROUPS } from '@/config/roles';
 import { NotificationService, NotificationPriority } from '@/services/notification/notification.service';
 import { EmailService } from './email.service';
+import { NotificationTemplateEngineService } from './template-engine.service';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -29,28 +30,43 @@ async function sendAlertEmail({
     text,
     html,
     context,
+    templateCode,
+    templateVars,
 }: {
     roles: Role[];
     subject: string;
     text: string;
     html: string;
-    context: string; // caller label for structured error logs
+    context: string;
+    templateCode?: string;
+    templateVars?: Record<string, string>;
 }): Promise<void> {
     const admins = await prisma.user.findMany({
-        where: { role: { in: roles } },   // ✅ Fix #3: strictly-typed Role enum, no `as any`
+        where: { role: { in: roles } },
         select: { email: true }
     });
 
     const emails = admins.map(a => a.email).filter(Boolean) as string[];
     if (emails.length === 0) return;
 
+    // Try DB template first, fallback to hardcoded HTML
+    let finalSubject = subject;
+    let finalHtml = html;
+    let finalText = text;
+    if (templateCode && templateVars) {
+        const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode(templateCode, templateVars);
+        if (dbTemplate) {
+            finalSubject = dbTemplate.subject;
+            finalHtml = dbTemplate.html;
+            finalText = dbTemplate.text;
+        }
+    }
+
     try {
-        await EmailService.sendMail({ to: emails.join(','), subject, text, html });
+        await EmailService.sendMail({ to: emails.join(','), subject: finalSubject, text: finalText, html: finalHtml });
     } catch (err: unknown) {
-        // Fix #6: structured error log — production APM/log-aggregators will surface this
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[NotificationPolicy] Email send failure [${context}]:`, message);
-        // TODO: enqueue retry job via notificationsQueue if email is critical-path
     }
 }
 
@@ -166,7 +182,7 @@ export class NotificationPolicyService {
             subject: `[SLTS NEXUS Alert] Critical Low Stock: ${itemName} in ${storeName}`,
             text: `Low stock detected for item: ${itemName} in ${storeName}.\nCurrent stock level: ${currentQty}\nMinimum safety stock level: ${minLevel}\n\nPlease take immediate replenishment action.`,
             html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #e2e8f0;border-radius:8px;">
-                <h2 style="color:#e11d48;margin-top:0;">⚠️ Low Stock Replenishment Required</h2>
+                <h2 style="color:#e11d48;margin-top:0;">Low Stock Replenishment Required</h2>
                 <p><strong>Material Name:</strong> ${itemName}</p>
                 <p><strong>Storage Store:</strong> ${storeName}</p>
                 <p><strong>In Hand Quantity:</strong> <span style="color:#e11d48;font-weight:bold;">${currentQty}</span></p>
@@ -174,7 +190,15 @@ export class NotificationPolicyService {
                 <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0;" />
                 <p style="font-size:12px;color:#64748b;">This is an automated production alert from SLTS Nexus ERP.</p>
             </div>`,
-            context: `notifyLowStock:${itemName}:${storeName}`
+            context: `notifyLowStock:${itemName}:${storeName}`,
+            templateCode: 'ALERT_GENERIC',
+            templateVars: {
+                user: 'Stores Manager',
+                title: `Critical Low Stock: ${itemName} in ${storeName}`,
+                message: `Low stock detected: ${itemName} in ${storeName}. Current: ${currentQty}, Min Level: ${minLevel}`,
+                date: new Date().toLocaleString(),
+                actionUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}/inventory/stock`
+            }
         });
     }
 
@@ -361,12 +385,26 @@ export class NotificationPolicyService {
             ).join('');
 
             try {
+                const fefoItemsHtml = results.map(r =>
+                    `<li>${r.itemName} (Batch: ${r.batchNumber ?? 'N/A'}) @ ${r.storeName}: Qty ${r.quantity}, Expires ${r.expiryDate?.toLocaleDateString() ?? 'N/A'}</li>`
+                ).join('');
+
+                const fefoVars: Record<string, string> = {
+                    user: 'Stores Manager',
+                    itemCount: String(results.length),
+                    items: fefoItemsHtml,
+                    date: new Date().toLocaleString(),
+                    storeName: results[0]?.storeName || 'Multiple Stores'
+                };
+
+                const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('ALERT_FEFO_EXPIRY', fefoVars);
+
                 await EmailService.sendMail({
                     to: adminEmails.join(','),
-                    subject: `[SLTS NEXUS FEFO Alert] ${results.length} Batch(es) Expiring Within 30 Days`,
-                    text: `The following ${results.length} batch(es) are expiring within 30 days:\n\n${results.map(r => `- ${r.itemName} (${r.batchNumber ?? 'N/A'}) @ ${r.storeName}: Qty ${r.quantity}, Expires ${r.expiryDate?.toLocaleDateString() ?? 'N/A'}`).join('\n')}`,
-                    html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #fecaca;border-radius:8px;background-color:#fff5f5;">
-                        <h2 style="color:#dc2626;margin-top:0;">⏳ FEFO Compliance: Batch Expiry Digest</h2>
+                    subject: dbTemplate?.subject || `[SLTS NEXUS FEFO Alert] ${results.length} Batch(es) Expiring Within 30 Days`,
+                    text: dbTemplate?.text || `The following ${results.length} batch(es) are expiring within 30 days:\n\n${results.map(r => `- ${r.itemName} (${r.batchNumber ?? 'N/A'}) @ ${r.storeName}: Qty ${r.quantity}, Expires ${r.expiryDate?.toLocaleDateString() ?? 'N/A'}`).join('\n')}`,
+                    html: dbTemplate?.html || `<div style="font-family:sans-serif;padding:20px;border:1px solid #fecaca;border-radius:8px;background-color:#fff5f5;">
+                        <h2 style="color:#dc2626;margin-top:0;">FEFO Compliance: Batch Expiry Digest</h2>
                         <p>${results.length} batch(es) will expire within the next 30 days. Please prioritize issuing these batches to avoid financial write-offs.</p>
                         <table style="width:100%;border-collapse:collapse;font-size:13px;">
                             <thead>

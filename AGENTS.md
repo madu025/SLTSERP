@@ -220,6 +220,14 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 2. **Immutable Audit Ledger**: All custody transfers and stock movements must write an immutable ledger entry into `InventoryLedger` with SHA-256 checksum tracking (`id + storeId + itemId + quantityAfter + createdAt`).
 3. **Preflight Identification**: Before building any new feature, identify whether the process requires auditable signatures, issue note references, or role isolation, and enforce them at the schema and API layer automatically.
 
+## 📧 Email Template Auto-Wiring Mandate
+1. **Automatic Template Wiring**: Whenever you add or modify any code that sends an email (`EmailService.sendMail(...)`), you MUST automatically wire it to the DB notification template system WITHOUT being reminded by the user:
+   - Register a template code in `src/config/notification-templates.ts` (`TEMPLATE_CODES`) with label, description, category, placeholders, and defaultEntityType.
+   - Seed a default styled HTML template for that code in `prisma/seed-notification-templates.ts`.
+   - Call `NotificationTemplateEngineService.renderEmailByCode(CODE, vars)` at the send site and fall back to hardcoded HTML only when no active DB template exists.
+2. **Admin UI is registry-driven**: The template code dropdown at `/admin/settings/notification-templates` reads the registry via `/api/admin/notification-templates/codes`, so new codes appear automatically once registered.
+3. **Enforcement**: Run `npm run check:email-templates` after touching email-sending code. It fails the build check if any `EmailService.sendMail` call site lacks `renderEmailByCode` wiring.
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.

@@ -8,6 +8,7 @@
 import { NotificationService } from './index';
 import { PushNotificationService, PushNotificationPayload } from './push/push.service';
 import { EmailService } from './email.service';
+import { NotificationTemplateEngineService } from './template-engine.service';
 
 interface RetryTask {
     id: string;
@@ -160,11 +161,20 @@ export class NotificationRetryService {
                 const result = await this.sendWithRetry({
                     deliveryId,
                     sendFn: async () => {
+                        const retryVars: Record<string, string> = {
+                            user: userEmail,
+                            title,
+                            message,
+                            actionUrl: link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : '#',
+                            date: new Date().toLocaleString()
+                        };
+                        const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('NOTIFICATION_GENERIC', retryVars);
+
                         await EmailService.sendMail({
                             to: userEmail,
-                            subject: `[SLTS NEXUS] ${title}`,
-                            text: message,
-                            html: `<div style="font-family:sans-serif;padding:20px;max-width:600px;margin:0 auto;">
+                            subject: dbTemplate?.subject || `[SLTS NEXUS] ${title}`,
+                            text: dbTemplate?.text || message,
+                            html: dbTemplate?.html || `<div style="font-family:sans-serif;padding:20px;max-width:600px;margin:0 auto;">
                                 <h2>${title}</h2>
                                 <p>${message}</p>
                                 <p><small>Priority: ${priority} | Type: ${type}</small></p>

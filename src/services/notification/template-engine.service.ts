@@ -1,5 +1,11 @@
 import { prisma } from '@/lib/prisma';
 
+interface RenderedEmailTemplate {
+    subject: string;
+    html: string;
+    text: string;
+}
+
 export class NotificationTemplateEngineService {
     /**
      * Renders a dynamic title and message template substituting placeholders like {{orderNo}}, {{user}}, {{amount}}.
@@ -16,24 +22,34 @@ export class NotificationTemplateEngineService {
     }
 
     /**
-     * Fetches template by code (e.g. SO_APPROVED) and compiles title and message with variables.
+     * Fetches template by code and renders subject + HTML body for email dispatch.
+     * Returns null if template not found or inactive.
+     */
+    static async renderEmailByCode(
+        code: string,
+        variables: Record<string, string | number | boolean | undefined>
+    ): Promise<RenderedEmailTemplate | null> {
+        const template = await prisma.notificationTemplate.findUnique({
+            where: { code, isActive: true }
+        });
+
+        if (!template) return null;
+
+        const subject = this.renderTemplate(template.subject || template.title, variables);
+        const html = this.renderTemplate(template.htmlBody || template.message, variables);
+        const text = this.renderTemplate(template.message, variables);
+
+        return { subject, html, text };
+    }
+
+    /**
+     * Fetches template by code and compiles title and message with variables.
      */
     static async renderByCode(
         code: string, 
         variables: Record<string, string | number | boolean | undefined>
     ): Promise<{ title: string; message: string; channels: string[] } | null> {
-        interface NotificationTemplateClient {
-            notificationTemplate: {
-                findUnique: (args: { where: { code: string } }) => Promise<{
-                    id: string;
-                    code: string;
-                    title: string;
-                    message: string;
-                    channels: string[];
-                } | null>;
-            };
-        }
-        const template = await (prisma as unknown as NotificationTemplateClient).notificationTemplate.findUnique({
+        const template = await prisma.notificationTemplate.findUnique({
             where: { code }
         });
 

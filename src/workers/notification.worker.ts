@@ -3,6 +3,7 @@ import { redis } from '@/lib/redis';
 import { QUEUE_NAMES } from '@/lib/queue';
 import { PushNotificationService } from '@/services/notification/push/push.service';
 import { EmailService } from '@/services/notification/email.service';
+import { NotificationTemplateEngineService } from '@/services/notification/template-engine.service';
 import { prisma } from '@/lib/prisma';
 
 export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATIONS, async (job) => {
@@ -31,10 +32,20 @@ export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATIONS, async (j
         // 3. Send Email (if critical or high)
         if (user.email && (priority === 'CRITICAL' || priority === 'HIGH')) {
             try {
+                const notifVars: Record<string, string> = {
+                    user: user.name || user.email,
+                    title,
+                    message,
+                    actionUrl: link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : '#',
+                    date: new Date().toLocaleString()
+                };
+                const dbTemplate = await NotificationTemplateEngineService.renderEmailByCode('NOTIFICATION_GENERIC', notifVars);
+
                 await EmailService.sendMail({
                     to: user.email,
-                    subject: title,
-                    text: `${message}\n\nLink: ${link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : 'N/A'}`
+                    subject: dbTemplate?.subject || title,
+                    text: dbTemplate?.text || `${message}\n\nLink: ${link ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'}${link}` : 'N/A'}`,
+                    html: dbTemplate?.html
                 });
             } catch (e) {
                 console.error(`[NOTIFICATION-WORKER] Email failed for ${userId}:`, e);

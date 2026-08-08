@@ -13,6 +13,7 @@
     "postinstall": "prisma generate",
     "db:sync": "node scripts/db-sync.js",
     "rbac:check": "node scripts/rbac-sync.js",
+    "check:email-templates": "node scripts/check-email-template-wiring.mjs",
     "rbac:sync": "node scripts/rbac-sync.js --write",
     "qa:seed": "node prisma/qa-seed.js",
     "qa:reset": "node prisma/qa-reset.js",
