@@ -141,6 +141,19 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
         return chunks;
     }, [data?.sods]);
 
+    // Clean number formatting: fixes floating point artifacts (0.44999999999999996 -> 0.45)
+    const fmtQty = (v: number | string | undefined | null) => {
+        if (v === '' || v === null || v === undefined) return '';
+        const n = typeof v === 'string' ? parseFloat(v) : v;
+        if (isNaN(n) || n === 0) return '';
+        const rounded = Math.round(n * 100) / 100;
+        return rounded.toString();
+    };
+    const fmtCleanNum = (v: number) => {
+        const rounded = Math.round(v * 100) / 100;
+        return rounded.toLocaleString();
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
@@ -576,7 +589,10 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const isRetainer = itemName.includes('RETAINER') || itemCode.includes('RETNER') || itemName.includes('CLAMP');
                                                     return !isRetainer && (usageType === 'PORTAL_SYNC' || usageType === 'USED_F1' || itemCode === 'OSP-HC-CBL-DW' || itemName.includes('DROP CABLE') || itemName.includes('DROP WIRE'));
                                                 });
-                                                return found ? found.quantity : '';
+                                                if (!found) return '';
+                                                // Convert km to meters for display (material stored in km, show as m)
+                                                const meters = Math.round(Number(found.quantity) * 1000);
+                                                return meters || '';
                                             };
 
                                             const getG1Qty = () => {
@@ -586,7 +602,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const usageType = (m.usageType || '').toUpperCase();
                                                     return usageType === 'USED_G1' || itemCode === 'OSPFTA003' || itemName.includes('INDOOR') || (itemName.includes('G1') && !itemName.includes('HOOK'));
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getLHookQty = () => {
@@ -595,7 +611,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemCode === 'OSP-NC-MM-LHOOK' || itemName.includes('HOOK L') || itemName.includes('L HOOK') || itemName.includes('L-HOOK');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getCHookQty = () => {
@@ -604,7 +620,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemCode === 'OSP-NC-MM-CHOOK' || itemName.includes('HOOK C') || itemName.includes('C HOOK') || itemName.includes('C-HOOK');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getRetainerQty = () => {
@@ -613,7 +629,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemCode === 'OSP-NC-ACC-DWRETNER' || itemName.includes('RETAINER') || itemName.includes('RETNER');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getIWQty = () => {
@@ -621,7 +637,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemName.includes('INTERNAL WIRE') || itemName.includes('IW-N');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getCat5Qty = () => {
@@ -629,7 +645,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemName.includes('CAT 5') || itemName.includes('CAT5') || itemName.includes('UTP');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getFACQty = () => {
@@ -638,7 +654,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemCode === 'OSP-HC-ACC-FAC' || itemName.includes('FAC') || itemName.includes('FAST CONNECTOR');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getRosetteQty = () => {
@@ -647,7 +663,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemCode === 'OSPFTA007' || itemName.includes('ROSETTE') || itemName.includes('ROSSETTE');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getBoltQty = () => {
@@ -656,7 +672,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemCode === 'OSPACC011' || itemName.includes('BOLT');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getConduitQty = () => {
@@ -664,7 +680,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemName.includes('CONDUIT');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const getCasingQty = () => {
@@ -672,7 +688,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     const itemName = (m.item?.name || '').toUpperCase();
                                                     return itemName.includes('CASING') || itemName.includes('TRUNKING');
                                                 });
-                                                return found ? found.quantity : '';
+                                                return found ? fmtQty(found.quantity) : '';
                                             };
 
                                             const polesText = (sod.erectedPoles || []).map(p => p.poleType).join(', ');
@@ -740,8 +756,9 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                 const qty = Number(m.quantity) || 0;
                                                 const isRetainer = itemName.includes('RETAINER') || itemCode.includes('RETNER') || itemName.includes('CLAMP');
 
+                                                // F-1 Drop Wire shown in meters per SOD — excluded from material totals
                                                 if (!isRetainer && (usageType === 'PORTAL_SYNC' || usageType === 'USED_F1' || itemCode === 'OSP-HC-CBL-DW' || itemName.includes('DROP CABLE') || itemName.includes('DROP WIRE'))) {
-                                                    acc.f1 += qty;
+                                                    // Skip: DW length is a per-SOD metric, not a material total
                                                 } else if (usageType === 'USED_G1' || itemCode === 'OSPFTA003' || itemName.includes('INDOOR') || (itemName.includes('G1') && !itemName.includes('HOOK'))) {
                                                     acc.g1 += qty;
                                                 } else if (itemCode === 'OSP-NC-MM-LHOOK' || itemName.includes('HOOK L') || itemName.includes('L HOOK') || itemName.includes('L-HOOK')) {
@@ -777,18 +794,18 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                                     <td colSpan={5} className="border-r border-black p-1 text-left pl-2 font-serif font-bold text-xs">
                                                         Material Totals
                                                     </td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold text-xs">{chunkTotals.f1 || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold text-xs">{chunkTotals.g1 || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.lHook || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.cHook || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.retainer || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.iw || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.cat5 || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.fac || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.rosette || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.bolt || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.conduit || 0}</td>
-                                                    <td className="border-r border-black p-1 font-mono font-bold">{chunkTotals.casing || 0}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold text-xs">—</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold text-xs">{fmtQty(chunkTotals.g1)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.lHook)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.cHook)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.retainer)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.iw)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.cat5)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.fac)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.rosette)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.bolt)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.conduit)}</td>
+                                                    <td className="border-r border-black p-1 font-mono font-bold">{fmtQty(chunkTotals.casing)}</td>
                                                     <td className="p-1"></td>
                                                 </tr>
                                             </tfoot>
@@ -858,12 +875,12 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ id: st
                                             <td className="p-2 border-r border-black font-mono font-bold">{item.code}</td>
                                             <td className="p-2 border-r border-black font-medium">{item.name}</td>
                                             <td className="p-2 border-r border-black text-center font-bold">{item.unit}</td>
-                                            <td className="p-2 border-r border-black text-right font-mono">{item.openingBalance.toLocaleString()}</td>
-                                            <td className="p-2 border-r border-black text-right font-mono font-bold">+{item.issuedQty.toLocaleString()}</td>
-                                            <td className="p-2 border-r border-black text-right font-mono font-bold">-{item.consumedQty.toLocaleString()}</td>
-                                            <td className="p-2 border-r border-black text-right font-mono">-{item.wastageQty.toLocaleString()}</td>
-                                            <td className="p-2 border-r border-black text-right font-mono">+{item.returnedQty.toLocaleString()}</td>
-                                            <td className="p-2 text-right font-mono font-bold bg-slate-50">{item.closingBalance.toLocaleString()}</td>
+                                            <td className="p-2 border-r border-black text-right font-mono">{fmtCleanNum(item.openingBalance)}</td>
+                                            <td className="p-2 border-r border-black text-right font-mono font-bold">+{fmtCleanNum(item.issuedQty)}</td>
+                                            <td className="p-2 border-r border-black text-right font-mono font-bold">-{fmtCleanNum(item.consumedQty)}</td>
+                                            <td className="p-2 border-r border-black text-right font-mono">-{fmtCleanNum(item.wastageQty)}</td>
+                                            <td className="p-2 border-r border-black text-right font-mono">+{fmtCleanNum(item.returnedQty)}</td>
+                                            <td className="p-2 text-right font-mono font-bold bg-slate-50">{fmtCleanNum(item.closingBalance)}</td>
                                         </tr>
                                     ))
                                 )}

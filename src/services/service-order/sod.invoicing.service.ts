@@ -82,8 +82,12 @@ export class SODInvoicingService {
         let rtomId = opmcIdOrRtom;
         const opmcModel = (prisma as unknown as Record<string, { findFirst: (args: Prisma.OPMCFindFirstArgs) => Promise<{ id: string; rtom: string } | null> }>).oPMC || (prisma as unknown as Record<string, { findFirst: (args: Prisma.OPMCFindFirstArgs) => Promise<{ id: string; rtom: string } | null> }>).OPMC;
         if (opmcModel) {
+            const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+            const isUuid = uuidRegex.test(opmcIdOrRtom);
             const opmc = await opmcModel.findFirst({
-                where: { OR: [{ id: opmcIdOrRtom }, { rtom: opmcIdOrRtom }] }
+                where: isUuid
+                    ? { OR: [{ id: opmcIdOrRtom }, { rtom: opmcIdOrRtom }] }
+                    : { rtom: opmcIdOrRtom }
             });
             if (opmc) {
                 rtomCode = opmc.rtom;

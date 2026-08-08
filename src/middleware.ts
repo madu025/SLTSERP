@@ -59,6 +59,9 @@ const publicPrefixes: Array<{ prefix: string; maxDepth: number }> = [
     { prefix: '/api/service-orders/bridge-data', maxDepth: 1 },
     // Cron endpoints use CRON_SECRET auth (not JWT) - allow all methods
     { prefix: '/api/cron', maxDepth: 1 },
+    // Public invoice view (contractor shareable link with UUID)
+    { prefix: '/api/public/invoices', maxDepth: 1 },
+    { prefix: '/public/invoices', maxDepth: 1 },
 ];
 
 function isPublicPath(pathname: string, method: string): boolean {

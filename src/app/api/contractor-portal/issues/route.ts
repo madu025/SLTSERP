@@ -16,5 +16,5 @@ export const GET = apiHandler(async (req: Request) => {
 
     return await ContractorInventoryService.getMaterialIssues(contractorId);
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

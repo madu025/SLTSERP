@@ -17,7 +17,7 @@ export const GET = apiHandler(async (req: Request) => {
 
     return await ContractorInventoryService.getMaterialReturns(contractorId);
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });
 
 // POST /api/contractor-portal/returns - Create a new Material Return Note (MRN) request
@@ -34,5 +34,5 @@ export const POST = apiHandler(async (req: Request) => {
 
     return await ContractorInventoryService.createMaterialReturn(contractorId, body);
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

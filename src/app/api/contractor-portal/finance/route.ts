@@ -11,5 +11,5 @@ export const GET = apiHandler(async (req: Request) => {
     const data = await ContractorFinanceService.getFinanceDashboard(userId, contractorId);
     return data;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

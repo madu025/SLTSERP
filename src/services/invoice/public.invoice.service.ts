@@ -224,6 +224,19 @@ export class PublicInvoiceService {
             entry.openingBalance = Math.max(0, calculatedOpening);
             return entry;
         });
+        
+        // Convert km items to meters for display consistency (balance sheet uses m, not km)
+        for (const entry of balanceSheet) {
+            if (entry.unit.toLowerCase() === 'km') {
+                entry.unit = 'm';
+                entry.openingBalance = Math.round(entry.openingBalance * 1000 * 100) / 100;
+                entry.issuedQty = Math.round(entry.issuedQty * 1000 * 100) / 100;
+                entry.consumedQty = Math.round(entry.consumedQty * 1000 * 100) / 100;
+                entry.wastageQty = Math.round(entry.wastageQty * 1000 * 100) / 100;
+                entry.returnedQty = Math.round(entry.returnedQty * 1000 * 100) / 100;
+                entry.closingBalance = Math.round(entry.closingBalance * 1000 * 100) / 100;
+            }
+        }
 
         // 3. Compute Itemized Work Items for Invoice Page 1 Table
         const itemMapGroup = new Map<string, { description: string; rtom: string; qty: number; unitRate: number; amount: number }>();
