@@ -377,27 +377,16 @@ async function main() {
   console.log('Seeding notification templates...');
   
   for (const tpl of DEFAULT_TEMPLATES) {
-    const existing = await prisma.notificationTemplate.findUnique({
-      where: { code: tpl.code }
+    await prisma.notificationTemplate.upsert({
+      where: { code: tpl.code },
+      create: tpl,
+      update: {
+        subject: tpl.subject,
+        htmlBody: tpl.htmlBody,
+        entityType: tpl.entityType
+      }
     });
-
-    if (existing) {
-      // Update with new fields
-      await prisma.notificationTemplate.update({
-        where: { code: tpl.code },
-        data: {
-          subject: tpl.subject,
-          htmlBody: tpl.htmlBody,
-          entityType: tpl.entityType
-        }
-      });
-      console.log(`  Updated: ${tpl.code}`);
-    } else {
-      await prisma.notificationTemplate.create({
-        data: tpl
-      });
-      console.log(`  Created: ${tpl.code}`);
-    }
+    console.log(`  Upserted: ${tpl.code}`);
   }
 
   console.log('Done. Templates seeded successfully.');
