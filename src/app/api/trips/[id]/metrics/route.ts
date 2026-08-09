@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import TripService from '@/services/fleet/TripService';
 
 /**
@@ -11,7 +12,7 @@ export const GET = apiHandler<unknown, void>(
         const metrics = await TripService.getTripMetrics(params.id);
 
         if (!metrics) {
-            throw new Error('Trip metrics not found');
+            throw AppError.notFound('Trip metrics not found');
         }
 
         return metrics;

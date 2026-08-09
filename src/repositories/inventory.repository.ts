@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma';
+import { AppError, ErrorCode } from '@/lib/error';
 import { Prisma } from '@prisma/client';
 
 export type TransactionClient = Prisma.TransactionClient;
@@ -71,7 +72,7 @@ export class InventoryRepository {
             where: { storeId_itemId: { storeId, itemId } }
         });
         if (!stock || stock.quantity < quantity) {
-            throw new Error(`Insufficient physical stock for item ${itemId} in store ${storeId}`);
+            throw new AppError(`Insufficient physical stock for item ${itemId} in store ${storeId}`, ErrorCode.INSUFFICIENT_STOCK, 400);
         }
         // Use Prisma's typed decrement for atomic update
         return (tx as any).inventoryStock.update({
@@ -89,7 +90,7 @@ export class InventoryRepository {
             where: { storeId_itemId: { storeId, itemId } }
         });
         if (!stock || (stock.quantity - (stock.allocatedQuantity || 0)) < quantity) {
-            throw new Error(`Insufficient Available-To-Promise (ATP) stock for item ${itemId} in store ${storeId}`);
+            throw new AppError(`Insufficient Available-To-Promise (ATP) stock for item ${itemId} in store ${storeId}`, ErrorCode.INSUFFICIENT_STOCK, 400);
         }
         // Use Prisma's typed increment for atomic update
         await (tx as any).inventoryStock.update({
@@ -107,7 +108,7 @@ export class InventoryRepository {
             where: { storeId_itemId: { storeId, itemId } }
         });
         if (!stock || stock.quantity < quantity || (stock.allocatedQuantity || 0) < quantity) {
-            throw new Error(`Failed to commit allocated stock for item ${itemId}. Invalid state.`);
+            throw AppError.conflict(`Failed to commit allocated stock for item ${itemId}. Invalid state.`);
         }
         // Use Prisma's typed decrements for atomic update
         await (tx as any).inventoryStock.update({
@@ -169,7 +170,7 @@ export class InventoryRepository {
             where: { storeId_batchId: { storeId, batchId } }
         });
         if (!batchStock || batchStock.quantity < quantity) {
-            throw new Error(`Insufficient physical batch stock for batch ${batchId} in store ${storeId}`);
+            throw new AppError(`Insufficient physical batch stock for batch ${batchId} in store ${storeId}`, ErrorCode.INSUFFICIENT_STOCK, 400);
         }
         // Use Prisma's typed decrement for atomic update
         return (tx as any).inventoryBatchStock.update({

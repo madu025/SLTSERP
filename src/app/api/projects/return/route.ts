@@ -1,5 +1,6 @@
 import { ProjectMaterialReturn } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { createReturnSchema, CreateReturnSchema } from '@/lib/validations/project-stock.schema';
 import { ROLE_GROUPS } from '@/config/roles';
@@ -13,7 +14,7 @@ export const POST = apiHandler<ProjectMaterialReturn, CreateReturnSchema>(
     async (request: Request, params: unknown, body) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const returnReq = await ProjectStockIssueService.createReturnRequest({
@@ -36,14 +37,14 @@ export const GET = apiHandler<unknown[], void>(
     async (request: Request) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get('projectId');
 
         if (!projectId) {
-            throw new Error('Project ID required');
+            throw AppError.badRequest('Project ID required');
         }
 
         const returns = await ProjectStockIssueService.getProjectReturns(projectId);

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { safe } from '@/utils/safe-await.util';
 import * as XLSX from 'xlsx';
 import path from 'path';
@@ -69,7 +70,7 @@ export class MaterialExcelImportService {
     
     if (err || !workbook) {
       const msg = err instanceof Error ? err.message : 'Unknown file error';
-      throw new Error(`Failed to read Excel file at ${absolutePath}: ${msg}`);
+      throw AppError.badRequest(`Failed to read Excel file at ${absolutePath}: ${msg}`);
     }
 
     const sheetName = workbook.SheetNames[0];
@@ -77,7 +78,7 @@ export class MaterialExcelImportService {
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as (string | number | null)[][];
 
     if (data.length < 3) {
-      throw new Error('Excel sheet has insufficient rows for parsing.');
+      throw AppError.badRequest('Excel sheet has insufficient rows for parsing.');
     }
 
     // Row 1 (index 0) contains standard unit rates per item
@@ -106,7 +107,7 @@ export class MaterialExcelImportService {
     }
 
     if (columnsToProcess.length === 0) {
-      throw new Error('No matching material items identified in Excel header row.');
+      throw AppError.badRequest('No matching material items identified in Excel header row.');
     }
 
     // Upsert InventoryItems

@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { InventoryService } from '@/services/inventory';
 import { materialIssueSchema } from '@/lib/validations/inventory.schema';
 
@@ -31,7 +32,7 @@ export const GET = apiHandler(async (req) => {
     const month = searchParams.get('month');
 
     if (!contractorId) {
-        throw new Error('Contractor ID required');
+        throw AppError.badRequest('Contractor ID required');
     }
 
     return await InventoryService.getMaterialIssues(contractorId, month || undefined);

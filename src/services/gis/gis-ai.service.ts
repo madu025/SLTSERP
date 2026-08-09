@@ -1,4 +1,5 @@
 import { primaryClient as prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { GISLocationService, GISValidatorService, GISAnomaly } from '@/lib/gis/gis-ai-validator';
 import { OverpassAPIService, OverpassBounds } from '@/lib/gis/overpass-api.service';
 import { OSPPathfindingService, PathfindingResult } from '@/lib/gis/osp-pathfinding.service';
@@ -51,7 +52,7 @@ export class GISAIService {
       where: { id: projectId }
     });
 
-    if (!project) throw new Error("Project not found");
+    if (!project) throw AppError.notFound("Project not found");
 
     const startLat = startCoord[0];
     const startLon = startCoord[1];

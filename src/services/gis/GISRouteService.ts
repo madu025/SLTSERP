@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { GISAuditService } from '@/services/gis/gis-audit.service';
 import { updateProgressOnBOQGenerate } from '@/lib/project-progress';
 import { BOQEngine } from '@/lib/gis/boq-engine';
@@ -120,7 +121,7 @@ export class GISRouteService {
         });
 
         if (!gisRoute) {
-            throw new Error('GIS_ROUTE_NOT_FOUND');
+            throw AppError.notFound('GIS_ROUTE_NOT_FOUND');
         }
 
         const { notes, createdById } = data;
@@ -509,7 +510,7 @@ export class GISRouteService {
         const route = await prisma.gISRoute.findUnique({ where: { id: routeId } });
 
         if (!route) {
-            throw new Error('ROUTE_NOT_FOUND');
+            throw AppError.notFound('ROUTE_NOT_FOUND');
         }
 
         // Delete related child entities in correct order via transaction
@@ -584,7 +585,7 @@ export class GISRouteService {
         });
 
         if (!gisRoute) {
-            throw new Error('ROUTE_NOT_FOUND');
+            throw AppError.notFound('ROUTE_NOT_FOUND');
         }
 
         const countByStatus = (items: { status: string }[], status: string) =>
@@ -708,7 +709,7 @@ export class GISRouteService {
         });
 
         if (!gisRoute) {
-            throw new Error('ROUTE_NOT_FOUND');
+            throw AppError.notFound('ROUTE_NOT_FOUND');
         }
 
         let updatedCount = 0;
@@ -748,7 +749,7 @@ export class GISRouteService {
                 updatedCount = cableResult.count;
                 break;
             default:
-                throw new Error('INVALID_ELEMENT_TYPE');
+                throw AppError.badRequest('INVALID_ELEMENT_TYPE');
         }
 
         return {
@@ -859,7 +860,7 @@ export class GISRouteService {
         });
 
         if (!segment) {
-            throw new Error('Cable segment not found');
+            throw AppError.notFound('Cable segment not found');
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -901,7 +902,7 @@ export class GISRouteService {
         });
 
         if (!segment) {
-            throw new Error('Cable segment not found');
+            throw AppError.notFound('Cable segment not found');
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -946,7 +947,7 @@ export class GISRouteService {
         });
 
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.notFound('PROJECT_NOT_FOUND');
         }
 
         const inventoryItems = await prisma.inventoryItem.findMany({
@@ -1073,7 +1074,7 @@ export class GISRouteService {
         });
 
         if (!project) {
-            throw new Error('PROJECT_NOT_FOUND');
+            throw AppError.notFound('PROJECT_NOT_FOUND');
         }
 
         const projectCode = project.projectCode || 'PRJ';

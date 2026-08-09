@@ -12,6 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { AppError } from '@/lib/error';
 
 export interface OverpassBounds {
   /** South latitude */
@@ -185,11 +186,11 @@ out skel qt;`;
             signal: AbortSignal.timeout(30000),
           });
           if (!retryResponse.ok) {
-            throw new Error(`Overpass API error after retry: ${retryResponse.status}`);
+            throw AppError.internal(`Overpass API error after retry: ${retryResponse.status}`);
           }
           data = await retryResponse.json();
         } else {
-          throw new Error(`Overpass API error: ${response.status} ${response.statusText}`);
+          throw AppError.internal(`Overpass API error: ${response.status} ${response.statusText}`);
         }
       } else {
         data = await response.json();

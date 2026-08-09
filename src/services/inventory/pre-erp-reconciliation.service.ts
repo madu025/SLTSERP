@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import type { PreErpMaterialBalance, MaterialVarianceAdjustment } from '@prisma/client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ export class PreErpReconciliationService {
    */
   static async upsertManualBalance(input: ManualBalanceInput): Promise<PreErpMaterialBalance> {
     const item = await prisma.inventoryItem.findUnique({ where: { id: input.itemId } });
-    if (!item) throw new Error('ITEM_NOT_FOUND');
+    if (!item) throw AppError.notFound('ITEM_NOT_FOUND');
 
     const carryForward = round2(input.carryForwardQuantity);
     const received = round2(input.receivedQuantity);
@@ -171,7 +172,7 @@ export class PreErpReconciliationService {
     const balance = await prisma.preErpMaterialBalance.findUnique({
       where: { id: input.balanceId },
     });
-    if (!balance) throw new Error('BALANCE_RECORD_NOT_FOUND');
+    if (!balance) throw AppError.notFound('BALANCE_RECORD_NOT_FOUND');
 
     const varianceQty = input.physicalAuditedQty - Number(balance.closingBalanceQuantity);
     const financialImpact = varianceQty * Number(balance.unitCostLkr);
@@ -213,13 +214,13 @@ export class PreErpReconciliationService {
       include: { balance: true, opmc: true },
     });
 
-    if (!adjustment) throw new Error('ADJUSTMENT_NOT_FOUND');
-    if (adjustment.status !== 'PENDING') throw new Error('ADJUSTMENT_ALREADY_PROCESSED');
+    if (!adjustment) throw AppError.notFound('ADJUSTMENT_NOT_FOUND');
+    if (adjustment.status !== 'PENDING') throw AppError.conflict('ADJUSTMENT_ALREADY_PROCESSED');
 
     // Find or locate OPMC store (fallback to main store if opmc not specified)
     const storeId = adjustment.opmc?.storeId || (await prisma.inventoryStore.findFirst())?.id;
     if (!storeId) {
-      throw new Error('No active main store found. Please create an InventoryStore first.');
+      throw AppError.badRequest('No active main store found. Please create an InventoryStore first.');
     }
 
     // Perform atomic transaction: Approve adjustment + Upsert InventoryStock opening balance
@@ -273,8 +274,8 @@ export class PreErpReconciliationService {
       where: { id: adjustmentId },
     });
 
-    if (!adjustment) throw new Error('ADJUSTMENT_NOT_FOUND');
-    if (adjustment.status !== 'PENDING') throw new Error('ADJUSTMENT_ALREADY_PROCESSED');
+    if (!adjustment) throw AppError.notFound('ADJUSTMENT_NOT_FOUND');
+    if (adjustment.status !== 'PENDING') throw AppError.conflict('ADJUSTMENT_ALREADY_PROCESSED');
 
     return prisma.materialVarianceAdjustment.update({
       where: { id: adjustmentId },

@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 import { NotificationTemplateEngineService } from '@/services/notification/template-engine.service';
 import { EmailService } from '@/services/notification/email.service';
 import { z } from 'zod';
@@ -64,14 +65,14 @@ export const POST = apiHandler(async (req, _params, body) => {
   });
 
   if (!template) {
-    throw new Error('Template not found');
+    throw AppError.notFound('Template not found');
   }
 
   // Render using template engine
   const rendered = await NotificationTemplateEngineService.renderEmailByCode(template.code, sampleVars);
 
   if (!rendered) {
-    throw new Error('Failed to render template');
+    throw AppError.internal('Failed to render template');
   }
 
   // Send the email
@@ -91,5 +92,6 @@ export const POST = apiHandler(async (req, _params, body) => {
 }, {
   schema: testSendSchema,
   roles: ROLE_GROUPS.ADMINS as unknown as string[],
+  audit: { action: 'TEST_SEND', entity: 'NOTIFICATION_TEMPLATE' },
   rawResponse: true
 });

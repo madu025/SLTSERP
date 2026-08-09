@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { randomUUID } from 'crypto';
 import { gisParser } from '@/lib/gis/gis-parser';
@@ -278,7 +279,7 @@ export class GISImportService {
   ): Promise<GISProcessResponse> {
     const session = this.sessions.get(importId);
     if (!session) {
-      throw new Error(`Import session ${importId} not found`);
+      throw AppError.notFound(`Import session ${importId} not found`);
     }
 
     const auditLog: GISAuditEntry[] = [];
@@ -860,7 +861,7 @@ export class GISImportService {
     if (session.projectId) {
       isUpgrade = true;
       project = await prisma.project.findUnique({ where: { id: session.projectId } });
-      if (!project) throw new Error(`Project ${session.projectId} not found for route upgrade.`);
+      if (!project) throw AppError.notFound(`Project ${session.projectId} not found for route upgrade.`);
       session.isCompletedProject = project.status === 'COMPLETED';
     } else {
       const projectCode = await this.generateProjectCode(projectType);

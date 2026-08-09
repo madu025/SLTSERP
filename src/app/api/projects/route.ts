@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectService } from '@/services/project/project.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 
@@ -45,7 +46,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const projectTypeId = body.projectTypeId as string | null | undefined;
 
     if (!projectCode || !name) {
-        throw new Error('Project code and name are required');
+        throw AppError.badRequest('Project code and name are required');
     }
 
     return await ProjectService.createProject({
@@ -69,7 +70,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const { id: _id, ...updateData } = body;
 
     if (!id) {
-        throw new Error('Project ID required');
+        throw AppError.badRequest('Project ID required');
     }
 
     return await ProjectService.updateProject(id, updateData as Record<string, unknown>);
@@ -86,7 +87,7 @@ export const DELETE = apiHandler(async (req) => {
     const userRole = req.headers.get('x-user-role') || 'ENGINEER';
 
     if (!id) {
-        throw new Error('Project ID required');
+        throw AppError.badRequest('Project ID required');
     }
 
     // Pass the actual securely extracted userRole instead of a hardcoded 'ADMIN' override

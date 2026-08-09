@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { Prisma } from '@prisma/client';
 
 export interface QCInspectionInput {
@@ -28,7 +29,7 @@ export class QCInspectionService {
         });
 
         if (!sod) {
-            throw new Error(`Service Order ${soNum} not found.`);
+            throw AppError.notFound(`Service Order ${soNum} not found.`);
         }
 
         // Update Service Order QC fields

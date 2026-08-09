@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { AppError } from '@/lib/error';
 
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
@@ -43,10 +44,10 @@ export class ContractorInventoryService {
             });
 
             if (!returnRecord) {
-                throw new Error('Material return request not found');
+                throw AppError.notFound('Material return request not found');
             }
             if (returnRecord.status === 'ACCEPTED') {
-                throw new Error('Material return is already accepted');
+                throw AppError.conflict('Material return is already accepted');
             }
 
             for (const item of returnRecord.items) {
@@ -59,7 +60,7 @@ export class ContractorInventoryService {
                 }
 
                 if (!Number.isFinite(finalAcceptedQty) || finalAcceptedQty < 0 || finalAcceptedQty > Number(item.quantity)) {
-                    throw new Error(`Invalid accepted quantity ${finalAcceptedQty} for item ${item.itemId} (requested ${item.quantity})`);
+                    throw AppError.badRequest(`Invalid accepted quantity ${finalAcceptedQty} for item ${item.itemId} (requested ${item.quantity})`);
                 }
 
                 await tx.contractorMaterialReturnItem.update({
@@ -146,11 +147,11 @@ export class ContractorInventoryService {
         });
 
         if (!issue) {
-            throw new Error(`Material issue '${issueId}' not found.`);
+            throw AppError.notFound(`Material issue '${issueId}' not found.`);
         }
 
         if (issue.issuedBy && userId && issue.issuedBy === userId) {
-            throw new Error('Maker-Checker Violation (ISO 27001): You cannot accept an issue note that you yourself issued.');
+            throw AppError.forbidden('Maker-Checker Violation (ISO 27001): You cannot accept an issue note that you yourself issued.');
         }
 
         if (issue.status === 'ACCEPTED') {
@@ -212,12 +213,12 @@ export class ContractorInventoryService {
         }) || await prisma.inventoryStore.findFirst();
 
         if (!mainStore) {
-            throw new Error('Main Store not found');
+            throw AppError.notFound('Main Store not found');
         }
 
         const item = await prisma.inventoryItem.findUnique({ where: { id: data.itemId } });
         if (!item) {
-            throw new Error('Material item not found');
+            throw AppError.notFound('Material item not found');
         }
 
         const now = new Date();

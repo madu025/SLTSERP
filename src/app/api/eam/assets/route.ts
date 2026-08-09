@@ -1,4 +1,5 @@
 import { apiHandler, ApiHandlerMeta } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { OfficeAssetService } from '@/services/eam/office-asset.service';
 import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
@@ -39,7 +40,7 @@ export const POST = apiHandler(
     const userId = (params as unknown as ApiHandlerMeta)._userId;
     
     if (!userId) {
-        throw new Error("Unauthorized");
+        throw AppError.unauthorized("Unauthorized");
     }
 
     const asset = await OfficeAssetService.createAsset(validatedData, userId);

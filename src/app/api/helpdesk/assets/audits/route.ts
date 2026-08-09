@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/error";
 import { HelpdeskAuditService } from "@/services/helpdesk/helpdesk-audit.service";
 import { z } from "zod";
 import { ITDeviceTypeSchema, ITAssetStatusSchema } from "@/lib/validations/helpdesk.schema";
@@ -65,7 +66,7 @@ export const PUT = apiHandler(
     const userId = req.headers.get("x-user-id");
 
     if (!auditId) {
-      throw new Error("Audit ID is required");
+      throw AppError.badRequest("Audit ID is required");
     }
 
     return await HelpdeskAuditService.syncAuditToInventory(auditId, body || undefined, userId);
@@ -86,7 +87,7 @@ export const PATCH = apiHandler(
     const auditId = url.searchParams.get("auditId");
 
     if (!auditId) {
-      throw new Error("Audit ID is required");
+      throw AppError.badRequest("Audit ID is required");
     }
 
     return await HelpdeskAuditService.rejectAudit(auditId);
@@ -107,7 +108,7 @@ export const DELETE = apiHandler(
     const auditId = url.searchParams.get("auditId");
 
     if (!auditId) {
-      throw new Error("Audit ID is required");
+      throw AppError.badRequest("Audit ID is required");
     }
 
     return await HelpdeskAuditService.deleteAudit(auditId);

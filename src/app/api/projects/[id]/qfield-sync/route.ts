@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { QFieldCloudSyncService } from '@/services/gis/qfieldcloud-sync.service';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 import { qfieldSyncSchema, QFieldSyncSchema } from '@/lib/validations/gis.schema';
@@ -12,7 +13,7 @@ export const GET = apiHandler<unknown, void>(
     async (request, params) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const syncStatus = await QFieldCloudSyncService.getSyncStatus(params.id);
@@ -27,7 +28,7 @@ export const POST = apiHandler<unknown, QFieldSyncSchema>(
     async (request, params, body) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const { action = 'full_sync', qfieldProjectId, qgisTemplate } = body;
@@ -43,7 +44,7 @@ export const POST = apiHandler<unknown, QFieldSyncSchema>(
 
         // Validate qfieldProjectId for subsequent actions
         if (!qfieldProjectId) {
-            throw new Error('qfieldProjectId is required. Create a QFieldCloud project first.');
+            throw AppError.badRequest('qfieldProjectId is required. Create a QFieldCloud project first.');
         }
 
         // ── Action: FULL SYNC ────────────────────────────────────────────────
@@ -66,7 +67,7 @@ export const POST = apiHandler<unknown, QFieldSyncSchema>(
             };
         }
 
-        throw new Error('Invalid action. Use: create_project, push_layers, full_sync');
+        throw AppError.badRequest('Invalid action. Use: create_project, push_layers, full_sync');
     },
     { schema: qfieldSyncSchema }
 );

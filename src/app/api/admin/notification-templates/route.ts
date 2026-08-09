@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +53,7 @@ export const POST = apiHandler(async (req, _params, body) => {
   });
 
   if (existing) {
-    throw new Error('Template with this code already exists');
+    throw AppError.conflict('Template with this code already exists');
   }
 
   const template = await prisma.notificationTemplate.create({
@@ -107,7 +108,7 @@ export const DELETE = apiHandler(async (req) => {
   const id = searchParams.get('id');
 
   if (!id) {
-    throw new Error('Template ID is required');
+    throw AppError.badRequest('Template ID is required');
   }
 
   await prisma.notificationTemplate.delete({

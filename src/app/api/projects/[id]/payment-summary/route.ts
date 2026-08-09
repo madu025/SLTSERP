@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export const GET = apiHandler<unknown, void>(
         const { id: projectId } = params;
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const paymentSummary = await ProjectInvoiceService.getPaymentSummary(projectId);

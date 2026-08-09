@@ -1,6 +1,7 @@
 import { NotificationRepository } from '@/repositories/notification.repository';
 import { emitNotification } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { Role } from '@prisma/client';
 import { redis } from '@/lib/redis';
 import { notificationsQueue } from '@/lib/queue';
@@ -456,7 +457,7 @@ export class NotificationService {
         }
 
         if (!targetUserId) {
-            throw new Error('No user found in the database to receive the test notification');
+            throw AppError.notFound('No user found in the database to receive the test notification');
         }
 
         return this.send({

@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectMilestoneService } from '@/services/project/project-milestone.service';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const GET = apiHandler(async (req) => {
     const projectId = searchParams.get('projectId');
 
     if (!projectId) {
-        throw new Error('projectId query parameter is required');
+        throw AppError.badRequest('projectId query parameter is required');
     }
 
     return await ProjectMilestoneService.getMilestones(projectId);
@@ -25,7 +26,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const targetDate = body.targetDate as string | Date | undefined;
 
     if (!projectId || !name || !targetDate) {
-        throw new Error('Project ID, Name and Target Date are required');
+        throw AppError.badRequest('Project ID, Name and Target Date are required');
     }
 
     return await ProjectMilestoneService.createMilestone(body as any);
@@ -40,7 +41,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const id = body.id as string | undefined;
 
     if (!id) {
-        throw new Error('Milestone ID required');
+        throw AppError.badRequest('Milestone ID required');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -59,7 +60,7 @@ export const DELETE = apiHandler(async (req) => {
     const id = searchParams.get('id');
 
     if (!id) {
-        throw new Error('Milestone ID required');
+        throw AppError.badRequest('Milestone ID required');
     }
 
     await ProjectMilestoneService.deleteMilestone(id);

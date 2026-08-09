@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { updateGISRouteSchema, UpdateGISRouteSchema } from '@/lib/validations/gis.schema';
 import { GISRoute } from '@prisma/client';
@@ -12,7 +13,7 @@ export const GET = apiHandler<unknown, void>(
     async (_request, params) => {
         const route = await GISRouteService.getRoute(params.routeId);
         if (!route) {
-            throw new Error('Route not found');
+            throw AppError.notFound('Route not found');
         }
         return route;
     }
@@ -25,7 +26,7 @@ export const PATCH = apiHandler<GISRoute, UpdateGISRouteSchema>(
     async (request, params, body) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const route = await GISRouteService.updateRoute(params.id, params.routeId, body, userId);
@@ -41,7 +42,7 @@ export const DELETE = apiHandler<unknown, void>(
     async (request, params) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const result = await GISRouteService.deleteRoute(params.id, params.routeId, userId);

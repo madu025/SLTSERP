@@ -27,6 +27,7 @@ export const PUT = apiHandler(
     },
     {
         roles: ROLE_GROUPS.FINANCE_APPROVERS,
-        schema: updateRateSchema
+        schema: updateRateSchema,
+        audit: { action: 'UPDATE', entity: 'RATE_MATRIX' }
     }
 );

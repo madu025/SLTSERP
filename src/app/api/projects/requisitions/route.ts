@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectRequisitionService } from '@/services/project/project-requisition.service';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const GET = apiHandler(async (req) => {
     const projectId = searchParams.get('projectId');
 
     if (!projectId) {
-        throw new Error('projectId is required');
+        throw AppError.badRequest('projectId is required');
     }
 
     return await ProjectRequisitionService.getRequisitions(projectId);
@@ -26,7 +27,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get('x-user-id');
 
     if (!projectId || !title || !userId || !items?.length) {
-        throw new Error('projectId, title, and items are required and user must be authenticated');
+        throw AppError.badRequest('projectId, title, and items are required and user must be authenticated');
     }
 
     const payload = {
@@ -49,7 +50,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get('x-user-id') || undefined;
 
     if (!id || !status) {
-        throw new Error('id and status are required');
+        throw AppError.badRequest('id and status are required');
     }
 
     return await ProjectRequisitionService.updateRequisitionStatus(id, status, userId, rejectionReason);
@@ -65,7 +66,7 @@ export const DELETE = apiHandler(async (req) => {
     const id = searchParams.get('id');
 
     if (!id) {
-        throw new Error('id is required');
+        throw AppError.badRequest('id is required');
     }
 
     await ProjectRequisitionService.deleteRequisition(id);

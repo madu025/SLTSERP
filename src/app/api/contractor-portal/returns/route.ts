@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
 
 import { ContractorInventoryService } from '@/services/inventory/contractor-inventory.service';
@@ -29,7 +30,7 @@ export const POST = apiHandler(async (req: Request) => {
     const contractorId = context.contractorId;
 
     if (!contractorId) {
-        throw new Error('Contractor identity not found');
+        throw AppError.unauthorized('Contractor identity not found');
     }
 
     return await ContractorInventoryService.createMaterialReturn(contractorId, body);

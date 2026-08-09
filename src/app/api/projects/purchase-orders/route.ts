@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectPurchaseOrderService } from '@/services/project/project-purchase-order.service';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const GET = apiHandler(async (req) => {
     const projectId = searchParams.get('projectId');
 
     if (!projectId) {
-        throw new Error('projectId is required');
+        throw AppError.badRequest('projectId is required');
     }
 
     return await ProjectPurchaseOrderService.getPurchaseOrders(projectId);
@@ -26,7 +27,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const items = body.items as unknown[] | undefined;
 
     if (!projectId || !vendorId || !title || !items?.length) {
-        throw new Error('projectId, vendorId, title, and items are required');
+        throw AppError.badRequest('projectId, vendorId, title, and items are required');
     }
 
     return await ProjectPurchaseOrderService.createPurchaseOrder(body as any);
@@ -44,7 +45,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get("x-user-id") || undefined;
 
     if (!id || !status) {
-        throw new Error("id and status are required");
+        throw AppError.badRequest("id and status are required");
     }
 
     const payload: any = { cancellationReason };
@@ -65,7 +66,7 @@ export const DELETE = apiHandler(async (req) => {
     const id = searchParams.get('id');
 
     if (!id) {
-        throw new Error('id is required');
+        throw AppError.badRequest('id is required');
     }
 
     await ProjectPurchaseOrderService.deletePurchaseOrder(id);

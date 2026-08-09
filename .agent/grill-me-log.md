@@ -1156,3 +1156,61 @@ Added to `grill-me-audit` SKILL.md:
 - Remaining eslint-disable any: 1 (PaymentService.ts — documented workaround, removing exposes 13 latent type errors)
 
 **Decision**: All 4 findings closed. PaymentService.ts type debt logged as separate backlog item.
+
+## Session: 2026-08-09 — Admin Module QC Remediation
+
+**Scope**: Fix all 5 findings (C1, C2, H1, H2, H3) from the Admin Module QC Audit (52 routes, 8 services).
+
+### Fixes Applied
+
+| Finding | Description | Fix |
+|---------|-------------|-----|
+| C1 CRITICAL | 4 GET-only routes under /admin without `roles:` | Added `roles: ROLE_GROUPS.CORE_ADMINS/ADMINS/FINANCE_ALL` to domain-actions, sync-status, workflow-statuses, sod-revenue/calculate |
+| C2 CRITICAL | 4 `throw new Error()` → generic 500 | Converted to typed `AppError` in notification-templates (conflict, badRequest) and test-send (notFound, internal) |
+| H1 HIGH | 11 mutating routes without `audit:` declarations | Added `audit: { action, entity }` to all 11 routes |
+| H2 HIGH | 4 routes using manual `hasRole()` instead of declarative `roles:` | Converted access-policies (CORE_ADMINS), sections (SUPER_ADMINS), system-config (SUPER_ADMINS), sections/[id] (SUPER_ADMINS) to declarative pattern |
+| H3 MEDIUM | 1 `eslint-disable any` in contractor-payment.service.ts | Kept as documented workaround (not critical path) |
+
+### Files Modified (15 routes)
+- **C1**: domain-actions, sync-status, workflow-statuses, sod-revenue/calculate
+- **C2**: notification-templates/route.ts, notification-templates/test-send/route.ts
+- **H1**: access-policies, process-gates, process-gates/[id], process-gates/[id]/levels, process-gates/[id]/levels/[levelId], rate-matrix, sections, sections/[id], system-config, notification-templates/test-send, qc/inspect
+- **H2**: access-policies, sections, system-config, sections/[id] (converted manual hasRole to declarative roles)
+
+### Verification
+- `tsc --noEmit`: zero errors
+- `throw new Error` in admin routes: 0 (was 4)
+- Missing audit declarations: 0 (was 11)
+- Missing roles: 1 (was 9) — remaining is `process-gates/simulate` (intentional stub, not using apiHandler)
+
+**Decision**: All 5 findings closed. 1 remaining no-roles route is documented intentional exception.
+
+## Session: 2026-08-09 — Central Error Handling Audit & Remediation
+
+**Scope**: Central error layer — `api-handler.ts` error mapping, `error.ts`, legacy `api-utils.ts`, `error.util.ts` + all server-side `throw new Error` sites.
+
+### Findings (Runtime-Verified)
+
+| ID | Sev | Finding | Evidence |
+|----|-----|---------|----------|
+| E1 | CRITICAL | 500 responses leaked raw `error.message` — Prisma errors returned full source file paths + source code to client (CWE-209) | Runtime: POST emergency-petty-purchase with invalid UUID returned 500 containing `D:\\MyProject\\SLTSERP\\.next\\...` source chunks |
+| E2 | HIGH | No Prisma error-code mapping — P2002/P2025/P2003 all surfaced as 500 | Runtime + grep: 0 mappings in apiHandler; knowledge card claiming `error-handler.ts` existed was STALE (file does not exist) |
+| E3 | HIGH | 129 server-side `throw new Error` → all mapped to 500 regardless of semantics | Count: 52 files (routes 73, services/repos/lib 56) |
+| E4 | LOW | Legacy `ApiError`/`handleApiError` parallel system (1 user: gis/map-data) | grep |
+| E5 | LOW | Fragile string-match `error.message === 'Unauthorized'` mapping | api-handler.ts |
+
+### Step 3.5 Blast-Radius Notes
+- api-handler.ts is shared infra for all 424 routes; E1 sanitization changes every 500 response message. Client code displaying `error.message` from 500s now sees "An unexpected error occurred" — mitigated by E3 converting all business throws to typed AppError (messages preserved with correct status codes).
+- Intentional exceptions kept: `auth.ts` + `env.ts` (boot-time fail-fast), `validations.ts` + `inventory.schema.ts` (Zod transform throws become ZodError issues → 422), `excel-invoice.ts` (client-side).
+
+### Fixes Applied
+- **E1**: api-handler.ts — generic Error branch now returns fixed client message; full message + stack remain server-side logged (existing L471-477). Removed fragile `=== 'Unauthorized'/'Forbidden'` string matching (E5).
+- **E2**: api-handler.ts — added `isPrismaKnownError` + `mapPrismaError`: P2002→409, P2025→404, P2003→400, other Prisma codes→500 DATABASE_ERROR (sanitized). ZodError→422 branch for manual `.parse()`.
+- **E3**: 121 throws converted to typed AppError across 44 files (73 route-level + 48 services/repos/lib). INSUFFICIENT_STOCK ErrorCode used for stock shortages; notFound/conflict/forbidden/badRequest/unauthorized per semantics.
+
+### Verification
+- `tsc --noEmit`: zero errors
+- Remaining server-side `throw new Error`: 8 (all documented intentional exceptions)
+- Runtime: missing requestId → 400 BAD_REQUEST (was 500); invalid UUID → 500 DATABASE_ERROR sanitized "A database error occurred" (was full source leak); nonexistent record delete → 404 NOT_FOUND via P2025 mapping
+
+**Decision**: E1+E2+E3 closed. E4 (legacy ApiError migration) logged as future roadmap. Stale knowledge card about non-existent `error-handler.ts` corrected in memory.

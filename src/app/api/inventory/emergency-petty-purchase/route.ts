@@ -11,7 +11,7 @@ export const POST = apiHandler(async (request, _params, body) => {
   const userId = request.headers.get('x-user-id') || 'SYSTEM';
 
   if (!requestId) {
-    throw new Error('requestId is required');
+    throw AppError.badRequest('requestId is required');
   }
 
   // Mandatory $transaction for multi-table financial/stock write (financial integrity compliance)
@@ -25,7 +25,7 @@ export const POST = apiHandler(async (request, _params, body) => {
     });
 
     if (!stockReq) {
-      throw new Error(`Stock Request #${requestId} not found`);
+      throw AppError.notFound(`Stock Request #${requestId} not found`);
     }
 
     // Replay guard: a duplicate POST must not re-increment stock or re-create

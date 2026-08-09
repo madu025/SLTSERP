@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import RBush from 'rbush';
 
 /**
@@ -67,7 +68,7 @@ export class GISRouteOptimizerService {
         });
 
         if (!currentRoute || !currentRoute.geojsonData) {
-            throw new Error("PLANNED_ROUTE_NOT_FOUND");
+            throw AppError.notFound("PLANNED_ROUTE_NOT_FOUND");
         }
 
         // 2. Fetch all completed/approved routes from other projects (As-Built maps)

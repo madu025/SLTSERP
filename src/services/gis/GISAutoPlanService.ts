@@ -9,6 +9,7 @@ import {
   Building
 } from '@/types/gis/gis-service.types';
 import { GISGeometry } from './GISGeometry';
+import { AppError } from '@/lib/error';
 import { GISRoadNetwork } from './GISRoadNetwork';
 import { GISCandidateScoring } from './GISCandidateScoring';
 import { GISPolePlacement } from './GISPolePlacement';
@@ -182,7 +183,7 @@ export class GISAutoPlanService {
       // Don't swallow parsing failures silently: an empty road network below
       // would surface as a misleading "No mapped roads found" error.
       console.error('[GISAutoPlanService] Failed to parse Overpass data:', parseErr);
-      throw new Error(
+      throw AppError.internal(
         `Failed to parse map data from Overpass: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`
       );
     }
@@ -202,7 +203,7 @@ export class GISAutoPlanService {
     }
 
     if (roads.length === 0) {
-      throw new Error('No mapped roads were found inside the selected area. The automated planner requires road infrastructure to generate a viable layout.');
+      throw AppError.badRequest('No mapped roads were found inside the selected area. The automated planner requires road infrastructure to generate a viable layout.');
     }
 
     let plannedClosures: PlannedClosure[] = [];
@@ -234,7 +235,7 @@ export class GISAutoPlanService {
         const withinPolygon = GISGeometry.isPointInPolygon([feedPoint.lon, feedPoint.lat], polygon);
         const distanceToPolygon = GISGeometry.getDistanceToPolygon([feedPoint.lon, feedPoint.lat], polygon);
         if (!withinPolygon && distanceToPolygon > PLAN_CONFIG.FEED_POINT_MAX_DISTANCE_METERS) {
-          throw new Error(
+          throw AppError.badRequest(
             `Selected base point must be inside or within ${PLAN_CONFIG.FEED_POINT_MAX_DISTANCE_METERS} meters of the marked area.`
           );
         }

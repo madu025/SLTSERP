@@ -15,26 +15,22 @@ const updateSectionSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request, params, body) => {
-    const role = request.headers.get('x-user-role');
     const userId = request.headers.get('x-user-id');
-
-    if (!hasRole(role, ROLE_GROUPS.SUPER_ADMINS)) {
-        throw AppError.forbidden('Only Super Admins can manage sections');
-    }
-
     const { id } = await params;
     const data = updateSectionSchema.parse(body);
     return SectionService.updateSection(id, data, userId || 'system');
-}, { rawResponse: true });
+}, {
+    rawResponse: true,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
+    audit: { action: 'UPDATE', entity: 'SECTION' }
+});
 
 export const DELETE = apiHandler(async (request, params) => {
-    const role = request.headers.get('x-user-role');
     const userId = request.headers.get('x-user-id');
-
-    if (!hasRole(role, ROLE_GROUPS.SUPER_ADMINS)) {
-        throw AppError.forbidden('Only Super Admins can manage sections');
-    }
-
     const { id } = await params;
     return SectionService.deleteSection(id, userId || 'system');
-}, { rawResponse: true });
+}, {
+    rawResponse: true,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
+    audit: { action: 'DELETE', entity: 'SECTION' }
+});

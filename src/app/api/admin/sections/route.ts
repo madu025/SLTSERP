@@ -18,14 +18,12 @@ export const GET = apiHandler(async () => {
     return SectionService.getSections();
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (request, _params, body) => {
-    const role = request.headers.get('x-user-role');
-    const userId = request.headers.get('x-user-id');
-
-    if (!hasRole(role, ROLE_GROUPS.SUPER_ADMINS)) {
-        throw AppError.forbidden('Only Super Admins can manage sections');
-    }
-
+export const POST = apiHandler(async (_request, _params, body) => {
+    const userId = _request.headers.get('x-user-id');
     const data = createSectionSchema.parse(body);
     return SectionService.createSection(data, userId || 'system');
-}, { rawResponse: true });
+}, {
+    rawResponse: true,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
+    audit: { action: 'CREATE', entity: 'SECTION' }
+});

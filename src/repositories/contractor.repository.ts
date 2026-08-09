@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma';
+import { AppError, ErrorCode } from '@/lib/error';
 import { Prisma } from '@prisma/client';
 
 export class ContractorRepository {
@@ -65,7 +66,7 @@ export class ContractorRepository {
             where: { contractorId_itemId: { contractorId, itemId } }
         });
         if (!stock || stock.quantity < quantity) {
-            throw new Error(`Insufficient physical stock for item ${itemId} in contractor store ${contractorId}`);
+            throw new AppError(`Insufficient physical stock for item ${itemId} in contractor store ${contractorId}`, ErrorCode.INSUFFICIENT_STOCK, 400);
         }
         return (tx as any).contractorStock.update({
             where: { contractorId_itemId: { contractorId, itemId } },
@@ -81,7 +82,7 @@ export class ContractorRepository {
             where: { contractorId_batchId: { contractorId, batchId } }
         });
         if (!stock || stock.quantity < quantity) {
-            throw new Error(`Insufficient physical batch stock for batch ${batchId} in contractor store ${contractorId}`);
+            throw new AppError(`Insufficient physical batch stock for batch ${batchId} in contractor store ${contractorId}`, ErrorCode.INSUFFICIENT_STOCK, 400);
         }
         return (tx as any).contractorBatchStock.update({
             where: { contractorId_batchId: { contractorId, batchId } },

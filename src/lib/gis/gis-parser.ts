@@ -25,6 +25,7 @@ import {
   GPS_CONSTANTS,
   GISFileFormat,
 } from '@/types/gis';
+import { AppError } from '@/lib/error';
 
 /**
  * GIS Parser - Main parsing engine
@@ -62,10 +63,10 @@ export class GISParser {
       typeof raw === 'string' ? JSON.parse(raw) : raw;
 
     if (!data.type || data.type !== 'FeatureCollection') {
-      throw new Error('Invalid GeoJSON: Expected FeatureCollection');
+      throw AppError.badRequest('Invalid GeoJSON: Expected FeatureCollection');
     }
     if (!Array.isArray(data.features)) {
-      throw new Error('Invalid GeoJSON: Features array missing');
+      throw AppError.badRequest('Invalid GeoJSON: Features array missing');
     }
     return data;
   }

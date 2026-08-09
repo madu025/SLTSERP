@@ -17,15 +17,13 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler<{ success: boolean }, z.infer<typeof accessPolicySchema>>(
-    async (request, params, body) => {
-        const adminRole = request.headers.get('x-user-role');
-        if (!hasRole(adminRole, ROLE_GROUPS.CORE_ADMINS)) {
-            throw AppError.forbidden('Only Super Admins and Admins can modify access policies');
-        }
-
+    async (_request, _params, body) => {
         await SystemSettingService.upsertSetting('PAGE_ACCESS_POLICIES', body.policies);
-
         return { success: true };
     },
-    { schema: accessPolicySchema }
+    {
+        schema: accessPolicySchema,
+        roles: ROLE_GROUPS.CORE_ADMINS,
+        audit: { action: 'SAVE_POLICIES', entity: 'ACCESS_POLICY' }
+    }
 );

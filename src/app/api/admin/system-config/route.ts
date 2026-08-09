@@ -17,14 +17,11 @@ export const GET = apiHandler(async () => {
 }, { rawResponse: true });
 
 export const POST = apiHandler(async (request, _params, body) => {
-    const role = request.headers.get('x-user-role');
     const userId = request.headers.get('x-user-id');
-
-    if (!hasRole(role, ROLE_GROUPS.SUPER_ADMINS)) {
-        throw AppError.forbidden('Only Super Admins can modify system config');
-    }
-
     const { key, value, description } = updateConfigSchema.parse(body);
-
     return SystemConfigService.updateConfig(key, String(value), description, userId || 'system');
-}, { rawResponse: true });
+}, {
+    rawResponse: true,
+    roles: ROLE_GROUPS.SUPER_ADMINS,
+    audit: { action: 'UPDATE', entity: 'SYSTEM_CONFIG' }
+});

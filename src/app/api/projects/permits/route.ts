@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectPermitService } from '@/services/project/project-permit.service';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const { projectId, permitTypeId } = body;
 
     if (!projectId || !permitTypeId) {
-        throw new Error("Missing required fields: projectId, permitTypeId");
+        throw AppError.badRequest("Missing required fields: projectId, permitTypeId");
     }
 
     return await ProjectPermitService.createPermit(body as any);

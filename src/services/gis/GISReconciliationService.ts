@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 
 export class GISReconciliationService {
   /**
@@ -34,7 +35,7 @@ export class GISReconciliationService {
     });
 
     if (!activeRoute) {
-      throw new Error('No active GIS route found for this project.');
+      throw AppError.notFound('No active GIS route found for this project.');
     }
 
     // 2. Fetch all APPROVED survey points for this project

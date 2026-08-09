@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/error";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { CreateITAssetUnitSchema, UpdateITAssetUnitSchema } from "@/lib/validations/helpdesk.schema";
 
@@ -56,7 +57,7 @@ export const DELETE = apiHandler(
     const url = new URL(req.url);
     const unitId = url.searchParams.get("unitId");
     if (!unitId) {
-      throw new Error("UNIT_ID_REQUIRED");
+      throw AppError.badRequest("UNIT_ID_REQUIRED");
     }
 
     const userId = req.headers.get("x-user-id")!;

@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/error";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { UpdateTicketSchema } from "@/lib/validations/helpdesk.schema";
 
@@ -11,13 +12,13 @@ export const GET = apiHandler(async (req, params) => {
 
   const ticket = await HelpdeskService.getTicketById(id);
   if (!ticket) {
-    throw new Error("Ticket not found");
+    throw AppError.notFound("Ticket not found");
   }
 
   // Security: Only IT Staff or the owner can view ticket details
   const isITStaff = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(userRole);
   if (!isITStaff && ticket.userId !== userId) {
-    throw new Error("Forbidden");
+    throw AppError.forbidden("Forbidden");
   }
 
   return ticket;
@@ -33,7 +34,7 @@ export const PUT = apiHandler(
 
     const ticket = await HelpdeskService.getTicketById(id);
     if (!ticket) {
-      throw new Error("Ticket not found");
+      throw AppError.notFound("Ticket not found");
     }
 
     const isITStaff = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(userRole);
@@ -42,7 +43,7 @@ export const PUT = apiHandler(
     if (!isITStaff) {
       // Standard employee can only update their own ticket
       if (ticket.userId !== userId) {
-        throw new Error("Forbidden");
+        throw AppError.forbidden("Forbidden");
       }
 
       // Standard employee can ONLY change:
@@ -54,11 +55,11 @@ export const PUT = apiHandler(
       const isAllowed = requestedKeys.every(k => allowedKeys.includes(k));
 
       if (!isAllowed) {
-        throw new Error("Forbidden: Standard employees can only update AnyDesk ID, rating, or close/reopen their ticket.");
+        throw AppError.forbidden("Forbidden: Standard employees can only update AnyDesk ID, rating, or close/reopen their ticket.");
       }
 
       if (body.status && !["CLOSED", "OPEN"].includes(body.status)) {
-        throw new Error("Forbidden: Standard employees can only transition tickets to OPEN or CLOSED.");
+        throw AppError.forbidden("Forbidden: Standard employees can only transition tickets to OPEN or CLOSED.");
       }
     }
 

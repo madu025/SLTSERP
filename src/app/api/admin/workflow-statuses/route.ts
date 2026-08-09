@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,4 +32,4 @@ export const GET = apiHandler(async () => {
   // {success, data} envelope. (Returning NextResponse here without rawResponse
   // serialized the Response object to {} and emptied the wizard status dropdowns.)
   return grouped;
-});
+}, { roles: ROLE_GROUPS.ADMINS });

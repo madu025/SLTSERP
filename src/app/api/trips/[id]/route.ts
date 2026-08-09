@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import TripService from '@/services/fleet/TripService';
 import { Trip } from '@/types/fleet/trip.types';
 
@@ -12,7 +13,7 @@ export const GET = apiHandler<Trip, void>(
         const trip = await TripService.getTrip(params.id);
 
         if (!trip) {
-            throw new Error('Trip not found');
+            throw AppError.notFound('Trip not found');
         }
 
         return trip;

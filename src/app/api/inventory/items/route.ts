@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { inventoryItemSchema } from '@/lib/validations/inventory.schema';
 
@@ -32,7 +33,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 export const PUT = apiHandler(async (_req, _params, body) => {
     const id = body.id as string | undefined;
     if (!id) {
-        throw new Error('ID_REQUIRED');
+        throw AppError.badRequest('ID_REQUIRED');
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...data } = body;
@@ -47,7 +48,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
 export const PATCH = apiHandler(async (_req, _params, body) => {
     const updates = body.updates as Record<string, unknown>[] | undefined;
     if (!updates) {
-        throw new Error('UPDATES_REQUIRED');
+        throw AppError.badRequest('UPDATES_REQUIRED');
     }
     return await InventoryService.patchBulkItems(updates);
 }, {
@@ -61,7 +62,7 @@ export const DELETE = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {
-        throw new Error('ID_REQUIRED');
+        throw AppError.badRequest('ID_REQUIRED');
     }
     return await InventoryService.deleteItem(id);
 }, {

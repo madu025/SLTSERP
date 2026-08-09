@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectTaskService } from '@/services/project/project-task.service';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export const GET = apiHandler(async (req) => {
     const parentId = searchParams.get('parentId');
 
     if (!projectId) {
-        throw new Error('projectId is required');
+        throw AppError.badRequest('projectId is required');
     }
 
     return await ProjectTaskService.getTasks(projectId, parentId);
@@ -26,7 +27,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const wbsCode = body.wbsCode as string | undefined;
 
     if (!projectId || !name || !wbsCode) {
-        throw new Error('projectId, name, and wbsCode are required');
+        throw AppError.badRequest('projectId, name, and wbsCode are required');
     }
 
     return await ProjectTaskService.createTask(body as any);
@@ -43,7 +44,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const { id: _id, ...updateData } = body;
 
     if (!id) {
-        throw new Error('Task ID is required');
+        throw AppError.badRequest('Task ID is required');
     }
 
     return await ProjectTaskService.updateTask(id, updateData as any);
@@ -59,7 +60,7 @@ export const DELETE = apiHandler(async (req) => {
     const id = searchParams.get('id');
 
     if (!id) {
-        throw new Error('Task ID is required');
+        throw AppError.badRequest('Task ID is required');
     }
 
     await ProjectTaskService.deleteTask(id);

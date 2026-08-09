@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { OfficeAssetCategory, Prisma } from '@prisma/client';
 
 export interface CreateOfficeAssetDTO {
@@ -74,7 +75,7 @@ export class OfficeAssetService {
     });
 
     if (!asset) {
-      throw new Error(`Office Asset with ID ${id} not found.`);
+      throw AppError.notFound(`Office Asset with ID ${id} not found.`);
     }
     return asset;
   }
@@ -125,7 +126,7 @@ export class OfficeAssetService {
   static async moveAsset(data: MoveOfficeAssetDTO) {
     return prisma.$transaction(async (tx) => {
       const asset = await tx.officeAsset.findUnique({ where: { id: data.assetId } });
-      if (!asset) throw new Error('Asset not found');
+      if (!asset) throw AppError.notFound('Asset not found');
 
       // Update the asset
       const updatedAsset = await tx.officeAsset.update({

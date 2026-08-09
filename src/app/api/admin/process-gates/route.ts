@@ -37,4 +37,4 @@ export const POST = apiHandler(async (_req, _params, body) => {
       message: 'Process Gate Policy created successfully',
       data: newGate
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: createGateSchema });
+}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: createGateSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE' } });

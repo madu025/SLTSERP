@@ -41,7 +41,7 @@ export const POST = apiHandler(async (req, params, body) => {
       message: 'Approval Level added successfully',
       data: newLevel
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: createLevelSchema });
+}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: createLevelSchema, audit: { action: 'CREATE', entity: 'PROCESS_GATE_LEVEL' } });
 
 // Bulk replace ALL levels of a gate (wizard save path) — atomic delete + renumber
 export const PUT = apiHandler(async (req, params, body) => {
@@ -55,4 +55,4 @@ export const PUT = apiHandler(async (req, params, body) => {
       message: 'Approval Levels updated successfully',
       data: result
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: replaceLevelsSchema });
+}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: replaceLevelsSchema, audit: { action: 'REPLACE_LEVELS', entity: 'PROCESS_GATE_LEVEL' } });

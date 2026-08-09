@@ -30,7 +30,7 @@ export const PUT = apiHandler(async (req, params, body) => {
       message: 'Process Gate Policy updated successfully',
       data: updatedGate
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: updateGateSchema });
+}, { roles: ROLE_GROUPS.CORE_ADMINS, schema: updateGateSchema, audit: { action: 'UPDATE', entity: 'PROCESS_GATE' } });
 
 export const DELETE = apiHandler(async (req, params) => {
     const id = params?.id as string;
@@ -43,4 +43,4 @@ export const DELETE = apiHandler(async (req, params) => {
       id,
       data: { id, success: true }
     };
-}, { roles: ROLE_GROUPS.CORE_ADMINS });
+}, { roles: ROLE_GROUPS.CORE_ADMINS, audit: { action: 'DELETE', entity: 'PROCESS_GATE' } });

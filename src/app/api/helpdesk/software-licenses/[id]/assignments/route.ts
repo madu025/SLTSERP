@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/error";
 import { SoftwareLicenseService } from "@/services/core/software-license.service";
 import { CreateSoftwareLicenseAssignmentSchema } from "@/lib/validations/helpdesk.schema";
 
@@ -29,7 +30,7 @@ export const DELETE = apiHandler(
     const url = new URL(req.url);
     const assignmentId = url.searchParams.get("assignmentId");
     if (!assignmentId) {
-      throw new Error("ASSIGNMENT_ID_REQUIRED");
+      throw AppError.badRequest("ASSIGNMENT_ID_REQUIRED");
     }
     
     const userId = req.headers.get("x-user-id")!;

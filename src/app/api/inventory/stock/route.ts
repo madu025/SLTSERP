@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { InventoryService } from '@/services/inventory/inventory.service';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const GET = apiHandler(async (req) => {
     const storeId = searchParams.get('storeId');
 
     if (!storeId) {
-        throw new Error('STORE_ID_REQUIRED');
+        throw AppError.badRequest('STORE_ID_REQUIRED');
     }
 
     return await InventoryService.getStock(storeId);
@@ -26,7 +27,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get('x-user-id') || 'SYSTEM';
 
     if (!storeId || !items) {
-        throw new Error('INVALID_PAYLOAD');
+        throw AppError.badRequest('INVALID_PAYLOAD');
     }
 
     const result = await InventoryService.initializeStock(storeId, items as any, reason, userId);

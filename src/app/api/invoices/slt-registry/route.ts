@@ -115,13 +115,13 @@ export const GET = apiHandler(async () => {
             });
 
             if (!res.ok) {
-                throw new Error(`HTTP Error ${res.status}`);
+                throw AppError.internal(`HTTP Error ${res.status}`);
             }
 
             const html = await res.text();
 
             if (html.includes('login') || html.includes('Username') || html.includes('Password')) {
-                throw new Error('SESSION_EXPIRED');
+                throw AppError.unauthorized('SESSION_EXPIRED');
             }
 
             const liveBoms = parseBOMHtml(html);

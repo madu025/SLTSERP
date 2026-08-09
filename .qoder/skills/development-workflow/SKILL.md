@@ -331,42 +331,42 @@ export class StockService {
 - Implement proper error handling with custom error types
 - Add comprehensive JSDoc comments
 
-### 4. API Route Structure
+### 4. API Route Structure (apiHandler — MANDATORY)
+
+All API routes handling mutations or complex reads MUST use `apiHandler`. It provides Zod validation, RBAC, audit logging, request context, and standardized error responses in a single wrapper.
 
 ```typescript
 // app/api/inventory/stock/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { apiHandler } from '@/lib/api-handler';
+import { z } from 'zod';
 import { StockService } from '@/services/inventory/stock.service';
-import { validateBody, handleApiError } from '@/lib/api-utils';
-import { stockIssueSchema } from '@/lib/validations/inventory';
 
-export async function POST(req: NextRequest) {
-    try {
-        // Authentication check
-        const session = await getServerSession();
-        if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+const stockIssueSchema = z.object({
+    itemId: z.string().uuid(),
+    storeId: z.string().uuid(),
+    quantity: z.number().positive(),
+});
 
-        // Role-based access control
-        const role = req.headers.get('x-user-role');
-        if (role !== 'ADMIN' && role !== 'STORES_MANAGER') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
-        // Validate request body with Zod
-        const body = await validateBody(req, stockIssueSchema);
-        
-        // Execute business logic
+// apiHandler handles: auth, RBAC, Zod validation, audit, error mapping
+export const POST = apiHandler(
+    async (req, { session, body }) => {
+        // Business logic — throw AppError for typed errors
         const result = await StockService.createStockIssue(body);
-        
-        return NextResponse.json(result);
-    } catch (error) {
-        return handleApiError(error);
+        return result;
+    },
+    {
+        roles: ['ADMIN', 'STORES_MANAGER'],  // RBAC enforced automatically
+        body: stockIssueSchema,               // Zod validation enforced automatically
+        audit: { action: 'STOCK_ISSUE', entity: 'InventoryStock' },
     }
-}
+);
 ```
+
+**Key rules:**
+- NEVER use raw `try/catch` + `handleApiError` in new routes — use `apiHandler`
+- NEVER use `throw new Error()` — use typed `AppError` factories (see Section 7B)
+- `apiHandler` maps AppError to correct HTTP status, Prisma errors to typed responses, ZodError to 422
+- Only 4 routes in the codebase legitimately skip apiHandler (binary WMS proxy, Prometheus metrics, public invoices, stub)
 
 ### 5. Frontend Orchestrator Architecture
 
@@ -479,31 +479,66 @@ const orders = await prisma.serviceOrder.findMany({
 
 #### A. API Route Protection
 ```typescript
-// Role validation
-const role = request.headers.get('x-user-role');
-if (!['ADMIN', 'SUPER_ADMIN'].includes(role || '')) {
-    return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-}
+// In apiHandler — RBAC is declarative via the roles array
+export const GET = apiHandler(
+    async (req, { session }) => {
+        // Only reachable if user has one of the allowed roles
+        const data = await SensitiveService.getData();
+        return data;
+    },
+    { roles: ['ADMIN', 'SUPER_ADMIN'] }
+);
 
-// Identity verification for critical actions
-const userId = request.headers.get('x-user-id');
-if (action.performedBy !== userId) {
-    return NextResponse.json({ message: 'Unauthorized action' }, { status: 403 });
-}
+// For identity-gated actions inside the handler:
+import { AppError } from '@/lib/error';
+export const DELETE = apiHandler(
+    async (req, { session, params }) => {
+        const userId = session.user.id;
+        if (action.performedBy !== userId) {
+            throw AppError.forbidden('Unauthorized action on this resource');
+        }
+        // ...
+    },
+    { roles: ['ADMIN'] }
+);
 ```
 
-#### B. Centralized Error Handling
+#### B. Centralized Error Handling (AppError — MANDATORY)
 ```typescript
-import { handleApiError, validateBody } from '@/lib/api-utils';
+import { AppError } from '@/lib/error';
 
-// In API route
-try {
-    const body = await validateBody(request, schema);
-    // ... business logic
-} catch (error) {
-    return handleApiError(error); // Consistent error responses
+// Service / repository layer — throw typed AppError, NEVER throw new Error()
+if (!record) throw AppError.notFound('Record not found');
+if (!canAccess) throw AppError.forbidden('Insufficient permissions');
+if (stock < requested) {
+    throw new AppError(
+        `Insufficient stock: have ${stock}, need ${requested}`,
+        ErrorCode.INSUFFICIENT_STOCK,
+        400
+    );
 }
+if (duplicateExists) throw AppError.conflict('Record already exists');
+if (badInput) throw AppError.badRequest('Invalid input data');
+
+// apiHandler maps these automatically:
+// AppError.unauthorized() → 401
+// AppError.forbidden()    → 403
+// AppError.notFound()     → 404
+// AppError.badRequest()   → 400
+// AppError.conflict()     → 409
+// AppError.validation()   → 422
+// Prisma P2002            → 409 (unique constraint)
+// Prisma P2025            → 404 (record not found)
+// Prisma P2003            → 400 (FK constraint)
+// Generic Error           → 500 (SANITIZED — no source leak to client)
+// ZodError                → 422
 ```
+
+**CRITICAL rules:**
+- NEVER `throw new Error('message')` in server-side code — it maps to generic 500 with no user-visible message
+- NEVER return raw `error.message` to clients — CWE-209 information exposure
+- `apiHandler` is the ONLY central error boundary — no other error handler exists
+- Legacy `handleApiError`/`ApiError` in `api-utils.ts` is used by 1 route only (gis/map-data) — do not use in new code
 
 ### 8. UI/UX Design System
 

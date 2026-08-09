@@ -26,4 +26,5 @@ export const POST = apiHandler(async (req) => {
     return result;
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    audit: { action: 'INSPECT', entity: 'QC_INSPECTION' }
 });

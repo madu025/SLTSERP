@@ -1,4 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectBOQPRService } from '@/services/project/project-boq-pr.service';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const POST = apiHandler(async (request, params) => {
     
     // We expect userId to be provided by middleware or the apiHandler itself if we had req.user,
     // but sticking to the original route logic for reading headers:
-    if (!userId) throw new Error('Unauthorized'); // or AppError.unauthorized
+    if (!userId) throw AppError.unauthorized('Unauthorized');
 
     const result = await ProjectBOQPRService.generatePR(projectId, userId);
     

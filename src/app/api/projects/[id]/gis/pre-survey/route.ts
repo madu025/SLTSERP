@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { createPreSurveySchema, CreatePreSurveySchema } from '@/lib/validations/gis.schema';
 
@@ -10,7 +11,7 @@ export const POST = apiHandler<unknown, CreatePreSurveySchema>(
     async (request, params, body) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const result = await GISRouteService.createPreSurveyRoute(params.id, body, userId);

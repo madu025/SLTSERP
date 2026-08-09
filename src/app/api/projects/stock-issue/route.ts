@@ -1,5 +1,6 @@
 import { StockIssue } from '@prisma/client';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { createStockIssueSchema, CreateStockIssueSchema } from '@/lib/validations/project-stock.schema';
 
@@ -12,7 +13,7 @@ export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
     async (request: Request, params: unknown, body) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const stockIssue = await ProjectStockIssueService.createIssueRequest({
@@ -43,14 +44,14 @@ export const GET = apiHandler<unknown[], void>(
     async (request: Request) => {
         const userId = request.headers.get('x-user-id');
         if (!userId) {
-            throw new Error('Unauthorized');
+            throw AppError.unauthorized('Unauthorized');
         }
 
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get('projectId');
 
         if (!projectId) {
-            throw new Error('Project ID required');
+            throw AppError.badRequest('Project ID required');
         }
 
         const issues = await ProjectStockIssueService.getProjectIssues(projectId);

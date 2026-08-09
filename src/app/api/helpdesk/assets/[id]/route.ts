@@ -2,6 +2,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/error";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { UpdateAssetSchema } from "@/lib/validations/helpdesk.schema";
 
@@ -9,7 +10,7 @@ export const GET = apiHandler(async (req, params) => {
   const { id } = await params;
   const asset = await HelpdeskService.getAssetById(id);
   if (!asset) {
-    throw new Error("Asset not found");
+    throw AppError.notFound("Asset not found");
   }
   return asset;
 });

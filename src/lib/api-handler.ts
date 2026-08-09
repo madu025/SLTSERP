@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ZodSchema } from 'zod';
+import { ZodError, ZodSchema } from 'zod';
 import { AppError, ErrorCode } from './error';
 import { AuditService } from '@/services/audit/audit.service';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
@@ -118,6 +118,41 @@ type ResultMeta = {
  */
 export function castBody<T>(body: Record<string, unknown>): T {
     return body as unknown as T;
+}
+
+// ─── Prisma error mapping ─────────────────────────────────────────────────────
+
+/**
+ * Detects PrismaClientKnownRequestError structurally (avoiding a hard import
+ * dependency on the Prisma runtime in this shared module).
+ */
+function isPrismaKnownError(error: Error): boolean {
+    const code = (error as { code?: unknown }).code;
+    return (
+        error.name === 'PrismaClientKnownRequestError' &&
+        typeof code === 'string' &&
+        /^P\d{4}$/.test(code)
+    );
+}
+
+/**
+ * Maps well-known Prisma error codes to typed AppErrors so clients receive
+ * semantically correct HTTP statuses instead of a generic 500.
+ */
+function mapPrismaError(error: Error): AppError {
+    const code = (error as { code?: string }).code;
+    switch (code) {
+        case 'P2002':
+            return AppError.conflict('A record with these unique values already exists');
+        case 'P2025':
+            return AppError.notFound('The requested record was not found');
+        case 'P2003':
+            return AppError.badRequest('Operation failed: a related record constraint exists');
+        default:
+            // Other Prisma codes (P2010 raw SQL, P2024 pool timeout, ...) stay
+            // as server errors — raw Prisma message never reaches the client.
+            return new AppError('A database error occurred', ErrorCode.DATABASE_ERROR, 500);
+    }
 }
 
 // ─── Core apiHandler ──────────────────────────────────────────────────────────
@@ -481,13 +516,19 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
 
                 if (error instanceof AppError) {
                     appError = error;
-                } else if (error instanceof Error && error.message === 'Unauthorized') {
-                    appError = new AppError('Unauthorized', ErrorCode.UNAUTHORIZED, 401);
-                } else if (error instanceof Error && error.message === 'Forbidden') {
-                    appError = new AppError('Forbidden', ErrorCode.FORBIDDEN, 403);
+                } else if (error instanceof ZodError) {
+                    // Manual schema.parse() inside handlers (apiHandler-level
+                    // validation is handled earlier via safeParse)
+                    appError = AppError.validation('Invalid input data', error.format());
+                } else if (error instanceof Error && isPrismaKnownError(error)) {
+                    appError = mapPrismaError(error);
                 } else if (error instanceof Error) {
+                    // SECURITY (CWE-209): never echo internal error messages to
+                    // the client on 500s — Prisma/stack/source-path details stay
+                    // server-side (logged above). Routes that want a visible
+                    // message must throw a typed AppError.
                     appError = new AppError(
-                        error.message || 'An unexpected error occurred',
+                        'An unexpected error occurred',
                         ErrorCode.INTERNAL_ERROR,
                         500
                     );

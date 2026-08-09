@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { ProjectGoodsReceiptService } from '@/services/project/project-goods-receipt.service';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export const GET = apiHandler(async (req) => {
     const poId = searchParams.get('poId') || undefined;
 
     if (!projectId && !poId) {
-        throw new Error('projectId or poId is required');
+        throw AppError.badRequest('projectId or poId is required');
     }
 
     return await ProjectGoodsReceiptService.getGoodsReceipts(projectId, poId);
@@ -27,7 +28,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get('x-user-id');
 
     if (!poId || !projectId || !userId || !items?.length) {
-        throw new Error('poId, projectId, and items are required and user must be authenticated');
+        throw AppError.badRequest('poId, projectId, and items are required and user must be authenticated');
     }
 
     const payload = {
@@ -49,7 +50,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get('x-user-id') || undefined;
 
     if (!id || !status) {
-        throw new Error('id and status are required');
+        throw AppError.badRequest('id and status are required');
     }
 
     return await ProjectGoodsReceiptService.updateGoodsReceiptStatus(id, status, userId);

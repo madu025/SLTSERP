@@ -15,6 +15,7 @@ The full project-scoped agent guidelines live at `.agent/AGENTS.md` (427 lines).
 4. `export const dynamic = 'force-dynamic'` on dynamic GET API routes.
 5. Zero `any` / lazy `unknown` tolerance — strict interfaces, Zod schemas, or Prisma types only.
 6. Avoid O(N^2) loops; use HashMaps/Sets and `prisma.$transaction()` batches.
+7. NEVER `throw new Error()` in server-side code — use typed `AppError` factories from `src/lib/error.ts` (`AppError.notFound()`, `AppError.forbidden()`, `AppError.badRequest()`, etc.). `apiHandler` maps these to correct HTTP status codes automatically. Generic `Error` maps to sanitized 500 with NO source leak to client (CWE-209 protection).
 
 ## Audit-Derived Schema Rules
 

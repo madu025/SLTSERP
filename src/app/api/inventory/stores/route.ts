@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler, castBody } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { InventoryService } from '@/services/inventory/inventory.service';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
 // PUT: Update an existing store
 export const PUT = apiHandler(async (_req, _params, body) => {
     const id = body.id as string | undefined;
-    if (!id) throw new Error('ID_REQUIRED');
+    if (!id) throw AppError.badRequest('ID_REQUIRED');
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...data } = body;
     return await InventoryService.updateStore(id, data);
@@ -45,7 +46,7 @@ export const DELETE = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {
-        throw new Error('ID_REQUIRED');
+        throw AppError.badRequest('ID_REQUIRED');
     }
     return await InventoryService.deleteStore(id);
 }, {
