@@ -138,21 +138,7 @@ model NotificationTemplate {
   @@index([isActive])
 }
 
-model NotificationEvent {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  tenantId    String? @db.Uuid
-  eventType   String
-  payload     Json
-  status      String    @default("PENDING")
-  processedAt DateTime?
-  errorReason String?
-  createdAt   DateTime  @default(now())
 
-  @@index([eventType])
-  @@index([status])
-  @@index([tenantId])
-  @@index([createdAt])
-}
 
 model AuditLog {
   id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid

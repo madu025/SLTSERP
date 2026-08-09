@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { AppError, ErrorCode } from '@/lib/error';
+import { CircuitBreaker } from '@/lib/circuit-breaker';
+
+/** Circuit breaker: opens after 5 consecutive QFieldCloud export failures, resets after 30s */
+const qfieldExportBreaker = new CircuitBreaker(5, 30_000, 'QFieldCloud-Export');
 
 export class ProjectExportService {
     static async getGPKGFile(projectId: string) {
@@ -21,14 +25,14 @@ export class ProjectExportService {
 
         const baseUrl = process.env.NEXT_PUBLIC_QFIELD_API_URL || 'http://localhost:8100';
 
-        const authRes = await fetch(`${baseUrl}/api/v1/auth/login/`, {
+        const authRes = await qfieldExportBreaker.execute(() => fetch(`${baseUrl}/api/v1/auth/login/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 username: process.env.QFIELD_ADMIN_USER || 'admin',
                 password: process.env.QFIELD_ADMIN_PASS || 'admin',
             }),
-        });
+        }));
 
         if (!authRes.ok) {
             throw new AppError('Failed to authenticate with QFieldCloud', ErrorCode.INTERNAL_ERROR, 502);
@@ -43,9 +47,9 @@ export class ProjectExportService {
 
         const authHeaders = { Authorization: `Token ${token}` };
 
-        const filesRes = await fetch(`${baseUrl}/api/v1/projects/${qfieldProjectId}/files/`, {
+        const filesRes = await qfieldExportBreaker.execute(() => fetch(`${baseUrl}/api/v1/projects/${qfieldProjectId}/files/`, {
             headers: authHeaders,
-        });
+        }));
 
         if (!filesRes.ok) {
             throw new AppError(`Failed to list QFieldCloud project files (status ${filesRes.status})`, ErrorCode.INTERNAL_ERROR, 502);
@@ -65,12 +69,12 @@ export class ProjectExportService {
             throw AppError.notFound('No GeoPackage (.gpkg) file found in the QFieldCloud project');
         }
 
-        const downloadRes = await fetch(
+        const downloadRes = await qfieldExportBreaker.execute(() => fetch(
             `${baseUrl}/api/v1/files/${qfieldProjectId}/${encodeURIComponent(gpkgFile.name)}/`,
             {
                 headers: authHeaders,
             }
-        );
+        ));
 
         if (!downloadRes.ok) {
             throw new AppError(`Failed to download GPKG file from QFieldCloud (status ${downloadRes.status})`, ErrorCode.INTERNAL_ERROR, 502);

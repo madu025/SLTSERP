@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { primaryClient as prisma } from '@/lib/prisma';
+import { CircuitBreaker } from '@/lib/circuit-breaker';
 
 import { StockRequestService } from '../inventory/stock-request.service';
 import { NexusContextService } from '@/services/ai/nexus-context.service';
@@ -7,6 +8,9 @@ import { NexusClassifierService } from '@/services/ai/nexus-classifier.service';
 import type { ChatMessage } from '@/services/ai/nexus-memory.service';
 
 import { safeJsonParse } from '@/utils/safeJsonParse';
+
+/** Circuit breaker: opens after 5 consecutive Gemini API failures, resets after 30s */
+const geminiBreaker = new CircuitBreaker(5, 30_000, 'Gemini-AI');
 
 // Trigger background model training asynchronously on load
 NexusClassifierService.train().then(() => {
@@ -649,7 +653,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
         ];
 
         // Round 1: Ask Gemini
-        let response = await fetch(endpoint, {
+        let response = await geminiBreaker.execute(() => fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -657,7 +661,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
                 tools,
                 contents
             })
-        });
+        }));
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -740,7 +744,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
             contents.push({ role: 'user', parts: functionResponses });
 
             // Call Gemini again with the function results
-            response = await fetch(endpoint, {
+            response = await geminiBreaker.execute(() => fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -748,7 +752,7 @@ NOTE: Only include the "chart" key if the user explicitly asks to visualize, dra
                     tools,
                     contents
                 })
-            });
+            }));
 
             if (!response.ok) {
                 const errorText = await response.text();

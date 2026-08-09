@@ -34,9 +34,10 @@ export class SystemService {
         // User FK - store null instead of corrupting the audit write.
         const auditUserId = this.UUID_RE.test(event.userId) ? event.userId : null;
 
-        const [error, auditLog] = await safe(prisma.$transaction(async (tx) => {
-            // 1. Create Audit Log
-            const log = await tx.auditLog.create({
+        // 1. Audit log -- MUST succeed, isolated transaction.
+        //    Notification failures must NEVER roll back audit writes.
+        const [auditError, auditLog] = await safe(prisma.$transaction(async (tx) => {
+            return tx.auditLog.create({
                 data: {
                     userId: auditUserId,
                     action: event.action,
@@ -48,15 +49,22 @@ export class SystemService {
                     userAgent: event.userAgent,
                 }
             });
+        }));
 
-            // 2. Create Notification if requested (only deliverable to real users)
-            if (event.notify && event.notifyTitle && event.notifyMessage) {
-                // Use explicit notifyUserId if provided, otherwise fall back to the actor
-                const notificationUserId = event.notifyUserId && this.UUID_RE.test(event.notifyUserId)
-                    ? event.notifyUserId
-                    : auditUserId;
-                if (notificationUserId) {
-                    await tx.notification.create({
+        if (auditError) {
+            console.error('[AUDIT-WRITE-FAILED]', auditError);
+            return null;
+        }
+
+        // 2. Notification -- best-effort, outside the audit transaction.
+        //    Failures are logged but never block the audit write above.
+        if (event.notify && event.notifyTitle && event.notifyMessage) {
+            const notificationUserId = event.notifyUserId && this.UUID_RE.test(event.notifyUserId)
+                ? event.notifyUserId
+                : auditUserId;
+            if (notificationUserId) {
+                try {
+                    await prisma.notification.create({
                         data: {
                             userId: notificationUserId,
                             title: event.notifyTitle,
@@ -66,14 +74,13 @@ export class SystemService {
                             link: event.notifyLink,
                         }
                     });
+                } catch (notifError) {
+                    console.error('[NOTIFICATION-WRITE-FAILED]', {
+                        auditId: auditLog?.id,
+                        error: notifError,
+                    });
                 }
             }
-
-            return log;
-        }));
-
-        if (error) {
-            console.error('Failed to log system event:', error);
         }
 
         return auditLog;

@@ -19,17 +19,11 @@ async function main() {
   const map: Record<string, string> = {};
 
   for (const a of authorityList) {
-    let e = await prisma.authorityEntity.findFirst({ where: { name: a.name } });
-    if (e) {
-      await prisma.authorityEntity.update({
-        where: { id: e.id },
-        data: { shortName: a.sn, isActive: true },
-      });
-    } else {
-      e = await prisma.authorityEntity.create({
-        data: { name: a.name, shortName: a.sn, isActive: true },
-      });
-    }
+    const e = await prisma.authorityEntity.upsert({
+      where: { name: a.name },
+      update: { shortName: a.sn, isActive: true },
+      create: { name: a.name, shortName: a.sn, isActive: true },
+    });
     map[a.name] = e.id;
   }
   console.log("Authorities: " + authorityList.length + " seeded");

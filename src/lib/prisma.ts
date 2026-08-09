@@ -3,6 +3,13 @@ import { logger } from './logger'
 import { getRequestId, requestContext } from './request-context'
 
 /**
+ * Duration (ms) after a write during which reads are routed to the primary
+ * instead of the replica.  Covers typical Supabase replication lag.
+ * Override via REPLICA_LAG_WINDOW_MS env var.
+ */
+const REPLICA_LAG_WINDOW_MS = parseInt(process.env.REPLICA_LAG_WINDOW_MS || '2000', 10);
+
+/**
  * Utility to sanitize and optimize DB URLs (timeouts, pooling)
  */
 const getSafeDatabaseUrl = (url: string, isWorker: boolean = false) => {
@@ -90,16 +97,25 @@ export const prisma = primaryClient.$extends({
 
             const store = requestContext.getStore();
             const forcePrimary = store?.forcePrimary === true;
+            // Auto-route reads to primary for REPLICA_LAG_WINDOW_MS after any write
+            const withinLagWindow = store?.forcePrimaryUntil != null && Date.now() < store.forcePrimaryUntil;
 
             let result;
-            // Only route to replica if it's a read operation, replica bypass is not forced, and replica URL is configured
-            if (isReadOperation && !forcePrimary && process.env.READ_REPLICA_URL && process.env.READ_REPLICA_URL !== process.env.DATABASE_URL) {
+            // Only route to replica if it's a read operation, replica bypass is not forced,
+            // we're outside the post-write lag window, and a distinct replica is configured.
+            if (isReadOperation && !forcePrimary && !withinLagWindow && process.env.READ_REPLICA_URL && process.env.READ_REPLICA_URL !== process.env.DATABASE_URL) {
                 // Execute on Read Replica
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 result = await (readClient as any)[model as string][operation](args);
             } else {
                 // Execute on Primary (Write/Master)
                 result = await query(args);
+            }
+
+            // After any write, extend the primary-routing window so subsequent
+            // reads within REPLICA_LAG_WINDOW_MS hit the primary (not a stale replica).
+            if (!isReadOperation && store) {
+                store.forcePrimaryUntil = Date.now() + REPLICA_LAG_WINDOW_MS;
             }
 
             const duration = Date.now() - start;

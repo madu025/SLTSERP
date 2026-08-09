@@ -9,11 +9,15 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { safe } from '@/utils/safe-await.util';
+import { CircuitBreaker } from '@/lib/circuit-breaker';
 
 const GEOSERVER_BASE_URL = process.env.GEOSERVER_URL || 'http://geoserver:8080/geoserver';
 const GEOSERVER_USER = process.env.GEOSERVER_USER || 'admin';
 const GEOSERVER_PASS = process.env.GEOSERVER_PASS || 'geoserver';
 const WORKSPACE = process.env.GEOSERVER_WORKSPACE || 'sltserp';
+
+/** Circuit breaker: opens after 5 consecutive GeoServer failures, resets after 30s */
+const geoserverBreaker = new CircuitBreaker(5, 30_000, 'GeoServer');
 
 export async function GET(
   req: NextRequest,
@@ -37,7 +41,9 @@ export async function GET(
     headers['Authorization'] = `Basic ${basicAuth}`;
   }
 
-  const [fetchErr, response] = await safe(fetch(targetUrl, { headers }));
+  const [fetchErr, response] = await safe(
+    geoserverBreaker.execute(() => fetch(targetUrl, { headers }))
+  );
 
   if (fetchErr || !response) {
     console.error('GeoServer proxy error:', fetchErr);

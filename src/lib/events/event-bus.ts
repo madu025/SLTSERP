@@ -1,7 +1,38 @@
 import { redis } from '../redis';
 import Redis from 'ioredis';
-import { EventBus } from './event-bus.interface';
+import { EventBus, FallbackPayload } from './event-bus.interface';
 import { EventEmitter } from 'events';
+
+const MAX_HANDLER_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 100;
+
+/**
+ * Execute an event handler with exponential backoff retry.
+ * Prevents transient failures (e.g. momentary DB blip) from
+ * permanently losing a notification.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function executeHandlerWithRetry(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cb: (data: any) => void,
+    parsed: unknown,
+    channel: string,
+): Promise<void> {
+    for (let attempt = 1; attempt <= MAX_HANDLER_RETRIES; attempt++) {
+        try {
+            await cb(parsed);
+            return;
+        } catch (err) {
+            if (attempt === MAX_HANDLER_RETRIES) {
+                console.error(`[EventBus] Handler FAILED after ${MAX_HANDLER_RETRIES} retries on "${channel}":`, err);
+            } else {
+                const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+                console.warn(`[EventBus] Handler attempt ${attempt} failed on "${channel}", retrying in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+    }
+}
 
 export class RedisEventBus implements EventBus {
     private subscriber: Redis | null = null;
@@ -39,11 +70,9 @@ export class RedisEventBus implements EventBus {
                     try {
                         const parsed = JSON.parse(message);
                         set.forEach(cb => {
-                            try {
-                                cb(parsed);
-                            } catch (cbErr) {
-                                console.error(`Error in event handler for channel ${channel}:`, cbErr);
-                            }
+                            executeHandlerWithRetry(cb, parsed, channel).catch(err => {
+                                console.error(`[EventBus] Unhandled retry error on "${channel}":`, err);
+                            });
                         });
                     } catch (e) {
                         console.error(`Error parsing message on channel ${channel}:`, e);
@@ -54,7 +83,7 @@ export class RedisEventBus implements EventBus {
         return this.subscriber;
     }
 
-    async publish(channel: string, data: unknown): Promise<void> {
+    async publish(channel: string, data: FallbackPayload): Promise<void> {
         // Always emit locally first to support seamless local development without active Redis
         try {
             this.localEmitter.emit(channel, data);

@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
+import { CircuitBreaker } from '@/lib/circuit-breaker';
 
 interface QFieldProject {
   id: string;
@@ -44,6 +45,8 @@ interface SyncResult {
 export class QFieldCloudSyncService {
   private baseUrl: string;
   private authToken: string | null = null;
+  /** Circuit breaker: opens after 5 consecutive QFieldCloud failures, resets after 30s */
+  private breaker = new CircuitBreaker(5, 30_000, 'QFieldCloud');
 
   constructor() {
     this.baseUrl = process.env.NEXT_PUBLIC_QFIELD_API_URL || 'http://localhost:8100';
@@ -75,20 +78,22 @@ export class QFieldCloudSyncService {
    * Helper to perform fetch requests with automatic auth token injection and retry on 401
    */
   private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-    let token = await this.authenticate();
-    const headers = new Headers(options.headers);
-    headers.set('Authorization', `Token ${token}`);
-    
-    let res = await fetch(url, { ...options, headers });
-    
-    if (res.status === 401) {
-      console.log('QFieldCloud token expired or invalid, re-authenticating...');
-      token = await this.authenticate(true);
+    return this.breaker.execute(async () => {
+      let token = await this.authenticate();
+      const headers = new Headers(options.headers);
       headers.set('Authorization', `Token ${token}`);
-      res = await fetch(url, { ...options, headers });
-    }
-    
-    return res;
+
+      let res = await fetch(url, { ...options, headers });
+
+      if (res.status === 401) {
+        console.log('QFieldCloud token expired or invalid, re-authenticating...');
+        token = await this.authenticate(true);
+        headers.set('Authorization', `Token ${token}`);
+        res = await fetch(url, { ...options, headers });
+      }
+
+      return res;
+    });
   }
 
   /**
