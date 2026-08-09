@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
 import { z } from 'zod';
@@ -15,7 +16,7 @@ export const PATCH = apiHandler(async (req, params, body) => {
     const { status, rejectionReason, cancelledReason } = body;
     const userId = req.headers.get("x-user-id");
 
-    if (!userId) throw new Error('Authenticated user is required');
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     return await PaymentVoucherService.updatePaymentVoucherStatus(params.id, status, userId, {
         rejectionReason,

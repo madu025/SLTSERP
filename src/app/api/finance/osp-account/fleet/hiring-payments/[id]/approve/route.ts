@@ -17,5 +17,6 @@ export const PATCH = apiHandler(async (_request, params, body) => {
   return { message: `Hiring Payment ${action.toLowerCase()}d successfully`, data: result };
 }, {
   schema: actionSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+  audit: { action: 'APPROVE_HIRING_PAYMENT', entity: 'OSP_HIRING_PAYMENT' }
 });

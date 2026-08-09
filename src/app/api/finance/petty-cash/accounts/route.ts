@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get("x-user-id");
 
     if (!name || !opmcId || imprestLimit === undefined || !userId) {
-        throw new Error('name, opmcId, imprestLimit are required and user must be authenticated');
+        throw AppError.badRequest('name, opmcId, and imprestLimit are required');
     }
 
     return await PettyCashService.createPettyCashAccount({

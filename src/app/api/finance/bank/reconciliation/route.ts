@@ -30,5 +30,6 @@ export const POST = apiHandler(async (req) => {
     const reconciled = await BankCashService.reconcileStatementLine(statementLineId, journalLineId);
     return reconciled;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    audit: { action: 'RECONCILE', entity: 'BANK_STATEMENT_LINE' }
 });

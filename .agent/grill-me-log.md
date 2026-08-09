@@ -1080,3 +1080,79 @@ AFTER:  hardcoded allowedRoles (default)
 - `tokenVersion` increment on permission change forces re-login with new permissions
 - Menus without `permissionId` (Reports, IT Help Desk) are open to all — correctly excluded from permission options
 - Existing `hasAccess()` in sidebar-menu.ts already had dynamic permission fallback — no change needed
+
+---
+
+## Session: 2026-08-08/09 — Backend Architecture Gap Remediation
+
+**Scope**: 11 architectural gaps identified in the SLTSERP backend infrastructure.
+
+### Gaps Fixed (F1–F8)
+
+| # | Gap | Fix |
+|---|-----|-----|
+| F1 | SystemService.logEvent() audit+notification coupling | Decoupled: audit in isolated transaction, notification best-effort outside |
+| F2 | Logger runInRealtimeContext dead code | Renamed to `withPrimaryRead`, created `withRequestContext` wrapper |
+| F3 | seed-authorities.ts race condition | Added `@unique` to `AuthorityEntity.name`, converted to atomic `upsert` |
+| F4 | No typed event schema | Added `EventMap` with 8 typed channels, overloaded `publish`/`subscribe` |
+| F5 | Read replica no write-after-read safety | Added `forcePrimaryUntil` timestamp + 2s lag window auto-routing |
+| F6 | Event Bus no guaranteed delivery | Added `executeHandlerWithRetry` with 3 retries, exponential backoff |
+| F7 | No circuit breaker for external services | Created `circuit-breaker.ts`, wired into GeoServer, QFieldCloud (2), Gemini |
+| F8 | NotificationEvent dead model | Removed from `user.prisma` (0 references in src/) |
+
+### Verification
+- `npx prisma generate` — clean
+- `npx tsc --noEmit` — 0 errors
+- Grep checks: `runInRealtimeContext` = 0, `NotificationEvent` in src/ = 0, `CircuitBreaker` = 14 matches across 4 services
+
+### Critical Lesson Learned
+
+**Incorrect Finding Reported**: Initial claim stated "94% of routes (397/422) without apiHandler". This was **WRONG**.
+
+**Actual Count (verified via grep)**: 420/424 routes already use `apiHandler` (99% adoption). Only 4 legitimate exceptions:
+- `gis/wms/[[...path]]` — binary/XML proxy, not JSON
+- `metrics` — Prometheus text format
+- `public/invoices/[id]` — public endpoint, no auth
+- `admin/process-gates/simulate` — stub returning 404
+
+**Root Cause**: Stale data from memory, no verification before presenting quantitative findings.
+
+### Protocol Fix: Step 2.6 Static Verification
+
+Added to `grill-me-audit` SKILL.md:
+
+> **Step 2.6: Static Verification (MANDATORY for quantitative claims)**
+> 1. Exact Count via Grep/Script — never rely on memory or assumptions
+> 2. Total Count Verification — count total files/routes in scope
+> 3. Calculate Actual Percentage — present exact numbers with timestamp
+> 4. Sample Verification (minimum 3 routes) — quote actual code
+> 5. Staleness Check — re-run counts if citing previous audit findings
+
+**Decision**: 4 routes without `apiHandler` are **intentional exceptions**, not gaps to fix. No migration needed.
+
+## Session: 2026-08-09 — Finance & Audit Module QC Remediation
+
+**Scope**: Fix all 4 findings (C1, C2, H1, H2) from the Finance & Audit Module QC Audit.
+
+### Fixes Applied
+
+| Finding | Description | Fix |
+|---------|-------------|-----|
+| C1 CRITICAL | ChartOfAccount table empty (0 rows) | Ran `npx tsx prisma/seed-coa.ts` — 32 entries seeded |
+| C2 CRITICAL | 19 `throw new Error()` → generic 500 | Converted to typed `AppError` across 9 files (routes + services) |
+| H1 HIGH | 23 mutating routes without `audit:` declarations | Added `audit: { action, entity }` to all 23 routes |
+| H2 HIGH | 6 `eslint-disable any` suppressions | Resolved 5 of 6; PaymentService.ts kept as documented IDE workaround |
+
+### Files Modified
+- 9 files: `throw new Error` → `AppError` (petty-cash/vouchers, petty-cash/accounts, payment-vouchers/[id], ld-penalties, payment-vouchers/[id]/status, invoices/[id]/approve, retention, petty-cash/reimbursements, capex-opex-ledger.service, budget-allocation.service)
+- 23 files: `audit:` declarations added (bank-reconciliation, chart-of-accounts, credit-notes, exchange-rates, fixed-assets, payroll, period-close, ar/receipts, bank/reconciliation, fixed-assets/depreciate, osp-account/advances, osp-account/ingest, osp-account/ious, osp-account/rents, sf-audit/mapping-config, sf-audit/payment-split-config, osp-account/fleet/fuel-deposits, osp-account/fleet/hiring-payments, + 5 approve routes)
+- 4 files: `any` types resolved (osp-ledger.service → TransactionClient, ledger-report.service → Prisma.DateTimeFilter, ledger.service → ! assertion + Record<string, unknown>, bank-cash.service → Prisma.DateTimeFilter)
+
+### Verification
+- `tsc --noEmit`: zero errors
+- `throw new Error` in finance routes: 0
+- `throw new Error` in finance services: 0
+- Missing audit declarations: 0
+- Remaining eslint-disable any: 1 (PaymentService.ts — documented workaround, removing exposes 13 latent type errors)
+
+**Decision**: All 4 findings closed. PaymentService.ts type debt logged as separate backlog item.

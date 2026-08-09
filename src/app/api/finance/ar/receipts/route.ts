@@ -29,5 +29,6 @@ export const POST = apiHandler(async (req) => {
 
     return receipt;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    audit: { action: 'CREATE', entity: 'CUSTOMER_RECEIPT' }
 });

@@ -12,5 +12,6 @@ export const POST = apiHandler(async () => {
     data: result
   };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
+  audit: { action: 'BULK_INGEST', entity: 'OSP_ACCOUNT' }
 });

@@ -8,7 +8,6 @@ import { Invoice, CreateInvoiceDTO } from '@/types/finance/invoice.types';
 import { prisma as db } from '@/lib/prisma';
 
 // Workaround for IDE/Language Server caching issues with dynamic extended PrismaClient types.
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prisma = db as any;
 

@@ -18,5 +18,6 @@ export const PATCH = apiHandler(async (_request, params, body) => {
   return { message: `IOU ${action.toLowerCase()}d successfully`, data: result };
 }, {
   schema: actionSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+  audit: { action: 'APPROVE_IOU', entity: 'OSP_IOU' }
 });

@@ -29,5 +29,6 @@ export const POST = apiHandler(async (request) => {
 
   return { message: 'Fuel Deposit created successfully', data: result };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
+  audit: { action: 'CREATE', entity: 'OSP_FUEL_DEPOSIT' }
 });

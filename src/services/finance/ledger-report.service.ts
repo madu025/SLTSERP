@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { AccountType } from '@prisma/client';
+import { AccountType, Prisma } from '@prisma/client';
 
 export interface AccountBalanceSummary {
     code: string;
@@ -62,8 +62,7 @@ export class LedgerReportService {
      */
     static async getAccountBalances(fromDate?: Date, toDate?: Date): Promise<TrialBalanceReportResult> {
         // Build date filter for JournalEntry
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const dateFilter: any = {};
+        const dateFilter: Prisma.DateTimeFilter = {};
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;
 

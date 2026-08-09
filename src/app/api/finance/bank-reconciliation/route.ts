@@ -34,5 +34,6 @@ export const POST = apiHandler(async (req: Request) => {
   const result = await BankReconciliationService.autoReconcileStatement(mappedRows);
   return result;
 }, {
-  roles: ROLE_GROUPS.FINANCE_APPROVERS
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+  audit: { action: 'RECONCILE', entity: 'BANK_STATEMENT' }
 });

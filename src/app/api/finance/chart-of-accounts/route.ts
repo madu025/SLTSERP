@@ -37,7 +37,8 @@ export const POST = apiHandler(async (req) => {
     const account = await ChartOfAccountsService.createAccount(validated);
     return { account };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    audit: { action: 'CREATE', entity: 'CHART_OF_ACCOUNTS' }
 });
 
 export const PUT = apiHandler(async (req) => {
@@ -47,5 +48,6 @@ export const PUT = apiHandler(async (req) => {
     const account = await ChartOfAccountsService.updateAccount(id, data);
     return { account };
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    audit: { action: 'UPDATE', entity: 'CHART_OF_ACCOUNTS' }
 });

@@ -40,5 +40,6 @@ export const POST = apiHandler(async (request) => {
 
   return { message: 'IOU created successfully', data: result };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
+  audit: { action: 'CREATE', entity: 'OSP_IOU' }
 });

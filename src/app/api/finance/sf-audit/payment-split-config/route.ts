@@ -34,5 +34,6 @@ export const POST = apiHandler(async (req) => {
     return { success: true, message: 'Payment split configuration saved successfully', data: payload };
 }, {
     // Payment split ratios drive auditor claim payouts — SF Audit + finance scope
-    roles: ROLE_GROUPS.SF_AUDITING
+    roles: ROLE_GROUPS.SF_AUDITING,
+    audit: { action: 'SAVE_CONFIG', entity: 'SF_PAYMENT_SPLIT' }
 });

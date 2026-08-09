@@ -1,14 +1,14 @@
 import { Prisma } from '@prisma/client';
 import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
+import type { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export class OSPLedgerService {
   /**
    * Automatically resolves GL Mappings and posts a Subledger event to the Unified Ledger.
    */
   static async postAutomatedTransaction(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tx: any,
+    tx: TransactionClient,
     args: {
       sourceModule: string;
       transactionType: string;

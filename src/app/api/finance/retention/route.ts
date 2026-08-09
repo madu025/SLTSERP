@@ -1,4 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { RetentionService } from "@/services/finance/retention.service";
 
@@ -23,7 +24,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get("x-user-id") ?? undefined;
 
     if (!retentionId || releaseAmount === undefined) {
-        throw new Error("retentionId and releaseAmount are required fields");
+        throw AppError.badRequest('retentionId and releaseAmount are required fields');
     }
 
     return await RetentionService.releaseRetention({

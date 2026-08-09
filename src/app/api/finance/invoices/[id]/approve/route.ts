@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { ROLE_GROUPS } from '@/config/roles';
-import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
+import { apiHandler } from "@/lib/api-handler";
 import { z } from 'zod';
 import { InvoiceApprovalService } from '@/services/finance/invoice-approval.service';
 import { requestContext } from '@/lib/request-context';
@@ -14,7 +15,7 @@ export const POST = apiHandler(
     async (req, params, body: z.infer<typeof approveInvoiceSchema>) => {
         const userId = req.headers.get('x-user-id');
         const userRole = req.headers.get('x-user-role');
-        if (!userId) throw new Error('Unauthorized');
+        if (!userId) throw AppError.unauthorized('Authentication required');
         
         if (body.action === 'APPROVE') {
             const invoice = await InvoiceApprovalService.approveInvoice(params.id, userId, userRole || 'USER');

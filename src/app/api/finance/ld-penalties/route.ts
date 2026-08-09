@@ -1,4 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { LDPenaltyService } from "@/services/finance/ld-penalty.service";
 import { z } from 'zod';
@@ -54,7 +55,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const { id, status, waivedAmount, remarks } = body;
     const userId = req.headers.get("x-user-id");
 
-    if (!userId) throw new Error('Authenticated user is required');
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     return await LDPenaltyService.updatePenaltyStatus(id, status, userId, {
         waivedAmount,
@@ -74,7 +75,7 @@ export const DELETE = apiHandler(async (req) => {
     const id = searchParams.get("id");
 
     if (!id) {
-        throw new Error("id is required");
+        throw AppError.badRequest('id is required');
     }
 
     return await LDPenaltyService.deletePenalty(id);

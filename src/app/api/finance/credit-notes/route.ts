@@ -27,5 +27,6 @@ export const POST = apiHandler(async (req) => {
 
     return note;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    audit: { action: 'CREATE', entity: 'CREDIT_DEBIT_NOTE' }
 });

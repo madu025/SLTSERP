@@ -31,5 +31,6 @@ export const POST = apiHandler(async (req) => {
 
     return record;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    audit: { action: 'CREATE', entity: 'PAYROLL_ALLOCATION' }
 });

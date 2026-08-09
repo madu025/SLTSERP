@@ -62,6 +62,35 @@ Before presenting findings as real issues, verify each finding against the runni
 
 This step prevents reporting "issues" that are actually prevented by other layers of the system (middleware auth, JWT structure, apiHandler validation, etc.).
 
+### Step 2.6: Static Verification (MANDATORY for quantitative claims)
+
+Before presenting any finding that includes percentages, counts, or "X out of Y routes" claims:
+
+1. **Exact Count via Grep/Script**
+   - Run `grep` or a counting script to get the actual number
+   - Example: `grep -r "apiHandler" src/app/api --include="route.ts" | wc -l`
+   - Never rely on memory, assumptions, or outdated audit results
+
+2. **Total Count Verification**
+   - Count total files/routes in scope
+   - Example: `find src/app/api -name "route.ts" | wc -l`
+
+3. **Calculate Actual Percentage**
+   - Present exact numbers: "4 out of 424 routes (0.9%)" not "most routes" or "94%"
+   - Include the timestamp and commit hash in the finding
+
+4. **Sample Verification (minimum 3 routes)**
+   - Manually read 3+ routes from the claimed affected set
+   - Quote the actual code that demonstrates the issue
+   - If sample routes contradict the claim, the finding is WRONG
+
+5. **Staleness Check**
+   - If citing a previous audit finding, re-run the count
+   - Code may have been migrated since the last audit
+   - Never present outdated numbers as current
+
+This step prevents stale data, incorrect assumptions, and vague claims from entering the Fix Matrix.
+
 ### Step 3: Consolidated QA Fix Matrix
 
 Present a unified review table with categorized fixes (ONLY for CONFIRMED findings from Step 2.5):

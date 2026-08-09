@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
 export const dynamic = 'force-dynamic';
@@ -10,12 +11,12 @@ export const GET = apiHandler(async (req) => {
     const accountId = searchParams.get('accountId');
 
     if (!accountId) {
-        throw new Error('accountId is required');
+        throw AppError.badRequest('accountId query parameter is required');
     }
 
     const account = await PettyCashService.getPettyCashAccount(accountId);
     if (!account) {
-        throw new Error('Account not found');
+        throw AppError.notFound('Petty cash account not found');
     }
 
     return account.vouchers;
@@ -35,7 +36,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get("x-user-id");
 
     if (!accountId || !title || amount === undefined || !category || !userId) {
-        throw new Error('accountId, title, amount, and category are required and user must be authenticated');
+        throw AppError.badRequest('accountId, title, amount, and category are required');
     }
 
     return await PettyCashService.createVoucher({
@@ -61,7 +62,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get("x-user-id");
 
     if (!id || !action || !userId) {
-        throw new Error('id and action are required and user must be authenticated');
+        throw AppError.badRequest('id and action are required');
     }
 
     if (action === 'APPROVE') {
@@ -69,7 +70,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     } else if (action === 'REJECT') {
         return await PettyCashService.rejectVoucher(id, rejectionReason || 'Rejected', userId);
     } else {
-        throw new Error('Invalid action. Must be APPROVE or REJECT');
+        throw AppError.badRequest('Invalid action. Must be APPROVE or REJECT');
     }
 }, {
     roles: ROLE_GROUPS.FINANCE_APPROVERS,

@@ -24,5 +24,6 @@ export const POST = apiHandler(async (req) => {
 
     return result;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    audit: { action: 'RUN_DEPRECIATION', entity: 'FIXED_ASSET' }
 });

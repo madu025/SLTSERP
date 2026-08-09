@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import type { FinanceBudgetAllocation } from '@prisma/client';
 import {
   type CreateBudgetInput,
@@ -74,8 +75,8 @@ export class BudgetAllocationService {
    */
   static async updateBudget(id: string, input: UpdateBudgetInput): Promise<FinanceBudgetAllocation> {
     const existing = await prisma.financeBudgetAllocation.findUnique({ where: { id } });
-    if (!existing) throw new Error('BUDGET_NOT_FOUND');
-    if (existing.status === 'FROZEN') throw new Error('BUDGET_FROZEN');
+    if (!existing) throw AppError.notFound('Budget allocation not found');
+    if (existing.status === 'FROZEN') throw AppError.badRequest('Budget is frozen and cannot be modified');
 
     return prisma.financeBudgetAllocation.update({
       where: { id },
@@ -97,7 +98,7 @@ export class BudgetAllocationService {
    */
   static async deleteBudget(id: string): Promise<void> {
     const existing = await prisma.financeBudgetAllocation.findUnique({ where: { id } });
-    if (!existing) throw new Error('BUDGET_NOT_FOUND');
+    if (!existing) throw AppError.notFound('Budget allocation not found');
     await prisma.financeBudgetAllocation.update({
       where: { id },
       data: { status: 'FROZEN' },

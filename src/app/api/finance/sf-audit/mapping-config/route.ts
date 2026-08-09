@@ -36,7 +36,8 @@ export const POST = apiHandler(
     },
     {
         roles: ROLE_GROUPS.FINANCE_APPROVERS,
-        schema: saveMappingSchema
+        schema: saveMappingSchema,
+        audit: { action: 'SAVE_CONFIG', entity: 'SF_MAPPING_CONFIG' }
     }
 );
 
@@ -49,6 +50,7 @@ export const DELETE = apiHandler(
         };
     },
     {
-        roles: ROLE_GROUPS.FINANCE_APPROVERS
+        roles: ROLE_GROUPS.FINANCE_APPROVERS,
+        audit: { action: 'RESET_CONFIG', entity: 'SF_MAPPING_CONFIG' }
     }
 );

@@ -1,4 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
+import { AppError } from '@/lib/error';
 import { apiHandler } from '@/lib/api-handler';
 import { PettyCashService } from '@/services/finance/petty-cash.service';
 
@@ -20,7 +21,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get("x-user-id");
 
     if (!accountId || !userId) {
-        throw new Error('accountId is required and user must be authenticated');
+        throw AppError.badRequest('accountId is required');
     }
 
     return await PettyCashService.requestReimbursement(accountId, userId);
@@ -36,7 +37,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     const userId = req.headers.get("x-user-id");
 
     if (!id || !paymentVoucherId || !userId) {
-        throw new Error('id and paymentVoucherId are required and user must be authenticated');
+        throw AppError.badRequest('id and paymentVoucherId are required');
     }
 
     return await PettyCashService.completeReimbursement(id, paymentVoucherId, userId);

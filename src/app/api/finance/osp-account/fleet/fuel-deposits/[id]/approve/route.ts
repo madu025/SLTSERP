@@ -18,5 +18,6 @@ export const PATCH = apiHandler(async (_request, params, body) => {
   return { message: `Fuel Deposit ${action.toLowerCase()}d successfully`, data: result };
 }, {
   schema: actionSchema,
-  roles: ROLE_GROUPS.FINANCE_APPROVERS
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+  audit: { action: 'APPROVE_FUEL_DEPOSIT', entity: 'OSP_FUEL_DEPOSIT' }
 });

@@ -36,5 +36,6 @@ export const POST = apiHandler(async (request) => {
 
   return { message: 'Rent Payment created successfully', data: result };
 }, {
-  roles: ROLE_GROUPS.PROJECT_MANAGERS
+  roles: ROLE_GROUPS.PROJECT_MANAGERS,
+  audit: { action: 'CREATE', entity: 'OSP_RENT' }
 });

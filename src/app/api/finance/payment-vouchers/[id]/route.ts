@@ -1,6 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
+import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
 import { z } from 'zod';
@@ -23,7 +24,7 @@ const updatePVSchema = z.object({
 // GET /api/finance/payment-vouchers/[id]
 export const GET = apiHandler(async (_req, params) => {
     const voucher = await PaymentVoucherService.getPaymentVoucherById(params.id);
-    if (!voucher) throw new Error("VOUCHER_NOT_FOUND");
+    if (!voucher) throw AppError.notFound('Payment voucher not found');
     return voucher;
 }, {
     rawResponse: true

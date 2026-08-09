@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import type { CapexOpexLedgerEntry, FinanceBudgetAllocation } from '@prisma/client';
 import {
   type CreateLedgerEntryInput,
@@ -296,8 +297,8 @@ export class CapexOpexLedgerService {
       where: { id },
       select: { sourceType: true },
     });
-    if (!entry) throw new Error('ENTRY_NOT_FOUND');
-    if (entry.sourceType !== 'MANUAL') throw new Error('CANNOT_DELETE_SYNCED_ENTRY');
+    if (!entry) throw AppError.notFound('CapexOpex ledger entry not found');
+    if (entry.sourceType !== 'MANUAL') throw AppError.badRequest('Cannot delete synced entry');
     await prisma.capexOpexLedgerEntry.delete({ where: { id } });
   }
 }

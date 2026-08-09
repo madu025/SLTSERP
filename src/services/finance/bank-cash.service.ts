@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { ACCOUNTS } from './account-codes';
 
@@ -68,8 +69,7 @@ export class BankCashService {
         }
 
         // Fetch target period journal lines
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const dateFilter: any = {};
+        const dateFilter: Prisma.DateTimeFilter = {};
         if (fromDate) dateFilter.gte = fromDate;
         if (toDate) dateFilter.lte = toDate;
 

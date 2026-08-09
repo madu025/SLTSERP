@@ -28,5 +28,6 @@ export const POST = apiHandler(async (req: Request) => {
   
   return result;
 }, {
-  roles: ROLE_GROUPS.FINANCE_APPROVERS
+  roles: ROLE_GROUPS.FINANCE_APPROVERS,
+  audit: { action: 'UPDATE', entity: 'EXCHANGE_RATE' }
 });
