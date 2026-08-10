@@ -46,6 +46,7 @@ function LoginContent() {
 
   // Session expired banner (set by global 401 interceptor in SessionManager)
   const sessionExpired = searchParams.get('session') === 'expired';
+  const callbackUrl = searchParams.get('callbackUrl') || null;
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -100,7 +101,9 @@ function LoginContent() {
         // Note: mustChangePassword users are no longer redirected to /profile.
         // The global ForcePasswordChangeModal handles the forced rotation UX
         // on any page, so users can land on their normal destination.
-        if (contractorLogin) {
+        if (callbackUrl) {
+          router.push(callbackUrl);
+        } else if (contractorLogin) {
           router.push("/contractor/dashboard");
         } else if (storesLogin) {
           router.push("/inventory");

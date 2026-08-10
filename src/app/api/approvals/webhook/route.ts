@@ -55,7 +55,7 @@ export const GET = apiHandler(async (req: Request) => {
             { status: 400, headers: { 'Content-Type': 'text/html' } }
         );
     }
-});
+}, { rawResponse: true });
 
 /**
  * Handle HTTP POST from Microsoft Actionable Messages
@@ -100,57 +100,23 @@ export const POST = apiHandler(async (req: Request) => {
 
 function generateHtmlResponse(title: string, message: string, isSuccess: boolean) {
     const color = isSuccess ? '#22c55e' : '#ef4444';
-    const icon = isSuccess ? '✓' : '✕';
+    const icon = isSuccess ? '&#10003;' : '&#10007;';
     
-    return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${title}</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                background-color: #f8fafc;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 100vh;
-                margin: 0;
-            }
-            .card {
-                background: white;
-                padding: 40px;
-                border-radius: 12px;
-                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-                text-align: center;
-                max-width: 400px;
-                width: 90%;
-            }
-            .icon {
-                width: 64px;
-                height: 64px;
-                border-radius: 50%;
-                background-color: ${color}20;
-                color: ${color};
-                font-size: 32px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px;
-            }
-            h1 { margin: 0 0 10px; color: #0f172a; font-size: 24px; }
-            p { margin: 0; color: #64748b; line-height: 1.5; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <div class="icon">${icon}</div>
-            <h1>${title}</h1>
-            <p>${message}</p>
-        </div>
-    </body>
-    </html>
-    `;
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${title}</title></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="min-height:100vh;">
+    <tr><td style="text-align:center;vertical-align:middle;padding:20px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background:white;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);max-width:400px;width:90%;margin:0 auto;">
+        <tr><td style="padding:40px 30px;text-align:center;">
+          <div style="width:64px;height:64px;border-radius:50%;background:${color}15;color:${color};font-size:32px;line-height:64px;margin:0 auto 20px;font-weight:bold;">${icon}</div>
+          <h1 style="margin:0 0 10px;color:#0f172a;font-size:24px;">${title}</h1>
+          <p style="margin:0;color:#64748b;line-height:1.5;font-size:15px;">${message}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }

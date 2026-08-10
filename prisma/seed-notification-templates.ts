@@ -1,10 +1,46 @@
 /**
  * Seed default notification templates for email customization.
+ * All styles are INLINE for Gmail/mobile compatibility.
+ * Layout uses TABLES (not flexbox/divs) so it also renders correctly
+ * in Outlook desktop (Word rendering engine) and other legacy clients.
+ * Gradients include a solid `bgcolor`/`background-color` fallback since
+ * Outlook desktop does not support CSS linear-gradient().
  * Run: npx tsx prisma/seed-notification-templates.ts
  */
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+// Shared button generator (Outlook-safe: plain <a> with padding, no border-radius reliance)
+function actionButtons(approveUrl: string, rejectUrl: string, viewUrl?: string) {
+  const viewRow = viewUrl ? `
+          <tr>
+            <td colspan="2" style="padding:0 8px 12px;text-align:center;">
+              <a href="${viewUrl}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:700;font-size:14px;background-color:#1e40af;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Review &amp; Take Action</a>
+            </td>
+          </tr>` : '';
+  return `
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">
+          ${viewRow}
+          <tr>
+            <td style="padding:0 8px;">
+              <a href="${approveUrl}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#22c55e;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Approve</a>
+            </td>
+            <td style="padding:0 8px;">
+              <a href="${rejectUrl}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#ef4444;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">Reject</a>
+            </td>
+          </tr>
+        </table>`;
+}
+
+// Shared key/value info row (table-based, replaces display:flex rows)
+function infoRow(label: string, value: string, labelColor = '#64748b') {
+  return `
+          <tr>
+            <td style="padding:6px 0;font-size:14px;width:120px;color:${labelColor};font-weight:500;vertical-align:top;font-family:'Segoe UI',Arial,sans-serif;">${label}</td>
+            <td style="padding:6px 0;font-size:14px;color:#1e293b;font-family:'Segoe UI',Arial,sans-serif;">${value}</td>
+          </tr>`;
+}
 
 const DEFAULT_TEMPLATES = [
   {
@@ -16,65 +52,50 @@ const DEFAULT_TEMPLATES = [
     channels: ['EMAIL'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f6f9; }
-    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 24px 30px; border-radius: 8px 8px 0 0; }
-    .header h2 { color: white; margin: 0; font-size: 20px; }
-    .header p { color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 13px; }
-    .body { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .greeting { font-size: 16px; color: #1e293b; margin-bottom: 16px; }
-    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0; }
-    .info-row { display: flex; padding: 6px 0; font-size: 14px; }
-    .info-label { color: #64748b; width: 120px; flex-shrink: 0; font-weight: 500; }
-    .info-value { color: #1e293b; }
-    .materials { margin: 16px 0; }
-    .materials h3 { font-size: 15px; color: #475569; margin-bottom: 8px; }
-    .materials ul { list-style: none; padding: 0; }
-    .materials li { padding: 8px 12px; background: #f8fafc; border-radius: 4px; margin-bottom: 4px; font-size: 14px; color: #334155; border-left: 3px solid #3b82f6; }
-    .actions { margin-top: 24px; text-align: center; }
-    .btn { display: inline-block; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; margin: 0 8px; }
-    .btn-approve { background-color: #22c55e; color: white; }
-    .btn-reject { background-color: #ef4444; color: white; }
-    .footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h2>Approval Required: Material Request</h2>
-      <p>Ref: {{entityId}} | Priority: {{priority}}</p>
-    </div>
-    <div class="body">
-      <p class="greeting">Dear {{user}},</p>
-      <p style="color: #475569; font-size: 14px;">You have been assigned to review this request as <strong>{{userRole}}</strong>.</p>
-      
-      <div class="info-box">
-        <div class="info-row"><span class="info-label">From Store</span><span class="info-value">{{fromStore}}</span></div>
-        <div class="info-row"><span class="info-label">To Store</span><span class="info-value">{{toStore}}</span></div>
-        <div class="info-row"><span class="info-label">Purpose</span><span class="info-value">{{purpose}}</span></div>
-        <div class="info-row"><span class="info-label">Stage</span><span class="info-value">{{status}}</span></div>
-      </div>
-
-      <div class="materials">
-        <h3>Material Summary</h3>
-        <ul>{{items}}</ul>
-      </div>
-
-      <div class="actions">
-        <a href="{{approveUrl}}" class="btn btn-approve">Approve</a>
-        <a href="{{rejectUrl}}" class="btn btn-reject">Reject</a>
-      </div>
-
-      <div class="footer">
-        <p>This action link expires in {{expiryHours}} hours.</p>
-        <p>If you did not request this, please ignore this email.</p>
-        <p style="margin-top: 8px; color: #cbd5e1;">SLTS Nexus ERP - Outside Plant Operations</p>
-      </div>
-    </div>
-  </div>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#1e40af" style="background-color:#1e40af;background-image:linear-gradient(135deg,#1e40af,#3b82f6);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">Approval Required: Material Request</h2>
+              <p style="color:#dbeafe;margin:4px 0 0;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;">Ref: {{entityId}} | Priority: {{priority}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <p style="color:#475569;font-size:14px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">You have been assigned to review this request as <strong>{{userRole}}</strong>.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
+                <tr><td style="padding:16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    ${infoRow('From Store', '{{fromStore}}')}
+                    ${infoRow('To Store', '{{toStore}}')}
+                    ${infoRow('Purpose', '{{purpose}}')}
+                    ${infoRow('Stage', '{{status}}')}
+                  </table>
+                </td></tr>
+              </table>
+              <div style="margin:16px 0;">
+                <h3 style="font-size:15px;color:#475569;margin:0 0 8px;font-family:'Segoe UI',Arial,sans-serif;">Material Summary</h3>
+                <ul style="list-style:none;padding:0;margin:0;">{{items}}</ul>
+              </div>
+              ${actionButtons('{{approveUrl}}', '{{rejectUrl}}', '{{viewUrl}}')}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:0 0 4px;">This action link expires in {{expiryHours}} hours.</p>
+                  <p style="margin:0 0 4px;">If you did not request this, please ignore this email.</p>
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
   },
@@ -87,52 +108,44 @@ const DEFAULT_TEMPLATES = [
     channels: ['EMAIL'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f6f9; }
-    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 24px 30px; border-radius: 8px 8px 0 0; }
-    .header h2 { color: white; margin: 0; font-size: 20px; }
-    .body { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0; }
-    .info-row { display: flex; padding: 6px 0; font-size: 14px; }
-    .info-label { color: #64748b; width: 120px; flex-shrink: 0; font-weight: 500; }
-    .info-value { color: #1e293b; }
-    .actions { margin-top: 24px; text-align: center; }
-    .btn { display: inline-block; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; margin: 0 8px; }
-    .btn-approve { background-color: #22c55e; color: white; }
-    .btn-reject { background-color: #ef4444; color: white; }
-    .footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h2>Approval Required: {{entityType}}</h2>
-    </div>
-    <div class="body">
-      <p style="font-size: 16px; color: #1e293b;">Dear {{user}},</p>
-      <p style="color: #475569; font-size: 14px;">You have been assigned to review and approve this request.</p>
-      
-      <div class="info-box">
-        <div class="info-row"><span class="info-label">Entity</span><span class="info-value">{{entityName}}</span></div>
-        <div class="info-row"><span class="info-label">Type</span><span class="info-value">{{entityType}}</span></div>
-        <div class="info-row"><span class="info-label">Status</span><span class="info-value">{{status}}</span></div>
-      </div>
-
-      <div class="actions">
-        <a href="{{approveUrl}}" class="btn btn-approve">Approve</a>
-        <a href="{{rejectUrl}}" class="btn btn-reject">Reject</a>
-      </div>
-
-      <div class="footer">
-        <p>This action link expires in {{expiryHours}} hours.</p>
-        <p>If you did not request this, please ignore this email.</p>
-        <p style="margin-top: 8px; color: #cbd5e1;">SLTS Nexus ERP - Outside Plant Operations</p>
-      </div>
-    </div>
-  </div>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#1e40af" style="background-color:#1e40af;background-image:linear-gradient(135deg,#1e40af,#3b82f6);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">Approval Required: {{entityType}}</h2>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <p style="color:#475569;font-size:14px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">You have been assigned to review and approve this request.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
+                <tr><td style="padding:16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    ${infoRow('Entity', '{{entityName}}')}
+                    ${infoRow('Type', '{{entityType}}')}
+                    ${infoRow('Status', '{{status}}')}
+                  </table>
+                </td></tr>
+              </table>
+              ${actionButtons('{{approveUrl}}', '{{rejectUrl}}', '{{viewUrl}}')}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:0 0 4px;">This action link expires in {{expiryHours}} hours.</p>
+                  <p style="margin:0 0 4px;">If you did not request this, please ignore this email.</p>
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
   },
@@ -145,51 +158,43 @@ const DEFAULT_TEMPLATES = [
     channels: ['EMAIL'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f6f9; }
-    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #b45309, #f59e0b); padding: 24px 30px; border-radius: 8px 8px 0 0; }
-    .header h2 { color: white; margin: 0; font-size: 20px; }
-    .body { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .info-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin: 16px 0; }
-    .info-row { display: flex; padding: 6px 0; font-size: 14px; }
-    .info-label { color: #92400e; width: 120px; flex-shrink: 0; font-weight: 500; }
-    .info-value { color: #1e293b; }
-    .actions { margin-top: 24px; text-align: center; }
-    .btn { display: inline-block; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; margin: 0 8px; }
-    .btn-approve { background-color: #22c55e; color: white; }
-    .btn-reject { background-color: #ef4444; color: white; }
-    .footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h2>Wastage Approval Required</h2>
-    </div>
-    <div class="body">
-      <p style="font-size: 16px; color: #1e293b;">Dear {{user}},</p>
-      <p style="color: #475569; font-size: 14px;">A wastage record requires your approval.</p>
-      
-      <div class="info-box">
-        <div class="info-row"><span class="info-label">Record</span><span class="info-value">{{entityId}}</span></div>
-        <div class="info-row"><span class="info-label">Details</span><span class="info-value">{{entityName}}</span></div>
-        <div class="info-row"><span class="info-label">Date</span><span class="info-value">{{date}}</span></div>
-      </div>
-
-      <div class="actions">
-        <a href="{{approveUrl}}" class="btn btn-approve">Approve</a>
-        <a href="{{rejectUrl}}" class="btn btn-reject">Reject</a>
-      </div>
-
-      <div class="footer">
-        <p>This action link expires in {{expiryHours}} hours.</p>
-        <p style="margin-top: 8px; color: #cbd5e1;">SLTS Nexus ERP - Outside Plant Operations</p>
-      </div>
-    </div>
-  </div>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#b45309" style="background-color:#b45309;background-image:linear-gradient(135deg,#b45309,#f59e0b);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">Wastage Approval Required</h2>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <p style="color:#475569;font-size:14px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">A wastage record requires your approval.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fffbeb" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin:16px 0;">
+                <tr><td style="padding:16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    ${infoRow('Record', '{{entityId}}', '#92400e')}
+                    ${infoRow('Details', '{{entityName}}', '#92400e')}
+                    ${infoRow('Date', '{{date}}', '#92400e')}
+                  </table>
+                </td></tr>
+              </table>
+              ${actionButtons('{{approveUrl}}', '{{rejectUrl}}', '{{viewUrl}}')}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:0 0 4px;">This action link expires in {{expiryHours}} hours.</p>
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
   },
@@ -202,38 +207,42 @@ const DEFAULT_TEMPLATES = [
     channels: ['EMAIL'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f6f9; }
-    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #7c3aed, #a78bfa); padding: 24px 30px; border-radius: 8px 8px 0 0; }
-    .header h2 { color: white; margin: 0; font-size: 20px; }
-    .body { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .alert-box { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 16px; margin: 16px 0; }
-    .btn { display: inline-block; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; background-color: #7c3aed; color: white; }
-    .footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h2>{{title}}</h2>
-    </div>
-    <div class="body">
-      <p style="font-size: 16px; color: #1e293b;">Dear {{user}},</p>
-      <div class="alert-box">
-        <p style="color: #475569; font-size: 14px; margin: 0;">{{message}}</p>
-      </div>
-      <p style="color: #94a3b8; font-size: 12px;">{{date}}</p>
-      <div style="margin-top: 24px; text-align: center;">
-        <a href="{{actionUrl}}" class="btn">View Details</a>
-      </div>
-      <div class="footer">
-        <p style="margin-top: 8px; color: #cbd5e1;">SLTS Nexus ERP - Outside Plant Operations</p>
-      </div>
-    </div>
-  </div>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#7c3aed" style="background-color:#7c3aed;background-image:linear-gradient(135deg,#7c3aed,#a78bfa);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">{{title}}</h2>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f3ff" style="background-color:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:16px;margin:16px 0;">
+                <tr><td style="padding:16px;">
+                  <p style="color:#475569;font-size:14px;margin:0;font-family:'Segoe UI',Arial,sans-serif;">{{message}}</p>
+                </td></tr>
+              </table>
+              <p style="color:#94a3b8;font-size:12px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">{{date}}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">
+                <tr><td>
+                  <a href="{{actionUrl}}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#7c3aed;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">View Details</a>
+                </td></tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
   },
@@ -246,43 +255,41 @@ const DEFAULT_TEMPLATES = [
     channels: ['EMAIL'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f6f9; }
-    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #dc2626, #f87171); padding: 24px 30px; border-radius: 8px 8px 0 0; }
-    .header h2 { color: white; margin: 0; font-size: 20px; }
-    .body { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .alert-box { background: #fff5f5; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0; }
-    .items { margin: 16px 0; }
-    .items ul { list-style: none; padding: 0; }
-    .items li { padding: 8px 12px; background: #fff5f5; border-radius: 4px; margin-bottom: 4px; font-size: 14px; color: #991b1b; border-left: 3px solid #ef4444; }
-    .footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h2>FEFO Compliance: Batch Expiry Digest</h2>
-    </div>
-    <div class="body">
-      <p style="font-size: 16px; color: #1e293b;">Dear {{user}},</p>
-      <div class="alert-box">
-        <p style="color: #991b1b; font-size: 14px; margin: 0;">
-          <strong>{{itemCount}}</strong> batch(es) are expiring within 30 days at <strong>{{storeName}}</strong>.
-        </p>
-      </div>
-      <div class="items">
-        <h3 style="font-size: 15px; color: #991b1b;">Expiring Batches</h3>
-        <ul>{{items}}</ul>
-      </div>
-      <p style="color: #94a3b8; font-size: 12px;">Generated: {{date}}</p>
-      <div class="footer">
-        <p style="margin-top: 8px; color: #cbd5e1;">SLTS Nexus ERP - Outside Plant Operations</p>
-      </div>
-    </div>
-  </div>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#dc2626" style="background-color:#dc2626;background-image:linear-gradient(135deg,#dc2626,#f87171);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">FEFO Compliance: Batch Expiry Digest</h2>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fff5f5" style="background-color:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+                <tr><td style="padding:16px;">
+                  <p style="color:#991b1b;font-size:14px;margin:0;font-family:'Segoe UI',Arial,sans-serif;"><strong>{{itemCount}}</strong> batch(es) are expiring within 30 days at <strong>{{storeName}}</strong>.</p>
+                </td></tr>
+              </table>
+              <div style="margin:16px 0;">
+                <h3 style="font-size:15px;color:#991b1b;margin:0 0 8px;font-family:'Segoe UI',Arial,sans-serif;">Expiring Batches</h3>
+                <ul style="list-style:none;padding:0;margin:0;">{{items}}</ul>
+              </div>
+              <p style="color:#94a3b8;font-size:12px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Generated: {{date}}</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
   },
@@ -295,38 +302,36 @@ const DEFAULT_TEMPLATES = [
     channels: ['EMAIL'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f6f9; }
-    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #0891b2, #22d3ee); padding: 24px 30px; border-radius: 8px 8px 0 0; }
-    .header h2 { color: white; margin: 0; font-size: 20px; }
-    .header p { color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 13px; }
-    .body { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .notif-list { margin: 16px 0; }
-    .notif-list ul { list-style: none; padding: 0; }
-    .notif-list li { padding: 10px 12px; background: #f0fdfa; border-radius: 4px; margin-bottom: 4px; font-size: 14px; color: #134e4a; border-left: 3px solid #14b8a6; }
-    .footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h2>Daily Notification Summary</h2>
-      <p>{{unreadCount}} unread notification(s)</p>
-    </div>
-    <div class="body">
-      <p style="font-size: 16px; color: #1e293b;">Dear {{user}},</p>
-      <p style="color: #475569; font-size: 14px;">Here is your daily notification digest for {{date}}.</p>
-      <div class="notif-list">
-        <ul>{{notifications}}</ul>
-      </div>
-      <div class="footer">
-        <p style="margin-top: 8px; color: #cbd5e1;">SLTS Nexus ERP - Outside Plant Operations</p>
-      </div>
-    </div>
-  </div>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#0891b2" style="background-color:#0891b2;background-image:linear-gradient(135deg,#0891b2,#22d3ee);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">Daily Notification Summary</h2>
+              <p style="color:#cffafe;margin:4px 0 0;font-size:13px;font-family:'Segoe UI',Arial,sans-serif;">{{unreadCount}} unread notification(s)</p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <p style="color:#475569;font-size:14px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Here is your daily notification digest for {{date}}.</p>
+              <div style="margin:16px 0;">
+                <ul style="list-style:none;padding:0;margin:0;">{{notifications}}</ul>
+              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
   },
@@ -339,43 +344,46 @@ const DEFAULT_TEMPLATES = [
     channels: ['EMAIL'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f6f9; }
-    .wrapper { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 24px 30px; border-radius: 8px 8px 0 0; }
-    .header h2 { color: white; margin: 0; font-size: 20px; }
-    .body { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .btn { display: inline-block; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; background-color: #3b82f6; color: white; }
-    .footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h2>{{title}}</h2>
-    </div>
-    <div class="body">
-      <p style="font-size: 16px; color: #1e293b;">Dear {{user}},</p>
-      <p style="color: #475569; font-size: 14px;">{{message}}</p>
-      <p style="color: #94a3b8; font-size: 12px;">{{date}}</p>
-      <div style="margin-top: 24px; text-align: center;">
-        <a href="{{actionUrl}}" class="btn">View Details</a>
-      </div>
-      <div class="footer">
-        <p style="margin-top: 8px; color: #cbd5e1;">SLTS Nexus ERP - Outside Plant Operations</p>
-      </div>
-    </div>
-  </div>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Arial,sans-serif;padding:0;margin:0;background-color:#f4f6f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;">
+    <tr>
+      <td align="center" style="padding:20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td bgcolor="#1e40af" style="background-color:#1e40af;background-image:linear-gradient(135deg,#1e40af,#3b82f6);padding:24px 30px;border-radius:8px 8px 0 0;">
+              <h2 style="color:#ffffff;margin:0;font-size:20px;font-family:'Segoe UI',Arial,sans-serif;">{{title}}</h2>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background-color:#ffffff;padding:30px;border-radius:0 0 8px 8px;">
+              <p style="font-size:16px;color:#1e293b;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">Dear {{user}},</p>
+              <p style="color:#475569;font-size:14px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">{{message}}</p>
+              <p style="color:#94a3b8;font-size:12px;margin:0 0 16px;font-family:'Segoe UI',Arial,sans-serif;">{{date}}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 0;">
+                <tr><td>
+                  <a href="{{actionUrl}}" style="display:inline-block;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;background-color:#3b82f6;color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;">View Details</a>
+                </td></tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+                <tr><td style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;font-family:'Segoe UI',Arial,sans-serif;">
+                  <p style="margin:8px 0 0;color:#94a3b8;">SLTS Nexus ERP - Outside Plant Operations</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
   }
 ];
 
 async function main() {
-  console.log('Seeding notification templates...');
-  
+  console.log('Seeding notification templates (email-client-safe, inline + table layout)...');
+
   for (const tpl of DEFAULT_TEMPLATES) {
     await prisma.notificationTemplate.upsert({
       where: { code: tpl.code },

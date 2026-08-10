@@ -24,6 +24,19 @@ export class DynamicApprovalService {
     }
 
     /**
+     * Generates a neutral VIEW token that opens the approval detail page
+     * without taking any action. The page then issues fresh approve/reject
+     * tokens so the approver can review details before deciding.
+     */
+    static generateViewToken(instanceId: string, userId: string) {
+        return jwt.sign(
+            { instanceId, userId, purpose: 'VIEW' },
+            getJwtSecret(),
+            { expiresIn: '48h' }
+        );
+    }
+
+    /**
      * Dispatch an Office 365 Actionable Email
      */
     static async sendActionableEmail(
@@ -36,11 +49,13 @@ export class DynamicApprovalService {
     ) {
         const approveToken = this.generateActionToken(instanceId, 'APPROVED', userId);
         const rejectToken = this.generateActionToken(instanceId, 'REJECTED', userId);
+        const viewToken = this.generateViewToken(instanceId, userId);
 
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
         
         const approveUrl = `${baseUrl}/api/approvals/webhook?token=${approveToken}`;
         const rejectUrl = `${baseUrl}/api/approvals/webhook?token=${rejectToken}`;
+        const viewUrl = `${baseUrl}/approvals/action?token=${viewToken}`;
 
         // Microsoft Actionable Message JSON Payload
         const actionableCard = {
@@ -78,6 +93,7 @@ export class DynamicApprovalService {
             entityId,
             approveUrl,
             rejectUrl,
+            viewUrl,
             expiryHours: '48',
             amount: amount ? amount.toLocaleString() : '',
             status: 'PENDING'
@@ -98,6 +114,9 @@ export class DynamicApprovalService {
                     <p>You have been assigned to approve this request.</p>
                     ${amount ? `<p><strong>Amount:</strong> LKR ${amount.toLocaleString()}</p>` : ''}
                     <div style="margin-top: 20px;">
+                        <a href="${viewUrl}" style="background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Review &amp; Take Action</a>
+                    </div>
+                    <div style="margin-top: 12px;">
                         <a href="${approveUrl}" style="background-color: #22c55e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Approve</a>
                         <a href="${rejectUrl}" style="background-color: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reject</a>
                     </div>
@@ -143,9 +162,11 @@ export class DynamicApprovalService {
 
         const approveToken = this.generateActionToken(instanceId, 'APPROVED', userId);
         const rejectToken = this.generateActionToken(instanceId, 'REJECTED', userId);
+        const viewToken = this.generateViewToken(instanceId, userId);
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
         const approveUrl = `${baseUrl}/api/approvals/webhook?token=${approveToken}`;
         const rejectUrl = `${baseUrl}/api/approvals/webhook?token=${rejectToken}`;
+        const viewUrl = `${baseUrl}/approvals/action?token=${viewToken}`;
 
         // Map items to adaptive card facts
         const itemFacts = stockRequest.items.map(item => ({
@@ -201,6 +222,7 @@ export class DynamicApprovalService {
             entityName: stockRequest.purpose || 'N/A',
             approveUrl,
             rejectUrl,
+            viewUrl,
             expiryHours: '48',
             status: stockRequest.workflowStage,
             userRole: requiredRole,
@@ -231,6 +253,9 @@ export class DynamicApprovalService {
                         ${itemsHtml}
                     </ul>
                     <div style="margin-top: 20px;">
+                        <a href="${viewUrl}" style="background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Review &amp; Take Action</a>
+                    </div>
+                    <div style="margin-top: 12px;">
                         <a href="${approveUrl}" style="background-color: #22c55e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Approve</a>
                         <a href="${rejectUrl}" style="background-color: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reject</a>
                     </div>
@@ -249,6 +274,59 @@ export class DynamicApprovalService {
             text,
             html
         }).catch(err => console.error('[DynamicApprovalService] Async Email Dispatch Failed:', err));
+    }
+
+    /**
+     * Returns approval instance details for the public view page.
+     * Hydrates Material Request items when applicable.
+     */
+    static async getApprovalDetails(instanceId: string) {
+        const instance = await prisma.universalApprovalInstance.findUnique({
+            where: { id: instanceId },
+            include: { assignedUser: { select: { name: true, email: true, role: true } } }
+        });
+
+        if (!instance) throw AppError.notFound('Approval instance not found.');
+
+        const details: Record<string, unknown> = {
+            id: instance.id,
+            entityType: instance.entityType,
+            entityId: instance.entityId,
+            status: instance.status,
+            requiredRole: instance.requiredRole,
+            level: instance.level,
+            createdAt: instance.createdAt,
+            assignedUser: instance.assignedUser
+                ? { name: instance.assignedUser.name, email: instance.assignedUser.email, role: instance.assignedUser.role }
+                : null
+        };
+
+        // Hydrate Material Request items for a richer view (only when entityId is a valid UUID)
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(instance.entityId);
+        if (isUuid && (instance.entityType === 'MATERIAL_REQUEST' || instance.entityType === 'TEST_APPROVAL')) {
+            const stockRequest = await prisma.stockRequest.findUnique({
+                where: { id: instance.entityId },
+                include: {
+                    items: { include: { item: true } },
+                    fromStore: true,
+                    toStore: true
+                }
+            });
+            if (stockRequest) {
+                details.requestNr = stockRequest.requestNr;
+                details.priority = stockRequest.priority;
+                details.purpose = stockRequest.purpose;
+                details.fromStore = stockRequest.fromStore?.name || 'External/Vendor';
+                details.toStore = stockRequest.toStore?.name || 'N/A';
+                details.items = stockRequest.items.map(i => ({
+                    name: i.item.name || i.item.code,
+                    qty: i.requestedQty,
+                    unit: i.item.unit
+                }));
+            }
+        }
+
+        return details;
     }
 
     /**

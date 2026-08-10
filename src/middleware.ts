@@ -156,6 +156,8 @@ export async function middleware(request: NextRequest) {
 
         const targetRedirect = pathname.startsWith('/contractor') ? '/contractor/login' : '/login';
         const loginUrl = new URL(targetRedirect, request.url);
+        // Preserve the original URL as callback so after login the user returns here
+        loginUrl.searchParams.set('callbackUrl', pathname + request.nextUrl.search);
         return NextResponse.redirect(loginUrl);
     }
 
