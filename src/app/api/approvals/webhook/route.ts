@@ -22,7 +22,7 @@ export const GET = apiHandler(async (req: Request) => {
         const result = await DynamicApprovalService.processApprovalWebhook(token);
         
         // --- INTEGRATION: TRIGGER NEXT DOMAIN STAGE ---
-        if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'APPROVED') {
+        if (result.entityType === 'MATERIAL_REQUEST' && (result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED')) {
             const { StockRequestService } = await import('@/services/inventory/stock-request.service');
             await StockRequestService.processStockRequestAction({
                 requestId: result.entityId,
@@ -30,7 +30,7 @@ export const GET = apiHandler(async (req: Request) => {
                 userId: result.actionedById!,
                 instanceId: result.instanceId
             }).catch(err => console.error(`[Webhook GET] Domain integration failed:`, err));
-        } else if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'REJECTED') {
+        } else if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'GATE_REJECTED') {
             const { StockRequestService } = await import('@/services/inventory/stock-request.service');
             await StockRequestService.processStockRequestAction({
                 requestId: result.entityId,
@@ -40,12 +40,18 @@ export const GET = apiHandler(async (req: Request) => {
             }).catch(err => console.error('[Webhook GET] Domain integration reject failed:', err));
         }
 
+        const isApproved = result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED';
+        const title = isApproved
+            ? (result.status === 'GATE_ADVANCED' ? 'Level Approved' : 'Approval Successful')
+            : 'Request Rejected';
+        const message = isApproved
+            ? (result.status === 'GATE_ADVANCED'
+                ? 'This level has been approved. The request has been forwarded to the next approver.'
+                : 'The request has been successfully approved.')
+            : 'The request has been rejected.';
+
         return new NextResponse(
-            generateHtmlResponse(
-                'Approval Successful', 
-                `The request has been successfully ${result.status.toLowerCase()}.`, 
-                true
-            ),
+            generateHtmlResponse(title, message, isApproved),
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         );
     } catch (error: unknown) {
@@ -70,7 +76,7 @@ export const POST = apiHandler(async (req: Request) => {
     const result = await DynamicApprovalService.processApprovalWebhook(token);
     
     // --- INTEGRATION: TRIGGER NEXT DOMAIN STAGE ---
-    if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'APPROVED') {
+    if (result.entityType === 'MATERIAL_REQUEST' && (result.status === 'GATE_PASSED' || result.status === 'GATE_ADVANCED')) {
         const { StockRequestService } = await import('@/services/inventory/stock-request.service');
         await StockRequestService.processStockRequestAction({
             requestId: result.entityId,
@@ -78,7 +84,7 @@ export const POST = apiHandler(async (req: Request) => {
             userId: result.actionedById!,
             instanceId: result.instanceId
         }).catch(err => console.error(`[Webhook POST] Domain integration failed:`, err));
-    } else if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'REJECTED') {
+    } else if (result.entityType === 'MATERIAL_REQUEST' && result.status === 'GATE_REJECTED') {
         const { StockRequestService } = await import('@/services/inventory/stock-request.service');
         await StockRequestService.processStockRequestAction({
             requestId: result.entityId,
