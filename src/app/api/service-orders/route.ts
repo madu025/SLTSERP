@@ -133,7 +133,7 @@ export const PUT = apiHandler(
         }
         
         const userId = request.headers.get('x-user-id') || undefined;
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+        const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
     { schema: serviceOrderUpdateSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }
@@ -148,7 +148,7 @@ export const PATCH = apiHandler(
         }
 
         const userId = request.headers.get('x-user-id') || undefined;
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+        const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
     { schema: serviceOrderPatchSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }

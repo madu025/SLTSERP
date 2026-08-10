@@ -49,7 +49,7 @@ export const PATCH = apiHandler(async (req: Request) => {
         throw AppError.badRequest('Service Order ID required');
     }
 
-    return await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+    return await ServiceOrderService.updateServiceOrder(id, updateData, userId);
 }, {
     roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
 });

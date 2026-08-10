@@ -173,7 +173,7 @@ export class SODAutoCompletionService {
                             // Use existing ServiceOrderService to maintain consistency
                             const { ServiceOrderService } = await import('@/services/service-order/sod.service');
 
-                            await ServiceOrderService.patchServiceOrder(
+                            await ServiceOrderService.updateServiceOrder(
                                 localSOD.id,
                                 {
                                     status: 'COMPLETED',

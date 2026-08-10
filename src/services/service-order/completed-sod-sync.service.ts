@@ -132,7 +132,7 @@ export class CompletedSODSyncService {
                                         // "[AUTO-SYNC] Disappeared from active portal list" comment
                                         const wasDisappeared = localSOD.sltsStatus === SodStatus.DISAPPEARED;
 
-                                        await ServiceOrderService.patchServiceOrder(
+                                        await ServiceOrderService.updateServiceOrder(
                                             localSOD.id,
                                             {
                                                 status: effectiveLegacyStatus,
@@ -149,7 +149,7 @@ export class CompletedSODSyncService {
                                         );
 
                                         // FIX: When recovering from DISAPPEARED, ensure status field is also updated
-                                        // patchServiceOrder may not update status if there's a collision check
+                                        // updateServiceOrder may not update status if there's a collision check
                                         // Also clear stale "[AUTO-SYNC] Disappeared" text from comments column
                                         if (wasDisappeared) {
                                             await prisma.serviceOrder.update({

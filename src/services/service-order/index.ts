@@ -66,9 +66,9 @@ export class ServiceOrderService {
     }
 
     /**
-     * Patch Update (Status Change, Completion, Material Usage, etc.)
+     * Update Service Order (Status Change, Completion, Material Usage, etc.)
      */
-    static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder> {
+    static async updateServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder> {
         if (!id) throw AppError.badRequest('ID_REQUIRED');
 
         const oldOrder = await ServiceOrderRepository.findById(id, { materialUsage: true });
@@ -98,7 +98,7 @@ export class ServiceOrderService {
         const collisionId = await SODLifecycleService.validateStatusTransition(id, oldOrder.soNum, data.status, oldOrder.status);
         if (collisionId) {
             console.warn(`[PATCH] Status collision detected for ${oldOrder.soNum}. Redirecting update.`);
-            return this.patchServiceOrder(collisionId, { ...data, status: undefined }, userId);
+            return this.updateServiceOrder(collisionId, { ...data, status: undefined }, userId);
         }
 
         // 2. Prepare Update Data
