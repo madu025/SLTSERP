@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingKey = document.getElementById('setting-key');
     const settingOrigin = document.getElementById('setting-origin');
     const saveSettingsBtn = document.getElementById('save-settings');
+    const resetSettingsBtn = document.getElementById('reset-settings');
     const settingsMsg = document.getElementById('settings-msg');
 
     let currentSoNum = null;
@@ -141,10 +142,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ─── Settings ────────────────────────────────────────────────────
+    const DEFAULT_KEY = 'slt-bridge-secret-2026';
+    const DEFAULT_ORIGIN = 'https://sltserp.vercel.app';
+
     function loadSettings() {
         chrome.storage.local.get(['extensionKey', 'erpOrigin'], (res) => {
-            settingKey.value = res.extensionKey || '';
-            settingOrigin.value = res.erpOrigin || 'https://sltserp.vercel.app';
+            settingKey.value = res.extensionKey || DEFAULT_KEY;
+            settingOrigin.value = res.erpOrigin || DEFAULT_ORIGIN;
         });
     }
 
@@ -154,6 +158,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chrome.storage.local.set({ extensionKey: key, erpOrigin: origin }, () => {
             settingsMsg.innerText = 'Settings saved';
+            settingsMsg.className = 'status-msg msg-success';
+            setTimeout(() => { settingsMsg.innerText = ''; }, 2000);
+        });
+    });
+
+    resetSettingsBtn.addEventListener('click', () => {
+        chrome.storage.local.set({ extensionKey: DEFAULT_KEY, erpOrigin: DEFAULT_ORIGIN }, () => {
+            settingKey.value = DEFAULT_KEY;
+            settingOrigin.value = DEFAULT_ORIGIN;
+            settingsMsg.innerText = 'Reset to defaults';
             settingsMsg.className = 'status-msg msg-success';
             setTimeout(() => { settingsMsg.innerText = ''; }, 2000);
         });

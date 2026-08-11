@@ -1,20 +1,23 @@
 /**
  * SLT-ERP Bridge v4.5.1
  * Background: Persistence Proxy & ERP Bridge
- * - Secret from storage (not hardcoded)
+ * - Pre-configured extension key (auto-set on install)
  * - Retry queue for failed syncs
  * - Sync status tracking
  */
 
 const VERSION = '4.5.1';
 
-// ─── Secret Management ───────────────────────────────────────────────
-// Extension key is read from chrome.storage, set by popup or ERP content script.
-// On first install, it's empty — user must configure it via the popup settings.
+// ─── Pre-configured Extension Key ────────────────────────────────────
+// This key is baked into the extension build. It matches EXTENSION_SECRET
+// in the ERP's .env file. Users do NOT need to configure this manually.
+const DEFAULT_EXTENSION_KEY = 'slt-bridge-secret-2026';
+
 async function getExtensionKey() {
     return new Promise((resolve) => {
         chrome.storage.local.get(['extensionKey'], (res) => {
-            resolve(res.extensionKey || '');
+            // Use stored override or fall back to pre-configured default
+            resolve(res.extensionKey || DEFAULT_EXTENSION_KEY);
         });
     });
 }
@@ -292,8 +295,11 @@ chrome.alarms.onAlarm.addListener(alarm => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
+    // Pre-configure extension key on install (zero-config for users)
+    chrome.storage.local.set({ extensionKey: DEFAULT_EXTENSION_KEY }, () => {
+        console.log(`[BRIDGE] v${VERSION} installed - key pre-configured`);
+    });
     syncSLTCookie();
-    console.log(`[BRIDGE] v${VERSION} installed`);
 });
 chrome.runtime.onStartup.addListener(syncSLTCookie);
 

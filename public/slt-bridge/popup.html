@@ -140,19 +140,21 @@
         <!-- Settings Tab -->
         <div id="tab-settings" class="tab-content">
             <div class="card">
-                <div class="so-label">Configuration</div>
+                <div class="so-label">Advanced Settings</div>
+                <div style="font-size: 10px; color: var(--success); margin-bottom: 8px; font-weight: 600;">Extension key is pre-configured. No setup needed.</div>
 
                 <div class="setting-row">
-                    <label class="setting-label">Extension Secret Key</label>
-                    <input type="password" id="setting-key" class="setting-input" placeholder="Enter extension secret key">
+                    <label class="setting-label">Extension Secret Key (pre-configured)</label>
+                    <input type="password" id="setting-key" class="setting-input" placeholder="Auto-configured on install">
                 </div>
 
                 <div class="setting-row">
-                    <label class="setting-label">ERP Origin URL</label>
+                    <label class="setting-label">ERP Origin URL (auto-detected)</label>
                     <input type="text" id="setting-origin" class="setting-input" placeholder="https://sltserp.vercel.app">
                 </div>
 
                 <button id="save-settings" class="btn btn-primary btn-sm">SAVE SETTINGS</button>
+                <button id="reset-settings" class="btn btn-ghost btn-sm" style="margin-top: 4px;">RESET TO DEFAULTS</button>
                 <div id="settings-msg" class="status-msg"></div>
             </div>
         </div>
