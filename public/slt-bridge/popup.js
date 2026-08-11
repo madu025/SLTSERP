@@ -13,9 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusDot = document.getElementById('status-dot');
     const pendingBadge = document.getElementById('pending-badge');
     const historyList = document.getElementById('history-list');
-    const settingKey = document.getElementById('setting-key');
-    const settingOrigin = document.getElementById('setting-origin');
-    const saveSettingsBtn = document.getElementById('save-settings');
+    const keyStatus = document.getElementById('key-status');
+    const keyStatusDot = document.getElementById('key-status-dot');
+    const originDisplay = document.getElementById('origin-display');
     const resetSettingsBtn = document.getElementById('reset-settings');
     const settingsMsg = document.getElementById('settings-msg');
 
@@ -141,32 +141,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ─── Settings ────────────────────────────────────────────────────
+    // ─── Settings (Read-Only Status) ─────────────────────────────────
     const DEFAULT_KEY = 'slt-bridge-secret-2026';
     const DEFAULT_ORIGIN = 'https://sltserp.vercel.app';
 
     function loadSettings() {
         chrome.storage.local.get(['extensionKey', 'erpOrigin'], (res) => {
-            settingKey.value = res.extensionKey || DEFAULT_KEY;
-            settingOrigin.value = res.erpOrigin || DEFAULT_ORIGIN;
+            const key = res.extensionKey || DEFAULT_KEY;
+            const origin = res.erpOrigin || DEFAULT_ORIGIN;
+
+            // Show key status
+            if (key === DEFAULT_KEY) {
+                keyStatus.innerText = 'Pre-configured';
+                keyStatus.style.color = 'var(--success)';
+                keyStatusDot.className = 'dot dot-success';
+            } else {
+                keyStatus.innerText = 'Custom (modified)';
+                keyStatus.style.color = 'var(--warning)';
+                keyStatusDot.className = 'dot dot-warning';
+            }
+
+            // Show origin
+            originDisplay.innerText = origin;
         });
     }
 
-    saveSettingsBtn.addEventListener('click', () => {
-        const key = settingKey.value.trim();
-        const origin = settingOrigin.value.trim().replace(/\/+$/, '');
-
-        chrome.storage.local.set({ extensionKey: key, erpOrigin: origin }, () => {
-            settingsMsg.innerText = 'Settings saved';
-            settingsMsg.className = 'status-msg msg-success';
-            setTimeout(() => { settingsMsg.innerText = ''; }, 2000);
-        });
-    });
-
     resetSettingsBtn.addEventListener('click', () => {
         chrome.storage.local.set({ extensionKey: DEFAULT_KEY, erpOrigin: DEFAULT_ORIGIN }, () => {
-            settingKey.value = DEFAULT_KEY;
-            settingOrigin.value = DEFAULT_ORIGIN;
+            loadSettings(); // Refresh display
             settingsMsg.innerText = 'Reset to defaults';
             settingsMsg.className = 'status-msg msg-success';
             setTimeout(() => { settingsMsg.innerText = ''; }, 2000);
