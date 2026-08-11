@@ -1,63 +1,44 @@
 /**
- * SLT-ERP PHOENIX ELITE v4.5.0
+ * SLT-ERP Bridge v4.5.1
  * World: MAIN
- * Role: ERP Smart Injector
+ * Role: ERP Smart Injector (fills ERP forms from scraped SLT Portal data)
  */
 
-console.log('%c[i-SHAMP-INJECTOR] v4.5.0 Engaged', 'color: #3b82f6; font-weight: bold;');
+const BRIDGE_VERSION = "4.5.1";
 
-// 1. Identity Verification (v4.5.0)
+console.log(`%c[SLT-BRIDGE] Injector v${BRIDGE_VERSION} Engaged`, 'color: #3b82f6; font-weight: bold;');
+
+// ─── Identity & Discovery ────────────────────────────────────────────
 (function () {
-    const version = "4.5.0";
+    document.documentElement.setAttribute('data-slt-bridge', 'active');
+    document.documentElement.setAttribute('data-slt-bridge-version', BRIDGE_VERSION);
+    document.documentElement.setAttribute('data-slt-bridge-detected', new Date().toISOString());
 
-    // Set identity attributes for ERP UI
-    document.documentElement.setAttribute('data-ishamp-bridge', 'active');
-    document.documentElement.setAttribute('data-ishamp-version', version);
-    document.documentElement.setAttribute('data-ishamp-detected', new Date().toISOString());
-
-    // Legacy support attributes
-    document.documentElement.setAttribute('data-phoenix-bridge', 'active');
-    document.documentElement.setAttribute('data-phoenix-version', version);
-    document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
-
-    // Discovery Dispatcher (Multi-Event for maximum compatibility)
     const dispatchDiscovery = () => {
-        const detail = {
-            version: version,
-            brand: 'i-Shamp',
-            timestamp: new Date().toISOString()
-        };
-
-        // Multi-channel broadcast
-        window.dispatchEvent(new CustomEvent('ISHAMP_BRIDGE_DETECTED', { detail }));
-        window.dispatchEvent(new CustomEvent('SLT_BRIDGE_DETECTED', { detail }));
-        window.dispatchEvent(new CustomEvent('PHOENIX_BRIDGE_DETECTED', { detail }));
-
-        console.log(`[i-SHAMP] Discovery broadcast (v${version})`);
+        window.dispatchEvent(new CustomEvent('SLT_BRIDGE_DETECTED', {
+            detail: { version: BRIDGE_VERSION, timestamp: new Date().toISOString() }
+        }));
     };
 
     // Staggered dispatches to catch React hydration
     dispatchDiscovery();
     setTimeout(dispatchDiscovery, 1000);
     setTimeout(dispatchDiscovery, 3000);
-    setTimeout(dispatchDiscovery, 5000);
 
     // Global Identity Exposure (MAIN world only)
-    window.ISHAMP_BRIDGE = {
-        version: version,
+    window.SLT_BRIDGE = {
+        version: BRIDGE_VERSION,
         status: 'CONNECTED',
         detected: true
     };
-
-    console.log(`%c[i-SHAMP] Universal Bridge Handshake Initialized`, 'color: #10b981; font-weight: bold;');
 })();
 
+// ─── Smart Fill from Bridge Data ─────────────────────────────────────
 window.addEventListener('message', (event) => {
     if (event.source !== window || !event.data.payload) return;
 
-    if (event.data.type === 'FROM_PHOENIX_BRIDGE') {
+    if (event.data.type === 'FROM_SLT_BRIDGE') {
         const data = event.data.payload;
-        console.log('[PHOENIX-INJECTOR] Processing SO:', data.soNum);
         applySmartFill(data);
     }
 });
@@ -65,7 +46,7 @@ window.addEventListener('message', (event) => {
 function applySmartFill(data) {
     const allCaptured = data.allTabs || {};
 
-    // Combine all captured data for maximum coverage
+    // Combine all captured data
     const masterData = {};
     Object.values(allCaptured).forEach(tabData => {
         Object.assign(masterData, tabData);
@@ -75,7 +56,7 @@ function applySmartFill(data) {
         const val = masterData[key];
         if (!val) return;
 
-        // Strategy 1: ID Mapping (e.g. "SERVICE ORDER" -> id="service_order")
+        // Strategy 1: ID Mapping
         const id = key.toLowerCase().replace(/\s/g, '_');
         const elById = document.getElementById(id);
         if (elById) {
@@ -102,14 +83,11 @@ function applySmartFill(data) {
 }
 
 function safeFill(el, val) {
-    // Avoid overwriting if manual input exists
     if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && !el.value) {
         el.value = val;
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
-        console.log(`%c[PHOENIX] Filled ${el.id || el.name}: ${val}`, 'color: #10b981');
     } else if (el.tagName === 'SELECT') {
-        // Find best matching option
         const options = Array.from(el.options);
         const match = options.find(o => o.text.toUpperCase() === val.toUpperCase() || val.toUpperCase().includes(o.text.toUpperCase()));
         if (match) {

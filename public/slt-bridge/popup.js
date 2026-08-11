@@ -1,18 +1,39 @@
 /**
- * SLT-ERP Phoenix Bridge v4.5.0
- * Logic: Streamlined Sync Controller
+ * SLT-ERP Bridge v4.5.1
+ * Popup: Sync Controller + History + Settings
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // ─── Elements ────────────────────────────────────────────────────
     const soNumEl = document.getElementById('so-num');
     const lastSyncEl = document.getElementById('last-sync');
     const syncBtn = document.getElementById('sync-btn');
     const syncLoader = document.getElementById('sync-loader');
     const statusMsg = document.getElementById('sync-status-msg');
     const statusDot = document.getElementById('status-dot');
+    const pendingBadge = document.getElementById('pending-badge');
+    const historyList = document.getElementById('history-list');
+    const settingKey = document.getElementById('setting-key');
+    const settingOrigin = document.getElementById('setting-origin');
+    const saveSettingsBtn = document.getElementById('save-settings');
+    const settingsMsg = document.getElementById('settings-msg');
 
     let currentSoNum = null;
 
+    // ─── Tab Switching ───────────────────────────────────────────────
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(tab.dataset.tab).classList.add('active');
+
+            if (tab.dataset.tab === 'tab-history') loadHistory();
+            if (tab.dataset.tab === 'tab-settings') loadSettings();
+        });
+    });
+
+    // ─── SOD Detection & Status ──────────────────────────────────────
     async function updatePopupStatus() {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tabs[0]) return;
@@ -30,13 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const last = res.lastScraped;
                 if (last && last.soNum === currentSoNum) {
                     const date = new Date(last.timestamp);
-                    lastSyncEl.innerText = `Last detected: ${date.toLocaleTimeString()}`;
-                    statusDot.style.background = 'var(--success)';
-                    statusDot.style.boxShadow = '0 0 8px var(--success)';
+                    lastSyncEl.innerText = `Detected: ${date.toLocaleTimeString()}`;
+                    statusDot.className = 'dot dot-success';
                 } else {
                     lastSyncEl.innerText = 'Portal data not captured yet';
-                    statusDot.style.background = 'var(--muted)';
-                    statusDot.style.boxShadow = 'none';
+                    statusDot.className = 'dot dot-muted';
                 }
             });
         } else {
@@ -44,55 +63,103 @@ document.addEventListener('DOMContentLoaded', () => {
             soNumEl.style.color = 'var(--muted)';
             lastSyncEl.innerText = 'Navigate to an SLT Service Order';
             syncBtn.disabled = true;
-            statusDot.style.background = 'var(--muted)';
-            statusDot.style.boxShadow = 'none';
+            statusDot.className = 'dot dot-muted';
         }
+
+        // Check pending retries
+        chrome.runtime.sendMessage({ action: 'getPendingCount' }, (res) => {
+            if (res?.count > 0) {
+                pendingBadge.innerText = `${res.count} PENDING`;
+                pendingBadge.style.display = 'inline-block';
+                statusDot.className = 'dot dot-warning';
+            } else {
+                pendingBadge.style.display = 'none';
+            }
+        });
     }
 
+    // ─── Sync Button ─────────────────────────────────────────────────
     syncBtn.addEventListener('click', async () => {
         if (!currentSoNum) return;
 
-        // UI Feedback: Start
         syncBtn.disabled = true;
         syncLoader.style.display = 'block';
         statusMsg.innerText = 'Pushing to ERP...';
-        statusMsg.className = 'msg-pending';
+        statusMsg.className = 'status-msg msg-pending';
 
-        try {
-            // Get the latest data from storage
-            chrome.storage.local.get(['lastScraped'], (res) => {
-                const payload = res.lastScraped;
+        chrome.storage.local.get(['lastScraped'], (res) => {
+            const payload = res.lastScraped;
 
-                if (!payload || payload.soNum !== currentSoNum) {
-                    throw new Error('No valid data captured for this SO');
+            if (!payload || payload.soNum !== currentSoNum) {
+                syncLoader.style.display = 'none';
+                syncBtn.disabled = false;
+                statusMsg.innerText = 'No valid data captured for this SO';
+                statusMsg.className = 'status-msg msg-error';
+                return;
+            }
+
+            chrome.runtime.sendMessage({ action: 'pushToERP', data: payload }, (response) => {
+                syncLoader.style.display = 'none';
+                syncBtn.disabled = false;
+
+                if (response?.success) {
+                    statusMsg.innerText = 'SYNC SUCCESSFUL';
+                    statusMsg.className = 'status-msg msg-success';
+                } else {
+                    statusMsg.innerText = 'SYNC FAILED: ' + (response?.error || 'Unknown Error');
+                    statusMsg.className = 'status-msg msg-error';
                 }
 
-                // Send message to background to perform the fetch
-                chrome.runtime.sendMessage({ action: 'pushToERP', data: payload }, (response) => {
-                    syncLoader.style.display = 'none';
-                    syncBtn.disabled = false;
-
-                    if (response && response.success) {
-                        statusMsg.innerText = '✅ DATABASE SYNC SUCCESSFUL';
-                        statusMsg.className = 'msg-success';
-                        setTimeout(() => {
-                            statusMsg.innerText = '';
-                        }, 3000);
-                    } else {
-                        statusMsg.innerText = '❌ SYNC FAILED: ' + (response?.error || 'Unknown Error');
-                        statusMsg.className = 'msg-error';
-                    }
-                });
+                setTimeout(() => { statusMsg.innerText = ''; }, 3000);
             });
-        } catch (err) {
-            syncLoader.style.display = 'none';
-            syncBtn.disabled = false;
-            statusMsg.innerText = '❌ ERROR: ' + err.message;
-            statusMsg.className = 'msg-error';
-        }
+        });
     });
 
-    // Refresh status every second
+    // ─── History ─────────────────────────────────────────────────────
+    function loadHistory() {
+        chrome.runtime.sendMessage({ action: 'getSyncHistory' }, (res) => {
+            const history = res?.history || [];
+
+            if (history.length === 0) {
+                historyList.innerHTML = '<div style="color: var(--muted); font-size: 11px; text-align: center; padding: 20px;">No sync history yet</div>';
+                return;
+            }
+
+            historyList.innerHTML = history.slice(0, 20).map(item => {
+                const time = new Date(item.timestamp).toLocaleTimeString();
+                const stateClass = item.state === 'SUCCESS' ? 'history-state-success' :
+                                   item.state === 'FAILED' ? 'history-state-failed' : 'history-state-pending';
+                return `
+                    <div class="history-item">
+                        <span class="history-so">${item.soNum || 'N/A'}</span>
+                        <span class="${stateClass}">${item.state}</span>
+                        <span class="history-time">${time}</span>
+                    </div>
+                `;
+            }).join('');
+        });
+    }
+
+    // ─── Settings ────────────────────────────────────────────────────
+    function loadSettings() {
+        chrome.storage.local.get(['extensionKey', 'erpOrigin'], (res) => {
+            settingKey.value = res.extensionKey || '';
+            settingOrigin.value = res.erpOrigin || 'https://sltserp.vercel.app';
+        });
+    }
+
+    saveSettingsBtn.addEventListener('click', () => {
+        const key = settingKey.value.trim();
+        const origin = settingOrigin.value.trim().replace(/\/+$/, '');
+
+        chrome.storage.local.set({ extensionKey: key, erpOrigin: origin }, () => {
+            settingsMsg.innerText = 'Settings saved';
+            settingsMsg.className = 'status-msg msg-success';
+            setTimeout(() => { settingsMsg.innerText = ''; }, 2000);
+        });
+    });
+
+    // ─── Init ────────────────────────────────────────────────────────
     setInterval(updatePopupStatus, 1000);
     updatePopupStatus();
 });

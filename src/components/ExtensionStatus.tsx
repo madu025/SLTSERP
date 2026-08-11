@@ -13,7 +13,7 @@ import {
 interface BridgeInfo {
     installed: boolean;
     version: string;
-    type: 'phoenix' | 'ishamp' | 'slt' | 'legacy' | null;
+    type: 'bridge' | 'phoenix' | 'ishamp' | 'slt' | 'legacy' | null;
     timestamp?: string;
 }
 
@@ -55,15 +55,23 @@ export default function ExtensionStatus() {
         const root = document.documentElement;
         const result: BridgeInfo = { installed: false, version: "", type: null };
 
-        // Method 1: Check i-Shamp specific attributes (Primary)
-        if (root.hasAttribute('data-ishamp-bridge')) {
+        // Method 1: Check SLT Bridge attribute (v4.5.1+ primary)
+        if (root.hasAttribute('data-slt-bridge')) {
+            result.installed = true;
+            result.type = 'bridge';
+            result.version = root.getAttribute('data-slt-bridge-version') || "";
+            result.timestamp = root.getAttribute('data-slt-bridge-detected') || undefined;
+        }
+
+        // Method 2: Legacy i-Shamp attributes
+        else if (root.hasAttribute('data-ishamp-bridge')) {
             result.installed = true;
             result.type = 'ishamp';
             result.version = root.getAttribute('data-ishamp-version') || "";
             result.timestamp = root.getAttribute('data-ishamp-detected') || undefined;
         }
 
-        // Method 2: Check for data attributes on HTML element (Phoenix Bridge / Legacy)
+        // Method 3: Legacy Phoenix Bridge
         else if (root.hasAttribute('data-phoenix-bridge')) {
             result.installed = true;
             result.type = 'phoenix';
@@ -71,32 +79,37 @@ export default function ExtensionStatus() {
             result.timestamp = root.getAttribute('data-phoenix-detected') || undefined;
         }
 
-        // Method 3: Check legacy SLT Bridge
+        // Method 4: Legacy SLT Bridge (old)
         else if (root.hasAttribute('data-slt-bridge-installed')) {
             result.installed = true;
             result.type = 'slt';
             result.version = root.getAttribute('data-slt-bridge-version') || "";
         }
 
-        // Method 4: Check for Phoenix HUD element in DOM
+        // Method 5: Check for HUD element in DOM
         if (!result.installed) {
-            const phoenixHud = document.getElementById('phoenix-hud');
-            if (phoenixHud) {
+            const bridgeHud = document.getElementById('bridge-hud') || document.getElementById('phoenix-hud');
+            if (bridgeHud) {
                 result.installed = true;
-                result.type = 'phoenix';
-                const hudText = phoenixHud.innerText || "";
+                result.type = 'bridge';
+                const hudText = bridgeHud.innerText || "";
                 const versionMatch = hudText.match(/v?(\d+\.\d+\.\d+)/);
                 result.version = versionMatch ? versionMatch[1] : "4.x.x";
             }
         }
 
-        // Method 5: Check for global objects
+        // Method 6: Check for global objects
         if (!result.installed) {
             const win = window as unknown as {
+                SLT_BRIDGE?: { version: string },
                 ISHAMP_BRIDGE?: { version: string },
                 PHOENIX_BRIDGE?: { version: string }
             };
-            if (win.ISHAMP_BRIDGE) {
+            if (win.SLT_BRIDGE) {
+                result.installed = true;
+                result.type = 'bridge';
+                result.version = win.SLT_BRIDGE.version || "4.x.x";
+            } else if (win.ISHAMP_BRIDGE) {
                 result.installed = true;
                 result.type = 'ishamp';
                 result.version = win.ISHAMP_BRIDGE.version || "4.x.x";
@@ -146,15 +159,15 @@ export default function ExtensionStatus() {
             setStatus('installed');
             setBridgeInfo({
                 installed: true,
-                version: detail?.version || "4.5.0",
-                type: detail?.type || 'ishamp',
+                version: detail?.version || "4.5.1",
+                type: detail?.type || 'bridge',
                 timestamp: new Date().toISOString()
             });
             setLastChecked(new Date());
         };
 
-        window.addEventListener('PHOENIX_BRIDGE_DETECTED', handleBridgeDetected);
         window.addEventListener('SLT_BRIDGE_DETECTED', handleBridgeDetected);
+        window.addEventListener('PHOENIX_BRIDGE_DETECTED', handleBridgeDetected);
         window.addEventListener('ISHAMP_BRIDGE_DETECTED', handleBridgeDetected);
 
         // Polling
@@ -167,8 +180,8 @@ export default function ExtensionStatus() {
         return () => {
             clearTimeout(timer);
             clearInterval(pollInterval);
-            window.removeEventListener('PHOENIX_BRIDGE_DETECTED', handleBridgeDetected);
             window.removeEventListener('SLT_BRIDGE_DETECTED', handleBridgeDetected);
+            window.removeEventListener('PHOENIX_BRIDGE_DETECTED', handleBridgeDetected);
             window.removeEventListener('ISHAMP_BRIDGE_DETECTED', handleBridgeDetected);
         };
     }, [checkExtension, mounted]);
@@ -206,11 +219,12 @@ export default function ExtensionStatus() {
 
     if (status === 'installed') {
         const typeLabel = {
+            'bridge': 'SLT Bridge',
             'phoenix': 'Phoenix',
             'ishamp': 'i-Shamp',
             'slt': 'SLT Bridge',
             'legacy': 'Extension'
-        }[bridgeInfo.type || 'ishamp'];
+        }[bridgeInfo.type || 'bridge'];
 
         return (
             <Popover>
@@ -245,7 +259,7 @@ export default function ExtensionStatus() {
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-slate-500">Version</span>
                                 <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded">
-                                    {bridgeInfo.version || "4.5.0"}
+                                    {bridgeInfo.version || "4.5.1"}
                                 </span>
                             </div>
                             {lastChecked && (
@@ -260,7 +274,7 @@ export default function ExtensionStatus() {
 
                         <div className="pt-2 border-t border-slate-100">
                             <p className="text-[10px] text-slate-500 leading-relaxed">
-                                i-Shamp Bridge is active. Your data will automatically sync between SLT Portal and ERP.
+                                SLT Bridge is active. Your data will automatically sync between SLT Portal and ERP.
                             </p>
                         </div>
 
@@ -303,7 +317,7 @@ export default function ExtensionStatus() {
                 <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 border-b border-amber-100">
                     <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                         <Download className="w-4 h-4" />
-                        Install i-Shamp Bridge
+                        Install SLT Bridge
                     </h3>
                     <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
                         To sync Team Assignments, Serial Numbers, and Materials directly from SLT Portal, install the updated extension.
@@ -333,7 +347,7 @@ export default function ExtensionStatus() {
                             onClick={() => window.open('/slt-bridge.zip', '_blank')}
                         >
                             <Download className="w-4 h-4 mr-2" />
-                            Download Extension v4.5.0
+                            Download Extension v4.5.1
                         </Button>
 
                         <button
