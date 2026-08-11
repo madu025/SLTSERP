@@ -112,7 +112,7 @@ const modules = [
         color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-100'
     },
     {
-        title: 'Phoenix Bridge',
+        title: 'SLT Bridge',
         description: 'System bridge monitor and diagnostic terminal',
         href: '/admin/test-extension',
         icon: Terminal,

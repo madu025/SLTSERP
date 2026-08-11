@@ -253,9 +253,9 @@ export default function ExtensionTestPage() {
                                     <div className="p-2 bg-primary/10 rounded-lg">
                                         <Zap className="w-6 h-6 text-primary fill-primary" />
                                     </div>
-                                    Phoenix Bridge Monitor
+                                    SLT Bridge Monitor
                                 </h1>
-                                <p className="text-slate-500 text-sm mt-1">Live data interception from SLT Service Portal. Powered by Phoenix Elite v3.1.5</p>
+                                <p className="text-slate-500 text-sm mt-1">Live data interception from SLT Service Portal. Powered by SLT Bridge v4.5.1</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <Button

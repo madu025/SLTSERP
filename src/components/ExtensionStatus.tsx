@@ -220,7 +220,7 @@ export default function ExtensionStatus() {
     if (status === 'installed') {
         const typeLabel = {
             'bridge': 'SLT Bridge',
-            'phoenix': 'Phoenix',
+            'phoenix': 'SLT Bridge',
             'ishamp': 'i-Shamp',
             'slt': 'SLT Bridge',
             'legacy': 'Extension'
