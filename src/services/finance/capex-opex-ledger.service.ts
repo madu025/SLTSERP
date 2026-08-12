@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { UUID } from '@/types/common';
 import type { CapexOpexLedgerEntry, FinanceBudgetAllocation } from '@prisma/client';
 import {
   type CreateLedgerEntryInput,
@@ -18,19 +19,19 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface LedgerEntryDTO {
-  id: string;
-  opmcId: string;
+  id: UUID;
+  opmcId: UUID;
   expenditureType: ExpenditureType;
   category: SpendCategory;
   sourceType: string;
-  sourceId: string;
+  sourceId: UUID;
   amount: number;
   transactionDate: Date;
   fiscalYear: number;
   quarter: number;
   description: string;
   referenceNumber: string | null;
-  projectId: string | null;
+  projectId: UUID | null;
   createdAt: Date;
 }
 
@@ -138,7 +139,7 @@ export class CapexOpexLedgerService {
    * O(N/k) — DB-side GROUP BY aggregation, no in-memory loops.
    */
   static async getAggregatedSpend(
-    opmcId: string,
+    opmcId: UUID,
     fiscalYear: number,
     quarter?: number
   ): Promise<AggregatedSpend[]> {
@@ -168,7 +169,7 @@ export class CapexOpexLedgerService {
    * O(N/12) — DB-level aggregation bucketed by month.
    */
   static async getMonthlyTotals(
-    opmcId: string,
+    opmcId: UUID,
     fiscalYear: number
   ): Promise<{ month: number; quarter: number; capex: number; opex: number }[]> {
     // Use raw query for month-level grouping (Prisma groupBy doesn't support EXTRACT)
@@ -209,7 +210,7 @@ export class CapexOpexLedgerService {
    * O(N) over all source records.
    */
   static async bulkSyncFromProjectExpenses(
-    opmcId: string,
+    opmcId: UUID,
     projectIds: string[],
     createdById: string
   ): Promise<{ synced: number; skipped: number }> {

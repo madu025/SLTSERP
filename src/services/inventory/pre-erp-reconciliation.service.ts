@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { UUID } from '@/types/common';
 import { AppError } from '@/lib/error';
 import type { PreErpMaterialBalance, MaterialVarianceAdjustment } from '@prisma/client';
 
@@ -29,8 +30,8 @@ export interface ReconcileAdjustmentInput {
 }
 
 export interface ManualBalanceInput {
-  opmcId: string;
-  itemId: string;
+  opmcId: UUID;
+  itemId: UUID;
   year: number;
   month: string;
   carryForwardQuantity: number;
@@ -174,9 +175,9 @@ export class PreErpReconciliationService {
     });
     if (!balance) throw AppError.notFound('BALANCE_RECORD_NOT_FOUND');
 
-    const varianceQty = input.physicalAuditedQty - Number(balance.closingBalanceQuantity);
-    const financialImpact = varianceQty * Number(balance.unitCostLkr);
-
+    // varianceQuantity and financialImpactLkr are now auto-calculated by DB trigger
+    // trg_variance_adjustment_calc: varianceQty = physicalAuditedQty - systemCalculatedQty
+    // financialImpact = varianceQty * unitCostLkr
     const adjustment = await prisma.materialVarianceAdjustment.create({
       data: {
         balanceId: balance.id,
@@ -184,9 +185,9 @@ export class PreErpReconciliationService {
         itemId: balance.itemId,
         systemCalculatedQty: balance.closingBalanceQuantity,
         physicalAuditedQty: input.physicalAuditedQty,
-        varianceQuantity: varianceQty,
+        varianceQuantity: 0,  // auto-calculated by trigger
         varianceReason: input.varianceReason,
-        financialImpactLkr: financialImpact,
+        financialImpactLkr: 0,  // auto-calculated by trigger
         status: 'PENDING',
         createdById: input.createdById,
       },

@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { UUID } from '@/types/common';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { randomUUID } from 'crypto';
 import { gisParser } from '@/lib/gis/gis-parser';
@@ -51,8 +52,8 @@ import type { InventoryStockEntry } from '@/lib/gis/boq-engine';
 // ============================================================================
 
 export interface GISUploadSession {
-  id: string;
-  projectId?: string;
+  id: UUID;
+  projectId?: UUID;
   versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT';
   notes?: string;
   projectName?: string;
@@ -709,7 +710,7 @@ export class GISImportService {
       for (const item of invItems) {
         const totalQty = item.stocks.reduce((s: number, st) => s + (Number(st.quantity) || 0), 0);
         if (totalQty <= 0) continue;
-        const typedItem = item as unknown as { id: string; code?: string; name?: string; unit?: string };
+        const typedItem = item as unknown as { id: UUID; code?: string; name?: string; unit?: string };
         const code = typedItem.code?.toUpperCase() || '';
         const name = typedItem.name?.toUpperCase() || '';
         let category = '';
@@ -870,7 +871,7 @@ export class GISImportService {
       // ======================================================================
       // 1. CREATE PROJECT (With Automated OPMC/Region lookup)
       // ======================================================================
-      let opmcId: string | null = null;
+      let opmcId: UUID | null = null;
       if (session.region) {
         const opmc = await prisma.oPMC.findFirst({
           where: {
@@ -1628,8 +1629,8 @@ export class GISImportService {
           const tasksToCreate: import('@prisma/client').Prisma.WorkflowTaskTemplateCreateManyInput[] = [];
           const checklistsToCreate: import('@prisma/client').Prisma.WorkflowChecklistTemplateCreateManyInput[] = [];
           const approvalsToCreate: import('@prisma/client').Prisma.WorkflowApprovalTemplateCreateManyInput[] = [];
-          const stageTemplatesToBackfillChecklist: { id: string; name: string; reqPhotos: boolean }[] = [];
-          const stageTemplatesToBackfillApproval: { id: string; name: string }[] = [];
+          const stageTemplatesToBackfillChecklist: { id: UUID; name: string; reqPhotos: boolean }[] = [];
+          const stageTemplatesToBackfillApproval: { id: UUID; name: string }[] = [];
 
           for (const stageDef of workflowDef.stages) {
             const stageTemplate = stageTemplateByName.get(stageDef.name) || stageTemplateBySeq.get(stageDef.sequence);

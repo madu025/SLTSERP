@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { safe } from '@/utils/safe-await.util';
+import { UUID } from '@/types/common';
 import * as XLSX from 'xlsx';
 import path from 'path';
 
@@ -15,7 +16,7 @@ export interface ImportResult {
   totalRecordsProcessed: number;
   itemsMapped: number;
   monthsProcessed: number;
-  opmcId: string | null;
+  opmcId: UUID | null;
   errors: string[];
 }
 
@@ -58,7 +59,7 @@ export class MaterialExcelImportService {
    */
   static async importMaterialReport(
     filePath: string,
-    opmcId: string | null = null,
+    opmcId: UUID | null = null,
     createdById: string = 'system-import'
   ): Promise<ImportResult> {
     const errors: string[] = [];

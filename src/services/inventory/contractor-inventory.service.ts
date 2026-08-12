@@ -1,11 +1,10 @@
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 
 import { StockService } from './stock.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
-import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { TransactionClient, UUID } from '@/types/inventory/inventory-service.types';
 
 export interface TeamMaterialBalanceParams {
     contractorId: string;
@@ -15,7 +14,7 @@ export interface TeamMaterialBalanceParams {
 }
 
 export interface MaterialBalanceRow {
-    itemId: string;
+    itemId: UUID;
     itemCode: string;
     itemName: string;
     unit: string;
@@ -178,7 +177,7 @@ export class ContractorInventoryService {
             data: updatedIssue,
         };
     }
-    static async getMaterialReturns(contractorId: string) {
+    static async getMaterialReturns(contractorId: UUID) {
         return prisma.contractorMaterialReturn.findMany({
             where: { contractorId },
             include: {
@@ -191,7 +190,7 @@ export class ContractorInventoryService {
         });
     }
 
-    static async getMaterialIssues(contractorId: string) {
+    static async getMaterialIssues(contractorId: UUID) {
         return prisma.contractorMaterialIssue.findMany({
             where: { contractorId },
             include: {
@@ -207,7 +206,7 @@ export class ContractorInventoryService {
         });
     }
 
-    static async createMaterialReturn(contractorId: string, data: { itemId: string, quantity: number, condition?: string, reason?: string }) {
+    static async createMaterialReturn(contractorId: UUID, data: { itemId: UUID, quantity: number, condition?: string, reason?: string }) {
         const mainStore = await prisma.inventoryStore.findFirst({
             where: { type: 'MAIN' }
         }) || await prisma.inventoryStore.findFirst();
@@ -255,7 +254,7 @@ export class ContractorInventoryService {
     }
 
 
-    static async getContractorStockDashboard(contractorId: string | null, userId: string | null, teamId?: string, month?: string, year?: string) {
+    static async getContractorStockDashboard(contractorId: UUID | null, userId: UUID | null, teamId?: UUID, month?: string, year?: string) {
         if (!contractorId && userId) {
             const currentUser = await prisma.user.findUnique({
                 where: { id: userId },
@@ -276,28 +275,26 @@ export class ContractorInventoryService {
             return { dropWireMeters: 450, ontCount: 12, facCount: 35, pendingAcceptances: 1, teams: [], balanceSheet: [] };
         }
 
-        // Fetch Contractor Stocks
-        const contractorStocks = await prisma.contractorStock.findMany({
-            where: { contractorId },
-            include: { item: true }
-        });
+        // Fetch Contractor Stocks (for UI list) and KPI summary (from DB function) in parallel
+        const [contractorStocks, stockSummary] = await Promise.all([
+            prisma.contractorStock.findMany({
+                where: { contractorId },
+                include: { item: true }
+            }),
+            prisma.$queryRaw<Array<{
+                total_items: number;
+                total_quantity: number;
+                drop_wire_meters: number;
+                ont_count: number;
+                fac_count: number;
+                total_value: number;
+            }>>`SELECT * FROM fn_contractor_stock_summary(${contractorId}::uuid)`
+        ]);
 
-        let dropWireMeters = 0;
-        let ontCount = 0;
-        let facCount = 0;
-
-        for (const stock of contractorStocks) {
-            const code = (stock.item.code || '').toUpperCase();
-            const name = (stock.item.name || '').toUpperCase();
-
-            if (code.includes('DW') || name.includes('DROP WIRE')) {
-                dropWireMeters += Number(stock.quantity);
-            } else if (code.includes('ONT') || name.includes('ONT') || name.includes('ROUTER')) {
-                ontCount += Number(stock.quantity);
-            } else if (code.includes('FAC') || name.includes('FAST CONNECTOR')) {
-                facCount += Number(stock.quantity);
-            }
-        }
+        const summary = stockSummary[0] || { total_items: 0, total_quantity: 0, drop_wire_meters: 0, ont_count: 0, fac_count: 0, total_value: 0 };
+        const dropWireMeters = Number(summary.drop_wire_meters) || 0;
+        const ontCount = Number(summary.ont_count) || 0;
+        const facCount = Number(summary.fac_count) || 0;
 
         const pendingAcceptances = await prisma.contractorMaterialIssue.count({
             where: {
@@ -339,105 +336,56 @@ export class ContractorInventoryService {
         };
     }
     /**
-     * Compute High-Performance Team-Wise Material Balance Sheet using O(1) Hash Maps
+     * Compute Team-Wise Material Balance Sheet using DB function fn_contractor_balance_sheet().
+     * All heavy computation (SOD consumptions, wastage, balance sheet rows) runs in PostgreSQL.
      */
     static async getTeamWiseMaterialBalance(params: TeamMaterialBalanceParams) {
-        const { contractorId, teamId } = params;
+        const { contractorId, teamId, month, year } = params;
 
-        // 1. Fetch Contractor Teams
+        // 1. Fetch Contractor Teams (still needed for UI dropdown)
         const teams = await prisma.contractorTeam.findMany({
             where: { contractorId },
             select: { id: true, name: true, sltCode: true }
         });
-        const teamMap = new Map(teams.map(t => [t.id, t.name]));
 
-        // 2. Fetch Contractor Stock (Base stock balances)
-        const contractorStocks = await prisma.contractorStock.findMany({
-            where: { contractorId },
-            include: { item: true }
-        });
+        // 2. Use DB function for atomic balance sheet computation in PostgreSQL
+        const balanceSheetRows = await prisma.$queryRaw<Array<{
+            item_id: UUID;
+            item_code: string;
+            item_name: string;
+            unit: string;
+            team_name: string;
+            opening_stock: number;
+            store_receipts: number;
+            sod_consumptions: number;
+            allowed_wastage: number;
+            closing_balance: number;
+            variance: number;
+            status: string;
+        }>>`
+            SELECT * FROM fn_contractor_balance_sheet(
+                ${contractorId}::uuid,
+                ${teamId && teamId !== 'ALL' ? teamId : null}::uuid,
+                ${month || null}::text,
+                ${year ? parseInt(year) : null}::int
+            )
+        `;
 
-        // 3. Fetch SOD Material Usages for contractor
-        const whereUsage: Prisma.SODMaterialUsageWhereInput = { serviceOrder: { contractorId } };
-        if (teamId && teamId !== 'ALL') {
-            whereUsage.serviceOrder = {
-                contractorId,
-                OR: [
-                    { teamId },
-                    { directTeam: teamMap.get(teamId) }
-                ]
-            };
-        }
-
-        const sodUsages = await prisma.sODMaterialUsage.findMany({
-            where: whereUsage,
-            select: {
-                itemId: true,
-                quantity: true,
-                usageType: true,
-                serviceOrder: {
-                    select: {
-                        teamId: true,
-                        directTeam: true
-                    }
-                }
-            }
-        });
-
-        // 4. Build O(1) Hash Map for SOD Consumptions & Wastage
-        const consumedMap = new Map<string, number>();
-        const wastageMap = new Map<string, number>();
-
-        for (const usage of sodUsages) {
-            const qty = Number(usage.quantity) || 0;
-            if (usage.usageType === 'WASTAGE') {
-                const prevWastage = wastageMap.get(usage.itemId) || 0;
-                wastageMap.set(usage.itemId, prevWastage + qty);
-            } else {
-                const prevConsumed = consumedMap.get(usage.itemId) || 0;
-                consumedMap.set(usage.itemId, prevConsumed + qty);
-            }
-        }
-
-        // 5. Compute Balance Sheet Rows
-        const balanceSheet: MaterialBalanceRow[] = contractorStocks.map(stock => {
-            const itemId = stock.itemId;
-            const itemCode = stock.item.code;
-            const itemName = stock.item.name;
-            const unit = stock.item.unit || 'Pcs';
-            const currentVanStock = Number(stock.quantity);
-
-            const sodConsumptions = consumedMap.get(itemId) || 0;
-            const explicitWastage = wastageMap.get(itemId) || 0;
-
-            const allowedWastage = explicitWastage > 0
-                ? explicitWastage
-                : (stock.item.isWastageAllowed ? sodConsumptions * 0.05 : 0);
-
-            const storeReceipts = currentVanStock + sodConsumptions + allowedWastage;
-
-            let status: 'RECONCILED' | 'LOW_STOCK_WARNING' | 'HIGH_WASTAGE' = 'RECONCILED';
-            if (currentVanStock < 5) {
-                status = 'LOW_STOCK_WARNING';
-            } else if (allowedWastage > sodConsumptions * 0.1) {
-                status = 'HIGH_WASTAGE';
-            }
-
-            return {
-                itemId,
-                itemCode,
-                itemName,
-                unit,
-                teamName: teamId && teamId !== 'ALL' ? (teamMap.get(teamId) || 'Selected Team') : 'All Contractor Teams',
-                openingStock: 0,
-                storeReceipts: Math.round(storeReceipts * 100) / 100,
-                sodConsumptions: Math.round(sodConsumptions * 100) / 100,
-                allowedWastage: Math.round(allowedWastage * 100) / 100,
-                closingBalance: Math.round(currentVanStock * 100) / 100,
-                variance: 0,
-                status
-            };
-        });
+        // Map DB function result to MaterialBalanceRow interface
+        const balanceSheet: MaterialBalanceRow[] = balanceSheetRows.map(row => ({
+            itemId: row.item_id,
+            itemCode: row.item_code,
+            itemName: row.item_name,
+            unit: row.unit,
+            teamName: row.team_name,
+            openingStock: Number(row.opening_stock) || 0,
+            storeReceipts: Number(row.store_receipts) || 0,
+            sodConsumptions: Number(row.sod_consumptions) || 0,
+            allowedWastage: Number(row.allowed_wastage) || 0,
+            closingBalance: Number(row.closing_balance) || 0,
+            variance: Number(row.variance) || 0,
+            status: (row.status || 'RECONCILED') as MaterialBalanceRow['status']
+        }));
 
         return {
             teams,

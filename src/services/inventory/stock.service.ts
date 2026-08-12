@@ -2,7 +2,7 @@ import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
 import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue } from '@prisma/client';
-import { TransactionClient, PickedBatch } from '@/types/inventory/inventory-service.types';
+import { TransactionClient, PickedBatch, UUID } from '@/types/inventory/inventory-service.types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { AuditLedgerService } from './audit-ledger.service';
@@ -14,7 +14,7 @@ export class StockService {
         return Math.round(val * 10000) / 10000;
     }
 
-    static async getStock(storeId: string) {
+    static async getStock(storeId: UUID) {
         if (!storeId) throw AppError.badRequest('STORE_ID_REQUIRED');
 
         const whereClause = storeId === 'all' ? {} : { storeId };
@@ -25,7 +25,7 @@ export class StockService {
         );
     }
 
-    static async getStoreBatches(storeId: string, itemId?: string): Promise<InventoryBatchStock[]> {
+    static async getStoreBatches(storeId: UUID, itemId?: UUID): Promise<InventoryBatchStock[]> {
         return await InventoryRepository.getStoreBatches(
             {
                 storeId,
@@ -42,7 +42,7 @@ export class StockService {
         ) as InventoryBatchStock[];
     }
 
-    static async getContractorBatches(contractorId: string, itemId?: string): Promise<ContractorBatchStock[]> {
+    static async getContractorBatches(contractorId: UUID, itemId?: UUID): Promise<ContractorBatchStock[]> {
         return await InventoryRepository.getContractorBatches(
             {
                 contractorId,
@@ -60,38 +60,46 @@ export class StockService {
     }
 
     /**
-     * Pick batches from a store based on FIFO
+     * Pick batches from a store based on FIFO using DB function fn_fifo_pick_store_batches()
+     * Orders by expiryDate ASC (nulls last), then createdAt ASC (FEFO)
+     * Runs entirely in PostgreSQL - no data egress.
      */
-    static async pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
+    static async pickStoreBatchesFIFO(tx: TransactionClient, storeId: UUID, itemId: UUID, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const batches = await InventoryRepository.findAvailableBatches(storeId, itemId, tx as any);
 
-        const pickedBatches: PickedBatch[] = [];
-        let remainingToPick = qtyToPick;
+        // Call DB function for atomic FIFO picking in PostgreSQL
+        const result = await tx.$queryRaw<Array<{
+            batch_id: UUID | null;
+            available_qty: number;
+            pick_qty: number;
+            batch_created_at: Date | null;
+            batch_expiry_date: Date | null;
+            cost_price: number;
+            unit_price: number;
+        }>>`
+            SELECT * FROM fn_fifo_pick_store_batches(
+                ${storeId}::uuid,
+                ${itemId}::uuid,
+                ${qtyToPick}::decimal
+            )
+        `;
 
-        for (const stock of batches) {
-            if (remainingToPick <= 0) break;
-            const available = this.round(stock.quantity);
-            const take = Math.min(available, remainingToPick);
-            pickedBatches.push({
-                batchId: stock.batchId,
-                quantity: this.round(take),
-                batch: stock.batch
-            });
-            remainingToPick = this.round(remainingToPick - take);
-        }
+        const pickedBatches: PickedBatch[] = result.map(row => ({
+            batchId: row.batch_id,
+            quantity: this.round(row.pick_qty),
+            batch: {
+                unitPrice: Number(row.unit_price) || 0,
+                costPrice: Number(row.cost_price) || 0,
+                expiryDate: row.batch_expiry_date,
+                createdAt: row.batch_created_at
+            } as any
+        }));
 
-        if (this.round(remainingToPick) > 0) {
-            if (allowShortage) {
-                pickedBatches.push({
-                    batchId: null,
-                    quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
-                });
-            } else {
-                throw AppError.badRequest(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+        // Check for shortage (batch_id = NULL row)
+        const shortageRow = pickedBatches.find(p => p.batchId === null);
+        if (shortageRow) {
+            if (!allowShortage) {
+                throw AppError.badRequest(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${shortageRow.quantity}`);
             }
         }
 
@@ -101,7 +109,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available store batches list in-memory using FIFO
      */
-    static pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         // Filter batches for this itemId in memory
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
@@ -141,38 +149,44 @@ export class StockService {
     }
 
     /**
-     * Pick batches from a contractor based on FIFO with locking
+     * Pick batches from a contractor based on FIFO using DB function fn_fifo_pick_contractor_batches()
+     * Orders by createdAt ASC (FIFO)
+     * Runs entirely in PostgreSQL - no data egress.
      */
-    static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
+    static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: UUID, itemId: UUID, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const batches = await ContractorRepository.findAvailableBatches(contractorId, itemId, tx as any);
 
-        const pickedBatches: PickedBatch[] = [];
-        let remainingToPick = qtyToPick;
+        // Call DB function for atomic FIFO picking in PostgreSQL
+        const result = await tx.$queryRaw<Array<{
+            batch_id: UUID | null;
+            available_qty: number;
+            pick_qty: number;
+            batch_created_at: Date | null;
+            cost_price: number;
+            unit_price: number;
+        }>>`
+            SELECT * FROM fn_fifo_pick_contractor_batches(
+                ${contractorId}::uuid,
+                ${itemId}::uuid,
+                ${qtyToPick}::decimal
+            )
+        `;
 
-        for (const stock of batches) {
-            if (remainingToPick <= 0) break;
-            const available = this.round(stock.quantity);
-            const take = Math.min(available, remainingToPick);
-            pickedBatches.push({
-                batchId: stock.batchId,
-                quantity: this.round(take),
-                batch: stock.batch
-            });
-            remainingToPick = this.round(remainingToPick - take);
-        }
+        const pickedBatches: PickedBatch[] = result.map(row => ({
+            batchId: row.batch_id,
+            quantity: this.round(row.pick_qty),
+            batch: {
+                unitPrice: Number(row.unit_price) || 0,
+                costPrice: Number(row.cost_price) || 0,
+                createdAt: row.batch_created_at
+            } as any
+        }));
 
-        if (this.round(remainingToPick) > 0) {
-            if (allowShortage) {
-                pickedBatches.push({
-                    batchId: null,
-                    quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
-                });
-            } else {
-                throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+        // Check for shortage (batch_id = NULL row)
+        const shortageRow = pickedBatches.find(p => p.batchId === null);
+        if (shortageRow) {
+            if (!allowShortage) {
+                throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${shortageRow.quantity}`);
             }
         }
 
@@ -182,7 +196,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available contractor batches list in-memory using FIFO
      */
-    static pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
 
@@ -222,62 +236,37 @@ export class StockService {
     /**
      * Initialize or Adjust Stock Levels in Bulk
      */
-    static async initializeStock(storeId: string, items: { itemId: string; quantity: string | number }[], reason?: string, userId?: string) {
+    static async initializeStock(storeId: UUID, items: { itemId: UUID; quantity: string | number }[], reason?: string, userId?: string) {
         if (!storeId || !Array.isArray(items)) throw AppError.badRequest('INVALID_PAYLOAD');
 
         // Store-Scope Enforcement: caller must be authorized for the target store
         await StoreService.assertStoreWriteAccess(userId, storeId);
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            const transactionItems: { itemId: string; quantity: number; beforeQty: number; afterQty: number }[] = [];
+            // Delegate bulk stock operations to fn_bulk_stock_initialize (single atomic DB call)
+            const itemIds = items.map(i => i.itemId);
+            const quantities = items.map(i => this.round(parseFloat(i.quantity.toString())));
 
-            for (const item of items) {
-                const newQty = this.round(parseFloat(item.quantity.toString()));
-                if (isNaN(newQty)) continue;
+            const bulkResult = await tx.$queryRaw<Array<{
+                item_id: UUID;
+                old_qty: number;
+                new_qty: number;
+            }>>`
+                SELECT * FROM fn_bulk_stock_initialize(
+                    ${storeId}::uuid,
+                    ${itemIds}::uuid[],
+                    ${quantities}::numeric[]
+                )
+            `;
 
-                const currentStock = await InventoryRepository.findStock(storeId, item.itemId, tx);
-                const oldQty = currentStock ? this.round(currentStock.quantity) : 0;
-                const diff = this.round(newQty - oldQty);
-
-                if (diff === 0) continue; // No change
-
-                // A. BATCH HANDLING
-                if (diff > 0) {
-                    const itemData = await InventoryRepository.findItemById(item.itemId, tx);
-
-                    const batch = await InventoryRepository.createBatch({
-                        batchNumber: `ADJ-${Date.now()}`,
-                        itemId: item.itemId,
-                        initialQty: diff,
-                        costPrice: itemData?.costPrice || 0,
-                        unitPrice: itemData?.unitPrice || 0
-                    }, tx);
-
-                    await InventoryRepository.createBatchStock({
-                        storeId,
-                        batchId: batch.id,
-                        itemId: item.itemId,
-                        quantity: diff
-                    }, tx);
-                } else {
-                    const reduceQty = Math.abs(diff);
-                    const pickedBatches = await this.pickStoreBatchesFIFO(tx, storeId, item.itemId, reduceQty);
-
-                    for (const picked of pickedBatches) {
-                        await InventoryRepository.updateBatchStock(storeId, picked.batchId!, -picked.quantity, tx);
-                    }
-                }
-
-                // B. UPDATE GLOBAL STOCK
-                await InventoryRepository.upsertStock(storeId, item.itemId, diff, tx);
-
-                transactionItems.push({
-                    itemId: item.itemId,
-                    quantity: diff,
-                    beforeQty: oldQty,
-                    afterQty: newQty
-                });
-            }
+            const transactionItems = bulkResult
+                .filter(r => Number(r.old_qty) !== Number(r.new_qty))
+                .map(r => ({
+                    itemId: r.item_id,
+                    quantity: this.round(Number(r.new_qty) - Number(r.old_qty)),
+                    beforeQty: this.round(Number(r.old_qty)),
+                    afterQty: this.round(Number(r.new_qty))
+                }));
 
             if (transactionItems.length > 0) {
                 await InventoryRepository.createTransaction({
@@ -300,15 +289,15 @@ export class StockService {
     }
 
     static async createStockIssue(data: {
-        storeId: string;
+        storeId: UUID;
         issuedById: string;
         issueType: string;
-        projectId?: string;
-        contractorId?: string;
-        teamId?: string;
+        projectId?: UUID;
+        contractorId?: UUID;
+        teamId?: UUID;
         recipientName: string;
         remarks?: string;
-        items: { itemId: string; quantity: string | number; remarks?: string; serials?: string[] }[];
+        items: { itemId: UUID; quantity: string | number; remarks?: string; serials?: string[] }[];
     }) {
         const { storeId, issuedById, issueType, projectId, contractorId, teamId, recipientName, remarks, items } = data;
 
@@ -365,69 +354,34 @@ export class StockService {
                 }, tx);
             } else {
                 // Default path for PROJECTS, TEAMS, etc.
-                const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
+                // Delegate bulk stock issue to fn_bulk_stock_issue (single atomic DB call)
+                const itemIds = items.map(i => i.itemId);
+                const quantities = items.map(i => parseFloat(i.quantity.toString()));
+                const serials2d = items.map(i => i.serials && Array.isArray(i.serials) ? i.serials : []);
 
-                for (const item of items) {
-                    const quantity = parseFloat(item.quantity.toString());
+                const bulkResult = await tx.$queryRaw<Array<{
+                    item_id: UUID;
+                    batch_id: UUID;
+                    picked_qty: number;
+                }>>`
+                    SELECT * FROM fn_bulk_stock_issue(
+                        ${storeId}::uuid,
+                        ${itemIds}::uuid[],
+                        ${quantities}::numeric[],
+                        ${issuedById}::uuid,
+                        ${issueNumber}::text,
+                        ${issueType}::text,
+                        ${contractorId || null}::uuid,
+                        ${serials2d}::text[][]
+                    )
+                `;
 
-                    const existingStock = await InventoryRepository.findStock(storeId, item.itemId, tx);
-
-                    if (!existingStock || existingStock.quantity < quantity) {
-                        throw AppError.badRequest(`INSUFFICIENT_STOCK: ${item.itemId}`);
-                    }
-
-                    // A. Pick store batches FIFO and decrement batch stock
-                    const pickedBatches = await this.pickStoreBatchesFIFO(tx, storeId, item.itemId, quantity);
-                    for (const picked of pickedBatches) {
-                        if (picked.batchId) {
-                            await tx.inventoryBatchStock.update({
-                                where: { storeId_batchId: { storeId, batchId: picked.batchId } },
-                                data: { quantity: { decrement: picked.quantity } }
-                            });
-                            
-                            transactionItems.push({
-                                itemId: item.itemId,
-                                batchId: picked.batchId,
-                                quantity: -picked.quantity
-                            });
-                        }
-                    }
-
-                    // B. Decrement global store stock
-                    await InventoryRepository.updateStock(storeId, item.itemId, { quantity: { decrement: quantity } }, tx);
-
-                    // Write Immutable Inventory Ledger Entry for the store deduction
-                    const quantityBefore = Number(existingStock.quantity);
-                    await AuditLedgerService.recordEntry({
-                        storeId,
-                        itemId: item.itemId,
-                        transactionType: 'STOCK_ISSUE',
-                        referenceType: 'StockIssue',
-                        referenceId: issueNumber,
-                        quantityBefore,
-                        quantityChange: -quantity,
-                        quantityAfter: quantityBefore - quantity,
-                        performedById: issuedById,
-                        idempotencyKey: `stock-issue-${issueNumber}-${item.itemId}`
-                    }, tx);
-
-                    // D. Update serial status if serials are provided in the payload
-                    if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
-                        for (const sn of item.serials) {
-                            const serialNum = sn.trim();
-                            if (!serialNum) continue;
-
-                            await tx.inventoryItemSerial.update({
-                                where: { serialNumber: serialNum },
-                                data: {
-                                    status: 'ISSUED',
-                                    storeId: null,
-                                    contractorId: contractorId || null
-                                }
-                            });
-                        }
-                    }
-                }
+                // Build transaction items from DB function results
+                const transactionItems = bulkResult.map(r => ({
+                    itemId: r.item_id,
+                    batchId: r.batch_id,
+                    quantity: -Math.abs(Number(r.picked_qty))
+                }));
 
                 // C. Log transaction and transaction items with batchId (Single Transaction Header)
                 if (transactionItems.length > 0) {
@@ -495,7 +449,7 @@ export class StockService {
     /**
      * Get item serials in store
      */
-    static async getItemSerials(storeId: string, itemId: string) {
+    static async getItemSerials(storeId: UUID, itemId: UUID) {
         if (!storeId || !itemId) throw AppError.badRequest('MISSING_PARAMS');
         
         return await prisma.inventoryItemSerial.findMany({

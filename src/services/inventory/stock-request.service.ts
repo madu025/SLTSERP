@@ -1025,6 +1025,10 @@ export class StockRequestService {
             // If they didn't receive everything issued yet, but there's no unissued balance, it goes to SUB_STORE_RECEIVE.
             // Wait, if hasUnissuedBalance, it goes back to/stays PARTIALLY_ISSUED (main store needs to issue more).
             // If !hasUnissuedBalance and !hasUnreceivedBalance, it is COMPLETED.
+            // Stage determination uses issuedQty tracking (sub-store issue flow).
+            // DB function fn_determine_next_stage() handles the GRN receive flow only
+            // (checks receivedQty >= approvedQty). Sub-store flow needs issuedQty
+            // tracking which the DB function does not support — JS logic is correct here.
             let nextStage = stockReq.workflowStage;
             let nextStatus = stockReq.status;
 

@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { ServiceOrder, Prisma } from '@prisma/client';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { UUID } from '@/types/common';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { SODMaterialService } from './sod.material.service';
 import { SODLifecycleService } from './sod.lifecycle.service';
@@ -61,7 +62,7 @@ export class ServiceOrderService {
     /**
      * Bulk Import from Excel
      */
-    static async bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string) {
+    static async bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: UUID) {
         return SODImportService.bulkImportServiceOrders(rtom, data, opmcId);
     }
 
@@ -257,12 +258,12 @@ export class ServiceOrderService {
             const isCompletedAdjustment = (updatedOrder.sltsStatus === 'COMPLETED' && oldOrder.sltsStatus === 'COMPLETED' && hasMaterialUpdate);
 
             if (isCompletingNow || isCompletedAdjustment) {
-                const updatedWithUsages = await tx.serviceOrder.findUnique({
-                    where: { id },
-                    include: { materialUsage: true }
-                });
-                const usages = updatedWithUsages?.materialUsage || [];
-                const totalSodMaterialCost = usages.reduce((sum, u) => sum.add(new Prisma.Decimal(u.costPrice || u.unitPrice || 0).mul(new Prisma.Decimal(u.quantity))), new Prisma.Decimal(0));
+                // Use DB function fn_sod_total_material_cost() for atomic aggregation
+                // Replaces JS .reduce() - runs entirely in PostgreSQL
+                const costResult = await tx.$queryRaw<[{ total: string }]>`
+                    SELECT fn_sod_total_material_cost(${id}::uuid) as total
+                `;
+                const totalSodMaterialCost = new Prisma.Decimal(costResult[0].total);
                 
                 // DR COGS, CR Inventory
                 await LedgerService.logSodConsumption(tx, id, totalSodMaterialCost.toNumber());
@@ -311,7 +312,7 @@ export class ServiceOrderService {
     }
 
     // --- SYNC METHODS delegated to SODSyncService ---
-    static async syncPatResults(opmcId: string, rtom: string) {
+    static async syncPatResults(opmcId: UUID, rtom: string) {
         return SODSyncService.syncPatResults(opmcId, rtom);
     }
 
@@ -331,7 +332,7 @@ export class ServiceOrderService {
         return SODSyncService.updateGlobalSyncStats(incremental);
     }
 
-    static async syncServiceOrders(opmcId: string, rtom: string) {
+    static async syncServiceOrders(opmcId: UUID, rtom: string) {
         return SODSyncService.syncServiceOrders(opmcId, rtom);
     }
 

@@ -3,6 +3,7 @@ import { FiscalPeriodService } from './fiscal-period.service';
 import { AppError } from '@/lib/error';
 import { ACCOUNTS } from './account-codes';
 import crypto from 'crypto';
+import { UUID } from '@/types/common';
 
 export interface JournalPostingLineInput {
     accountCode: string;
@@ -310,7 +311,7 @@ export class LedgerService {
      */
     static async logInvoiceGeneration(
         tx: TransactionClient,
-        invoiceId: string,
+        invoiceId: UUID,
         invoiceNumber: string,
         totalRevenue: number,
         contractorAmountA: number,
@@ -672,7 +673,7 @@ export class LedgerService {
      */
     static async logInvoiceIssuance(
         tx: TransactionClient,
-        invoiceId: string,
+        invoiceId: UUID,
         amount: number,
         type: string,
         invoiceNumber: string,

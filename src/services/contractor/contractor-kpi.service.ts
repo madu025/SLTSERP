@@ -1,7 +1,8 @@
 import { prisma } from '@/lib/prisma';
+import { UUID } from '@/types/common';
 
 export class ContractorKPIService {
-  static async getProjectContractorId(projectId: string): Promise<string | null> {
+  static async getProjectContractorId(projectId: UUID): Promise<UUID | null> {
     const project = await prisma.project.findUnique({
         where: { id: projectId },
         select: { contractorId: true },
@@ -11,7 +12,7 @@ export class ContractorKPIService {
   /**
    * Auto-calculate monthly KPI score for a contractor from live data
    */
-  static async calculateMonthlyScore(contractorId: string, month: string, projectId?: string) {
+  static async calculateMonthlyScore(contractorId: UUID, month: string, projectId?: UUID) {
     // month format: "YYYY-MM"
     const [yearStr, monthStr] = month.split('-');
     const startDate = new Date(`${yearStr}-${monthStr}-01`);
@@ -127,40 +128,7 @@ export class ContractorKPIService {
     });
   }
 
-  /**
-   * Get contractor ranking across all months
-   */
-  static async getContractorRanking(limit = 10) {
-    const latest = await prisma.contractorPerformanceScore.findMany({
-      distinct: ['contractorId'],
-      orderBy: [{ evaluationMonth: 'desc' }, { score: 'desc' }],
-      take: limit,
-      select: {
-        contractorId: true,
-        evaluationMonth: true,
-        score: true,
-        qualityScore: true,
-        safetyScore: true,
-        scheduleScore: true,
-        patPassPct: true,
-        contractor: { select: { name: true, contactNumber: true } },
-      },
-    });
-
-    return latest.map((item, i) => ({
-      rank: i + 1,
-      contractorId: item.contractorId,
-      name: item.contractor.name,
-      score: item.score,
-      qualityScore: item.qualityScore,
-      safetyScore: item.safetyScore,
-      scheduleScore: item.scheduleScore,
-      patPassPct: item.patPassPct,
-      month: item.evaluationMonth,
-    }));
-  }
-
-  static async getForProject(projectId: string) {
+  static async getForProject(projectId: UUID) {
     return await prisma.contractorPerformanceScore.findMany({
       where: { project: { id: projectId } },
       orderBy: { evaluationMonth: 'desc' }

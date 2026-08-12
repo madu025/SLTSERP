@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { UUID } from '@/types/common';
 
 export class GISReconciliationService {
   /**
@@ -23,7 +24,7 @@ export class GISReconciliationService {
   /**
    * Sync planned route assets with approved survey points using existing database tables.
    */
-  static async reconcile(projectId: string, userId: string) {
+  static async reconcile(projectId: UUID, userId: string) {
     // 1. Get the active GISRoute for the project
     const activeRoute = await prisma.gISRoute.findFirst({
       where: { projectId, isActive: true },
@@ -122,20 +123,18 @@ export class GISReconciliationService {
 
     // 5. Save snaps to database (in transaction)
     await prisma.$transaction(async (tx) => {
-      // Update matched poles
-      for (const p of polesToUpdate) {
-        await tx.gISPole.update({
-          where: { id: p.id },
-          data: { latitude: p.latitude, longitude: p.longitude },
-        });
-      }
-
-      // Update matched closures
-      for (const c of closuresToUpdate) {
-        await tx.gISClosure.update({
-          where: { id: c.id },
-          data: { latitude: c.latitude, longitude: c.longitude },
-        });
+      // Bulk update matched poles + closures via fn_bulk_gis_snap_update (single DB call replaces N+1 loops)
+      if (polesToUpdate.length > 0 || closuresToUpdate.length > 0) {
+        await tx.$executeRaw`
+          SELECT fn_bulk_gis_snap_update(
+            ${polesToUpdate.map(p => p.id)}::uuid[],
+            ${polesToUpdate.map(p => p.latitude)}::numeric[],
+            ${polesToUpdate.map(p => p.longitude)}::numeric[],
+            ${closuresToUpdate.map(c => c.id)}::uuid[],
+            ${closuresToUpdate.map(c => c.latitude)}::numeric[],
+            ${closuresToUpdate.map(c => c.longitude)}::numeric[]
+          )
+        `;
       }
 
       // 6. Add unmatched APPROVED survey points as new assets in the route

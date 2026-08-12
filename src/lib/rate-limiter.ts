@@ -73,9 +73,3 @@ export async function checkRateLimit(
     }
 }
 
-/**
- * Get total fail-open count for monitoring
- */
-export function getRateLimitMetrics() {
-    return { failOpenCount };
-}

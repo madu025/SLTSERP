@@ -40,6 +40,26 @@ export interface KpiData {
         request?: { requestNr: string; poNumber?: string } | null;
         purchaseOrder?: { poNumber: string; vendor: string | null } | null;
     }>;
+    materialBalance?: Array<{
+        itemId: string;
+        itemCode: string;
+        itemName: string;
+        currentStock: number;
+        allocatedStock: number;
+        availableStock: number;
+        minLevel: number;
+        reorderNeeded: boolean;
+        totalValue: number;
+    }>;
+    expiringBatches?: Array<{
+        batchId: string;
+        batchNumber: string;
+        itemCode: string;
+        itemName: string;
+        quantity: number;
+        expiryDate: string;
+        daysUntilExpiry: number;
+    }>;
 }
 
 export interface DashboardProps {

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import RBush from 'rbush';
+import { UUID } from '@/types/common';
 
 /**
  * pure JS Haversine formula implementation for backend distance calculations (in meters)
@@ -55,7 +56,7 @@ export class GISRouteOptimizerService {
      * Optimizes a planned route by detecting overlaps with all active/completed routes in the database.
      * Marks overlapping portions as 'EXISTING_INFRASTRUCTURE' (skipping survey) and detects remaining segments.
      */
-    static async optimizeRoute(projectId: string, routeId: string, toleranceMeters: number = 10) {
+    static async optimizeRoute(projectId: UUID, routeId: UUID, toleranceMeters: number = 10) {
         // 1. Fetch current planned route
         const currentRoute = await prisma.gISRoute.findUnique({
             where: { id: routeId },

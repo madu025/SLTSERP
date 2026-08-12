@@ -2,9 +2,10 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
 import { InvoiceCalculatorService } from '@/services/invoice/invoice.calculator.service';
+import { UUID } from '@/types/common';
 
 export interface RateRuleDTO {
-    id: string;
+    id: UUID;
     workType: string;
     workDescription: string;
     minDistance: number;
@@ -17,8 +18,8 @@ export interface RateRuleDTO {
 }
 
 export interface AmendmentRequestDTO {
-    id: string;
-    invoiceId: string;
+    id: UUID;
+    invoiceId: UUID;
     originalAmount: number;
     requestedAmount: number;
     originalAmountA: number;
@@ -27,13 +28,13 @@ export interface AmendmentRequestDTO {
     requestedAmountB: number;
     reason: string;
     status: string;
-    requestedById: string;
-    approvedById?: string | null;
+    requestedById: UUID;
+    approvedById?: UUID | null;
     approvedAt?: Date | null;
     rejectionReason?: string | null;
     createdAt: Date;
     invoice?: {
-        id: string;
+        id: UUID;
         invoiceNumber: string;
         totalAmount: number;
         contractor?: {
@@ -120,7 +121,7 @@ export class PricingAuditService {
     /**
      * Update rate amount for a specific rate rule by ID
      */
-    static async updateRateRule(id: string, rateAmount: number): Promise<RateRuleDTO> {
+    static async updateRateRule(id: UUID, rateAmount: number): Promise<RateRuleDTO> {
         const updated = await prisma.contractorRateRule.update({
             where: { id },
             data: { rateAmount },
@@ -204,7 +205,7 @@ export class PricingAuditService {
     /**
      * Create new invoice amendment request
      */
-    static async createAmendmentRequest(invoiceId: string, requestedAmount: number, reason: string, userId: string) {
+    static async createAmendmentRequest(invoiceId: UUID, requestedAmount: number, reason: string, userId: string) {
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },
             select: { id: true, totalAmount: true, amountA: true, amountB: true }

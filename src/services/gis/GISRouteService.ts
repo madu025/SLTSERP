@@ -3,6 +3,7 @@ import { AppError } from '@/lib/error';
 import { GISAuditService } from '@/services/gis/gis-audit.service';
 import { updateProgressOnBOQGenerate } from '@/lib/project-progress';
 import { BOQEngine } from '@/lib/gis/boq-engine';
+import { UUID } from '@/types/common';
 import { GISAIService } from '@/services/gis/gis-ai.service';
 import { GISLayerType, ParsedCableData, ParsedPoleData, ParsedFiberJointData } from '@/types/gis';
 
@@ -25,7 +26,7 @@ export class GISRouteService {
     /**
      * List GIS routes for project with count of elements
      */
-    static async listProjectRoutes(projectId: string) {
+    static async listProjectRoutes(projectId: UUID) {
         return await prisma.gISRoute.findMany({
             where: { projectId },
             include: {
@@ -45,7 +46,7 @@ export class GISRouteService {
     /**
      * Create a GIS route
      */
-    static async createGISRoute(projectId: string, data: CreateGISRouteDTO, userId: string) {
+    static async createGISRoute(projectId: UUID, data: CreateGISRouteDTO, userId: string) {
         const {
             name, description, routeLength, poleSpacing, sourceFile,
             sourceFormat, geojsonData, metadata, createdById
@@ -101,8 +102,8 @@ export class GISRouteService {
      * Generate BOQ from GIS route
      */
     static async generateBOQFromRoute(
-        projectId: string,
-        routeId: string,
+        projectId: UUID,
+        routeId: UUID,
         data: { notes?: string | null; createdById?: string | null },
         userId: string
     ) {
@@ -427,7 +428,7 @@ export class GISRouteService {
     /**
      * Fetch a specific GIS route with elements
      */
-    static async getRoute(routeId: string) {
+    static async getRoute(routeId: UUID) {
         return await prisma.gISRoute.findUnique({
             where: { id: routeId },
             include: {
@@ -444,8 +445,8 @@ export class GISRouteService {
      * Update a GIS route
      */
     static async updateRoute(
-        projectId: string,
-        routeId: string,
+        projectId: UUID,
+        routeId: UUID,
         data: {
             name?: string;
             description?: string | null;
@@ -505,7 +506,7 @@ export class GISRouteService {
     /**
      * Delete a GIS route and child elements transactionally
      */
-    static async deleteRoute(projectId: string, routeId: string, userId: string) {
+    static async deleteRoute(projectId: UUID, routeId: UUID, userId: UUID) {
         // Fetch route info before deletion for audit record
         const route = await prisma.gISRoute.findUnique({ where: { id: routeId } });
 
@@ -565,7 +566,7 @@ export class GISRouteService {
     /**
      * Get planned vs as-built progress elements counts and variances
      */
-    static async getRouteProgress(projectId: string, routeId: string) {
+    static async getRouteProgress(projectId: UUID, routeId: UUID) {
         const gisRoute = await prisma.gISRoute.findFirst({
             where: { id: routeId, projectId },
             include: {
@@ -691,8 +692,8 @@ export class GISRouteService {
      * Update elements of a GIS route in bulk
      */
     static async updateGISRouteElements(
-        projectId: string,
-        routeId: string,
+        projectId: UUID,
+        routeId: UUID,
         data: {
             elementType: 'POLE' | 'CHAMBER' | 'CLOSURE' | 'CABLE';
             elementIds: string[];
@@ -805,7 +806,7 @@ export class GISRouteService {
     /**
      * Fetch complete GIS dashboard data for a project
      */
-    static async getProjectGISData(projectId: string) {
+    static async getProjectGISData(projectId: UUID) {
         const gisRoutes = await prisma.gISRoute.findMany({
             where: { projectId },
             include: {
@@ -940,7 +941,7 @@ export class GISRouteService {
     /**
      * Fetch GIS mappings and available inventory items for a project
      */
-    static async getProjectGISMapping(projectId: string) {
+    static async getProjectGISMapping(projectId: UUID) {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             select: { id: true, gisMapping: true }
@@ -992,7 +993,7 @@ export class GISRouteService {
     /**
      * Save enriched GIS mappings for a project
      */
-    static async saveProjectGISMapping(projectId: string, mappings: Record<string, { materialId: string }>) {
+    static async saveProjectGISMapping(projectId: UUID, mappings: Record<string, { materialId: string }>) {
         // Fetch inventory items to enrich mapping details
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const materialIds = Object.values(mappings).map((m: any) => m.materialId);
@@ -1045,7 +1046,7 @@ export class GISRouteService {
      * Create an AI-generated Pre-Survey Route Draft
      */
     static async createPreSurveyRoute(
-        projectId: string,
+        projectId: UUID,
         data: {
             routeName?: string;
             startLat: number;

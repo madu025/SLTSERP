@@ -13,11 +13,3 @@ export function getRequestId() {
     return requestContext.getStore()?.requestId;
 }
 
-/**
- * Route all reads to the primary DB within this scope.
- * Use after a write to avoid stale reads from replica lag.
- */
-export function withPrimaryRead<T>(fn: () => Promise<T>): Promise<T> {
-    const store = requestContext.getStore() || { requestId: `standalone-${Date.now()}` };
-    return requestContext.run({ ...store, forcePrimary: true }, fn);
-}

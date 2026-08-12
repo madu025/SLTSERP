@@ -264,8 +264,6 @@ export class GRNService {
                         throw AppError.badRequest(`CANNOT_RECEIVE_GRN_FOR_UNAPPROVED_REQUEST: Stock Request ${request.requestNr} has status ${request.status} and must be APPROVED first.`);
                     }
 
-                    let allItemsCompleted = true;
-
                     // Update received quantities for each item
                     for (const reqItem of request.items) {
                         const grnItem = items.find((gi) => gi.itemId === reqItem.itemId);
@@ -281,41 +279,42 @@ export class GRNService {
                                 where: { id: reqItem.id },
                                 data: { receivedQty: newReceivedQty }
                             });
-
-                            if (newReceivedQty < limitQty) {
-                                allItemsCompleted = false;
-                            }
-                        } else {
-                            if (Number(reqItem.receivedQty) < limitQty) {
-                                allItemsCompleted = false;
-                            }
                         }
                     }
 
-                    const newStatus = allItemsCompleted ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
-                    const newWorkflowStage = allItemsCompleted ? 'COMPLETED' : request.workflowStage;
+                    // Use DB function to determine and update request status atomically
+                    const statusResult = await tx.$queryRaw<[{ new_status: string }]>`
+                        SELECT fn_update_stock_request_status(${requestId}::uuid) as new_status
+                    `;
+                    const newStatus = statusResult[0].new_status;
 
-                    const updatedReq = await tx.stockRequest.update({
-                        where: { id: requestId },
-                        data: {
-                            status: newStatus,
-                            workflowStage: newWorkflowStage,
-                            sltReferenceId: sltReferenceId || request.sltReferenceId
-                        }
+                    // Fetch updated request for notification
+                    const updatedReq = await tx.stockRequest.findUnique({
+                        where: { id: requestId }
                     });
 
-                    // Notify Requester that stock has arrived
-                    const [nErr] = await safe(NotificationService.send({
-                        userId: updatedReq.requestedById,
-                        title: newStatus === 'COMPLETED' ? 'Stock Fully Received' : 'Stock Partially Received',
-                        message: `Materials for request ${updatedReq.requestNr} have arrived at the store via GRN ${grn.grnNumber}.`,
-                        type: 'INVENTORY',
-                        priority: 'HIGH',
-                        link: '/inventory/requests',
-                        metadata: { requestId: updatedReq.id, grnNumber: grn.grnNumber, status: newStatus }
-                    }));
-                    if (nErr) {
-                        console.error("Failed to notify stock arrival:", nErr);
+                    if (updatedReq) {
+                        // Update SLT reference if provided
+                        if (sltReferenceId) {
+                            await tx.stockRequest.update({
+                                where: { id: requestId },
+                                data: { sltReferenceId }
+                            });
+                        }
+
+                        // Notify Requester that stock has arrived
+                        const [nErr] = await safe(NotificationService.send({
+                            userId: updatedReq.requestedById,
+                            title: newStatus === 'COMPLETED' ? 'Stock Fully Received' : 'Stock Partially Received',
+                            message: `Materials for request ${updatedReq.requestNr} have arrived at the store via GRN ${grn.grnNumber}.`,
+                            type: 'INVENTORY',
+                            priority: 'HIGH',
+                            link: '/inventory/requests',
+                            metadata: { requestId: updatedReq.id, grnNumber: grn.grnNumber, status: newStatus }
+                        }));
+                        if (nErr) {
+                            console.error("Failed to notify stock arrival:", nErr);
+                        }
                     }
                 }
             }

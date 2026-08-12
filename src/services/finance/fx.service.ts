@@ -1,28 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
 
 export class FXService {
-  /**
-   * Retrieves the current active exchange rate for a given currency code.
-   * Defaults to 1.0 if not found (e.g., base currency LKR).
-   */
-  static async getCurrentRate(currencyCode: string): Promise<number> {
-    if (currencyCode === 'LKR') return 1.0;
-    
-    const rate = await prisma.currencyExchange.findFirst({
-      where: {
-        currencyCode,
-        isActive: true,
-        effectiveDate: { lte: new Date() }
-      },
-      orderBy: {
-        effectiveDate: 'desc'
-      }
-    });
-    
-    return rate ? Number(rate.exchangeRate) : 1.0;
-  }
-
   /**
    * Records or updates a daily exchange rate.
    */

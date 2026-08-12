@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { UUID } from '@/types/common';
 import type { FinanceBudgetAllocation } from '@prisma/client';
 import {
   type CreateBudgetInput,
@@ -17,8 +18,8 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface BudgetDTO {
-  id: string;
-  opmcId: string;
+  id: UUID;
+  opmcId: UUID;
   fiscalYear: number;
   quarter: number | null;
   expenditureType: ExpenditureType;
@@ -26,7 +27,7 @@ export interface BudgetDTO {
   allocatedAmount: number;
   description: string | null;
   status: string;
-  approvedById: string | null;
+  approvedById: UUID | null;
   approvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -146,7 +147,7 @@ export class BudgetAllocationService {
    * Total: O(N/k + k) ≈ O(N/k) for large N
    */
   static async getBudgetVsActual(
-    opmcId: string,
+    opmcId: UUID,
     fiscalYear: number,
     quarter?: number
   ): Promise<BudgetVsActualItem[]> {
@@ -207,7 +208,7 @@ export class BudgetAllocationService {
    */
   static async getCrossOpmcSummary(
     fiscalYear: number
-  ): Promise<{ opmcId: string; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }[]> {
+  ): Promise<{ opmcId: UUID; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }[]> {
     const [budgets, actuals] = await Promise.all([
       prisma.financeBudgetAllocation.groupBy({
         by: ['opmcId', 'expenditureType'],
@@ -222,9 +223,9 @@ export class BudgetAllocationService {
     ]);
 
     // O(1) map build then O(M) join — no nested loops
-    const summaryMap = new Map<string, { opmcId: string; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }>();
+    const summaryMap = new Map<UUID, { opmcId: UUID; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }>();
 
-    for (const b of budgets as { opmcId: string; expenditureType: string; _sum: { allocatedAmount: number | null } }[]) {
+    for (const b of budgets as { opmcId: UUID; expenditureType: string; _sum: { allocatedAmount: number | null } }[]) {
       if (!summaryMap.has(b.opmcId)) {
         summaryMap.set(b.opmcId, { opmcId: b.opmcId, capexBudget: 0, opexBudget: 0, capexActual: 0, opexActual: 0 });
       }
@@ -233,7 +234,7 @@ export class BudgetAllocationService {
       else entry.opexBudget = b._sum.allocatedAmount ?? 0;
     }
 
-    for (const a of actuals as { opmcId: string; expenditureType: string; _sum: { amount: number | null } }[]) {
+    for (const a of actuals as { opmcId: UUID; expenditureType: string; _sum: { amount: number | null } }[]) {
       if (!summaryMap.has(a.opmcId)) {
         summaryMap.set(a.opmcId, { opmcId: a.opmcId, capexBudget: 0, opexBudget: 0, capexActual: 0, opexActual: 0 });
       }

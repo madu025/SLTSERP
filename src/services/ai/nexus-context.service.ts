@@ -598,6 +598,9 @@ export class NexusContextService {
     });
 
 
+    // Material cost aggregation across multiple SODs (in-memory data already fetched for AI context).
+    // DB function fn_sod_total_material_cost(sod_id) is used for single-SOD lookups (service-order/index.ts).
+    // Multi-SOD aggregation on pre-fetched data uses JS reduce — no extra DB round-trip needed.
     let totalMaterialCost = 0;
     materialUsages.forEach(m => {
         // Prefer costPrice, fallback to unitPrice

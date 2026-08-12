@@ -6,20 +6,21 @@ import { AppError } from '@/lib/error';
 import { Payment, CreatePaymentDTO, PaymentStatus, PaymentType } from '@/types/finance/payment.types';
 import { Invoice, CreateInvoiceDTO } from '@/types/finance/invoice.types';
 import { prisma as db } from '@/lib/prisma';
+import { UUID } from '@/types/common';
 
 // Workaround for IDE/Language Server caching issues with dynamic extended PrismaClient types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prisma = db as any;
 
 interface PrismaPaymentModel {
-  id: string;
-  invoice_id: string;
+  id: UUID;
+  invoice_id: UUID;
   payment_type: string;
-  reference_id: string;
+  reference_id: UUID;
   base_amount: number;
   tax_amount: number;
   total_amount: number;
-  tax_config_id: string | null;
+  tax_config_id: UUID | null;
   tax_rate_percent: number | null;
   tax_type: string | null;
   payment_date: Date | null;
@@ -29,31 +30,31 @@ interface PrismaPaymentModel {
   due_date: Date;
   payment_received_date: Date | null;
   notes: string | null;
-  invoice?: { id: string; invoice_number: string; total_amount: number } | null;
+  invoice?: { id: UUID; invoice_number: string; total_amount: number } | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 interface PrismaInvoiceItemModel {
-  id: string;
-  invoice_id: string;
+  id: UUID;
+  invoice_id: UUID;
   description: string;
   quantity: number;
   unit_price: number;
   line_total: number;
-  tax_config_id: string | null;
+  tax_config_id: UUID | null;
   tax_rate_percent: number | null;
   line_tax: number;
   item_type: string;
-  reference_id: string | null;
+  reference_id: UUID | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 interface PrismaInvoiceModel {
-  id: string;
+  id: UUID;
   invoice_number: string;
-  site_id: string;
+  site_id: UUID;
   items?: PrismaInvoiceItemModel[];
   subtotal: number;
   total_tax: number;
@@ -74,11 +75,11 @@ export class PaymentService {
   async createInvoice(data: CreateInvoiceDTO): Promise<Invoice> {
     try {
       // O(1) - Batch fetch all unique tax configs upfront (fixes N+1 query problem)
-      const taxConfigIds = [...new Set(data.items.map(i => i.tax_config_id).filter(Boolean))] as string[];
-      const taxConfigs: { id: string; tax_rate_percent: number; tax_inclusive: boolean }[] = taxConfigIds.length > 0
-        ? await prisma.vMTaxConfig.findMany({ where: { id: { in: taxConfigIds } } }) as { id: string; tax_rate_percent: number; tax_inclusive: boolean }[]
+      const taxConfigIds = [...new Set(data.items.map(i => i.tax_config_id).filter(Boolean))] as UUID[];
+      const taxConfigs: { id: UUID; tax_rate_percent: number; tax_inclusive: boolean }[] = taxConfigIds.length > 0
+        ? await prisma.vMTaxConfig.findMany({ where: { id: { in: taxConfigIds } } }) as { id: UUID; tax_rate_percent: number; tax_inclusive: boolean }[]
         : [];
-      const taxConfigMap = new Map<string, { id: string; tax_rate_percent: number; tax_inclusive: boolean }>(taxConfigs.map((tc) => [tc.id, tc]));
+      const taxConfigMap = new Map<UUID, { id: UUID; tax_rate_percent: number; tax_inclusive: boolean }>(taxConfigs.map((tc) => [tc.id, tc]));
 
       // Calculate totals
       let subtotal = 0;
@@ -485,7 +486,7 @@ export class PaymentService {
   /**
    * Generate unique invoice number
    */
-  private async generateInvoiceNumber(siteId: string): Promise<string> {
+  private async generateInvoiceNumber(siteId: UUID): Promise<string> {
     const site = await prisma.vMSite.findUnique({
       where: { id: siteId },
     });

@@ -5,6 +5,9 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+export type { UUID } from '@/types/common';
+import { UUID } from '@/types/common';
+
 export type InventoryItemContext = 'OSP_FTTH' | 'GENERAL' | string;
 
 // Type for the extended Prisma transaction client

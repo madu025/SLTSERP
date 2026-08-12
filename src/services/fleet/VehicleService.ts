@@ -7,10 +7,11 @@ import { safe } from '@/utils/safe-await.util';
 
 import { CreateVehicleDTO, UpdateVehicleDTO, Vehicle, VehicleType, OwnershipType, VehicleStatus } from '@/types/fleet/vehicle.types';
 import { prisma as db } from '@/lib/prisma';
+import { UUID } from '@/types/common';
 
 // Type-safe definitions for database rows to bypass stale IDE Prisma client generation issues.
 interface DbVehicle {
-  id: string;
+  id: UUID;
   registration_number: string;
   chassis_number: string;
   engine_number: string;
@@ -24,8 +25,8 @@ interface DbVehicle {
   capacity_passengers: number;
   capacity_cargo_weight_kg: number;
   capacity_cargo_volume_m3: number;
-  site_id: string;
-  current_driver_id: string | null;
+  site_id: UUID;
+  current_driver_id: UUID | null;
   latitude: number | null;
   longitude: number | null;
   location_timestamp: Date | null;
@@ -39,8 +40,8 @@ interface DbVehicle {
   photo_url: string | null;
   createdAt: Date;
   updatedAt: Date;
-  site?: { id: string; name: string } | null;
-  driver?: { id: string; first_name: string; last_name: string; phone?: string; email?: string } | null;
+  site?: { id: UUID; name: string } | null;
+  driver?: { id: UUID; first_name: string; last_name: string; phone?: string; email?: string } | null;
 }
 
 interface DbTrip {
@@ -141,7 +142,7 @@ export class VehicleService {
   /**
    * Get vehicle by ID
    */
-  async getVehicle(vehicleId: string): Promise<Vehicle | null> {
+  async getVehicle(vehicleId: UUID): Promise<Vehicle | null> {
     const [err, vehicle] = await safe<DbVehicle | null>(prisma.vMVehicle.findUnique({
       where: { id: vehicleId },
       include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
@@ -195,7 +196,7 @@ export class VehicleService {
   /**
    * Update vehicle
    */
-  async updateVehicle(vehicleId: string, data: UpdateVehicleDTO): Promise<Vehicle> {
+  async updateVehicle(vehicleId: UUID, data: UpdateVehicleDTO): Promise<Vehicle> {
     const [err, vehicle] = await safe<DbVehicle>(prisma.vMVehicle.update({
       where: { id: vehicleId },
       data: {
@@ -218,7 +219,7 @@ export class VehicleService {
   /**
    * Delete a vehicle
    */
-  async deleteVehicle(vehicleId: string): Promise<boolean> {
+  async deleteVehicle(vehicleId: UUID): Promise<boolean> {
     const [err] = await safe(prisma.vMVehicle.delete({
       where: { id: vehicleId },
     }));
@@ -234,47 +235,45 @@ export class VehicleService {
    * Update vehicle GPS location
    */
   async updateVehicleLocation(
-    vehicleId: string,
+    vehicleId: UUID,
     latitude: number,
     longitude: number,
     speed?: number,
     heading?: number
   ): Promise<Vehicle> {
-    const [err, results] = await safe(Promise.all([
-      prisma.vMVehicle.update({
-        where: { id: vehicleId },
-        data: {
-          latitude,
-          longitude,
-          location_timestamp: new Date(),
-          location_accuracy_meters: 10,
-        },
-        include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
-      }) as Promise<DbVehicle>,
-      prisma.vMGPSLocation.create({
-        data: {
-          vehicle_id: vehicleId,
-          latitude,
-          longitude,
-          speed_kmh: speed,
-          heading,
-          recorded_at: new Date(),
-        },
-      })
-    ]));
+    // Atomic: update vehicle location + insert GPS history via fn_vehicle_location_update
+    const [err] = await safe(db.$executeRaw`
+      SELECT fn_vehicle_location_update(
+        ${vehicleId}::uuid,
+        ${latitude}::numeric,
+        ${longitude}::numeric,
+        ${speed ?? null}::numeric,
+        ${heading ?? null}::numeric,
+        10
+      )
+    `);
 
-    if (err || !results) {
+    if (err) {
       throw AppError.badRequest(`Failed to update vehicle location: ${getErrorMessage(err)}`);
     }
 
-    const [vehicle] = results;
+    // Fetch updated vehicle for DTO mapping
+    const [fetchErr, vehicle] = await safe<DbVehicle | null>(db.vMVehicle.findUnique({
+      where: { id: vehicleId },
+      include: { site: true, driver: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } } },
+    }) as Promise<DbVehicle | null>);
+
+    if (fetchErr || !vehicle) {
+      throw AppError.badRequest(`Failed to fetch vehicle after location update: ${getErrorMessage(fetchErr)}`);
+    }
+
     return this.mapVehicleToDTO(vehicle);
   }
 
   /**
    * Get vehicle current location
    */
-  async getVehicleLocation(vehicleId: string): Promise<{
+  async getVehicleLocation(vehicleId: UUID): Promise<{
     latitude: number;
     longitude: number;
     timestamp: Date;
@@ -303,7 +302,7 @@ export class VehicleService {
   /**
    * Get vehicle utilization report
    */
-  async getVehicleUtilization(vehicleId: string, fromDate: Date, toDate: Date) {
+  async getVehicleUtilization(vehicleId: UUID, fromDate: Date, toDate: Date) {
     const [err, results] = await safe(Promise.all([
       prisma.vMTrip.findMany({
         where: {

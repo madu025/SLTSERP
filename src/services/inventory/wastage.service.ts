@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
 import { AuditService } from '@/services/audit/audit.service';
 import { AuditLedgerService } from './audit-ledger.service';
+import { UUID } from '@/types/common';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { LedgerService } from '../finance/ledger.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
@@ -31,74 +32,40 @@ export class WastageService {
             where: { id: { in: items.map(i => i.itemId) } }
         });
 
-        // Pre-fetch contractor issues once outside the loop
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let contractorIssues: any[] = [];
-        if (contractorId) {
-            const targetMonth = month || new Date().toISOString().slice(0, 7);
-            contractorIssues = await prisma.contractorMaterialIssue.findMany({
-                where: {
-                    contractorId,
-                    month: targetMonth
-                },
-                include: { items: true }
-            });
-        }
+        // Delegate wastage approval check to fn_wastage_approval_check (single DB call replaces JS nested loop)
+        const wastageItemIds = items.map(i => i.itemId);
+        const wastageQuantities = items.map(i => parseFloat(i.quantity.toString()));
 
-        let requiresApproval = false;
-        let totalWastageValue = 0;
-        const excessDetails: string[] = [];
-
+        // Validate quantities up-front
         for (const item of items) {
             const meta = itemMetas.find(m => m.id === item.itemId);
             if (!meta) continue;
-
-            // Reject negative/invalid wastage quantities up-front so value and movement stay consistent
             const requestedQty = parseFloat(item.quantity.toString());
             if (!Number.isFinite(requestedQty) || requestedQty < 0) {
                 throw AppError.badRequest(`INVALID_WASTAGE_QUANTITY: ${meta.name} quantity must be zero or positive`);
             }
-
-            // Trigger approval flow if wastage is not generally allowed for this item
-            if (!meta.isWastageAllowed) {
-                requiresApproval = true;
-            }
-
-            // Calculate total financial value of the wastage
-            const price = meta.costPrice ? Number(meta.costPrice) : (meta.unitPrice ? Number(meta.unitPrice) : 0);
-            const qty = requestedQty || 0;
-            totalWastageValue += qty * price;
-
-            // Validate wastage percentage limits for contractor issues
-            if (contractorId) {
-                let totalIssued = 0;
-                for (const issue of contractorIssues) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const issueItem = issue.items.find((i: any) => i.itemId === item.itemId);
-                    if (issueItem) {
-                        totalIssued += Number(issueItem.quantity);
-                    }
-                }
-
-                const allowedPerc = meta.maxWastagePercentage ? Number(meta.maxWastagePercentage) : 0;
-                if (totalIssued > 0) {
-                    const wastagePerc = (qty / totalIssued) * 100;
-                    if (wastagePerc > allowedPerc) {
-                        requiresApproval = true;
-                        excessDetails.push(`${meta.name} (Wastage: ${wastagePerc.toFixed(1)}% > Allowed: ${allowedPerc.toFixed(1)}%)`);
-                    }
-                } else if (qty > 0) {
-                    requiresApproval = true;
-                    excessDetails.push(`${meta.name} (Wastage reported but no issues recorded)`);
-                }
-            }
         }
 
-        // Value-based approval threshold (e.g. 10,000 LKR)
-        const VALUE_APPROVAL_THRESHOLD = 10000;
-        if (totalWastageValue > VALUE_APPROVAL_THRESHOLD) {
-            requiresApproval = true;
-        }
+        const approvalResult = await prisma.$queryRaw<Array<{
+            requires_approval: boolean;
+            total_wastage_value: number;
+            excess_details: string;
+        }>>`
+            SELECT * FROM fn_wastage_approval_check(
+                ${contractorId || null}::uuid,
+                ${storeId || null}::uuid,
+                ${(month || new Date().toISOString().slice(0, 7))}::text,
+                ${wastageItemIds}::uuid[],
+                ${wastageQuantities}::numeric[]
+            )
+        `;
+
+        const result = approvalResult[0] || { requires_approval: false, total_wastage_value: 0, excess_details: '' };
+        let requiresApproval = result.requires_approval;
+        const totalWastageValue = Number(result.total_wastage_value);
+        const excessDetails: string[] = result.excess_details
+            ? result.excess_details.split('; ').filter(s => s.trim())
+            : [];
 
         // Contractors must NEVER get automatic approval (strict anti-fraud compliance check)
         if (contractorId) {
@@ -186,7 +153,7 @@ export class WastageService {
         if (!storeId) throw AppError.badRequest('STORE_ID_REQUIRED_FOR_STORE_WASTAGE');
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            const transactionItems: { itemId: string; quantity: number; batchId: string | null }[] = [];
+            const transactionItems: { itemId: UUID; quantity: number; batchId: UUID | null }[] = [];
 
             for (const item of items) {
                 const qty = StockService.round(parseFloat(item.quantity.toString()));

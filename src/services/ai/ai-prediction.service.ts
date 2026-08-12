@@ -1,11 +1,12 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { UUID } from '@/types/common';
 
 export class AiPredictionService {
   /**
    * Predict delay risk for a project
    */
-  static async predictDelay(projectId: string) {
+  static async predictDelay(projectId: UUID) {
     const [project, tasks, dailyProgress, materialIssues] = await Promise.all([
       prisma.project.findUnique({
         where: { id: projectId },
@@ -88,7 +89,7 @@ export class AiPredictionService {
   /**
    * Predict budget overrun risk
    */
-  static async predictBudgetOverrun(projectId: string) {
+  static async predictBudgetOverrun(projectId: UUID) {
     const [project, changeRequests] = await Promise.all([
       prisma.project.findUnique({
         where: { id: projectId },
@@ -168,7 +169,7 @@ export class AiPredictionService {
   /**
    * Predict permit delay risk
    */
-  static async predictPermitDelay(projectId: string) {
+  static async predictPermitDelay(projectId: UUID) {
     const pendingPermits = await prisma.projectPermit.findMany({
       where: {
         projectId,
@@ -233,74 +234,9 @@ export class AiPredictionService {
   }
 
   /**
-   * Predict material shortage across all active projects
-   */
-  static async predictMaterialShortage() {
-    // Get all active project BOQ items
-    const boqDemand = await prisma.projectBOQItem.groupBy({
-      by: ['materialId'],
-      where: {
-        project: { status: { in: ['PLANNING', 'IN_PROGRESS', 'APPROVED' as import('@prisma/client').ProjectStatus] } },
-        materialId: { not: null },
-      },
-      _sum: { quantity: true, actualQuantity: true },
-    });
-
-    const materialIds = boqDemand.map(d => d.materialId).filter(Boolean) as string[];
-
-    // Batch query stock levels for all demanded materials in a single query
-    const stockLevels = await prisma.inventoryStock.groupBy({
-      by: ['itemId'],
-      where: { itemId: { in: materialIds } },
-      _sum: { quantity: true },
-    });
-
-    const stockMap = new Map<string, number>();
-    for (const stock of stockLevels) {
-      if (stock.itemId) {
-        stockMap.set(stock.itemId, stock._sum.quantity ? Number(stock._sum.quantity) : 0);
-      }
-    }
-
-    const predictions = [];
-    for (const demand of boqDemand) {
-      if (!demand.materialId) continue;
-
-      const required = Number(demand._sum.quantity ?? 0) - Number(demand._sum.actualQuantity ?? 0);
-      const available = stockMap.get(demand.materialId) ?? 0;
-      const shortfall = required - available;
-
-      if (shortfall > 0) {
-        const riskLevel = shortfall > required * 0.5 ? 'CRITICAL' : shortfall > required * 0.2 ? 'HIGH' : 'MEDIUM';
-        predictions.push(
-          prisma.aiPrediction.create({
-            data: {
-              predictionType: 'MATERIAL_SHORTAGE',
-              riskLevel,
-              probabilityPct: Math.min(99, (shortfall / required) * 100),
-              predictedImpact: `${Math.round(shortfall)} units shortfall`,
-              currentMetrics: {
-                materialId: demand.materialId,
-                required,
-                available,
-                shortfall,
-              } as object,
-              rootCause: `Stock insufficient for active project demand`,
-              recommendation: `Raise Purchase Request for ${Math.ceil(shortfall * 1.1)} units (10% buffer)`,
-              confidenceScore: 80,
-            },
-          })
-        );
-      }
-    }
-
-    return Promise.all(predictions);
-  }
-
-  /**
    * Get all predictions for a project
    */
-  static async getAllPredictions(projectId: string) {
+  static async getAllPredictions(projectId: UUID) {
     return Promise.all([
       AiPredictionService.predictDelay(projectId),
       AiPredictionService.predictBudgetOverrun(projectId),
@@ -311,7 +247,7 @@ export class AiPredictionService {
   /**
    * Get saved predictions for a project (without re-running)
    */
-  static async getSavedPredictions(projectId: string) {
+  static async getSavedPredictions(projectId: UUID) {
     return prisma.aiPrediction.findMany({
       where: { projectId, isResolved: false },
       orderBy: [{ riskLevel: 'desc' }, { createdAt: 'desc' }],

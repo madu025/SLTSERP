@@ -1,4 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
+import { UUID } from '@/types/common';
 
 /**
  * Domain Integration Notification Policies
@@ -18,13 +19,13 @@ export class DomainNotificationPolicies {
     // ============================================================
 
     static async notifyTicketCreated(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
         priority: string;
         category: string;
-        createdById: string;
-        assignedToId?: string | null;
+        createdById: UUID;
+        assignedToId?: UUID | null;
     }) {
         // Notify the assignee (if assigned at creation)
         if (ticket.assignedToId) {
@@ -57,10 +58,10 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyTicketAssigned(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
-        assignedToId: string;
+        assignedToId: UUID;
         assignedByName?: string;
     }) {
         await NotificationRetryService.enqueue({
@@ -76,14 +77,14 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyTicketStatusChanged(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
         status: string;
         previousStatus: string;
-        changedById: string;
-        createdById: string;
-        assignedToId?: string | null;
+        changedById: UUID;
+        createdById: UUID;
+        assignedToId?: UUID | null;
     }) {
         const statusLabel = ticket.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
@@ -117,11 +118,11 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyTicketResolved(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
-        createdById: string;
-        resolvedById: string;
+        createdById: UUID;
+        resolvedById: UUID;
     }) {
         await NotificationRetryService.enqueue({
             userId: ticket.createdById,
@@ -138,13 +139,13 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyTicketCommented(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
         commenterName: string;
-        createdById: string;
-        assignedToId?: string | null;
-        commenterId: string;
+        createdById: UUID;
+        assignedToId?: UUID | null;
+        commenterId: UUID;
     }) {
         const recipients = new Set<string>();
         if (ticket.createdById !== ticket.commenterId) recipients.add(ticket.createdById);
@@ -172,8 +173,8 @@ export class DomainNotificationPolicies {
         status: string;
         previousStatus: string;
         customerName?: string;
-        changedByUserId: string;
-        opmcId?: string;
+        changedByUserId: UUID;
+        opmcId?: UUID;
     }) {
         const statusLabel = order.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
@@ -194,8 +195,8 @@ export class DomainNotificationPolicies {
     static async notifySODCompleted(order: {
         soNum: string;
         customerName?: string;
-        completedByUserId: string;
-        opmcId?: string;
+        completedByUserId: UUID;
+        opmcId?: UUID;
         materialsCount?: number;
         cpeCount?: number;
     }) {
@@ -221,10 +222,10 @@ export class DomainNotificationPolicies {
     static async notifySODAssignment(order: {
         soNum: string;
         customerName?: string;
-        assignedToUserId?: string;
+        assignedToUserId?: UUID;
         teamName?: string;
         contractorName?: string;
-        opmcId?: string;
+        opmcId?: UUID;
     }) {
         const assignee = order.teamName || order.contractorName || 'a team';
 
@@ -258,7 +259,7 @@ export class DomainNotificationPolicies {
     // ============================================================
 
     static async notifyMilestoneDue(project: {
-        id: string;
+        id: UUID;
         name: string;
         code: string;
         milestoneName: string;
@@ -279,11 +280,11 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyProjectTaskAssigned(task: {
-        id: string;
+        id: UUID;
         title: string;
         projectName: string;
         projectCode: string;
-        assignedToId: string;
+        assignedToId: UUID;
         dueDate?: Date;
         priority: string;
     }) {
@@ -302,7 +303,7 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyProjectBudgetAlert(project: {
-        id: string;
+        id: UUID;
         name: string;
         code: string;
         budgetUtilization: number; // percentage
@@ -323,7 +324,7 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyVariationOrderCreated(vo: {
-        id: string;
+        id: UUID;
         voNumber: string;
         projectName: string;
         projectCode: string;
@@ -343,7 +344,7 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyProjectResourceShortage(project: {
-        id: string;
+        id: UUID;
         name: string;
         code: string;
         resourceType: string;
@@ -366,11 +367,11 @@ export class DomainNotificationPolicies {
     // ============================================================
 
     static async notifyPaymentReceived(payment: {
-        id: string;
+        id: UUID;
         invoiceNumber: string;
         amount: number;
         payer: string;
-        projectId?: string;
+        projectId?: UUID;
         projectName?: string;
     }) {
         const projectRef = payment.projectName ? ` for ${payment.projectName}` : '';
@@ -387,7 +388,7 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyInvoiceDue(invoice: {
-        id: string;
+        id: UUID;
         invoiceNumber: string;
         amount: number;
         dueDate: Date;
@@ -408,7 +409,7 @@ export class DomainNotificationPolicies {
     }
 
     static async notifyExpenseApproval(expense: {
-        id: string;
+        id: UUID;
         expenseNumber: string;
         amount: number;
         submittedByName: string;
@@ -433,12 +434,12 @@ export class DomainNotificationPolicies {
     // ============================================================
 
     static async notifyAppointmentReminder(appointment: {
-        id: string;
+        id: UUID;
         soNum: string;
         customerName: string;
         date: Date;
         time: string;
-        assignedToId?: string;
+        assignedToId?: UUID;
         contactNumber?: string;
         interval?: string;
         rtom?: string;
@@ -482,7 +483,7 @@ export class DomainNotificationPolicies {
     /**
      * Send a daily digest of unread notifications to a user
      */
-    static async sendDailyDigest(userId: string, userEmail: string): Promise<void> {
+    static async sendDailyDigest(userId: UUID, userEmail: string): Promise<void> {
         try {
             const unreadNotifications = await NotificationService.getUserNotifications(userId, 20);
             const unread = unreadNotifications.filter((n: Record<string, unknown>) => !n.isRead);

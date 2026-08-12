@@ -2,13 +2,14 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { ACCOUNTS } from './account-codes';
+import { UUID } from '@/types/common';
 
 export interface CashBookRow {
-    id: string;
-    entryId: string;
-    date: string;
+    id: UUID;
+    entryId: UUID;
+    date: Date;
     referenceType: string | null;
-    referenceId: string | null;
+    referenceId: UUID | null;
     description: string;
     debit: number;
     credit: number;
@@ -29,7 +30,7 @@ export interface CashBookReport {
 }
 
 export interface BankReconciliationSummary {
-    bankAccountId: string;
+    bankAccountId: UUID;
     accountNumber: string;
     bankName: string;
     statementBalance: number;
@@ -104,7 +105,7 @@ export class BankCashService {
             return {
                 id: line.id,
                 entryId: line.entryId,
-                date: line.entry.date.toISOString(),
+                date: line.entry.date,
                 referenceType: line.entry.referenceType,
                 referenceId: line.entry.referenceId,
                 description: line.description || line.entry.description,
@@ -135,7 +136,7 @@ export class BankCashService {
      * Import Bank Statement lines for reconciliation.
      */
     static async importBankStatement(
-        bankAccountId: string,
+        bankAccountId: UUID,
         lines: { statementDate: Date; description: string; referenceNumber?: string; debit: number; credit: number }[]
     ) {
         const bankAccount = await prisma.bankAccount.findUnique({ where: { id: bankAccountId } });
@@ -180,7 +181,7 @@ export class BankCashService {
     /**
      * Compute Bank Reconciliation summary & variance.
      */
-    static async getBankReconciliationSummary(bankAccountId: string): Promise<BankReconciliationSummary> {
+    static async getBankReconciliationSummary(bankAccountId: UUID): Promise<BankReconciliationSummary> {
         const bankAccount = await prisma.bankAccount.findUnique({ where: { id: bankAccountId } });
         if (!bankAccount) throw AppError.notFound(`Bank account #${bankAccountId} not found`);
 

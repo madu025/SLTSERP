@@ -4,6 +4,7 @@ import { safeJsonParse } from '@/utils/safeJsonParse';
 import { SODInvoicingService } from '../service-order/sod.invoicing.service';
 import { LedgerService, JournalPostingLineInput } from './ledger.service';
 import { ACCOUNTS } from './account-codes';
+import { UUID } from '@/types/common';
 
 export interface MonthlyWipBuildupItem {
     month: string;
@@ -49,7 +50,7 @@ export interface WipSummaryMetrics {
     monthlyBuildup: MonthlyWipBuildupItem[];
 
     opmcBreakdown: Array<{
-        opmcId: string;
+        opmcId: UUID;
         rtom: string;
         opmcName: string;
         wipValue: number;
@@ -64,7 +65,7 @@ export interface WipSummaryMetrics {
 }
 
 export interface WipSodItem {
-    id: string;
+    id: UUID;
     soNum: string;
     voiceNumber: string | null;
     customerName: string | null;

@@ -17,8 +17,9 @@ export const GET = apiHandler(async (request) => {
         await InventoryService.checkLowStock(storeId, itemId);
         return { success: true, message: 'Checked low stock for item.' };
     } else {
-        const count = await InventoryService.checkAllLowStock(storeId);
-        return { success: true, message: `Triggered low stock checks for ${count} items.` };
+        // Use DB function fn_low_stock_alerts() for efficient server-side alert computation
+        const alerts = await InventoryService.getLowStockAlerts(storeId);
+        return { success: true, alerts };
     }
 }, {
     rawResponse: true

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { StockService } from './stock.service';
+import { UUID } from '@/types/common';
 import { StoreService } from './store.service';
 import { AuditLedgerService } from './audit-ledger.service';
 import { emitSystemEvent } from '@/lib/events';
@@ -11,7 +12,7 @@ import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 
 export class IssueService {
-    static async getMaterialIssues(contractorId: string, month?: string) {
+    static async getMaterialIssues(contractorId: UUID, month?: string) {
         const whereClause: Prisma.ContractorMaterialIssueWhereInput = { contractorId };
         if (month) whereClause.month = month;
 
@@ -190,10 +191,7 @@ export class IssueService {
             return await execute(t);
         });
 
-        // Trigger Low Stock Alerts (non-blocking)
-        await safe(Promise.all(
-            items.map(item => StoreService.checkLowStock(storeId, item.itemId))
-        ));
+        // Low stock alerts are now handled automatically by DB trigger trg_low_stock_auto_alert
 
         emitSystemEvent('INVENTORY_UPDATE');
         return result;

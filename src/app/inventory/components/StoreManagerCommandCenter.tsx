@@ -17,7 +17,9 @@ import {
     ArrowUpRight,
     DollarSign,
     CheckCircle2,
-    Truck
+    Truck,
+    Package,
+    Clock
 } from "lucide-react";
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
@@ -227,18 +229,24 @@ export default function StoreManagerCommandCenter({
 
             {/* 4. Operational Queue Tabs */}
             <Tabs defaultValue="dispatch" className="w-full space-y-4">
-                <TabsList className="bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-1 h-auto">
-                    <TabsTrigger value="dispatch" className="text-xs font-bold py-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                        🚚 Field Dispatch ({summary.pendingDispatchCount})
+                <TabsList className="bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800 flex flex-wrap gap-1 h-auto">
+                    <TabsTrigger value="dispatch" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                        Field Dispatch ({summary.pendingDispatchCount})
                     </TabsTrigger>
-                    <TabsTrigger value="inbound" className="text-xs font-bold py-2 rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white">
-                        📦 Inbound POs ({summary.pendingGrnCount})
+                    <TabsTrigger value="inbound" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+                        Inbound POs ({summary.pendingGrnCount})
                     </TabsTrigger>
-                    <TabsTrigger value="reorder" className="text-xs font-bold py-2 rounded-lg data-[state=active]:bg-red-600 data-[state=active]:text-white">
-                        ⚠️ Stockout Alerts ({summary.lowStockCount})
+                    <TabsTrigger value="reorder" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-red-600 data-[state=active]:text-white">
+                        Stockout ({summary.lowStockCount})
                     </TabsTrigger>
-                    <TabsTrigger value="returns" className="text-xs font-bold py-2 rounded-lg data-[state=active]:bg-slate-800 data-[state=active]:text-white">
-                        🔄 MRN Returns ({summary.pendingMrnCount})
+                    <TabsTrigger value="returns" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-slate-800 data-[state=active]:text-white">
+                        MRN ({summary.pendingMrnCount})
+                    </TabsTrigger>
+                    <TabsTrigger value="balance" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+                        Stock Balance
+                    </TabsTrigger>
+                    <TabsTrigger value="expiring" className="text-xs font-bold py-2 px-3 rounded-lg data-[state=active]:bg-amber-600 data-[state=active]:text-white">
+                        Expiring ({kpiData?.expiringBatches?.length || 0})
                     </TabsTrigger>
                 </TabsList>
 
@@ -430,6 +438,129 @@ export default function StoreManagerCommandCenter({
                                 </>
                             ) : (
                                 <div className="text-xs font-medium">No pending Material Return Notes (MRN) awaiting approval.</div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* Tab 5: Material Balance (DB function fn_store_material_balance) */}
+                <TabsContent value="balance">
+                    <Card className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                        <CardHeader className="py-3 px-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between">
+                            <CardTitle className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                <Package className="w-4 h-4 text-emerald-600" />
+                                Store Material Balance
+                            </CardTitle>
+                            <Link href="/inventory/stock" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center">
+                                Full Inventory <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
+                            </Link>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {!kpiData?.materialBalance || kpiData.materialBalance.length === 0 ? (
+                                <div className="p-8 text-center text-slate-500 text-xs font-medium">
+                                    No stock data available for this store.
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Item Code</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Item Name</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-right">Current</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-right">Allocated</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-right">Available</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-right">Value (LKR)</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {kpiData.materialBalance.slice(0, 20).map((row) => (
+                                                <tr key={row.itemId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-slate-100">{row.itemCode}</td>
+                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{row.itemName}</td>
+                                                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">{row.currentStock.toFixed(2)}</td>
+                                                    <td className="px-4 py-3 text-right text-slate-500">{row.allocatedStock.toFixed(2)}</td>
+                                                    <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">{row.availableStock.toFixed(2)}</td>
+                                                    <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-400">{row.totalValue.toLocaleString()}</td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        {row.reorderNeeded ? (
+                                                            <Badge variant="outline" className="text-[10px] font-bold border-red-200 bg-red-50 text-red-700">REORDER</Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-[10px] font-bold border-emerald-200 bg-emerald-50 text-emerald-700">OK</Badge>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    {kpiData.materialBalance.length > 20 && (
+                                        <div className="p-3 text-center border-t border-slate-100 dark:border-slate-800">
+                                            <span className="text-[10px] font-bold text-slate-400">Showing 20 of {kpiData.materialBalance.length} items</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* Tab 6: Expiring Batches (DB function fn_expiring_batches) */}
+                <TabsContent value="expiring">
+                    <Card className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                        <CardHeader className="py-3 px-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between">
+                            <CardTitle className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-amber-600" />
+                                Batches Expiring Within 30 Days
+                            </CardTitle>
+                            <Link href="/inventory/stock" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center">
+                                View All Batches <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
+                            </Link>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {!kpiData?.expiringBatches || kpiData.expiringBatches.length === 0 ? (
+                                <div className="p-8 text-center text-slate-500 text-xs font-medium flex flex-col items-center gap-2">
+                                    <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                                    No batches expiring in the next 30 days.
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Batch #</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Item Code</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Item Name</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-right">Qty</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400">Expiry Date</th>
+                                                <th className="px-4 py-2.5 font-black uppercase text-[10px] text-slate-400 text-center">Days Left</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {kpiData.expiringBatches.map((batch) => (
+                                                <tr key={batch.batchId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                                    <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-slate-100">{batch.batchNumber}</td>
+                                                    <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-400">{batch.itemCode}</td>
+                                                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{batch.itemName}</td>
+                                                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">{batch.quantity.toFixed(2)}</td>
+                                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{new Date(batch.expiryDate).toLocaleDateString()}</td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <Badge variant="outline" className={cn(
+                                                            "text-[10px] font-bold",
+                                                            batch.daysUntilExpiry <= 7
+                                                                ? 'border-red-200 bg-red-50 text-red-700'
+                                                                : batch.daysUntilExpiry <= 14
+                                                                    ? 'border-orange-200 bg-orange-50 text-orange-700'
+                                                                    : 'border-amber-200 bg-amber-50 text-amber-700'
+                                                        )}>
+                                                            {batch.daysUntilExpiry} days
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
                         </CardContent>
                     </Card>

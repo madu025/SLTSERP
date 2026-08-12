@@ -2,17 +2,18 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { StockService } from '../inventory/stock.service';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { UUID } from '@/types/common';
 
 export class ProjectStockIssueService {
     /**
      * Create a pending stock issue request
      */
     static async createIssueRequest(data: {
-        projectId: string;
-        storeId: string;
-        items: { itemId: string; quantity: number | string; remarks?: string }[];
+        projectId: UUID;
+        storeId: UUID;
+        items: { itemId: UUID; quantity: number | string; remarks?: string }[];
         remarks?: string;
-        userId: string;
+        userId: UUID;
         issueDate?: Date | string;
     }) {
         const { projectId, storeId, items, remarks, userId, issueDate } = data;
@@ -75,7 +76,7 @@ export class ProjectStockIssueService {
     /**
      * Get stock issue requests for a project
      */
-    static async getProjectIssues(projectId: string) {
+    static async getProjectIssues(projectId: UUID) {
         return await prisma.stockIssue.findMany({
             where: { projectId },
             include: {
@@ -94,7 +95,7 @@ export class ProjectStockIssueService {
     /**
      * Approve a pending stock issue request
      */
-    static async approveIssueRequest(issueId: string, approvedById: string) {
+    static async approveIssueRequest(issueId: UUID, approvedById: UUID) {
         const issue = await prisma.stockIssue.findUnique({
             where: { id: issueId },
             include: { items: true }
@@ -152,7 +153,7 @@ export class ProjectStockIssueService {
             });
 
             let totalIssueCost = 0;
-            const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
+            const transactionItems: { itemId: UUID; batchId: UUID; quantity: number }[] = [];
 
             // 2. Process Items
             for (const item of issue.items) {
@@ -187,26 +188,28 @@ export class ProjectStockIssueService {
                     where: { storeId_itemId: { storeId: issue.storeId, itemId: item.itemId } },
                     data: { quantity: { decrement: item.quantity } }
                 });
+            }
 
-                // Update BOQ Actuals - Only if this is a project issue
-                if (issue.projectId) {
-                    const boqItem = await tx.projectBOQItem.findFirst({
-                        where: {
-                            projectId: issue.projectId,
-                            materialId: item.itemId
-                        }
-                    });
-
-                    if (boqItem) {
-                        const cost = Number(item.quantity) * Number(boqItem.unitRate);
-                        await tx.projectBOQItem.update({
-                            where: { id: boqItem.id },
-                            data: {
-                                actualQuantity: { increment: item.quantity },
-                                actualCost: { increment: cost }
-                            }
-                        });
-                        totalIssueCost += cost;
+            // Bulk update BOQ Actuals via fn_bulk_boq_actual_update (single DB call replaces N+1 loop)
+            if (issue.projectId) {
+                const boqItemIds = issue.items.map(i => i.itemId);
+                const boqQuantities = issue.items.map(i => Number(i.quantity));
+                const boqUpdated = await tx.$queryRaw<[{ updated: bigint }]>`
+                    SELECT fn_bulk_boq_actual_update(
+                        ${issue.projectId}::uuid,
+                        ${boqItemIds}::uuid[],
+                        ${boqQuantities}::numeric[]
+                    ) as updated
+                `;
+                // Fetch updated BOQ items for cost calculation
+                const updatedBoqs = await tx.projectBOQItem.findMany({
+                    where: { projectId: issue.projectId, materialId: { in: boqItemIds } },
+                    select: { materialId: true, unitRate: true }
+                });
+                for (const bq of updatedBoqs) {
+                    const origItem = issue.items.find(i => i.itemId === bq.materialId);
+                    if (origItem) {
+                        totalIssueCost += Number(origItem.quantity) * Number(bq.unitRate);
                     }
                 }
             }
@@ -261,11 +264,11 @@ export class ProjectStockIssueService {
      * Create a project material return request
      */
     static async createReturnRequest(data: {
-        projectId: string;
-        storeId: string;
-        items: { itemId: string; quantity: number | string; condition?: string; remarks?: string }[];
+        projectId: UUID;
+        storeId: UUID;
+        items: { itemId: UUID; quantity: number | string; condition?: string; remarks?: string }[];
         reason?: string;
-        userId: string;
+        userId: UUID;
     }) {
         const { projectId, storeId, items, reason, userId } = data;
 
@@ -297,7 +300,7 @@ export class ProjectStockIssueService {
     /**
      * List returns for a project
      */
-    static async getProjectReturns(projectId: string) {
+    static async getProjectReturns(projectId: UUID) {
         return await prisma.projectMaterialReturn.findMany({
             where: { projectId },
             include: {
@@ -313,7 +316,7 @@ export class ProjectStockIssueService {
     /**
      * Approve a project material return request
      */
-    static async approveReturnRequest(returnId: string, approvedById: string) {
+    static async approveReturnRequest(returnId: UUID, approvedById: UUID) {
         const returnReq = await prisma.projectMaterialReturn.findUnique({
             where: { id: returnId },
             include: { items: true }
@@ -347,8 +350,8 @@ export class ProjectStockIssueService {
             });
 
             let totalCredit = 0;
-            const transferInItems: { itemId: string; quantity: number }[] = [];
-            const wastageItems: { itemId: string; quantity: number }[] = [];
+            const transferInItems: { itemId: UUID; quantity: number }[] = [];
+            const wastageItems: { itemId: UUID; quantity: number }[] = [];
 
             // 2. Process Items
             for (const item of returnReq.items) {

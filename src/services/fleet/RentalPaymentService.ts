@@ -17,18 +17,19 @@ import { AppError } from '@/lib/error';
 
 import { prisma as db } from '@/lib/prisma';
 import { SummaryStatus } from '@/types/fleet/rental-payment.types';
+import { UUID } from '@/types/common';
 
 export interface MonthlySummaryInput {
-  rentalVehicleId: string;
+  rentalVehicleId: UUID;
   year: number;
   month: number;
 }
 
 interface DbRentalVehicle {
-  id: string;
-  vehicle_id: string;
-  supplier_id: string;
-  rental_contract_id: string;
+  id: UUID;
+  vehicle_id: UUID;
+  supplier_id: UUID;
+  rental_contract_id: UUID;
   rental_start_date: Date;
   rental_end_date: Date;
   rental_cost_daily: number | import('@prisma/client/runtime/library').Decimal;
@@ -51,18 +52,18 @@ interface DbRentalVehicle {
   bank_branch_code: string | null;
   document_url: string | null;
   vehicle: {
-    id: string;
+    id: UUID;
     registration_number: string;
     make: string;
     model: string;
-    site?: { id: string; name: string } | null;
+    site?: { id: UUID; name: string } | null;
   };
 }
 
 interface DbVehicleLog {
-  id: string;
-  vehicle_id: string;
-  driver_id: string;
+  id: UUID;
+  vehicle_id: UUID;
+  driver_id: UUID;
   start_time: Date;
   end_time: Date | null;
   start_odometer: number;
@@ -71,16 +72,16 @@ interface DbVehicleLog {
 }
 
 interface DbDriverOT {
-  id: string;
-  driver_id: string;
+  id: UUID;
+  driver_id: UUID;
   date: Date;
   total_pay: number;
   status: string;
 }
 
 interface DbMonthlySummary {
-  id: string;
-  rentalVehicleId: string;
+  id: UUID;
+  rentalVehicleId: UUID;
   year: number;
   month: number;
   rental_cost_monthly: number;
@@ -104,14 +105,14 @@ interface DbMonthlySummary {
   additional_km_charges: number;
   net_payment: number;
   status: string;
-  prepared_by_id: string | null;
+  prepared_by_id: UUID | null;
   prepared_by_name: string | null;
   prepared_at: Date | null;
-  checked_by_id: string | null;
+  checked_by_id: UUID | null;
   checked_by_name: string | null;
   checked_at: Date | null;
   checked_remarks: string | null;
-  recommended_by_id: string | null;
+  recommended_by_id: UUID | null;
   recommended_by_name: string | null;
   recommended_at: Date | null;
   recommended_remarks: string | null;
@@ -119,9 +120,9 @@ interface DbMonthlySummary {
   createdAt: Date;
   updatedAt: Date;
   rentalVehicle?: {
-    id: string;
+    id: UUID;
     vehicle: {
-      id: string;
+      id: UUID;
       registration_number: string;
       make: string;
       model: string;
@@ -594,7 +595,7 @@ class RentalPaymentService {
   /**
    * Fetch a rental vehicle by vehicle registration ID
    */
-  async getRentalVehicleByVehicleId(vehicleId: string): Promise<DbRentalVehicle | null> {
+  async getRentalVehicleByVehicleId(vehicleId: UUID): Promise<DbRentalVehicle | null> {
     return (await db.vMRentalVehicle.findUnique({
       where: { vehicle_id: vehicleId },
       include: {
@@ -611,7 +612,7 @@ class RentalPaymentService {
    * Save or update vehicle rental agreement details
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async upsertRentalVehicle(vehicleId: string, data: any): Promise<DbRentalVehicle> {
+  async upsertRentalVehicle(vehicleId: UUID, data: any): Promise<DbRentalVehicle> {
     const existing = await db.vMRentalVehicle.findUnique({
       where: { vehicle_id: vehicleId }
     });

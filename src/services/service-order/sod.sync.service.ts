@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '@/services/slt/slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
+import { UUID } from '@/types/common';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
@@ -37,7 +38,7 @@ export class SODSyncService {
     /**
      * Sync PAT results from SLT APIs (OPMC Rejected and PAT Success)
      */
-    static async syncPatResults(opmcId: string, rtom: string) {
+    static async syncPatResults(opmcId: UUID, rtom: string) {
         const [err, results] = await safe(Promise.all([
             sltApiService.fetchPATResults(rtom),
             sltApiService.fetchOpmcRejected(rtom)
@@ -90,27 +91,25 @@ export class SODSyncService {
 
             const sltDataMap = new Map(sltData.map(item => [item.SO_NUM, item]));
 
-            // Optimization: Controlled concurrency chunking (50 concurrent updates at a time)
-            const updateChunkSize = 50;
-            for (let j = 0; j < matchingOrders.length; j += updateChunkSize) {
-                const chunk = matchingOrders.slice(j, j + updateChunkSize);
-                await Promise.all(chunk.map(async (order) => {
-                    const match = sltDataMap.get(order.soNum || '');
-                    if (match) {
-                        const status = match.CON_STATUS;
-                        await prisma.serviceOrder.update({
-                            where: { id: order.id },
-                            data: {
-                                opmcPatStatus: status as import('@prisma/client').PatStatusEnum,
-                                opmcPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+            // Bulk sync PAT statuses via fn_bulk_pat_status_sync (single DB call replaces N+1 chunked updates)
+            if (matchingOrders.length > 0) {
+                const soNums = matchingOrders.map(o => o.soNum!);
+                const statuses = matchingOrders.map(o => {
+                    const match = sltDataMap.get(o.soNum || '');
+                    return match?.CON_STATUS || 'PENDING';
+                });
+                const statusDates = matchingOrders.map(o => {
+                    const match = sltDataMap.get(o.soNum || '');
+                    return match ? sltApiService.parseStatusDate(match.CON_STATUS_DATE) : new Date();
+                });
 
-                                isInvoicable: status === 'PAT_PASSED' &&
-                                    order.hoPatStatus === 'PAT_PASSED' &&
-                                    order.sltsPatStatus === 'PAT_PASSED'
-                            }
-                        });
-                    }
-                }));
+                await prisma.$executeRaw`
+                    SELECT fn_bulk_pat_status_sync(
+                        ${soNums}::text[],
+                        ${statuses}::text[],
+                        ${statusDates}::timestamptz[]
+                    )
+                `;
             }
 
             if (matchingOrders.length > 0) {
@@ -555,9 +554,9 @@ export class SODSyncService {
      * Sync single OPMC Service Orders
      */
     static async syncServiceOrders(
-        opmcId: string,
+        opmcId: UUID,
         rtom: string,
-        preloadedPendingSods?: { id: string; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: string }[]
+        preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[]
     ) {
         const sltData = await sltApiService.fetchServiceOrders(rtom);
         if (!sltData || sltData.length === 0) return { created: 0, updated: 0 };

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrderStatus } from '@prisma/client';
 import { ServiceOrderUpdateData } from '@/types/service-order/sod-sync.types';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { UUID } from '@/types/common';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { eventBus } from '@/lib/events/event-bus';
@@ -147,7 +148,7 @@ export class SODLifecycleService {
      */
     static async handlePostUpdate(
         oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null },
-        serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null },
+        serviceOrder: { id: UUID; status: string; sltsStatus: string; opmcId: UUID; soNum: string; returnReason: string | null },
         updateData: Prisma.ServiceOrderUncheckedUpdateInput,
         userId: string = 'SYSTEM',
         tx?: TransactionClient
@@ -271,7 +272,7 @@ export class SODLifecycleService {
     static async registerOfflineOrder(data: {
         soNum: string;
         rtom: string;
-        opmcId: string;
+        opmcId: UUID;
         customerName?: string;
         voiceNumber?: string;
         serviceType: string;

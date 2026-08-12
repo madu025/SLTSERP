@@ -2,15 +2,12 @@ import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
-import { eventBus } from '@/lib/events/event-bus';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
-import { StoreWithDetails, TransactionClient } from '@/types/inventory/inventory-service.types';
+import { StoreWithDetails, TransactionClient, UUID } from '@/types/inventory/inventory-service.types';
 
 export class StoreService {
-    /** Anti-spam: cooldown map for low-stock alerts (key = storeId:itemId, value = last alert timestamp) */
-    private static lowStockCooldown = new Map<string, number>();
-    private static readonly LOW_STOCK_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+    /** Low stock alerts are now handled by DB trigger trg_low_stock_auto_alert with InventoryAlertCooldown table */
     /** Only real user UUIDs may perform store-scoped writes; 'SYSTEM' actors are rejected */
     private static readonly UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -24,7 +21,7 @@ export class StoreService {
      * staff holding MAIN-store access inherit all-store access exactly like
      * the read path does.
      */
-    static async assertStoreWriteAccess(userId: string | null | undefined, storeId: string, tx?: TransactionClient): Promise<void> {
+    static async assertStoreWriteAccess(userId: string | null | undefined, storeId: UUID, tx?: TransactionClient): Promise<void> {
         // Share the caller's transaction snapshot when a tx client is provided
         // so the permission read is consistent with the surrounding write.
         const db = (tx ?? prisma) as unknown as typeof prisma;
@@ -250,62 +247,187 @@ export class StoreService {
     }
 
     /**
-     * Check if item stock is below minimum level and notify
+     * Check if item stock is below minimum level.
+     * Notifications are now handled automatically by DB trigger trg_low_stock_auto_alert.
+     * This method now only returns the current low-stock status for API/query purposes.
      */
-    static async checkLowStock(storeId: string, itemId: string): Promise<void> {
-        const [error, stocks] = await safe(InventoryRepository.findManyStocks(
-            { storeId, itemId },
-            {
-                item: true,
-                store: {
-                    include: {
-                        manager: { select: { id: true, name: true } }
-                    }
-                }
-            }
-        ));
-
-        if (error) {
-            console.error('Failed to check low stock (DB Error):', error);
-            return;
-        }
-
-        if (!stocks || stocks.length === 0) return;
-        
-        const stock = stocks[0];
-        if (!stock || !stock.item || !stock.store) return;
-
-        if (stock.quantity <= stock.minLevel) {
-            // Anti-spam: skip if same item+store alerted within cooldown window
-            const cooldownKey = `${storeId}:${itemId}`;
-            const lastAlert = StoreService.lowStockCooldown.get(cooldownKey);
-            if (lastAlert && (Date.now() - lastAlert) < StoreService.LOW_STOCK_COOLDOWN_MS) {
-                return; // Still in cooldown, skip
-            }
-            StoreService.lowStockCooldown.set(cooldownKey, Date.now());
-
-            const [evtErr] = await safe(eventBus.publish('inventory.low_stock_detected', {
-                store: stock.store.name,
-                item: stock.item.name || stock.item.code,
-                currentStock: stock.quantity,
-                minStock: stock.minLevel
-            }));
-
-            if (evtErr) {
-                console.error('Failed to publish low stock event:', evtErr);
-            }
-        }
+    static async checkLowStock(storeId: UUID, itemId: UUID): Promise<void> {
+        // DB trigger trg_low_stock_auto_alert fires automatically on InventoryStock UPDATE
+        // when quantity drops to/below minLevel. No JS-side check needed.
+        // This method is kept as a no-op for backward compatibility with the API route.
     }
 
     /**
-     * Check low stock for all items in a store
+     * Get store material balance with reorder alerts using DB function fn_store_material_balance().
+     * Runs entirely in PostgreSQL - no data egress for computation.
      */
-    static async checkAllLowStock(storeId: string): Promise<number> {
-        const stocks = await InventoryRepository.findManyStocks({ storeId });
-        for (const stock of stocks) {
-            await StoreService.checkLowStock(storeId, stock.itemId);
-        }
-        return stocks.length;
+    static async getMaterialBalance(storeId: UUID, category?: string | null) {
+        const result = await prisma.$queryRaw<Array<{
+            item_id: UUID;
+            item_code: string;
+            item_name: string;
+            current_stock: number;
+            allocated_stock: number;
+            available_stock: number;
+            min_level: number;
+            reorder_needed: boolean;
+            total_value: number;
+        }>>`
+            SELECT * FROM fn_store_material_balance(
+                ${storeId}::uuid,
+                ${category || null}::text
+            )
+        `;
+        return result;
+    }
+
+    /**
+     * Get low stock alerts using DB function fn_low_stock_alerts().
+     * Returns items below minimum stock level with deficit calculation.
+     * Runs entirely in PostgreSQL - no data egress.
+     */
+    static async getLowStockAlerts(storeId: UUID) {
+        const result = await prisma.$queryRaw<Array<{
+            item_id: UUID;
+            item_code: string;
+            item_name: string;
+            current_stock: number;
+            min_level: number;
+            deficit: number;
+        }>>`
+            SELECT * FROM fn_low_stock_alerts(${storeId}::uuid)
+        `;
+        return result;
+    }
+
+    /**
+     * Get inventory value summary by category using DB function fn_store_inventory_value().
+     * Runs entirely in PostgreSQL - no data egress.
+     */
+    static async getInventoryValue(storeId: UUID) {
+        const result = await prisma.$queryRaw<Array<{
+            category: string;
+            item_count: number;
+            total_quantity: number;
+            total_value: number;
+        }>>`
+            SELECT * FROM fn_store_inventory_value(${storeId}::uuid)
+        `;
+        return result;
+    }
+
+    /**
+     * Get expiring batches using DB function fn_expiring_batches().
+     * Returns batches expiring within the specified number of days.
+     * Runs entirely in PostgreSQL - no data egress.
+     */
+    static async getExpiringBatches(storeId: UUID, daysAhead: number = 30) {
+        const result = await prisma.$queryRaw<Array<{
+            batch_id: UUID;
+            batch_number: string;
+            item_code: string;
+            item_name: string;
+            quantity: number;
+            expiry_date: Date;
+            days_until_expiry: number;
+        }>>`
+            SELECT * FROM fn_expiring_batches(
+                ${storeId}::uuid,
+                ${daysAhead}::int
+            )
+        `;
+        return result;
+    }
+
+    /**
+     * Get material balance across multiple stores in a single DB call.
+     * Eliminates N+1 query pattern from per-store fn_store_material_balance calls.
+     */
+    static async getMultiStoreMaterialBalance(storeIds: UUID[], category?: string | null) {
+        const result = await prisma.$queryRaw<Array<{
+            store_id: UUID;
+            store_name: string;
+            item_id: UUID;
+            item_code: string;
+            item_name: string;
+            current_stock: number;
+            allocated_stock: number;
+            available_stock: number;
+            min_level: number;
+            reorder_needed: boolean;
+            total_value: number;
+        }>>`
+            SELECT * FROM fn_multi_store_material_balance(
+                ${storeIds}::uuid[],
+                ${category || null}::text
+            )
+        `;
+        return result;
+    }
+
+    /**
+     * Get expiring batches across multiple stores in a single DB call.
+     * Eliminates N+1 query pattern from per-store fn_expiring_batches calls.
+     */
+    static async getMultiStoreExpiringBatches(storeIds: UUID[], daysAhead: number = 30) {
+        const result = await prisma.$queryRaw<Array<{
+            store_id: UUID;
+            store_name: string;
+            batch_id: UUID;
+            batch_number: string;
+            item_code: string;
+            item_name: string;
+            quantity: number;
+            expiry_date: Date;
+            days_until_expiry: number;
+        }>>`
+            SELECT * FROM fn_multi_store_expiring_batches(
+                ${storeIds}::uuid[],
+                ${daysAhead}::int
+            )
+        `;
+        return result;
+    }
+
+    /**
+     * Get all dashboard KPI metrics in a single DB call.
+     * Returns 7 metric rows: total_unique_items, total_quantity, total_value,
+     * low_stock_count, pending_dispatch_count, pending_grn_count, pending_mrn_count.
+     * Replaces 7 separate Prisma queries.
+     */
+    static async getDashboardSummary(storeId: UUID) {
+        const result = await prisma.$queryRaw<Array<{
+            metric_name: string;
+            metric_value: number;
+        }>>`
+            SELECT * FROM fn_store_dashboard_summary(${storeId}::uuid)
+        `;
+        return result;
+    }
+
+    /**
+     * Get stock movement report (stock card) with in/out quantities and running balance.
+     * Runs entirely in PostgreSQL with window function for running balance.
+     */
+    static async getStockMovementReport(storeId: UUID, fromDate?: Date | null, toDate?: Date | null) {
+        const result = await prisma.$queryRaw<Array<{
+            transaction_date: Date;
+            transaction_type: string;
+            transaction_id: UUID;
+            item_id: UUID;
+            item_code: string;
+            item_name: string;
+            quantity_in: number;
+            quantity_out: number;
+            running_balance: number;
+        }>>`
+            SELECT * FROM fn_stock_movement_report(
+                ${storeId}::uuid,
+                ${fromDate || null}::date,
+                ${toDate || null}::date
+            )
+        `;
+        return result;
     }
 
     /**

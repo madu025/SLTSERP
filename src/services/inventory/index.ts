@@ -13,7 +13,6 @@ import { ROPService } from './rop.service';
 import { AbcService } from './abc.service';
 import { LocatorService } from './locator.service';
 import { CycleCountService } from './cycle-count.service';
-import { SerialTrackingService } from './serial-tracking.service';
 import { StoreVarianceReconciliationService } from './store-variance-reconciliation.service';
 import { ConsumableAuditService } from './consumable-audit.service';
 import { AuditLedgerService } from './audit-ledger.service';
@@ -45,7 +44,14 @@ export class InventoryService {
     static getStore = StoreService.getStore;
     static deleteStore = StoreService.deleteStore;
     static checkLowStock = StoreService.checkLowStock;
-    static checkAllLowStock = StoreService.checkAllLowStock;
+    static getMaterialBalance = StoreService.getMaterialBalance;
+    static getLowStockAlerts = StoreService.getLowStockAlerts;
+    static getInventoryValue = StoreService.getInventoryValue;
+    static getExpiringBatches = StoreService.getExpiringBatches;
+    static getMultiStoreMaterialBalance = StoreService.getMultiStoreMaterialBalance;
+    static getMultiStoreExpiringBatches = StoreService.getMultiStoreExpiringBatches;
+    static getDashboardSummary = StoreService.getDashboardSummary;
+    static getStockMovementReport = StoreService.getStockMovementReport;
     static getPublicSiteOffices = StoreService.getPublicSiteOffices;
 
     // --- WAREHOUSE LOCATOR MANAGEMENT ---
@@ -118,10 +124,7 @@ export class InventoryService {
     static updateDynamicSafetyLevels = ROPService.updateDynamicSafetyLevels;
     static generateAbcReport = AbcService.generateAbcReport;
 
-    // --- SERIAL TRACKING & STORE VARIANCE AUDIT ---
-    static validateSerialForSOD = SerialTrackingService.validateSerialForSOD;
-    static issueSerialToContractor = SerialTrackingService.issueSerialToContractor;
-    static markSerialInstalled = SerialTrackingService.markSerialInstalled;
+    // --- STORE VARIANCE AUDIT ---
     static generateStoreVarianceReport = StoreVarianceReconciliationService.generateStoreVarianceReport;
 
     // --- CONSUMABLE & NON-SERIALIZED MATERIAL AUDIT ---

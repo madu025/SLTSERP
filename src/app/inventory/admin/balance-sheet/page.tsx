@@ -24,12 +24,27 @@ export default function BalanceSheetPage() {
         queryKey: ['contractors'],
         queryFn: async () => (await fetch('/api/admin/contractors?page=1&limit=1000')).json()
     });
-    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+    const contractors = Array.isArray(contractorsData?.data?.contractors) ? contractorsData.data.contractors : [];
 
-    const { data: stores = [] } = useQuery({
-        queryKey: ['stores'],
-        queryFn: async () => (await fetch('/api/stores')).json()
-    });
+    // Filter stores by selected contractor's team store assignments
+    const selectedContractorData = contractors.find((c: any) => c.id === selectedContractor);
+    const contractorStores = selectedContractorData?.teams
+        ? Array.from(
+            new Map(
+                selectedContractorData.teams
+                    .flatMap((t: any) => t.storeAssignments || [])
+                    .map((sa: any) => sa.store)
+                    .filter(Boolean)
+                    .map((s: any) => [s.id, s])
+            ).values()
+        )
+        : [];
+
+    // Reset store selection when contractor changes
+    const handleContractorChange = (value: string) => {
+        setSelectedContractor(value);
+        setSelectedStore('');
+    };
 
     // --- MUTATIONS ---
     const generateMutation = useMutation({
@@ -101,7 +116,7 @@ export default function BalanceSheetPage() {
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end w-full">
                                 <div className="space-y-1">
                                     <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contractor</Label>
-                                    <Select value={selectedContractor} onValueChange={setSelectedContractor}>
+                                    <Select value={selectedContractor} onValueChange={handleContractorChange}>
                                         <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
                                             <SelectValue placeholder="Select Contractor" />
                                         </SelectTrigger>
@@ -120,7 +135,7 @@ export default function BalanceSheetPage() {
                                             <SelectValue placeholder="Select Store" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {stores.map((s: any) => (
+                                            {contractorStores.map((s: any) => (
                                                 <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
                                             ))}
                                         </SelectContent>

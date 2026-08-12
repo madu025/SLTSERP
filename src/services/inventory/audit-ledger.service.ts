@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
-import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { TransactionClient, UUID } from '@/types/inventory/inventory-service.types';
 
 export interface CreateLedgerEntryInput {
     storeId: string;
@@ -28,8 +28,8 @@ export class AuditLedgerService {
      * Compute SHA-256 Checksum for tamper prevention using Hash Chaining
      */
     private static generateChecksum(
-        storeId: string,
-        itemId: string,
+        storeId: UUID,
+        itemId: UUID,
         quantityAfter: string | number,
         createdAt: string,
         previousChecksum: string = 'GENESIS'
@@ -40,24 +40,16 @@ export class AuditLedgerService {
 
     /**
      * Atomically reserve the next document number for a given type using the
-     * DocumentCounter table: `${type}-YYYY-MM-XXXX`. Safe under concurrency
-     * (single-row atomic increment); pass the surrounding transaction when available.
+     * DB function fn_next_document_number(): `${type}-YYYY-MM-XXXX`.
+     * Safe under concurrency (single-row atomic increment in PostgreSQL).
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async getNextDocumentNumber(type: string, tx?: TransactionClient): Promise<string> {
         const client = tx || prisma;
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const period = `${year}-${month}`;
-
-        const counter = await client.documentCounter.upsert({
-            where: { type_period: { type, period } },
-            update: { sequence: { increment: 1 } },
-            create: { type, period, sequence: 1 }
-        });
-
-        return `${type}-${year}-${month}-${String(counter.sequence).padStart(4, '0')}`;
+        const result = await client.$queryRaw<[{ number: string }]>`
+            SELECT fn_next_document_number(${type}) as number
+        `;
+        return result[0].number;
     }
 
     /**
@@ -139,68 +131,29 @@ export class AuditLedgerService {
 
     /**
      * Audit & Verify ledger entry checksum integrity (hash-chain aware)
+     * Now powered by DB function fn_verify_ledger_integrity() using pgcrypto digest().
+     * Runs entirely in PostgreSQL - no data egress, no JS-side computation.
      */
     static async verifyLedgerIntegrity(storeId?: string, itemId?: string) {
-        const ledgers = await prisma.inventoryLedger.findMany({
-            where: {
-                ...(storeId ? { storeId } : {}),
-                ...(itemId ? { itemId } : {}),
-            },
-            orderBy: { createdAt: 'asc' },
-            take: 1000,
-        });
+        const result = await prisma.$queryRaw<{
+            total_checked: number;
+            tampered_count: number;
+            legacy_count: number;
+            is_integral: boolean;
+        }[]>`
+            SELECT * FROM fn_verify_ledger_integrity(
+                ${storeId || null}::uuid,
+                ${itemId || null}::uuid
+            )
+        `;
 
-        // Track the last checksum per store+item chain to verify linkage
-        const chainTails = new Map<string, string>();
-
-        let tamperedCount = 0;
-        let legacyCount = 0;
-        const auditResults = ledgers.map((entry) => {
-            // Entries written before hash chaining have no previousChecksum — report
-            // them as legacy instead of tampered.
-            if (entry.previousChecksum === null) {
-                legacyCount++;
-                return {
-                    id: entry.id,
-                    referenceId: entry.referenceId,
-                    transactionType: entry.transactionType,
-                    isValid: true,
-                    legacy: true,
-                };
-            }
-
-            const expectedChecksum = this.generateChecksum(
-                entry.storeId,
-                entry.itemId,
-                entry.quantityAfter.toString(),
-                entry.createdAt.toISOString(),
-                entry.previousChecksum
-            );
-
-            // Verify chain linkage against the previous entry of the same store+item
-            const chainKey = `${entry.storeId}:${entry.itemId}`;
-            const expectedPrevious = chainTails.get(chainKey);
-            const chainLinked = expectedPrevious === undefined || entry.previousChecksum === expectedPrevious;
-            chainTails.set(chainKey, entry.checksum);
-
-            const isValid = entry.checksum === expectedChecksum && chainLinked;
-            if (!isValid) tamperedCount++;
-
-            return {
-                id: entry.id,
-                referenceId: entry.referenceId,
-                transactionType: entry.transactionType,
-                isValid,
-                legacy: false,
-            };
-        });
-
+        const r = result[0];
         return {
-            totalChecked: ledgers.length,
-            tamperedCount,
-            legacyCount,
-            isIntegral: tamperedCount === 0,
-            auditResults,
+            totalChecked: Number(r.total_checked),
+            tamperedCount: Number(r.tampered_count),
+            legacyCount: Number(r.legacy_count),
+            isIntegral: r.is_integral,
+            auditResults: [],  // Per-entry details available via direct SQL if needed
         };
     }
 }
