@@ -3,6 +3,7 @@ import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { ACCOUNTS } from './account-codes';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export interface CustomerReceiptPayload {
     receiptNumber?: string;
@@ -76,7 +77,7 @@ export class ArApService {
                 if (!invoice) throw AppError.notFound(`Invoice #${invoiceId} not found`);
             }
 
-            const receiptNo = payload.receiptNumber || `RCT-${Date.now().toString().slice(-6)}`;
+            const receiptNo = payload.receiptNumber || await AuditLedgerService.getNextDocumentNumber('RCT', tx);
 
             // 1. Create Receipt Record
             const receipt = await tx.customerReceipt.create({

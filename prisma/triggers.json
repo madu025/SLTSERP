@@ -1,0 +1,94 @@
+{
+  "version": "1.0",
+  "description": "Declarative trigger definitions. Run scripts/sync-triggers.ts after changing to generate migration.",
+  "triggers": [
+    {
+      "name": "trg_pre_erp_auto_calc",
+      "table": "PreErpMaterialBalance",
+      "timing": "BEFORE",
+      "events": "INSERT OR UPDATE",
+      "function": "fn_pre_erp_auto_calc()",
+      "when": null
+    },
+    {
+      "name": "trg_prevent_negative_stock",
+      "table": "InventoryStock",
+      "timing": "BEFORE",
+      "events": "INSERT OR UPDATE",
+      "function": "fn_prevent_negative_stock()",
+      "when": null
+    },
+    {
+      "name": "trg_auto_ledger_checksum",
+      "table": "InventoryLedger",
+      "timing": "BEFORE",
+      "events": "INSERT",
+      "function": "fn_auto_ledger_checksum()",
+      "when": null
+    },
+    {
+      "name": "trg_cycle_count_variance",
+      "table": "CycleCountLine",
+      "timing": "BEFORE",
+      "events": "INSERT OR UPDATE",
+      "function": "fn_calc_cycle_variance()",
+      "when": null
+    },
+    {
+      "name": "trg_low_stock_auto_alert",
+      "table": "InventoryStock",
+      "timing": "AFTER",
+      "events": "UPDATE",
+      "function": "fn_notify_low_stock()",
+      "when": "NEW.quantity <= NEW.\"minLevel\" AND OLD.quantity > OLD.\"minLevel\""
+    },
+    {
+      "name": "trg_wastage_limit_check",
+      "table": "ContractorWastageItem",
+      "timing": "BEFORE",
+      "events": "INSERT",
+      "function": "fn_validate_wastage_limit()",
+      "when": null
+    },
+    {
+      "name": "trg_variance_adjustment_calc",
+      "table": "MaterialVarianceAdjustment",
+      "timing": "BEFORE",
+      "events": "INSERT OR UPDATE",
+      "function": "fn_calc_variance_adjustment()",
+      "when": null
+    },
+    {
+      "name": "trg_audit_log_immutable",
+      "table": "AuditLog",
+      "timing": "BEFORE",
+      "events": "UPDATE OR DELETE",
+      "function": "fn_audit_log_immutable()",
+      "when": null
+    },
+    {
+      "name": "trg_fiscal_period_lock",
+      "table": "FiscalPeriod",
+      "timing": "BEFORE",
+      "events": "UPDATE",
+      "function": "fn_fiscal_period_lock_guard()",
+      "when": null
+    },
+    {
+      "name": "trg_journal_entry_balance_check",
+      "table": "JournalEntry",
+      "timing": "BEFORE",
+      "events": "UPDATE",
+      "function": "fn_journal_balance_check()",
+      "when": null
+    },
+    {
+      "name": "trg_stage_status_cascade",
+      "table": "ProjectStageInstance",
+      "timing": "AFTER",
+      "events": "UPDATE",
+      "function": "fn_stage_status_cascade()",
+      "when": "OLD.status IS DISTINCT FROM NEW.status"
+    }
+  ]
+}

@@ -1,6 +1,36 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+
+export interface PaymentTierInput {
+    minDistance: number | string;
+    maxDistance: number | string;
+    amount: number | string;
+}
+
+export interface CreatePaymentConfigInput {
+    rtomId?: string | null;
+    notes?: string;
+    tiers: PaymentTierInput[];
+}
+
+export interface UpdatePaymentConfigInput {
+    rtomId?: string | null;
+    notes?: string;
+    isActive?: boolean;
+    tiers?: PaymentTierInput[];
+}
+
+function mapTier(t: PaymentTierInput) {
+    return {
+        minDistance: parseFloat(String(t.minDistance)),
+        maxDistance: parseFloat(String(t.maxDistance)),
+        amount: parseFloat(String(t.amount))
+    };
+}
+
+const rtomSelect = {
+    select: { id: true, rtom: true, name: true }
+} as const;
 
 export class ContractorPaymentService {
     static async getConfigs() {
@@ -22,7 +52,7 @@ export class ContractorPaymentService {
         });
     }
 
-    static async createConfig(data: any, userId?: string) {
+    static async createConfig(data: CreatePaymentConfigInput, userId?: string) {
         if (!data.tiers || !Array.isArray(data.tiers) || data.tiers.length === 0) {
             throw AppError.badRequest('Pricing tiers are required');
         }
@@ -33,36 +63,24 @@ export class ContractorPaymentService {
                 notes: data.notes,
                 createdBy: userId || undefined,
                 tiers: {
-                    create: data.tiers.map((t: any) => ({
-                        minDistance: parseFloat(t.minDistance),
-                        maxDistance: parseFloat(t.maxDistance),
-                        amount: parseFloat(t.amount)
-                    }))
+                    create: data.tiers.map(mapTier)
                 }
             },
             include: {
-                rtom: {
-                    select: {
-                        id: true,
-                        rtom: true,
-                        name: true
-                    }
-                },
+                rtom: rtomSelect,
                 tiers: true
             }
         });
     }
 
-    static async updateConfig(id: string, data: any) {
-        return prisma.$transaction(async (tx: any) => {
+    static async updateConfig(id: string, data: UpdatePaymentConfigInput) {
+        return prisma.$transaction(async (tx) => {
             if (data.tiers) {
-                // Delete existing tiers
                 await tx.contractorPaymentTier.deleteMany({
                     where: { configId: id }
                 });
             }
 
-            // Update main config
             return await tx.contractorPaymentConfig.update({
                 where: { id },
                 data: {
@@ -70,21 +88,11 @@ export class ContractorPaymentService {
                     notes: data.notes !== undefined ? data.notes : undefined,
                     isActive: data.isActive !== undefined ? data.isActive : undefined,
                     tiers: data.tiers ? {
-                        create: data.tiers.map((t: any) => ({
-                            minDistance: parseFloat(t.minDistance),
-                            maxDistance: parseFloat(t.maxDistance),
-                            amount: parseFloat(t.amount)
-                        }))
+                        create: data.tiers.map(mapTier)
                     } : undefined
                 },
                 include: {
-                    rtom: {
-                        select: {
-                            id: true,
-                            rtom: true,
-                            name: true
-                        }
-                    },
+                    rtom: rtomSelect,
                     tiers: true
                 }
             });

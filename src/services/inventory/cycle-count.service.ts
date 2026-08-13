@@ -29,7 +29,7 @@ export class CycleCountService {
             throw AppError.notFound("Store not found");
         }
 
-        const countNumber = `CC-${Date.now().toString().slice(-6)}`;
+        const countNumber = await AuditLedgerService.getNextDocumentNumber('CC');
 
         // Fetch store current stocks
         const stockQuery: Prisma.InventoryStockWhereInput = { storeId: data.storeId };

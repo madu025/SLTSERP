@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 
 import { prisma } from '@/lib/prisma';
-import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue } from '@prisma/client';
+import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue, InventoryBatch } from '@prisma/client';
 import { TransactionClient, PickedBatch, UUID } from '@/types/inventory/inventory-service.types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
@@ -91,8 +91,8 @@ export class StockService {
                 unitPrice: Number(row.unit_price) || 0,
                 costPrice: Number(row.cost_price) || 0,
                 expiryDate: row.batch_expiry_date,
-                createdAt: row.batch_created_at
-            } as any
+                createdAt: row.batch_created_at ?? undefined
+            } as unknown as Partial<InventoryBatch>
         }));
 
         // Check for shortage (batch_id = NULL row)
@@ -109,7 +109,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available store batches list in-memory using FIFO
      */
-    static pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID; batch?: Partial<import('@prisma/client').InventoryBatch> }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         // Filter batches for this itemId in memory
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
@@ -124,8 +124,7 @@ export class StockService {
             pickedBatches.push({
                 batchId: stock.batchId,
                 quantity: this.round(take),
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                batch: (stock as any).batch || { unitPrice: 0, costPrice: 0 }
+                batch: (stock.batch || { unitPrice: new Prisma.Decimal(0), costPrice: new Prisma.Decimal(0) }) as unknown as Partial<InventoryBatch>
             });
             remainingToPick = this.round(remainingToPick - take);
             // Reflect the decrement in the local array item quantity so future picks in the same transaction loop are correct
@@ -137,8 +136,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
+                    batch: { unitPrice: new Prisma.Decimal(0), costPrice: new Prisma.Decimal(0) } as unknown as Partial<InventoryBatch>
                 });
             } else {
                 throw AppError.badRequest(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
@@ -178,8 +176,8 @@ export class StockService {
             batch: {
                 unitPrice: Number(row.unit_price) || 0,
                 costPrice: Number(row.cost_price) || 0,
-                createdAt: row.batch_created_at
-            } as any
+                createdAt: row.batch_created_at ?? undefined
+            } as unknown as Partial<InventoryBatch>
         }));
 
         // Check for shortage (batch_id = NULL row)
@@ -196,7 +194,7 @@ export class StockService {
     /**
      * Pick batches from pre-fetched available contractor batches list in-memory using FIFO
      */
-    static pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+    static pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID; batch?: Partial<import('@prisma/client').InventoryBatch> }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
         const qtyToPick = this.round(requiredQty);
         const itemBatches = availableBatches.filter(b => b.itemId === itemId);
 
@@ -210,8 +208,7 @@ export class StockService {
             pickedBatches.push({
                 batchId: stock.batchId,
                 quantity: this.round(take),
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                batch: (stock as any).batch || { unitPrice: 0, costPrice: 0 }
+                batch: (stock.batch || { unitPrice: new Prisma.Decimal(0), costPrice: new Prisma.Decimal(0) }) as unknown as Partial<InventoryBatch>
             });
             remainingToPick = this.round(remainingToPick - take);
             stock.quantity = this.round(Number(stock.quantity) - take);
@@ -222,8 +219,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    batch: { unitPrice: 0, costPrice: 0 } as any
+                    batch: { unitPrice: new Prisma.Decimal(0), costPrice: new Prisma.Decimal(0) } as unknown as Partial<InventoryBatch>
                 });
             } else {
                 throw AppError.badRequest(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);

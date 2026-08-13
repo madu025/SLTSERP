@@ -300,50 +300,39 @@ export class VehicleService {
   }
 
   /**
-   * Get vehicle utilization report
+   * Get vehicle utilization report via DB function fn_vehicle_utilization_summary().
+   * Replaces JS .reduce() loops with single SQL aggregate query.
    */
   async getVehicleUtilization(vehicleId: UUID, fromDate: Date, toDate: Date) {
-    const [err, results] = await safe(Promise.all([
-      prisma.vMTrip.findMany({
-        where: {
-          vehicle_id: vehicleId,
-          actual_start_time: {
-            gte: fromDate,
-            lte: toDate,
-          },
-          trip_status: 'COMPLETED',
-        },
-      }) as Promise<DbTrip[]>,
-      prisma.vMFuelLog.findMany({
-        where: {
-          vehicle_id: vehicleId,
-          fuel_date: {
-            gte: fromDate,
-            lte: toDate,
-          },
-        },
-      }) as Promise<DbFuelLog[]>
-    ]));
+    const [err, result] = await safe(db.$queryRaw<{
+      total_trips: number;
+      total_distance_km: number;
+      total_fuel_consumed_liters: number;
+      total_fuel_cost: number;
+      average_efficiency_km_per_liter: number;
+      cost_per_km: number;
+    }[]>`
+      SELECT * FROM fn_vehicle_utilization_summary(
+        ${vehicleId}::uuid,
+        ${fromDate}::TIMESTAMP,
+        ${toDate}::TIMESTAMP
+      )
+    `);
 
-    if (err || !results) {
+    if (err || !result || !Array.isArray(result) || result.length === 0) {
       throw AppError.badRequest(`Failed to calculate vehicle utilization: ${getErrorMessage(err)}`);
     }
 
-    const [trips, fuelLogs] = results;
-
-    const totalDistance = trips.reduce((sum: number, trip: DbTrip) => sum + (trip.actual_distance_km || 0), 0);
-    const totalFuel = fuelLogs.reduce((sum: number, log: DbFuelLog) => sum + log.quantity_liters, 0);
-    const totalFuelCost = fuelLogs.reduce((sum: number, log: DbFuelLog) => sum + log.total_cost, 0);
-    const avgEfficiency = totalDistance > 0 ? totalDistance / totalFuel : 0;
+    const r = result[0];
 
     return {
       vehicle_id: vehicleId,
-      total_trips: trips.length,
-      total_distance_km: totalDistance,
-      total_fuel_consumed_liters: totalFuel,
-      average_efficiency_km_per_liter: parseFloat(avgEfficiency.toFixed(2)),
-      total_fuel_cost: parseFloat(totalFuelCost.toFixed(2)),
-      cost_per_km: parseFloat((totalFuelCost / totalDistance).toFixed(2)),
+      total_trips: Number(r.total_trips),
+      total_distance_km: Number(r.total_distance_km),
+      total_fuel_consumed_liters: Number(r.total_fuel_consumed_liters),
+      average_efficiency_km_per_liter: Number(r.average_efficiency_km_per_liter),
+      total_fuel_cost: Number(r.total_fuel_cost),
+      cost_per_km: Number(r.cost_per_km),
     };
   }
 

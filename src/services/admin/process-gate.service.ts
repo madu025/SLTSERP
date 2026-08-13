@@ -312,22 +312,26 @@ export class ProcessGateAdminService {
           create: gateData
         });
 
-        // Ensure approval levels exist
+        // Ensure approval levels exist (idempotent via upsert on gatePolicyId+level)
         for (const lvl of approvalLevels) {
-          const existingLvl = await tx.processApprovalLevel.findFirst({
-            where: { gatePolicyId: upserted.id, level: lvl.level }
-          });
-
-          if (!existingLvl) {
-            await tx.processApprovalLevel.create({
-              data: {
+          await tx.processApprovalLevel.upsert({
+            where: {
+              gatePolicyId_level: {
                 gatePolicyId: upserted.id,
-                level: lvl.level,
-                requiredRole: lvl.requiredRole,
-                description: lvl.description
+                level: lvl.level
               }
-            });
-          }
+            },
+            update: {
+              requiredRole: lvl.requiredRole,
+              description: lvl.description
+            },
+            create: {
+              gatePolicyId: upserted.id,
+              level: lvl.level,
+              requiredRole: lvl.requiredRole,
+              description: lvl.description
+            }
+          });
         }
       }
 
@@ -381,20 +385,24 @@ export class ProcessGateAdminService {
         });
 
         for (const lvl of approvalLevels) {
-          const existingLvl = await tx.processApprovalLevel.findFirst({
-            where: { gatePolicyId: upserted.id, level: lvl.level }
-          });
-
-          if (!existingLvl) {
-            await tx.processApprovalLevel.create({
-              data: {
+          await tx.processApprovalLevel.upsert({
+            where: {
+              gatePolicyId_level: {
                 gatePolicyId: upserted.id,
-                level: lvl.level,
-                requiredRole: lvl.requiredRole,
-                description: lvl.description
+                level: lvl.level
               }
-            });
-          }
+            },
+            update: {
+              requiredRole: lvl.requiredRole,
+              description: lvl.description
+            },
+            create: {
+              gatePolicyId: upserted.id,
+              level: lvl.level,
+              requiredRole: lvl.requiredRole,
+              description: lvl.description
+            }
+          });
         }
       }
 

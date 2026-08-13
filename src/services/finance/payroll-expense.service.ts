@@ -3,6 +3,7 @@ import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { ACCOUNTS } from './account-codes';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export interface PayrollAllocationPayload {
     period: string; // e.g. "2026-01"
@@ -25,7 +26,7 @@ export class PayrollExpenseService {
                 throw AppError.badRequest('Payroll allocation amount must be greater than zero');
             }
 
-            const refNo = referenceNumber || `PAYROLL-${period}-${Date.now().toString().slice(-4)}`;
+            const refNo = referenceNumber || await AuditLedgerService.getNextDocumentNumber('PAYROLL', tx);
 
             // 1. Create PayrollExpense Record
             const record = await tx.payrollExpense.create({

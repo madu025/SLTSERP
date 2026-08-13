@@ -207,24 +207,24 @@ export class ContractorInventoryService {
     }
 
     static async createMaterialReturn(contractorId: UUID, data: { itemId: UUID, quantity: number, condition?: string, reason?: string }) {
-        const mainStore = await prisma.inventoryStore.findFirst({
-            where: { type: 'MAIN' }
-        }) || await prisma.inventoryStore.findFirst();
-
-        if (!mainStore) {
-            throw AppError.notFound('Main Store not found');
-        }
-
-        const item = await prisma.inventoryItem.findUnique({ where: { id: data.itemId } });
-        if (!item) {
-            throw AppError.notFound('Material item not found');
-        }
-
         const now = new Date();
         const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
         // Atomic write: MRN number reservation + header + item rows in one transaction
         return prisma.$transaction(async (tx: TransactionClient) => {
+            const mainStore = await tx.inventoryStore.findFirst({
+                where: { type: 'MAIN' }
+            }) || await tx.inventoryStore.findFirst();
+
+            if (!mainStore) {
+                throw AppError.notFound('Main Store not found');
+            }
+
+            const item = await tx.inventoryItem.findUnique({ where: { id: data.itemId } });
+            if (!item) {
+                throw AppError.notFound('Material item not found');
+            }
+
             const returnNumber = await AuditLedgerService.generateMRNNumber(tx);
 
             return await tx.contractorMaterialReturn.create({

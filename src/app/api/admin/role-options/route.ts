@@ -20,4 +20,4 @@ export const GET = apiHandler(async () => {
         roles: rows.map((r) => r.role),
         categories: ROLE_CATEGORIES
     };
-}, { rawResponse: true });
+}, { rawResponse: true, roles: ['SUPER_ADMIN', 'ADMIN', 'HEAD_OF_SECTION', 'OSP_MANAGER'] });

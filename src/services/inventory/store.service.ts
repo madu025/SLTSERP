@@ -166,21 +166,24 @@ export class StoreService {
     }): Promise<InventoryStore> {
         const { opmcIds, ...storeData } = data;
 
-        const store = await InventoryRepository.createStore({
-            name: storeData.name,
-            type: storeData.type,
-            location: storeData.location,
-            managerId: storeData.managerId === 'none' ? null : storeData.managerId
+        return await prisma.$transaction(async (tx) => {
+            const store = await InventoryRepository.createStore({
+                name: storeData.name,
+                type: storeData.type,
+                location: storeData.location,
+                managerId: storeData.managerId === 'none' ? null : storeData.managerId
+            }, tx);
+
+            if (opmcIds && Array.isArray(opmcIds) && opmcIds.length > 0) {
+                await InventoryRepository.updateManyOpmcs(
+                    { id: { in: opmcIds } },
+                    { storeId: store.id },
+                    tx
+                );
+            }
+
+            return store;
         });
-
-        if (opmcIds && Array.isArray(opmcIds) && opmcIds.length > 0) {
-            await InventoryRepository.updateManyOpmcs(
-                { id: { in: opmcIds } },
-                { storeId: store.id }
-            );
-        }
-
-        return store;
     }
 
     static async updateStore(id: string, data: {
@@ -194,31 +197,35 @@ export class StoreService {
 
         const { opmcIds, ...storeData } = data;
 
-        const store = await InventoryRepository.updateStore(id, {
-            name: storeData.name,
-            type: storeData.type,
-            location: storeData.location,
-            managerId: storeData.managerId === 'none' ? null : storeData.managerId
-        });
+        return await prisma.$transaction(async (tx) => {
+            const store = await InventoryRepository.updateStore(id, {
+                name: storeData.name,
+                type: storeData.type,
+                location: storeData.location,
+                managerId: storeData.managerId === 'none' ? null : storeData.managerId
+            }, tx);
 
-        // Update OPMC assignments
-        if (opmcIds !== undefined) {
-            // First, remove all current assignments
-            await InventoryRepository.updateManyOpmcs(
-                { storeId: id },
-                { storeId: null }
-            );
-
-            // Then assign new OPMCs
-            if (Array.isArray(opmcIds) && opmcIds.length > 0) {
+            // Update OPMC assignments
+            if (opmcIds !== undefined) {
+                // First, remove all current assignments
                 await InventoryRepository.updateManyOpmcs(
-                    { id: { in: opmcIds } },
-                    { storeId: id }
+                    { storeId: id },
+                    { storeId: null },
+                    tx
                 );
-            }
-        }
 
-        return store;
+                // Then assign new OPMCs
+                if (Array.isArray(opmcIds) && opmcIds.length > 0) {
+                    await InventoryRepository.updateManyOpmcs(
+                        { id: { in: opmcIds } },
+                        { storeId: id },
+                        tx
+                    );
+                }
+            }
+
+            return store;
+        });
     }
 
     static async getStore(id: string): Promise<StoreWithDetails | null> {

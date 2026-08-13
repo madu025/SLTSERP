@@ -3,6 +3,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { NotificationTemplateEngineService } from '@/services/notification/template-engine.service';
 import { EmailService } from '@/services/notification/email.service';
+import { NotificationTemplateService } from '@/services/admin/notification-template.service';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -15,11 +16,9 @@ const testSendSchema = z.object({
 export const POST = apiHandler(async (req, _params, body) => {
   const { templateId, to } = testSendSchema.parse(body);
 
-  // Use provided email or default to current user
-  const recipientEmail = to || 'prasad@slts.lk';
+  const recipientEmail = to || process.env.TEST_EMAIL || 'prasad@slts.lk';
 
   // Sample variables covering ALL template codes from the registry.
-  // Each template code uses a subset of these keys.
   const sampleVars: Record<string, string> = {
     // --- Common ---
     user: 'Prasad Perera',
@@ -58,15 +57,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     notifications: '<li>PO-2026-0042 approved by DGM</li><li>GRN-2026-0118 received at Kaduwela</li><li>MIN-2026-0007 ready for collection</li><li>Stock alert: Cat5e below threshold</li><li>MRN-2026-0003 returned for correction</li>'
   };
 
-  // Render the template using the template code lookup
-  const { prisma } = await import('@/lib/prisma');
-  const template = await prisma.notificationTemplate.findUnique({
-    where: { id: templateId }
-  });
-
-  if (!template) {
-    throw AppError.notFound('Template not found');
-  }
+  const template = await NotificationTemplateService.getById(templateId);
 
   // Render using template engine
   const rendered = await NotificationTemplateEngineService.renderEmailByCode(template.code, sampleVars);

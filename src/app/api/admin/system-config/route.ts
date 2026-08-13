@@ -14,7 +14,7 @@ const updateConfigSchema = z.object({
 
 export const GET = apiHandler(async () => {
     return SystemConfigService.getConfigs();
-}, { rawResponse: true });
+}, { rawResponse: true, roles: ROLE_GROUPS.ADMINS });
 
 export const POST = apiHandler(async (request, _params, body) => {
     const userId = request.headers.get('x-user-id');

@@ -1,5 +1,5 @@
 import { apiHandler } from '@/lib/api-handler';
-import { prisma } from '@/lib/prisma';
+import { NotificationTemplateService } from '@/services/admin/notification-template.service';
 import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
@@ -27,49 +27,19 @@ export const GET = apiHandler(async (req) => {
   const entityType = searchParams.get('entityType');
   const isActive = searchParams.get('isActive');
 
-  const where: Record<string, unknown> = {};
-  if (entityType) where.entityType = entityType;
-  if (isActive !== null && isActive !== undefined) {
-    where.isActive = isActive === 'true';
-  }
-
-  const templates = await prisma.notificationTemplate.findMany({
-    where,
-    orderBy: { createdAt: 'desc' }
+  return await NotificationTemplateService.list({
+    entityType: entityType ?? undefined,
+    isActive: isActive !== null && isActive !== undefined ? isActive === 'true' : undefined
   });
-
-  return templates;
 }, {
   roles: ROLE_GROUPS.ADMINS as unknown as string[],
   rawResponse: true
 });
 
 // POST: Create a new notification template
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (_req, _params, body) => {
   const data = templateSchema.parse(body);
-
-  const existing = await prisma.notificationTemplate.findUnique({
-    where: { code: data.code }
-  });
-
-  if (existing) {
-    throw AppError.conflict('Template with this code already exists');
-  }
-
-  const template = await prisma.notificationTemplate.create({
-    data: {
-      code: data.code,
-      title: data.title,
-      message: data.message,
-      subject: data.subject,
-      htmlBody: data.htmlBody,
-      entityType: data.entityType,
-      isActive: data.isActive,
-      channels: data.channels
-    }
-  });
-
-  return template;
+  return await NotificationTemplateService.create(data);
 }, {
   schema: templateSchema,
   roles: ROLE_GROUPS.ADMINS as unknown as string[],
@@ -78,23 +48,9 @@ export const POST = apiHandler(async (req, _params, body) => {
 });
 
 // PUT: Update an existing notification template
-export const PUT = apiHandler(async (req, _params, body) => {
+export const PUT = apiHandler(async (_req, _params, body) => {
   const data = updateTemplateSchema.parse(body);
-
-  const template = await prisma.notificationTemplate.update({
-    where: { id: data.id },
-    data: {
-      title: data.title,
-      message: data.message,
-      subject: data.subject,
-      htmlBody: data.htmlBody,
-      entityType: data.entityType,
-      isActive: data.isActive,
-      channels: data.channels
-    }
-  });
-
-  return template;
+  return await NotificationTemplateService.update(data);
 }, {
   schema: updateTemplateSchema,
   roles: ROLE_GROUPS.ADMINS as unknown as string[],
@@ -111,10 +67,7 @@ export const DELETE = apiHandler(async (req) => {
     throw AppError.badRequest('Template ID is required');
   }
 
-  await prisma.notificationTemplate.delete({
-    where: { id }
-  });
-
+  await NotificationTemplateService.delete(id);
   return { message: 'Template deleted successfully' };
 }, {
   roles: ROLE_GROUPS.ADMINS as unknown as string[],

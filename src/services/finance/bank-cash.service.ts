@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { ACCOUNTS } from './account-codes';
 import { UUID } from '@/types/common';
@@ -43,7 +42,8 @@ export interface BankReconciliationSummary {
 
 export class BankCashService {
     /**
-     * Get Cash Book ledger with running balance for a given Bank or Cash GL Account Code.
+     * Get Cash Book ledger with running balance via DB function fn_cash_book_report().
+     * Replaces JS loop with PostgreSQL window functions for O(1) DB round-trip.
      */
     static async getCashBook(glAccountCode: string = ACCOUNTS.BANK, fromDate?: Date, toDate?: Date): Promise<CashBookReport> {
         const coa = await prisma.chartOfAccount.findUnique({
@@ -52,71 +52,47 @@ export class BankCashService {
 
         const accountName = coa?.name || 'Bank Account';
 
-        // Calculate opening balance before fromDate
-        let openingBalance = 0;
-        if (fromDate) {
-            const priorLines = await prisma.journalLine.findMany({
-                where: {
-                    accountCode: glAccountCode,
-                    entry: {
-                        status: { not: 'REVERSED' },
-                        date: { lt: fromDate }
-                    }
-                }
-            });
-            for (const l of priorLines) {
-                openingBalance += Number(l.debit) - Number(l.credit);
-            }
-        }
+        // Delegate to DB function -- runs opening balance + running balance in single query
+        const rows = await prisma.$queryRaw<{
+            id: string;
+            entry_id: string;
+            entry_date: Date;
+            reference_type: string | null;
+            reference_id: string | null;
+            description: string;
+            debit: number;
+            credit: number;
+            running_balance: number;
+        }[]>`
+            SELECT * FROM fn_cash_book_report(
+                ${glAccountCode},
+                ${fromDate || null}::TIMESTAMP,
+                ${toDate || null}::TIMESTAMP
+            )
+        `;
 
-        // Fetch target period journal lines
-        const dateFilter: Prisma.DateTimeFilter = {};
-        if (fromDate) dateFilter.gte = fromDate;
-        if (toDate) dateFilter.lte = toDate;
-
-        const periodLines = await prisma.journalLine.findMany({
-            where: {
-                accountCode: glAccountCode,
-                entry: {
-                    status: { not: 'REVERSED' },
-                    ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
-                }
-            },
-            include: {
-                entry: true
-            },
-            orderBy: {
-                entry: { date: 'asc' }
-            }
-        });
-
-        let runningBalance = openingBalance;
-        let totalDebit = 0;
-        let totalCredit = 0;
-
-        const rows: CashBookRow[] = periodLines.map((line) => {
-            const debit = Number(line.debit);
-            const credit = Number(line.credit);
-
-            totalDebit += debit;
-            totalCredit += credit;
-            runningBalance += debit - credit;
-
-            return {
-                id: line.id,
-                entryId: line.entryId,
-                date: line.entry.date,
-                referenceType: line.entry.referenceType,
-                referenceId: line.entry.referenceId,
-                description: line.description || line.entry.description,
-                debit,
-                credit,
-                runningBalance
-            };
-        });
-
+        // Calculate summary totals from DB result
+        const totalDebit = rows.reduce((sum, r) => sum + Number(r.debit), 0);
+        const totalCredit = rows.reduce((sum, r) => sum + Number(r.credit), 0);
+        const openingBalance = rows.length > 0
+            ? Number(rows[0].running_balance) - Number(rows[0].debit) + Number(rows[0].credit)
+            : 0;
+        const closingBalance = rows.length > 0
+            ? Number(rows[rows.length - 1].running_balance)
+            : openingBalance;
         const netMovement = totalDebit - totalCredit;
-        const closingBalance = openingBalance + netMovement;
+
+        const mappedRows: CashBookRow[] = rows.map((r) => ({
+            id: r.id,
+            entryId: r.entry_id,
+            date: r.entry_date,
+            referenceType: r.reference_type,
+            referenceId: r.reference_id,
+            description: r.description,
+            debit: Number(r.debit),
+            credit: Number(r.credit),
+            runningBalance: Number(r.running_balance)
+        }));
 
         return {
             glAccountCode,
@@ -128,7 +104,7 @@ export class BankCashService {
             totalCredit,
             netMovement,
             closingBalance,
-            rows
+            rows: mappedRows
         };
     }
 

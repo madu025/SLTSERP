@@ -23,6 +23,7 @@
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:debug": "npx playwright test --debug",
     "test:types": "tsc --noEmit",
+    "triggers:sync": "tsx scripts/sync-triggers.ts",
     "worker:start": "npx tsx scripts/run-worker.ts",
     "codemap:update": "tsx scripts/generate-codemap.ts",
     "audit:hardcode": "tsx scripts/audit-hardcode.ts",

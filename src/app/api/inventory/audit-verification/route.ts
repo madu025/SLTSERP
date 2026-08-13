@@ -1,6 +1,6 @@
+import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
-import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +15,11 @@ export const GET = apiHandler(async (req) => {
 
     const verificationResult = await AuditLedgerService.verifyLedgerIntegrity(storeId, itemId);
 
-    return NextResponse.json({
+    return {
         success: true,
         data: verificationResult
-    });
+    };
+}, {
+    roles: ROLE_GROUPS.STORES_ALL,
+    rawResponse: true
 });

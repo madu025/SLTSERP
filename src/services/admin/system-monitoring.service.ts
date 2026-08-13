@@ -105,8 +105,8 @@ export class SystemMonitoringService {
             const payload = `${record.id}:${record.storeId}:${record.itemId}:${record.quantityAfter.toString()}:${record.createdAt.toISOString()}:${record.previousChecksum || ''}`;
             const expectedChecksum = crypto.createHash('sha256').update(payload).digest('hex');
 
-            // Verify hash length and format validity
-            const isValidHash = record.checksum.length === 64 || record.checksum === expectedChecksum;
+            // Verify hash length AND value match — length-only check would accept any 64-char string
+            const isValidHash = record.checksum.length === 64 && record.checksum === expectedChecksum;
             if (!isValidHash) {
                 tamperedCount++;
                 tamperedEntries.push({

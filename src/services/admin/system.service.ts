@@ -35,22 +35,11 @@ export class AdminSystemService {
         };
 
         await prisma.$transaction(async (tx) => {
-            console.log('[CLEAR-SOD] Step 1: Clearing ServiceOrderStatusHistory...');
             results.statusHistory = (await tx.serviceOrderStatusHistory.deleteMany()).count;
-
-            console.log('[CLEAR-SOD] Step 2: Clearing SODMaterialUsage...');
             results.materialUsage = (await tx.sODMaterialUsage.deleteMany()).count;
-
-            console.log('[CLEAR-SOD] Step 3: Clearing RestoreRequests...');
             results.restoreRequests = (await tx.restoreRequest.deleteMany()).count;
-
-            console.log('[CLEAR-SOD] Step 4: Clearing ServiceOrders...');
             results.serviceOrders = (await tx.serviceOrder.deleteMany()).count;
-
-            console.log('[CLEAR-SOD] Step 5: Clearing DashboardStats...');
             results.dashboardStats = (await tx.dashboardStat.deleteMany()).count;
-
-            console.log('[CLEAR-SOD] Step 6: Clearing SLTPATStatus...');
             results.patStatus = (await tx.sLTPATStatus.deleteMany()).count;
         });
 

@@ -16,6 +16,7 @@ export const GET = apiHandler(async (req) => {
 
     return await InventoryService.getStock(storeId);
 }, {
+    roles: ROLE_GROUPS.STORES_ALL,
     rawResponse: true
 });
 
@@ -30,7 +31,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         throw AppError.badRequest('INVALID_PAYLOAD');
     }
 
-    const result = await InventoryService.initializeStock(storeId, items as any, reason, userId);
+    const result = await InventoryService.initializeStock(storeId, items as { itemId: string; quantity: string | number }[], reason, userId);
     return { message: 'Stock updated successfully', itemsUpdated: result };
 }, {
     roles: ROLE_GROUPS.STORES_MANAGERS,

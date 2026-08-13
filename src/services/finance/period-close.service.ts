@@ -6,6 +6,7 @@ import { FiscalPeriodStatus } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { ACCOUNTS } from './account-codes';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export interface CreditDebitNotePayload {
     noteNumber?: string;
@@ -117,7 +118,8 @@ export class PeriodCloseService {
                 if (!invoice) throw AppError.notFound(`Invoice #${invoiceId} not found`);
             }
 
-            const noteNo = payload.noteNumber || `${noteType === 'CREDIT_NOTE' ? 'CN' : 'DN'}-${Date.now().toString().slice(-6)}`;
+            const docType = noteType === 'CREDIT_NOTE' ? 'CN' : 'DN';
+            const noteNo = payload.noteNumber || await AuditLedgerService.getNextDocumentNumber(docType, tx);
 
             // 1. Create CreditDebitNote Record
             const note = await tx.creditDebitNote.create({

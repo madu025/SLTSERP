@@ -148,21 +148,16 @@ export class StockRequestService {
             stage: initialWorkflowStage
         }));
 
-        // --- DYNAMIC PROCESS GATE ENGINE INTEGRATION ---
+        // --- PROCESS GATE ENGINE INTEGRATION ---
         try {
-            const { ProcessGateEngine } = await import('@/services/approval/process-gate-engine');
             const gateResult = await ProcessGateEngine.startGate({
                 entityType: 'MATERIAL_REQUEST',
                 entityId: req.id,
                 currentStatus: initialWorkflowStage
             });
 
-            if (gateResult.status === 'GATE_PASSED') {
-                // If there's no gate policy, we can automatically mark it as approved
-                // For safety, let's leave it pending for manual intervention or we can call domain action
-                console.log(`[ProcessGateEngine] Gate automatically passed for MRN ${req.requestNr}. No active policy found.`);
-            } else {
-                console.log(`[ProcessGateEngine] Gate started for MRN ${req.requestNr}, instance: ${gateResult.instanceId}`);
+            if (gateResult.status !== 'GATE_PASSED') {
+                // Gate instance started, leave for manual intervention
             }
         } catch (gateErr) {
             console.error("[ProcessGateEngine] Failed to initiate gate for MRN:", gateErr);
@@ -1068,10 +1063,8 @@ export class StockRequestService {
             console.error(`Failed to publish stage change event [${stage}]:`, nErr);
         }
 
-        // --- DYNAMIC PROCESS GATE ENGINE INTEGRATION ---
+        // --- PROCESS GATE ENGINE INTEGRATION ---
         try {
-            const { ProcessGateEngine } = await import('@/services/approval/process-gate-engine');
-            
             const gateResult = await ProcessGateEngine.startGate({
                 entityType: 'MATERIAL_REQUEST',
                 entityId: req.id,
@@ -1079,10 +1072,8 @@ export class StockRequestService {
                 entityPayload: req
             });
 
-            if (gateResult.status === 'GATE_PASSED') {
-                console.log(`[ProcessGateEngine] Gate automatically passed for stage ${stage}. No active policy found.`);
-            } else {
-                console.log(`[ProcessGateEngine] Gate started for stage ${stage}, instance: ${gateResult.instanceId}`);
+            if (gateResult.status !== 'GATE_PASSED') {
+                // Gate instance started, leave for manual intervention
             }
         } catch (gateErr) {
             console.error(`[ProcessGateEngine] Failed to initiate gate for stage ${stage}:`, gateErr);

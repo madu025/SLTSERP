@@ -4,6 +4,7 @@ import { LedgerService } from './ledger.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { AppError } from '@/lib/error';
 import { ACCOUNTS } from './account-codes';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export interface CreateFixedAssetPayload {
     assetNumber?: string;
@@ -35,7 +36,7 @@ export class FixedAssetService {
             throw AppError.badRequest('Asset cost must be greater than zero');
         }
 
-        const assetNo = data.assetNumber || `FA-${Date.now().toString().slice(-6)}`;
+        const assetNo = data.assetNumber || await AuditLedgerService.getNextDocumentNumber('FA');
 
         const asset = await prisma.fixedAsset.create({
             data: {
@@ -59,30 +60,27 @@ export class FixedAssetService {
     }
 
     /**
-     * Fetch complete Fixed Asset Register with summary totals.
+     * Fetch complete Fixed Asset Register with summary totals via DB function fn_asset_register_summary().
+     * Replaces JS loop with single SQL aggregate query.
      */
     static async getAssetRegister(): Promise<AssetRegisterSummary> {
-        const assets = await prisma.fixedAsset.findMany({
-            orderBy: { createdAt: 'desc' }
-        });
+        const [assets, summary] = await Promise.all([
+            prisma.fixedAsset.findMany({ orderBy: { createdAt: 'desc' } }),
+            prisma.$queryRaw<{
+                total_cost: number;
+                total_accumulated_depreciation: number;
+                total_net_book_value: number;
+                active_count: number;
+            }[]>`SELECT * FROM fn_asset_register_summary()`
+        ]);
 
-        let totalCost = 0;
-        let totalAccumulatedDepreciation = 0;
-        let totalNetBookValue = 0;
-        let activeCount = 0;
-
-        for (const a of assets) {
-            totalCost += Number(a.cost);
-            totalAccumulatedDepreciation += Number(a.accumulatedDepreciation);
-            totalNetBookValue += Number(a.netBookValue);
-            if (a.status === 'ACTIVE') activeCount++;
-        }
+        const s = summary[0] || { total_cost: 0, total_accumulated_depreciation: 0, total_net_book_value: 0, active_count: 0 };
 
         return {
-            totalCost,
-            totalAccumulatedDepreciation,
-            totalNetBookValue,
-            activeCount,
+            totalCost: Number(s.total_cost),
+            totalAccumulatedDepreciation: Number(s.total_accumulated_depreciation),
+            totalNetBookValue: Number(s.total_net_book_value),
+            activeCount: Number(s.active_count),
             assets
         };
     }

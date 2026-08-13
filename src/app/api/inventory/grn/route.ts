@@ -24,6 +24,9 @@ export const GET = apiHandler(async (req) => {
     const storeId = searchParams.get('storeId') || undefined;
 
     return await InventoryService.getGRNs(storeId);
+}, {
+    roles: ROLE_GROUPS.STORES_ALL,
+    rawResponse: true
 });
 
 export const dynamic = 'force-dynamic';

@@ -11,7 +11,7 @@ export const POST = apiHandler(async (request, _params, body) => {
     const result = await InventoryService.createMaterialReturn({
         ...body,
         items: body.items.map((i: { itemId: string; quantity: string | number; unit?: string; condition?: string; serials?: string[] }) => ({ ...i, quantity: i.quantity.toString() })),
-        userId: userEmail || 'System'
+        userId: userEmail || 'SYSTEM'
     });
 
     return { message: 'Return processed successfully', id: result.id, returnNumber: result.returnNumber };

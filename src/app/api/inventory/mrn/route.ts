@@ -47,15 +47,8 @@ export const PATCH = apiHandler(async (request, _params, body) => {
     if (!approvedById) {
         throw AppError.unauthorized('Unauthorized');
     }
-    try {
-        const result = await InventoryService.updateMRNStatus(mrnId, action as 'APPROVE' | 'REJECT', approvedById);
-        return result;
-    } catch (error: unknown) {
-        const err = error as { message?: string };
-        if (err?.message === 'MRN_NOT_FOUND') throw AppError.notFound('MRN not found');
-        if (err?.message === 'INVALID_ACTION') throw AppError.badRequest('Invalid action');
-        throw error;
-    }
+
+    return await InventoryService.updateMRNStatus(mrnId, action as 'APPROVE' | 'REJECT', approvedById);
 }, {
     roles: ROLE_GROUPS.STORES_ALL,
     audit: { action: 'UPDATE', entity: 'MRN' },

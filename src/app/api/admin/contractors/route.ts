@@ -1,12 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
 import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from "@/config/roles";
+import type { ContractorUpdateData } from '@/types/contractor/contractor.types';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 /**
  * GET: List all contractors for Admin ERP
@@ -40,9 +39,8 @@ export const GET = apiHandler(
  * POST: Create a new contractor
  */
 export const POST = apiHandler(
-    async (req) => {
-        const body = await req.json();
-        return await ContractorService.createContractor(body);
+    async (_req, _params, body) => {
+        return await ContractorService.createContractor(body as ContractorUpdateData);
     },
     {
         schema: contractorSchema,
@@ -58,9 +56,9 @@ export const POST = apiHandler(
  * PUT: Update an existing contractor
  */
 export const PUT = apiHandler(
-    async (req) => {
-        const body = await req.json();
-        const { id, ...data } = body;
+    async (_req, _params, body) => {
+        const { id, ...data } = body as ContractorUpdateData & { id?: string };
+        if (!id) throw AppError.badRequest('Contractor ID is required');
         return await ContractorService.updateContractor(id, data);
     },
     {

@@ -1,19 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
-import { prisma } from '@/lib/prisma';
+import { SmtpConfigService } from '@/services/admin/smtp-config.service';
 import { z } from 'zod';
-import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
-
-interface SmtpConfigValue {
-    host?: string;
-    port?: string;
-    user?: string;
-    pass?: string;
-    from?: string;
-}
 
 const SmtpSchema = z.object({
     host: z.string().min(1, 'Host is required'),
@@ -24,62 +15,17 @@ const SmtpSchema = z.object({
 });
 
 export const GET = apiHandler(async () => {
-    const setting = await prisma.systemSetting.findUnique({
-        where: { key: 'SMTP_CONFIG' }
-    });
-
-    if (!setting) {
-        return NextResponse.json({
-            data: { host: '', port: '587', user: '', pass: '', from: '"SLTS Nexus ERP" <noreply@slt.lk>' }
-        });
-    }
-
-    // Mask password in GET
-    const config = (setting.value ?? {}) as SmtpConfigValue;
-    return NextResponse.json({
-        data: {
-            ...config,
-            pass: config.pass ? '********' : ''
-        }
-    });
+    const config = await SmtpConfigService.getConfig();
+    return NextResponse.json({ data: config });
 }, { roles: ROLE_GROUPS.ADMINS });
 
 export const PUT = apiHandler(async (_req, _params, body) => {
     const validated = SmtpSchema.parse(body);
-
-    let passToSave = validated.pass;
-
-    // If password is masked, preserve the old one
-    if (passToSave === '********') {
-        const existing = await prisma.systemSetting.findUnique({
-            where: { key: 'SMTP_CONFIG' }
-        });
-
-        const existingPass = (existing?.value as SmtpConfigValue | null)?.pass;
-        if (existingPass) {
-            passToSave = existingPass;
-        } else {
-            throw AppError.badRequest('Real password is required for first-time setup.');
-        }
-    }
-
-    const valueToSave = {
-        ...validated,
-        pass: passToSave
-    };
-
-    await prisma.systemSetting.upsert({
-        where: { key: 'SMTP_CONFIG' },
-        update: { value: valueToSave },
-        create: { key: 'SMTP_CONFIG', value: valueToSave }
-    });
+    const result = await SmtpConfigService.updateConfig(validated);
 
     return NextResponse.json({
         message: 'SMTP settings updated successfully',
-        data: {
-            ...valueToSave,
-            pass: '********'
-        }
+        data: result
     });
 }, {
     roles: ROLE_GROUPS.ADMINS,

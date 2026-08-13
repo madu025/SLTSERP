@@ -14,15 +14,7 @@ export const GET = apiHandler(async (request) => {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    try {
-        const stores = await InventoryService.getAccessibleStores(userId, userRole);
-        return stores;
-    } catch (error: any) {
-        if (error?.message === 'USER_NOT_FOUND') {
-            throw AppError.notFound('User not found');
-        }
-        throw error;
-    }
+    return await InventoryService.getAccessibleStores(userId, userRole);
 }, { rawResponse: true });
 
 // POST - Create new store
@@ -31,7 +23,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.badRequest('Store name is required');
     }
 
-    const store = await InventoryService.createStore(body as any);
+    const store = await InventoryService.createStore(body as { name: string; type: string; location?: string; managerId?: string; opmcIds?: string[]; });
     return store;
 }, {
     roles: ROLE_GROUPS.ADMINS,

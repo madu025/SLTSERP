@@ -158,6 +158,10 @@ export class SodRevenueService {
             orderBy: { createdAt: 'desc' }
         });
 
-        return defaultRate ? Number(defaultRate.revenuePerSOD) : 10500; // Fallback to Rs. 10,500
+        if (defaultRate) return Number(defaultRate.revenuePerSOD);
+
+        // No config found — log warning and return fallback
+        console.warn('[SOD-REVENUE] No revenue config found for rtomId=%s date=%s, using fallback 10500', rtomId, completedDate.toISOString());
+        return 10500;
     }
 }
