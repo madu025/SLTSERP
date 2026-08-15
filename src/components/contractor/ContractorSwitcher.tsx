@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import {  useState, useEffect  } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Building2, ChevronDown } from 'lucide-react';
 

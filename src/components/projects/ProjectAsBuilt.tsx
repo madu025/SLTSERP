@@ -1,12 +1,12 @@
 "use client";
-import React, { useCallback, useEffect, useState } from 'react';
+import {  useCallback, useEffect, useState  } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Download, FileJson, Layers, BarChart3, Loader2, CheckCircle2, AlertTriangle, Map
+  Download, FileJson, Layers, BarChart3, Loader2, AlertTriangle, Map
 } from 'lucide-react';
 import { toast } from 'sonner';
 

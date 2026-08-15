@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState, useEffect, Suspense } from "react";
+import {  useState, useEffect, Suspense  } from 'react';
 import { NexusLogoMaster } from "@/components/ui/NexusLogo";
 import "./login.css";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isContractorRole, isStoresRole } from "@/config/roles";
@@ -41,7 +41,6 @@ function LoginContent() {
   const [error, setError] = useState("");
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Session expired banner (set by global 401 interceptor in SessionManager)
@@ -102,13 +101,13 @@ function LoginContent() {
         // The global ForcePasswordChangeModal handles the forced rotation UX
         // on any page, so users can land on their normal destination.
         if (callbackUrl) {
-          router.push(callbackUrl);
+          window.location.href = callbackUrl;
         } else if (contractorLogin) {
-          router.push("/contractor/dashboard");
+          window.location.href = "/contractor/dashboard";
         } else if (storesLogin) {
-          router.push("/inventory");
+          window.location.href = "/inventory";
         } else {
-          router.push("/dashboard");
+          window.location.href = "/dashboard";
         }
       } else {
         setError(data.message || "Login failed");
@@ -157,7 +156,6 @@ function LoginContent() {
               </Link>
             </div>
           </div>
-
 
           {/* Quote carousel */}
           <div className="slt-quote-area">

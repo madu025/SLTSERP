@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import {  useState  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
@@ -9,12 +9,7 @@ import {
     ShieldCheck, 
     Scale, 
     FileSpreadsheet, 
-    FileText, 
-    CheckCircle2, 
-    AlertTriangle, 
-    Activity,
-    Layers
-} from 'lucide-react';
+    FileText } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import ComplianceAuditTab from './tabs/ComplianceAuditTab';

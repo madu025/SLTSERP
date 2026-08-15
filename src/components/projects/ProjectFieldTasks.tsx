@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {  useState, useEffect, useCallback  } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, MapPin, Clock, User, Smartphone, CheckCircle2, AlertTriangle, ChevronRight, Calendar, Wrench } from 'lucide-react';
+import { Loader2, Plus, MapPin, Clock, Smartphone, CheckCircle2, ChevronRight, Calendar, Wrench } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface FieldTask {

@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { useState, useMemo } from 'react';
 import type { Stats } from './types';
+import { formatSmartNumber } from '@/lib/utils';
 
 export interface RTOMTablesProps {
     isLoading: boolean;
@@ -146,7 +147,7 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                                                 <td className="px-3 py-3.5 text-emerald-500 font-bold">{r.completed}</td>
                                                 <td className="px-3 py-3.5 text-amber-500 font-bold">{r.pending}</td>
                                                 <td className="px-3 py-3.5 text-rose-500 font-bold">{r.returned}</td>
-                                                <td className="px-4 py-3.5 font-mono font-extrabold text-emerald-500">Rs. {estRevenue.toLocaleString()}</td>
+                                                <td className="px-4 py-3.5 font-mono font-extrabold text-emerald-500">Rs. {formatSmartNumber(estRevenue, 0)}</td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-2">
                                                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[55px]">

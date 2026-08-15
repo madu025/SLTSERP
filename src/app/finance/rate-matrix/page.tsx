@@ -1,14 +1,14 @@
 "use client";
 import { ROLE_GROUPS } from '@/config/roles';
 
-import React, { useEffect, useState } from 'react';
+import {  useEffect, useState  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Save, DollarSign, MapPin, Calculator, ShieldCheck, Check } from 'lucide-react';
+import { RefreshCw, Save, Calculator, Check } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 
 interface RateRule {

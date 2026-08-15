@@ -1,18 +1,14 @@
 "use client";
-import React from "react";
-import { FolderTree, ShieldAlert, FileCheck, CheckCircle2, XCircle, Lock, Camera, Users, CheckSquare } from "lucide-react";
-
+import { FolderTree, CheckCircle2, XCircle, Lock, Camera, Users, CheckSquare } from 'lucide-react';
 export default function Slide7() {
     const gatingFeatures = [
         { icon: Lock, label: "Snapshot Copying", desc: "Templates frozen at project creation", color: "text-blue-400" },
         { icon: Camera, label: "Photo Proof", desc: "Mandatory on-site uploads", color: "text-purple-400" },
         { icon: Users, label: "Multi-Tier Approval", desc: "Coordinator → PM → Finance", color: "text-amber-400" },
     ];
-
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -32,7 +28,6 @@ export default function Slide7() {
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                         Configurable checkpoints enforce structural safety guidelines. Next-stage progression remains <strong className="text-rose-400">locked</strong> until all mandatory checklist points, OTDR reports, and GPS check-ins are verified by the system.
                     </p>
-
                     {/* Gating Flow */}
                     <div className="grid grid-cols-3 gap-2">
                         {gatingFeatures.map((g) => {
@@ -47,7 +42,6 @@ export default function Slide7() {
                         })}
                     </div>
                 </div>
-
                 {/* Right: Quality Check Checklist Mockup */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
                     {/* Window chrome */}
@@ -59,7 +53,6 @@ export default function Slide7() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">Quality Gate Verification Check</span>
                     </div>
-
                     {/* Vector: Shield Lock Gate */}
                     <div className="mb-2">
                         <svg viewBox="0 0 400 40" className="w-full h-12 opacity-65" xmlns="http://www.w3.org/2000/svg">
@@ -88,10 +81,8 @@ export default function Slide7() {
                         </div>
                         <span className="text-[9px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase">🔒 Blocked</span>
                     </div>
-
                     {/* Checklist */}
                     <div className="space-y-2">
-                        
                         <div className="flex items-center justify-between bg-slate-900/20 border border-slate-850 p-2.5 rounded-lg">
                             <div className="flex items-center gap-2.5 text-xs text-slate-300">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
@@ -99,7 +90,6 @@ export default function Slide7() {
                             </div>
                             <span className="text-[9px] text-slate-500">Uploaded</span>
                         </div>
-
                         <div className="flex items-center justify-between bg-slate-900/20 border border-slate-850 p-2.5 rounded-lg">
                             <div className="flex items-center gap-2.5 text-xs text-slate-300">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
@@ -108,7 +98,6 @@ export default function Slide7() {
                             </div>
                             <span className="text-[9px] text-slate-500">Auto-Verified</span>
                         </div>
-
                         <div className="flex items-center justify-between bg-slate-900/20 border border-slate-850 p-2.5 rounded-lg">
                             <div className="flex items-center gap-2.5 text-xs text-slate-300">
                                 <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
@@ -116,7 +105,6 @@ export default function Slide7() {
                             </div>
                             <span className="text-[9px] text-red-400 font-bold">📸 Missing</span>
                         </div>
-
                         <div className="flex items-center justify-between bg-slate-900/20 border border-slate-850 p-2.5 rounded-lg">
                             <div className="flex items-center gap-2.5 text-xs text-slate-300">
                                 <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
@@ -124,9 +112,7 @@ export default function Slide7() {
                             </div>
                             <span className="text-[9px] text-red-400 font-bold">⏳ Pending</span>
                         </div>
-
                     </div>
-
                     {/* Approval Flow */}
                     <div className="flex items-center justify-center gap-2 text-[9px] text-slate-500">
                         <CheckSquare className="w-3 h-3 text-emerald-500" />
@@ -138,7 +124,6 @@ export default function Slide7() {
                         <Users className="w-3 h-3 text-amber-500" />
                         <span>Approved</span>
                     </div>
-
                     {/* Control Buttons */}
                     <div className="flex gap-2 pt-2">
                         <button disabled className="flex-1 bg-slate-850 text-slate-500 text-xs font-bold py-2 rounded-lg cursor-not-allowed border border-slate-800">
@@ -149,7 +134,6 @@ export default function Slide7() {
                         </button>
                     </div>
                 </div>
-
             </div>
         </div>
     );

@@ -8,7 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { LayoutDashboard, ShieldAlert, X, RefreshCw, Sparkles, Activity, Printer } from 'lucide-react';
+import { LayoutDashboard, ShieldAlert, X, Activity, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export interface DashboardFiltersProps {

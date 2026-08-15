@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import {  useState, useEffect  } from 'react';
 import RoleGuard from '@/components/RoleGuard';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Loader2, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
 import { ROLE_GROUPS } from "@/config/roles";

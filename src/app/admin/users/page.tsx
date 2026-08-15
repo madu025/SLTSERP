@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import {  useState, useMemo  } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -21,12 +21,7 @@ import {
   Store,
   HardHat,
   KeyRound,
-  Building2,
-  Filter,
-  Layers,
-  Sparkles,
-  ArrowUpRight
-} from "lucide-react";
+  Sparkles } from "lucide-react";
 import { UserFormDrawer } from './components/UserFormDrawer';
 import { UserFormValues } from './components/UserFormDrawer';
 import { useUserOperations } from './hooks/useUserOperations';

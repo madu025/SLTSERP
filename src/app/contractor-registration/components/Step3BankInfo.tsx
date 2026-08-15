@@ -1,14 +1,11 @@
 "use client";
-
-import React from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
 import { FileUploadField } from "@/components/shared/FileUploadField";
-import { Landmark, Building, CreditCard } from "lucide-react";
-
+import { CreditCard } from 'lucide-react';
 interface Step3Props {
     handleUpload: (file: File, fieldName: string) => Promise<string | null>;
     uploadProgress: Record<string, number>;
@@ -17,11 +14,9 @@ interface Step3Props {
         branches: { id: string; name: string }[] 
     };
 }
-
 export function Step3BankInfo({ handleUpload, staticData }: Step3Props) {
     const { control } = useFormContext<PublicRegistrationSchema>();
     const watchedValues = useWatch({ control });
-
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* Simple Step Header */}
@@ -36,7 +31,6 @@ export function Step3BankInfo({ handleUpload, staticData }: Step3Props) {
                     Provide bank details for payments and settlements.
                 </p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Bank Name */}
                 <FormField
@@ -65,7 +59,6 @@ export function Step3BankInfo({ handleUpload, staticData }: Step3Props) {
                         </FormItem>
                     )}
                 />
-
                 {/* Account Number */}
                 <FormField
                     control={control}
@@ -89,7 +82,6 @@ export function Step3BankInfo({ handleUpload, staticData }: Step3Props) {
                         </FormItem>
                     )}
                 />
-
                 {/* Branch */}
                 <FormField
                     control={control}
@@ -118,10 +110,8 @@ export function Step3BankInfo({ handleUpload, staticData }: Step3Props) {
                     )}
                 />
             </div>
-
             <div className="pt-8 space-y-8 border-t border-slate-200">
                 <h4 className="text-[11px] font-black uppercase text-slate-900 tracking-wider">Required Bank Documents</h4>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <FileUploadField
                         label="Passbook Photo"

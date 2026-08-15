@@ -1,8 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { InventoryService } from '@/services/inventory';
 import { apiHandler } from '@/lib/api-handler';
-import { AppError } from '@/lib/error';
-
 export const POST = apiHandler(async () => {
     const results = await InventoryService.updateDynamicSafetyLevels();
     return {

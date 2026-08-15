@@ -1,6 +1,4 @@
-import { Vehicle } from '../fleet/vehicle.types';
 import { PaymentType } from './payment.types';
-
 export interface Invoice {
   id: string;
   invoice_number: string;
@@ -19,7 +17,6 @@ export interface Invoice {
   created_at: Date;
   updated_at: Date;
 }
-
 export interface InvoiceItem {
   id: string;
   invoice_id: string;
@@ -33,7 +30,6 @@ export interface InvoiceItem {
   item_type: PaymentType;
   reference_id?: string;
 }
-
 export interface TaxConfig {
   id: string;
   tax_name: string;
@@ -48,7 +44,6 @@ export interface TaxConfig {
   created_at: Date;
   updated_at: Date;
 }
-
 export interface CreateInvoiceDTO {
   issued_by_site_id: string;
   issued_to_customer_id?: string;

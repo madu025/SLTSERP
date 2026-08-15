@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { ServiceOrder } from "@/types/service-order";
 
 export function useSODTable(items: ServiceOrder[]) {

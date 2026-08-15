@@ -1,20 +1,16 @@
 export const dynamic = 'force-dynamic';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { primaryClient } from '@/lib/prisma';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { type PlannedPole, type PlannedClosure, type PlannedCable } from '@/services/gis/GISAutoPlanService';
-
 import { safe } from '@/utils/safe-await.util';
-
 // Cache buster to force Next.js module re-evaluation: 1783209330
 export const POST = apiHandler(async (req) => {
   const [jsonErr, body] = await safe<Record<string, unknown>>(req.json());
-  
   if (jsonErr || !body) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-
   const { projectId, routeName, poles, closures, cables, polygon, osmData, metadata } = body as {
     projectId: string;
     routeName: string;
@@ -25,14 +21,12 @@ export const POST = apiHandler(async (req) => {
     osmData: unknown;
     metadata: unknown;
   };
-
     if (!projectId || !routeName) {
       return NextResponse.json(
         { error: 'Project ID and Route Name are required' },
         { status: 400 }
       );
     }
-
     // Build GeoJSON feature collection for the saved route.
     const geojsonData = {
       type: 'FeatureCollection',
@@ -89,20 +83,17 @@ export const POST = apiHandler(async (req) => {
           : []),
       ],
     };
-
     // Save plan using a database transaction
     const [txErr, result] = await safe(primaryClient.$transaction(async (tx) => {
       // 1. Create Route record
       const totalCableLength = Array.isArray(cables) 
         ? (cables as PlannedCable[]).reduce((sum, cb) => sum + cb.length, 0)
         : 0;
-
       // Handle V1 / V2 versioning for comparison
       const existingRoute = await tx.gISRoute.findFirst({
         where: { projectId, versionType: 'PLANNED' },
         orderBy: { createdAt: 'asc' },
       });
-
       let nextVersion = 1;
       let finalRouteName = routeName;
       if (existingRoute) {
@@ -114,7 +105,6 @@ export const POST = apiHandler(async (req) => {
           data: { version: 1, name: existingRoute.name.includes('V1') ? existingRoute.name : existingRoute.name + ' - V1 (Old)' }
         });
       }
-
       const route = await tx.gISRoute.create({
         data: {
           projectId,
@@ -132,7 +122,6 @@ export const POST = apiHandler(async (req) => {
           },
         },
       });
-
       // 2. Create Poles
       if (Array.isArray(poles) && poles.length > 0) {
         await tx.gISPole.createMany({
@@ -150,7 +139,6 @@ export const POST = apiHandler(async (req) => {
           })),
         });
       }
-
       // 3. Create Closures (FDPs / Joints)
       if (Array.isArray(closures) && closures.length > 0) {
         await tx.gISClosure.createMany({
@@ -169,7 +157,6 @@ export const POST = apiHandler(async (req) => {
           })),
         });
       }
-
       // 4. Create Cable Segments
       if (Array.isArray(cables) && cables.length > 0) {
         await tx.gISCableSegment.createMany({
@@ -187,10 +174,8 @@ export const POST = apiHandler(async (req) => {
           })),
         });
       }
-
       return route;
     }));
-
     if (txErr || !result) {
       console.error('Save AI Plan Route Error:', txErr);
       return NextResponse.json(
@@ -198,16 +183,14 @@ export const POST = apiHandler(async (req) => {
         { status: 500 }
       );
     }
-
     // Automatically trigger BOQ recalculation for the newly saved AI plan
     const [boqErr] = await safe(ProjectSurveyService.completeSurveyAndGenerateBOQ(projectId, {}));
     if (boqErr) {
       console.error('Error generating BOQ from AI plan:', boqErr.message);
     }
-
     return NextResponse.json({
       success: true,
       message: `AI Route Plan "${routeName}" saved and BOQ recalculated successfully.`,
       routeId: result.id,
     });
-}, { rawResponse: true });
+}, { rawResponse: true });

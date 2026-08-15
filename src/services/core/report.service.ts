@@ -1,8 +1,8 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { startOfMonth, endOfMonth, subMonths, subDays, subYears, format } from 'date-fns';
+import { subMonths, subDays, subYears, format } from 'date-fns';
 import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
-import { PaymentTypeEnum, PaymentStatusEnum } from '@prisma/client';
+import { PaymentTypeEnum, PaymentStatusEnum, Prisma } from '@prisma/client';
 
 export interface AnalyticsReportOptions {
   customFrom?: string | null;
@@ -449,6 +449,7 @@ export class ReportService {
             status: true,
             sltsStatus: true,
             statusDate: true,
+            receivedDate: true,
             completedDate: true,
             orderType: true,
             package: true,
@@ -493,33 +494,57 @@ export class ReportService {
     const rawSources: { id: string; materialSource: string }[] = await prisma.$queryRaw`
       SELECT "id", "materialSource" FROM "ServiceOrder" 
       WHERE ("createdAt" >= ${startDate} AND "createdAt" <= ${endDate})
+         OR ("receivedDate" >= ${startDate} AND "receivedDate" <= ${endDate})
          OR ("completedDate" >= ${startDate} AND "completedDate" <= ${endDate})
          OR ("statusDate" >= ${startDate} AND "statusDate" <= ${endDate})
     `;
 
     const sourceMap = new Map<string, string>(rawSources.map(s => [s.id, s.materialSource]));
 
-    const inHandMorningOrders = await prisma.serviceOrder.groupBy({
-      by: ['rtom', 'orderType'],
-      where: {
-        createdAt: { lt: startDate },
-        AND: [
-          {
-            OR: [
-              { sltsStatus: { not: 'COMPLETED' } },
-              { statusDate: { gte: startDate } }
-            ]
-          },
-          {
-            OR: [
-              { sltsStatus: { not: 'RETURN' } },
-              { statusDate: { gte: startDate } }
-            ]
-          }
-        ]
-      },
-      _count: { id: true }
-    });
+    // Morning carry-forward: orders received before today that were still
+    // open this morning (completed/returned today still counts as morning hand).
+    // receivedDate is canonical; fall back to createdAt when null.
+    const inHandMorningWhere: Prisma.ServiceOrderWhereInput = {
+      OR: [
+        { receivedDate: { lt: startDate } },
+        { AND: [{ receivedDate: null }, { createdAt: { lt: startDate } }] }
+      ],
+      AND: [
+        {
+          OR: [
+            { sltsStatus: { not: 'COMPLETED' } },
+            { statusDate: { gte: startDate } }
+          ]
+        },
+        {
+          OR: [
+            { sltsStatus: { not: 'RETURN' } },
+            { statusDate: { gte: startDate } }
+          ]
+        }
+      ]
+    };
+
+    const [inHandMorningOrders, stbShortageInHandRaw, ontShortageInHandRaw] = await Promise.all([
+      prisma.serviceOrder.groupBy({
+        by: ['rtom', 'orderType'],
+        where: inHandMorningWhere,
+        _count: { id: true }
+      }),
+      prisma.serviceOrder.groupBy({
+        by: ['rtom'],
+        where: { ...inHandMorningWhere, stbShortage: true },
+        _count: { id: true }
+      }),
+      prisma.serviceOrder.groupBy({
+        by: ['rtom'],
+        where: { ...inHandMorningWhere, ontShortage: true },
+        _count: { id: true }
+      })
+    ]);
+
+    const stbShortageMap = new Map<string, number>(stbShortageInHandRaw.map(r => [r.rtom, r._count.id]));
+    const ontShortageMap = new Map<string, number>(ontShortageInHandRaw.map(r => [r.rtom, r._count.id]));
 
     const reportData: ReportRow[] = opmcs.map(opmc => {
       const orders = opmc.serviceOrders as unknown as ServiceOrderWithRelations[];
@@ -571,7 +596,8 @@ export class ReportService {
         const category = categorizeOrder(order);
         const source = sourceMap.get(order.id) || 'SLT';
 
-        const rDate = order.createdAt;
+        // Canonical receiving date (SLT portal date), fallback to row creation
+        const rDate = order.receivedDate || order.createdAt;
         if (rDate >= startDate && rDate <= endDate) {
           received[category]++;
           received.total++;
@@ -688,9 +714,10 @@ export class ReportService {
       };
       balance.total = balance.nc + balance.rl + balance.data;
 
+      // Shortages scoped to in-hand (morning carry-forward) orders, not all day-touched orders
       const shortages: ShortagesEntry = {
-        stb: orders.filter(o => o.stbShortage).length,
-        ont: orders.filter(o => o.ontShortage).length
+        stb: stbShortageMap.get(opmc.rtom) || 0,
+        ont: ontShortageMap.get(opmc.rtom) || 0
       };
 
       return {

@@ -1,7 +1,7 @@
 "use client";
 import { ROLE_GROUPS } from '@/config/roles';
 
-import React, { useEffect, useState, useCallback } from "react";
+import {  useEffect, useState, useCallback  } from 'react';
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";

@@ -1,7 +1,7 @@
 "use client";
 import { ROLE_GROUPS } from '@/config/roles';
 
-import React, { useEffect, useState, useCallback } from "react";
+import {  useEffect, useState, useCallback  } from 'react';
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import RoleGuard from "@/components/RoleGuard";
@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   RefreshCw,
   Search,
-  ShieldAlert,
   Flame,
   LifeBuoy
 } from "lucide-react";

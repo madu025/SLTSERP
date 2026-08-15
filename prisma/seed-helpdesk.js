@@ -7,7 +7,7 @@ async function main() {
 
   // 1. Fetch test users to assign assets/tickets to
   const users = await prisma.user.findMany({
-    select: { id: true, username: true }
+    select: { id: true, username: true, role: true }
   });
 
   if (users.length === 0) {
@@ -16,10 +16,15 @@ async function main() {
   }
 
   const adminUser = users.find(u => u.username === 'admin') || users[0];
-  const coordinatorUser = users.find(u => u.username === 'coordinator') || users[0];
-  const qcUser = users.find(u => u.username === 'qcofficer') || users[0];
+  const coordinatorUser = users.find(u => u.role === 'AREA_COORDINATOR') || users.find(u => u.username.includes('coordinator')) || users[0];
+  const qcUser = users.find(u => u.role === 'QC_OFFICER') || users.find(u => u.username.includes('qc')) || users[1] || users[0];
 
-  // 2. Create Knowledge Base Articles
+  console.log(`Using users:`);
+  console.log(`  admin: ${adminUser.username} (${adminUser.id})`);
+  console.log(`  coordinator: ${coordinatorUser.username} (${coordinatorUser.id})`);
+  console.log(`  qc: ${qcUser.username} (${qcUser.id})`);
+
+  // 2. Create Knowledge Base Articles (idempotent by title)
   const kbArticles = [
     {
       title: "Connecting to the Corporate VPN from home",
@@ -66,14 +71,16 @@ async function main() {
     }
   ];
 
-  console.log("Creating Knowledge Base articles...");
+  console.log("\nCreating Knowledge Base articles...");
   for (const art of kbArticles) {
-    await prisma.knowledgeBaseArticle.create({
-      data: art
-    });
+    const existing = await prisma.knowledgeBaseArticle.findFirst({ where: { title: art.title } });
+    if (!existing) {
+      await prisma.knowledgeBaseArticle.create({ data: art });
+    }
   }
+  console.log(`  KB articles: ${await prisma.knowledgeBaseArticle.count()}`);
 
-  // 3. Create IT Assets
+  // 3. Create IT Assets (idempotent by assetNumber)
   const assets = [
     {
       assetNumber: "SLT-IT-2026-001",
@@ -118,23 +125,85 @@ async function main() {
       department: "IT Systems",
       location: "Galle OPMC",
       status: "SPARE"
+    },
+    {
+      assetNumber: "SLT-IT-2026-005",
+      serialNumber: "SN-DELL-LAT-5540",
+      deviceType: "LAPTOP",
+      brand: "Dell",
+      model: "Latitude 5540",
+      assignedUserId: null,
+      department: "HR",
+      location: "Colombo HQ",
+      status: "SPARE"
+    },
+    {
+      assetNumber: "SLT-IT-2026-006",
+      serialNumber: "SN-APC-UPS-001",
+      deviceType: "OTHER",
+      brand: "APC",
+      model: "Smart-UPS 1500VA",
+      assignedUserId: null,
+      department: "IT Systems",
+      location: "Colombo HQ Server Room",
+      status: "ACTIVE"
     }
   ];
 
-  console.log("Creating IT Assets...");
+  console.log("\nCreating IT Assets...");
   const createdAssets = [];
   for (const assetData of assets) {
-    const created = await prisma.iTAsset.create({
-      data: assetData
+    const created = await prisma.iTAsset.upsert({
+      where: { assetNumber: assetData.assetNumber },
+      update: assetData,
+      create: assetData
     });
     createdAssets.push(created);
   }
+  console.log(`  IT Assets: ${await prisma.iTAsset.count()}`);
 
-  // 4. Create Mock Tickets
+  // 4. Create Software Licenses
+  const licenses = [
+    {
+      name: "Microsoft 365 Business Premium",
+      vendor: "Microsoft",
+      totalLicenses: 50,
+      purchaseCost: 150000.00,
+      status: "ACTIVE",
+      expiryDate: new Date('2027-06-30')
+    },
+    {
+      name: "Adobe Creative Cloud",
+      vendor: "Adobe",
+      totalLicenses: 10,
+      purchaseCost: 75000.00,
+      status: "ACTIVE",
+      expiryDate: new Date('2027-03-15')
+    },
+    {
+      name: "AutoCAD 2026",
+      vendor: "Autodesk",
+      totalLicenses: 5,
+      purchaseCost: 200000.00,
+      status: "ACTIVE",
+      expiryDate: new Date('2027-01-01')
+    }
+  ];
+
+  console.log("\nCreating Software Licenses...");
+  for (const lic of licenses) {
+    const existing = await prisma.softwareLicense.findFirst({ where: { name: lic.name } });
+    if (!existing) {
+      await prisma.softwareLicense.create({ data: lic });
+    }
+  }
+  console.log(`  Software Licenses: ${await prisma.softwareLicense.count()}`);
+
+  // 5. Create Mock Tickets (idempotent by ticketNumber)
   const tickets = [
     {
       ticketNumber: "IT-20260714-0001",
-      assetId: createdAssets[0].id,
+      assetId: createdAssets.find(a => a.assetNumber === "SLT-IT-2026-001")?.id || null,
       userId: coordinatorUser.id,
       category: "BROKEN_DISPLAY",
       description: "My Lenovo laptop slipped off my desk and the screen has a spiderweb crack. The screen stays completely white when powering on.",
@@ -145,7 +214,7 @@ async function main() {
     },
     {
       ticketNumber: "IT-20260714-0002",
-      assetId: createdAssets[1].id,
+      assetId: createdAssets.find(a => a.assetNumber === "SLT-IT-2026-002")?.id || null,
       userId: qcUser.id,
       category: "NETWORK_ISSUE",
       description: "Every time I connect to Kandy OPMC WiFi, my corporate VPN disconnects and throws an authentication error (Error 401). My password is correct.",
@@ -156,7 +225,7 @@ async function main() {
     },
     {
       ticketNumber: "IT-20260714-0003",
-      assetId: createdAssets[2].id,
+      assetId: createdAssets.find(a => a.assetNumber === "SLT-IT-2026-003")?.id || null,
       userId: coordinatorUser.id,
       category: "PRINTER_ISSUE",
       description: "HP LaserJet printer is offline. Checked power cables, rebooted, but invoices won't print from the queue.",
@@ -164,50 +233,129 @@ async function main() {
       status: "RESOLVED",
       assignedToId: adminUser.id,
       anydeskId: null
+    },
+    {
+      ticketNumber: "IT-20260714-0004",
+      assetId: null,
+      userId: adminUser.id,
+      category: "SOFTWARE_ISSUE",
+      description: "Microsoft Outlook keeps crashing when trying to open large attachments (>25MB). Need IT to check email client configuration.",
+      priority: "LOW",
+      status: "IN_PROGRESS",
+      assignedToId: adminUser.id,
+      anydeskId: "123456789"
+    },
+    {
+      ticketNumber: "IT-20260714-0005",
+      assetId: createdAssets.find(a => a.assetNumber === "SLT-IT-2026-004")?.id || null,
+      userId: qcUser.id,
+      category: "EQUIPMENT_REQUEST",
+      description: "Request for additional monitor for dual-screen setup. Current single monitor is limiting productivity for CAD work.",
+      priority: "MEDIUM",
+      status: "WAITING_FOR_PARTS",
+      assignedToId: adminUser.id,
+      anydeskId: null
     }
   ];
 
-  console.log("Creating tickets...");
+  console.log("\nCreating tickets...");
   for (const t of tickets) {
-    const created = await prisma.ticket.create({
-      data: t
+    console.log(`  Creating ticket ${t.ticketNumber}...`);
+    console.log(`    userId: ${t.userId} (length: ${t.userId?.length})`);
+    console.log(`    assetId: ${t.assetId} (length: ${t.assetId?.length})`);
+    console.log(`    assignedToId: ${t.assignedToId} (length: ${t.assignedToId?.length})`);
+
+    const created = await prisma.ticket.upsert({
+      where: { ticketNumber: t.ticketNumber },
+      update: t,
+      create: t
     });
 
-    // Create history logs
-    await prisma.ticketUpdate.create({
-      data: {
-        ticketId: created.id,
-        userId: created.userId,
-        message: "Ticket registered by user: " + created.description.substring(0, 50) + "...",
-        statusFrom: "OPEN",
-        statusTo: created.status
-      }
-    });
-
-    if (created.status === "ASSIGNED") {
+    // Create history logs (only if new)
+    const existingUpdates = await prisma.ticketUpdate.count({ where: { ticketId: created.id } });
+    if (existingUpdates === 0) {
       await prisma.ticketUpdate.create({
         data: {
           ticketId: created.id,
-          userId: adminUser.id,
-          message: "Ticket assigned to IT Support: " + adminUser.username,
+          userId: created.userId,
+          message: "Ticket registered: " + created.description.substring(0, 50) + "...",
           statusFrom: "OPEN",
-          statusTo: "ASSIGNED"
+          statusTo: created.status
         }
       });
-    } else if (created.status === "RESOLVED") {
-      await prisma.ticketUpdate.create({
-        data: {
-          ticketId: created.id,
-          userId: adminUser.id,
-          message: "Printer spooler service restarted and paper jam cleared. Verified successful printing.",
-          statusFrom: "IN_PROGRESS",
-          statusTo: "RESOLVED"
-        }
-      });
+
+      if (created.status === "ASSIGNED") {
+        await prisma.ticketUpdate.create({
+          data: {
+            ticketId: created.id,
+            userId: adminUser.id,
+            message: "Ticket assigned to IT Support: " + adminUser.username,
+            statusFrom: "OPEN",
+            statusTo: "ASSIGNED"
+          }
+        });
+      } else if (created.status === "RESOLVED") {
+        await prisma.ticketUpdate.create({
+          data: {
+            ticketId: created.id,
+            userId: adminUser.id,
+            message: "Printer spooler service restarted and paper jam cleared. Verified successful printing.",
+            statusFrom: "IN_PROGRESS",
+            statusTo: "RESOLVED"
+          }
+        });
+      } else if (created.status === "IN_PROGRESS") {
+        await prisma.ticketUpdate.create({
+          data: {
+            ticketId: created.id,
+            userId: adminUser.id,
+            message: "Investigating Outlook crash issue. Checking event viewer logs.",
+            statusFrom: "OPEN",
+            statusTo: "IN_PROGRESS"
+          }
+        });
+      } else if (created.status === "WAITING_FOR_PARTS") {
+        await prisma.ticketUpdate.create({
+          data: {
+            ticketId: created.id,
+            userId: adminUser.id,
+            message: "Monitor ordered from supplier. Expected delivery: 3-5 business days.",
+            statusFrom: "OPEN",
+            statusTo: "WAITING_FOR_PARTS"
+          }
+        });
+      }
     }
   }
+  console.log(`  Tickets: ${await prisma.ticket.count()}`);
 
-  console.log("Helpdesk ITSM seeding complete! 🚀");
+  // 6. Create Asset Disposal Requests
+  const disposals = [
+    {
+      assetId: createdAssets.find(a => a.assetNumber === "SLT-IT-2026-004")?.id,
+      requestedById: adminUser.id,
+      reason: "OBSOLETE",
+      salvageValue: 15000.00,
+      status: "PENDING"
+    }
+  ];
+
+  console.log("\nCreating disposal requests...");
+  for (const d of disposals) {
+    if (d.assetId) {
+      await prisma.assetDisposalRequest.create({ data: d });
+    }
+  }
+  console.log(`  Disposals: ${await prisma.assetDisposalRequest.count()}`);
+
+  console.log("\nHelpdesk ITSM seeding complete!");
+  console.log(`\nSummary:`);
+  console.log(`  KB Articles: ${await prisma.knowledgeBaseArticle.count()}`);
+  console.log(`  IT Assets: ${await prisma.iTAsset.count()}`);
+  console.log(`  Software Licenses: ${await prisma.softwareLicense.count()}`);
+  console.log(`  Tickets: ${await prisma.ticket.count()}`);
+  console.log(`  Ticket Updates: ${await prisma.ticketUpdate.count()}`);
+  console.log(`  Disposals: ${await prisma.assetDisposalRequest.count()}`);
 }
 
 main()

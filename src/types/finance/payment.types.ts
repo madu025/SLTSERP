@@ -1,5 +1,3 @@
-import { Vehicle } from '../fleet/vehicle.types';
-
 export enum PaymentType {
   RENTAL = 'RENTAL',
   MAINTENANCE = 'MAINTENANCE',
@@ -12,7 +10,6 @@ export enum PaymentType {
   REGISTRATION = 'REGISTRATION',
   OTHER = 'OTHER'
 }
-
 export enum PaymentStatus {
   PENDING = 'PENDING',
   PARTIAL = 'PARTIAL',
@@ -20,7 +17,6 @@ export enum PaymentStatus {
   OVERDUE = 'OVERDUE',
   CANCELLED = 'CANCELLED'
 }
-
 export interface Payment {
   id: string;
   invoice_id: string;
@@ -43,7 +39,6 @@ export interface Payment {
   created_at: Date;
   updated_at: Date;
 }
-
 export interface CreatePaymentDTO {
   invoice_id: string;
   payment_type: PaymentType;

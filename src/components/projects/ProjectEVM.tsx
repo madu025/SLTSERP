@@ -1,10 +1,10 @@
 "use client";
-import React, { useCallback, useEffect, useState } from 'react';
+import {  useEffect, useState  } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Activity } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, Activity } from 'lucide-react';
 
 interface ProjectEVMProps { project: any; }
 

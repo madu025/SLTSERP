@@ -1,19 +1,14 @@
 import { apiHandler } from '@/lib/api-handler';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { ROLE_GROUPS } from '@/config/roles';
 import { NextResponse } from 'next/server';
 import { StoreService } from '@/services/inventory/store.service';
-
 export const dynamic = 'force-dynamic';
-
 export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     let storeId = searchParams.get('storeId');
     const { _userRole, _userId } = params;
-
     const isGlobalManager = ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER'].includes(_userRole || '');
-
     if (!isGlobalManager && _userId) {
         // Enforce store limit: assistants can only see their assigned store
         const user = await prisma.user.findUnique({ where: { id: _userId }, select: { assignedStoreId: true }});
@@ -24,19 +19,15 @@ export const GET = apiHandler(async (req, params) => {
             storeId = 'unassigned';
         }
     }
-
     const storeFilter = (storeId && storeId !== 'all' && storeId !== 'unassigned') 
         ? { storeId } 
         : {};
-
     // 1. Calculate Stock Valuation & Total Items
     // Use DB functions for single-store queries (zero egress computation)
     const singleStoreId = (storeId && storeId !== 'all' && storeId !== 'unassigned') ? storeId : null;
-
     let totalValue = 0;
     let totalQuantity = 0;
     let lowStockAlerts: Array<{ id: string; name: string; category: string | null; minLevel: number; currentQty: number }> = [];
-
     if (singleStoreId) {
         // Run all DB queries in parallel for single-store path
         // fn_store_dashboard_summary replaces 3 separate count queries (itemCount, totalValue, pendingMrnsCount)
@@ -71,14 +62,12 @@ export const GET = apiHandler(async (req, params) => {
                 }
             })
         ]);
-
         // Extract KPI metrics from single DB function call
         const metricsMap = new Map(dashboardMetrics.map(m => [m.metric_name, Number(m.metric_value) || 0]));
         totalValue = metricsMap.get('total_value') || 0;
         totalQuantity = metricsMap.get('total_quantity') || 0;
         const itemCount = metricsMap.get('total_unique_items') || 0;
         const pendingMrnsCount = metricsMap.get('pending_mrn_count') || 0;
-
         lowStockAlerts = alertRows.map(a => ({
             id: a.item_id,
             name: a.item_name,
@@ -86,7 +75,6 @@ export const GET = apiHandler(async (req, params) => {
             minLevel: Number(a.min_level) || 0,
             currentQty: Number(a.current_stock) || 0
         }));
-
         const materialBalance = materialRows.map(r => ({
             itemId: r.item_id,
             itemCode: r.item_code,
@@ -98,7 +86,6 @@ export const GET = apiHandler(async (req, params) => {
             reorderNeeded: r.reorder_needed,
             totalValue: Number(r.total_value) || 0
         }));
-
         const expiringBatches = expiringRows.map(r => ({
             batchId: r.batch_id,
             batchNumber: r.batch_number,
@@ -108,7 +95,6 @@ export const GET = apiHandler(async (req, params) => {
             expiryDate: r.expiry_date,
             daysUntilExpiry: Number(r.days_until_expiry) || 0
         }));
-
         return NextResponse.json({
             success: true,
             summary: {
@@ -127,7 +113,6 @@ export const GET = apiHandler(async (req, params) => {
             expiringBatches,
         });
     }
-
     // Multi-store / global fallback: use JS computation
     const stocks = await prisma.inventoryStock.findMany({
         where: storeFilter,
@@ -144,15 +129,12 @@ export const GET = apiHandler(async (req, params) => {
             }
         }
     });
-
     const itemStockMap = new Map<string, { item: { id: string; name: string; unitPrice: number | null; minLevel: number; category: string | null; }; totalQty: number }>();
-
     for (const s of stocks) {
         const qty = Number(s.quantity) || 0;
         const price = s.item?.unitPrice ? Number(s.item.unitPrice) : 0;
         totalValue += qty * price;
         totalQuantity += qty;
-
         if (s.item) {
             const parsedItem = {
                 id: s.item.id,
@@ -166,7 +148,6 @@ export const GET = apiHandler(async (req, params) => {
             itemStockMap.set(s.item.id, existing);
         }
     }
-
     // Low stock items
     itemStockMap.forEach(({ item, totalQty }) => {
         if (item.minLevel > 0 && totalQty <= item.minLevel) {
@@ -179,7 +160,6 @@ export const GET = apiHandler(async (req, params) => {
             });
         }
     });
-
     // 2. Pending Contractor Dispatches (Stock Requests awaiting store issue)
     const pendingDispatches = await prisma.stockRequest.findMany({
         where: {
@@ -206,7 +186,6 @@ export const GET = apiHandler(async (req, params) => {
             }
         }
     });
-
     // 3. Awaiting GRNs
     const pendingGrns = await prisma.gRN.findMany({
         where: storeFilter,
@@ -230,7 +209,6 @@ export const GET = apiHandler(async (req, params) => {
             }
         }
     });
-
     // 4. Pending MRNs (Returns)
     const pendingMrnsCount = await prisma.mRN.count({
         where: {
@@ -238,7 +216,6 @@ export const GET = apiHandler(async (req, params) => {
             ...storeFilter
         }
     });
-
     // 5. Material Balance & Expiring Batches for multi-store view
     // Use single DB function calls instead of N+1 per-store loop
     const stores = await prisma.inventoryStore.findMany({
@@ -246,7 +223,6 @@ export const GET = apiHandler(async (req, params) => {
         select: { id: true }
     });
     const storeIds = stores.map(s => s.id);
-
     let materialBalance: Array<{
         itemId: string;
         itemCode: string;
@@ -258,7 +234,6 @@ export const GET = apiHandler(async (req, params) => {
         reorderNeeded: boolean;
         totalValue: number;
     }> = [];
-
     let expiringBatches: Array<{
         batchId: string;
         batchNumber: string;
@@ -268,14 +243,12 @@ export const GET = apiHandler(async (req, params) => {
         expiryDate: Date;
         daysUntilExpiry: number;
     }> = [];
-
     if (storeIds.length > 0) {
         // Single DB call for all stores (replaces N+1 loop)
         const [matRows, expRows] = await Promise.all([
             StoreService.getMultiStoreMaterialBalance(storeIds),
             StoreService.getMultiStoreExpiringBatches(storeIds, 30)
         ]);
-
         materialBalance = matRows.map(r => ({
             itemId: r.item_id,
             itemCode: r.item_code,
@@ -287,7 +260,6 @@ export const GET = apiHandler(async (req, params) => {
             reorderNeeded: r.reorder_needed,
             totalValue: Number(r.total_value) || 0
         }));
-
         expiringBatches = expRows.map(r => ({
             batchId: r.batch_id,
             batchNumber: r.batch_number,
@@ -298,13 +270,11 @@ export const GET = apiHandler(async (req, params) => {
             daysUntilExpiry: Number(r.days_until_expiry) || 0
         }));
     }
-
     // Override totalValue with PO-cost-based valuation from DB functions
     // (the JS fallback above uses InventoryItem.unitPrice which may be 0)
     if (materialBalance.length > 0) {
         totalValue = materialBalance.reduce((sum, r) => sum + r.totalValue, 0);
     }
-
     return NextResponse.json({
         success: true,
         summary: {

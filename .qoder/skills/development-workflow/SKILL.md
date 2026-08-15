@@ -19,6 +19,7 @@ When writing or modifying code in this workspace, all agents must adhere to the 
 8. **Algorithmic Efficiency (Big-O)**: Avoid $O(N^2)$ loops (e.g., nested `find` or database queries inside a loop). Utilize $O(1)$ Hash Maps, Sets, and Prisma `$transaction` batch operations to optimize time and space complexity.
 9. **Store Issue Note Numbers & Auditable Ledger Standards**: Every material issue, dispatch, transfer, or return MUST feature an explicit Store Material Issue Note Number (`issueNumber` / MIN / MRN Ref) displayed on both store and mobile views, writing an immutable SHA-256 checksum ledger entry in `InventoryLedger`.
 10. **Email Template Auto-Wiring (MANDATORY)**: Whenever you add or modify any code that sends an email (`EmailService.sendMail(...)`), you MUST automatically wire it to the DB notification template system WITHOUT waiting for a user reminder. Do all of: (a) register a template code in `src/config/notification-templates.ts` (`TEMPLATE_CODES`) with label, description, category, placeholders, defaultEntityType; (b) seed a default styled HTML template for that code in `prisma/seed-notification-templates.ts`; (c) call `NotificationTemplateEngineService.renderEmailByCode(CODE, vars)` at the send site and fall back to hardcoded HTML only when no active DB template exists. The admin dropdown at `/admin/settings/notification-templates` is registry-driven and picks up new codes automatically. After touching email-sending code, run `npm run check:email-templates` — it fails if any `EmailService.sendMail` call site lacks `renderEmailByCode` wiring.
+11. **Sidebar Menu Conventions (`src/config/sidebar-menu.ts`)**: When adding or modifying sidebar menu items in `SIDEBAR_MENU`: (a) every top-level section MUST have a **unique** `permissionId` — duplicate IDs break the access-policies admin page which deduplicates by ID; (b) top-level sections MUST use **distinct** icons — never reuse the same `lucide-react` icon for multiple top-level sections (collapsed sidebar becomes unreadable); (c) always reference `ROLE_GROUPS` constants from `src/config/roles.ts` instead of hardcoding role arrays — hardcoded lists become stale when roles change; (d) for menus with >10 submenus, use category comments (`// — Group Name —`) to organize items logically (matching the Inventory section pattern). The sidebar IS the single source of truth for route RBAC (`route-permissions.ts` derives all middleware rules from it).
 
 
 ## Project Overview
@@ -61,17 +62,12 @@ src/
 │   ├── sod.service.ts     # Service Order Facade
 │   ├── sod/               # Service Order sub-services
 │   ├── inventory.service.ts # Inventory Facade
-│   ├── inventory/         # Inventory sub-services
+│   ├── inventory/         # 26 inventory sub-services (stock, grn, mrn, issue, wastage, audit, cycle-count etc.)
 │   ├── project.service.ts # Project Facade (redirects to subfolder)
 │   ├── project/           # Project sub-services (core, boq, tasks, survey etc.)
 │   ├── gis.service.ts     # GIS Facade (redirects to subfolder)
 │   ├── gis/               # GIS sub-services (auto-plan, parser, road network etc.)
-│   ├── payment-voucher.service.ts # Payment Voucher Facade (redirects to finance)
-│   ├── finance/           # Finance sub-services
-│   │   ├── payment-voucher.service.ts # Unified PV service
-│   │   ├── ledger.service.ts          # General Ledger / Journal Entry service
-│   │   ├── petty-cash.service.ts      # Petty Cash Imprest service
-│   │   └── retention.service.ts
+│   ├── finance/           # 38 finance sub-services (ledger, payment-voucher, bank, tax, ar-ap, capex, osp etc.)
 │   ├── user.service.ts
 │   └── notification.service.ts
 └── workers/               # Background job workers
@@ -104,59 +100,44 @@ prisma/
 
 ### Core Services
 
-#### 1. Inventory Management System
+#### 1. Inventory Management System (26 services)
 
-The inventory system follows a **Service-Repository pattern** with the following services:
+The inventory system follows a **Service-Repository pattern** under `src/services/inventory/`.
 
-**StockService** (`inventory/stock.service.ts`):
-- Manages inventory stock levels
-- Implements FIFO batch picking
-- Handles stock adjustments and transfers
-- Provides stock availability checks
+**Core Stock Operations:**
+- **StockService** (`stock.service.ts`) — Stock levels, FIFO batch picking, transfers, availability checks, negative stock guard
+- **GRNService** (`grn.service.ts`) — Goods Receipt Note processing, batch creation, QC integration, auto stock updates
+- **MRNService** (`mrn.service.ts`) — Material Return Note processing, return reason tracking, stock reversal, approval workflow
+- **IssueService** (`issue.service.ts`) — Material issue to contractors, FIFO batch allocation, issue approval, stock deduction
+- **WastageService** (`wastage.service.ts`) — Wastage recording, approval gate (draft vs approved), stock write-off
+- **TransactionService** (`transaction.service.ts`) — Transaction history, audit trail, stock movement reporting
 
-**GRNService** (`inventory/grn.service.ts`):
-- Goods Receipt Note processing
-- Batch creation and tracking
-- Quality control integration
-- Automatic stock updates
+**Master Data & Stores:**
+- **ItemService** (`item.service.ts`) — Item master data, categories, unit conversions
+- **StoreService** (`store.service.ts`) — Store/warehouse management, hierarchy, multi-store DB functions, stock visibility
+- **LocatorService** (`locator.service.ts`) — Store/warehouse location mapping
+- **CpeService** (`cpe.service.ts`) — Customer Premises Equipment tracking
+- **RopService** (`rop.service.ts`) — Re-Order Point calculations
 
-**MRNService** (`inventory/mrn.service.ts`):
-- Material Return Note processing
-- Return reason tracking
-- Stock reversal logic
-- Approval workflow
+**Material Requests & Approvals:**
+- **StockRequestService** (`stock-request.service.ts`) — Multi-stage approval (ARM → Manager → Release), inter-store transfers, SLT/local procurement, SoD checks
+- **VirtualSwapService** (`virtual-swap.service.ts`) — Virtual stock swap between stores without physical movement
 
-**IssueService** (`inventory/issue.service.ts`):
-- Material issue to contractors
-- Batch allocation (FIFO)
-- Issue approval workflow
-- Stock deduction
+**Contractor & Audit:**
+- **ContractorInventoryService** (`contractor-inventory.service.ts`) — Contractor-held stock tracking, DB-optimized summary via `fn_contractor_stock_summary`
+- **AuditLedgerService** (`audit-ledger.service.ts`) — SHA-256 checksum InventoryLedger chain, immutability verification
+- **AiAuditService** (`ai-audit.service.ts`) — AI-driven material usage anomaly detection
+- **ConsumableAuditService** (`consumable-audit.service.ts`) — Consumable material reconciliation
+- **MaterialAuditReportService** (`material-audit-report.service.ts`) — Material audit report generation
+- **StoreVarianceReconciliationService** (`store-variance-reconciliation.service.ts`) — Physical vs system stock variance analysis
+- **CycleCountService** (`cycle-count.service.ts`) — Periodic physical stock count scheduling and reconciliation
+- **PreErpReconciliationService** (`pre-erp-reconciliation.service.ts`) — Legacy data reconciliation before ERP migration
+- **MaterialExcelImportService** (`material-excel-import.service.ts`) — Bulk material data import from Excel
 
-**StockRequestService** (`inventory/stock-request.service.ts`):
-- Multi-stage approval workflow (ARM → Manager → Release)
-- Inter-store transfers
-- SLT procurement requests
-- Local purchase requests
-
-**WastageService** (`inventory/wastage.service.ts`):
-- Wastage recording and tracking
-- Approval workflow
-- Stock write-off
-
-**ItemService** (`inventory/item.service.ts`):
-- Item master data management
-- Category management
-- Unit conversions
-
-**StoreService** (`inventory/store.service.ts`):
-- Store/warehouse management
-- Store hierarchy
-- Stock visibility by store
-
-**TransactionService** (`inventory/transaction.service.ts`):
-- Transaction history tracking
-- Audit trail
-- Reporting
+**Analytics & Forecasting:**
+- **AbcService** (`abc.service.ts`) — ABC classification (Pareto analysis) of inventory items
+- **DynamicReportService** (`dynamic-report.service.ts`) — Configurable inventory reports
+- **ForecastService** (`forecast.service.ts`) — Demand forecasting for reorder planning
 
 #### 2. Service Order Management
 
@@ -215,6 +196,64 @@ The inventory system follows a **Service-Repository pattern** with the following
 - Invoice generation
 - Payment tracking
 - Revenue reporting
+
+#### 7. Finance & Accounting System (38 services)
+
+The finance system lives under `src/services/finance/` with double-entry ledger discipline.
+
+**General Ledger & Journal Entries:**
+- **LedgerService** (`ledger.service.ts`) — Double-entry journal posting, debit/credit balancing, immutable posted entries, reversing entry corrections
+- **LedgerReportService** (`ledger-report.service.ts`) — GL report generation with date filtering
+- **ChartOfAccountsService** (`chart-of-accounts.service.ts`) — CoA CRUD, account hierarchy management
+- **FiscalPeriodService** (`fiscal-period.service.ts`) — Fiscal period open/close lifecycle
+- **AccountingPostingRegistryService** (`accounting-posting-registry.service.ts`) — Centralized posting rules and validation
+
+**Payment & Receivables:**
+- **PaymentVoucherService** (`payment-voucher.service.ts`) — PV creation, approval workflow, cumulative validation against invoice net payable
+- **ArApService** (`ar-ap.service.ts`) — AR aging/collections and AP aging/payables
+- **InvoiceService** (`invoice.service.ts`) — Contractor invoice generation and management
+- **InvoiceApprovalService** (`invoice-approval.service.ts`) — Invoice approval workflow
+- **BillingService** (`billing.service.ts`) — Contractor billing operations
+- **BomInvoiceService** (`bom-invoice.service.ts`) — BOM-based invoice generation from SLT portal sync
+
+**Banking & Cash:**
+- **BankService** (`bank.service.ts`) — Bank registry CRUD, bank account management
+- **BankCashService** (`bank-cash.service.ts`) — Cash book and bank ledger operations
+- **BankReconciliationService** (`bank-reconciliation.service.ts`) — Auto bank statement matching and reconciliation
+- **PettyCashService** (`petty-cash.service.ts`) — Imprest (fixed-float) model, expense voucher reconciliation, float top-up
+
+**Tax & Compliance:**
+- **TaxService** (`tax.service.ts`) — VAT return and WHT certificate/tax register
+- **TaxConfigService** (`tax-config.service.ts`) — Tax rate configuration
+- **LdPenaltyService** (`ld-penalty.service.ts`) — Liquidated damages penalty management
+- **RetentionService** (`retention.service.ts`) — Project retention held amounts, release on milestone completion
+
+**Corporate Finance:**
+- **CapexOpexDashboardService** (`capex-opex-dashboard.service.ts`) — CAPEX/OPEX split visualization
+- **CapexOpexLedgerService** (`capex-opex-ledger.service.ts`) — CAPEX/OPEX journal posting and ledger
+- **BudgetAllocationService** (`budget-allocation.service.ts`) — Budget allocation and tracking
+- **BudgetTrackingService** (`budget-tracking.service.ts`) — Budget vs actual variance monitoring
+- **FpaDashboardService** (`fpa-dashboard.service.ts`) — FP&A variance dashboard
+- **FixedAssetService** (`fixed-asset.service.ts`) — Fixed asset register and depreciation schedules
+- **PayrollExpenseService** (`payroll-expense.service.ts`) — HO payroll expense allocation
+- **PeriodCloseService** (`period-close.service.ts`) — Financial period close and year-end procedures
+- **QuotationService** (`quotation.service.ts`) — Vendor quotation management
+- **CostAllocationService** (`cost-allocation.service.ts`) — Project cost allocation across cost centers
+- **FxService** (`fx.service.ts`) — Multi-currency exchange rate management
+- **SodWipRevenueService** (`sod-wip-revenue.service.ts`) — WIP revenue and unbilled billing pipeline
+- **VendorService** (`vendor.service.ts`) — Vendor registry CRUD, bulk import
+
+**OSP Accounting:**
+- **OspAccountCrudService** (`osp-account-crud.service.ts`) — IOUs, advances, rents, fleet ledger CRUD
+- **OspAccountIngestionService** (`osp-account-ingestion.service.ts`) — Bulk OSP account data ingestion
+- **OspAccountReportService** (`osp-account-report.service.ts`) — OSP dashboard and reporting
+- **OspLedgerService** (`osp-ledger.service.ts`) — OSP-specific ledger entries
+
+**SF Audit:**
+- **SfAuditService** (`sf-audit.service.ts`) — SF audit governance, pricing audit, header mapping, payment split config
+
+**Dashboard:**
+- **DashboardService** (`dashboard.service.ts`) — Finance dashboard metrics with OPMC scope isolation
 
 ### Database Architecture
 
@@ -368,6 +407,18 @@ export const POST = apiHandler(
 - `apiHandler` maps AppError to correct HTTP status, Prisma errors to typed responses, ZodError to 422
 - Only 4 routes in the codebase legitimately skip apiHandler (binary WMS proxy, Prometheus metrics, public invoices, stub)
 
+**apiHandler Response Contract (CRITICAL):**
+- Routes MUST return a **plain object** (or `void`), NEVER `Response.json(data)`
+- `apiHandler` wraps the return value as `{ success, data: <return>, timestamp, duration }`
+- Returning `Response.json()` causes double-wrapping: the Response object serializes to `{}` inside the envelope, producing `{ success: true, data: {} }` — this was the root cause of the `/finance` page crash
+- **Client-side safe extraction** — always unwrap the apiHandler envelope:
+```typescript
+const res = await fetch('/api/endpoint');
+const json = await res.json();
+// Safe extraction: handles { data: <actual> } envelope from apiHandler
+const data = json.data?.data ?? json.data ?? json;
+```
+
 ### 5. Frontend Orchestrator Architecture
 
 To ensure maximum maintainability and performance, all new modules must follow the **Orchestrator-Component-Hook** pattern.
@@ -443,7 +494,7 @@ const form = useForm<z.infer<typeof formSchema>>({
 **Validation Standards:**
 - ALL forms MUST use React Hook Form
 - ALL API inputs MUST have Zod schemas in `src/lib/validations/`
-- Use `validateBody(request, schema)` in API routes
+- Use `apiHandler` with a `body: zodSchema` option for automatic Zod validation (preferred)
 - Use Shadcn Form components for consistent UI
 
 #### B. Server-Side Pagination & Filtering (CRITICAL)
@@ -777,12 +828,19 @@ const mutation = useMutation({
    }
    ```
 
-3. **Create API Route:**
+3. **Create API Route (apiHandler — MANDATORY):**
    ```typescript
    // app/api/feature/route.ts
-   export async function POST(req: NextRequest) {
-       // Implementation
-   }
+   import { apiHandler } from '@/lib/api-handler';
+   import { FeatureService } from '@/services/feature.service';
+
+   export const POST = apiHandler(
+       async (req, { body }) => {
+           const result = await FeatureService.create(body);
+           return result; // plain object, NOT Response.json()
+       },
+       { roles: ['ADMIN'], body: featureSchema, audit: { action: 'CREATE', entity: 'Feature' } }
+   );
    ```
 
 ### Step 3: Frontend Development

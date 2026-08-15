@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { TrendingUp, ArrowUpRight } from 'lucide-react';
+import { formatSmartNumber } from '@/lib/utils';
 
 const TONE_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
     blue: {
@@ -53,7 +54,7 @@ export function StatCard({ label, value, icon, color, sub }: StatCardProps) {
             
             <div className="mt-4">
                 <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">{label}</p>
-                <p className="text-2xl md:text-3xl font-black tracking-tight text-foreground mt-1 font-mono">{value.toLocaleString()}</p>
+                <p className="text-2xl md:text-3xl font-black tracking-tight text-foreground mt-1 font-mono">{formatSmartNumber(value, 0)}</p>
                 {sub && (
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-extrabold mt-2">
                         <TrendingUp className="w-3 h-3" />

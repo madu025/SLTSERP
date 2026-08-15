@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import {  useState, useEffect, useCallback  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
@@ -130,7 +130,6 @@ export default function SystemMonitoringPage() {
         confirmText: 'Confirm',
         variant: 'danger'
     });
-
 
     const copyToClipboard = useCallback(async (text: string) => {
         try {

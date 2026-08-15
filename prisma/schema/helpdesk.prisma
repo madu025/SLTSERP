@@ -64,7 +64,7 @@ model Ticket {
   priority              TicketPriority @default(MEDIUM)
   status                TicketStatus   @default(OPEN)
   assignedToId          String? @db.Uuid
-  anydeskId             String? @db.Uuid
+  anydeskId             String?
   anydeskSession        String?
   photoUrls             String[]       @default([])
   createdAt             DateTime       @default(now())

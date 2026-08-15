@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
@@ -7,9 +6,8 @@ import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, Landmark, ChevronDown, ChevronRight, CheckCircle, ExternalLink, Calendar, DollarSign, FileText } from "lucide-react";
+import { Search, Landmark, ChevronDown, ChevronRight, Calendar, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-
 interface RetentionRelease {
     id: string;
     releaseAmount: number;
@@ -18,7 +16,6 @@ interface RetentionRelease {
     approvedAt: string | null;
     remarks: string | null;
 }
-
 interface ProjectRetention {
     id: string;
     projectId: string;
@@ -45,19 +42,16 @@ interface ProjectRetention {
     } | null;
     releases: RetentionRelease[];
 }
-
 export default function RetentionManagementPage() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [expandedRetentionId, setExpandedRetentionId] = useState<string | null>(null);
-
     // Dialog states
     const [showReleaseModal, setShowReleaseModal] = useState(false);
     const [selectedRetention, setSelectedRetention] = useState<ProjectRetention | null>(null);
     const [releaseAmount, setReleaseAmount] = useState(0);
     const [remarks, setRemarks] = useState("");
-
     // --- QUERIES ---
     const { data: retentions = [], isLoading } = useQuery<ProjectRetention[]>({
         queryKey: ["retentions", statusFilter],
@@ -67,7 +61,6 @@ export default function RetentionManagementPage() {
             return res.json();
         }
     });
-
     // --- MUTATIONS ---
     const releaseMutation = useMutation({
         mutationFn: async (data: { retentionId: string; releaseAmount: number; remarks: string }) => {
@@ -96,17 +89,14 @@ export default function RetentionManagementPage() {
             toast.error(err.message);
         }
     });
-
     const handleOpenReleaseModal = (retention: ProjectRetention) => {
         setSelectedRetention(retention);
         setReleaseAmount(retention.balanceAmount);
         setShowReleaseModal(true);
     };
-
     const handleReleaseSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedRetention) return;
-        
         if (releaseAmount <= 0) {
             toast.error("Release amount must be greater than zero");
             return;
@@ -115,18 +105,15 @@ export default function RetentionManagementPage() {
             toast.error("Release amount cannot exceed the remaining balance");
             return;
         }
-
         releaseMutation.mutate({
             retentionId: selectedRetention.id,
             releaseAmount,
             remarks
         });
     };
-
     const toggleExpand = (id: string) => {
         setExpandedRetentionId(expandedRetentionId === id ? null : id);
     };
-
     const filteredRetentions = retentions.filter(r => {
         const query = searchTerm.toLowerCase();
         return r.title.toLowerCase().includes(query) ||
@@ -134,7 +121,6 @@ export default function RetentionManagementPage() {
             r.project.projectCode.toLowerCase().includes(query) ||
             (r.invoice && r.invoice.invoiceNumber.toLowerCase().includes(query));
     });
-
     const getStatusStyle = (status: string) => {
         const styles: Record<string, string> = {
             HELD: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -143,14 +129,12 @@ export default function RetentionManagementPage() {
         };
         return styles[status] || 'bg-slate-100';
     };
-
     return (
         <div className="h-screen flex bg-slate-50 dark:bg-slate-950 overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-6 space-y-4">
-                    
                     <div className="flex justify-between items-center">
                         <div>
                             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -162,7 +146,6 @@ export default function RetentionManagementPage() {
                             </p>
                         </div>
                     </div>
-
                     {/* Filters & Search */}
                     <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div className="flex items-center gap-2 flex-1 border rounded px-3 py-1 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800">
@@ -190,7 +173,6 @@ export default function RetentionManagementPage() {
                             ))}
                         </div>
                     </div>
-
                     {/* Table View */}
                     <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
                         {isLoading ? (
@@ -208,7 +190,6 @@ export default function RetentionManagementPage() {
                                     const isExpanded = expandedRetentionId === retention.id;
                                     return (
                                         <div key={retention.id} className="flex flex-col border-b border-slate-100 dark:border-slate-800">
-                                            
                                             {/* Retention Row */}
                                             <div className="flex flex-col md:flex-row md:items-center justify-between p-4 gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/10">
                                                 <div 
@@ -228,7 +209,6 @@ export default function RetentionManagementPage() {
                                                         )}
                                                     </div>
                                                 </div>
-
                                                 <div className="grid grid-cols-3 gap-6 text-right md:w-1/3">
                                                     <div>
                                                         <div className="text-[10px] font-bold text-slate-400 uppercase">Retention ({retention.retentionPercent}%)</div>
@@ -243,7 +223,6 @@ export default function RetentionManagementPage() {
                                                         <div className="text-sm font-bold text-emerald-600">LKR {retention.balanceAmount.toLocaleString()}</div>
                                                     </div>
                                                 </div>
-
                                                 <div className="flex items-center gap-3">
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${getStatusStyle(retention.status)}`}>
                                                         {retention.status.replace(/_/g, ' ')}
@@ -258,7 +237,6 @@ export default function RetentionManagementPage() {
                                                     </Button>
                                                 </div>
                                             </div>
-
                                             {/* Expandable Release History */}
                                             {isExpanded && (
                                                 <div className="bg-slate-50/50 dark:bg-slate-900/50 pl-12 pr-4 py-3 border-t border-slate-100 dark:border-slate-800">
@@ -290,7 +268,6 @@ export default function RetentionManagementPage() {
                                                     )}
                                                 </div>
                                             )}
-
                                         </div>
                                     );
                                 })}
@@ -298,7 +275,6 @@ export default function RetentionManagementPage() {
                         )}
                     </div>
                 </div>
-
                 {/* Release Retention Dialog */}
                 <Dialog open={showReleaseModal} onOpenChange={setShowReleaseModal}>
                     <DialogContent>
@@ -337,7 +313,6 @@ export default function RetentionManagementPage() {
                         </form>
                     </DialogContent>
                 </Dialog>
-
             </main>
         </div>
     );

@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
-
 interface CreateRiskInput {
     title: string;
     description: string;
@@ -9,12 +7,10 @@ interface CreateRiskInput {
     mitigationPlan?: string;
     identifiedById: string;
 }
-
 interface UpdateRiskInput {
     mitigationPlan?: string;
     status?: string;
 }
-
 export class ProjectRiskService {
     static async getRisks(projectId: string) {
         return await prisma.projectRisk.findMany({
@@ -22,13 +18,10 @@ export class ProjectRiskService {
             orderBy: { score: 'desc' } // Prioritize high score risks
         });
     }
-
     static async createRisk(projectId: string, data: CreateRiskInput) {
         const { title, description, probability, impact, mitigationPlan, identifiedById } = data;
-
         const prob = Number(probability);
         const imp = Number(impact);
-
         return await prisma.projectRisk.create({
             data: {
                 projectId,
@@ -43,10 +36,8 @@ export class ProjectRiskService {
             }
         });
     }
-
     static async updateRisk(riskId: string, data: UpdateRiskInput) {
         const { mitigationPlan, status } = data;
-
         return await prisma.projectRisk.update({
             where: { id: riskId },
             data: {

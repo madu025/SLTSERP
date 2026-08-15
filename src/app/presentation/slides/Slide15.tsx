@@ -1,7 +1,5 @@
 "use client";
-import React from "react";
-import { Zap, Calendar, ArrowRight, BrainCircuit, Smartphone, Landmark, ArrowLeftRight, Calculator, MessageSquare, Printer } from "lucide-react";
-
+import { Zap, ArrowRight, BrainCircuit, Smartphone, Landmark, ArrowLeftRight } from 'lucide-react';
 export default function Slide15() {
     const upcomingFeatures = [
         { title: "Offline Technician App", desc: "Field work logging without cellular signal", icon: Smartphone, color: "text-emerald-400", timeline: "Q3 2026" },
@@ -9,11 +7,9 @@ export default function Slide15() {
         { title: "AI Material Predictor", desc: "Forecast inventory using historical data", icon: BrainCircuit, color: "text-purple-400", timeline: "Q1 2027" },
         { title: "Inter-Store Routing", desc: "Dynamic material transfers across stores", icon: ArrowLeftRight, color: "text-blue-400", timeline: "Q4 2026" },
     ];
-
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -40,7 +36,6 @@ export default function Slide15() {
                         </button>
                     </div>
                 </div>
-
                 {/* Right: Timeline + Upcoming Features */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
                     {/* Window chrome */}
@@ -52,7 +47,6 @@ export default function Slide15() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">Upcoming Release Timeline</span>
                     </div>
-
                     {/* Vector: Roadmap Path with Milestone Flags */}
                     <div className="mb-2">
                         <svg viewBox="0 0 400 45" className="w-full h-12 opacity-65" xmlns="http://www.w3.org/2000/svg">
@@ -62,15 +56,12 @@ export default function Slide15() {
                             <line x1="100" y1="10" x2="100" y2="2" stroke="#fbbf24" strokeWidth="0.8" />
                             <polygon points="100,2 115,6 100,10" fill="#f59e0b" opacity="0.6" />
                             <text x="100" y="16" textAnchor="middle" fill="#fcd34d" fontSize="5" fontWeight="bold">Q3'26</text>
-                            
                             <line x1="180" y1="35" x2="180" y2="43" stroke="#a78bfa" strokeWidth="0.8" />
                             <polygon points="180,43 195,39 180,35" fill="#8b5cf6" opacity="0.6" />
                             <text x="180" y="8" textAnchor="middle" fill="#c4b5fd" fontSize="5" fontWeight="bold">Q4'26</text>
-                            
                             <line x1="260" y1="10" x2="260" y2="2" stroke="#34d399" strokeWidth="0.8" />
                             <polygon points="260,2 275,6 260,10" fill="#10b981" opacity="0.6" />
                             <text x="260" y="16" textAnchor="middle" fill="#6ee7b7" fontSize="5" fontWeight="bold">Q1'27</text>
-                            
                             <line x1="340" y1="35" x2="340" y2="43" stroke="#60a5fa" strokeWidth="0.8" />
                             <polygon points="340,43 355,39 340,35" fill="#3b82f6" opacity="0.6" />
                             <text x="370" y="8" textAnchor="middle" fill="#93c5fd" fontSize="5" fontWeight="bold">AI Era</text>
@@ -93,7 +84,6 @@ export default function Slide15() {
                                 <p className="text-[10px] text-slate-500 mt-0.5">Allow field technicians to log work coordinates even when cellular signals fail in rural zones.</p>
                             </div>
                         </div>
-
                         {/* Point 2 */}
                         <div className="relative">
                             <span className="absolute -left-[30px] top-0.5 w-4 h-4 rounded-full bg-purple-500 border-2 border-slate-950 flex items-center justify-center font-bold" />
@@ -103,7 +93,6 @@ export default function Slide15() {
                                 <p className="text-[10px] text-slate-500 mt-0.5">Integrate payouts directly into Sri Lanka Telecom's central ledger systems for automatic wire transfers.</p>
                             </div>
                         </div>
-
                         {/* Point 3 */}
                         <div className="relative">
                             <span className="absolute -left-[30px] top-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center font-bold" />
@@ -114,7 +103,6 @@ export default function Slide15() {
                             </div>
                         </div>
                     </div>
-
                     {/* Feature Cards Grid */}
                     <div className="grid grid-cols-2 gap-2">
                         {upcomingFeatures.map((f) => {
@@ -132,7 +120,6 @@ export default function Slide15() {
                         })}
                     </div>
                 </div>
-
             </div>
         </div>
     );

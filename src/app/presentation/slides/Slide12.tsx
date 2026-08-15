@@ -1,7 +1,5 @@
 "use client";
-import React from "react";
-import { Truck, QrCode, DollarSign, Calendar, Smartphone, Gauge, AlertTriangle, TrendingUp } from "lucide-react";
-
+import { Truck, QrCode, Smartphone, Gauge, AlertTriangle, TrendingUp } from 'lucide-react';
 export default function Slide12() {
     const qrFeatures = [
         { icon: QrCode, label: "Scan QR Code", desc: "Vehicle dashboard sticker", color: "text-blue-400" },
@@ -9,11 +7,9 @@ export default function Slide12() {
         { icon: Smartphone, label: "Mobile Submit", desc: "Duty On / Off log", color: "text-emerald-400" },
         { icon: AlertTriangle, label: "Validate", desc: "Out-of-range warnings", color: "text-rose-400" },
     ];
-
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -33,7 +29,6 @@ export default function Slide12() {
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                         Drivers use their smartphones to scan a cabin <strong className="text-white">QR Code</strong> to submit start/end odometer values. The system auto-calculates monthly lease payments based on trips and fuel rates.
                     </p>
-
                     {/* QR Flow */}
                     <div className="space-y-1.5">
                         {qrFeatures.map((f, idx) => {
@@ -48,7 +43,6 @@ export default function Slide12() {
                         })}
                     </div>
                 </div>
-
                 {/* Right: Driver Log Check-In Card Mockup */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
                     {/* Window chrome */}
@@ -60,7 +54,6 @@ export default function Slide12() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">QR Mobile Driver Log View</span>
                     </div>
-
                     {/* Vector: Truck QR Scan */}
                     <div className="mb-2">
                         <svg viewBox="0 0 400 45" className="w-full h-12 opacity-65" xmlns="http://www.w3.org/2000/svg">
@@ -106,7 +99,6 @@ export default function Slide12() {
                         </div>
                         <QrCode className="w-7 h-7 text-slate-400" />
                     </div>
-
                     {/* Trip Ledger details */}
                     <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="bg-slate-900/30 border border-slate-850 p-2.5 rounded-lg space-y-1">
@@ -118,7 +110,6 @@ export default function Slide12() {
                             <p className="font-mono font-bold text-white">124,285 km <span className="text-blue-400 font-bold">(+135 km)</span></p>
                         </div>
                     </div>
-
                     {/* Lease Cost Block & Payment Summary */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 text-xs">
@@ -134,14 +125,12 @@ export default function Slide12() {
                             <p className="text-[9px] text-slate-400 mt-1">Reconcile & approve in 5 min per vehicle ⚡</p>
                         </div>
                     </div>
-
                     {/* Warning */}
                     <div className="flex items-center gap-2 bg-rose-500/5 border border-rose-500/20 rounded-lg p-2 text-[10px] text-rose-300">
                         <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
                         <span>Odometer out-of-range warnings flag potential errors (e.g., 500km+ single shift)</span>
                     </div>
                 </div>
-
             </div>
         </div>
     );

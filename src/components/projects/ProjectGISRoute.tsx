@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useState } from 'react';
+import {  useEffect, useState  } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { MapPin, Route, Upload, Calculator, CheckCircle2, Download, MapIcon, Settings, ShoppingCart } from 'lucide-react';
+import { MapPin, Route, Upload, Calculator, CheckCircle2, MapIcon, Settings, ShoppingCart } from 'lucide-react';
 
 import { toast } from 'sonner';
 interface ProjectGISRouteProps { project: any; }

@@ -1,12 +1,9 @@
 "use client";
-import React from "react";
-import { FolderTree, MapPin, Eye, FileSignature } from "lucide-react";
-
+import { FolderTree, MapPin, FileSignature } from 'lucide-react';
 export default function Slide9() {
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -27,7 +24,6 @@ export default function Slide9() {
                         The <strong className="text-purple-400">GIS Audit engine</strong> overlays GPS points from the field against SLT fiber maps to verify if the reported bypass matches actual coordinates.
                     </p>
                 </div>
-
                 {/* Right: Map detours and CR approvals mockup */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
                     {/* Window chrome */}
@@ -39,7 +35,6 @@ export default function Slide9() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">GIS Alignment Audit Map</span>
                     </div>
-
                     {/* Vector: Map Route Header */}
                     <div className="mb-1">
                         <svg viewBox="0 0 400 35" className="w-full h-10 opacity-60" xmlns="http://www.w3.org/2000/svg">
@@ -61,13 +56,11 @@ export default function Slide9() {
                     <div className="h-28 bg-slate-900 border border-slate-850 rounded-xl relative overflow-hidden flex items-center justify-center">
                         {/* Grid background effect */}
                         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent pointer-events-none" />
-                        
                         {/* Map paths */}
                         <svg className="w-full h-full absolute inset-0 opacity-40" xmlns="http://www.w3.org/2000/svg">
                             <line x1="20" y1="60" x2="350" y2="60" stroke="#475569" strokeWidth="2" strokeDasharray="4 4" />
                             <path d="M 20 60 L 150 60 L 180 20 L 250 20 L 280 60 L 350 60" fill="none" stroke="#a855f7" strokeWidth="3" />
                         </svg>
-
                         {/* Map Pins */}
                         <div className="absolute top-[50px] left-[140px] flex flex-col items-center">
                             <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping absolute" />
@@ -78,10 +71,8 @@ export default function Slide9() {
                             <MapPin className="w-4 h-4 text-purple- purple-500" style={{ color: "#a855f7" }} />
                             <span className="text-[7px] bg-slate-950 px-1 py-0.2 rounded border border-purple-500/30 text-white font-mono absolute -bottom-3">Detour: 42m</span>
                         </div>
-
                         <span className="absolute top-2 left-3 text-[9px] text-slate-500 font-mono bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800">Map View Mode: Active detours</span>
                     </div>
-
                     {/* Change Request card details */}
                     <div className="bg-slate-900/40 border border-slate-850 rounded-xl p-3.5 flex justify-between items-center">
                         <div className="space-y-1">
@@ -97,7 +88,6 @@ export default function Slide9() {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );

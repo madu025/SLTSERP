@@ -14,7 +14,6 @@ import {
     Building2, 
     Package, 
     Calendar, 
-    Tag, 
     Layers,
     PlusCircle,
     BadgeCheck

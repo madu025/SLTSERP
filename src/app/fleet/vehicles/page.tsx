@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import {  useEffect, useState, useCallback  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import ResponsiveTable from '@/components/ResponsiveTable';
@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Eye, Edit, Car, Truck, Fuel, AlertCircle } from 'lucide-react';
+import { Plus, Eye, Edit, Car, Truck, AlertCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import {  useEffect, useState, useMemo, useCallback, Suspense  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Card } from '@/components/ui/card';

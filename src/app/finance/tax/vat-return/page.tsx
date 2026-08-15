@@ -1,14 +1,11 @@
 "use client";
-
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
-import { Receipt, CheckCircle2, DollarSign } from "lucide-react";
-
+import { Receipt } from 'lucide-react';
 interface VatReturnItem {
     id: string;
     date: string;
@@ -18,14 +15,12 @@ interface VatReturnItem {
     outputVat: number;
     inputVat: number;
 }
-
 interface VatReturnData {
     outputVatTotal: number;
     inputVatTotal: number;
     netVatPayable: number;
     lineItems: VatReturnItem[];
 }
-
 export default function VatReturnPage() {
     const { data, isLoading } = useQuery<VatReturnData>({
         queryKey: ['vat-return-report'],
@@ -36,7 +31,6 @@ export default function VatReturnPage() {
             return json.data;
         }
     });
-
     return (
         <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -44,7 +38,6 @@ export default function VatReturnPage() {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <Header />
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                        
                         {/* Title */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
@@ -56,12 +49,10 @@ export default function VatReturnPage() {
                                     Sri Lankan Inland Revenue Department VAT return summary: Output VAT vs Input VAT.
                                 </p>
                             </div>
-
                             <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 py-1.5 px-4 text-sm font-semibold flex items-center gap-1.5 self-start">
                                 Standard Rate: 18.0%
                             </Badge>
                         </div>
-
                         {/* Summary KPI Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
@@ -83,7 +74,6 @@ export default function VatReturnPage() {
                                 </div>
                             </div>
                         </div>
-
                         {/* VAT Line Items Table */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             {isLoading ? (
@@ -136,7 +126,6 @@ export default function VatReturnPage() {
                                 </div>
                             )}
                         </div>
-
                     </main>
                 </div>
             </div>

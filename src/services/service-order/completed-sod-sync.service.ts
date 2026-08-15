@@ -4,7 +4,7 @@ import { sltApiService } from '@/services/slt/slt-api.service';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from '@/services/service-order/sod.lifecycle.service';
 import { SodStatus } from '@/lib/constants/sod-constants';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export class CompletedSODSyncService {
     /**

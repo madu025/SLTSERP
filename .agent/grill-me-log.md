@@ -1214,3 +1214,34 @@ Added to `grill-me-audit` SKILL.md:
 - Runtime: missing requestId → 400 BAD_REQUEST (was 500); invalid UUID → 500 DATABASE_ERROR sanitized "A database error occurred" (was full source leak); nonexistent record delete → 404 NOT_FOUND via P2025 mapping
 
 **Decision**: E1+E2+E3 closed. E4 (legacy ApiError migration) logged as future roadmap. Stale knowledge card about non-existent `error-handler.ts` corrected in memory.
+
+---
+
+## Session: 2026-08-13 — Dashboard Date Calculation & Data Integrity Audit
+
+**Scope**: `sod-dashboard.service.ts`, `dashboard.service.ts` (core), `finance/dashboard.service.ts` — date calculation bugs, double-counting, scope mismatches.
+
+**Trigger**: User reported dashboard cards showing double data after importing 38K SODs from Jan–Jun 2026 Excel files.
+
+### Findings & Fixes
+
+| ID | Severity | Finding | Before | After | Status |
+|---|---|---|---|---|---|
+| D1 | P1 | `monthlyWhere` used `firstDayOfYear` instead of `firstDayOfMonth` | Monthly Received: 53,473 | Monthly Received: 5,386 | FIXED |
+| D2 | P1 | OR date conditions on monthly stats (5 locations) — double-counted SODs with both `receivedDate` and `statusDate` in range | Inflated counts | Single canonical date per status | FIXED |
+| D3 | P1 | `allTimeSummary` had no date filter — showed all-time totals under "2026 Total" labels | 55K+ under "2026" | YTD-scoped (53,544) | FIXED |
+| D4 | P1 | Revenue used `receivedDate` filter instead of `completedDate` — Rs. 17.8M discrepancy | Rs. 476,721,000 | Rs. 494,434,500 | FIXED |
+| D5 | P2 | Revenue trend `findMany` fetches 29K+ rows into memory for JS bucketing | 29,814 rows | Logged as future optimization (1MB, acceptable for now) | DEFERRED |
+| D6 | P3 | RTOM table revenue was all-time, not YTD | Rs. 495M all-time | YTD-scoped via separate `groupBy` query | FIXED |
+| D7 | P4 | 1 COMPLETED SOD with NULL `completedDate`, 32 SODs with NULL `receivedDate` | Invisible to date queries | Fixed: completedDate backfilled from receivedDate, receivedDate extracted from soNum pattern | FIXED |
+
+### Blast Radius
+- `sod-dashboard.service.ts`: 5 OR conditions removed, `monthlyWhere` scope fixed, `ytdCompletedWhere` renamed and corrected, YTD queries added, RTOM revenue separated
+- `dashboard.service.ts`: No changes (P2 deferred)
+- Data: 33 SODs had NULL dates fixed
+
+### Verification
+- Revenue delta confirmed: Rs. 476.7M → Rs. 494.4M (+Rs. 17.8M from 1,695 additional SODs now correctly included)
+- Monthly Received: 53,473 → 5,386 (correct August count)
+- YTD Total Received: 53,544, YTD Total Completed: 47,089
+- NULL dates: 0 remaining (was 33)

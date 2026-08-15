@@ -11,7 +11,7 @@ import {
   ChevronDown,
   Info,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import {  useState  } from 'react';
 
 const GISUpload = dynamic(
   () => import('@/components/gis/GISUpload').then((m) => ({ default: m.GISUpload })),

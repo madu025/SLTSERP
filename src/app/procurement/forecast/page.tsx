@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import {  useState, useEffect  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
@@ -19,10 +19,7 @@ import {
     RefreshCw, 
     CheckSquare, 
     Square, 
-    Sparkles, 
-    FileText,
-    FileSpreadsheet
-} from "lucide-react";
+    Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProjectType {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Plus, Trash2, ShieldAlert, CheckCircle, FileText, XCircle, Landmark, ShieldCheck } from "lucide-react";
+import { Search, Plus, Trash2, ShieldAlert, FileText, XCircle, Landmark, ShieldCheck } from "lucide-react";
 import { toast } from 'sonner';
 
 interface Project {

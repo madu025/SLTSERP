@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
-
 interface CreateDailyProgressInput {
     projectId: string;
     reportDate?: string | Date;
@@ -18,7 +16,6 @@ interface CreateDailyProgressInput {
     photoUrls?: string[];
     reportedById?: string;
 }
-
 export class ProjectProgressService {
     static async getDailyProgress(projectId: string) {
         return await prisma.dailyProgress.findMany({
@@ -26,10 +23,8 @@ export class ProjectProgressService {
             orderBy: { reportDate: 'desc' },
         });
     }
-
     static async createDailyProgress(data: CreateDailyProgressInput) {
         let record;
-
         await prisma.$transaction(async (tx) => {
             record = await tx.dailyProgress.create({
                 data: {
@@ -50,7 +45,6 @@ export class ProjectProgressService {
                     photoUrls: data.photoUrls ?? [],
                 },
             });
-
             if (data.progressPct != null) {
                 await tx.project.update({
                     where: { id: data.projectId },
@@ -58,7 +52,6 @@ export class ProjectProgressService {
                 });
             }
         });
-
         return record;
     }
 }

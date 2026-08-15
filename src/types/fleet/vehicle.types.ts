@@ -1,6 +1,4 @@
-import { Site } from '../common/site.types';
 import { Driver } from './driver.types';
-
 export enum VehicleType {
   CAR = 'CAR',
   VAN = 'VAN',
@@ -11,13 +9,11 @@ export enum VehicleType {
   BOOM_TRUCK = 'BOOM_TRUCK',
   TRUCK = 'TRUCK'
 }
-
 export enum OwnershipType {
   OWNED = 'OWNED',
   RENTAL = 'RENTAL',
   HYBRID = 'HYBRID'
 }
-
 export enum VehicleStatus {
   AVAILABLE = 'AVAILABLE',
   IN_USE = 'IN_USE',
@@ -25,7 +21,6 @@ export enum VehicleStatus {
   DECOMMISSIONED = 'DECOMMISSIONED',
   RESERVED = 'RESERVED'
 }
-
 export interface Vehicle {
   id: string;
   registration_number: string;
@@ -61,7 +56,6 @@ export interface Vehicle {
   created_at: Date;
   updated_at: Date;
 }
-
 export interface OwnedVehicle extends Vehicle {
   purchase_date: Date;
   purchase_cost: number;
@@ -74,7 +68,6 @@ export interface OwnedVehicle extends Vehicle {
   loan_remaining?: number;
   loan_end_date?: Date;
 }
-
 export interface RentalVehicle extends Vehicle {
   supplier_id: string;
   rental_contract_id: string;
@@ -90,7 +83,6 @@ export interface RentalVehicle extends Vehicle {
   excess_mileage_cost_per_km?: number;
   contract_terms: string;
 }
-
 export interface CreateVehicleDTO {
   registration_number: string;
   chassis_number: string;
@@ -107,7 +99,6 @@ export interface CreateVehicleDTO {
   assigned_site_id: string;
   photo_url?: string;
 }
-
 export interface UpdateVehicleDTO {
   status?: VehicleStatus;
   assigned_site_id?: string;
@@ -116,7 +107,6 @@ export interface UpdateVehicleDTO {
   photo_url?: string;
   last_odometer?: number;
 }
-
 export interface VehicleLog {
   id: string;
   vehicle_id: string;
@@ -135,7 +125,6 @@ export interface VehicleLog {
   vehicle?: Vehicle | null;
   driver?: Driver | null;
 }
-
 export interface CreateVehicleLogDTO {
   vehicle_id: string;
   driver_id: string;
@@ -145,7 +134,6 @@ export interface CreateVehicleLogDTO {
   passengers?: string;
   start_time?: Date;
 }
-
 export interface EndVehicleLogDTO {
   end_odometer: number;
   end_time?: Date;

@@ -1,15 +1,11 @@
 "use client";
-
-import React from "react";
 import { Plus, X, RotateCcw, Activity, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MaterialUsageRow, InventoryItem } from "@/types/service-order/order-action.types";
 import { SelectGroup, SelectLabel } from "@/components/ui/select";
 import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
-
 interface MaterialUsageSectionProps {
     rows: MaterialUsageRow[];
     onAddRow: () => void;
@@ -22,7 +18,6 @@ interface MaterialUsageSectionProps {
     quickItems: Array<{ label: string; item: InventoryItem }>;
     materialSource: string;
 }
-
 export function MaterialUsageSection({
     rows,
     onAddRow,
@@ -62,7 +57,6 @@ export function MaterialUsageSection({
                     </Button>
                 </div>
             </div>
-
             {/* Quick Add Shortcuts */}
             <div className="space-y-2">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Quick Add Items</span>
@@ -82,7 +76,6 @@ export function MaterialUsageSection({
                     ))}
                 </div>
             </div>
-
             {/* Detailed Usage Table */}
             <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
                 <table className="w-full text-xs">
@@ -101,7 +94,6 @@ export function MaterialUsageSection({
                             const itemCodeLower = (currentItem?.code || '').toLowerCase();
                             const itemNameLower = (currentItem?.name || '').toLowerCase();
                             const itemCommonLower = (currentItem?.commonName || '').toLowerCase();
-
                             const isDW = Boolean(currentItem && (
                                 currentItem.code === 'OSPFTA003' || 
                                 currentItem.code === 'OSP-HC-CBL-DW' || 

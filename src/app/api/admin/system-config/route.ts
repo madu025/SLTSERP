@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS, hasRole } from '@/config/roles';
+import { ROLE_GROUPS } from '@/config/roles';
 import { z } from 'zod';
 
 const updateConfigSchema = z.object({

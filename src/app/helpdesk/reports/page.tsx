@@ -1,7 +1,7 @@
 "use client";
 import { ROLE_GROUPS } from '@/config/roles';
 
-import React, { useEffect, useState } from "react";
+import {  useEffect, useState  } from 'react';
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import RoleGuard from "@/components/RoleGuard";

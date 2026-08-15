@@ -5,7 +5,7 @@ import RoleGuard from '@/components/RoleGuard';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { ROLE_GROUPS } from '@/config/roles';
-import { Mail, Plus, Edit2, Trash2, Eye, Save, X, Copy, Send } from 'lucide-react';
+import { Mail, Plus, Edit2, Trash2, Eye, Save, X, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SENDING_STATE: Record<string, boolean> = {};

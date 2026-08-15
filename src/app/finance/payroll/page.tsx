@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, CheckCircle2 } from "lucide-react";
+import { Users, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 

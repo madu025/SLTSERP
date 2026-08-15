@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 import { FileSpreadsheet, Upload, Check } from "lucide-react";
 
 export default function Slide4() {

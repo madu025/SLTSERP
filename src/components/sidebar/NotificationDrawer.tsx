@@ -1,4 +1,3 @@
-import React from 'react';
 import Link from 'next/link';
 import { BellRing, BellOff, CheckCheck, X } from 'lucide-react';
 import type { SidebarNotification } from '@/hooks/useSidebarNotifications';

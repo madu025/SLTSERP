@@ -7,13 +7,10 @@ import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Eye, Search, X, Printer, ClipboardList, Info, Calendar, ArrowRight, Building2, User, Check, Ban, DollarSign, Package, Clock, ArrowRightLeft, MapPin, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, FileText } from "lucide-react";
+import { Loader2, Eye, Search, X, ClipboardList, Info, Building2, User, Check, Ban, DollarSign, Package, Clock, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, FileText } from "lucide-react";
 import {
     Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+    DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";

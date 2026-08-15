@@ -1,12 +1,9 @@
 "use client";
-import React from "react";
-import { Settings, Shield, Server, ArrowDown } from "lucide-react";
-
+import { Settings, Server, ArrowDown } from 'lucide-react';
 export default function Slide14() {
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -27,7 +24,6 @@ export default function Slide14() {
                         Security is enforced via <strong className="text-emerald-400">Role-Based Access Control (RBAC)</strong>. Contractors can only edit their own records, while SLT auditors can sign off and lock data layers.
                     </p>
                 </div>
-
                 {/* Right: Architecture Diagram Mockup */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-3">
                     {/* Window chrome */}
@@ -39,7 +35,6 @@ export default function Slide14() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">Service-Repository Architecture Stack</span>
                     </div>
-
                     {/* Vector: Shield with User Tiers */}
                     <div className="mb-2">
                         <svg viewBox="0 0 400 45" className="w-full h-12 opacity-65" xmlns="http://www.w3.org/2000/svg">
@@ -73,7 +68,6 @@ export default function Slide14() {
                     </div>
                     {/* Visual Architecture Layers */}
                     <div className="space-y-1.5 text-center text-xs">
-                        
                         {/* UI Layer */}
                         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -82,11 +76,9 @@ export default function Slide14() {
                             </div>
                             <span className="text-[9px] text-slate-500 font-mono">React / Tailwind</span>
                         </div>
-
                         <div className="flex justify-center text-blue-500">
                             <ArrowDown className="w-4 h-4" />
                         </div>
-
                         {/* Service Layer */}
                         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -95,11 +87,9 @@ export default function Slide14() {
                             </div>
                             <span className="text-[9px] text-slate-500 font-mono">SLA & Invoice Calculations</span>
                         </div>
-
                         <div className="flex justify-center text-purple-500">
                             <ArrowDown className="w-4 h-4" />
                         </div>
-
                         {/* Repository Layer */}
                         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -108,11 +98,9 @@ export default function Slide14() {
                             </div>
                             <span className="text-[9px] text-slate-500 font-mono">Prisma ORM Queries</span>
                         </div>
-
                         <div className="flex justify-center text-emerald-500">
                             <ArrowDown className="w-4 h-4" />
                         </div>
-
                         {/* Database */}
                         <div className="bg-slate-900/30 border border-slate-850 rounded-xl p-2.5 flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -121,10 +109,8 @@ export default function Slide14() {
                             </div>
                             <span className="text-[9px] text-slate-500 font-mono">AWS RDS Host</span>
                         </div>
-
                     </div>
                 </div>
-
             </div>
         </div>
     );

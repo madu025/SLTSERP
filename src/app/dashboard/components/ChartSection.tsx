@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Inbox } from 'lucide-react';
 import type { Stats } from './types';
 import { COLORS, PAT_COLORS, tooltipStyle } from './types';
+import { formatSmartNumber } from '@/lib/utils';
 
 export interface ChartSectionProps {
     isLoading: boolean;
@@ -126,7 +127,7 @@ export function ChartSection({ isLoading, monthlyPieData, patData, statusBreakdo
                         statusBreakdown.map((s, i) => (
                             <div key={i} className="flex justify-between items-center p-2 hover:bg-primary/5 rounded-lg border-b border-border/10 last:border-0 transition-colors">
                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{s.status.replace(/_/g, ' ')}</span>
-                                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-md text-[10px] font-black border border-emerald-500/20">{s.count.toLocaleString()}</span>
+                                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-md text-[10px] font-black border border-emerald-500/20">{formatSmartNumber(s.count, 0)}</span>
                             </div>
                         ))
                     )}

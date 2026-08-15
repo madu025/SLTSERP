@@ -1,12 +1,9 @@
 "use client";
-import React from "react";
-import { FolderTree, DollarSign, AlertTriangle } from "lucide-react";
-
+import { FolderTree, AlertTriangle } from 'lucide-react';
 export default function Slide8() {
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -27,7 +24,6 @@ export default function Slide8() {
                         Managers log the <strong className="text-white">Estimated Budget</strong>. The system automatically rolls up physical materials issued and contractor claims approved to show a live cost-to-budget graph.
                     </p>
                 </div>
-
                 {/* Right: Budget tracking visualization mockup */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
                     {/* Window chrome */}
@@ -39,7 +35,6 @@ export default function Slide8() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">Project Financial Ledger</span>
                     </div>
-
                     {/* Summary row */}
                     <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="bg-slate-900/40 border border-slate-850 rounded-xl p-3">
@@ -51,7 +46,6 @@ export default function Slide8() {
                             <p className="text-sm font-bold text-amber-400 mt-1">LKR 10.2M</p>
                         </div>
                     </div>
-
                     {/* Vector: Budget Gauge */}
                     <div className="mb-1">
                         <svg viewBox="0 0 400 45" className="w-full h-12 opacity-65" xmlns="http://www.w3.org/2000/svg">
@@ -80,13 +74,11 @@ export default function Slide8() {
                             </div>
                             <span className="font-mono text-[11px] font-bold text-white">85.0%</span>
                         </div>
-                        
                         {/* Progress slider bar */}
                         <div className="w-full h-3 bg-slate-900 border border-slate-800 rounded-full overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-blue-500 via-amber-500 to-red-500" style={{ width: "85%" }} />
                         </div>
                     </div>
-
                     {/* Cost breakdown */}
                     <div className="space-y-1.5 text-[10px] font-mono text-slate-400">
                         <div className="flex justify-between border-b border-slate-900 pb-1">
@@ -103,7 +95,6 @@ export default function Slide8() {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, ListTree, CheckCircle2, ShieldAlert, BookOpen, Layers } from "lucide-react";
+import { Search, Plus, ListTree, CheckCircle2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 interface ChartOfAccount {

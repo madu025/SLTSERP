@@ -79,9 +79,12 @@ export class EmailService {
         text: string;
         html?: string;
     }) {
-        // TESTING OVERRIDE - Redirect all emails to prasad@slts.lk
+        // TESTING OVERRIDE - Redirect all emails to prasad@slts.lk in development
         const originalTo = options.to;
-        options.to = 'prasad@slts.lk';
+        const isDev = process.env.NODE_ENV !== 'production';
+        if (isDev) {
+            options.to = 'prasad@slts.lk';
+        }
         
         const { transporter, config } = await this.getTransporter();
 
@@ -94,8 +97,9 @@ Body: ${options.text}`);
         }
 
         try {
+            const sender = isDev ? '"SLTS QMS" <sltsqms@gmail.com>' : (config.from || '"SLTS Nexus ERP" <noreply@slt.lk>');
             const info = await transporter.sendMail({
-                from: '"SLTS QMS" <sltsqms@gmail.com>', // TESTING OVERRIDE sender
+                from: sender,
                 to: options.to,
                 subject: options.subject,
                 text: options.text,

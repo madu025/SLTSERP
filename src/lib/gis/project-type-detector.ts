@@ -5,15 +5,13 @@
 // ============================================================================
 
 import {
-  DetectedProjectType,
   ProjectTypeDetectionResult,
   ParsedCableData,
   ParsedPoleData,
   ParsedFDPData,
   ParsedFiberJointData,
   ParsedRoadData,
-  GISLayerType,
-} from '@/types/gis';
+  GISLayerType } from '@/types/gis';
 
 /**
  * Project Type Detection Engine

@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 import { FolderTree, Award, HardDrive, CheckCircle2, Trophy } from "lucide-react";
 
 export default function Slide10() {

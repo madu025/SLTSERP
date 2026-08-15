@@ -1,5 +1,4 @@
-import { GeoJSONFeatureCollection, GISLayerType } from './core.types';
-
+import { GISLayerType } from './core.types';
 export interface ParsedCableData {
   layerName: string;
   featureCount: number;
@@ -8,7 +7,6 @@ export interface ParsedCableData {
   fiberCount: number;
   segments: CableSegment[];
 }
-
 export interface CableSegment {
   index: number;
   coordinates: [number, number][];
@@ -19,13 +17,11 @@ export interface CableSegment {
   toPoint?: [number, number];
   properties?: Record<string, string | number | boolean | null | undefined>;
 }
-
 export interface ParsedPoleData {
   layerName: string;
   featureCount: number;
   poles: PoleItem[];
 }
-
 export interface PoleItem {
   index: number;
   latitude: number;
@@ -35,13 +31,11 @@ export interface PoleItem {
   height?: number;
   properties: Record<string, string | number | boolean | null | undefined>;
 }
-
 export interface ParsedFDPData {
   layerName: string;
   featureCount: number;
   fdps: FDPItem[];
 }
-
 export interface FDPItem {
   index: number;
   latitude: number;
@@ -51,13 +45,11 @@ export interface FDPItem {
   splitters?: number;
   properties: Record<string, string | number | boolean | null | undefined>;
 }
-
 export interface ParsedFiberJointData {
   layerName: string;
   featureCount: number;
   joints: FiberJointItem[];
 }
-
 export interface FiberJointItem {
   index: number;
   latitude: number;
@@ -66,14 +58,12 @@ export interface FiberJointItem {
   capacity?: number;
   properties: Record<string, string | number | boolean | null | undefined>;
 }
-
 export interface ParsedRoadData {
   layerName: string;
   featureCount: number;
   totalLength: number; // meters
   roadSegments: RoadSegmentItem[];
 }
-
 export interface RoadSegmentItem {
   index: number;
   roadName: string;
@@ -83,14 +73,12 @@ export interface RoadSegmentItem {
   authority?: string;
   properties: Record<string, string | number | boolean | null | undefined>;
 }
-
 export interface ParsedPointAssetData {
   layerName: string;
   featureCount: number;
   assetType: GISLayerType;
   assets: PointAssetItem[];
 }
-
 export interface PointAssetItem {
   index: number;
   latitude: number;

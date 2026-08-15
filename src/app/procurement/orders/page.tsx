@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
@@ -11,18 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Eye, FileText, Package, Search, Printer, ClipboardList, Info, Calendar, ArrowRight, Building2, User, Check, Ban, DollarSign, Clock, ArrowRightLeft, MapPin, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, X, PlusCircle } from "lucide-react";
+import { Loader2, Eye, FileText, Package, Search, ClipboardList, Info, Building2, User, Check, DollarSign, Clock, AlertCircle, Tag, TrendingUp, Paperclip, X, PlusCircle } from 'lucide-react';
 import {
     Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
+    DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
 interface ProcurementRequestItem {
     id: string;
     requestedQty: number;
@@ -36,7 +30,6 @@ interface ProcurementRequestItem {
         unit?: string | null;
     } | null;
 }
-
 interface ProcurementRequest {
     id: string;
     requestNr: string;
@@ -75,12 +68,10 @@ interface ProcurementRequest {
     } | null;
     items?: ProcurementRequestItem[];
 }
-
 export default function ProcurementOrdersPage() {
     const queryClient = useQueryClient();
     const [selectedRequest, setSelectedRequest] = useState<ProcurementRequest | null>(null);
     const [activeTab, setActiveTab] = useState<"PENDING" | "IN_PROGRESS" | "COMPLETED">("PENDING");
-
     // PO Creation State
     const [showPODialog, setShowPODialog] = useState(false);
     const [poNumber, setPONumber] = useState("");
@@ -90,12 +81,10 @@ export default function ProcurementOrdersPage() {
     const [selectedItemIds, setSelectedItemIds] = useState<Record<string, boolean>>({});
     const [itemUnitPrices, setItemUnitPrices] = useState<Record<string, number>>({});
     const [itemOrderQtys, setItemOrderQtys] = useState<Record<string, number>>({});
-
     // Toolbar Filters
     const [searchQuery, setSearchQuery] = useState("");
     const [priorityFilter, setPriorityFilter] = useState("ALL");
     const [typeFilter, setTypeFilter] = useState("ALL");
-
     // Fetch Procurement Requests
     const { data: rawRequests = [], isLoading } = useQuery<ProcurementRequest[]>({
         queryKey: ["procurement-orders", activeTab],
@@ -118,9 +107,7 @@ export default function ProcurementOrdersPage() {
             return [];
         }
     });
-
     const requests = Array.isArray(rawRequests) ? rawRequests : [];
-
     // Create PO Mutation
     const createPOMutation = useMutation({
         mutationFn: async (data: { poNumber: string, vendor: string, expectedDelivery?: string, remarks?: string, items: any[] }) => {
@@ -156,7 +143,6 @@ export default function ProcurementOrdersPage() {
         },
         onError: (err: any) => toast.error(err?.message || "Failed to create PO")
     });
-
     // Update PO Status Mutation
     const updateStatusMutation = useMutation({
         mutationFn: async ({ requestId, newStatus }: { requestId: string, newStatus: string }) => {
@@ -178,7 +164,6 @@ export default function ProcurementOrdersPage() {
         },
         onError: () => toast.error("Failed to update status")
     });
-
     // Mark as Ready for GRN
     const completeOrderMutation = useMutation({
         mutationFn: async (requestId: string) => {
@@ -199,7 +184,6 @@ export default function ProcurementOrdersPage() {
         },
         onError: () => toast.error("Failed to complete order")
     });
-
     const resetPOForm = () => {
         setPONumber("");
         setVendor("");
@@ -209,7 +193,6 @@ export default function ProcurementOrdersPage() {
         setItemUnitPrices({});
         setItemOrderQtys({});
     };
-
     const openCreatePODialog = (req: ProcurementRequest) => {
         setSelectedRequest(req);
         const autoPoNum = `PO-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -217,11 +200,9 @@ export default function ProcurementOrdersPage() {
         setVendor(req.sourceType === 'SLT' ? 'SLT Head Office' : '');
         setExpectedDelivery('');
         setPORemarks('');
-
         const initSelected: Record<string, boolean> = {};
         const initQtys: Record<string, number> = {};
         const initPrices: Record<string, number> = {};
-
         (req.items || []).forEach((item) => {
             const isAlreadyOrdered = req.purchaseOrders?.some(po =>
                 po.items?.some(pi => pi.stockRequestItemId === item.id)
@@ -230,19 +211,16 @@ export default function ProcurementOrdersPage() {
             initQtys[item.id] = item.requestedQty;
             initPrices[item.id] = 0;
         });
-
         setSelectedItemIds(initSelected);
         setItemOrderQtys(initQtys);
         setItemUnitPrices(initPrices);
         setShowPODialog(true);
     };
-
     const handleCreatePO = () => {
         if (!poNumber || !vendor) {
             toast.error("PO Number and Vendor are required");
             return;
         }
-
         const selectedItemsPayload = (selectedRequest?.items || [])
             .filter((item) => selectedItemIds[item.id])
             .map((item) => {
@@ -256,12 +234,10 @@ export default function ProcurementOrdersPage() {
                     totalAmount: qty * unitPrice
                 };
             });
-
         if (selectedItemsPayload.length === 0) {
             toast.error("Please select at least one item to include in this Purchase Order");
             return;
         }
-
         createPOMutation.mutate({
             poNumber,
             vendor,
@@ -270,7 +246,6 @@ export default function ProcurementOrdersPage() {
             items: selectedItemsPayload
         });
     };
-
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string, className: string }> = {
             PENDING: { label: "Awaiting PO", className: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -282,7 +257,6 @@ export default function ProcurementOrdersPage() {
         const config = statusConfig[status] || statusConfig.PENDING;
         return <Badge variant="outline" className={cn("text-[9px] font-bold border-none px-2 py-0.5", config.className)}>{config.label}</Badge>;
     };
-
     const filteredRequests = requests.filter((req: ProcurementRequest) => {
         // Search filter: requestNr, vendor, poNumber, purpose, requestedBy name, suggestedVendor
         const matchesSearch = !searchQuery || 
@@ -292,21 +266,17 @@ export default function ProcurementOrdersPage() {
             req.purpose?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             req.requestedBy?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             req.items?.some(item => item.suggestedVendor?.toLowerCase().includes(searchQuery.toLowerCase()));
-
         // Priority filter
         const matchesPriority = 
             priorityFilter === "ALL" || 
             req.priority === priorityFilter;
-
         // Source Type filter
         const matchesType = 
             typeFilter === "ALL" ||
             (typeFilter === "SLT" && req.sourceType === "SLT") ||
             (typeFilter === "LOCAL" && req.sourceType === "LOCAL_PURCHASE");
-
         return matchesSearch && matchesPriority && matchesType;
     });
-
     return (
         <RoleGuard allowedRoles={ROLE_GROUPS.PROCUREMENT}>
             <div className="erp-page-wrapper flex-row overflow-hidden">
@@ -315,7 +285,6 @@ export default function ProcurementOrdersPage() {
                 <Header />
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50">
                     <div className="max-w-7xl mx-auto space-y-4">
-                        
                         {/* Page Header & Tabs */}
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <div className="space-y-0.5">
@@ -361,7 +330,6 @@ export default function ProcurementOrdersPage() {
                                 </button>
                             </div>
                         </div>
-
                         {/* KPI Summary Cards */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                             <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
@@ -374,7 +342,6 @@ export default function ProcurementOrdersPage() {
                                 </div>
                                 <p className="text-[10px] text-slate-400">Approved PRNs awaiting PO issue</p>
                             </div>
-
                             <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
                                 <div className="flex items-center justify-between text-blue-600 font-bold text-xs">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">In Progress POs</span>
@@ -385,7 +352,6 @@ export default function ProcurementOrdersPage() {
                                 </div>
                                 <p className="text-[10px] text-slate-400">POs created & in vendor fulfillment</p>
                             </div>
-
                             <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
                                 <div className="flex items-center justify-between text-emerald-600 font-bold text-xs">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ready for GRN</span>
@@ -396,7 +362,6 @@ export default function ProcurementOrdersPage() {
                                 </div>
                                 <p className="text-[10px] text-slate-400">Delivered & ready for store GRN</p>
                             </div>
-
                             <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-sm space-y-1">
                                 <div className="flex items-center justify-between text-indigo-600 font-bold text-xs">
                                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Active PRNs</span>
@@ -408,7 +373,6 @@ export default function ProcurementOrdersPage() {
                                 <p className="text-[10px] text-slate-400">Total requests in procurement stage</p>
                             </div>
                         </div>
-
                         {/* Search & Filter Toolbar */}
                         <div className="erp-toolbar flex-col sm:flex-row justify-between gap-3 bg-white border border-slate-200 rounded-xl p-2.5 shadow-sm">
                             <div className="flex flex-1 flex-col sm:flex-row items-center gap-2 w-full">
@@ -447,7 +411,6 @@ export default function ProcurementOrdersPage() {
                                 </div>
                             </div>
                         </div>
-
                         {/* Requests Table */}
                         <div className="erp-table-container bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                             {isLoading ? (
@@ -526,7 +489,6 @@ export default function ProcurementOrdersPage() {
                                                             >
                                                                 <Eye className="w-4 h-4" />
                                                             </Button>
-
                                                             {activeTab === "PENDING" && (
                                                                 <Button
                                                                     size="sm"
@@ -537,7 +499,6 @@ export default function ProcurementOrdersPage() {
                                                                     Create PO
                                                                 </Button>
                                                             )}
-
                                                             {activeTab === "IN_PROGRESS" && (
                                                                 <>
                                                                     {(() => {
@@ -548,7 +509,6 @@ export default function ProcurementOrdersPage() {
                                                                             )
                                                                         ).length;
                                                                         const isFullyCovered = reqItems.length > 0 && coveredCount === reqItems.length;
-
                                                                         if (isFullyCovered) {
                                                                             return (
                                                                                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold whitespace-nowrap px-2 py-1">
@@ -611,7 +571,6 @@ export default function ProcurementOrdersPage() {
                     </div>
                 </div>
             </main>
-
             {/* Page Level Controlled Request Details Drawer - Premium Enterprise Redesign */}
             <Dialog open={!!selectedRequest && !showPODialog} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>
                 <DialogContent 
@@ -630,7 +589,6 @@ export default function ProcurementOrdersPage() {
                                         <X className="w-4 h-4" />
                                     </button>
                                 </div>
-
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
@@ -653,13 +611,10 @@ export default function ProcurementOrdersPage() {
                                     </div>
                                 </div>
                             </div>
-
                             {/* Split Panels Body */}
                             <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
-                                
                                 {/* LEFT PANEL (65% Scrollable) */}
                                 <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
                                     {/* Request Information - 6 Cards */}
                                     <div className="space-y-3">
                                         <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -714,7 +669,6 @@ export default function ProcurementOrdersPage() {
                                             </div>
                                         </div>
                                     </div>
-
                                      {/* Issued Purchase Orders Section */}
                                      {selectedRequest.purchaseOrders && selectedRequest.purchaseOrders.length > 0 && (
                                          <div className="space-y-3">
@@ -743,7 +697,6 @@ export default function ProcurementOrdersPage() {
                                                                  </span>
                                                              </div>
                                                          </div>
-
                                                          {/* Included Items List inside PO */}
                                                                  <div className="space-y-1.5 bg-slate-50/70 dark:bg-slate-950/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800/60 text-xs">
                                                              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block mb-1">Materials Covered in this PO</span>
@@ -774,7 +727,6 @@ export default function ProcurementOrdersPage() {
                                              </div>
                                          </div>
                                      )}
-
                                     {/* Requested Materials Table */}
                                     <div className="space-y-3">
                                         <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -797,7 +749,6 @@ export default function ProcurementOrdersPage() {
                                                         const linkedPO = selectedRequest.purchaseOrders?.find(po =>
                                                             po.items?.some(pi => pi.stockRequestItemId === item.id)
                                                         );
-
                                                         return (
                                                             <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors duration-150 group">
                                                                 <td className="px-4 py-3.5">
@@ -839,16 +790,13 @@ export default function ProcurementOrdersPage() {
                                         </div>
                                     </div>
                                 </div>
-
                                 {/* RIGHT PANEL (35% Sticky) */}
                                 <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
                                     {/* Summary Dashboard */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                                         <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                             <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Summary Metrics
                                         </h4>
-                                        
                                         {(() => {
                                             const totalItems = selectedRequest.items?.length || 0;
                                             const qtyByUnit: Record<string, number> = {};
@@ -856,16 +804,13 @@ export default function ProcurementOrdersPage() {
                                                 const unit = item.item?.unit || 'Nos';
                                                 qtyByUnit[unit] = (qtyByUnit[unit] || 0) + (item.requestedQty || 0);
                                             });
-
                                             const formattedTotalQty = Object.entries(qtyByUnit)
                                                 .map(([unit, val]) => `${val.toLocaleString()} ${unit}`)
                                                 .join(', ') || '0';
-
                                             const totalPOVal = selectedRequest.purchaseOrders?.reduce((sum, po) => {
                                                 const itemsSum = po.items?.reduce((iSum, pi) => iSum + (pi.totalAmount || (pi.quantity * pi.unitPrice) || 0), 0) || 0;
                                                 return sum + (po.totalAmount || itemsSum || 0);
                                             }, 0) || 0;
-
                                             return (
                                                 <div className="space-y-3 text-xs">
                                                     <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
@@ -894,7 +839,6 @@ export default function ProcurementOrdersPage() {
                                             );
                                         })()}
                                     </div>
-
                                     {/* Attachments Section */}
                                     {(() => {
                                         const requestAttachments = selectedRequest.requestNr === 'REQ-20260702-6207'
@@ -922,7 +866,6 @@ export default function ProcurementOrdersPage() {
                                     })()}
                                 </div>
                             </div>
-
                              {/* Sticky Drawer Footer */}
                              <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center flex-shrink-0 gap-3">
                                  <Button 
@@ -940,7 +883,6 @@ export default function ProcurementOrdersPage() {
                                          )
                                      ).length;
                                      const isFullyCovered = totalReqItems > 0 && coveredCount === totalReqItems;
-
                                      if (isFullyCovered) {
                                          return (
                                              <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 flex items-center gap-1.5">
@@ -948,7 +890,6 @@ export default function ProcurementOrdersPage() {
                                              </Badge>
                                          );
                                      }
-
                                      if (selectedRequest && selectedRequest.status !== 'COMPLETED') {
                                          return (
                                              <Button
@@ -966,7 +907,6 @@ export default function ProcurementOrdersPage() {
                     )}
                 </DialogContent>
             </Dialog>
-
             {/* Create PO Form Drawer */}
             <Dialog open={showPODialog} onOpenChange={setShowPODialog}>
                 <DialogContent 
@@ -985,7 +925,6 @@ export default function ProcurementOrdersPage() {
                                         <X className="w-4 h-4" />
                                     </button>
                                 </div>
-
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">PO generation form</span>
@@ -1001,13 +940,10 @@ export default function ProcurementOrdersPage() {
                                     </p>
                                 </div>
                             </div>
-
                             {/* Split Panels Body */}
                             <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
-                                
                                 {/* LEFT PANEL (65% Scrollable Form) */}
                                 <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
                                     {selectedRequest.sourceType === 'SLT' && (
                                         <div className="bg-blue-50/60 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-800/80 rounded-2xl p-4 text-xs space-y-1">
                                             <div className="font-bold text-blue-800 dark:text-blue-400 flex items-center gap-1.5">
@@ -1024,7 +960,6 @@ export default function ProcurementOrdersPage() {
                                             )}
                                         </div>
                                     )}
-
                                     {/* Form Fields */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
                                         <div className="grid grid-cols-2 gap-4">
@@ -1072,7 +1007,6 @@ export default function ProcurementOrdersPage() {
                                             </div>
                                         </div>
                                     </div>
-
                                     {/* Item Selection & Unit Pricing Table */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-3">
                                         <div className="flex items-center justify-between">
@@ -1081,7 +1015,6 @@ export default function ProcurementOrdersPage() {
                                             </h4>
                                             <span className="text-[10px] font-bold text-slate-400">Uncheck items to split across multiple POs</span>
                                         </div>
-
                                         <div className="border border-slate-200/60 dark:border-slate-800 rounded-xl overflow-hidden">
                                             <table className="w-full text-left text-xs">
                                                 <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200/60 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
@@ -1102,7 +1035,6 @@ export default function ProcurementOrdersPage() {
                                                         const qty = itemOrderQtys[item.id] ?? item.requestedQty;
                                                         const unitPrice = itemUnitPrices[item.id] ?? 0;
                                                         const lineTotal = qty * unitPrice;
-
                                                         return (
                                                             <tr key={item.id} className={cn("transition-colors", isChecked ? "bg-white dark:bg-slate-900" : "bg-slate-50/50 opacity-60")}>
                                                                 <td className="p-2.5 text-center">
@@ -1155,21 +1087,17 @@ export default function ProcurementOrdersPage() {
                                         </div>
                                     </div>
                                 </div>
-
                                 {/* RIGHT PANEL (35% Sticky Details Summary) */}
                                 <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
-                                    
                                     {/* Order Financial Summary Card */}
                                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                                         <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                             <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> PO Financial Summary
                                         </h4>
-                                        
                                         {(() => {
                                             const selectedItems = (selectedRequest.items || []).filter(item => selectedItemIds[item.id]);
                                             const qtyByUnit: Record<string, number> = {};
                                             let totalPOAmount = 0;
-
                                             selectedItems.forEach(item => {
                                                 const unit = item.item?.unit || 'Nos';
                                                 const qty = itemOrderQtys[item.id] ?? item.requestedQty;
@@ -1177,23 +1105,19 @@ export default function ProcurementOrdersPage() {
                                                 qtyByUnit[unit] = (qtyByUnit[unit] || 0) + qty;
                                                 totalPOAmount += (qty * unitPrice);
                                             });
-
                                             const formattedTotalQty = Object.entries(qtyByUnit)
                                                 .map(([unit, val]) => `${val.toLocaleString()} ${unit}`)
                                                 .join(', ') || '0 Items';
-
                                             return (
                                                 <div className="space-y-3 text-xs">
                                                     <div className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800">
                                                         <span className="text-slate-400 font-bold">Selected Items</span>
                                                         <span className="font-bold text-slate-800 dark:text-slate-200">{selectedItems.length} of {selectedRequest.items?.length || 0} Items</span>
                                                     </div>
-
                                                     <div className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800">
                                                         <span className="text-slate-400 font-bold">Total Ordered Qty</span>
                                                         <span className="font-bold text-slate-800 dark:text-slate-200">{formattedTotalQty}</span>
                                                     </div>
-
                                                     <div className="flex justify-between items-center p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-800/50">
                                                         <span className="text-emerald-700 dark:text-emerald-400 font-black uppercase text-[10px] tracking-wider">Total PO Value</span>
                                                         <span className="font-black text-emerald-700 dark:text-emerald-400 text-sm">
@@ -1206,7 +1130,6 @@ export default function ProcurementOrdersPage() {
                                     </div>
                                 </div>
                             </div>
-
                             {/* Sticky Drawer Footer */}
                             <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
                                 <Button

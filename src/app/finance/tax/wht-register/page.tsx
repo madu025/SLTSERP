@@ -1,15 +1,11 @@
 "use client";
-
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
-import { FileCheck2, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
-
+import { FileCheck2 } from 'lucide-react';
 interface WhtCertificateItem {
     id: string;
     date: string;
@@ -20,12 +16,10 @@ interface WhtCertificateItem {
     whtRatePct: number;
     whtAmount: number;
 }
-
 interface WhtRegisterData {
     totalWithheld: number;
     certificates: WhtCertificateItem[];
 }
-
 export default function WhtRegisterPage() {
     const { data, isLoading } = useQuery<WhtRegisterData>({
         queryKey: ['wht-register-report'],
@@ -36,7 +30,6 @@ export default function WhtRegisterPage() {
             return json.data;
         }
     });
-
     return (
         <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -44,7 +37,6 @@ export default function WhtRegisterPage() {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <Header />
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                        
                         {/* Header */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
@@ -56,12 +48,10 @@ export default function WhtRegisterPage() {
                                     Statutory 5% WHT deductions across Payment Vouchers and Vendor Services.
                                 </p>
                             </div>
-
                             <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 py-1.5 px-4 text-sm font-semibold flex items-center gap-1.5 self-start">
                                 Standard WHT: 5.0%
                             </Badge>
                         </div>
-
                         {/* Summary KPI */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
@@ -77,7 +67,6 @@ export default function WhtRegisterPage() {
                                 </div>
                             </div>
                         </div>
-
                         {/* Certificate Register Table */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             {isLoading ? (
@@ -131,7 +120,6 @@ export default function WhtRegisterPage() {
                                 </div>
                             )}
                         </div>
-
                     </main>
                 </div>
             </div>

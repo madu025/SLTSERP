@@ -1,14 +1,9 @@
-import { Vehicle } from './vehicle.types';
-import { Driver } from './driver.types';
-import { Site } from '../common/site.types';
-
 export enum TripStatus {
   PLANNED = 'PLANNED',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED'
 }
-
 export interface Trip {
   id: string;
   vehicle_id: string;
@@ -43,7 +38,6 @@ export interface Trip {
   created_at: Date;
   updated_at: Date;
 }
-
 export interface DispatchOrder {
   id: string;
   site_id: string;
@@ -61,7 +55,6 @@ export interface DispatchOrder {
   created_at: Date;
   updated_at: Date;
 }
-
 export interface CreateTripDTO {
   vehicle_id: string;
   driver_id: string;

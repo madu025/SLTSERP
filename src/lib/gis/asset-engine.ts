@@ -10,9 +10,7 @@ import {
   ParsedFDPData,
   ParsedFiberJointData,
   ParsedPointAssetData,
-  GISLayerType,
-  AssetCategory,
-} from '@/types/gis';
+  GISLayerType } from '@/types/gis';
 
 export interface GeneratedAsset {
   assetType: string;

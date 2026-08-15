@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { updateContractor } from "@/actions/contractor-actions";
-import { CheckCircle, XCircle, Loader2, Building2, Users, FileText, Banknote, Calendar, ShieldCheck, Pencil, Image as ImageIcon, ExternalLink, Eye, Info } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Users, FileText, Banknote, Calendar, ShieldCheck, Pencil, Image as ImageIcon, Eye, Info } from "lucide-react";
 import { ContractorUpdateData } from "@/services/contractor/contractor.service";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';

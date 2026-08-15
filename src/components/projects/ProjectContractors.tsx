@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import {  useEffect, useState  } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Star, HardHat, Phone, Mail, Award, MessageSquare } from 'lucide-react';
+import { Star, HardHat, Phone, Mail, Award } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { toast } from 'sonner';

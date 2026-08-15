@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import {  useEffect, useState, useCallback, useRef  } from 'react';
 import { usePathname } from 'next/navigation';
 import { Download, AlertCircle, CheckCircle2, RefreshCw, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';

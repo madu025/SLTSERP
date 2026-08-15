@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FolderKanban, Activity, AlertOctagon } from 'lucide-react';
+import { FolderKanban, AlertOctagon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-
+import { formatLKR } from '@/lib/utils';
 interface ProjectOverview {
     overview: {
         activeProjects: number;
@@ -16,7 +16,6 @@ interface ProjectOverview {
     statusBreakdown: { status: string; count: number }[];
     delayedProjects: { name: string; delay: number; progress: number; status: string }[];
 }
-
 export default function ProjectsSection({ user }: { user: { id: string; role: string } }) {
     const { data, isLoading, error } = useQuery<ProjectOverview>({
         queryKey: ['dashboard-projects', user.id],
@@ -32,7 +31,6 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
         },
         staleTime: 5 * 60 * 1000,
     });
-
     if (isLoading) {
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -41,15 +39,11 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
             </div>
         );
     }
-
     if (error || !data) {
         return <div className="text-red-500">Failed to load project data.</div>;
     }
-
     const overview = data?.overview || { activeProjects: 0, totalBudget: 0, actualSpend: 0, scheduleVariance: 0, delayedCount: 0 };
     const delayedProjects = data?.delayedProjects || [];
-    const formatLKR = (val: number) => `LKR ${(val || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="shadow-sm transition-all hover:shadow-md border-slate-200 dark:border-slate-800">
@@ -68,7 +62,6 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
                             <div className="text-2xl font-bold text-rose-500">{overview.delayedCount}</div>
                         </div>
                     </div>
-                    
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Budget Utilized</span>
@@ -78,7 +71,6 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
                     </div>
                 </CardContent>
             </Card>
-
             <Card className="shadow-sm transition-all hover:shadow-md border-slate-200 dark:border-slate-800">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-rose-600 dark:text-rose-400">Critical Delays</CardTitle>

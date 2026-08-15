@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import {  useEffect  } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Building2, MapPin, User, Layers, Check, X } from "lucide-react";
+import { User, Check } from "lucide-react";
 
 const storeSchema = z.object({
     name: z.string().min(2, "Name required"),

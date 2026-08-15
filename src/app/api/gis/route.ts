@@ -2,22 +2,18 @@
 // GET /api/gis - List GIS import sessions and status
 // GET /api/gis?importId=xxx - Get specific session details
 // ============================================================================
-
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { logger } from '@/lib/logger';
 import { safe } from '@/utils/safe-await.util';
-
 export const dynamic = 'force-dynamic';
-
 export const GET = apiHandler(async (request) => {
   logger.info('[GIS-API] Received GIS status request');
     const { searchParams } = new URL(request.url);
     const importId = searchParams.get('importId');
     const projectId = searchParams.get('projectId');
-
     // Return specific import session
     if (importId) {
       const session = GISImportService.getSession(importId);
@@ -27,7 +23,6 @@ export const GET = apiHandler(async (request) => {
           { status: 404 }
         );
       }
-
       // Don't expose file content in status response
       const safeSession = {
         id: session.id,
@@ -46,10 +41,8 @@ export const GET = apiHandler(async (request) => {
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
       };
-
       return NextResponse.json({ session: safeSession });
     }
-
     // Return GIS data for a specific project
     if (projectId) {
       const [gisErr, data] = await safe(GISRouteService.getProjectGISData(projectId));
@@ -67,7 +60,6 @@ export const GET = apiHandler(async (request) => {
       }
       return NextResponse.json(data);
     }
-
     // List all active sessions
     const sessions = GISImportService.listSessions().map((s) => ({
       id: s.id,
@@ -77,9 +69,8 @@ export const GET = apiHandler(async (request) => {
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
     }));
-
     return NextResponse.json({
       sessions,
       total: sessions.length,
     });
-}, { rawResponse: true });
+}, { rawResponse: true });

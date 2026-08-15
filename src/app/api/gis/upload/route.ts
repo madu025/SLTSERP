@@ -4,27 +4,21 @@ export const dynamic = 'force-dynamic';
 // ============================================================================
 // Accepts GeoJSON files and creates an import session for processing
 // ============================================================================
-
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import type { GISUploadRequest, GISLayerType } from '@/types/gis';
 import { safe, safeSync } from '@/utils/safe-await.util';
-
 export const POST = apiHandler(async (request) => {
   logger.info('[GIS-UPLOAD] Received GIS file upload request');
     const contentType = request.headers.get('content-type') || '';
-
     let body: GISUploadRequest;
-
     if (contentType.includes('multipart/form-data')) {
       // Handle multipart form data (file upload via browser)
       const formData = await request.formData();
-
       const files: GISUploadRequest['files'] = [];
       const fileEntries = formData.getAll('files') as File[];
-
       // Parse the parallel layerTypes JSON array sent by the client
       // (one layer type per file, in the same order as fileEntries)
       const layerTypesRaw = formData.get('layerTypes') as string | null;
@@ -37,12 +31,10 @@ export const POST = apiHandler(async (request) => {
           logger.warn('[GIS-UPLOAD] Invalid layerTypes JSON, ignoring client overrides');
         }
       }
-
       for (let i = 0; i < fileEntries.length; i++) {
         const file = fileEntries[i];
         const buffer = Buffer.from(await file.arrayBuffer());
         const base64 = buffer.toString('base64');
-
         const clientLayerType = clientLayerTypes[i];
         files.push({
           fileName: file.name,
@@ -54,7 +46,6 @@ export const POST = apiHandler(async (request) => {
               : undefined,
         });
       }
-
       body = {
         files,
         projectId: (formData.get('projectId') as string) || undefined,
@@ -79,21 +70,18 @@ export const POST = apiHandler(async (request) => {
       }
       body = jsonBody;
     }
-
     if (!body.files || body.files.length === 0) {
       return NextResponse.json(
         { error: 'No files provided. At least one GIS file is required.' },
         { status: 400 }
       );
     }
-
     if (body.files.length > 20) {
       return NextResponse.json(
         { error: 'Maximum 20 files per upload session.' },
         { status: 400 }
       );
     }
-
     // Validate file sizes (max 50MB per file)
     for (const file of body.files) {
       const sizeInBytes = Buffer.from(file.fileData, 'base64').length;
@@ -104,15 +92,12 @@ export const POST = apiHandler(async (request) => {
         );
       }
     }
-
     const [uploadErr, result] = await safe(GISImportService.uploadFiles(body));
-
     if (uploadErr || !result) {
       logger.error('[GIS-UPLOAD] Upload failed', {
         error: uploadErr?.message,
         stack: uploadErr?.stack,
       });
-
       return NextResponse.json(
         {
           error: 'GIS upload failed',
@@ -121,10 +106,8 @@ export const POST = apiHandler(async (request) => {
         { status: 500 }
       );
     }
-
     logger.info(
       `[GIS-UPLOAD] Session created: ${result.importId} with ${body.files.length} file(s)`
     );
-
     return NextResponse.json(result, { status: 201 });
-}, { rawResponse: true });
+}, { rawResponse: true });

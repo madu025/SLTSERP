@@ -193,6 +193,19 @@ export function SODSheetTable(props: SODSheetTableProps) {
         return result;
     }, [orders, columnFilters, sortConfig]);
 
+    // Revenue totals for the completed view footer (respects active column filters)
+    const revenueTotals = useMemo(() => {
+        return filteredAndSortedOrders.reduce(
+            (acc, o) => {
+                acc.revenue += Number(o.revenueAmount) || 0;
+                acc.contractor += Number(o.contractorAmount) || 0;
+                if (o.revenueAmount) acc.withRevenue += 1;
+                return acc;
+            },
+            { revenue: 0, contractor: 0, withRevenue: 0 }
+        );
+    }, [filteredAndSortedOrders]);
+
     const handleSaveField = async (orderId: string, fieldName: string, value: unknown) => {
         const cellKey = `${orderId}-${fieldName}`;
         
@@ -1313,6 +1326,30 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         </tr>
                     )}
                 </tbody>
+                {filterType === "completed" && isColumnVisible('revenue') && filteredAndSortedOrders.length > 0 && (
+                    <tfoot className="sticky bottom-0 z-20">
+                        <tr className="bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur border-t-2 border-emerald-500/40">
+                            <td colSpan={20} className="px-3 py-2">
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                                        {filteredAndSortedOrders.length} Order{filteredAndSortedOrders.length === 1 ? "" : "s"}
+                                        <span className="ml-2 normal-case font-semibold">({revenueTotals.withRevenue} with revenue)</span>
+                                    </span>
+                                    <div className="flex items-center gap-5">
+                                        <div className="flex flex-col items-end leading-tight">
+                                            <span className="text-[8px] text-muted-foreground font-semibold uppercase">Total Revenue</span>
+                                            <span className="text-[12px] font-black text-emerald-600 dark:text-emerald-400 font-mono">Rs.{revenueTotals.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end leading-tight">
+                                            <span className="text-[8px] text-muted-foreground font-semibold uppercase">Total Contractor</span>
+                                            <span className="text-[12px] font-black text-blue-500 dark:text-blue-400 font-mono">Rs.{revenueTotals.contractor.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tfoot>
+                )}
             </table>
         </div>
     );

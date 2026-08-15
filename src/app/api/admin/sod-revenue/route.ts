@@ -28,7 +28,7 @@ const updateConfigSchema = z.object({
 
 export const GET = apiHandler(async () => {
     const configs = await SodRevenueService.getConfigs();
-    return Response.json({ success: true, data: configs });
+    return configs;
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS
 });
@@ -38,7 +38,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const data = createConfigSchema.parse(body);
 
     const config = await SodRevenueService.createConfig(data, userId);
-    return Response.json({ success: true, data: config });
+    return config;
 }, {
     roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'CREATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
@@ -48,7 +48,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const data = updateConfigSchema.parse(body);
 
     const config = await SodRevenueService.updateConfig(data.id, data);
-    return Response.json({ success: true, data: config });
+    return config;
 }, {
     roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'UPDATE_SOD_REVENUE_CONFIG', entity: 'Admin' }
@@ -63,7 +63,7 @@ export const DELETE = apiHandler(async (req) => {
     }
 
     await SodRevenueService.deleteConfig(id);
-    return Response.json({ success: true, message: 'Configuration deleted successfully' });
+    return { success: true, message: 'Configuration deleted successfully' };
 }, {
     roles: ROLE_GROUPS.ADMINS,
     audit: { action: 'DELETE_SOD_REVENUE_CONFIG', entity: 'Admin' }

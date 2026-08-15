@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
-
 interface CreateOTDRTestInput {
     testNumber?: string;
     testDate?: string;
@@ -29,7 +27,6 @@ interface CreateOTDRTestInput {
     remarks?: string;
     status?: string;
 }
-
 export class ProjectOTDRService {
     static async getOTDRTests(projectId: string) {
         return await prisma.oTDRTest.findMany({
@@ -37,10 +34,8 @@ export class ProjectOTDRService {
             orderBy: { testDate: 'desc' },
         });
     }
-
     static async createOTDRTest(projectId: string, data: CreateOTDRTestInput) {
         const testNumber = data.testNumber || `OTDR-${projectId.slice(0, 8)}-${Date.now()}`;
-
         return await prisma.oTDRTest.create({
             data: {
                 projectId,

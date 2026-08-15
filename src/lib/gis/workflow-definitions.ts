@@ -6,9 +6,7 @@
 
 import {
   WorkflowDefinition,
-  WorkflowStageDefinition,
-  DetectedProjectType,
-} from '@/types/gis';
+  DetectedProjectType } from '@/types/gis';
 
 /**
  * SSD Workflow Template

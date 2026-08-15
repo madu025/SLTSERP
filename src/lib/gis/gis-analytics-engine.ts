@@ -13,9 +13,7 @@ import {
   ParsedFDPData,
   ParsedFiberJointData,
   ParsedRoadData,
-  GISLayerType,
-  BOQSummary,
-} from '@/types/gis';
+  BOQSummary } from '@/types/gis';
 
 export interface AnalyticsInput {
   cableData?: ParsedCableData;

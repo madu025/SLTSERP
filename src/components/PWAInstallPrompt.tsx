@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import {  useState, useEffect  } from 'react';
 import { Download, X, Share2, PlusSquare, Smartphone } from 'lucide-react';
 import { Button } from './ui/button';
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Save, Search, RefreshCw } from "lucide-react";
+import { Loader2, Save, Search } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Badge } from "@/components/ui/badge";

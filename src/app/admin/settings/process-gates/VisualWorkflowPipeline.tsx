@@ -9,7 +9,6 @@ import {
   Camera, 
   MapPin, 
   FileCheck, 
-  FileText, 
   Receipt, 
   Settings2, 
   Plus, 

@@ -1,6 +1,5 @@
 "use client";
 
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -38,13 +37,15 @@ interface DashboardData {
 }
 
 export default function FinanceDashboardPage() {
-    const { data, isLoading } = useQuery<DashboardData>({
+    const { data, isLoading, error, refetch } = useQuery<DashboardData>({
         queryKey: ["finance-dashboard-metrics"],
         queryFn: async () => {
             const res = await fetch("/api/admin/finance/dashboard");
             if (!res.ok) throw new Error("Failed to fetch dashboard metrics");
-            return res.json();
-        }
+            const json = await res.json();
+            return (json.data ?? json) as DashboardData;
+        },
+        retry: 1,
     });
 
     const formatCurrency = (val: number) => {
@@ -55,7 +56,7 @@ export default function FinanceDashboardPage() {
         }).format(val || 0);
     };
 
-    if (isLoading || !data) {
+    if (isLoading) {
         return (
             <div className="h-screen flex bg-slate-50 dark:bg-slate-950 overflow-hidden">
                 <Sidebar />
@@ -63,6 +64,25 @@ export default function FinanceDashboardPage() {
                     <Header />
                     <div className="flex-1 flex items-center justify-center">
                         <span className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></span>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    if (error || !data) {
+        return (
+            <div className="h-screen flex bg-slate-50 dark:bg-slate-950 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 flex flex-col min-w-0 h-full">
+                    <Header />
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center space-y-3">
+                            <AlertTriangle className="w-10 h-10 text-red-500 mx-auto" />
+                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Failed to load financial data</p>
+                            <p className="text-xs text-slate-500">{(error as Error)?.message || 'Unknown error'}</p>
+                            <button onClick={() => refetch()} className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">Retry</button>
+                        </div>
                     </div>
                 </main>
             </div>
@@ -176,6 +196,13 @@ export default function FinanceDashboardPage() {
                                 <CardDescription>Monthly totals of settled (paid) Payment Vouchers (LKR)</CardDescription>
                             </CardHeader>
                             <CardContent className="h-72 w-full min-w-0">
+                                {(data.monthlyTrend.length === 0 || data.monthlyTrend.every(t => t.total === 0)) ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center space-y-2">
+                                        <TrendingUp className="w-8 h-8 text-muted-foreground/40" />
+                                        <p className="text-xs font-semibold text-muted-foreground">No payment data available</p>
+                                        <p className="text-[10px] text-muted-foreground/60">Paid vouchers will appear here</p>
+                                    </div>
+                                ) : (
                                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                     <AreaChart data={data.monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <defs>
@@ -191,6 +218,7 @@ export default function FinanceDashboardPage() {
                                         <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTotal)" />
                                     </AreaChart>
                                 </ResponsiveContainer>
+                                )}
                             </CardContent>
                         </Card>
 

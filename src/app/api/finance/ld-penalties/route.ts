@@ -15,6 +15,7 @@ export const GET = apiHandler(async (req) => {
 
     return await LDPenaltyService.getPenalties({ status, projectId });
 }, {
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     rawResponse: true
 });
 

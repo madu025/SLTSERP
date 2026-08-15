@@ -1,23 +1,18 @@
 "use client";
-import React from "react";
-import { Warehouse, AlertTriangle, CheckCircle, Package, FileDown, ShieldAlert, ClipboardCheck } from "lucide-react";
-
+import { Warehouse, Package, FileDown, ShieldAlert, ClipboardCheck } from 'lucide-react';
 export default function Slide11() {
     const stockItems = [
         { name: "Fiber Optic Cable (2-Core G657)", qty: "250m", status: "Critical Low", statusColor: "text-red-400 bg-red-500/10 border-red-500/20", threshold: "1,500m" },
         { name: "GPON ONT Routers", qty: "420 Units", status: "Safe", statusColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", threshold: "100 Units" },
         { name: "Duct Pipes (110m Class D)", qty: "1,820m", status: "Safe", statusColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", threshold: "500m" },
     ];
-
     const pdfTypes = [
         { title: "Goods Received Note (GRN)", desc: "Supplier & Store receipt summary", icon: FileDown, color: "text-purple-400" },
         { title: "Gate Pass / Issue Note", desc: "Security Check sign-off lines", icon: ClipboardCheck, color: "text-emerald-400" },
     ];
-
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -37,7 +32,6 @@ export default function Slide11() {
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                         Coordinates <strong className="text-white">Material Requisition Notes (MRN)</strong>, Good Received Notes (GRN), and Material Issue Tracking — all with audit-ready PDFs and auto low-stock alerts.
                     </p>
-
                     {/* PDF Generator */}
                     <div className="grid grid-cols-2 gap-2">
                         {pdfTypes.map((p) => {
@@ -52,7 +46,6 @@ export default function Slide11() {
                         })}
                     </div>
                 </div>
-
                 {/* Right: Stock Alert Dashboard */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-3">
                     {/* Window chrome */}
@@ -64,7 +57,6 @@ export default function Slide11() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">Live Inventory Safety Ledger</span>
                     </div>
-
                     {/* Vector: Warehouse Shelves */}
                     <div className="mb-2">
                         <svg viewBox="0 0 400 45" className="w-full h-12 opacity-65" xmlns="http://www.w3.org/2000/svg">
@@ -116,7 +108,6 @@ export default function Slide11() {
                             </div>
                         ))}
                     </div>
-
                     {/* Stock items lists */}
                     <div className="space-y-2">
                         {stockItems.map((item) => (
@@ -137,14 +128,12 @@ export default function Slide11() {
                             </div>
                         ))}
                     </div>
-
                     {/* Auto-Alert Note */}
                     <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-2 text-[10px] text-amber-300">
                         <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
                         <span>Auto-notifications broadcast when stock falls below thresholds 🔔</span>
                     </div>
                 </div>
-
             </div>
         </div>
     );

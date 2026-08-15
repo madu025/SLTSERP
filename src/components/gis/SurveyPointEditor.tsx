@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
+import {  useEffect, useState, useCallback, useRef  } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Edit3, MapPin, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Edit3, MapPin, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 // ─── Fix default marker icon issue with Leaflet + webpack ────────────────

@@ -1,7 +1,7 @@
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
 import { apiHandler } from '@/lib/api-handler';
-import { AppError, ErrorCode } from '@/lib/error';
+import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { ROLE_GROUPS } from '@/config/roles';
 import { resolveOpmcScope } from '@/lib/opmc-scope';

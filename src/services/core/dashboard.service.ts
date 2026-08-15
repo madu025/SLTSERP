@@ -44,7 +44,7 @@ export class DashboardService {
         const unbilledContractorPayout = wipSods._sum.contractorAmount || 0;
 
         // 2. Invoice Aging & Contractor Payouts (From Invoices)
-        const invoiceWhere: Record<string, unknown> = {};
+        const invoiceWhere: Prisma.InvoiceWhereInput = {};
         if (scopedRtoms !== undefined) {
             invoiceWhere.rtomArea = { in: scopedRtoms };
         } else if (rtom !== 'ALL') {
@@ -76,12 +76,100 @@ export class DashboardService {
 
         const totalPendingPayouts = pendingPayoutA + pendingPayoutB + Number(unbilledContractorPayout);
 
+        // 3. Monthly Revenue Trend (last 6 months, from completed Service Orders)
+        const trendStart = new Date();
+        trendStart.setMonth(trendStart.getMonth() - 5, 1);
+        trendStart.setHours(0, 0, 0, 0);
+
+        const completedSods = await prisma.serviceOrder.findMany({
+            where: {
+                ...whereClause,
+                sltsStatus: 'COMPLETED',
+                completedDate: { gte: trendStart },
+                revenueAmount: { not: null }
+            },
+            select: { completedDate: true, revenueAmount: true }
+        });
+
+        const now = new Date();
+        const trendBuckets: { month: string; year: number; revenue: number; count: number }[] = [];
+        const trendMap = new Map<string, { month: string; year: number; revenue: number; count: number }>();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const bucket = {
+                month: d.toLocaleString('en-US', { month: 'short' }),
+                year: d.getFullYear(),
+                revenue: 0,
+                count: 0
+            };
+            trendBuckets.push(bucket);
+            trendMap.set(`${d.getFullYear()}-${d.getMonth()}`, bucket);
+        }
+        for (const sod of completedSods) {
+            if (!sod.completedDate) continue;
+            const bucket = trendMap.get(`${sod.completedDate.getFullYear()}-${sod.completedDate.getMonth()}`);
+            if (bucket) {
+                bucket.revenue += Number(sod.revenueAmount || 0);
+                bucket.count += 1;
+            }
+        }
+        const revenueTrend = trendBuckets.map(b => ({ month: b.month, year: b.year, revenue: b.revenue, count: b.count }));
+
+        // 4. Payment Aging Analysis (outstanding payout amounts by invoice age)
+        const outstandingInvoices = await prisma.invoice.findMany({
+            where: {
+                ...invoiceWhere,
+                OR: [
+                    { statusA: 'PENDING' },
+                    { statusB: { in: ['HOLD', 'PENDING'] } }
+                ]
+            },
+            select: { date: true, createdAt: true, amountA: true, amountB: true, statusA: true, statusB: true }
+        });
+
+        const aging = { within30: 0, days31To60: 0, days61To90: 0, over90: 0 };
+        const today = Date.now();
+        for (const inv of outstandingInvoices) {
+            const outstanding =
+                (inv.statusA === 'PENDING' ? Number(inv.amountA || 0) : 0) +
+                (inv.statusB === 'HOLD' || inv.statusB === 'PENDING' ? Number(inv.amountB || 0) : 0);
+            if (outstanding <= 0) continue;
+            const ageDays = Math.floor((today - (inv.date ?? inv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+            if (ageDays <= 30) aging.within30 += outstanding;
+            else if (ageDays <= 60) aging.days31To60 += outstanding;
+            else if (ageDays <= 90) aging.days61To90 += outstanding;
+            else aging.over90 += outstanding;
+        }
+
+        // 5. Invoice Status Breakdown (counts by statusA / statusB)
+        const [statusAGroups, statusBGroups, invoiceTotals] = await Promise.all([
+            prisma.invoice.groupBy({ by: ['statusA'], where: invoiceWhere, _count: { _all: true } }),
+            prisma.invoice.groupBy({ by: ['statusB'], where: invoiceWhere, _count: { _all: true } }),
+            prisma.invoice.aggregate({ where: invoiceWhere, _sum: { amount: true }, _avg: { amount: true }, _count: { _all: true } })
+        ]);
+
+        const invoiceStatusA: Record<string, number> = {};
+        for (const g of statusAGroups) invoiceStatusA[g.statusA] = g._count._all;
+        const invoiceStatusB: Record<string, number> = {};
+        for (const g of statusBGroups) invoiceStatusB[g.statusB] = g._count._all;
+
+        const totalInvoiced = Number(invoiceTotals._sum.amount || 0);
+        const invoiceCount = invoiceTotals._count._all;
+        const averageInvoiceAmount = Number(invoiceTotals._avg.amount || 0);
+
         return {
             unbilledRevenue,
             unbilledContractorPayout,
             pendingPayoutA,
             pendingPayoutB,
             totalPendingPayouts,
+            revenueTrend,
+            aging,
+            invoiceStatusA,
+            invoiceStatusB,
+            totalInvoiced,
+            invoiceCount,
+            averageInvoiceAmount,
             updatedAt: new Date().toISOString()
         };
     }

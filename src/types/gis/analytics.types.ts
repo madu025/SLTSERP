@@ -1,6 +1,4 @@
 import { GISLayerType, DetectedProjectType } from './core.types';
-import { WorkflowTemplateName } from './workflow.types';
-
 export interface GISImportResult {
   importId: string;
   projectId: string;
@@ -19,7 +17,6 @@ export interface GISImportResult {
   tasksCreated: number;
   audit: GISAuditEntry[];
 }
-
 export interface GISLayerResult {
   layerName: string;
   layerType: GISLayerType;
@@ -28,7 +25,6 @@ export interface GISLayerResult {
   errors: string[];
   warnings: string[];
 }
-
 export interface GISAnalytics {
   totalRouteLength: number; // meters
   totalCableLength: number; // meters
@@ -39,7 +35,6 @@ export interface GISAnalytics {
   estimatedBOQCost: number;
   coverageStatistics: CoverageStats;
 }
-
 export interface CoverageStats {
   region: string;
   district: string;
@@ -47,12 +42,10 @@ export interface CoverageStats {
   populationCoverage?: number;
   buildingCoverage?: number;
 }
-
 export interface BOQSummary {
   totalEstimatedCost: number;
   items: BOQItem[];
 }
-
 export interface BOQItem {
   category: string;
   description: string;
@@ -64,7 +57,6 @@ export interface BOQItem {
   itemCode?: string;
   materialId?: string;
 }
-
 export interface GISAuditEntry {
   timestamp: string;
   action: string;

@@ -1,78 +1,153 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import { NIL_UUID } from '@/lib/opmc-scope';
 
 export class FinanceDashboardService {
   /**
-   * Aggregate financial summary metrics for dashboard widgets
+   * Aggregate financial summary metrics for dashboard widgets.
+   *
+   * Scope parameters follow the same tri-state pattern used by
+   * DashboardService.getFinanceMetrics:
+   *  - rtom: specific RTOM filter or 'ALL'
+   *  - accessibleOpmcs: undefined = admin (no filter), [] = deny all,
+   *    [ids] = restrict to these OPMC IDs (resolved to RTOMs for Invoice).
    */
-  static async getDashboardMetrics() {
+  static async getDashboardMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]) {
     const today = new Date();
 
-    // 1. Outstanding Invoices (Contractor Invoices unpaid)
-    const outstandingInvoicesSum = await prisma.invoice.aggregate({
-      _sum: { totalAmount: true },
-      where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } }
-    });
-
-    // 2. Pending Payment Vouchers
-    const pendingPVCount = await prisma.paymentVoucher.count({
-      where: { status: 'PENDING_APPROVAL' }
-    });
-
-    // 3. Total Project Retention Held
-    const totalRetentionSum = await prisma.projectRetention.aggregate({
-      _sum: { balanceAmount: true },
-      where: { status: { not: 'FULLY_RELEASED' } }
-    });
-
-    // 4. Active Liquidated Damages / Penalties (Approved but not yet collected)
-    const activePenaltiesSum = await prisma.projectLDPenalty.aggregate({
-      _sum: { netAmount: true },
-      where: { status: 'APPROVED' }
-    });
-
-    // 5. Overdue Contractor Invoices
-    const overdueInvoices = await prisma.invoice.findMany({
-      where: {
-        status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] },
-        dueDate: { lt: today }
-      },
-      include: {
-        contractor: { select: { name: true } }
-      },
-      orderBy: { dueDate: 'asc' },
-      take: 5
-    });
-
-    // 6. Top 5 Vendors by Spend (Purchase Orders approved/received)
-    const topVendorsSpend = await prisma.projectPurchaseOrder.groupBy({
-      by: ['vendorName'],
-      _sum: { totalAmount: true },
-      where: {
-        status: { in: ['APPROVED', 'FULLY_RECEIVED', 'PARTIALLY_RECEIVED'] }
-      },
-      orderBy: {
-        _sum: { totalAmount: 'desc' }
-      },
-      take: 5
-    });
-
-    // 7. Monthly Payment Voucher Trend (Paid Vouchers by month for last 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(today.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-
-    const paidVouchers = await prisma.paymentVoucher.findMany({
-      where: {
-        status: 'PAID',
-        paymentDate: { gte: sixMonthsAgo }
-      },
-      select: {
-        amount: true,
-        paymentDate: true
+    // ── Resolve RTOM scope for Invoice queries ─────────────────────────
+    let scopedRtoms: string[] | undefined;
+    if (accessibleOpmcs !== undefined) {
+      scopedRtoms = accessibleOpmcs.length > 0
+        ? (await prisma.oPMC.findMany({
+            where: { id: { in: accessibleOpmcs } },
+            select: { rtom: true }
+          })).map(o => o.rtom)
+        : [];
+      if (rtom !== 'ALL') {
+        scopedRtoms = scopedRtoms.includes(rtom) ? [rtom] : [];
       }
-    });
+    }
 
-    // Group paid vouchers by month-year
+    // ── Resolve OPMC scope for Project-linked queries ──────────────────
+    const opmcWhere: Prisma.ProjectWhereInput =
+      accessibleOpmcs === undefined
+        ? {} // admin — no filter
+        : accessibleOpmcs.length > 0
+          ? { opmcId: { in: accessibleOpmcs } }
+          : { opmcId: NIL_UUID }; // deny all
+
+    // ── Invoice where-clause helpers ───────────────────────────────────
+    const invoiceScopeWhere: Prisma.InvoiceWhereInput = {};
+    if (scopedRtoms !== undefined) {
+      invoiceScopeWhere.rtomArea = { in: scopedRtoms };
+    } else if (rtom !== 'ALL') {
+      invoiceScopeWhere.rtomArea = rtom;
+    }
+
+    // ── Project-link scope helper (returns partial where for each model) ─
+    const projScope = (accessibleOpmcs !== undefined ? { project: opmcWhere } : {}) as Record<string, unknown>;
+
+    // ── All 7 queries in parallel ──────────────────────────────────────
+    const [
+      outstandingInvoicesAgg,
+      pendingPVCount,
+      totalRetentionSum,
+      activePenaltiesSum,
+      overdueInvoices,
+      topVendorsSpend,
+      paidVouchers
+    ] = await Promise.all([
+      // 1. Outstanding Invoices — computed from amountA + amountB by status
+      //    (totalAmount may be stale; split-track amounts are authoritative)
+      prisma.invoice.aggregate({
+        _sum: {
+          amountA: true,
+          amountB: true,
+        },
+        where: {
+          ...invoiceScopeWhere,
+          OR: [
+            { statusA: { not: 'PAID' } },
+            { statusB: { not: 'PAID' } },
+          ],
+          status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] },
+        }
+      }),
+
+      // 2. Pending Payment Vouchers
+      prisma.paymentVoucher.count({
+        where: { ...projScope, status: 'PENDING_APPROVAL' } as Prisma.PaymentVoucherWhereInput,
+      }),
+
+      // 3. Total Project Retention Held
+      prisma.projectRetention.aggregate({
+        _sum: { balanceAmount: true },
+        where: {
+          ...projScope,
+          status: { not: 'FULLY_RELEASED' },
+        } as Prisma.ProjectRetentionWhereInput,
+      }),
+
+      // 4. Active Liquidated Damages / Penalties
+      prisma.projectLDPenalty.aggregate({
+        _sum: { netAmount: true },
+        where: {
+          ...projScope,
+          status: 'APPROVED',
+        } as Prisma.ProjectLDPenaltyWhereInput,
+      }),
+
+      // 5. Overdue Contractor Invoices
+      prisma.invoice.findMany({
+        where: {
+          ...invoiceScopeWhere,
+          status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] },
+          dueDate: { lt: today },
+        },
+        include: {
+          contractor: { select: { name: true } }
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 5
+      }),
+
+      // 6. Top 5 Vendors by Spend (Purchase Orders)
+      prisma.projectPurchaseOrder.groupBy({
+        by: ['vendorName'],
+        _sum: { totalAmount: true },
+        where: {
+          ...projScope,
+          status: { in: ['APPROVED', 'FULLY_RECEIVED', 'PARTIALLY_RECEIVED'] },
+        } as Prisma.ProjectPurchaseOrderWhereInput,
+        orderBy: {
+          _sum: { totalAmount: 'desc' }
+        },
+        take: 5
+      }),
+
+      // 7. Monthly Payment Voucher Trend (last 6 months)
+      prisma.paymentVoucher.findMany({
+        where: {
+          ...projScope,
+          status: 'PAID',
+          paymentDate: {
+            gte: (() => { const d = new Date(); d.setMonth(d.getMonth() - 5, 1); d.setHours(0, 0, 0, 0); return d; })()
+          }
+        } as Prisma.PaymentVoucherWhereInput,
+        select: {
+          amount: true,
+          paymentDate: true
+        }
+      }),
+    ]);
+
+    // ── Compute outstanding from split-track amounts ───────────────────
+    const outstandingAmount =
+      Number(outstandingInvoicesAgg._sum.amountA || 0) +
+      Number(outstandingInvoicesAgg._sum.amountB || 0);
+
+    // ── Group paid vouchers by month-year ──────────────────────────────
     const monthlyTrendMap = new Map<string, number>();
     for (let i = 0; i < 6; i++) {
       const d = new Date();
@@ -96,21 +171,21 @@ export class FinanceDashboardService {
 
     return {
       metrics: {
-        outstandingInvoices: (outstandingInvoicesSum._sum as any).totalAmount || 0,
+        outstandingInvoices: outstandingAmount,
         pendingPVs: pendingPVCount,
-        totalRetentionHeld: totalRetentionSum._sum.balanceAmount || 0,
-        activePenalties: activePenaltiesSum._sum.netAmount || 0
+        totalRetentionHeld: Number(totalRetentionSum._sum.balanceAmount || 0),
+        activePenalties: Number(activePenaltiesSum._sum.netAmount || 0)
       },
       overdueInvoices: overdueInvoices.map(inv => ({
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
         contractorName: inv.contractor.name,
-        amount: inv.totalAmount,
+        amount: Number(inv.totalAmount || 0),
         dueDate: inv.dueDate
       })),
       topVendors: topVendorsSpend.map(vendor => ({
         name: vendor.vendorName,
-        totalSpend: vendor._sum.totalAmount || 0
+        totalSpend: Number(vendor._sum.totalAmount || 0)
       })),
       monthlyTrend
     };

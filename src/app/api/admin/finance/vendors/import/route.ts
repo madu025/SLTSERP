@@ -25,10 +25,10 @@ export const POST = apiHandler(async (_req, _params, body) => {
 
     const result = await VendorService.importBulk(vendorsData);
 
-    return Response.json({
+    return {
         message: 'Import complete',
         ...result
-    });
+    };
 }, {
     roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'IMPORT_VENDORS_BULK', entity: 'Finance' }

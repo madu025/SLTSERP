@@ -1,51 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { primaryClient } from '@/lib/prisma';
 import { GISAutoPlanService } from '@/services/gis/GISAutoPlanService';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { requireAuth } from '@/lib/server-utils';
-
 import { safe } from '@/utils/safe-await.util';
-
 export const dynamic = 'force-dynamic';
 // Cache buster comment to force Next.js route re-evaluation: 1783209356
-
 export const GET = apiHandler(async (request) => {
   const [authErr] = await safe(requireAuth(['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']));
   if (authErr) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
-
     if (!projectId) {
       return NextResponse.json({ error: 'projectId is required as a query parameter' }, { status: 400 });
     }
-    
     // 1. Find the existing route
     const [routeErr, existingRoute] = await safe(primaryClient.gISRoute.findFirst({
       where: { projectId, versionType: 'PLANNED' },
       orderBy: { createdAt: 'desc' },
     }));
-
     if (routeErr) {
       return NextResponse.json({ error: 'Failed to fetch existing route' }, { status: 500 });
     }
-
     if (!existingRoute) {
       return NextResponse.json({ error: 'No existing route found to rebuild.' }, { status: 404 });
     }
-
     const metadata = existingRoute.metadata as Record<string, unknown> | null;
     if (!metadata || !metadata.polygon || !metadata.osmData) {
       return NextResponse.json({ error: 'Metadata is missing polygon or osmData.' }, { status: 400 });
     }
-
     const polygon = metadata.polygon as [number, number][];
     const osmData = metadata.osmData;
     const startDeviceType = metadata.startDeviceType as string | undefined;
-    
     // Extract feedPoint coordinates from the GeoJSON of this route
     let feedPoint: { lat: number; lon: number } | undefined = undefined;
     const geojson = existingRoute.geojsonData as Record<string, unknown> | null;
@@ -65,19 +54,15 @@ export const GET = apiHandler(async (request) => {
         }
       }
     }
-
     // 2. Generate the new plan
     const [planErr, plan] = await safe(GISAutoPlanService.generatePlan(polygon, osmData, [], '8', feedPoint, startDeviceType));
-
     if (planErr || !plan) {
       return NextResponse.json({ error: 'Failed to generate plan' }, { status: 500 });
     }
-
     // 3. Delete the old poles, closures, cables associated with this route ID
     await safe(primaryClient.gISPole.deleteMany({ where: { routeId: existingRoute.id } }));
     await safe(primaryClient.gISClosure.deleteMany({ where: { routeId: existingRoute.id } }));
     await safe(primaryClient.gISCableSegment.deleteMany({ where: { routeId: existingRoute.id } }));
-
     // Build the new GeoJSON
     const geojsonData = {
       type: 'FeatureCollection',
@@ -119,16 +104,13 @@ export const GET = apiHandler(async (request) => {
         })),
       ],
     };
-
     const totalCableLength = plan.cables.reduce((sum, cb) => sum + cb.length, 0);
-
     // Update Route including score in metadata
     console.log('OSP QUALITY SCORE:', plan.summary.engineeringQualityScore);
     const p4 = plan.poles.find(p => p.index === 4);
     const p70 = plan.poles.find(p => p.index === 70);
     if (p4) console.log('DEBUG P4:', p4);
     if (p70) console.log('DEBUG P70:', p70);
-
     await safe(primaryClient.gISRoute.update({
       where: { id: existingRoute.id },
       data: {
@@ -140,7 +122,6 @@ export const GET = apiHandler(async (request) => {
         }
       }
     }));
-
     // Create New Poles
     if (plan.poles.length > 0) {
       await safe(primaryClient.gISPole.createMany({
@@ -156,7 +137,6 @@ export const GET = apiHandler(async (request) => {
         })),
       }));
     }
-
     // Create New Closures
     if (plan.closures.length > 0) {
       await safe(primaryClient.gISClosure.createMany({
@@ -173,7 +153,6 @@ export const GET = apiHandler(async (request) => {
         })),
       }));
     }
-
     // Create New Cable Segments
     if (plan.cables.length > 0) {
       await safe(primaryClient.gISCableSegment.createMany({
@@ -191,13 +170,11 @@ export const GET = apiHandler(async (request) => {
         })),
       }));
     }
-
     // Recompute BOQ
     const [boqErr] = await safe(ProjectSurveyService.completeSurveyAndGenerateBOQ(projectId, {}));
     if (boqErr) {
       console.error('Error generating BOQ:', boqErr.message);
     }
-
     return NextResponse.json({
       success: true,
       score: plan.summary.engineeringQualityScore,
@@ -208,4 +185,4 @@ export const GET = apiHandler(async (request) => {
       debugLogs: plan.debugLogs,
       message: `Route updated successfully in place! Quality Score: ${plan.summary.engineeringQualityScore}`
     });
-}, { rawResponse: true });
+}, { rawResponse: true });

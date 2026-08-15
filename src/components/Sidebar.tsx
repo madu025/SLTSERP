@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import {  useEffect, useState, useCallback, Suspense  } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { hasAccess } from '@/config/sidebar-menu';
@@ -111,15 +111,6 @@ function SidebarContent() {
         const isContractor = isContractorRole(userRole);
         window.location.href = isContractor ? '/contractor/login' : '/login';
     };
-
-    if (!mounted) {
-        return (
-            <aside 
-                className="w-[220px] flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 z-40 transition-all duration-300 ease-in-out" 
-                style={{ background: '#0D1B2A', borderRight: '1px solid rgba(0, 114, 187, 0.12)' }}
-            />
-        );
-    }
 
     return (
         <>

@@ -5,6 +5,17 @@ import { useRouter, usePathname } from 'next/navigation';
 
 const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
+// Endpoints secured by AGENT auth (x-api-key / agent JWT), NOT the session
+// cookie. A 401 from them means the caller lacks agent credentials — it says
+// NOTHING about the user's session, so it must never trigger a logout.
+const AGENT_AUTH_PATHS = [
+    '/api/helpdesk/agent/telemetry',
+    '/api/assets/sync',
+    '/api/assets/register',
+    '/api/agent/version',
+    '/api/auth/agent-login',
+];
+
 export default function SessionManager() {
     const router = useRouter();
     const pathname = usePathname();
@@ -51,8 +62,9 @@ export default function SessionManager() {
 
             if (response.status === 401) {
                 const requestUrl = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0]?.url ?? '';
+                const isAgentAuthEndpoint = AGENT_AUTH_PATHS.some((p) => requestUrl.includes(p));
                 // Only intercept API 401s, not login/auth endpoint responses
-                if (requestUrl.includes('/api/') && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth')) {
+                if (requestUrl.includes('/api/') && !isAgentAuthEndpoint && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth')) {
                     // Avoid redirect loops if already on login page
                     if (window.location.pathname !== '/login' && window.location.pathname !== '/contractor/login') {
                         console.warn('[SESSION-MANAGER] 401 intercepted — session invalidated, redirecting to login');

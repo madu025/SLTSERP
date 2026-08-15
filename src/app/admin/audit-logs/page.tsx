@@ -15,7 +15,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import {
     Search, History, User, Activity, Clock, HardHat, FileText,
     Package, Warehouse, ClipboardCheck, Shield, Receipt,
-    PackageMinus, Filter, ArrowRight, CheckCircle2, AlertCircle, Trash2, Edit3, PlusCircle, Download,
+    PackageMinus, Filter, CheckCircle2, AlertCircle, Trash2, Edit3, PlusCircle, Download,
     Copy, Globe, ShieldCheck, Cpu, Terminal, FileCode, Check
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

@@ -1,6 +1,6 @@
 "use client";
  
-import React, { use, useEffect, useState } from 'react';
+import {  use, useEffect, useState  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import QFieldConfigForm from '@/components/projects/QFieldConfigForm';

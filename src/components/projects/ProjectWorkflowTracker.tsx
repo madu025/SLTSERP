@@ -11,19 +11,13 @@ import {
   CheckCircle2, 
   Play, 
   AlertTriangle, 
-  FileText, 
-  MapPin, 
   Camera, 
   ShieldCheck, 
-  Lock, 
   Loader2, 
   CheckSquare, 
   ListTodo, 
   Workflow, 
-  ChevronRight,
-  HardHat,
-  SearchCode
-} from 'lucide-react';
+  ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Task {

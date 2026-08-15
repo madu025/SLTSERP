@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import {  useEffect, useState  } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { Activity, RefreshCw } from 'lucide-react';
 
 interface SyncData {
     lastSync: string | null;

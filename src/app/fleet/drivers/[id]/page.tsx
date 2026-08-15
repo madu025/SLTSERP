@@ -1,6 +1,5 @@
 "use client";
 
-import React from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Card, CardContent } from '@/components/ui/card';

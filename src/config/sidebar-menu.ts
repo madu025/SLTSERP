@@ -258,7 +258,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/finance/setup',
         icon: Banknote,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER'],
-        permissionId: 'invoices',
+        permissionId: 'finance-ops',
         submenu: [
             {
                 title: 'SLT SLA Agreements',
@@ -378,9 +378,9 @@ export const SIDEBAR_MENU: MenuItem[] = [
     {
         title: 'Billing & Invoices',
         path: '/invoices',
-        icon: Receipt,
+        icon: FileSignature,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
-        permissionId: 'invoices',
+        permissionId: 'billing',
         submenu: [
             {
                 title: 'Submit Invoices (SLT)',
@@ -420,31 +420,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
     },
 
     {
-        title: 'Central Finance',
-        path: '/finance',
-        icon: Receipt,
-        // QA audit: parent roles must match submenu roles — General Ledger is FINANCE_MANAGER-only,
-        // so FINANCE_ASSISTANT/CASHIER would see an empty expandable button. Restrict parent to match.
-        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
-        permissionId: 'finance',
-        submenu: [
-            {
-                title: 'General Ledger',
-                path: '/finance/general-ledger',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
-            }
-        ]
-    },
-
-    {
         title: 'OSP Accounts',
         path: '/finance/osp-account',
-        icon: Receipt,
+        icon: Landmark,
         // QA audit: all submenus are FINANCE_MANAGER + OSP_MANAGER only.
         // FINANCE_ASSISTANT/CASHIER would see empty expandable button. Restrict parent to match.
         allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
-        permissionId: 'finance',
+        permissionId: 'osp-account',
         submenu: [
             {
                 title: 'OSP Dashboard',
@@ -622,28 +604,18 @@ export const SIDEBAR_MENU: MenuItem[] = [
     {
         title: 'Corporate Finance & Accounts',
         path: '/finance/chart-of-accounts',
-        icon: Landmark,
+        icon: Calculator,
         allowedRoles: ROLE_GROUPS.FINANCE,
-        permissionId: 'finance',
+        permissionId: 'corporate-finance',
         submenu: [
+            // — General Ledger —
             {
-                title: 'FP&A Variance Dashboard',
-                path: '/finance/fpa-dashboard',
-                icon: Activity,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                title: 'General Ledger',
+                path: '/finance/general-ledger',
+                icon: Layers,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER']
             },
-            {
-                title: 'Auto Bank Reconciliation',
-                path: '/finance/bank-reconciliation',
-                icon: CheckCircle2,
-                allowedRoles: ROLE_GROUPS.FINANCE
-            },
-            {
-                title: 'Multi-Currency FX Rates',
-                path: '/finance/exchange-rates',
-                icon: Globe,
-                allowedRoles: ROLE_GROUPS.FINANCE
-            },
+            // — Financial Reporting —
             {
                 title: 'Chart of Accounts',
                 path: '/finance/chart-of-accounts',
@@ -675,6 +647,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
+                title: 'FP&A Variance Dashboard',
+                path: '/finance/fpa-dashboard',
+                icon: Activity,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            // — Tax & Compliance —
+            {
                 title: 'VAT Return & Tax Register',
                 path: '/finance/tax/vat-return',
                 icon: Receipt,
@@ -686,6 +665,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: FileCheck2,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
+            // — Receivables & Payables —
             {
                 title: 'AR Aging & Collections',
                 path: '/finance/ar/aging',
@@ -699,9 +679,16 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
-                title: 'Cash Book & Bank Ledger',
-                path: '/finance/bank/cash-book',
-                icon: Landmark,
+                title: 'Credit & Debit Notes',
+                path: '/finance/credit-notes',
+                icon: FileText,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            // — Banking & Cash —
+            {
+                title: 'Auto Bank Reconciliation',
+                path: '/finance/bank-reconciliation',
+                icon: CheckCircle2,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
@@ -710,6 +697,19 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: CheckCircle2,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
+            {
+                title: 'Cash Book & Bank Ledger',
+                path: '/finance/bank/cash-book',
+                icon: Landmark,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            {
+                title: 'Multi-Currency FX Rates',
+                path: '/finance/exchange-rates',
+                icon: Globe,
+                allowedRoles: ROLE_GROUPS.FINANCE
+            },
+            // — Assets & Payroll —
             {
                 title: 'Fixed Asset Register & Depreciation',
                 path: '/finance/fixed-assets',
@@ -722,16 +722,11 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Users,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
+            // — Period Close & Approvals —
             {
                 title: 'Financial Period Close & Year-End',
                 path: '/finance/period-close',
                 icon: Lock,
-                allowedRoles: ROLE_GROUPS.FINANCE
-            },
-            {
-                title: 'Credit & Debit Notes',
-                path: '/finance/credit-notes',
-                icon: FileText,
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {

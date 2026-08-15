@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 import { TrendingUp, BellRing, Clock, AlertTriangle, AlertOctagon, Info, ExternalLink } from "lucide-react";
 
 export default function Slide13() {

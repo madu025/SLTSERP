@@ -1,14 +1,11 @@
 "use client";
-
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
-import { Building2, AlertCircle } from "lucide-react";
-
+import { Building2 } from 'lucide-react';
 interface AgingSummary {
     current: number;
     days31to60: number;
@@ -16,7 +13,6 @@ interface AgingSummary {
     over90: number;
     total: number;
 }
-
 interface ApAgingVendorRow {
     vendorId: string;
     vendorName: string;
@@ -26,14 +22,12 @@ interface ApAgingVendorRow {
     over90: number;
     totalBalance: number;
 }
-
 interface ApAgingData {
     summary: AgingSummary;
     glControlBalance: number;
     isReconciled: boolean;
     vendors: ApAgingVendorRow[];
 }
-
 export default function ApAgingPage() {
     const { data, isLoading } = useQuery<ApAgingData>({
         queryKey: ['ap-aging-report'],
@@ -44,7 +38,6 @@ export default function ApAgingPage() {
             return json.data;
         }
     });
-
     return (
         <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -52,7 +45,6 @@ export default function ApAgingPage() {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <Header />
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                        
                         {/* Title */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
@@ -64,12 +56,10 @@ export default function ApAgingPage() {
                                     Contractor & Vendor liabilities sub-ledger aging analysis (0-30, 31-60, 61-90, 90+ days).
                                 </p>
                             </div>
-
                             <Badge className={data?.isReconciled ? "bg-emerald-100 text-emerald-800 border-emerald-300 py-1.5 px-4 text-sm font-semibold" : "bg-amber-100 text-amber-800 border-amber-300 py-1.5 px-4 text-sm font-semibold"}>
                                 {data?.isReconciled ? "✓ Reconciled with GL Control AP-2010" : "⚠️ Variance against GL Control AP-2010"}
                             </Badge>
                         </div>
-
                         {/* Aging Summary Bucket Cards */}
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
@@ -103,7 +93,6 @@ export default function ApAgingPage() {
                                 </div>
                             </div>
                         </div>
-
                         {/* Vendor Aging Table */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             {isLoading ? (
@@ -149,7 +138,6 @@ export default function ApAgingPage() {
                                 </div>
                             )}
                         </div>
-
                     </main>
                 </div>
             </div>

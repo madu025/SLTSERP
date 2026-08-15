@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import {  useState, useEffect  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, AlertTriangle, Trash2, Layers, History, X, Clock, TrendingUp, Info, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Search, AlertTriangle, Trash2, Layers, History, X, TrendingUp, Info } from "lucide-react";
 import { toast } from 'sonner';
-import { safeFormat, cn } from '@/lib/utils';
+import { safeFormat } from '@/lib/utils';
 import { recordWastage } from "@/actions/inventory-actions";
 import { Badge } from "@/components/ui/badge";
 

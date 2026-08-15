@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, HelpCircle, Check, ArrowRight, ArrowLeft, ExternalLink, Printer, Copy, Building2 } from "lucide-react";
+import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, HelpCircle, Check, ArrowRight, ArrowLeft, ExternalLink, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 const LAPTOP_BRANDS = ["HP", "Lenovo", "Dell", "Asus", "Acer", "MSI", "Apple"];

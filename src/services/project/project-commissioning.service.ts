@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
-
 interface CommissionAssetInput {
     name: string;
     serialNumber: string;
@@ -11,7 +9,6 @@ interface CommissionAssetInput {
     longitude?: number | null;
     createdById?: string;
 }
-
 export class ProjectCommissioningService {
     static async getCommissionedAssets(projectId: string) {
         const assets = await prisma.projectAsset.findMany({
@@ -23,7 +20,6 @@ export class ProjectCommissioningService {
             },
             orderBy: { createdAt: 'desc' }
         });
-
         return assets.map((asset) => ({
             id: asset.id,
             name: asset.assetName,
@@ -36,7 +32,6 @@ export class ProjectCommissioningService {
             inspections: asset._count.documents
         }));
     }
-
     static async commissionAsset(projectId: string, data: CommissionAssetInput) {
         const asset = await prisma.projectAsset.create({
             data: {
@@ -52,7 +47,6 @@ export class ProjectCommissioningService {
                 installationDate: new Date().toISOString()
             }
         });
-
         return {
             success: true,
             asset: {

@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
 import { ServiceOrder } from "@/types/service-order";
-import { ArrowUpDown, Activity, Pencil, Trash, FileText, Calendar, MessageSquare, Info, WifiOff } from "lucide-react";
+import { ArrowUpDown, Activity, Calendar, MessageSquare, Info, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 

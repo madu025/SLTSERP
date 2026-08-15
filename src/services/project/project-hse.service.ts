@@ -1,12 +1,9 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
-
 interface HSEAttendeeInput {
     name: string;
     designation?: string;
     signatureUrl?: string;
 }
-
 interface CreateHSELogInput {
     logType: string;
     title: string;
@@ -16,13 +13,11 @@ interface CreateHSELogInput {
     recordedById: string;
     attendees?: HSEAttendeeInput[];
 }
-
 interface UpdateHSELogInput {
     status?: string;
     correctiveAction?: string;
     closedById?: string;
 }
-
 export class ProjectHSEService {
     static async getSafetyLogs(projectId: string) {
         return await prisma.hSESafetyLog.findMany({
@@ -31,10 +26,8 @@ export class ProjectHSEService {
             orderBy: { date: 'desc' }
         });
     }
-
     static async createSafetyLog(projectId: string, data: CreateHSELogInput) {
         const { logType, title, description, severity, location, recordedById, attendees } = data;
-
         return await prisma.hSESafetyLog.create({
             data: {
                 projectId,
@@ -56,10 +49,8 @@ export class ProjectHSEService {
             include: { attendees: true }
         });
     }
-
     static async updateSafetyLog(logId: string, data: UpdateHSELogInput) {
         const { status, correctiveAction, closedById } = data;
-
         return await prisma.hSESafetyLog.update({
             where: { id: logId },
             data: {

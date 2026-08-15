@@ -7,7 +7,7 @@
 // ============================================================================
 
 
-import React, { use, useEffect, useState, useCallback } from 'react';
+import {  use, useEffect, useState, useCallback  } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

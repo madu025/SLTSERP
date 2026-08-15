@@ -1,5 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
-
+import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -20,7 +19,6 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-
   projects: [
     {
       name: 'setup',
@@ -83,7 +81,6 @@ export default defineConfig({
       },
     },
   ],
-
   webServer: {
     command: 'npx next dev -p 3000',
     url: 'http://localhost:3000',

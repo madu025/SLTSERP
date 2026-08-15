@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { InvoiceService } from '@/services/finance/invoice.service';
 import { apiHandler } from '@/lib/api-handler';
 import { ROLE_GROUPS } from '@/config/roles';
@@ -15,10 +14,7 @@ export const GET = apiHandler(async (req) => {
 
     const data = await InvoiceService.getInvoices({ page, limit, search, approvalStatus });
 
-    return NextResponse.json({
-        success: true,
-        data
-    });
+    return data;
 }, {
     roles: ROLE_GROUPS.FINANCE_APPROVERS
 });

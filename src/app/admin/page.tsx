@@ -1,6 +1,5 @@
 "use client";
 
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -8,7 +7,7 @@ import Link from 'next/link';
 import {
     Users, Briefcase, Settings, Building2, HardHat, ChevronRight,
     Warehouse, Receipt, Shield, HistoryIcon, UserCog, Upload, Terminal,
-    Network, ClipboardList, Layers, FileText
+    Network, Layers, FileText
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 

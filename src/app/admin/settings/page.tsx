@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import {  useState, useEffect, useCallback  } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import {
     Settings,
-    Table as TableIcon,
-    Loader2,
+    Table as Loader2,
     DollarSign,
     PackageCheck,
     Boxes,

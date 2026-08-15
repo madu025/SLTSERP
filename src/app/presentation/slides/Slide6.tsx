@@ -1,17 +1,13 @@
 "use client";
-import React from "react";
-import { FolderTree, GitCommit, ChevronRight, Workflow, Settings } from "lucide-react";
-
+import { FolderTree, ChevronRight, Workflow, Settings } from 'lucide-react';
 export default function Slide6() {
     const builderFeatures = [
         { title: "Drag & Drop Stages", desc: "Reorder OSP pipeline stages visually", icon: Workflow, color: "text-blue-400" },
         { title: "Configurable Gates", desc: "Define multi-level approval rules", icon: Settings, color: "text-emerald-400" },
     ];
-
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
                 {/* Left: Content */}
                 <div className="lg:col-span-5 space-y-4">
                     <div className="flex items-center gap-2">
@@ -35,7 +31,6 @@ export default function Slide6() {
                         <p className="text-white font-bold text-[11px] uppercase">⚙️ Dynamic Workflow Builder</p>
                         <p>Administrators can reorder, add, or remove OSP pipeline stages instantly via a visual design grid — no hardcoded rules needed.</p>
                     </div>
-
                     {/* Builder Features */}
                     <div className="grid grid-cols-2 gap-2">
                         {builderFeatures.map((f) => {
@@ -50,7 +45,6 @@ export default function Slide6() {
                         })}
                     </div>
                 </div>
-
                 {/* Right: WBS Tree Diagram Mockup */}
                 <div className="lg:col-span-7 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
                     {/* Window chrome */}
@@ -62,7 +56,6 @@ export default function Slide6() {
                         </div>
                         <span className="text-[10px] font-mono text-slate-500">OSP Work Breakdown Structure (WBS)</span>
                     </div>
-
                     {/* Vector: Tree Hierarchy */}
                     <div className="mb-2">
                         <svg viewBox="0 0 400 40" className="w-full h-12 opacity-60" xmlns="http://www.w3.org/2000/svg">
@@ -85,7 +78,6 @@ export default function Slide6() {
                     </div>
                     {/* Hierarchy Nodes */}
                     <div className="space-y-3 font-sans text-xs">
-                        
                         {/* Parent Project */}
                         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 flex justify-between items-center">
                             <div className="flex items-center gap-2">
@@ -94,10 +86,8 @@ export default function Slide6() {
                             </div>
                             <span className="font-mono text-xs font-black text-blue-400">62% Done</span>
                         </div>
-
                         {/* Indented children */}
                         <div className="pl-6 space-y-2 border-l-2 border-slate-800/80 ml-5">
-                            
                             {/* Milestone 1 */}
                             <div className="bg-slate-900/30 border border-slate-850 rounded-lg p-2.5 flex justify-between items-center">
                                 <div className="flex items-center gap-2">
@@ -106,7 +96,6 @@ export default function Slide6() {
                                 </div>
                                 <span className="bg-emerald-500/10 text-emerald-400 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/20">Completed</span>
                             </div>
-
                             {/* Milestone 2 */}
                             <div className="bg-slate-900/30 border border-slate-850 rounded-lg p-2.5 space-y-2">
                                 <div className="flex justify-between items-center">
@@ -116,7 +105,6 @@ export default function Slide6() {
                                     </div>
                                     <span className="text-amber-400 font-mono text-[10px] font-bold">45% In-Progress</span>
                                 </div>
-                                
                                 {/* Leaf Subtasks */}
                                 <div className="pl-6 space-y-1.5 border-l border-slate-800 ml-2">
                                     <div className="flex justify-between text-[10px] text-slate-400">
@@ -133,16 +121,13 @@ export default function Slide6() {
                                     </div>
                                 </div>
                             </div>
-
                             {/* Stage Flow Indicator */}
                             <div className="flex items-center justify-center gap-2 pt-1">
                                 <span className="text-[9px] text-slate-500 bg-slate-900/40 px-2 py-0.5 rounded">Survey → Civil → Splicing → QA</span>
                             </div>
                         </div>
-
                     </div>
                 </div>
-
             </div>
         </div>
     );

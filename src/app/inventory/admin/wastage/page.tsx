@@ -1,12 +1,10 @@
-
 "use client";
-
-import React, { useState } from 'react';
+import {  useState  } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,12 +15,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
-
 interface ContractorItem {
     id: string;
     name: string;
 }
-
 interface ContractorResponse {
     success: boolean;
     data?: {
@@ -30,24 +26,20 @@ interface ContractorResponse {
     };
     contractors?: ContractorItem[];
 }
-
 interface StoreItem {
     id: string;
     name: string;
 }
-
 interface InventoryItem {
     id: string;
     code: string;
     name: string;
     unit: string;
 }
-
 interface ContractorStockItem {
     itemId: string;
     quantity: number;
 }
-
 interface WastageLogItem {
     id: string;
     date: string;
@@ -60,7 +52,6 @@ interface WastageLogItem {
         quantity: number;
     }>;
 }
-
 interface WastagePayload {
     contractorId?: string;
     storeId?: string;
@@ -68,7 +59,6 @@ interface WastagePayload {
     description: string;
     items: Array<{ itemId: string; quantity: number; unit: string }>;
 }
-
 interface WastageMutationResponse {
     success: boolean;
     status?: string;
@@ -77,30 +67,24 @@ interface WastageMutationResponse {
         status?: string;
     };
 }
-
 interface ApproveMutationResponse {
     success: boolean;
     message?: string;
 }
-
 export default function WastageReportPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
-
     // Form State
     const [selectedContractor, setSelectedContractor] = useState<string>('');
     const [selectedStore, setSelectedStore] = useState<string>('');
     const [month, setMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [description, setDescription] = useState<string>('');
-
     // Items State
     const [rows, setRows] = useState<Array<{ itemId: string; quantity: number; unit: string; name: string }>>([
         { itemId: '', quantity: 0, unit: '', name: '' }
     ]);
-
     // History Filters
     const [historyMonth, setHistoryMonth] = useState<string>(new Date().toISOString().slice(0, 7));
-
     // Auth Helper
     const getAuthHeaders = () => {
         if (typeof window === 'undefined') return { 'x-user-id': '', 'x-user-role': '' };
@@ -114,7 +98,6 @@ export default function WastageReportPage() {
             return { 'x-user-id': '', 'x-user-role': '' };
         }
     };
-
     // --- FETCH DATA ---
     const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ['contractors'],
@@ -125,17 +108,14 @@ export default function WastageReportPage() {
         : Array.isArray(contractorsData?.contractors)
             ? contractorsData.contractors
             : [];
-
     const { data: stores = [] } = useQuery<StoreItem[]>({
         queryKey: ['stores'],
         queryFn: async () => (await fetch('/api/stores')).json()
     });
-
     const { data: items = [] } = useQuery<InventoryItem[]>({
         queryKey: ['inventory-items'],
         queryFn: async () => (await fetch('/api/inventory/items')).json()
     });
-
     const { data: contractorStock = [] } = useQuery<ContractorStockItem[]>({
         queryKey: ['contractor-stock-for-wastage', selectedContractor],
         queryFn: async () => {
@@ -145,7 +125,6 @@ export default function WastageReportPage() {
         },
         enabled: !!selectedContractor && selectedContractor !== 'none'
     });
-
     const { data: history = [], isLoading: isHistoryLoading } = useQuery<WastageLogItem[]>({
         queryKey: ['wastage-history', historyMonth],
         queryFn: async () => {
@@ -153,7 +132,6 @@ export default function WastageReportPage() {
             return res.json() as Promise<WastageLogItem[]>;
         }
     });
-
     // --- MUTATIONS ---
     const wastageMutation = useMutation<WastageMutationResponse, Error, WastagePayload>({
         mutationFn: async (data) => {
@@ -181,7 +159,6 @@ export default function WastageReportPage() {
         },
         onError: (err) => toast.error(err.message)
     });
-
     const approveMutation = useMutation<ApproveMutationResponse, Error, { id: string; action: 'APPROVE' | 'REJECT' }>({
         mutationFn: async ({ id, action }) => {
             const res = await fetch('/api/inventory/wastage/approve', {
@@ -198,33 +175,27 @@ export default function WastageReportPage() {
         },
         onError: (err) => toast.error(err.message)
     });
-
     // --- HANDLERS ---
     const handleAddRow = () => setRows([...rows, { itemId: '', quantity: 0, unit: '', name: '' }]);
-
     const handleRemoveRow = (idx: number) => {
         if (rows.length === 1) return;
         setRows(rows.filter((_, i) => i !== idx));
     };
-
     const handleItemChange = (idx: number, itemId: string) => {
         const item = items.find((i: InventoryItem) => i.id === itemId);
         const newRows = [...rows];
         newRows[idx] = { ...newRows[idx], itemId, name: item?.name || '', unit: item?.unit || 'Nos' };
         setRows(newRows);
     };
-
     const handleUpdateRow = (idx: number, field: string, value: string | number) => {
         const newRows = [...rows];
         (newRows[idx] as Record<string, unknown>)[field] = value;
         setRows(newRows);
     };
-
     const handleSubmit = () => {
         if (!selectedContractor && !selectedStore) return toast.error("Select Store or Contractor");
         const validItems = rows.filter(r => r.itemId && r.quantity > 0);
         if (validItems.length === 0) return toast.error("Add valid items");
-
         wastageMutation.mutate({
             contractorId: (selectedContractor && selectedContractor !== 'none') ? selectedContractor : undefined,
             storeId: selectedStore || undefined,
@@ -233,7 +204,6 @@ export default function WastageReportPage() {
             items: validItems.map(r => ({ itemId: r.itemId, quantity: r.quantity, unit: r.unit }))
         });
     };
-
     const isPrivileged = typeof window !== 'undefined' ? (() => {
         try {
             const userObj = JSON.parse(localStorage.getItem('user') || '{}');
@@ -242,7 +212,6 @@ export default function WastageReportPage() {
             return false;
         }
     })() : false;
-
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
@@ -256,7 +225,6 @@ export default function WastageReportPage() {
                                 <p className="text-xs text-slate-500">Monitor and report material wastage across RTOMs and Contractors.</p>
                             </div>
                         </div>
-
                         <Tabs defaultValue="report" className="w-full">
                             <TabsList className="grid w-full grid-cols-2 max-w-[320px] h-8 p-0.5 bg-slate-100 border border-slate-200 rounded-lg">
                                 <TabsTrigger value="report" className="gap-2 text-xs h-7 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">
@@ -268,7 +236,6 @@ export default function WastageReportPage() {
                                     Wastage Logs
                                 </TabsTrigger>
                             </TabsList>
-
                             {/* --- NEW REPORT TAB --- */}
                             <TabsContent value="report" className="space-y-4 mt-3">
                                 <Card className="border-slate-200 bg-white shadow-sm">
@@ -312,7 +279,6 @@ export default function WastageReportPage() {
                                         </div>
                                     </CardContent>
                                 </Card>
-
                                 <div className="erp-table-container flex flex-col bg-white overflow-hidden">
                                     <Table>
                                         <TableHeader className="bg-slate-50 border-b border-slate-200">
@@ -359,7 +325,6 @@ export default function WastageReportPage() {
                                         <Button variant="outline" size="sm" onClick={handleAddRow} className="bg-white text-[11px] h-7 px-3 border-slate-200 shadow-sm"><Plus className="w-3 h-3 mr-1.5" /> Add Material Line</Button>
                                     </div>
                                 </div>
-
                                 <div className="flex justify-end gap-2 pt-2">
                                     <Button variant="outline" className="h-8 text-xs border-slate-200" onClick={() => router.back()}>Cancel</Button>
                                     <Button onClick={handleSubmit} disabled={wastageMutation.isPending} variant="destructive" className="h-8 text-xs px-5 flex items-center gap-1.5">
@@ -367,7 +332,6 @@ export default function WastageReportPage() {
                                     </Button>
                                 </div>
                             </TabsContent>
-
                             {/* --- HISTORY TAB --- */}
                             <TabsContent value="history" className="mt-3 space-y-3">
                                 <div className="erp-toolbar flex-row justify-between items-center">
@@ -380,7 +344,6 @@ export default function WastageReportPage() {
                                         <Input type="month" className="w-[140px] h-7 text-xs border-none bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} />
                                     </div>
                                 </div>
-
                                 <div className="erp-table-container flex flex-col bg-white overflow-hidden">
                                     <Table>
                                         <TableHeader className="bg-slate-50 border-b border-slate-200">

@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
-
 interface AllocateResourceInput {
     resourceType: string;
     resourceId: string;
@@ -10,22 +8,18 @@ interface AllocateResourceInput {
     startDate: string | Date;
     endDate: string | Date;
 }
-
 export class ProjectResourceService {
     static async getResources(projectId: string) {
         const allocated = await prisma.projectResource.findMany({
             where: { projectId },
             orderBy: { createdAt: 'desc' }
         });
-
         const staff = await prisma.staff.findMany({
             select: { id: true, name: true, designation: true }
         });
-
         const teams = await prisma.contractorTeam.findMany({
             select: { id: true, name: true, contractor: { select: { name: true } } }
         });
-
         return {
             allocated,
             available: {
@@ -34,10 +28,8 @@ export class ProjectResourceService {
             }
         };
     }
-
     static async allocateResource(projectId: string, data: AllocateResourceInput) {
         const { resourceType, resourceId, name, role, allocationPercentage, startDate, endDate } = data;
-
         const overlaps = await prisma.projectResource.findMany({
             where: {
                 resourceId,
@@ -45,12 +37,9 @@ export class ProjectResourceService {
                 endDate: { gte: new Date(startDate) }
             }
         });
-
         const currentAllocationSum = overlaps.reduce((sum, r) => sum + Number(r.allocationPercentage), 0);
         const newTotal = currentAllocationSum + Number(allocationPercentage || 100);
-
         const isOverloaded = newTotal > 100;
-
         const newResource = await prisma.projectResource.create({
             data: {
                 projectId,
@@ -63,13 +52,11 @@ export class ProjectResourceService {
                 endDate: new Date(endDate)
             }
         });
-
         return {
             resource: newResource,
             warning: isOverloaded ? `Warning: Resource total loading will be ${newTotal}% during this period.` : null
         };
     }
-
     static async removeResource(resourceAllocationId: string) {
         await prisma.projectResource.delete({
             where: { id: resourceAllocationId }

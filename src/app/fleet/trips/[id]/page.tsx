@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Play, Square, Route, MapPin, Clock, Fuel, Gauge, Car, User } from 'lucide-react';
+import { ArrowLeft, Play, Square, Route, MapPin, Clock, Fuel, Gauge, Car } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface TripDetail {

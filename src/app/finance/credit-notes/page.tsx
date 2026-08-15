@@ -1,14 +1,11 @@
 "use client";
-
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS } from "@/config/roles";
 import { Badge } from "@/components/ui/badge";
-import { FileText, ArrowRightLeft } from "lucide-react";
-
+import { ArrowRightLeft } from 'lucide-react';
 interface CreditDebitNote {
     id: string;
     noteNumber: string;
@@ -19,7 +16,6 @@ interface CreditDebitNote {
     status: string;
     createdAt: string;
 }
-
 export default function CreditNotesPage() {
     const { data: notes = [], isLoading } = useQuery<CreditDebitNote[]>({
         queryKey: ['credit-debit-notes'],
@@ -30,7 +26,6 @@ export default function CreditNotesPage() {
             return json.data;
         }
     });
-
     return (
         <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -38,7 +33,6 @@ export default function CreditNotesPage() {
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <Header />
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                        
                         {/* Title */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
@@ -50,12 +44,10 @@ export default function CreditNotesPage() {
                                     Adjustment notes posting reversing/adjusting GL journal entries against invoices.
                                 </p>
                             </div>
-
                             <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 py-1.5 px-4 text-sm font-semibold">
                                 Total Notes: {notes.length}
                             </Badge>
                         </div>
-
                         {/* Notes Register Table */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                             {isLoading ? (
@@ -99,7 +91,6 @@ export default function CreditNotesPage() {
                                 </div>
                             )}
                         </div>
-
                     </main>
                 </div>
             </div>

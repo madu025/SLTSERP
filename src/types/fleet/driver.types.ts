@@ -1,5 +1,3 @@
-import { Vehicle } from './vehicle.types';
-
 export interface Driver {
   id: string;
   first_name: string;
@@ -37,7 +35,6 @@ export interface Driver {
   created_at: Date;
   updated_at: Date;
 }
-
 export interface DriverOT {
   id: string;
   driver_id: string;

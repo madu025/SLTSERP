@@ -1,7 +1,7 @@
 "use client";
 import { ROLE_GROUPS } from '@/config/roles';
 
-import React, { useEffect, useState, useCallback } from "react";
+import {  useEffect, useState, useCallback  } from 'react';
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import RoleGuard from "@/components/RoleGuard";
@@ -13,9 +13,7 @@ import {
   Zap,
   RefreshCw,
   Search,
-  Wifi,
-  HardDrive
-} from "lucide-react";
+  Wifi } from "lucide-react";
 import { toast } from "sonner";
 
 interface TelemetryDevice {

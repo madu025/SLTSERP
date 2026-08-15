@@ -129,11 +129,9 @@ export class ServiceOrderDashboardService {
         const firstDayOfYear = startOfYear(now);
         const lastDayOfYear = endOfYear(now);
 
+        // YTD: received in current year
         const yearWhere: Prisma.ServiceOrderWhereInput = {
-            OR: [
-                { receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
-                { statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } }
-            ]
+            receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear }
         };
 
         const baseWhere: Prisma.ServiceOrderWhereInput = {
@@ -141,10 +139,24 @@ export class ServiceOrderDashboardService {
             ...yearWhere
         };
 
+        // Current month: received in current month
         const monthlyWhere: Prisma.ServiceOrderWhereInput = {
             ...whereClause,
             receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth }
         };
+
+        // YTD completed: for revenue/financial aggregates (revenue recognized on completion)
+        const ytdCompletedWhere: Prisma.ServiceOrderWhereInput = {
+            ...whereClause,
+            completedDate: { gte: firstDayOfYear, lte: lastDayOfYear }
+        };
+
+        // Year-to-date summary (canonical date per status — no OR double-counting)
+        const [ytdTotal, ytdCompleted, ytdReturned] = await Promise.all([
+            prisma.serviceOrder.count({ where: { ...whereClause, receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+            prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+            prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+        ]);
 
         const realTimeRtomGrouped = await prisma.serviceOrder.groupBy({
             by: ['opmcId', 'sltsStatus'],
@@ -152,6 +164,14 @@ export class ServiceOrderDashboardService {
             _count: { _all: true },
             _sum: { revenueAmount: true }
         });
+
+        // YTD revenue per RTOM (for RTOM table revenue column)
+        const ytdRtomRevenueRaw = await prisma.serviceOrder.groupBy({
+            by: ['opmcId'],
+            where: { ...whereClause, sltsStatus: { in: ['COMPLETED', 'PROV_CLOSED', 'INSTALL_CLOSED'] }, completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+            _sum: { revenueAmount: true }
+        });
+        const ytdRtomRevenueMap = new Map(ytdRtomRevenueRaw.map(g => [g.opmcId, Number(g._sum?.revenueAmount || 0)]));
 
         const rtomOpmcMap = new Map(allOpmcs.map(o => [o.id, o.rtom]));
         const rtomStatsMap: Record<string, { rtom: string; pending: number; completed: number; returned: number; revenue: number }> = {};
@@ -191,9 +211,9 @@ export class ServiceOrderDashboardService {
         ] = await Promise.all([
             Promise.all([
                 prisma.serviceOrder.count({ where: { ...monthlyWhere } }),
-                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', OR: [{ statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }, { completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }] } }),
-                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', OR: [{ receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }, { statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }] } }),
-                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', OR: [{ statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }, { completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }] } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
             ]).then(([total, completed, pending, returned]) => [
                 { sltsStatus: 'TOTAL', _count: { _all: total } },
                 { sltsStatus: 'COMPLETED', _count: { _all: completed } },
@@ -229,12 +249,12 @@ export class ServiceOrderDashboardService {
         const monthlyStats = monthlyStatsRaw as RawStat[];
         const contractorPerf = contractorPerfRaw as ContractorRawStat[];
 
-        const allTimeSummary = cachedRtomStats.reduce((acc, curr) => ({
-            pending: acc.pending + curr.pending,
-            completed: acc.completed + curr.completed,
-            returned: acc.returned + curr.returned,
-            total: acc.total + (curr.pending + curr.completed + curr.returned)
-        }), { pending: 0, completed: 0, returned: 0, total: 0 });
+        const allTimeSummary = {
+            total: ytdTotal,
+            completed: ytdCompleted,
+            returned: ytdReturned,
+            pending: broughtForward
+        };
 
         const [
             financialAggregates,
@@ -249,7 +269,7 @@ export class ServiceOrderDashboardService {
             totalVendorsCount
         ] = await Promise.all([
             prisma.serviceOrder.aggregate({
-                where: { ...monthlyWhere, sltsStatus: 'COMPLETED' },
+                where: { ...ytdCompletedWhere, sltsStatus: 'COMPLETED' },
                 _sum: {
                     revenueAmount: true,
                     contractorAmount: true
@@ -346,7 +366,7 @@ export class ServiceOrderDashboardService {
 
         const statusBreakdownRaw = await prisma.serviceOrder.groupBy({
             by: ['status'],
-            where: { ...whereClause, sltsStatus: 'COMPLETED', OR: [{ statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }, { completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } }] },
+            where: { ...whereClause, sltsStatus: 'COMPLETED', completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
             _count: { _all: true }
         });
 
@@ -374,13 +394,14 @@ export class ServiceOrderDashboardService {
         });
 
         cachedRtomStats.forEach((r) => {
+            const opmcId = allOpmcs.find(o => o.rtom === r.rtom)?.id || '';
             stats.rtoms.push({
                 name: r.rtom,
                 completed: r.completed,
                 pending: r.pending,
                 returned: r.returned,
                 total: r.completed + r.pending + r.returned,
-                revenue: r.revenue,
+                revenue: ytdRtomRevenueMap.get(opmcId) || 0,
                 patPassed: sltPatResults.filter((s) => s.rtom === r.rtom && s.status === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 patRejected: sltPatResults.filter((s) => s.rtom === r.rtom && (s.status === 'OPMC_REJECTED' || s.status === 'REJECTED' || s.status === 'PAT_OPMC_REJECTED') && (s.source === 'OPMC_REJECTED' || s.source === 'SYNC')).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 sltsPatRejected: sltPatResults.filter((s) => s.rtom === r.rtom && (s.status === 'PAT_REJECTED' || s.status === 'REJECTED') && s.source === 'HO_REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),

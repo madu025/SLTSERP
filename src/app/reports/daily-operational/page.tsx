@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
-import { Download, RefreshCw, Calendar as CalendarIcon, TrendingUp, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Download, RefreshCw, Calendar as CalendarIcon, TrendingUp, CheckCircle2, AlertCircle, Clock, ClipboardCopy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSriLankaToday } from '@/lib/timezone';
 import * as XLSX from 'xlsx';
@@ -168,7 +168,7 @@ export default function DailyOperationalReportPage() {
         worksheetData.push([
             "Province", "RTOM", "In Hand Morning", "Received Today", "Total In Hand",
             "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "Total Completed",
-            "DW (km)", "Returned SOD", "Wired Only", "Balance"
+            "DW", "Pole 5.6", "Pole 6.7", "Pole 8.0", "Returned SOD", "Wired Only", "Balance"
         ]);
 
         let currentRegion = '';
@@ -179,17 +179,17 @@ export default function DailyOperationalReportPage() {
                     worksheetData.push([
                         "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
                         s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.total,
-                        s.material.dw.toFixed(2), s.returned.total, s.wiredOnly.total, s.balance.total
+                        s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
                     ]);
                 }
                 currentRegion = row.region;
-                worksheetData.push([row.region, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+                worksheetData.push([row.region, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
             }
 
             worksheetData.push([
                 row.province, row.rtom, row.inHandMorning.total, row.received.total, row.totalInHand,
                 row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.total,
-                row.material.dw.toFixed(2), row.returned.total, row.wiredOnly.total, row.balance.total
+                row.material.dw.toFixed(2), row.material.pole56, row.material.pole67, row.material.pole80, row.returned.total, row.wiredOnly.total, row.balance.total
             ]);
         });
 
@@ -198,7 +198,7 @@ export default function DailyOperationalReportPage() {
             worksheetData.push([
                 "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
                 s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.total,
-                s.material.dw.toFixed(2), s.returned.total, s.wiredOnly.total, s.balance.total
+                s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
             ]);
         }
 
@@ -206,7 +206,7 @@ export default function DailyOperationalReportPage() {
             worksheetData.push([
                 "GRAND TOTAL", "", grandTotal.inHandMorning.total, grandTotal.received.total, grandTotal.totalInHand,
                 grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.total,
-                grandTotal.material.dw.toFixed(2), grandTotal.returned.total, grandTotal.wiredOnly.total, grandTotal.balance.total
+                grandTotal.material.dw.toFixed(2), grandTotal.material.pole56, grandTotal.material.pole67, grandTotal.material.pole80, grandTotal.returned.total, grandTotal.wiredOnly.total, grandTotal.balance.total
             ]);
         }
 
@@ -214,6 +214,66 @@ export default function DailyOperationalReportPage() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Daily Operational Report");
         XLSX.writeFile(wb, `Daily_Operational_Report_${selectedDate}.xlsx`);
+    };
+
+    const formatShareText = () => {
+        if (!data || reportData.length === 0) return '';
+        const dateStr = new Date(selectedDate).toLocaleDateString('en-GB');
+        const blocks = reportData.map(row => [
+            `FN Progress\t${dateStr}`,
+            `RT : ${row.rtom}`,
+            `C/F FY :\t${row.inHandMorning.total}`,
+            `          NC :\t${row.inHandMorning.nc}`,
+            `          RL :\t${row.inHandMorning.rl}`,
+            `          DATA :\t${row.inHandMorning.data}`,
+            ``,
+            `SOD Receiving :\t${row.received.total}`,
+            `          NC :\t${row.received.nc}`,
+            `          RL :\t${row.received.rl}`,
+            `          DATA :\t${row.received.data}`,
+            `Total Inhand :\t${row.totalInHand}`,
+            ``,
+            `Total Completed :\t${row.completed.total}`,
+            `          CR :\t${row.completed.create}`,
+            `          CR-Recon :\t${row.completed.recon}`,
+            `          CR-UP-SN :\t${row.completed.upgrade}`,
+            `          CR-OR :\t${row.completed.or}`,
+            `          ML :\t${row.completed.ml}`,
+            `          Data :\t${row.completed.data}`,
+            ``,
+            `DW Usage :\t${row.material.dw}`,
+            `Pole Usage :\t${row.material.pole56 + row.material.pole67 + row.material.pole80}`,
+            `          5.6 :\t${row.material.pole56}`,
+            `          6.7 :\t${row.material.pole67}`,
+            `          8.0 :\t${row.material.pole80}`,
+            ``,
+            `Returned :\t${row.returned.total}`,
+            `          NC :\t${row.returned.nc}`,
+            `          RL :\t${row.returned.rl}`,
+            `          DATA :\t${row.returned.data}`,
+            ``,
+            `Wired only within day :\t${row.wiredOnly.total}`,
+            `          NC :\t${row.wiredOnly.nc}`,
+            `          RL :\t${row.wiredOnly.rl}`,
+            `          DATA :\t${row.wiredOnly.data}`,
+            ``,
+            `Delayed by CX :\t${row.delays.cxDelay || 0}`,
+            `Balance C/F :\t${row.balance.total}`,
+            ``,
+            `Regular Team Count :\t${row.regularTeams}`,
+            `Worked Team Count :\t${row.teamsWorked}`,
+            `SODs inhand - STB shortage :\t${row.shortages.stb}`,
+            `SODs inhand - ONT shortage :\t${row.shortages.ont}`,
+        ].join('\n'));
+        return blocks.join('\n\n----------------------------------------\n\n');
+    };
+
+    const handleCopyText = async () => {
+        try {
+            await navigator.clipboard.writeText(formatShareText());
+        } catch {
+            // Clipboard API unavailable (non-secure context) - ignore silently
+        }
     };
 
     const SummaryRow = ({ label, data, isGrandTotal = false }: { label: string; data: ReportRowData; isGrandTotal?: boolean }) => (
@@ -233,6 +293,9 @@ export default function DailyOperationalReportPage() {
             <td className="border border-slate-300 px-1 py-1 text-center font-bold bg-green-500 text-white">{data.completed.total}</td>
 
             <td className="border border-slate-300 px-1 py-1 text-center">{data.material.dw.toFixed(1)}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.material.pole56}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.material.pole67}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.material.pole80}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.returned.total}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.wiredOnly.total}</td>
             <td className="border border-slate-300 px-1 py-1 text-center font-bold bg-slate-200 text-slate-900">{data.balance.total}</td>
@@ -279,6 +342,16 @@ export default function DailyOperationalReportPage() {
                                 className="gap-2 bg-emerald-600 hover:bg-emerald-700"
                             >
                                 <Download className="w-4 h-4" /> Export
+                            </Button>
+                            <Button
+                                onClick={handleCopyText}
+                                disabled={loading || !data || reportData.length === 0}
+                                size="sm"
+                                variant="outline"
+                                className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                title="Copy FN Progress text format for sharing"
+                            >
+                                <ClipboardCopy className="w-4 h-4" /> Copy Text
                             </Button>
                         </div>
                     </div>
@@ -335,7 +408,8 @@ export default function DailyOperationalReportPage() {
                                         <th rowSpan={2} className="px-1 py-2 bg-emerald-900/50 text-center w-14">Recv<br />Today</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-indigo-900 text-center w-14">Total<br />Hand</th>
                                         <th colSpan={8} className="px-2 py-1 bg-green-900 text-center border-b border-green-800">Completed Orders</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-amber-900/50 text-center w-12">DW<br />(km)</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-amber-900/50 text-center w-12">DW</th>
+                                        <th colSpan={3} className="px-2 py-1 bg-cyan-900 text-center border-b border-cyan-800">Poles</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-rose-900/50 text-center w-12">Ret<br />SOD</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-purple-900/50 text-center w-12">Wired<br />Only</th>
                                         <th rowSpan={2} className="px-2 py-2 bg-slate-700 text-center w-16 uppercase">BAL</th>
@@ -349,12 +423,15 @@ export default function DailyOperationalReportPage() {
                                         <th className="px-0.5 py-1 w-7">ML</th>
                                         <th className="px-0.5 py-1 w-7">FRL</th>
                                         <th className="px-1 py-1 w-10 bg-green-600">Total</th>
+                                        <th className="px-0.5 py-1 w-7 bg-cyan-700">5.6</th>
+                                        <th className="px-0.5 py-1 w-7 bg-cyan-700">6.7</th>
+                                        <th className="px-0.5 py-1 w-7 bg-cyan-700">8.0</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white">
                                     {reportData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={16} className="text-center py-12 text-slate-400">
+                                            <td colSpan={20} className="text-center py-12 text-slate-400">
                                                 {loading ? (
                                                     <div className="flex flex-col items-center gap-2">
                                                         <RefreshCw className="w-8 h-8 animate-spin text-slate-300" />
@@ -378,7 +455,7 @@ export default function DailyOperationalReportPage() {
                                                         currentRegion = row.region;
                                                         rows.push(
                                                             <tr key={`header-${row.region}`} className="bg-slate-200 border-y border-slate-300">
-                                                                <td colSpan={16} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
+                                                                <td colSpan={20} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
                                                             </tr>
                                                         );
                                                     }
@@ -402,6 +479,9 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-green-100/50 font-black text-green-900">{row.completed.total}</td>
 
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-amber-50/50 text-amber-900 font-medium">{row.material.dw.toFixed(1)}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-cyan-50/40 text-cyan-900 font-medium">{row.material.pole56}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-cyan-50/40 text-cyan-900 font-medium">{row.material.pole67}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-cyan-50/40 text-cyan-900 font-medium">{row.material.pole80}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-rose-50/50 text-rose-900 font-medium">{row.returned.total}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-purple-50/50 text-purple-900 font-medium">{row.wiredOnly.total}</td>
 
@@ -426,6 +506,52 @@ export default function DailyOperationalReportPage() {
                             </table>
                         </div>
                     </div>
+
+                    {reportData.length > 0 && (
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+                                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">NC / RL / DATA Breakdown</h2>
+                                <p className="text-[11px] text-slate-500">Category split per RTOM for the FN Progress report</p>
+                            </div>
+                            <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+                                <table className="w-full text-[11px] border-collapse">
+                                    <thead className="bg-slate-900 text-white sticky top-0 z-10">
+                                        <tr className="divide-x divide-slate-700">
+                                            <th className="px-2 py-2 text-left w-24">RTOM</th>
+                                            <th className="px-2 py-2 text-left w-32">Metric</th>
+                                            <th className="px-2 py-2 text-center w-16">NC</th>
+                                            <th className="px-2 py-2 text-center w-16">RL</th>
+                                            <th className="px-2 py-2 text-center w-16">DATA</th>
+                                            <th className="px-2 py-2 text-center w-16 bg-slate-700">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white">
+                                        {reportData.map((row) => {
+                                            const metrics: { label: string; m: { nc: number; rl: number; data: number; total: number } }[] = [
+                                                { label: 'C/F (In Hand AM)', m: row.inHandMorning },
+                                                { label: 'SOD Receiving', m: row.received },
+                                                { label: 'Returned', m: row.returned },
+                                                { label: 'Wired Only', m: row.wiredOnly },
+                                                { label: 'Balance C/F', m: row.balance },
+                                            ];
+                                            return metrics.map(({ label, m }, mi) => (
+                                                <tr key={`${row.rtom}-${label}`} className={`border-b border-slate-100 hover:bg-blue-50/40 ${mi === 0 ? 'border-t-2 border-t-slate-300' : ''}`}>
+                                                    {mi === 0 && (
+                                                        <td rowSpan={5} className="border-r border-slate-200 px-2 py-1 text-center font-bold text-slate-900 bg-slate-50 align-middle">{row.rtom}</td>
+                                                    )}
+                                                    <td className="border-r border-slate-200 px-2 py-1 text-slate-600">{label}</td>
+                                                    <td className="border-r border-slate-100 px-2 py-1 text-center text-slate-800">{m.nc}</td>
+                                                    <td className="border-r border-slate-100 px-2 py-1 text-center text-slate-800">{m.rl}</td>
+                                                    <td className="border-r border-slate-100 px-2 py-1 text-center text-slate-800">{m.data}</td>
+                                                    <td className="px-2 py-1 text-center font-bold text-slate-900 bg-slate-100/60">{m.total}</td>
+                                                </tr>
+                                            ));
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
 
                 </div>
             </main>

@@ -1,6 +1,5 @@
 "use client";
-
-import React, { useEffect, useState } from "react";
+import {  useEffect, useState  } from 'react';
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,9 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, Info, X, Barcode, FileText, Tag, ShieldCheck } from "lucide-react";
+import { AlertTriangle, X, Barcode, FileText, ShieldCheck } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
-
 const itemSchema = z.object({
     code: z.string().min(2, "Item code is required"),
     sltCode: z.string().optional(),
@@ -31,9 +29,7 @@ const itemSchema = z.object({
     description: z.string().optional(),
     importAliases: z.array(z.string()).optional()
 });
-
 type ItemFormValues = z.infer<typeof itemSchema>;
-
 interface ItemFormDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -41,10 +37,8 @@ interface ItemFormDialogProps {
     onSubmit: (values: ItemFormValues) => Promise<void>;
     isSubmitting: boolean;
 }
-
 export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSubmitting }: ItemFormDialogProps) {
     const [aliasInput, setAliasInput] = useState("");
-
     const form = useForm<ItemFormValues>({
         resolver: zodResolver(itemSchema),
         defaultValues: {
@@ -65,7 +59,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
             importAliases: []
         }
     });
-
     useEffect(() => {
         if (open) {
             if (initialData) {
@@ -83,7 +76,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
             }
         }
     }, [open, initialData, form]);
-
     const isWastageAllowed = useWatch({ control: form.control, name: "isWastageAllowed" });
     const watchedCode = useWatch({ control: form.control, name: "code" });
     const watchedName = useWatch({ control: form.control, name: "name" });
@@ -92,7 +84,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
     const watchedHasSerial = useWatch({ control: form.control, name: "hasSerial" });
     const watchedCostPrice = useWatch({ control: form.control, name: "costPrice" });
     const watchedUnitPrice = useWatch({ control: form.control, name: "unitPrice" });
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent 
@@ -110,7 +101,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                             <X className="w-4 h-4" />
                         </button>
                     </div>
-
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Material Directory</span>
@@ -126,7 +116,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                         </p>
                     </div>
                 </div>
-
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
                         {/* Body Split */}
@@ -150,7 +139,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                             </FormItem>
                                         )} />
                                     </div>
-
                                     <FormField control={form.control} name="name" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Item Name</FormLabel>
@@ -158,7 +146,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-
                                     <FormField control={form.control} name="commonName" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Common Name</FormLabel>
@@ -166,7 +153,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField control={form.control} name="unit" render={({ field }) => (
                                             <FormItem>
@@ -192,7 +178,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                         )} />
                                     </div>
                                 </div>
-
                                 <div className="bg-amber-50 dark:bg-amber-955/10 border border-amber-200 dark:border-amber-900/50 p-4 rounded-2xl space-y-3">
                                     <FormField control={form.control} name="minLevel" render={({ field }) => (
                                         <FormItem>
@@ -204,7 +189,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                         </FormItem>
                                     )} />
                                 </div>
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
                                         <FormField control={form.control} name="isWastageAllowed" render={({ field }) => (
@@ -224,7 +208,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                             )} />
                                         )}
                                     </div>
-
                                     <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-955/10 border border-blue-150/40 dark:border-blue-900/40 flex items-center justify-between">
                                         <div className="space-y-0.5">
                                             <FormLabel className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">Track by Serial Number</FormLabel>
@@ -235,7 +218,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                         )} />
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-2 gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                                     <FormField control={form.control} name="costPrice" render={({ field }) => (
                                         <FormItem>
@@ -250,7 +232,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                         </FormItem>
                                     )} />
                                 </div>
-
                                 <FormField control={form.control} name="importAliases" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Import Aliases (Comma separated)</FormLabel>
@@ -270,14 +251,12 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                     </FormItem>
                                     )} />
                             </div>
-
                             {/* Right Panel - Real-Time Preview */}
                             <div className="w-[35%] h-full overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 space-y-6">
                                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                                     <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                         <FileText className="w-3.5 h-3.5 text-blue-500" /> Live Data Card
                                     </h4>
-
                                     <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center py-6 space-y-3">
                                         <Barcode className="w-12 h-12 text-slate-400 opacity-60" />
                                         <div className="space-y-1">
@@ -288,7 +267,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                                 {watchedName || "Unnamed Material"}
                                             </span>
                                         </div>
-
                                         <div className="flex flex-wrap gap-1.5 justify-center mt-1">
                                             <Badge className="bg-blue-50 hover:bg-blue-50 text-blue-600 border border-blue-150/50 text-[9px] px-1.5 py-0 font-bold rounded">
                                                 {watchedCategory || "OTHERS"}
@@ -303,7 +281,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                             )}
                                         </div>
                                     </div>
-
                                     <div className="space-y-2.5 text-xs pt-1">
                                         <div className="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800/80">
                                             <span className="text-slate-500">Suggested Cost</span>
@@ -317,7 +294,6 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                 </div>
                             </div>
                         </div>
-
                         {/* Footer */}
                         <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700">

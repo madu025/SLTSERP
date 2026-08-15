@@ -6,9 +6,7 @@
 
 import {
   ParsedRoadData,
-  GISLayerType,
-  PermitSegment,
-} from '@/types/gis';
+  GISLayerType } from '@/types/gis';
 
 export interface PermitRecord {
   roadName: string;

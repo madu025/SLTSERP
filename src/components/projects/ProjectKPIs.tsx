@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import {  useEffect, useState  } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Coins, CalendarRange, Gauge, AlertCircle, ArrowUpRight } from 'lucide-react';
+import { AlertCircle, ArrowUpRight } from 'lucide-react';
 
 interface Project {
     id: string;
