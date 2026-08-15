@@ -310,130 +310,147 @@ export class ReportService {
 
     // 2. AREA MANAGER VIEW
     if (view === 'area') {
-      const orders = await prisma.serviceOrder.findMany({
-        where: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate
-          }
-        },
-        select: {
-          id: true,
-          rtom: true,
-          sltsStatus: true,
-          createdAt: true,
-          completedDate: true,
-          statusDate: true,
-          opmc: {
-            select: {
-              region: true,
-              province: true
-            }
+      const isDailyView = period === 'Daily' || period === 'Weekly';
+
+      // Parallel DB-level aggregation queries (replaces 55K+ row findMany)
+      const [
+        perfGrouped,
+        trendCompletedRaw,
+        trendPendingRaw,
+        total,
+        completed,
+        pending,
+        returned,
+      ] = await Promise.all([
+        // Performance data: groupBy the selected dimension + sltsStatus
+        groupBy === 'COORDINATOR'
+          ? prisma.serviceOrder.groupBy({
+              by: ['teamId', 'sltsStatus'],
+              where: { createdAt: { gte: startDate, lte: endDate } },
+              _count: { _all: true },
+            })
+          : groupBy === 'REGION' || groupBy === 'ARM'
+            ? prisma.serviceOrder.groupBy({
+                by: ['opmcId', 'sltsStatus'],
+                where: { createdAt: { gte: startDate, lte: endDate } },
+                _count: { _all: true },
+              })
+            : prisma.serviceOrder.groupBy({
+                by: ['rtom', 'sltsStatus'],
+                where: { createdAt: { gte: startDate, lte: endDate } },
+                _count: { _all: true },
+              }),
+        // Trend: completed orders grouped by date
+        prisma.serviceOrder.groupBy({
+          by: ['completedDate'],
+          where: {
+            sltsStatus: { in: ['COMPLETED', 'INSTALL_CLOSED'] },
+            completedDate: { gte: startDate, lte: endDate },
           },
-          team: {
-            select: {
-              name: true
-            }
-          }
-        }
-      });
+          _count: { _all: true },
+        }),
+        // Trend: pending orders grouped by statusDate
+        prisma.serviceOrder.groupBy({
+          by: ['statusDate'],
+          where: {
+            sltsStatus: 'INPROGRESS',
+            statusDate: { gte: startDate, lte: endDate },
+          },
+          _count: { _all: true },
+        }),
+        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate } } }),
+        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate }, sltsStatus: { in: ['COMPLETED', 'INSTALL_CLOSED'] } } }),
+        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate }, sltsStatus: 'INPROGRESS' } }),
+        prisma.serviceOrder.count({ where: { createdAt: { gte: startDate, lte: endDate }, sltsStatus: 'RETURN' } }),
+      ]);
 
-      const groupMap = new Map<string, { completed: number, pending: number, returned: number }>();
+      // Resolve dimension names from grouped data
+      let dimensionMap = new Map<string, string>();
 
-      orders.forEach(order => {
-        let groupKey = '';
+      if (groupBy === 'COORDINATOR') {
+        const rawTeamIds = (perfGrouped as { teamId: string | null; sltsStatus: string; _count: { _all: number } }[]).map(g => g.teamId).filter(Boolean);
+        const teamIds = [...new Set(rawTeamIds)] as string[];
+        const teams = await prisma.contractorTeam.findMany({
+          where: { id: { in: teamIds } },
+          select: { id: true, name: true },
+        });
+        dimensionMap = new Map(teams.map(t => [t.id, t.name]));
+      } else if (groupBy === 'REGION' || groupBy === 'ARM') {
+        const opmcIds = [...new Set((perfGrouped as { opmcId: string; sltsStatus: string; _count: { _all: number } }[]).map(g => g.opmcId))];
+        const opmcs = await prisma.oPMC.findMany({
+          where: { id: { in: opmcIds } },
+          select: { id: true, region: true, province: true },
+        });
+        dimensionMap = new Map(opmcs.map(o => [o.id, groupBy === 'REGION' ? o.region : o.province]));
+      }
 
-        switch (groupBy) {
-          case 'REGION':
-            groupKey = order.opmc?.region || 'Unknown';
-            break;
-          case 'ARM':
-            groupKey = order.opmc?.province || 'Unknown ARM';
-            break;
-          case 'RTOM':
-            groupKey = order.rtom || 'Unknown';
-            break;
-          case 'COORDINATOR':
-            groupKey = order.team?.name || 'Unassigned';
-            break;
-          default:
-            groupKey = order.rtom || 'Unknown';
+      // Build performance data from grouped results
+      const groupMap = new Map<string, { completed: number; pending: number; returned: number }>();
+      const typedPerf = perfGrouped as { rtom?: string; teamId?: string | null; opmcId?: string; sltsStatus: string; _count: { _all: number } }[];
+
+      for (const g of typedPerf) {
+        let groupKey: string;
+        if (groupBy === 'COORDINATOR') {
+          groupKey = g.teamId ? (dimensionMap.get(g.teamId) || 'Unassigned') : 'Unassigned';
+        } else if (groupBy === 'REGION' || groupBy === 'ARM') {
+          groupKey = dimensionMap.get(g.opmcId!) || 'Unknown';
+        } else {
+          groupKey = g.rtom || 'Unknown';
         }
 
         if (!groupMap.has(groupKey)) {
           groupMap.set(groupKey, { completed: 0, pending: 0, returned: 0 });
         }
-
         const stats = groupMap.get(groupKey)!;
-        if (order.sltsStatus === 'COMPLETED' || order.sltsStatus === 'INSTALL_CLOSED') stats.completed++;
-        else if (order.sltsStatus === 'INPROGRESS') stats.pending++;
-        else if (order.sltsStatus === 'RETURN') stats.returned++;
-      });
+        if (g.sltsStatus === 'COMPLETED' || g.sltsStatus === 'INSTALL_CLOSED') stats.completed += g._count._all;
+        else if (g.sltsStatus === 'INPROGRESS') stats.pending += g._count._all;
+        else if (g.sltsStatus === 'RETURN') stats.returned += g._count._all;
+      }
 
-      const performanceData = Array.from(groupMap.entries()).map(([name, stats]) => ({
-        name,
-        ...stats
-      })).sort((a, b) => b.completed - a.completed);
+      const performanceData = Array.from(groupMap.entries())
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.completed - a.completed);
 
-      // Build trend buckets based on period (daily vs monthly)
-      const isDailyView = period === 'Daily' || period === 'Weekly';
+      // Build trend buckets
       const trendMap = new Map<string, { completed: number; pending: number }>();
 
       if (isDailyView) {
         const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         for (let i = days; i >= 0; i--) {
           const d = subDays(endDate, i);
-          const k = format(d, 'MMM d');
-          trendMap.set(k, { completed: 0, pending: 0 });
+          trendMap.set(format(d, 'MMM d'), { completed: 0, pending: 0 });
         }
       } else {
         for (let i = monthsToShow - 1; i >= 0; i--) {
           const d = subMonths(endDate, i);
-          const k = format(d, 'MMM');
-          trendMap.set(k, { completed: 0, pending: 0 });
+          trendMap.set(format(d, 'MMM'), { completed: 0, pending: 0 });
         }
       }
 
-      // Bin by status-transition date (completedDate for completed, statusDate for others)
-      const isCompletedStatus = (s: string | null) => s === 'COMPLETED' || s === 'INSTALL_CLOSED';
-      orders.forEach(order => {
-        const transitionDate = isCompletedStatus(order.sltsStatus)
-          ? order.completedDate
-          : order.statusDate;
-        if (!transitionDate) return;
-
-        const k = isDailyView ? format(transitionDate, 'MMM d') : format(transitionDate, 'MMM');
+      // Bin completed trend by completedDate
+      for (const item of trendCompletedRaw) {
+        if (!item.completedDate) continue;
+        const k = isDailyView ? format(item.completedDate, 'MMM d') : format(item.completedDate, 'MMM');
         const trend = trendMap.get(k);
-        if (trend) {
-          if (isCompletedStatus(order.sltsStatus)) trend.completed++;
-          else if (order.sltsStatus === 'INPROGRESS') trend.pending++;
-        }
-      });
-
-      const trendData = Array.from(trendMap.entries()).map(([month, data]) => ({
-        month,
-        ...data
-      }));
-
-      // O(n) - Single pass summary aggregation
-      // INSTALL_CLOSED is a completed installation (has completedDate), same as COMPLETED
-      const summary = { total: orders.length, completed: 0, pending: 0, returned: 0 };
-      for (const o of orders) {
-        if (o.sltsStatus === 'COMPLETED' || o.sltsStatus === 'INSTALL_CLOSED') summary.completed++;
-        else if (o.sltsStatus === 'INPROGRESS') summary.pending++;
-        else if (o.sltsStatus === 'RETURN') summary.returned++;
+        if (trend) trend.completed += item._count._all;
       }
+
+      // Bin pending trend by statusDate
+      for (const item of trendPendingRaw) {
+        if (!item.statusDate) continue;
+        const k = isDailyView ? format(item.statusDate, 'MMM d') : format(item.statusDate, 'MMM');
+        const trend = trendMap.get(k);
+        if (trend) trend.pending += item._count._all;
+      }
+
+      const trendData = Array.from(trendMap.entries()).map(([month, data]) => ({ month, ...data }));
 
       return {
         performanceData,
         trendData,
-        summary,
-        dateRange: {
-          from: startDate,
-          to: endDate,
-          period
-        },
-        groupBy
+        summary: { total, completed, pending, returned },
+        dateRange: { from: startDate, to: endDate, period },
+        groupBy,
       };
     }
 
