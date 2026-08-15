@@ -34,16 +34,16 @@ export default function NotificationAnalyticsPage() {
         },
     });
 
-    const typeData = analytics?.byType.map((t: TypeItem) => ({
+    const typeData = (analytics?.byType || []).map((t: TypeItem) => ({
         name: t.type,
         value: t.total,
         read: t.read
-    })) || [];
+    }));
 
-    const priorityData = analytics?.byPriority.map((p: PriorityItem) => ({
+    const priorityData = (analytics?.byPriority || []).map((p: PriorityItem) => ({
         name: p.priority,
         value: p.total
-    })) || [];
+    }));
 
     return (
         <div className="min-h-screen bg-[#060B19] text-white flex">
@@ -83,28 +83,28 @@ export default function NotificationAnalyticsPage() {
                                             <Bell className="w-5 h-5" />
                                             <h3 className="text-sm font-semibold">Total Sent</h3>
                                         </div>
-                                        <p className="text-3xl font-black">{analytics?.totalSent.toLocaleString()}</p>
+                                        <p className="text-3xl font-black">{(analytics?.totalSent || 0).toLocaleString()}</p>
                                     </div>
                                     <div className="bg-[#0D1B2A] border border-emerald-500/20 rounded-xl p-5 shadow-[0_0_15px_rgba(16,185,129,0.05)]">
                                         <div className="flex items-center gap-3 text-emerald-400 mb-2">
                                             <CheckCircle className="w-5 h-5" />
                                             <h3 className="text-sm font-semibold">Overall Read Rate</h3>
                                         </div>
-                                        <p className="text-3xl font-black">{analytics?.overallReadRate.toFixed(1)}%</p>
+                                        <p className="text-3xl font-black">{(analytics?.overallReadRate || 0).toFixed(1)}%</p>
                                     </div>
                                     <div className="bg-[#0D1B2A] border border-purple-500/20 rounded-xl p-5 shadow-[0_0_15px_rgba(168,85,247,0.05)]">
                                         <div className="flex items-center gap-3 text-purple-400 mb-2">
                                             <Clock className="w-5 h-5" />
                                             <h3 className="text-sm font-semibold">Avg Read Time</h3>
                                         </div>
-                                        <p className="text-3xl font-black">{analytics?.avgReadTimeMinutes.toFixed(1)} <span className="text-lg text-white/50 font-normal">min</span></p>
+                                        <p className="text-3xl font-black">{(analytics?.avgReadTimeMinutes || 0).toFixed(1)} <span className="text-lg text-white/50 font-normal">min</span></p>
                                     </div>
                                     <div className="bg-[#0D1B2A] border border-red-500/20 rounded-xl p-5 shadow-[0_0_15px_rgba(239,68,68,0.05)]">
                                         <div className="flex items-center gap-3 text-red-400 mb-2">
                                             <AlertTriangle className="w-5 h-5" />
                                             <h3 className="text-sm font-semibold">Critical Ignored</h3>
                                         </div>
-                                        <p className="text-3xl font-black">{analytics?.byPriority.find((p: PriorityItem) => p.priority === 'CRITICAL')?.total - (analytics?.byPriority.find((p: PriorityItem) => p.priority === 'CRITICAL')?.read || 0) || 0}</p>
+                                        <p className="text-3xl font-black">{(analytics?.byPriority || []).find((p: PriorityItem) => p.priority === 'CRITICAL')?.total - (analytics?.byPriority || []).find((p: PriorityItem) => p.priority === 'CRITICAL')?.read || 0}</p>
                                     </div>
                                 </div>
 

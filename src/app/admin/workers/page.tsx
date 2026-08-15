@@ -31,7 +31,7 @@ export default function WorkerDashboard() {
             const res = await fetch('/api/admin/workers');
             const data = await res.json();
             if (data.success) {
-                setStats(data.queues);
+                setStats(data.queues || []);
                 setLastUpdated(new Date().toLocaleTimeString());
             }
         } catch (error) {
