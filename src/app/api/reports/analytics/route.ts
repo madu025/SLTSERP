@@ -1,8 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ReportService } from '@/services/core/report.service';
 import { AppError } from '@/lib/error';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const VALID_PERIODS = ['Daily', 'Weekly', '1M', '3M', '6M', '1Y', 'CUSTOM'] as const;
+const VALID_VIEWS = ['manager', 'area'] as const;
+const VALID_GROUP_BY = ['REGION', 'ARM', 'RTOM', 'COORDINATOR'] as const;
 
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
@@ -12,8 +17,17 @@ export const GET = apiHandler(async (request) => {
     const customTo = searchParams.get('to');
     const groupBy = searchParams.get('groupBy') || 'RTOM';
 
-    if (view !== 'manager' && view !== 'area') {
-        throw AppError.badRequest('Invalid view type');
+    // Zod validation
+    const queryParams = z.object({
+        view: z.enum(VALID_VIEWS),
+        period: z.enum(VALID_PERIODS),
+        groupBy: z.enum(VALID_GROUP_BY),
+        from: z.string().nullable().optional(),
+        to: z.string().nullable().optional(),
+    }).safeParse({ view, period, groupBy, from: customFrom, to: customTo });
+
+    if (!queryParams.success) {
+        throw AppError.badRequest(`Invalid query parameters: ${queryParams.error.issues.map(i => i.message).join(', ')}`);
     }
 
     return await ReportService.getAnalyticsReport(view, period, {
@@ -21,4 +35,4 @@ export const GET = apiHandler(async (request) => {
         customTo,
         groupBy
     });
-}, { rawResponse: true });
+}, { rawResponse: true, menuPath: '/reports/arm' });

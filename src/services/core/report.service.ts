@@ -253,7 +253,8 @@ export class ReportService {
 
       const contractorPerformance = contractors.map(c => {
         const stats = contractorStats.filter(s => s.contractorId === c.id);
-        const completed = stats.find(s => s.sltsStatus === 'COMPLETED')?._count._all || 0;
+        const completed = (stats.find(s => s.sltsStatus === 'COMPLETED')?._count._all || 0)
+          + (stats.find(s => s.sltsStatus === 'INSTALL_CLOSED')?._count._all || 0);
         const pending = stats.find(s => s.sltsStatus === 'INPROGRESS')?._count._all || 0;
         const returned = stats.find(s => s.sltsStatus === 'RETURN')?._count._all || 0;
         const total = completed + pending + returned;
@@ -281,7 +282,8 @@ export class ReportService {
       const rtomNames = [...new Set(rtomStats.map(s => s.rtom))].filter(Boolean);
       const rtomPerformance = rtomNames.map(rtom => {
         const stats = rtomStats.filter(s => s.rtom === rtom);
-        const completed = stats.find(s => s.sltsStatus === 'COMPLETED')?._count._all || 0;
+        const completed = (stats.find(s => s.sltsStatus === 'COMPLETED')?._count._all || 0)
+          + (stats.find(s => s.sltsStatus === 'INSTALL_CLOSED')?._count._all || 0);
         const total = stats.reduce((acc, curr) => acc + curr._count._all, 0);
         return {
           name: rtom,
@@ -320,6 +322,8 @@ export class ReportService {
           rtom: true,
           sltsStatus: true,
           createdAt: true,
+          completedDate: true,
+          statusDate: true,
           opmc: {
             select: {
               region: true,
@@ -361,7 +365,7 @@ export class ReportService {
         }
 
         const stats = groupMap.get(groupKey)!;
-        if (order.sltsStatus === 'COMPLETED') stats.completed++;
+        if (order.sltsStatus === 'COMPLETED' || order.sltsStatus === 'INSTALL_CLOSED') stats.completed++;
         else if (order.sltsStatus === 'INPROGRESS') stats.pending++;
         else if (order.sltsStatus === 'RETURN') stats.returned++;
       });
@@ -371,21 +375,38 @@ export class ReportService {
         ...stats
       })).sort((a, b) => b.completed - a.completed);
 
-      const trendMap = new Map();
-      for (let i = monthsToShow - 1; i >= 0; i--) {
-        const d = subMonths(endDate, i);
-        const k = format(d, 'MMM');
-        trendMap.set(k, { completed: 0, pending: 0 });
+      // Build trend buckets based on period (daily vs monthly)
+      const isDailyView = period === 'Daily' || period === 'Weekly';
+      const trendMap = new Map<string, { completed: number; pending: number }>();
+
+      if (isDailyView) {
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        for (let i = days; i >= 0; i--) {
+          const d = subDays(endDate, i);
+          const k = format(d, 'MMM d');
+          trendMap.set(k, { completed: 0, pending: 0 });
+        }
+      } else {
+        for (let i = monthsToShow - 1; i >= 0; i--) {
+          const d = subMonths(endDate, i);
+          const k = format(d, 'MMM');
+          trendMap.set(k, { completed: 0, pending: 0 });
+        }
       }
 
+      // Bin by status-transition date (completedDate for completed, statusDate for others)
+      const isCompletedStatus = (s: string | null) => s === 'COMPLETED' || s === 'INSTALL_CLOSED';
       orders.forEach(order => {
-        if (order.createdAt) {
-          const k = format(order.createdAt, 'MMM');
-          if (trendMap.has(k)) {
-            const trend = trendMap.get(k);
-            if (order.sltsStatus === 'COMPLETED') trend.completed++;
-            else if (order.sltsStatus === 'INPROGRESS') trend.pending++;
-          }
+        const transitionDate = isCompletedStatus(order.sltsStatus)
+          ? order.completedDate
+          : order.statusDate;
+        if (!transitionDate) return;
+
+        const k = isDailyView ? format(transitionDate, 'MMM d') : format(transitionDate, 'MMM');
+        const trend = trendMap.get(k);
+        if (trend) {
+          if (isCompletedStatus(order.sltsStatus)) trend.completed++;
+          else if (order.sltsStatus === 'INPROGRESS') trend.pending++;
         }
       });
 
@@ -394,10 +415,11 @@ export class ReportService {
         ...data
       }));
 
-      // O(n) - Single pass summary aggregation instead of 4 separate filters
+      // O(n) - Single pass summary aggregation
+      // INSTALL_CLOSED is a completed installation (has completedDate), same as COMPLETED
       const summary = { total: orders.length, completed: 0, pending: 0, returned: 0 };
       for (const o of orders) {
-        if (o.sltsStatus === 'COMPLETED') summary.completed++;
+        if (o.sltsStatus === 'COMPLETED' || o.sltsStatus === 'INSTALL_CLOSED') summary.completed++;
         else if (o.sltsStatus === 'INPROGRESS') summary.pending++;
         else if (o.sltsStatus === 'RETURN') summary.returned++;
       }

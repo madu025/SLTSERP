@@ -85,6 +85,24 @@ export default function AreaManagerReportsPage() {
     const trendData = (data?.trendData as Record<string, unknown>[]) || [];
     const summary = (data?.summary as { total: number; completed: number; pending: number; returned: number }) || { total: 0, completed: 0, pending: 0, returned: 0 };
 
+    const handleExport = () => {
+        if (performanceData.length === 0) return;
+        const headers = ['Name', 'Total', 'Completed', 'Pending', 'Returned', 'Completion %'];
+        const rows = performanceData.map((item) => {
+            const total = item.completed + item.pending + item.returned;
+            const rate = total > 0 ? Math.round((item.completed / total) * 100) : 0;
+            return [item.name, total, item.completed, item.pending, item.returned, `${rate}%`];
+        });
+        const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `area-performance-${groupBy}-${period}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
             <Sidebar />
@@ -163,7 +181,7 @@ export default function AreaManagerReportsPage() {
                                 ))}
                             </div>
 
-                            <Button className="gap-2 bg-slate-900 hover:bg-slate-800">
+                            <Button onClick={handleExport} className="gap-2 bg-slate-900 hover:bg-slate-800">
                                 <Download className="w-4 h-4" /> Export
                             </Button>
                         </div>
@@ -238,11 +256,11 @@ export default function AreaManagerReportsPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {performanceData.map((item: PerformanceItem, idx: number) => {
+                                    {performanceData.map((item: PerformanceItem) => {
                                         const total = item.completed + item.pending + item.returned;
                                         const completionRate = total > 0 ? Math.round((item.completed / total) * 100) : 0;
                                         return (
-                                            <tr key={idx} className="hover:bg-slate-50">
+                                            <tr key={item.name} className="hover:bg-slate-50">
                                                 <td className="px-4 py-3 font-medium text-slate-900">{item.name}</td>
                                                 <td className="px-4 py-3 text-right text-slate-600">{total}</td>
                                                 <td className="px-4 py-3 text-right text-emerald-600 font-medium">{item.completed}</td>
