@@ -57,9 +57,15 @@ export class UserService {
             throw AppError.badRequest('USERNAME_PASSWORD_REQUIRED');
         }
 
+        // Strip null bytes to prevent PostgreSQL UTF8 encoding error (22021)
+        const sanitizedUsername = username.replace(/\0/g, '').trim();
+        if (!sanitizedUsername) {
+            throw AppError.badRequest('USERNAME_PASSWORD_REQUIRED');
+        }
+
         const user = await prisma.user.findFirst({
             where: {
-                username: { equals: username.trim(), mode: 'insensitive' }
+                username: { equals: sanitizedUsername, mode: 'insensitive' }
             },
             include: {
                 accessibleOpmcs: { select: { id: true, name: true } },
@@ -521,8 +527,15 @@ export class UserService {
      * Initiates a forgot password workflow
      */
     static async forgotPasswordVerify(username: string, employeeId: string) {
+        // Strip null bytes to prevent PostgreSQL UTF8 encoding error (22021)
+        const sanitizedUsername = username.replace(/\0/g, '').trim();
+        const sanitizedEmployeeId = employeeId.replace(/\0/g, '').trim();
+        if (!sanitizedUsername || !sanitizedEmployeeId) {
+            throw AppError.badRequest('USERNAME_AND_EMPLOYEE_ID_REQUIRED');
+        }
+
         const user = await prisma.user.findUnique({
-            where: { username },
+            where: { username: sanitizedUsername },
             select: {
                 id: true,
                 username: true,
@@ -534,7 +547,7 @@ export class UserService {
 
         if (!user) throw AppError.notFound('USER_NOT_FOUND');
 
-        if (user.employeeId !== employeeId) {
+        if (user.employeeId !== sanitizedEmployeeId) {
             throw AppError.badRequest('EMPLOYEE_ID_MISMATCH');
         }
 
