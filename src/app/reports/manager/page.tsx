@@ -8,15 +8,13 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     Area, ComposedChart, Line
 } from 'recharts';
-import { Download, Filter, Calendar as CalendarIcon, ArrowUpRight, ArrowDownRight, Users, TrendingUp } from "lucide-react";
+import { Calendar as CalendarIcon, Users, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface StatCardProps {
     title: string;
     value: React.ReactNode;
     subtext?: string;
-    trend?: 'up' | 'down';
-    trendValue?: string;
     icon: React.ComponentType<{ className?: string }>;
     colorClass: string;
 }
@@ -32,7 +30,7 @@ interface ManagerAnalyticsData {
     contractorPerformance?: Record<string, unknown>[];
 }
 
-const StatCard = ({ title, value, subtext, trend, trendValue, icon: Icon, colorClass }: StatCardProps) => (
+const StatCard = ({ title, value, subtext, icon: Icon, colorClass }: StatCardProps) => (
     <Card className="border-l-4" style={{ borderLeftColor: colorClass }}>
         <CardContent className="p-6">
             <div className="flex justify-between items-start">
@@ -44,17 +42,7 @@ const StatCard = ({ title, value, subtext, trend, trendValue, icon: Icon, colorC
                     <Icon className={`w-6 h-6 ${colorClass.replace('bg-', 'text-')}`} />
                 </div>
             </div>
-            <div className="mt-4 flex items-center text-sm">
-                {trend === 'up' ? (
-                    <ArrowUpRight className="w-4 h-4 text-emerald-600 mr-1" />
-                ) : (
-                    <ArrowDownRight className="w-4 h-4 text-rose-600 mr-1" />
-                )}
-                <span className={trend === 'up' ? 'text-emerald-600 font-medium' : 'text-rose-600 font-medium'}>
-                    {trendValue}
-                </span>
-                <span className="text-slate-400 ml-2">{subtext}</span>
-            </div>
+            {subtext && <p className="mt-4 text-sm text-slate-400">{subtext}</p>}
         </CardContent>
     </Card>
 );
@@ -155,12 +143,7 @@ export default function ManagerReportsPage() {
                                 </div>
                             )}
 
-                            <Button variant="outline" className="gap-2 bg-white">
-                                <Filter className="w-4 h-4" /> Filter
-                            </Button>
-                            <Button className="gap-2 bg-slate-900 hover:bg-slate-800">
-                                <Download className="w-4 h-4" /> Export Report
-                            </Button>
+
                         </div>
                     </div>
 
@@ -169,9 +152,7 @@ export default function ManagerReportsPage() {
                         <StatCard
                             title="Total Completion"
                             value={summary.totalCompletion || 0}
-                            subtext="Last 6 months"
-                            trend="up"
-                            trendValue="-"
+                            subtext="Selected period"
                             icon={TrendingUp}
                             colorClass="text-emerald-600"
                         />
@@ -179,8 +160,6 @@ export default function ManagerReportsPage() {
                             title="Pending Approvals"
                             value={data?.pendingApprovals || 0}
                             subtext="Requires attention"
-                            trend="down"
-                            trendValue="-"
                             icon={CalendarIcon}
                             colorClass="text-amber-500"
                         />
@@ -188,19 +167,8 @@ export default function ManagerReportsPage() {
                             title="Active Contractors"
                             value={summary.activeContractors || 0}
                             subtext="Currently deployed"
-                            trend="up"
-                            trendValue="+2"
                             icon={Users}
                             colorClass="text-blue-500"
-                        />
-                        <StatCard
-                            title="Material Efficiency"
-                            value="94.2%"
-                            subtext="Variance within limits"
-                            trend="up"
-                            trendValue="+1.2%"
-                            icon={CalendarIcon}
-                            colorClass="text-indigo-500"
                         />
                     </div>
 

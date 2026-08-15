@@ -763,12 +763,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', ...ROLE_GROUPS.SECTION_HEADS]
             },
             {
-                title: 'Operational Reports',
-                path: '/reports/user',
-                icon: ClipboardCheck,
-                allowedRoles: ['ALL']
-            },
-            {
                 title: 'Daily Operational',
                 path: '/reports/daily-operational',
                 icon: FileText,

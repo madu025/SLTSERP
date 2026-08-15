@@ -130,8 +130,8 @@ export default function FleetReportsPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 bg-white">
-                                            {byType.map((item, i) => (
-                                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                            {byType.map((item) => (
+                                                <tr key={item.payment_type} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="text-slate-700 font-medium">{item.payment_type?.replace(/_/g, ' ')}</td>
                                                     <td className="text-slate-900 font-semibold">{item.count}</td>
                                                     <td className="text-slate-900 font-bold">{formatCurrency(item.total_amount)}</td>
