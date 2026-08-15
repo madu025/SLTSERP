@@ -1,14 +1,18 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ReportService } from '@/services/core/report.service';
 import { z } from 'zod';
+import { PaymentTypeEnum, PaymentStatusEnum } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
+
+const PAYMENT_TYPE_VALUES = Object.values(PaymentTypeEnum) as [string, ...string[]];
+const PAYMENT_STATUS_VALUES = Object.values(PaymentStatusEnum) as [string, ...string[]];
 
 const querySchema = z.object({
     from_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
     to_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
-    payment_type: z.string().optional().nullable(),
-    status: z.string().optional().nullable(),
+    payment_type: z.enum(PAYMENT_TYPE_VALUES).optional().nullable(),
+    status: z.enum(PAYMENT_STATUS_VALUES).optional().nullable(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(500).default(50),
 });

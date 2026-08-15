@@ -153,7 +153,22 @@ export class ReportService {
    * Generates Analytics Report
    */
   static async getAnalyticsReport(view: string, period: string, options: AnalyticsReportOptions) {
+    const VALID_VIEWS = ['manager', 'area'] as const;
+    const VALID_PERIODS = ['Daily', 'Weekly', '1M', '3M', '6M', '1Y', 'CUSTOM'] as const;
+    const VALID_GROUP_BY = ['REGION', 'ARM', 'RTOM', 'COORDINATOR'] as const;
+
+    if (!VALID_VIEWS.includes(view as typeof VALID_VIEWS[number])) {
+      throw AppError.badRequest(`Invalid view: ${view}`);
+    }
+    if (!VALID_PERIODS.includes(period as typeof VALID_PERIODS[number])) {
+      throw AppError.badRequest(`Invalid period: ${period}`);
+    }
+
     const { customFrom, customTo, groupBy = 'RTOM' } = options;
+
+    if (groupBy && !VALID_GROUP_BY.includes(groupBy as typeof VALID_GROUP_BY[number])) {
+      throw AppError.badRequest(`Invalid groupBy: ${groupBy}`);
+    }
 
     // Calculate date range based on period
     let startDate: Date;
@@ -202,7 +217,7 @@ export class ReportService {
       const trendDataRaw = await prisma.serviceOrder.groupBy({
         by: ['completedDate'],
         where: {
-          sltsStatus: 'COMPLETED',
+          sltsStatus: { in: ['COMPLETED', 'INSTALL_CLOSED'] },
           completedDate: {
             gte: startDate,
             lte: endDate
@@ -791,8 +806,7 @@ export class ReportService {
     const { from_date, to_date, payment_type, status, page = 1, limit = 50 } = options;
     const skip = (page - 1) * limit;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {};
+    const where: Prisma.VMPaymentWhereInput = {};
     if (payment_type) where.payment_type = payment_type as PaymentTypeEnum;
     if (status) where.status = status as PaymentStatusEnum;
     if (from_date || to_date) {

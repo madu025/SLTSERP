@@ -23,8 +23,8 @@ export const GET = apiHandler(async (request, params) => {
         view: z.enum(VALID_VIEWS),
         period: z.enum(VALID_PERIODS),
         groupBy: z.enum(VALID_GROUP_BY),
-        from: z.string().nullable().optional(),
-        to: z.string().nullable().optional(),
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/).nullable().optional(),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/).nullable().optional(),
     }).safeParse({ view, period, groupBy, from: customFrom, to: customTo });
 
     if (!queryParams.success) {
