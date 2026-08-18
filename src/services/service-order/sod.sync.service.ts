@@ -705,9 +705,16 @@ export class SODSyncService {
 
         for (const chunk of updateChunks) {
             await Promise.all(chunk.map(async ({ existing, updatePayload, initialSltsStatus }) => {
-                const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
+                // No auto-restore: SOD numbers are unique. If SOD is RETURNED, keep it RETURNED.
+                // New work orders should come with new SOD numbers from portal.
                 const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
                 const isStatusChange = updatePayload.sltsStatus && updatePayload.sltsStatus !== existing.sltsStatus;
+
+                // Skip if trying to change RETURNED SOD back to active status
+                if (existing.sltsStatus === 'RETURN' && initialSltsStatus !== 'RETURN') {
+                    console.log(`[SYNC] Skipping restore of RETURNED SOD ${existing.soNum}. SOD numbers are unique - new work orders need new SOD numbers.`);
+                    return;
+                }
 
                 let blockStatusUpdate = false;
 
@@ -742,12 +749,7 @@ export class SODSyncService {
                         where: { id: existing.id },
                         data: {
                             ...updatePayload,
-                            sltsStatus: isRestoring ? 'INPROGRESS' : (updatePayload.sltsStatus as import("@prisma/client").ServiceOrderStatus),
-                            receivedDate: isRestoring ? new Date() : undefined,
-                            comments: isRestoring
-                                ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
-                                : undefined,
-                            returnReason: isRestoring ? null : undefined
+                            sltsStatus: updatePayload.sltsStatus as import("@prisma/client").ServiceOrderStatus
                         }
                     });
 
@@ -914,10 +916,8 @@ export class SODSyncService {
                             data: {
                                 status: 'DISAPPEARED',
                                 sltsStatus: 'DISAPPEARED',
-                                returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing',
-                                comments: disappearedSod.comments
-                                    ? `${disappearedSod.comments}\n[AUTO-SYNC] Disappeared from active portal list`
-                                    : '[AUTO-SYNC] Disappeared from active portal list'
+                                returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing'
+                                // No auto-sync comments - preserve real user comments
                             }
                         });
                         // No material rollback for DISAPPEARED status
@@ -1176,6 +1176,10 @@ export class SODSyncService {
 
         if (isCompletedStatus && !isServiceReturn) {
             dataToUpdate.sltsStatus = currentStatus === 'INSTALL_CLOSED' ? SodStatus.INSTALL_CLOSED : SodStatus.COMPLETED;
+            // Keep status field in sync with sltsStatus for INSTALL_CLOSED (fixes display on Install Closed page)
+            if (currentStatus === 'INSTALL_CLOSED') {
+                dataToUpdate.status = 'INSTALL_CLOSED';
+            }
 
             // 1. Work Done Date (INSTALL_CLOSED Date - Physical Field Work Completion)
             let installDate = serviceOrder?.completedDate;

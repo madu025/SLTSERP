@@ -310,10 +310,11 @@ function LoginContent() {
                     key={u.username}
                     type="button"
                     className={`slt-role-btn ${u.cls}`}
-                    onClick={() => {
+                    onClick={async () => {
                       form.setValue('username', u.username);
                       form.setValue('password', 'Admin@123');
-                      setTimeout(() => form.handleSubmit(onSubmit)(), 200);
+                      await form.trigger(['username', 'password']);
+                      form.handleSubmit(onSubmit)();
                     }}
                   >
                     {u.role}
