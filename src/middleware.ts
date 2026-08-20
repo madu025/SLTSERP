@@ -87,6 +87,23 @@ function isPublicPath(pathname: string, method: string): boolean {
     return false;
 }
 
+// ─── Security Headers (applied to ALL responses) ─────────────────────────────
+// Prevents clickjacking (CWE-1021), MIME sniffing, and information leakage.
+const securityHeaders: Record<string, string> = {
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-XSS-Protection': '0', // modern browsers ignore this; CSP handles it
+    'Content-Security-Policy': "frame-ancestors 'none'",
+};
+
+function applySecurityHeaders(response: NextResponse): NextResponse {
+    for (const [key, value] of Object.entries(securityHeaders)) {
+        response.headers.set(key, value);
+    }
+    return response;
+}
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -122,9 +139,10 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/static') ||
         isStaticAsset
     ) {
-        return NextResponse.next({
+        const publicResponse = NextResponse.next({
             request: { headers: requestHeaders }
         });
+        return applySecurityHeaders(publicResponse);
     }
 
     // Check for token
@@ -198,6 +216,9 @@ export async function middleware(request: NextRequest) {
             headers: requestHeaders,
         },
     });
+
+    // Apply security headers to all authenticated responses
+    applySecurityHeaders(response);
 
     // Add cache-busting headers for all authenticated page requests (not API/static)
     if (!pathname.startsWith('/api') && !pathname.startsWith('/_next') && !pathname.startsWith('/static')) {
