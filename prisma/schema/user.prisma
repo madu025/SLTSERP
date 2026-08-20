@@ -118,6 +118,8 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@index([tenantId, userId, isRead])
+  @@index([userId, type, isRead])
+  @@index([userId, type, link, isRead])
 }
 
 model NotificationTemplate {

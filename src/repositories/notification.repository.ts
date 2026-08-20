@@ -101,4 +101,69 @@ export class NotificationRepository {
             select: { userId: true }
         });
     }
+
+    /**
+     * Category-based upsert: replaces any existing UNREAD notification with the
+     * same userId + type + link combination. If found, updates it in-place and
+     * increments groupedCount to track consolidation. If not found, creates new.
+     *
+     * This prevents notification table bloat from repeated events of the same
+     * category (e.g. multiple SOD status updates for the same link).
+     */
+    static async replaceUnreadByCategory(
+        userId: string,
+        type: string,
+        link: string | null | undefined,
+        data: {
+            title: string;
+            message: string;
+            priority?: string;
+            metadata?: Record<string, unknown> | null;
+        },
+        tx?: any
+    ) {
+        const client = tx || prisma;
+
+        // Find the latest unread notification in this category
+        const existing = await client.notification.findFirst({
+            where: {
+                userId,
+                type,
+                link: link ?? null,
+                isRead: false,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        if (existing) {
+            // Update in-place: replace content, bump groupedCount, refresh timestamp
+            const updated = await client.notification.update({
+                where: { id: existing.id },
+                data: {
+                    title: data.title,
+                    message: data.message,
+                    priority: data.priority ?? existing.priority,
+                    ...(data.metadata !== undefined ? { metadata: data.metadata } : {}),
+                    groupedCount: { increment: 1 },
+                    updatedAt: new Date(),
+                },
+            });
+            return { notification: updated, replaced: true };
+        }
+
+        // No existing unread -- create fresh
+        const created = await client.notification.create({
+            data: {
+                userId,
+                type,
+                link: link ?? null,
+                title: data.title,
+                message: data.message,
+                priority: data.priority ?? 'MEDIUM',
+                ...(data.metadata !== undefined ? { metadata: data.metadata } : {}),
+                groupedCount: 1,
+            },
+        });
+        return { notification: created, replaced: false };
+    }
 }

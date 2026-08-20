@@ -23,7 +23,10 @@ const getDedupHash = (title: string, message: string) => {
 
 export class NotificationService {
     /**
-     * Create a new notification for a user
+     * Create a new notification for a user.
+     * By default uses category-based upsert: if an unread notification with the
+     * same userId + type + link exists, it is replaced in-place (groupedCount++).
+     * Set replaceByCategory: false to always insert a new row.
      */
     static async send({
         userId,
@@ -32,7 +35,8 @@ export class NotificationService {
         type = 'SYSTEM',
         priority = 'MEDIUM',
         link,
-        metadata
+        metadata,
+        replaceByCategory = true
     }: {
         userId: string;
         title: string;
@@ -41,6 +45,7 @@ export class NotificationService {
         priority?: NotificationPriority;
         link?: string;
         metadata?: Record<string, unknown>;
+        replaceByCategory?: boolean;
     }) {
         try {
             // Check user preferences
@@ -64,15 +69,33 @@ export class NotificationService {
             // Fix #6: Offload FIFO cleanup to background worker to prevent race conditions and DB stalls on API thread
             notificationsQueue.add('cleanup-fifo', { userId }, { removeOnComplete: true, removeOnFail: 5 }).catch(() => {});
 
-            const notification = await NotificationRepository.create({
-                userId,
-                title,
-                message,
-                type,
-                priority,
-                link,
-                metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
-            });
+            // Category-based upsert: replace existing unread notification in same category
+            // instead of accumulating duplicate rows (reduces egress + table bloat)
+            let notification;
+            if (replaceByCategory) {
+                const result = await NotificationRepository.replaceUnreadByCategory(
+                    userId,
+                    type,
+                    link,
+                    {
+                        title,
+                        message,
+                        priority,
+                        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
+                    }
+                );
+                notification = result.notification;
+            } else {
+                notification = await NotificationRepository.create({
+                    userId,
+                    title,
+                    message,
+                    type,
+                    priority,
+                    link,
+                    metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
+                });
+            }
 
             if (notification) {
                 emitNotification(userId, notification);

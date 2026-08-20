@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
+import { NotificationRepository } from '@/repositories/notification.repository';
 
 export interface SystemEvent {
     userId: string;
@@ -58,22 +59,24 @@ export class SystemService {
 
         // 2. Notification -- best-effort, outside the audit transaction.
         //    Failures are logged but never block the audit write above.
+        //    Uses category-based upsert: replaces any existing unread notification
+        //    with the same userId + type + link instead of accumulating rows.
         if (event.notify && event.notifyTitle && event.notifyMessage) {
             const notificationUserId = event.notifyUserId && this.UUID_RE.test(event.notifyUserId)
                 ? event.notifyUserId
                 : auditUserId;
             if (notificationUserId) {
                 try {
-                    await prisma.notification.create({
-                        data: {
-                            userId: notificationUserId,
+                    await NotificationRepository.replaceUnreadByCategory(
+                        notificationUserId,
+                        event.notifyType || 'SYSTEM',
+                        event.notifyLink,
+                        {
                             title: event.notifyTitle,
                             message: event.notifyMessage,
-                            type: event.notifyType || 'SYSTEM',
                             priority: event.notifyPriority || 'MEDIUM',
-                            link: event.notifyLink,
                         }
-                    });
+                    );
                 } catch (notifError) {
                     console.error('[NOTIFICATION-WRITE-FAILED]', {
                         auditId: auditLog?.id,
