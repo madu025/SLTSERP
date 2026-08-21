@@ -421,7 +421,7 @@ export class NotificationService {
                 COUNT(*) FILTER (WHERE link LIKE '/inventory/approvals%')::int AS "material",
                 COUNT(*) FILTER (WHERE link LIKE '/service-orders%')::int    AS "serviceOrders"
             FROM "Notification"
-            WHERE "userId" = $1 AND "isRead" = false
+            WHERE "userId" = $1::uuid AND "isRead" = false
         `, userId);
 
         const counts = groupedCounts[0] || { approvals: 0, helpdesk: 0, procurement: 0, contractors: 0, material: 0, serviceOrders: 0 };
