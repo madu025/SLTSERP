@@ -240,25 +240,46 @@ export class SODSyncService {
 
                 const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
 
-                // Optimization: Controlled concurrency chunking (50 concurrent updates at a time)
-                const updateChunkSize = 50;
-                for (let j = 0; j < ordersToUpdate.length; j += updateChunkSize) {
-                    const chunk = ordersToUpdate.slice(j, j + updateChunkSize);
-                    await Promise.all(chunk.map(async (order) => {
+                // Optimization: Batch UPDATE instead of individual updates (232K → ~100 queries)
+                if (ordersToUpdate.length > 0) {
+                    const idsToUpdate = ordersToUpdate.map(o => o.id);
+                    const invoicableIds = ordersToUpdate.filter(o => o.sltsPatStatus === 'PAT_PASSED').map(o => o.id);
+                    const nonInvoicableIds = ordersToUpdate.filter(o => o.sltsPatStatus !== 'PAT_PASSED').map(o => o.id);
+
+                    // Bulk update common fields
+                    await prisma.serviceOrder.updateMany({
+                        where: { id: { in: idsToUpdate } },
+                        data: { hoPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED' }
+                    });
+
+                    // Bulk update isInvoicable = true
+                    if (invoicableIds.length > 0) {
+                        await prisma.serviceOrder.updateMany({
+                            where: { id: { in: invoicableIds } },
+                            data: { isInvoicable: true }
+                        });
+                    }
+
+                    // Bulk update isInvoicable = false
+                    if (nonInvoicableIds.length > 0) {
+                        await prisma.serviceOrder.updateMany({
+                            where: { id: { in: nonInvoicableIds } },
+                            data: { isInvoicable: false }
+                        });
+                    }
+
+                    // Update hoPatDate per order (varying dates)
+                    for (const order of ordersToUpdate) {
                         const match = batchMap.get(order.soNum || '');
                         if (match) {
                             await prisma.serviceOrder.update({
                                 where: { id: order.id },
-                                data: {
-                                    hoPatStatus: 'PAT_PASSED',
-                                    hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                                    opmcPatStatus: 'PAT_PASSED',
-                                    isInvoicable: order.sltsPatStatus === 'PAT_PASSED'
-                                }
+                                data: { hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE) }
                             });
-                            totalUpdated++;
                         }
-                    }));
+                    }
+
+                    totalUpdated += ordersToUpdate.length;
                 }
             }
 
@@ -360,29 +381,37 @@ export class SODSyncService {
 
                 const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
 
-                // Optimization: Controlled concurrency chunking (5 concurrent transactions at a time to prevent deadlocks)
-                const updateChunkSize = 5;
-                for (let j = 0; j < ordersToUpdate.length; j += updateChunkSize) {
-                    const chunk = ordersToUpdate.slice(j, j + updateChunkSize);
-                    await Promise.all(chunk.map(async (order) => {
-                        const match = batchMap.get(order.soNum || '');
-                        if (match) {
-                            await prisma.$transaction(async (tx) => {
-                                await tx.serviceOrder.update({
-                                    where: { id: order.id },
-                                    data: {
-                                        hoPatStatus: 'PAT_REJECTED',
-                                        hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                                        isInvoicable: false
-                                    }
+                // Optimization: Batch UPDATE for common fields, then per-order transactions for rollbacks
+                if (ordersToUpdate.length > 0) {
+                    const idsToUpdate = ordersToUpdate.map(o => o.id);
+
+                    // Bulk update common fields (hoPatStatus, isInvoicable)
+                    await prisma.serviceOrder.updateMany({
+                        where: { id: { in: idsToUpdate } },
+                        data: { hoPatStatus: 'PAT_REJECTED', isInvoicable: false }
+                    });
+
+                    // Per-order transactions for hoPatDate + rollbacks
+                    const updateChunkSize = 5;
+                    for (let j = 0; j < ordersToUpdate.length; j += updateChunkSize) {
+                        const chunk = ordersToUpdate.slice(j, j + updateChunkSize);
+                        await Promise.all(chunk.map(async (order) => {
+                            const match = batchMap.get(order.soNum || '');
+                            if (match) {
+                                await prisma.$transaction(async (tx) => {
+                                    await tx.serviceOrder.update({
+                                        where: { id: order.id },
+                                        data: { hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE) }
+                                    });
+                                    // Trigger rollbacks since it got HO-rejected
+                                    await SODMaterialService.rollbackMaterialUsage(tx, order.id, 'HO_REJECT');
+                                    await LedgerService.rollbackSodTransaction(tx, order.id);
                                 });
-                                // Trigger rollbacks since it got HO-rejected
-                                await SODMaterialService.rollbackMaterialUsage(tx, order.id, 'HO_REJECT');
-                                await LedgerService.rollbackSodTransaction(tx, order.id);
-                            });
-                            totalUpdated++;
-                        }
-                    }));
+                            }
+                        }));
+                    }
+
+                    totalUpdated += ordersToUpdate.length;
                 }
             }
 
