@@ -720,10 +720,12 @@ export class SODSyncService {
                 // When portal restores a RETURNED SOD to active status, clear return-specific fields
                 if (isRestoring && initialSltsStatus === 'INPROGRESS') {
                     updatePayload.returnReason = null;
-                    updatePayload.receivedDate = new Date();
-                    const restoreComment = `[SYNC-RESTORED] Portal reactivated returned SOD (Status Date: ${updatePayload.statusDate ? new Date(updatePayload.statusDate as string).toLocaleDateString() : 'N/A'})`;
+                    // Use portal's CON_STATUS_DATE (actual reactivation date), not sync run time
+                    updatePayload.receivedDate = updatePayload.statusDate || new Date();
+                    const restoreDate = updatePayload.statusDate ? new Date(updatePayload.statusDate as string).toLocaleDateString() : 'N/A';
+                    const restoreComment = `[SYNC-RESTORED] Portal reactivated returned SOD (Reactivated: ${restoreDate})`;
                     updatePayload.comments = existing.comments ? `${existing.comments}\n${restoreComment}` : restoreComment;
-                    console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (portal reactivated)`);
+                    console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (reactivated: ${restoreDate})`);
                 }
 
                 let blockStatusUpdate = false;
