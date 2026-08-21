@@ -57,7 +57,7 @@ export class BOMInvoiceService {
         const unmatchedSoNums = uniqueSoNums.filter(soNum => !matchedSoNums.has(soNum.toLowerCase()));
         // Dynamically create/stub ServiceOrders that do not exist in the database (backlog backlog support)
         if (unmatchedSoNums.length > 0) {
-            const opmcs = await prisma.oPMC.findMany();
+            const opmcs = await prisma.oPMC.findMany({ select: { id: true, name: true, rtom: true }, orderBy: { rtom: 'asc' } });
             const contractors = await prisma.contractor.findMany();
             const defaultOpmc = opmcs[0];
             const defaultContractor = contractors.find(c => c.name.toUpperCase() === 'SLTS') || contractors[0];

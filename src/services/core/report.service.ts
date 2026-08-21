@@ -2,7 +2,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { subMonths, subDays, subYears, format } from 'date-fns';
 import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
-import { PaymentTypeEnum, PaymentStatusEnum, Prisma } from '@prisma/client';
+import { PaymentTypeEnum, PaymentStatusEnum, Prisma, ServiceOrderStatus } from '@prisma/client';
 import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
 
 export interface AnalyticsReportOptions {
@@ -560,13 +560,16 @@ export class ReportService {
     // Uses same logic as pending SODs table: excludes COMPLETED, INSTALL_CLOSED, RETURN, DISAPPEARED
     // and only includes PENDING, ASSIGNED, ASSIGN, INPROGRESS, PROV_CLOSED statuses.
     // receivedDate is canonical; fall back to createdAt when null.
+    const excludedStatuses: ServiceOrderStatus[] = [...SOD_EXCLUDED_FROM_PENDING] as ServiceOrderStatus[];
+    const pendingStatuses: ServiceOrderStatus[] = [...SOD_PENDING_DEFAULT_STATUSES] as ServiceOrderStatus[];
+
     const inHandMorningWhere: Prisma.ServiceOrderWhereInput = {
       OR: [
         { receivedDate: { lt: startDate } },
         { AND: [{ receivedDate: null }, { createdAt: { lt: startDate } }] }
       ],
-      sltsStatus: { notIn: SOD_EXCLUDED_FROM_PENDING as unknown as string[] },
-      status: { in: SOD_PENDING_DEFAULT_STATUSES as unknown as string[] }
+      sltsStatus: { notIn: excludedStatuses },
+      status: { in: pendingStatuses }
     };
 
     const [inHandMorningOrders, stbShortageInHandRaw, ontShortageInHandRaw] = await Promise.all([

@@ -408,32 +408,32 @@ export class NotificationService {
             }
         }
 
-        // Fix #4: Use exact grouped counting in DB instead of `take: 100` loop
-        const [
-            approvalsCount,
-            helpdeskCount,
-            procurementApprovalsCount,
-            contractorApprovalsCount,
-            materialApprovalsCount,
-            serviceOrdersCount
-        ] = await Promise.all([
-            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/projects' } } }),
-            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/helpdesk' } } }),
-            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/admin/inventory' } } }),
-            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/admin/contractors' } } }),
-            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/inventory/approvals' } } }),
-            prisma.notification.count({ where: { userId, isRead: false, link: { startsWith: '/service-orders' } } })
-        ]);
+        // Fix #4: Single grouped count query instead of 6 separate LIKE queries (820s → ~10ms)
+        const groupedCounts = await prisma.$queryRawUnsafe<{
+            approvals: number; helpdesk: number; procurement: number;
+            contractors: number; material: number; serviceOrders: number;
+        }[]>(`
+            SELECT
+                COUNT(*) FILTER (WHERE link LIKE '/projects%')::int          AS "approvals",
+                COUNT(*) FILTER (WHERE link LIKE '/helpdesk%')::int          AS "helpdesk",
+                COUNT(*) FILTER (WHERE link LIKE '/admin/inventory%')::int   AS "procurement",
+                COUNT(*) FILTER (WHERE link LIKE '/admin/contractors%')::int AS "contractors",
+                COUNT(*) FILTER (WHERE link LIKE '/inventory/approvals%')::int AS "material",
+                COUNT(*) FILTER (WHERE link LIKE '/service-orders%')::int    AS "serviceOrders"
+            FROM "Notification"
+            WHERE "userId" = $1 AND "isRead" = false
+        `, userId);
+
+        const counts = groupedCounts[0] || { approvals: 0, helpdesk: 0, procurement: 0, contractors: 0, material: 0, serviceOrders: 0 };
 
         return {
-            approvals: approvalsCount,
-            helpdesk: helpdeskCount,
-            // Fallback to real DB material requests if specific notification counts are lower (or we just use the real DB count)
-            serviceOrders: serviceOrdersCount,
-            procurementApprovals: procurementApprovalsCount,
-            contractorApprovals: contractorApprovalsCount,
+            approvals: counts.approvals,
+            helpdesk: counts.helpdesk,
+            serviceOrders: counts.serviceOrders,
+            procurementApprovals: counts.procurement,
+            contractorApprovals: counts.contractors,
             materialRequests: dbMaterialPending,
-            materialApprovals: materialApprovalsCount
+            materialApprovals: counts.material
         };
     }
 

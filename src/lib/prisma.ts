@@ -31,6 +31,9 @@ const getSafeDatabaseUrl = (url: string, isWorker: boolean = false) => {
             if (!urlObj.searchParams.has('connection_limit')) {
                 urlObj.searchParams.set('connection_limit', '10'); // Optimize serverless connections per container
             }
+            if (!urlObj.searchParams.has('pool_timeout')) {
+                urlObj.searchParams.set('pool_timeout', '30'); // Reduce connection churn → fewer pg_timezone_names queries
+            }
         } else {
             // Local Development: Force low connection pool to prevent Supabase Dev DB exhaustion (EMAXCONNSESSION)
             urlObj.searchParams.set('connection_limit', '3');

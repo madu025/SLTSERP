@@ -36,6 +36,27 @@ interface MaterialDetailInput {
 
 export class SODSyncService {
     /**
+     * Upsert PAT status records — replaces DELETE+INSERT pattern (saves 1 query per batch).
+     * Uses INSERT ... ON CONFLICT (soNum) DO UPDATE since soNum is @unique.
+     */
+    private static async upsertPatStatusBatch(records: Prisma.SLTPATStatusCreateManyInput[]): Promise<number> {
+        if (records.length === 0) return 0;
+        const cols = ['"soNum"', '"rtom"', '"lea"', '"voiceNumber"', '"sType"', '"orderType"',
+            '"task"', '"package"', '"conName"', '"patUser"', '"status"', '"source"', '"statusDate"', '"hasDuplicate"'];
+        const updateCols = cols.filter(c => c !== '"soNum"').map(c => `${c} = EXCLUDED.${c}`);
+        const sql = `INSERT INTO "SLTPATStatus" (${cols.join(', ')}) VALUES ${records.map((_, i) =>
+            `(${cols.map((_, j) => `$${i * cols.length + j + 1}`).join(', ')})`
+        ).join(', ')} ON CONFLICT ("soNum") DO UPDATE SET ${updateCols.join(', ')}`;
+        const flatValues = records.flatMap(r => [
+            r.soNum, r.rtom ?? null, r.lea ?? null, r.voiceNumber ?? null,
+            r.sType ?? null, r.orderType ?? null, r.task ?? null, r.package ?? null,
+            r.conName ?? null, r.patUser ?? null, r.status, r.source,
+            r.statusDate ?? null, r.hasDuplicate ?? false
+        ]);
+        const result = await prisma.$executeRawUnsafe(sql, ...flatValues);
+        return result;
+    }
+    /**
      * Sync PAT results from SLT APIs (OPMC Rejected and PAT Success)
      */
     static async syncPatResults(opmcId: UUID, rtom: string) {
@@ -73,13 +94,7 @@ export class SODSyncService {
                 statusDate: sltApiService.parseStatusDate(item.CON_STATUS_DATE) as Date
             }));
 
-            await prisma.sLTPATStatus.deleteMany({
-                where: { soNum: { in: soNums } }
-            });
-
-            await prisma.sLTPATStatus.createMany({
-                data: statusHistory as Prisma.SLTPATStatusCreateManyInput[]
-            });
+            await SODSyncService.upsertPatStatusBatch(statusHistory as Prisma.SLTPATStatusCreateManyInput[]);
 
             const matchingOrders = await prisma.serviceOrder.findMany({
                 where: {
@@ -211,14 +226,8 @@ export class SODSyncService {
 
                 const soNums = batch.map((b: SLTPATData) => b.SO_NUM);
 
-                await prisma.sLTPATStatus.deleteMany({
-                    where: { soNum: { in: soNums } }
-                });
-
-                const result = await prisma.sLTPATStatus.createMany({
-                    data: cacheData as Prisma.SLTPATStatusCreateManyInput[]
-                });
-                totalCached += result.count;
+                const upserted = await SODSyncService.upsertPatStatusBatch(cacheData as Prisma.SLTPATStatusCreateManyInput[]);
+                totalCached += upserted;
 
                 const ordersToUpdate = await prisma.serviceOrder.findMany({
                     where: {
@@ -338,14 +347,8 @@ export class SODSyncService {
 
                 const soNums = batch.map((b: SLTPATData) => b.SO_NUM);
 
-                await prisma.sLTPATStatus.deleteMany({
-                    where: { soNum: { in: soNums } }
-                });
-
-                const result = await prisma.sLTPATStatus.createMany({
-                    data: cacheData as Prisma.SLTPATStatusCreateManyInput[]
-                });
-                totalCached += result.count;
+                const upserted = await SODSyncService.upsertPatStatusBatch(cacheData as Prisma.SLTPATStatusCreateManyInput[]);
+                totalCached += upserted;
 
                 const ordersToUpdate = await prisma.serviceOrder.findMany({
                     where: {
@@ -569,9 +572,9 @@ export class SODSyncService {
         const sltSoNums = sltData.map(item => item.SO_NUM);
         const existingSods = await prisma.serviceOrder.findMany({
             where: { soNum: { in: sltSoNums } },
-            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
+            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, statusDate: true, contractorId: true }
         });
-        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments: string | null }>(
+        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; statusDate: Date | null; contractorId: string | null }>(
             existingSods.map(s => [s.soNum as string, s])
         );
 
@@ -597,7 +600,7 @@ export class SODSyncService {
         // ── Optimization: Collect new records in a batch, flush with createMany ──
         // Reduces O(N) individual DB round-trips to O(1) per OPMC
         const toCreate: Prisma.ServiceOrderUncheckedCreateInput[] = [];
-        const toUpdate: { existing: { id: string; soNum?: string | null; status: string; sltsStatus: string; returnReason?: string | null; contractorId?: string | null; completedDate?: Date | null; receivedDate?: Date | null; comments?: string | null; completionMode?: string | null; rtom?: string | null }, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
+        const toUpdate: { existing: { id: string; soNum?: string | null; status: string; sltsStatus: string; returnReason?: string | null; contractorId?: string | null; completedDate?: Date | null; receivedDate?: Date | null; comments?: string | null; completionMode?: string | null; rtom?: string | null; statusDate?: Date | null }, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
 
         for (const item of syncableData) {
             const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
@@ -756,12 +759,27 @@ export class SODSyncService {
                     delete updatePayload.completedDate;
                 }
 
+                // ── Change detection: skip DB write if nothing meaningful changed ──
+                // statusDate is the portal's last-modified timestamp. If it hasn't changed,
+                // the SOD data is identical to last sync — skip the entire transaction.
+                const incomingStatusDate = updatePayload.statusDate as Date | undefined;
+                const existingStatusDate = existing.statusDate;
+                const contractorChanged = updatePayload.contractorId !== undefined && updatePayload.contractorId !== existing.contractorId;
+                
+                if (!isStatusChange && !contractorChanged && incomingStatusDate && existingStatusDate) {
+                    const incomingTime = incomingStatusDate.getTime();
+                    const existingTime = new Date(existingStatusDate).getTime();
+                    if (Math.abs(incomingTime - existingTime) < 1000) {
+                        return; // statusDate unchanged, no status/contractor change → skip DB write
+                    }
+                }
+                
                 const [err] = await safe(prisma.$transaction(async (tx) => {
                     const updatedOrder = await tx.serviceOrder.update({
                         where: { id: existing.id },
                         data: {
                             ...updatePayload,
-                            sltsStatus: updatePayload.sltsStatus as import("@prisma/client").ServiceOrderStatus
+                            sltsStatus: updatePayload.sltsStatus as any
                         }
                     });
 
@@ -1153,13 +1171,17 @@ export class SODSyncService {
         let opmcId = serviceOrder?.opmcId;
         const rtomVal = (mapping.rtom as string) || (serviceOrder?.rtom);
         if (!opmcId && rtomVal) {
+            // Use exact match on indexed rtom column first, then fallback to prefix contains
             const opmc = await prisma.oPMC.findFirst({
+                where: { rtom: rtomVal.substring(0, 4) }
+            }) || await prisma.oPMC.findFirst({
                 where: { rtom: { contains: rtomVal.substring(0, 4), mode: 'insensitive' } }
             });
             opmcId = opmc?.id;
         }
         if (!opmcId) {
-            const firstOpmc = await prisma.oPMC.findFirst();
+            // Use indexed rtom ordering instead of bare seq scan
+            const firstOpmc = await prisma.oPMC.findFirst({ select: { id: true }, orderBy: { rtom: 'asc' } });
             opmcId = firstOpmc?.id || '';
         }
 

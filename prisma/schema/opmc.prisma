@@ -22,4 +22,7 @@ model OPMC {
   preErpMaterialBalances      PreErpMaterialBalance[]
   materialVarianceAdjustments MaterialVarianceAdjustment[]
   @@index([storeId])
+  @@index([region])
+  @@index([name])
+  @@index([province])
 }
