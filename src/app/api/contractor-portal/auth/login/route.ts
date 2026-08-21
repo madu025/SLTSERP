@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
             path: '/',
         });
 
-        return Response.json({
+        return NextResponse.json({
             message: 'Contractor login successful',
             token,
             user,

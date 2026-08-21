@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
 export const POST = apiHandler(async () => {
     const cookieStore = await cookies();
@@ -14,7 +15,7 @@ export const POST = apiHandler(async () => {
         path: '/',
     });
 
-    return Response.json({
+    return NextResponse.json({
         success: true,
         message: 'Logged out successfully'
     });
