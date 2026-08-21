@@ -180,6 +180,9 @@ export default function NexusAgent() {
     };
 
     useEffect(() => {
+        // Skip API calls on public/unauthenticated pages to prevent 401 errors
+        if (isPublicPath) return;
+
         fetchAlerts();
         fetchHistory();
         

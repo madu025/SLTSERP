@@ -227,6 +227,7 @@ model SODForensicAudit {
   voiceTestStatus String?      // PASS/FAIL
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  auditItems      SODAuditItem[]
 
   @@index([soNum])
 }
@@ -3186,6 +3187,7 @@ model ProjectInspection {
   inspectedAt     DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  checklistItems  ChecklistItem[]
 
   @@index([projectId])
 }

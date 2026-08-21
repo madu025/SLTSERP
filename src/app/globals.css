@@ -308,6 +308,11 @@ body.dark-mode table th {
   background-color: rgb(var(--color-sidebar)) !important; /* solid dark background */
 }
 
+/* Override global light header bg for tables with dark-themed headers */
+table.report-table-dark th {
+  background-color: inherit !important;
+}
+
 table td {
   padding-top: 6px !important;
   padding-bottom: 6px !important;

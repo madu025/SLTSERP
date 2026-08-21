@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { subMonths, subDays, subYears, format } from 'date-fns';
 import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
 import { PaymentTypeEnum, PaymentStatusEnum, Prisma } from '@prisma/client';
+import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
 
 export interface AnalyticsReportOptions {
   customFrom?: string | null;
@@ -555,28 +556,17 @@ export class ReportService {
 
     const sourceMap = new Map<string, string>(rawSources.map(s => [s.id, s.materialSource]));
 
-    // Morning carry-forward: orders received before today that were still
-    // open this morning (completed/returned today still counts as morning hand).
+    // Morning carry-forward: orders received before today that are still pending.
+    // Uses same logic as pending SODs table: excludes COMPLETED, INSTALL_CLOSED, RETURN, DISAPPEARED
+    // and only includes PENDING, ASSIGNED, ASSIGN, INPROGRESS, PROV_CLOSED statuses.
     // receivedDate is canonical; fall back to createdAt when null.
     const inHandMorningWhere: Prisma.ServiceOrderWhereInput = {
       OR: [
         { receivedDate: { lt: startDate } },
         { AND: [{ receivedDate: null }, { createdAt: { lt: startDate } }] }
       ],
-      AND: [
-        {
-          OR: [
-            { sltsStatus: { not: 'COMPLETED' } },
-            { statusDate: { gte: startDate } }
-          ]
-        },
-        {
-          OR: [
-            { sltsStatus: { not: 'RETURN' } },
-            { statusDate: { gte: startDate } }
-          ]
-        }
-      ]
+      sltsStatus: { notIn: SOD_EXCLUDED_FROM_PENDING as unknown as string[] },
+      status: { in: SOD_PENDING_DEFAULT_STATUSES as unknown as string[] }
     };
 
     const [inHandMorningOrders, stbShortageInHandRaw, ontShortageInHandRaw] = await Promise.all([

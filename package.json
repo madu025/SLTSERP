@@ -110,6 +110,7 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "pg": "^8.23.0",
     "prisma-docs-generator": "^0.8.0",
     "prisma-erd-generator": "^2.4.4",
     "tailwindcss": "^4",

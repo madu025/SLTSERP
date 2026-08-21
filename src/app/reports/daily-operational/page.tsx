@@ -109,6 +109,16 @@ export default function DailyOperationalReportPage() {
             shortages: { stb: 0, ont: 0 }
         };
 
+        const acc = (target: Record<string, number>, source: Record<string, number>) => {
+            Object.keys(source).forEach(k => {
+                if (k !== 'total' && typeof source[k] === 'number') target[k] = (target[k] || 0) + source[k];
+            });
+        };
+
+        const recalcTotal = (obj: Record<string, number>, keys: string[]) => {
+            obj.total = keys.reduce((sum, k) => sum + (typeof obj[k] === 'number' ? obj[k] : 0), 0);
+        };
+
         reportData.forEach((row) => {
             const region = row.region;
             if (!summaries[region]) {
@@ -116,12 +126,6 @@ export default function DailyOperationalReportPage() {
                 summaries[region].region = region;
                 summaries[region].rtom = `${region} TOTAL`;
             }
-
-            const acc = (target: Record<string, number>, source: Record<string, number>) => {
-                Object.keys(source).forEach(k => {
-                    if (typeof source[k] === 'number') target[k] = (target[k] || 0) + source[k];
-                });
-            };
 
             // Accumulate region totals
             summaries[region].regularTeams += row.regularTeams;
@@ -137,6 +141,14 @@ export default function DailyOperationalReportPage() {
             acc(summaries[region].balance, row.balance);
             acc(summaries[region].shortages, row.shortages);
 
+            // Recalculate totals from individual fields
+            recalcTotal(summaries[region].inHandMorning, ['nc', 'rl', 'data']);
+            recalcTotal(summaries[region].received, ['nc', 'rl', 'data']);
+            recalcTotal(summaries[region].completed, ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data']);
+            recalcTotal(summaries[region].returned, ['nc', 'rl', 'data']);
+            recalcTotal(summaries[region].wiredOnly, ['nc', 'rl', 'data']);
+            recalcTotal(summaries[region].balance, ['nc', 'rl', 'data']);
+
             // Accumulate grand totals
             grandTotal.regularTeams += row.regularTeams;
             grandTotal.teamsWorked += row.teamsWorked;
@@ -151,6 +163,14 @@ export default function DailyOperationalReportPage() {
             acc(grandTotal.balance, row.balance);
             acc(grandTotal.shortages, row.shortages);
         });
+
+        // Recalculate grand totals from individual fields
+        recalcTotal(grandTotal.inHandMorning, ['nc', 'rl', 'data']);
+        recalcTotal(grandTotal.received, ['nc', 'rl', 'data']);
+        recalcTotal(grandTotal.completed, ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data']);
+        recalcTotal(grandTotal.returned, ['nc', 'rl', 'data']);
+        recalcTotal(grandTotal.wiredOnly, ['nc', 'rl', 'data']);
+        recalcTotal(grandTotal.balance, ['nc', 'rl', 'data']);
 
         return { summaries, grandTotal };
     };
@@ -399,33 +419,33 @@ export default function DailyOperationalReportPage() {
 
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-[11px] border-collapse">
+                            <table className="w-full text-[11px] border-collapse report-table-dark">
                                 <thead className="bg-slate-900 text-white sticky top-0 z-20">
                                     <tr className="divide-x divide-slate-700">
-                                        <th rowSpan={2} className="px-2 py-2 text-left w-24">Province</th>
-                                        <th rowSpan={2} className="px-2 py-2 text-center w-20">RTOM</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-blue-900/50 text-center w-14">In Hand<br />(AM)</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-emerald-900/50 text-center w-14">Recv<br />Today</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-indigo-900 text-center w-14">Total<br />Hand</th>
-                                        <th colSpan={8} className="px-2 py-1 bg-green-900 text-center border-b border-green-800">Completed Orders</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-amber-900/50 text-center w-12">DW</th>
-                                        <th colSpan={3} className="px-2 py-1 bg-cyan-900 text-center border-b border-cyan-800">Poles</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-rose-900/50 text-center w-12">Ret<br />SOD</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-purple-900/50 text-center w-12">Wired<br />Only</th>
+                                        <th rowSpan={2} className="px-2 py-2 text-left w-24 bg-slate-900">Province</th>
+                                        <th rowSpan={2} className="px-2 py-2 text-center w-20 bg-slate-900">RTOM</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-blue-800 text-center w-14">In Hand<br />(AM)</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-emerald-800 text-center w-14">Recv<br />Today</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-indigo-800 text-center w-14">Total<br />Hand</th>
+                                        <th colSpan={8} className="px-2 py-1 bg-green-800 text-center border-b border-green-700">Completed Orders</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-amber-800 text-center w-12">DW</th>
+                                        <th colSpan={3} className="px-2 py-1 bg-cyan-800 text-center border-b border-cyan-700">Poles</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-rose-800 text-center w-12">Ret<br />SOD</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-purple-800 text-center w-12">Wired<br />Only</th>
                                         <th rowSpan={2} className="px-2 py-2 bg-slate-700 text-center w-16 uppercase">BAL</th>
                                     </tr>
-                                    <tr className="bg-green-800 text-[9px] uppercase font-bold tracking-tighter divide-x divide-slate-700">
-                                        <th className="px-0.5 py-1 w-7">CR</th>
-                                        <th className="px-0.5 py-1 w-7">RC</th>
-                                        <th className="px-0.5 py-1 w-7">UP</th>
-                                        <th className="px-0.5 py-1 w-7">FNC</th>
-                                        <th className="px-0.5 py-1 w-7">OR</th>
-                                        <th className="px-0.5 py-1 w-7">ML</th>
-                                        <th className="px-0.5 py-1 w-7">FRL</th>
-                                        <th className="px-1 py-1 w-10 bg-green-600">Total</th>
-                                        <th className="px-0.5 py-1 w-7 bg-cyan-700">5.6</th>
-                                        <th className="px-0.5 py-1 w-7 bg-cyan-700">6.7</th>
-                                        <th className="px-0.5 py-1 w-7 bg-cyan-700">8.0</th>
+                                    <tr className="text-white text-[9px] uppercase font-bold tracking-tighter divide-x divide-slate-700">
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">CR</th>
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">RC</th>
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">UP</th>
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">FNC</th>
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">OR</th>
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">ML</th>
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">FRL</th>
+                                        <th className="px-1 py-1 w-10 bg-green-600 text-white">Total</th>
+                                        <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">5.6</th>
+                                        <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">6.7</th>
+                                        <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">8.0</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white">
@@ -514,14 +534,14 @@ export default function DailyOperationalReportPage() {
                                 <p className="text-[11px] text-slate-500">Category split per RTOM for the FN Progress report</p>
                             </div>
                             <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-                                <table className="w-full text-[11px] border-collapse">
+                                <table className="w-full text-[11px] border-collapse report-table-dark">
                                     <thead className="bg-slate-900 text-white sticky top-0 z-10">
                                         <tr className="divide-x divide-slate-700">
-                                            <th className="px-2 py-2 text-left w-24">RTOM</th>
-                                            <th className="px-2 py-2 text-left w-32">Metric</th>
-                                            <th className="px-2 py-2 text-center w-16">NC</th>
-                                            <th className="px-2 py-2 text-center w-16">RL</th>
-                                            <th className="px-2 py-2 text-center w-16">DATA</th>
+                                            <th className="px-2 py-2 text-left w-24 bg-slate-900">RTOM</th>
+                                            <th className="px-2 py-2 text-left w-32 bg-slate-900">Metric</th>
+                                            <th className="px-2 py-2 text-center w-16 bg-slate-900">NC</th>
+                                            <th className="px-2 py-2 text-center w-16 bg-slate-900">RL</th>
+                                            <th className="px-2 py-2 text-center w-16 bg-slate-900">DATA</th>
                                             <th className="px-2 py-2 text-center w-16 bg-slate-700">Total</th>
                                         </tr>
                                     </thead>
