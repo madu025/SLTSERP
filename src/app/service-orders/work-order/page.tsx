@@ -346,24 +346,42 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         });
     };
 
-    const handleExportCSV = () => {
-        if (serviceOrders.length === 0) { toast.error("No data to export"); return; }
-        const headers = ["SO Number", "Customer", "Voice Number", "Status", "SLTS Status", "Contractor", "LEA", "Package", "Completed Date", "Revenue", "Contractor Amount"];
-        const rows = serviceOrders.map(o => [
-            o.soNum, o.customerName || "", o.voiceNumber || "", o.status, o.sltsStatus,
-            o.contractor?.name || o.directTeam || "", o.lea || "", o.package || "",
-            o.completedDate ? new Date(o.completedDate).toLocaleDateString('en-GB') : "",
-            o.revenueAmount ?? "", o.contractorAmount ?? ""
-        ]);
-        const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `SOD_${filterType}_${selectedRtom}_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success(`Exported ${serviceOrders.length} orders`);
+    const handleExportCSV = async () => {
+        if (!selectedRtomId) { toast.error("Select an RTOM first"); return; }
+        toast.loading("Fetching all records for export...");
+        try {
+            // Fetch ALL records (bypass pagination) with same filters
+            const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
+            const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
+            const searchParam = debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : '';
+            const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
+            const patParam = patFilter ? `&patFilter=${patFilter}` : '';
+            const matParam = matFilter ? `&matFilter=${matFilter}` : '';
+            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=1&limit=10000`, { cache: 'no-store' });
+            const json = await res.json();
+            const allOrders: ServiceOrder[] = Array.isArray(json?.items) ? json.items : [];
+            if (allOrders.length === 0) { toast.dismiss(); toast.error("No data to export"); return; }
+            const headers = ["SO Number", "Customer", "Voice Number", "Status", "SLTS Status", "Contractor", "LEA", "Package", "Completed Date", "Revenue", "Contractor Amount"];
+            const rows = allOrders.map(o => [
+                o.soNum, o.customerName || "", o.voiceNumber || "", o.status, o.sltsStatus,
+                o.contractor?.name || o.directTeam || "", o.lea || "", o.package || "",
+                o.completedDate ? new Date(o.completedDate).toLocaleDateString('en-GB') : "",
+                o.revenueAmount ?? "", o.contractorAmount ?? ""
+            ]);
+            const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `SOD_${filterType}_${selectedRtom}_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast.dismiss();
+            toast.success(`Exported ${allOrders.length} orders`);
+        } catch (err) {
+            toast.dismiss();
+            toast.error("Failed to export data");
+        }
     };
 
     const requestSort = (key: keyof ServiceOrder) => {

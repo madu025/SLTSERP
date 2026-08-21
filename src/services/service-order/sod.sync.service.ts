@@ -705,15 +705,25 @@ export class SODSyncService {
 
         for (const chunk of updateChunks) {
             await Promise.all(chunk.map(async ({ existing, updatePayload, initialSltsStatus }) => {
-                // No auto-restore: SOD numbers are unique. If SOD is RETURNED, keep it RETURNED.
-                // New work orders should come with new SOD numbers from portal.
+                // Track RETURN/restore transitions for material and ledger processing
                 const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
+                const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus !== 'RETURN');
                 const isStatusChange = updatePayload.sltsStatus && updatePayload.sltsStatus !== existing.sltsStatus;
 
-                // Skip if trying to change RETURNED SOD back to active status
-                if (existing.sltsStatus === 'RETURN' && initialSltsStatus !== 'RETURN') {
-                    console.log(`[SYNC] Skipping restore of RETURNED SOD ${existing.soNum}. SOD numbers are unique - new work orders need new SOD numbers.`);
+                // Portal can reactivate a returned SOD (RETURN → INPROGRESS). Allow it.
+                // But block RETURN → terminal status (COMPLETED/INSTALL_CLOSED) — those go through completed-sod-sync.
+                if (isRestoring && ['COMPLETED', 'INSTALL_CLOSED'].includes(initialSltsStatus)) {
+                    console.log(`[SYNC] Blocking RETURN→${initialSltsStatus} for ${existing.soNum}. Terminal transitions must go through completed-sod-sync.`);
                     return;
+                }
+
+                // When portal restores a RETURNED SOD to active status, clear return-specific fields
+                if (isRestoring && initialSltsStatus === 'INPROGRESS') {
+                    updatePayload.returnReason = null;
+                    updatePayload.receivedDate = new Date();
+                    const restoreComment = `[SYNC-RESTORED] Portal reactivated returned SOD (Status Date: ${updatePayload.statusDate ? new Date(updatePayload.statusDate as string).toLocaleDateString() : 'N/A'})`;
+                    updatePayload.comments = existing.comments ? `${existing.comments}\n${restoreComment}` : restoreComment;
+                    console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (portal reactivated)`);
                 }
 
                 let blockStatusUpdate = false;
