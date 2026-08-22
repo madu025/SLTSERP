@@ -627,20 +627,21 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                 <ManualEntryModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} onSubmit={(data) => addOrderMutation.mutate(data)} />
                 <ScheduleModal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} onSubmit={(data) => scheduleMutation.mutate({ orderId: selectedOrder?.id as string, data })} selectedOrder={selectedOrder} />
-                <CommentModal isOpen={showCommentModal} onClose={() => { setShowCommentModal(false); setPendingReturnOrder(null); }} onSubmit={(comment) => {
+                <CommentModal isOpen={showCommentModal} onClose={() => { setShowCommentModal(false); setPendingReturnOrder(null); }} onSubmit={(comment, returnDate) => {
                     if (pendingReturnOrder) {
                         updateStatusMutation.mutate({
                             id: pendingReturnOrder.id,
                             sltsStatus: 'RETURN',
                             returnReason: comment,
-                            comment: `[MANUAL RETURN from DISAPPEARED] ${comment}`
+                            comment: `[MANUAL RETURN from DISAPPEARED] ${comment}`,
+                            completedDate: returnDate || new Date().toISOString(),
                         });
                         setPendingReturnOrder(null);
                     } else {
                         commentMutation.mutate({ orderId: selectedOrder?.id as string, comment });
                     }
                     setShowCommentModal(false);
-                }} selectedOrder={selectedOrder} />
+                }} selectedOrder={selectedOrder} mode={pendingReturnOrder ? 'return' : 'comment'} />
                 <DetailModal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} selectedOrder={selectedOrder} />
                 <OrderActionModal 
                     isOpen={showActionModal} 

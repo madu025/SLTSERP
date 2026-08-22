@@ -19,11 +19,13 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { MessageSquare, History, X } from "lucide-react";
+import { MessageSquare, History, X, Calendar } from "lucide-react";
 import { DetailedServiceOrder, ServiceOrderComment } from "@/types/service-order";
+import { Input } from "@/components/ui/input";
 
 const commentSchema = z.object({
     comment: z.string().min(1, "Comment cannot be empty"),
+    returnDate: z.string().optional(),
 });
 
 type CommentFormValues = z.infer<typeof commentSchema>;
@@ -31,13 +33,14 @@ type CommentFormValues = z.infer<typeof commentSchema>;
 interface CommentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (comment: string) => void;
+    onSubmit: (comment: string, returnDate?: string) => void;
     selectedOrder: DetailedServiceOrder | null;
     // We can allow passing initial comment if editing
     initialComment?: string;
+    mode?: 'comment' | 'return';
 }
 
-export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder, initialComment = "" }: CommentModalProps) {
+export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder, initialComment = "", mode = 'comment' }: CommentModalProps) {
     const [history, setHistory] = React.useState<ServiceOrderComment[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
 
@@ -45,6 +48,7 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
         resolver: zodResolver(commentSchema),
         defaultValues: {
             comment: initialComment,
+            returnDate: new Date().toISOString().split('T')[0],
         },
     });
 
@@ -74,7 +78,7 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
     }, [isOpen, selectedOrder?.soNum, initialComment, form]);
 
     const handleSubmit = (values: CommentFormValues) => {
-        onSubmit(values.comment);
+        onSubmit(values.comment, values.returnDate);
         onClose();
     };
 
@@ -97,8 +101,11 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
                         </button>
                     </div>
                     <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5 text-rose-600" />
-                        Add Internal Note
+                        {mode === 'return' ? (
+                            <><Calendar className="w-5 h-5 text-rose-600" />Manual Return - DISAPPEARED SOD</>
+                        ) : (
+                            <><MessageSquare className="w-5 h-5 text-rose-600" />Add Internal Note</>
+                        )}
                     </DialogTitle>
                 </div>
 
@@ -166,10 +173,10 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
                             name="comment"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Comment</FormLabel>
+                                    <FormLabel>{mode === 'return' ? 'Return Reason' : 'Comment'}</FormLabel>
                                     <FormControl>
                                         <Textarea
-                                            placeholder="Enter your comment here..."
+                                            placeholder={mode === 'return' ? 'Enter return reason...' : 'Enter your comment here...'}
                                             rows={4}
                                             {...field}
                                         />
@@ -179,12 +186,31 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
                             )}
                         />
 
+                        {mode === 'return' && (
+                            <FormField
+                                control={form.control}
+                                name="returnDate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Return Date</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="date"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
                         <div className="flex gap-3 justify-end pt-2">
                             <Button type="button" variant="outline" onClick={onClose}>
                                 Cancel
                             </Button>
                             <Button type="submit">
-                                Save Comment
+                                {mode === 'return' ? 'Confirm Return' : 'Save Comment'}
                             </Button>
                         </div>
                     </form>
