@@ -605,6 +605,12 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                         setPendingReturnOrder(order);
                                         setShowCommentModal(true);
                                     }}
+                                    onFilterChange={(filterKey, filterValue) => {
+                                        if (filterKey === 'sltsStatus' && filterValue === 'DISAPPEARED') {
+                                            setStatusFilter('DISAPPEARED');
+                                            setCurrentPage(1);
+                                        }
+                                    }}
                                 />
                             )}
                         </div>

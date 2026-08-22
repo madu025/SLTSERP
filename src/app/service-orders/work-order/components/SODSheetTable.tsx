@@ -31,6 +31,7 @@ interface SODSheetTableProps {
     onUpdateField: (id: string, data: Record<string, unknown>) => Promise<unknown>;
     onOpenModal: (order: ServiceOrder, type: "detail" | "schedule" | "comment" | "action") => void;
     onPendingReturn?: (order: ServiceOrder) => void;
+    onFilterChange?: (filterKey: string, filterValue: string) => void;
     visibleColumns?: string[]; // Column keys from admin settings
 }
 
@@ -111,6 +112,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
         onUpdateField,
         onOpenModal,
         onPendingReturn,
+        onFilterChange,
         visibleColumns
     } = props;
 
@@ -121,7 +123,21 @@ export function SODSheetTable(props: SODSheetTableProps) {
     };
     // Map to keep track of saving states per cell (key: "orderId-fieldName")
     const [savingStates, setSavingStates] = useState<Record<string, "saving" | "saved" | "error" | null>>({});
-    const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+    const [columnFilters, setColumnFiltersState] = useState<Record<string, string>>({});
+
+    const setColumnFilters = (updater: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
+        setColumnFiltersState(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            // Find changed filter
+            for (const key of Object.keys(next)) {
+                if (next[key] !== prev[key]) {
+                    onFilterChange?.(key, next[key]);
+                    break;
+                }
+            }
+            return next;
+        });
+    };
 
     const filteredAndSortedOrders = useMemo(() => {
         let result = [...orders];
