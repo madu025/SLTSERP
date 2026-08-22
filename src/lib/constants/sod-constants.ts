@@ -63,7 +63,6 @@ export const SOD_EXCLUDED_FROM_PENDING = [
     SodStatus.COMPLETED,
     SodStatus.INSTALL_CLOSED,
     SodStatus.RETURN,
-    SodStatus.DISAPPEARED,
 ] as const;
 
 /** Sync statuses treated as completed (detailed master data processing) */
@@ -84,4 +83,5 @@ export const SOD_PENDING_DEFAULT_STATUSES = [
     SodStatus.ASSIGN,
     SodStatus.INPROGRESS,
     SodStatus.PROV_CLOSED,
+    SodStatus.DISAPPEARED,
 ] as const;

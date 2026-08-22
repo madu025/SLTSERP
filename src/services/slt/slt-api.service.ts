@@ -301,6 +301,47 @@ export class SLTApiService {
         }
     }
 
+    /**
+     * Fetch RETURNED SODs from SLT portal
+     */
+    async fetchReturnedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]> {
+        const endpoints = [
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load?x=ftth&z=${rtom}_${startDate}_${endDate}_RETURNED_SLTS`,
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=ftth&z=${rtom}_${startDate}_${endDate}_RETURNED_SLTS`
+        ];
+
+        for (const url of endpoints) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                    },
+                    signal: AbortSignal.timeout(30000),
+                });
+
+                if (response.ok) {
+                    const data: SLTApiResponse = await response.json();
+                    if (data && Array.isArray(data.data)) {
+                        return data.data.map((item) => {
+                            const status = item.CON_STATUS || 'RETURN';
+                            return {
+                                ...item,
+                                CON_STATUS: status === 'ASSIGN' ? 'ASSIGNED' : status,
+                                CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
+                            } as SLTServiceOrderData;
+                        });
+                    }
+                }
+            } catch {
+                // Try next endpoint
+            }
+        }
+        return [];
+    }
+
     parseStatusDate(dateStr: string | null): Date | null {
         if (!dateStr) return null;
         try {

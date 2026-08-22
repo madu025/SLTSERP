@@ -870,9 +870,10 @@ export class SODSyncService {
             const startDate = format(subMonths(today, 2), 'yyyy-MM-dd');
             const endDate = format(today, 'yyyy-MM-dd');
 
-            const [completedResults, rejectedResults] = await Promise.all([
+            const [completedResults, rejectedResults, returnedResults] = await Promise.all([
                 sltApiService.fetchCompletedSODs(rtom, startDate, endDate),
-                sltApiService.fetchOpmcRejected(rtom)
+                sltApiService.fetchOpmcRejected(rtom),
+                sltApiService.fetchReturnedSODs(rtom, startDate, endDate)
             ]);
 
             const externalStatusMap = new Map<string, { status: string; statusDate: string; rawItem?: unknown }>();
@@ -882,6 +883,10 @@ export class SODSyncService {
             });
 
             rejectedResults.forEach(item => {
+                externalStatusMap.set(item.SO_NUM, { status: item.CON_STATUS, statusDate: item.CON_STATUS_DATE, rawItem: item });
+            });
+
+            returnedResults.forEach(item => {
                 externalStatusMap.set(item.SO_NUM, { status: item.CON_STATUS, statusDate: item.CON_STATUS_DATE, rawItem: item });
             });
 

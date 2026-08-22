@@ -30,6 +30,7 @@ interface SODSheetTableProps {
     sortConfig: { key: keyof ServiceOrder; direction: "asc" | "desc" } | null;
     onUpdateField: (id: string, data: Record<string, unknown>) => Promise<unknown>;
     onOpenModal: (order: ServiceOrder, type: "detail" | "schedule" | "comment" | "action") => void;
+    onPendingReturn?: (order: ServiceOrder) => void;
     visibleColumns?: string[]; // Column keys from admin settings
 }
 
@@ -109,6 +110,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
         sortConfig,
         onUpdateField,
         onOpenModal,
+        onPendingReturn,
         visibleColumns
     } = props;
 
@@ -833,6 +835,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             <option value="INPROGRESS">IN PROGRESS</option>
                                             <option value="COMPLETED">COMPLETED</option>
                                             <option value="RETURN">RETURN</option>
+                                            <option value="DISAPPEARED">DISAPPEARED</option>
                                         </select>
                                     </div>
                                 </th>
@@ -1180,6 +1183,11 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                         onOpenModal(order, "action");
                                                         return;
                                                     }
+                                                    if (order.sltsStatus === "DISAPPEARED" && val === "RETURN") {
+                                                        e.target.value = order.sltsStatus;
+                                                        onPendingReturn?.(order);
+                                                        return;
+                                                    }
                                                     handleSaveField(order.id, "sltsStatus", val);
                                                 }}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "sltsStatus")}
@@ -1190,7 +1198,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                     order.sltsStatus === "COMPLETED" ? "text-emerald-500" :
                                                     order.sltsStatus === "RETURN" ? "text-rose-500" : 
                                                     order.sltsStatus === "OFFLINE" ? "text-slate-400" : 
-                                                    order.sltsStatus === "PROV_CLOSED" ? "text-blue-500" : "text-amber-500"
+                                                    order.sltsStatus === "PROV_CLOSED" ? "text-blue-500" : order.sltsStatus === "DISAPPEARED" ? "text-gray-500" : "text-amber-500"
                                                 }`}
                                             >
                                                 <option value="PENDING">PENDING</option>
@@ -1200,6 +1208,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 <option value="PROV_CLOSED">PROV CLOSED</option>
                                                 <option value="COMPLETED">COMPLETED</option>
                                                 <option value="RETURN">RETURN</option>
+                                                <option value="DISAPPEARED">DISAPPEARED</option>
                                             </select>
                                             {renderCellStatus(order.id, "sltsStatus")}
                                         </td>

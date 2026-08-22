@@ -77,6 +77,7 @@ export interface OrderCompletionData {
     date?: string;
     completedDate?: string;  // ISO date string for completedDate field
     sltsStatus?: string;
+    returnReason?: string;
     materialUsage?: Array<{
         itemId: string;
         quantity: number;

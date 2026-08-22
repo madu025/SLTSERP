@@ -83,6 +83,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const [showActionModal, setShowActionModal] = useState(false);
     const [showExcelModal, setShowExcelModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
+    const [pendingReturnOrder, setPendingReturnOrder] = useState<ServiceOrder | null>(null);
 
     const clearSodNotifications = React.useCallback(async () => {
         if (!selectedRtomId) return;
@@ -599,6 +600,11 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                         if (type === 'comment') setShowCommentModal(true);
                                         if (type === 'action') setShowActionModal(true);
                                     }}
+                                    onPendingReturn={(order) => {
+                                        setSelectedOrder(order);
+                                        setPendingReturnOrder(order);
+                                        setShowCommentModal(true);
+                                    }}
                                 />
                             )}
                         </div>
@@ -621,7 +627,20 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                 <ManualEntryModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} onSubmit={(data) => addOrderMutation.mutate(data)} />
                 <ScheduleModal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} onSubmit={(data) => scheduleMutation.mutate({ orderId: selectedOrder?.id as string, data })} selectedOrder={selectedOrder} />
-                <CommentModal isOpen={showCommentModal} onClose={() => setShowCommentModal(false)} onSubmit={(comment) => commentMutation.mutate({ orderId: selectedOrder?.id as string, comment })} selectedOrder={selectedOrder} />
+                <CommentModal isOpen={showCommentModal} onClose={() => { setShowCommentModal(false); setPendingReturnOrder(null); }} onSubmit={(comment) => {
+                    if (pendingReturnOrder) {
+                        updateStatusMutation.mutate({
+                            id: pendingReturnOrder.id,
+                            sltsStatus: 'RETURN',
+                            returnReason: comment,
+                            comment: `[MANUAL RETURN from DISAPPEARED] ${comment}`
+                        });
+                        setPendingReturnOrder(null);
+                    } else {
+                        commentMutation.mutate({ orderId: selectedOrder?.id as string, comment });
+                    }
+                    setShowCommentModal(false);
+                }} selectedOrder={selectedOrder} />
                 <DetailModal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} selectedOrder={selectedOrder} />
                 <OrderActionModal 
                     isOpen={showActionModal} 
