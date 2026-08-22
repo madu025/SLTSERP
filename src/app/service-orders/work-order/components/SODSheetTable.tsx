@@ -31,7 +31,8 @@ interface SODSheetTableProps {
     onUpdateField: (id: string, data: Record<string, unknown>) => Promise<unknown>;
     onOpenModal: (order: ServiceOrder, type: "detail" | "schedule" | "comment" | "action") => void;
     onPendingReturn?: (order: ServiceOrder) => void;
-    onFilterChange?: (filterKey: string, filterValue: string) => void;
+    columnFilters?: Record<string, string>;
+    onColumnFiltersChange?: (filters: Record<string, string>) => void;
     visibleColumns?: string[]; // Column keys from admin settings
 }
 
@@ -112,7 +113,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
         onUpdateField,
         onOpenModal,
         onPendingReturn,
-        onFilterChange,
+        columnFilters: externalColumnFilters,
+        onColumnFiltersChange,
         visibleColumns
     } = props;
 
@@ -123,42 +125,34 @@ export function SODSheetTable(props: SODSheetTableProps) {
     };
     // Map to keep track of saving states per cell (key: "orderId-fieldName")
     const [savingStates, setSavingStates] = useState<Record<string, "saving" | "saved" | "error" | null>>({});
-    const [columnFilters, setColumnFiltersState] = useState<Record<string, string>>({});
+    const [internalColumnFilters, setInternalColumnFilters] = useState<Record<string, string>>({});
 
+    // Use external filters if provided, otherwise use internal state
+    const columnFilters = externalColumnFilters ?? internalColumnFilters;
     const setColumnFilters = (updater: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
-        setColumnFiltersState(prev => {
-            const next = typeof updater === 'function' ? updater(prev) : updater;
-            // Find changed filter
-            for (const key of Object.keys(next)) {
-                if (next[key] !== prev[key]) {
-                    onFilterChange?.(key, next[key]);
-                    break;
-                }
-            }
-            return next;
-        });
+        if (onColumnFiltersChange) {
+            // External mode: call parent handler
+            const next = typeof updater === 'function' ? updater(columnFilters) : updater;
+            onColumnFiltersChange(next);
+        } else {
+            // Internal mode: update local state
+            setInternalColumnFilters(updater);
+        }
     };
 
     const filteredAndSortedOrders = useMemo(() => {
         let result = [...orders];
 
+        // Client-side filtering only for fields NOT handled server-side
+        // Server-side handles: sltsStatus, contractorId, teamId, voiceNumber, customerName, soNum, ontSerialNumber
+        // Client-side handles: completedDate, statusDate, scheduledDate, returnReason
         for (const [key, filterValue] of Object.entries(columnFilters)) {
             if (!filterValue) continue;
+            // Skip server-side filtered fields
+            if (['sltsStatus', 'contractorId', 'teamId', 'voiceNumber', 'customerName', 'soNum', 'ontSerialNumber'].includes(key)) continue;
             
             const lowerFilter = filterValue.toLowerCase();
             result = result.filter(order => {
-                if (key === "contractorId") {
-                    return order.contractorId === filterValue;
-                }
-                if (key === "teamId") {
-                    return order.teamId === filterValue;
-                }
-                if (key === "sltsStatus") {
-                    if (filterValue === "ASSIGNED") {
-                        return order.sltsStatus === "ASSIGNED" || order.status === "ASSIGNED" || order.status === "ASSIGN";
-                    }
-                    return order.sltsStatus === filterValue || order.status === filterValue;
-                }
                 if (key === "completedDate") {
                     const dateStr = order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "";
                     return dateStr.includes(filterValue);
@@ -174,11 +168,6 @@ export function SODSheetTable(props: SODSheetTableProps) {
                 if (key === "returnReason") {
                     const reason = order.returnReason || order.status || "";
                     return reason.toLowerCase().includes(lowerFilter);
-                }
-                if (key === "customerName") {
-                    const nameMatch = order.customerName?.toLowerCase().includes(lowerFilter) || false;
-                    const addressMatch = order.address?.toLowerCase().includes(lowerFilter) || false;
-                    return nameMatch || addressMatch;
                 }
                 
                 const val = order[key as keyof ServiceOrder];

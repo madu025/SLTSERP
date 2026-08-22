@@ -66,6 +66,7 @@ export interface GetServiceOrdersParams {
     statusFilter?: string;
     patFilter?: string;
     matFilter?: string;
+    columnFilters?: Record<string, string>;
     page?: number;
     limit?: number;
     cursor?: string;

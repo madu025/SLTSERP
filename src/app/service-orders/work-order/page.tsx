@@ -70,6 +70,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
+    const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
         key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' || filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
         direction: "desc"
@@ -159,7 +160,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     });
 
     const { data: qData, isLoading: isLoadingOrders, isError, refetch } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> }, meta?: { total: number, totalPages: number, page: number } }>({
-        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, currentPage, sortConfig],
+        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, columnFilters, currentPage, sortConfig],
         queryFn: async () => {
             if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
@@ -168,8 +169,9 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
+            const columnFiltersParam = Object.keys(columnFilters).length > 0 ? `&columnFilters=${encodeURIComponent(JSON.stringify(columnFilters))}` : '';
 
-            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${currentPage}&limit=${PAGE_LIMIT}&_t=${Date.now()}`, {
+            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}${columnFiltersParam}&page=${currentPage}&limit=${PAGE_LIMIT}&_t=${Date.now()}`, {
                 cache: 'no-store',
                 headers: {
                     'Pragma': 'no-cache',
@@ -263,6 +265,11 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             }
         }
     }, [urlRtom, safeOpmcs]);
+
+    // Reset currentPage when columnFilters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [columnFilters]);
 
     const handleOpmcChange = (value: string) => {
         if (value === 'ALL') {
@@ -455,7 +462,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                              <div className="flex items-center gap-1.5 shrink-0">
                                  {/* Status Filter (Only needed for Pending Dispatcher Grid) */}
                                  {filterType === 'pending' && (
-                                     <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
+                                     <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); setColumnFilters(prev => { const next = { ...prev }; delete next['sltsStatus']; return next; }); }}>
                                          <SelectTrigger className="h-7 w-[125px] border-border/40 bg-card text-xs font-semibold"><SelectValue /></SelectTrigger>
                                          <SelectContent>
                                              <SelectItem value="DEFAULT" className="text-xs">Filter by Status</SelectItem>
@@ -496,8 +503,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                  </Select>
 
                                  {/* Clear Filters */}
-                                 {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL') && (
-                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setCurrentPage(1); }} title="Clear all filters">
+                                 {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL' || Object.keys(columnFilters).length > 0) && (
+                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setColumnFilters({}); setCurrentPage(1); }} title="Clear all filters">
                                          <X className="w-3.5 h-3.5" />
                                      </Button>
                                  )}
@@ -605,12 +612,8 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                         setPendingReturnOrder(order);
                                         setShowCommentModal(true);
                                     }}
-                                    onFilterChange={(filterKey, filterValue) => {
-                                        if (filterKey === 'sltsStatus' && filterValue === 'DISAPPEARED') {
-                                            setStatusFilter('DISAPPEARED');
-                                            setCurrentPage(1);
-                                        }
-                                    }}
+                                    columnFilters={columnFilters}
+                                    onColumnFiltersChange={setColumnFilters}
                                 />
                             )}
                         </div>

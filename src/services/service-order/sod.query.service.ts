@@ -57,7 +57,7 @@ export class SODQueryService {
      * Get all service orders with filtering and sorting
      */
     static async getServiceOrders(params: GetServiceOrdersParams) {
-        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, page = 1, limit = 50, cursor, month, year } = params;
+        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, columnFilters, page = 1, limit = 50, cursor, month, year } = params;
 
         // Offset-based fallback for backward compatibility
         const skip = cursor ? 1 : (page - 1) * limit;
@@ -221,6 +221,8 @@ export class SODQueryService {
                 andFilters.push({ status: { in: [ServiceOrderStatus.ASSIGNED, ServiceOrderStatus.ASSIGN] } });
             } else if (statusFilter === 'OFFLINE') {
                 andFilters.push({ isOfflineWorkOrder: true });
+            } else if (statusFilter === 'DISAPPEARED') {
+                andFilters.push({ sltsStatus: ServiceOrderStatus.DISAPPEARED });
             } else {
                 andFilters.push({ status: statusFilter as ServiceOrderStatus });
             }
@@ -250,6 +252,44 @@ export class SODQueryService {
                 andFilters.push({ comments: { not: { contains: '[MATERIAL_COMPLETED]' } } });
             } else {
                 andFilters.push({ comments: { contains: '[MATERIAL_COMPLETED]' } });
+            }
+        }
+
+        // Column Filters (server-side)
+        if (columnFilters && Object.keys(columnFilters).length > 0) {
+            for (const [key, value] of Object.entries(columnFilters)) {
+                if (!value) continue;
+                switch (key) {
+                    case 'sltsStatus':
+                        // Skip if statusFilter already handles this
+                        if (!statusFilter || statusFilter === 'ALL' || statusFilter === 'DEFAULT') {
+                            andFilters.push({ sltsStatus: value as import("@prisma/client").ServiceOrderStatus });
+                        }
+                        break;
+                    case 'contractorId':
+                        andFilters.push({ contractorId: value });
+                        break;
+                    case 'teamId':
+                        andFilters.push({ teamId: value });
+                        break;
+                    case 'voiceNumber':
+                        andFilters.push({ voiceNumber: { contains: value, mode: 'insensitive' } });
+                        break;
+                    case 'customerName':
+                        andFilters.push({
+                            OR: [
+                                { customerName: { contains: value, mode: 'insensitive' } },
+                                { address: { contains: value, mode: 'insensitive' } }
+                            ]
+                        });
+                        break;
+                    case 'soNum':
+                        andFilters.push({ soNum: { contains: value, mode: 'insensitive' } });
+                        break;
+                    case 'ontSerialNumber':
+                        andFilters.push({ ontSerialNumber: { contains: value, mode: 'insensitive' } });
+                        break;
+                }
             }
         }
 

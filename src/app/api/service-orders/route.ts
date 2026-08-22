@@ -22,6 +22,7 @@ export const GET = apiHandler(async (request) => {
         statusFilter: searchParams.get('statusFilter') || undefined,
         patFilter: searchParams.get('patFilter') || undefined,
         matFilter: searchParams.get('matFilter') || undefined,
+        columnFilters: searchParams.get('columnFilters') ? JSON.parse(searchParams.get('columnFilters')!) : undefined,
         page: parseInt(searchParams.get('page') || '1'),
         limit: parseInt(searchParams.get('limit') || '50'),
         cursor: searchParams.get('cursor') || undefined,
