@@ -159,8 +159,11 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         }
     });
 
+    // Serialize columnFilters for stable query key (prevents unnecessary refetches)
+    const columnFiltersKey = React.useMemo(() => JSON.stringify(columnFilters), [columnFilters]);
+
     const { data: qData, isLoading: isLoadingOrders, isError, refetch } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> }, meta?: { total: number, totalPages: number, page: number } }>({
-        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, columnFilters, currentPage, sortConfig],
+        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, columnFiltersKey, currentPage, sortConfig],
         queryFn: async () => {
             if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
@@ -169,9 +172,9 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
-            const columnFiltersParam = Object.keys(columnFilters).length > 0 ? `&columnFilters=${encodeURIComponent(JSON.stringify(columnFilters))}` : '';
+            const columnFiltersParam = columnFiltersKey !== '{}' ? `&columnFilters=${encodeURIComponent(columnFiltersKey)}` : '';
 
-            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}${columnFiltersParam}&page=${currentPage}&limit=${PAGE_LIMIT}&_t=${Date.now()}`, {
+            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}${columnFiltersParam}&page=${currentPage}&limit=${PAGE_LIMIT}`, {
                 cache: 'no-store',
                 headers: {
                     'Pragma': 'no-cache',
