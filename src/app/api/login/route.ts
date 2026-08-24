@@ -17,20 +17,30 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
 
         const cookieStore = await cookies();
 
-        cookieStore.set('token', token, {
+        const cookieOptions = {
             httpOnly: true,
             // HTTPS-only in production; local dev still serves over plain HTTP
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            sameSite: 'lax' as const,
             maxAge: 86400, // 24 hours
             path: '/',
-        });
+        };
 
-        return NextResponse.json({
+        cookieStore.set('token', token, cookieOptions);
+
+        const response = NextResponse.json({
             message: 'Login successful',
             user,
             token,
         });
+
+        // Explicitly set Set-Cookie on the response to guarantee the header
+        // survives the apiHandler wrapper boundary (cookies().set() alone
+        // may not propagate through nested Response objects).
+        const cookieValue = `token=${token}; Max-Age=${cookieOptions.maxAge}; Path=${cookieOptions.path}; SameSite=${cookieOptions.sameSite}${cookieOptions.secure ? '; Secure' : ''}${cookieOptions.httpOnly ? '; HttpOnly' : ''}`;
+        response.headers.append('Set-Cookie', cookieValue);
+
+        return response;
 
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';

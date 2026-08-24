@@ -81,39 +81,56 @@ function LoginContent() {
 
   const onSubmit = async (values: LoginFormValues) => {
     setError("");
-    try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-        }
+    const maxRetries = 2;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for cold starts
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        const data = await response.json();
+        if (response.ok) {
+          localStorage.setItem("user", JSON.stringify(data.user));
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
 
-        const contractorLogin = isContractorRole(data.user?.role);
-        const storesLogin = isStoresRole(data.user?.role);
+          const contractorLogin = isContractorRole(data.user?.role);
+          const storesLogin = isStoresRole(data.user?.role);
 
-        // Note: mustChangePassword users are no longer redirected to /profile.
-        // The global ForcePasswordChangeModal handles the forced rotation UX
-        // on any page, so users can land on their normal destination.
-        if (callbackUrl) {
-          window.location.href = callbackUrl;
-        } else if (contractorLogin) {
-          window.location.href = "/contractor/dashboard";
-        } else if (storesLogin) {
-          window.location.href = "/inventory";
+          if (callbackUrl) {
+            window.location.href = callbackUrl;
+          } else if (contractorLogin) {
+            window.location.href = "/contractor/dashboard";
+          } else if (storesLogin) {
+            window.location.href = "/inventory";
+          } else {
+            window.location.href = "/dashboard";
+          }
+          return; // Success, exit
         } else {
-          window.location.href = "/dashboard";
+          // Auth error - don't retry, show immediately
+          setError(data.error?.message || data.message || "Login failed");
+          return;
         }
-      } else {
-        setError(data.message || "Login failed");
+      } catch (err) {
+        if (attempt < maxRetries) {
+          // Network/timeout error - retry after 1s
+          console.warn(`[LOGIN] Attempt ${attempt} failed, retrying...`, err);
+          await new Promise(r => setTimeout(r, 1000));
+        } else {
+          // Final attempt failed
+          const isTimeout = err instanceof DOMException && err.name === 'AbortError';
+          setError(isTimeout
+            ? "Server is starting up. Please try again."
+            : "Connection failed. Please check your network and try again.");
+        }
       }
-    } catch {
-      setError("Something went wrong. Please try again.");
     }
   };
 
