@@ -639,14 +639,15 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                 <ManualEntryModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} onSubmit={(data) => addOrderMutation.mutate(data)} />
                 <ScheduleModal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} onSubmit={(data) => scheduleMutation.mutate({ orderId: selectedOrder?.id as string, data })} selectedOrder={selectedOrder} />
-                <CommentModal isOpen={showCommentModal} onClose={() => { setShowCommentModal(false); setPendingReturnOrder(null); }} onSubmit={(comment) => {
+                <CommentModal isOpen={showCommentModal} onClose={() => { setShowCommentModal(false); setPendingReturnOrder(null); }} onSubmit={(comment, returnDate) => {
                     if (pendingReturnOrder) {
                         updateStatusMutation.mutate({
                             id: pendingReturnOrder.id,
                             sltsStatus: 'RETURN',
                             returnReason: comment,
                             comment: `[MANUAL RETURN from DISAPPEARED] ${comment}`,
-                            // Do NOT set completedDate - RETURN means connection did not complete
+                            // Set statusDate to return date (NOT completedDate - connection did not complete)
+                            statusDate: returnDate ? new Date(returnDate).toISOString() : new Date().toISOString(),
                         });
                         setPendingReturnOrder(null);
                     } else {
