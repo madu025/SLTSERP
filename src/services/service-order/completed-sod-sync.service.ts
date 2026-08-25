@@ -69,11 +69,11 @@ export class CompletedSODSyncService {
                     const allSoNums = uniqueResults.map(r => r.SO_NUM);
                     const localSODsBatch = allSoNums.length > 0 ? await prisma.serviceOrder.findMany({
                         where: { soNum: { in: allSoNums } },
-                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true, ontSerialNumber: true }
+                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true, ontSerialNumber: true, receivedDate: true }
                     }) : [];
 
                     // Group local service orders by soNum in-memory
-                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null, ontSerialNumber: string | null }>>();
+                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null, ontSerialNumber: string | null, receivedDate: Date | null }>>();
                     localSODsBatch.forEach(sod => {
                         const key = sod.soNum;
                         if (key) {

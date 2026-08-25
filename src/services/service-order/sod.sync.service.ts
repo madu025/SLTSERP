@@ -601,9 +601,9 @@ export class SODSyncService {
         const sltSoNums = sltData.map(item => item.SO_NUM);
         const existingSods = await prisma.serviceOrder.findMany({
             where: { soNum: { in: sltSoNums } },
-            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, statusDate: true, contractorId: true }
+            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, statusDate: true, contractorId: true, receivedDate: true }
         });
-        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; statusDate: Date | null; contractorId: string | null }>(
+        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; statusDate: Date | null; contractorId: string | null; receivedDate: Date | null }>(
             existingSods.map(s => [s.soNum as string, s])
         );
 
