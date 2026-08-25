@@ -193,7 +193,9 @@ export class SODQueryService {
                     { sltsStatus: ServiceOrderStatus.INSTALL_CLOSED }
                 ],
                 // DISAPPEARED (portal connection lost before completion) must never surface here
-                sltsStatus: { notIn: [ServiceOrderStatus.RETURN, ServiceOrderStatus.DISAPPEARED] }
+                sltsStatus: { notIn: [ServiceOrderStatus.RETURN, ServiceOrderStatus.DISAPPEARED] },
+                // Also exclude if status field is DISAPPEARED (stale value from sync issues)
+                status: { notIn: [ServiceOrderStatus.DISAPPEARED, ServiceOrderStatus.RETURNED] }
             });
         } else if (filter === 'completed') {
             andFilters.push({
@@ -206,7 +208,8 @@ export class SODQueryService {
                     { sltsStatus: ServiceOrderStatus.PROV_CLOSED },
                     { sltsStatus: ServiceOrderStatus.RETURN },
                     { status: ServiceOrderStatus.RETURNED },
-                    { sltsStatus: ServiceOrderStatus.DISAPPEARED }
+                    { sltsStatus: ServiceOrderStatus.DISAPPEARED },
+                    { status: ServiceOrderStatus.DISAPPEARED }
                 ]
             });
         } else if (filter === 'disappeared') {
