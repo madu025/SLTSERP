@@ -108,7 +108,12 @@ export class CompletedSODSyncService {
                             // CHECK MAP: Look for ANY record with this SO_NUM
                             const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
 
-                            const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
+                            const rawCompletedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
+                            // For returned SODs that are re-completed, CON_STATUS_DATE might be the original date
+                            // Use receivedDate (reactivation date) if it's later than CON_STATUS_DATE
+                            const completedDate = (localSODs[0]?.receivedDate && rawCompletedDate < localSODs[0].receivedDate)
+                                ? localSODs[0].receivedDate
+                                : rawCompletedDate;
                             const isCompletionStatus = finalSltsStatus === SodStatus.COMPLETED || finalSltsStatus === SodStatus.INSTALL_CLOSED;
                             // Enum-guard legacy status — raw portal strings outside the enum must not hit Prisma
                             const legacyStatus = SERVICE_ORDER_STATUS_VALUES.has((sltData.CON_STATUS || '').toUpperCase())

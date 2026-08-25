@@ -680,6 +680,13 @@ export class SODSyncService {
             }
 
             const existing = existingMap.get(item.SO_NUM);
+
+            // For returned SODs that are re-completed, CON_STATUS_DATE might be the original date
+            // Use receivedDate (reactivation date) if it's later than CON_STATUS_DATE
+            const effectiveCompletedDate = (initialSltsStatus === 'COMPLETED' || isInstallClosed)
+                ? (existing?.receivedDate && statusDate < existing.receivedDate ? existing.receivedDate : statusDate)
+                : undefined;
+
             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
                 lea: item.LEA,
                 voiceNumber: item.VOICENUMBER,
@@ -699,7 +706,7 @@ export class SODSyncService {
                 ospPhoneClass: item.CON_OSP_PHONE_CLASS,
                 phonePurchase: item.CON_PHN_PURCH,
                 sales: item.CON_SALES,
-                completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed) ? statusDate : undefined,
+                completedDate: effectiveCompletedDate,
                 sltsStatus: effectiveSltsStatus,
                 isOfflineWorkOrder: isOfflineFlag ? true : undefined,
                 contractorId: contractorId || undefined,
