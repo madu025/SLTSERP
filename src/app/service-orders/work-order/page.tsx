@@ -46,7 +46,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     // Filter State
     const [selectedRtomId, setSelectedRtomId] = useState<string>("");
     const [selectedRtom, setSelectedRtom] = useState<string>("");
-    const [selectedMonth, setSelectedMonth] = useState<string>(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : String(new Date().getMonth() + 1));
+    const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
     const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
     const [searchTerm, setSearchTerm] = useState(urlSearch || "");
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(urlSearch || "");
