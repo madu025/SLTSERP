@@ -72,8 +72,6 @@ export const SOD_SYNC_COMPLETION_STATUSES = [
     SodStatus.PAT_OPMC_PASSED,
     'PAT_PASSED',
     'PAT_PASSED_OPMC',
-    SodStatus.CLOSED,
-    SodStatus.PASSED,
 ] as const;
 
 /** Default statuses shown in the pending table (status field) */

@@ -201,7 +201,7 @@ export class SODQueryService {
             andFilters.push({
                 OR: [
                     { sltsStatus: ServiceOrderStatus.COMPLETED },
-                    { status: { in: [ServiceOrderStatus.COMPLETED, ServiceOrderStatus.PAT_OPMC_PASSED, ServiceOrderStatus.PAT_CORRECTED, ServiceOrderStatus.CLOSED, ServiceOrderStatus.PASSED] } }
+                    { status: { in: [ServiceOrderStatus.COMPLETED, ServiceOrderStatus.PAT_OPMC_PASSED, ServiceOrderStatus.PAT_CORRECTED] } }
                 ],
                 NOT: [
                     { status: ServiceOrderStatus.PROV_CLOSED },

@@ -1258,7 +1258,7 @@ export class SODSyncService {
         const currentStatus = statusStr.toUpperCase();
 
         const isCompletedStatus =
-            [SodStatus.COMPLETED, 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'CLOSED', 'PASSED'].includes(currentStatus);
+            [SodStatus.COMPLETED, 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus);
 
         if (isCompletedStatus && !isServiceReturn) {
             dataToUpdate.sltsStatus = currentStatus === 'INSTALL_CLOSED' ? SodStatus.INSTALL_CLOSED : SodStatus.COMPLETED;
