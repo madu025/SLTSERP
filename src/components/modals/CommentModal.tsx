@@ -25,7 +25,6 @@ import { Input } from "@/components/ui/input";
 
 const commentSchema = z.object({
     comment: z.string().min(1, "Comment cannot be empty"),
-    returnDate: z.string().optional(),
 });
 
 type CommentFormValues = z.infer<typeof commentSchema>;
@@ -33,7 +32,7 @@ type CommentFormValues = z.infer<typeof commentSchema>;
 interface CommentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (comment: string, returnDate?: string) => void;
+    onSubmit: (comment: string) => void;
     selectedOrder: DetailedServiceOrder | null;
     // We can allow passing initial comment if editing
     initialComment?: string;
@@ -48,7 +47,6 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
         resolver: zodResolver(commentSchema),
         defaultValues: {
             comment: initialComment,
-            returnDate: new Date().toISOString().split('T')[0],
         },
     });
 
@@ -78,7 +76,7 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
     }, [isOpen, selectedOrder?.soNum, initialComment, form]);
 
     const handleSubmit = (values: CommentFormValues) => {
-        onSubmit(values.comment, values.returnDate);
+        onSubmit(values.comment);
         onClose();
     };
 
@@ -185,25 +183,6 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
                                 </FormItem>
                             )}
                         />
-
-                        {mode === 'return' && (
-                            <FormField
-                                control={form.control}
-                                name="returnDate"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Return Date</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="date"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        )}
 
                         <div className="flex gap-3 justify-end pt-2">
                             <Button type="button" variant="outline" onClick={onClose}>
