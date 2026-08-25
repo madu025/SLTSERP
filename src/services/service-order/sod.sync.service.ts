@@ -1255,9 +1255,11 @@ export class SODSyncService {
 
         if (isCompletedStatus && !isServiceReturn) {
             dataToUpdate.sltsStatus = currentStatus === 'INSTALL_CLOSED' ? SodStatus.INSTALL_CLOSED : SodStatus.COMPLETED;
-            // Keep status field in sync with sltsStatus for INSTALL_CLOSED (fixes display on Install Closed page)
+            // Keep status field in sync with sltsStatus (fixes display on completed/install-closed pages)
             if (currentStatus === 'INSTALL_CLOSED') {
                 dataToUpdate.status = 'INSTALL_CLOSED';
+            } else {
+                dataToUpdate.status = 'COMPLETED';
             }
 
             // 1. Work Done Date (INSTALL_CLOSED Date - Physical Field Work Completion)
