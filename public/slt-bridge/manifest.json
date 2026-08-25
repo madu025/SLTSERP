@@ -13,14 +13,6 @@
     "host_permissions": [
         "https://serviceportal.slt.lk/*",
         "https://*.slt.lk/*",
-        "http://localhost/*",
-        "http://localhost:*/*",
-        "https://localhost/*",
-        "https://localhost:*/*",
-        "http://127.0.0.1/*",
-        "http://127.0.0.1:*/*",
-        "https://127.0.0.1/*",
-        "https://127.0.0.1:*/*",
         "https://d2ixqikwtprwf0.cloudfront.net/*",
         "https://sltserp.vercel.app/*"
     ],
@@ -49,14 +41,6 @@
         },
         {
             "matches": [
-                "http://localhost/*",
-                "http://localhost:*/*",
-                "https://localhost/*",
-                "https://localhost:*/*",
-                "http://127.0.0.1/*",
-                "http://127.0.0.1:*/*",
-                "https://127.0.0.1/*",
-                "https://127.0.0.1:*/*",
                 "https://d2ixqikwtprwf0.cloudfront.net/*",
                 "https://sltserp.vercel.app/*"
             ],
@@ -65,14 +49,6 @@
         },
         {
             "matches": [
-                "http://localhost/*",
-                "http://localhost:*/*",
-                "https://localhost/*",
-                "https://localhost:*/*",
-                "http://127.0.0.1/*",
-                "http://127.0.0.1:*/*",
-                "https://127.0.0.1/*",
-                "https://127.0.0.1:*/*",
                 "https://d2ixqikwtprwf0.cloudfront.net/*",
                 "https://sltserp.vercel.app/*"
             ],
