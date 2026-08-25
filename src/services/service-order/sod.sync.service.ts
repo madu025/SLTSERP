@@ -917,8 +917,10 @@ export class SODSyncService {
                                 statusDate,
                                 sltsStatus: nextSltsStatus as import("@prisma/client").ServiceOrderStatus,
                                 completionMode: isOfflineType ? 'OFFLINE' : undefined,
-                                completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED') ? statusDate : undefined,
+                                completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED') ? statusDate : null,
                                 returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined,
+                                // Clear completion data for RETURN - connection did not complete successfully
+                                ...(nextSltsStatus === 'RETURN' ? { revenueAmount: null, contractorAmount: null } : {}),
                                 // Clear stale "[AUTO-SYNC] Disappeared" comment when recovering from DISAPPEARED
                                 comments: null,
                             };
@@ -980,11 +982,20 @@ export class SODSyncService {
                             data: {
                                 status: 'DISAPPEARED',
                                 sltsStatus: 'DISAPPEARED',
-                                returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing'
+                                returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing',
+                                // Clear stale completion data - DISAPPEARED means connection never completed
+                                completedDate: null,
+                                revenueAmount: null,
+                                contractorAmount: null,
+                                contractorId: null,
+                                teamId: null,
                                 // No auto-sync comments - preserve real user comments
                             }
                         });
-                        // No material rollback for DISAPPEARED status
+                        // Material rollback for DISAPPEARED: clear any material usage records
+                        await tx.sODMaterialUsage.deleteMany({
+                            where: { serviceOrderId: disappearedSod.id }
+                        });
 
                         // Audit trail: record DISAPPEARED transition
                         await SODLifecycleService.handlePostUpdate(
@@ -1302,6 +1313,10 @@ export class SODSyncService {
             dataToUpdate.comments = serviceOrder?.comments
                 ? `${serviceOrder.comments}\n[AI_CLASSIFIED] Reason: ${rawReason}`
                 : `[AI_CLASSIFIED] Reason: ${rawReason}`;
+            // Clear completion data - RETURN means connection did not complete successfully
+            dataToUpdate.completedDate = null;
+            dataToUpdate.revenueAmount = null;
+            dataToUpdate.contractorAmount = null;
         }
 
         const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;

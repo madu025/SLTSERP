@@ -165,6 +165,14 @@ export class SODQueryService {
             }
         }
 
+        // ── Summary metrics scope (BEFORE status/column/mat filters) ──────
+        // Summary cards show the FULL picture for the selected RTOM + date range.
+        // Table-level filters (statusFilter, columnFilters, matFilter, search)
+        // only affect the paginated item list, not the summary metrics.
+        const summaryWhereClause: Prisma.ServiceOrderWhereInput = {
+            AND: [...andFilters]
+        };
+
         // Status Filtering (using centralized constants from sod-constants.ts)
         const completionStatuses = SOD_QUERY_COMPLETION_STATUSES as unknown as ServiceOrderStatus[];
         const excludedSltsStatuses = SOD_EXCLUDED_FROM_PENDING as unknown as ServiceOrderStatus[];
@@ -292,11 +300,6 @@ export class SODQueryService {
                 }
             }
         }
-
-        // Clone the current andFilters for summary metrics (excludes search term table scans)
-        const summaryWhereClause: Prisma.ServiceOrderWhereInput = {
-            AND: [...andFilters]
-        };
 
         // Add the search term filter ONLY to the main list items and total count query
         if (search) {
@@ -437,9 +440,17 @@ export class SODQueryService {
                 }
             }),
             prisma.serviceOrder.count({
+                // Missing = DISAPPEARED: query independently with OPMC scope only
+                // (not summaryWhereClause which includes statusFilter that may exclude DISAPPEARED)
                 where: {
-                    ...summaryWhereClause,
-                    comments: { contains: '[MISSING FROM SYNC' }
+                    ...(targetOpmcId
+                        ? { opmcId: targetOpmcId }
+                        : params.accessibleOpmcs && params.accessibleOpmcs.length > 0
+                            ? { opmcId: { in: params.accessibleOpmcs } }
+                            : params.accessibleOpmcs !== undefined
+                                ? { opmcId: '00000000-0000-0000-0000-000000000000' }
+                                : {}),
+                    sltsStatus: ServiceOrderStatus.DISAPPEARED
                 }
             })
         ]);

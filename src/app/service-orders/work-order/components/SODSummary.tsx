@@ -93,7 +93,7 @@ export function SODSummary({ filterType, summary, missingCount }: SODSummaryProp
                     />
                     <SummaryCard 
                         title="Missing" 
-                        value={missingCount} 
+                        value={missingCount || summary.statusBreakdown?.DISAPPEARED || 0} 
                         icon={AlertCircle} 
                         colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
                     />
