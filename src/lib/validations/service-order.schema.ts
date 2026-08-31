@@ -3,7 +3,7 @@ import { SOD_WORKFLOW_STATUS_VALUES } from '@/lib/constants/sod-constants';
 
 export const serviceOrderPatchSchema = z.object({
     id: z.string().min(1, "ID is required"),
-    sltsStatus: z.enum(['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'OFFLINE', 'INSTALL_CLOSED']).optional(),
+    sltsStatus: z.enum(['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'INSTALL_CLOSED']).optional(),
     completedDate: z.string().optional().nullable(),
     contractorId: z.string().optional().nullable(),
     comments: z.string().optional().nullable(),

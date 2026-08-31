@@ -841,7 +841,6 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         >
                                             <option value="">All</option>
                                             <option value="PENDING">PENDING</option>
-                                            <option value="ASSIGNED">ASSIGNED</option>
                                             <option value="INPROGRESS">IN PROGRESS</option>
                                             <option value="COMPLETED">COMPLETED</option>
                                             <option value="RETURN">RETURN</option>
@@ -1185,7 +1184,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         {isColumnVisible('sltsStatus') && (
                                         <td className="relative border-r border-border/15 p-0">
                                             <select
-                                                value={(order.status === "ASSIGNED" || order.status === "ASSIGN") ? "ASSIGNED" : order.sltsStatus}
+                                                value={order.sltsStatus}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     if (val === "COMPLETED") {
@@ -1204,7 +1203,6 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 data-row-index={index}
                                                 data-field="sltsStatus"
                                                 className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-3 py-1 text-[10px] font-black ${
-                                                    (order.status === "ASSIGNED" || order.status === "ASSIGN" || order.sltsStatus === "ASSIGNED") ? "text-emerald-600 font-extrabold dark:text-emerald-400" :
                                                     order.sltsStatus === "COMPLETED" ? "text-emerald-500" :
                                                     order.sltsStatus === "RETURN" ? "text-rose-500" : 
                                                     order.sltsStatus === "OFFLINE" ? "text-slate-400" : 
@@ -1212,9 +1210,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 }`}
                                             >
                                                 <option value="PENDING">PENDING</option>
-                                                <option value="ASSIGNED">ASSIGNED</option>
                                                 <option value="INPROGRESS">IN PROGRESS</option>
-                                                <option value="OFFLINE">OFFLINE</option>
                                                 <option value="PROV_CLOSED">PROV CLOSED</option>
                                                 <option value="COMPLETED">COMPLETED</option>
                                                 <option value="RETURN">RETURN</option>

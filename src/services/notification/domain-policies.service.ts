@@ -183,7 +183,7 @@ export class DomainNotificationPolicies {
             title: 'Service Order Status Updated',
             message: `SO #${order.soNum} for ${order.customerName || 'customer'} changed from ${order.previousStatus} to ${statusLabel}.`,
             type: 'PROJECT',
-            priority: order.status === 'RETURNED' ? 'CRITICAL' : 'MEDIUM',
+            priority: order.status === 'RETURN' ? 'CRITICAL' : 'MEDIUM',
             link: '/service-orders',
             opmcId: order.opmcId,
             metadata: { soNum: order.soNum, status: order.status, previousStatus: order.previousStatus },

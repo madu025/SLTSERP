@@ -12,7 +12,7 @@ BEGIN
   -- still-active workflow status. This is the root cause class of the
   -- "install-closed shows PENDING" bug; the write must carry a coherent pair.
   IF NEW."sltsStatus" IN ('INSTALL_CLOSED', 'COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED')
-     AND NEW."status" IN ('PENDING', 'ASSIGNED', 'ASSIGN', 'INPROGRESS', 'OFFLINE', 'PROV_CLOSED') THEN
+     AND NEW."status" IN ('PENDING', 'INPROGRESS', 'PROV_CLOSED') THEN
     RAISE EXCEPTION 'SOD_STATUS_INVARIANT_VIOLATION: soNum=% cannot write status=% while sltsStatus=% (terminal portal status requires terminal workflow status)',
       NEW."soNum", NEW."status", NEW."sltsStatus";
   END IF;

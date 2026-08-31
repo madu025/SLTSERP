@@ -67,6 +67,8 @@ test-results/
 *.sql
 setup_*.sql
 repair_*.ps1
+# Prisma migrations must always be tracked (global *.sql rule above would ignore them)
+!prisma/migrations/**/*.sql
 
 # generated Prisma schema docs (build artifact, ~80MB)
 docs/prisma/

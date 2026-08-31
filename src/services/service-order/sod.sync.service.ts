@@ -518,7 +518,7 @@ export class SODSyncService {
                 where: {
                     sltsStatus: 'INSTALL_CLOSED',
                     status: {
-                        in: ['PENDING', 'INPROGRESS', 'PROV_CLOSED', 'ASSIGNED', 'ASSIGN', 'OFFLINE'] as import("@prisma/client").ServiceOrderStatus[]
+                        in: ['PENDING', 'INPROGRESS', 'PROV_CLOSED'] as import("@prisma/client").ServiceOrderStatus[]
                     }
                 },
                 data: { status: 'INSTALL_CLOSED' }

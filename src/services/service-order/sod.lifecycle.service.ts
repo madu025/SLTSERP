@@ -41,7 +41,7 @@ export class SODLifecycleService {
         const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {};
 
         if (sltsStatus) {
-            if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'OFFLINE', 'INSTALL_CLOSED'].includes(sltsStatus)) {
+            if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'INSTALL_CLOSED'].includes(sltsStatus)) {
                 throw AppError.badRequest('INVALID_STATUS');
             }
             updateData.sltsStatus = sltsStatus as ServiceOrderStatus;

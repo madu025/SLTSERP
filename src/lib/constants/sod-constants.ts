@@ -4,6 +4,9 @@
  * Single source of truth for all SOD status groupings.
  */
 
+// Mirrors the pruned ServiceOrderStatus Prisma enum. Values that exist only as
+// EXTERNAL portal strings (RETURNED, CANCELLED, RETURN_PENDING, ...) are matched
+// as plain strings in the mapping lists below - they are never stored.
 export enum SodStatus {
     COMPLETED = 'COMPLETED',
     RETURN = 'RETURN',
@@ -11,18 +14,11 @@ export enum SodStatus {
     PROV_CLOSED = 'PROV_CLOSED',
     INSTALL_CLOSED = 'INSTALL_CLOSED',
     DISAPPEARED = 'DISAPPEARED',
-    OFFLINE = 'OFFLINE',
     PENDING = 'PENDING',
-    ASSIGNED = 'ASSIGNED',
-    ASSIGN = 'ASSIGN',
-    CLOSED = 'CLOSED',
-    PASSED = 'PASSED',
     PAT_OPMC_PASSED = 'PAT_OPMC_PASSED',
     PAT_CORRECTED = 'PAT_CORRECTED',
     PAT_OPMC_REJECTED = 'PAT_OPMC_REJECTED',
     PAT_REJECTED = 'PAT_REJECTED',
-    RETURNED = 'RETURNED',
-    CANCELLED = 'CANCELLED',
 }
 
 // ── Status Domain Validation (single source of truth for writers) ──
@@ -35,7 +31,6 @@ export const SOD_SLTS_STATUS_VALUES = [
     SodStatus.COMPLETED,
     SodStatus.RETURN,
     SodStatus.DISAPPEARED,
-    SodStatus.OFFLINE,
     SodStatus.PAT_OPMC_PASSED,
     SodStatus.PAT_OPMC_REJECTED,
     SodStatus.PAT_CORRECTED,
@@ -45,14 +40,11 @@ export const SOD_SLTS_STATUS_VALUES = [
 /** Values legitimately writable to `status` (ERP internal workflow domain) */
 export const SOD_WORKFLOW_STATUS_VALUES = [
     SodStatus.PENDING,
-    SodStatus.ASSIGNED,
-    SodStatus.ASSIGN,
     SodStatus.INPROGRESS,
     SodStatus.PROV_CLOSED,
     SodStatus.INSTALL_CLOSED,
     SodStatus.COMPLETED,
     SodStatus.DISAPPEARED,
-    SodStatus.RETURNED,
     SodStatus.PAT_OPMC_PASSED,
     SodStatus.PAT_OPMC_REJECTED,
     SodStatus.PAT_CORRECTED,
@@ -70,10 +62,7 @@ export const SOD_SLTS_TERMINAL_STATUSES = [
 /** Workflow statuses that must NEVER exist beneath a portal-terminal sltsStatus */
 export const SOD_STALE_ACTIVE_STATUSES = [
     SodStatus.PENDING,
-    SodStatus.ASSIGNED,
-    SodStatus.ASSIGN,
     SodStatus.INPROGRESS,
-    SodStatus.OFFLINE,
     SodStatus.PROV_CLOSED,
 ] as const;
 
@@ -89,12 +78,12 @@ export const SOD_EXTERNAL_COMPLETION_STATUSES = [
     SodStatus.PAT_CORRECTED,
 ] as const;
 
-/** External statuses that indicate the SOD was returned / cancelled */
+/** External statuses that indicate the SOD was returned / cancelled (portal strings, never stored) */
 export const SOD_RETURN_STATUSES = [
     SodStatus.RETURN,
-    SodStatus.RETURNED,
+    'RETURNED',
     'FIELD_RETURN',
-    SodStatus.CANCELLED,
+    'CANCELLED',
     'CANCEL',
     'COMPLETED-RETURN',
     'REJECTED',
@@ -129,8 +118,6 @@ export const SOD_SYNC_COMPLETION_STATUSES = [
 /** Default statuses shown in the pending table (status field) */
 export const SOD_PENDING_DEFAULT_STATUSES = [
     SodStatus.PENDING,
-    SodStatus.ASSIGNED,
-    SodStatus.ASSIGN,
     SodStatus.INPROGRESS,
     SodStatus.PROV_CLOSED,
     SodStatus.DISAPPEARED,
@@ -145,9 +132,6 @@ const SOD_WORKFLOW_DISPLAY_LABELS: Record<string, string> = {
     [SodStatus.PAT_OPMC_REJECTED]: 'PAT OPMC REJECTED',
     [SodStatus.PAT_CORRECTED]: 'PAT CORRECTED',
     [SodStatus.PAT_REJECTED]: 'PAT REJECTED',
-    [SodStatus.RETURNED]: 'RETURN',
-    [SodStatus.ASSIGNED]: 'ASSIGNED',
-    [SodStatus.ASSIGN]: 'ASSIGNED',
 };
 
 /** Minimal shape needed to compute the display status (works with Prisma rows and API DTOs) */
@@ -159,11 +143,11 @@ export interface SodStatusSource {
 /**
  * Single computed operational status for display, merging both stored fields.
  * Precedence:
- *  1. DISAPPEARED / PAT stage / RETURNED / ASSIGNED - workflow-only dimensions,
- *     surfaced because sltsStatus cannot represent them
+ *  1. DISAPPEARED / PAT stage - workflow-only dimensions, surfaced because
+ *     sltsStatus cannot represent them
  *  2. RETURN - workflow return beats a stale portal state
  *  3. sltsStatus - portal truth (COMPLETED / INSTALL_CLOSED / INPROGRESS /
- *     RETURN / PROV_CLOSED / OFFLINE / ...); workflow PENDING beneath an
+ *     RETURN / PROV_CLOSED / ...); workflow PENDING beneath an
  *     active portal status resolves to the portal status
  */
 export function getComputedSodStatus(order: SodStatusSource): string {

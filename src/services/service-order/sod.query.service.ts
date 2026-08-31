@@ -195,7 +195,7 @@ export class SODQueryService {
                 // DISAPPEARED (portal connection lost before completion) must never surface here
                 sltsStatus: { notIn: [ServiceOrderStatus.RETURN, ServiceOrderStatus.DISAPPEARED] },
                 // Also exclude if status field is DISAPPEARED (stale value from sync issues)
-                status: { notIn: [ServiceOrderStatus.DISAPPEARED, ServiceOrderStatus.RETURNED] }
+                status: { notIn: [ServiceOrderStatus.DISAPPEARED] }
             });
         } else if (filter === 'completed') {
             andFilters.push({
@@ -207,7 +207,6 @@ export class SODQueryService {
                     { status: ServiceOrderStatus.PROV_CLOSED },
                     { sltsStatus: ServiceOrderStatus.PROV_CLOSED },
                     { sltsStatus: ServiceOrderStatus.RETURN },
-                    { status: ServiceOrderStatus.RETURNED },
                     { sltsStatus: ServiceOrderStatus.DISAPPEARED },
                     { status: ServiceOrderStatus.DISAPPEARED }
                 ]
@@ -228,9 +227,7 @@ export class SODQueryService {
         }
 
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
-            if (statusFilter === 'ASSIGNED') {
-                andFilters.push({ status: { in: [ServiceOrderStatus.ASSIGNED, ServiceOrderStatus.ASSIGN] } });
-            } else if (statusFilter === 'OFFLINE') {
+            if (statusFilter === 'OFFLINE') {
                 andFilters.push({ isOfflineWorkOrder: true });
             } else if (statusFilter === 'DISAPPEARED') {
                 andFilters.push({ sltsStatus: ServiceOrderStatus.DISAPPEARED });
