@@ -11,6 +11,7 @@ export enum SodStatus {
     COMPLETED = 'COMPLETED',
     RETURN = 'RETURN',
     INPROGRESS = 'INPROGRESS',
+    ASSIGNED = 'ASSIGNED',
     PROV_CLOSED = 'PROV_CLOSED',
     INSTALL_CLOSED = 'INSTALL_CLOSED',
     DISAPPEARED = 'DISAPPEARED',
@@ -26,6 +27,7 @@ export enum SodStatus {
 /** Values legitimately writable to `sltsStatus` (portal-mirror domain) */
 export const SOD_SLTS_STATUS_VALUES = [
     SodStatus.INPROGRESS,
+    SodStatus.ASSIGNED,
     SodStatus.PROV_CLOSED,
     SodStatus.INSTALL_CLOSED,
     SodStatus.COMPLETED,
@@ -41,6 +43,7 @@ export const SOD_SLTS_STATUS_VALUES = [
 export const SOD_WORKFLOW_STATUS_VALUES = [
     SodStatus.PENDING,
     SodStatus.INPROGRESS,
+    SodStatus.ASSIGNED,
     SodStatus.PROV_CLOSED,
     SodStatus.INSTALL_CLOSED,
     SodStatus.COMPLETED,
@@ -63,6 +66,7 @@ export const SOD_SLTS_TERMINAL_STATUSES = [
 export const SOD_STALE_ACTIVE_STATUSES = [
     SodStatus.PENDING,
     SodStatus.INPROGRESS,
+    SodStatus.ASSIGNED,
     SodStatus.PROV_CLOSED,
 ] as const;
 
@@ -119,6 +123,7 @@ export const SOD_SYNC_COMPLETION_STATUSES = [
 export const SOD_PENDING_DEFAULT_STATUSES = [
     SodStatus.PENDING,
     SodStatus.INPROGRESS,
+    SodStatus.ASSIGNED,
     SodStatus.PROV_CLOSED,
     SodStatus.DISAPPEARED,
 ] as const;

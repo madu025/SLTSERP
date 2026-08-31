@@ -183,6 +183,7 @@ enum SummaryStatusEnum {
 enum ServiceOrderStatus {
   PENDING
   INPROGRESS
+  ASSIGNED
   COMPLETED
   RETURN
   DISAPPEARED

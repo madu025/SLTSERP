@@ -842,6 +842,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             <option value="">All</option>
                                             <option value="PENDING">PENDING</option>
                                             <option value="INPROGRESS">IN PROGRESS</option>
+                                            <option value="ASSIGNED">ASSIGNED</option>
                                             <option value="COMPLETED">COMPLETED</option>
                                             <option value="RETURN">RETURN</option>
                                             <option value="DISAPPEARED">DISAPPEARED</option>
@@ -1204,6 +1205,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 data-field="sltsStatus"
                                                 className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-3 py-1 text-[10px] font-black ${
                                                     order.sltsStatus === "COMPLETED" ? "text-emerald-500" :
+                                                    order.sltsStatus === "ASSIGNED" ? "text-emerald-600" :
                                                     order.sltsStatus === "RETURN" ? "text-rose-500" : 
                                                     order.sltsStatus === "OFFLINE" ? "text-slate-400" : 
                                                     order.sltsStatus === "PROV_CLOSED" ? "text-blue-500" : order.sltsStatus === "DISAPPEARED" ? "text-gray-500" : "text-amber-500"
@@ -1211,6 +1213,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             >
                                                 <option value="PENDING">PENDING</option>
                                                 <option value="INPROGRESS">IN PROGRESS</option>
+                                                <option value="ASSIGNED">ASSIGNED</option>
                                                 <option value="PROV_CLOSED">PROV CLOSED</option>
                                                 <option value="COMPLETED">COMPLETED</option>
                                                 <option value="RETURN">RETURN</option>

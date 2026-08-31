@@ -41,7 +41,7 @@ export class SODLifecycleService {
         const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {};
 
         if (sltsStatus) {
-            if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'INSTALL_CLOSED'].includes(sltsStatus)) {
+            if (!['INPROGRESS', 'ASSIGNED', 'COMPLETED', 'RETURN', 'PROV_CLOSED', 'INSTALL_CLOSED'].includes(sltsStatus)) {
                 throw AppError.badRequest('INVALID_STATUS');
             }
             updateData.sltsStatus = sltsStatus as ServiceOrderStatus;
@@ -330,7 +330,7 @@ export class SODLifecycleService {
     /**
      * Centralized mapper for External Status (ISHAMP/Excel) to Internal SLTS Status
      */
-    static mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN' {
+    static mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'ASSIGNED' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN' {
         const conStatusUpper = (externalStatus || '').toUpperCase();
         
         const isPatRejection = conStatusUpper.includes('PAT') || conStatusUpper.includes('OPMC_REJECT') || conStatusUpper.includes('HO_REJECT');
@@ -339,6 +339,10 @@ export class SODLifecycleService {
             return 'COMPLETED';
         } else if (conStatusUpper === 'PROV_CLOSED') {
             return 'PROV_CLOSED';
+        } else if (conStatusUpper === 'ASSIGN' || conStatusUpper === 'ASSIGNED') {
+            // Portal assignment event — stored distinctly as ASSIGNED, visible as such
+            // in the pending table
+            return 'ASSIGNED';
         } else if (conStatusUpper === 'RETURN_PENDING') {
             // BUSINESS RULE: every portal RETURN_PENDING (return request raised) must
             // present as RETURN in the ERP immediately. Explicit branch - never rely on

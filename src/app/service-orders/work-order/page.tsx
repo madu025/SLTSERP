@@ -474,6 +474,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                              <SelectItem value="DEFAULT" className="text-xs">Filter by Status</SelectItem>
                                              <SelectItem value="ALL" className="text-xs">Show All</SelectItem>
                                              <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
+                                             <SelectItem value="ASSIGNED" className="text-xs text-emerald-600 dark:text-emerald-400">Assigned</SelectItem>
                                              <SelectItem value="PROV_CLOSED" className="text-xs">Prov Closed</SelectItem>
                                              <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
                                              <SelectItem value="RETURN" className="text-xs text-rose-500 font-bold dark:text-rose-400">Returned/Issues</SelectItem>
