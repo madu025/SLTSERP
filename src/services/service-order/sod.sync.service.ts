@@ -708,6 +708,10 @@ export class SODSyncService {
                 sales: item.CON_SALES,
                 completedDate: effectiveCompletedDate,
                 sltsStatus: effectiveSltsStatus,
+                // Advance ERP workflow status on INSTALL_CLOSED transitions — SODs created
+                // without a contractor (status=PENDING) must not stay PENDING after portal install-close.
+                // COMPLETED transitions stay untouched: completed-sod-sync owns PAT_* status refinement.
+                status: effectiveSltsStatus === 'INSTALL_CLOSED' ? 'INSTALL_CLOSED' : undefined,
                 isOfflineWorkOrder: isOfflineFlag ? true : undefined,
                 contractorId: contractorId || undefined,
                 teamId: teamId || undefined,
@@ -793,6 +797,7 @@ export class SODSyncService {
                 if (blockStatusUpdate) {
                     delete updatePayload.sltsStatus;
                     delete updatePayload.completedDate;
+                    delete updatePayload.status;
                 }
 
                 // ── Change detection: skip DB write if nothing meaningful changed ──
