@@ -116,9 +116,12 @@ export class CompletedSODSyncService {
                                 : rawCompletedDate;
                             const isCompletionStatus = finalSltsStatus === SodStatus.COMPLETED || finalSltsStatus === SodStatus.INSTALL_CLOSED;
                             // Enum-guard legacy status — raw portal strings outside the enum must not hit Prisma
-                            const legacyStatus = SERVICE_ORDER_STATUS_VALUES.has((sltData.CON_STATUS || '').toUpperCase())
-                                ? (sltData.CON_STATUS || '').toUpperCase()
-                                : undefined;
+                            // For the `status` field: fall back to finalSltsStatus when legacyStatus is undefined
+                            // (e.g. PROV_CLOSED is valid for sltsStatus but may not be in the legacy status enum)
+                            const rawStatus = (sltData.CON_STATUS || '').toUpperCase();
+                            const legacyStatus = SERVICE_ORDER_STATUS_VALUES.has(rawStatus)
+                                ? rawStatus
+                                : finalSltsStatus;
                             const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
                             const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
 

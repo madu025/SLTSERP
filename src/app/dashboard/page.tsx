@@ -6,6 +6,8 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection, ProcurementSection } from './components';
@@ -230,7 +232,6 @@ export default function DashboardPage() {
                                 canFilterGlobally={canFilterGlobally}
                                 availableRegions={stats?.availableRegions}
                                 availableRtoms={availableRtoms}
-                                patRejectedCount={stats?.pat?.rejected || 0}
                                 isAreaCoordinator={isAreaCoordinator}
                                 isLoading={isLoading}
                             />
@@ -246,6 +247,25 @@ export default function DashboardPage() {
                                 
                                 {canViewOperations && (
                                     <TabsContent value="operations" className="space-y-6">
+                                        {/* PAT Rejection Alert — scoped to Operations tab only */}
+                                        {(stats?.pat?.rejected || 0) > 0 && (
+                                            <Link
+                                                href="/service-orders/work-order/pat"
+                                                className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/30 rounded-2xl text-rose-500 hover:bg-rose-500/15 transition-all group shadow-md"
+                                            >
+                                                <span className="relative flex h-3 w-3 shrink-0">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                                                </span>
+                                                <ShieldAlert className="w-5 h-5 shrink-0 animate-bounce" />
+                                                <span className="text-xs md:text-sm font-black">
+                                                    {stats!.pat.rejected} PAT rejection{stats!.pat.rejected > 1 ? 's' : ''} require immediate operational review
+                                                </span>
+                                                <span className="ml-auto text-xs font-black uppercase tracking-wider opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                                                    Review Now →
+                                                </span>
+                                            </Link>
+                                        )}
                                         <StatsCardGrid isLoading={isLoading} stats={stats} />
                                         <ChartSection
                                             isLoading={isLoading}

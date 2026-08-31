@@ -920,7 +920,7 @@ export class SODSyncService {
                     if (nextSltsStatus !== 'INPROGRESS') {
                         const [disError] = await safe(prisma.$transaction(async (tx) => {
                             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                                status: SERVICE_ORDER_STATUS_VALUES.has(statusUpper) ? statusUpper as import("@prisma/client").ServiceOrderStatus : undefined,
+                                status: SERVICE_ORDER_STATUS_VALUES.has(statusUpper) ? statusUpper as import("@prisma/client").ServiceOrderStatus : (nextSltsStatus as import("@prisma/client").ServiceOrderStatus),
                                 statusDate,
                                 sltsStatus: nextSltsStatus as import("@prisma/client").ServiceOrderStatus,
                                 completionMode: isOfflineType ? 'OFFLINE' : undefined,
@@ -1150,6 +1150,53 @@ export class SODSyncService {
             where: { soNum },
             include: { materialUsage: true }
         });
+
+        // ── SLT API Fallback: fill missing header fields from portal data ──
+        // Bridge extension may only capture material/team data (plain text headers missed)
+        const missingCriticalFields = !mapping.rtom && !mapping.customerName && !mapping.address;
+        if (missingCriticalFields) {
+            try {
+                // Try to resolve RTOM from PAT status record first
+                let fallbackRtom = serviceOrder?.rtom && serviceOrder.rtom !== 'UNKNOWN' ? serviceOrder.rtom : null;
+                if (!fallbackRtom) {
+                    const patRecord = await prisma.sLTPATStatus.findFirst({
+                        where: { soNum },
+                        select: { rtom: true }
+                    });
+                    fallbackRtom = patRecord?.rtom || null;
+                }
+                if (fallbackRtom) {
+                    // Search active, completed, and returned SODs for this RTOM
+                    // Use last 180 days for completed/returned queries
+                    const now = new Date();
+                    const startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                    const endDate = now.toISOString().split('T')[0];
+                    const [activeData, completedData, returnedData] = await Promise.all([
+                        sltApiService.fetchServiceOrders(fallbackRtom).catch(() => []),
+                        sltApiService.fetchCompletedSODs(fallbackRtom, startDate, endDate).catch(() => []),
+                        sltApiService.fetchReturnedSODs(fallbackRtom, startDate, endDate).catch(() => [])
+                    ]);
+                    const allPortalData = [...activeData, ...completedData, ...returnedData];
+                    const portalMatch = allPortalData.find(r => r.SO_NUM === soNum);
+                    if (portalMatch) {
+                        if (!mapping.rtom && portalMatch.RTOM) mapping.rtom = portalMatch.RTOM;
+                        if (!mapping.customerName && portalMatch.CON_CUS_NAME) mapping.customerName = portalMatch.CON_CUS_NAME;
+                        if (!mapping.address && portalMatch.ADDRE) mapping.address = portalMatch.ADDRE;
+                        if (!mapping.voiceNumber && portalMatch.VOICENUMBER) {
+                            mapping.voiceNumber = portalMatch.VOICENUMBER;
+                        }
+                        if (!mapping.orderType && portalMatch.ORDER_TYPE) mapping.orderType = portalMatch.ORDER_TYPE;
+                        if (!mapping.serviceType && portalMatch.S_TYPE) mapping.serviceType = portalMatch.S_TYPE;
+                        if (!mapping.techContact && portalMatch.CON_TEC_CONTACT) mapping.techContact = portalMatch.CON_TEC_CONTACT;
+                        if (!mapping.package && portalMatch.PKG) mapping.package = portalMatch.PKG;
+                        if (!mapping.lea && portalMatch.LEA) mapping.lea = portalMatch.LEA;
+                        console.log(`[bridgeSync] Filled missing header fields for ${soNum} from SLT API (RTOM: ${fallbackRtom})`);
+                    }
+                }
+            } catch (e) {
+                console.warn(`[bridgeSync] SLT API fallback failed for ${soNum}:`, (e as Error).message);
+            }
+        }
 
         const capturedContractorName = masterData['CON_NAME'] || masterData['CONTRACTOR'] || masterData['CONTRACTOR NAME'] || masterData['CONTRACTOR_NAME'];
         if (capturedContractorName && (!mapping.contractorId || mapping.contractorId === "")) {

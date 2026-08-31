@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
     Select,
     SelectContent,
@@ -8,7 +7,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { LayoutDashboard, ShieldAlert, X, Activity, Printer } from 'lucide-react';
+import { LayoutDashboard, X, Activity, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export interface DashboardFiltersProps {
@@ -21,7 +20,6 @@ export interface DashboardFiltersProps {
     canFilterGlobally: boolean;
     availableRegions?: string[];
     availableRtoms: string[];
-    patRejectedCount: number;
     isAreaCoordinator: boolean;
     isLoading: boolean;
 }
@@ -36,7 +34,6 @@ export function DashboardFilters({
     canFilterGlobally,
     availableRegions,
     availableRtoms,
-    patRejectedCount,
     isAreaCoordinator,
     isLoading
 }: DashboardFiltersProps) {
@@ -157,25 +154,7 @@ export function DashboardFilters({
                 </div>
             </div>
 
-            {/* ── PAT Rejection Alert Banner ──────────────── */}
-            {patRejectedCount > 0 && (
-                <Link
-                    href="/service-orders/work-order/pat"
-                    className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/30 rounded-2xl text-rose-500 hover:bg-rose-500/15 transition-all group shadow-md"
-                >
-                    <span className="relative flex h-3 w-3 shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                    </span>
-                    <ShieldAlert className="w-5 h-5 shrink-0 animate-bounce" />
-                    <span className="text-xs md:text-sm font-black">
-                        {patRejectedCount} PAT rejection{patRejectedCount > 1 ? 's' : ''} require immediate operational review
-                    </span>
-                    <span className="ml-auto text-xs font-black uppercase tracking-wider opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                        Review Now →
-                    </span>
-                </Link>
-            )}
+
         </div>
     );
 }

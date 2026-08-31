@@ -196,6 +196,41 @@ class BridgeScanEngine {
             }
         });
 
+        // 4b. Order Header Plain Text Capture (SLT portal renders these as non-input text)
+        const ORDER_HEADER_FIELDS = [
+            'RTOM', 'LEA', 'CON_RTOM', 'CON_CUS_NAME', 'CUS_NAME', 'CUSTOMER NAME',
+            'ADDRE', 'ADDRESS', 'CON_TEC_CONTACT', 'CONTACT NO', 'CONTACT NUMBER',
+            'CON_STATUS', 'STATUS', 'RECEIVED DATE', 'STATUS DATE', 'STATUSDATE',
+            'CIRCUIT', 'VOICE NUMBER', 'VOICENUMBER', 'PRIMARY',
+            'ORDER TYPE', 'ORDER_TYPE', 'S_TYPE', 'SERVICE TYPE', 'SERVICE',
+            'PKG', 'PACKAGE', 'CON_NAME', 'CONTRACTOR', 'CONTRACTOR NAME'
+        ];
+        Scanner.queryShadow('div, td, span, b, label, p, strong, em').forEach(el => {
+            if (el.closest('#bridge-hud')) return;
+            const text = Scanner.clean(el.innerText).toUpperCase();
+            if (text.length < 2 || text.length > 60) return;
+            const normalizedText = text.replace(/[:\s]+$/, '').trim();
+            const isHeaderField = ORDER_HEADER_FIELDS.some(f =>
+                normalizedText === f || normalizedText === f.replace(/_/g, ' ') ||
+                normalizedText === f.replace(/_/g, ' ') + ':' || normalizedText === f + ':'
+            );
+            if (!isHeaderField) return;
+            let val = '';
+            let next = el.nextElementSibling;
+            if (!next && el.parentElement) {
+                const parentNext = el.parentElement.nextElementSibling;
+                if (parentNext && parentNext.tagName !== 'LABEL') next = parentNext;
+            }
+            if (next) {
+                val = Scanner.extractValue(next);
+                if (!val || val === normalizedText || val.length < 1 || val.length > 300) return;
+            }
+            if (val) {
+                const key = normalizedText.replace(/[^A-Z0-9_]/g, '_').replace(/_+/g, '_');
+                if (!data.details[key]) data.details[key] = val;
+            }
+        });
+
         // 5. Advanced Table Scraper
         document.querySelectorAll('table').forEach(table => {
             if (table.closest('#bridge-hud')) return;
