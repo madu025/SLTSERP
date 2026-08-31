@@ -89,6 +89,14 @@
       "events": "UPDATE",
       "function": "fn_stage_status_cascade()",
       "when": "OLD.status IS DISTINCT FROM NEW.status"
+    },
+    {
+      "name": "trg_sod_status_audit",
+      "table": "ServiceOrder",
+      "timing": "AFTER",
+      "events": "UPDATE",
+      "function": "fn_audit_sod_status_change()",
+      "when": "OLD.status IS DISTINCT FROM NEW.status"
     }
   ]
 }
