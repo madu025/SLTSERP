@@ -339,10 +339,6 @@ export class SODLifecycleService {
             return 'COMPLETED';
         } else if (conStatusUpper === 'PROV_CLOSED') {
             return 'PROV_CLOSED';
-        } else if (conStatusUpper === 'ASSIGN' || conStatusUpper === 'ASSIGNED') {
-            // Portal assignment event — stored distinctly as ASSIGNED, visible as such
-            // in the pending table
-            return 'ASSIGNED';
         } else if (conStatusUpper === 'RETURN_PENDING') {
             // BUSINESS RULE: every portal RETURN_PENDING (return request raised) must
             // present as RETURN in the ERP immediately. Explicit branch - never rely on
