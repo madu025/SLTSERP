@@ -61,12 +61,15 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         }, 400);
         return () => clearTimeout(handler);
     }, [searchTerm]);
-    const [showMetrics, setShowMetrics] = useState<boolean>(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('sod_show_metrics') !== 'false';
+    // Initialize with consistent default to avoid hydration mismatch
+    // Then read from localStorage after mount
+    const [showMetrics, setShowMetrics] = useState<boolean>(true);
+    useEffect(() => {
+        const stored = localStorage.getItem('sod_show_metrics');
+        if (stored !== null) {
+            setShowMetrics(stored !== 'false');
         }
-        return true;
-    });
+    }, []);
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
