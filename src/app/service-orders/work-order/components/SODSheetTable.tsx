@@ -1110,7 +1110,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             >
                                                 <option value="RETURN">RETURN</option>
                                                 <option value="INPROGRESS">IN PROGRESS</option>
-                                                <option value="COMPLETED">COMPLETED</option>
+                                                {filterType !== "return" && <option value="COMPLETED">COMPLETED</option>}
                                             </select>
                                             {renderCellStatus(order.id, "sltsStatus")}
                                         </td>
@@ -1312,6 +1312,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
                                              </Button>
                                          )}
+                                        {filterType !== "return" && (
                                         <Button
                                             size="icon"
                                             variant="ghost"
@@ -1321,6 +1322,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         >
                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                                         </Button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
