@@ -6,14 +6,18 @@ import { NextResponse } from 'next/server';
 export const POST = apiHandler(async () => {
     const cookieStore = await cookies();
 
-    // Clear the token cookie
-    cookieStore.set('token', '', {
+    const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: 'lax' as const,
         maxAge: 0, // Expire immediately
         path: '/',
-    });
+    };
+
+    // Clear the access token cookie
+    cookieStore.set('token', '', cookieOptions);
+    // Clear the refresh token cookie
+    cookieStore.set('refresh_token', '', cookieOptions);
 
     return NextResponse.json({
         success: true,

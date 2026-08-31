@@ -14,22 +14,31 @@ const loginSchema = z.object({
 
 export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginSchema>) => {
     try {
-        const { token, user } = await UserService.login({ username: data.username, password: data.password });
+        const { token, refreshToken, user } = await UserService.login({ username: data.username, password: data.password });
 
         const cookieStore = await cookies();
+        const isProd = process.env.NODE_ENV === 'production';
 
         cookieStore.set('contractor_token', token, {
             httpOnly: true,
-            // HTTPS-only in production; local dev still serves over plain HTTP
-            secure: process.env.NODE_ENV === 'production',
+            secure: isProd,
             sameSite: 'lax',
-            maxAge: 86400,
+            maxAge: 900, // 15 min (access token)
+            path: '/',
+        });
+
+        cookieStore.set('contractor_refresh_token', refreshToken, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: 'lax',
+            maxAge: 604800, // 7 days (refresh token)
             path: '/',
         });
 
         return NextResponse.json({
             message: 'Contractor login successful',
             token,
+            refreshToken,
             user,
         });
 

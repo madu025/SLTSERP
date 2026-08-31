@@ -101,9 +101,14 @@ function LoginContent() {
           localStorage.setItem("user", JSON.stringify(data.user));
           if (data.token) {
             localStorage.setItem("token", data.token);
-            // Set cookie client-side for immediate availability
+            // Set access token cookie client-side for immediate availability
             const isProd = window.location.protocol === 'https:';
-            document.cookie = `token=${data.token}; Max-Age=86400; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
+            document.cookie = `token=${data.token}; Max-Age=900; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
+          }
+          if (data.refreshToken) {
+            // Set refresh token cookie client-side for immediate availability
+            const isProd = window.location.protocol === 'https:';
+            document.cookie = `refresh_token=${data.refreshToken}; Max-Age=604800; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
           }
 
           // Wait for cookie to be available before navigating

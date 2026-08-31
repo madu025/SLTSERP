@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { signJWT } from '@/lib/auth';
+import { signJWT, signAccessToken, signRefreshToken } from '@/lib/auth';
 import { SystemService } from '@/services/core/system.service';
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { Role, Prisma } from '@prisma/client';
@@ -105,8 +105,8 @@ export class UserService {
         }
         // No fallback — if no permissions derived, user gets helpdesk-only access
 
-        // Generate JWT Token
-        const token = await signJWT({
+        // Generate JWT Tokens (access + refresh pair)
+        const tokenPayload = {
             id: user.id,
             username: user.username,
             role: user.role,
@@ -118,10 +118,21 @@ export class UserService {
             // Forced password-change lockdown flag — middleware uses this claim
             // to block page navigation until the password is rotated.
             mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword || undefined,
-        });
+        };
+
+        const [token, refreshToken] = await Promise.all([
+            signAccessToken(tokenPayload),
+            signRefreshToken({
+                userId: user.id,
+                role: user.role as string,
+                tokenVersion: user.tokenVersion,
+                contractorId: user.contractorId || undefined,
+            }),
+        ]);
 
         return {
             token,
+            refreshToken,
             user: {
                 id: user.id,
                 username: user.username,
@@ -743,18 +754,26 @@ export class UserService {
             select: { id: true, username: true, role: true, contractorId: true, tokenVersion: true }
         });
 
-        // Issue a fresh session token carrying the bumped tokenVersion and no
+        // Issue a fresh session token pair carrying the bumped tokenVersion and no
         // mustChangePassword claim — the client swaps its cookie in-place and
         // continues without a forced re-login.
-        const token = await signJWT({
-            id: updatedUser.id,
-            username: updatedUser.username,
-            role: updatedUser.role,
-            contractorId: updatedUser.contractorId || undefined,
-            tokenVersion: updatedUser.tokenVersion,
-        });
+        const [token, refreshToken] = await Promise.all([
+            signJWT({
+                id: updatedUser.id,
+                username: updatedUser.username,
+                role: updatedUser.role,
+                contractorId: updatedUser.contractorId || undefined,
+                tokenVersion: updatedUser.tokenVersion,
+            }),
+            signRefreshToken({
+                userId: updatedUser.id,
+                role: updatedUser.role as string,
+                tokenVersion: updatedUser.tokenVersion,
+                contractorId: updatedUser.contractorId || undefined,
+            }),
+        ]);
 
-        return { success: true, token };
+        return { success: true, token, refreshToken };
     }
 
     /**

@@ -48,9 +48,9 @@ export default function SessionManager() {
         }
     }, [pathname, router]);
 
-    // ── Global 401 Fetch Interceptor ──────────────────────────────────────
-    // When the backend returns 401 (session invalidated by role/status change),
-    // clear stale localStorage and redirect to login with a message.
+    // ── Global 401 Fetch Interceptor with Token Refresh ──────────────────────
+    // When the backend returns 401, first attempt to refresh the access token
+    // using the refresh token cookie. Only redirect to login if refresh fails.
     // Patched once per page load via ref guard.
     useEffect(() => {
         if (fetchPatchedRef.current) return;
@@ -64,21 +64,37 @@ export default function SessionManager() {
                 const requestUrl = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0]?.url ?? '';
                 const isAgentAuthEndpoint = AGENT_AUTH_PATHS.some((p) => requestUrl.includes(p));
                 // Only intercept API 401s, not login/auth endpoint responses
-                if (requestUrl.includes('/api/') && !isAgentAuthEndpoint && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth')) {
+                if (requestUrl.includes('/api/') && !isAgentAuthEndpoint && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth') && !requestUrl.includes('/api/auth/refresh')) {
                     // Avoid redirect loops if already on login page or public pages
                     const publicPages = ['/login', '/contractor/login', '/privacy'];
                     if (!publicPages.some(p => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
-                        // Check if user had a session before clearing it
+                        // Attempt token refresh before giving up
+                        try {
+                            const refreshRes = await originalFetch('/api/auth/refresh', { method: 'POST' });
+                            if (refreshRes.ok) {
+                                const refreshData = await refreshRes.json();
+                                if (refreshData.token) {
+                                    // Update localStorage with new token
+                                    localStorage.setItem('token', refreshData.token);
+                                    const isProd = window.location.protocol === 'https:';
+                                    document.cookie = `token=${refreshData.token}; Max-Age=900; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
+                                    // Retry the original request
+                                    return originalFetch(...args);
+                                }
+                            }
+                        } catch {
+                            // Refresh failed — fall through to logout
+                        }
+
+                        // Refresh failed — redirect to login
                         const hadSession = !!localStorage.getItem('token');
-                        console.warn('[SESSION-MANAGER] 401 intercepted — session invalidated, redirecting to login');
+                        console.warn('[SESSION-MANAGER] 401 intercepted, refresh failed — redirecting to login');
                         localStorage.removeItem('user');
                         localStorage.removeItem('token');
                         const isContractor = window.location.pathname.startsWith('/contractor');
-                        // Only add session=expired if user actually had a session
                         const sessionParam = hadSession ? '?session=expired' : '';
                         const targetLogin = isContractor ? `/contractor/login${sessionParam}` : `/login${sessionParam}`;
                         window.location.href = targetLogin;
-                        // Return a never-resolving promise to halt the calling code
                         return new Promise(() => {});
                     }
                 }

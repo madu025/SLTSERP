@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyJWT } from '@/lib/auth';
+import { verifyJWTWithResult, verifyRefreshToken, signAccessToken } from '@/lib/auth';
 import { hasRouteAccess } from '@/config/route-permissions';
 
 // Paths that do NOT require authentication.
@@ -35,6 +35,10 @@ const publicPaths = [
     '/api/public/site-offices',
     '/api/public/staff',
     '/api/auth/agent-login',
+    '/api/auth/refresh',
+    '/api/auth/forgot-password/verify',
+    '/api/auth/forgot-password/verify-answer',
+    '/api/auth/forgot-password/reset',
     '/api/assets/sync',
     '/api/assets/register',
     '/api/helpdesk/agent/telemetry',
@@ -43,6 +47,7 @@ const publicPaths = [
     '/api/public/invoices',
     '/api/approvals/webhook',
     '/privacy',
+    '/forgot-password',
 ];
 
 // Public prefixes kept INTENTIONALLY narrow (GET-only, bounded depth).
@@ -148,6 +153,7 @@ export async function middleware(request: NextRequest) {
 
     // Check for token
     let token = request.cookies.get('token')?.value;
+    const refreshToken = request.cookies.get('refresh_token')?.value;
 
     // Support extracting token from Authorization header (for scripts and external integrations)
     if (!token) {
@@ -161,10 +167,59 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    // Verify token
-    const verifiedToken = token ? await verifyJWT(token) : null;
+    // Verify token with expiry introspection
+    const verifyResult = token ? await verifyJWTWithResult(token) : { valid: false as const, expired: false as const };
 
-    // If not authenticated
+    // ── Auto-refresh: access token expired but refresh token valid ───────────
+    let verifiedToken = verifyResult.valid ? verifyResult.payload : null;
+    let refreshResponse: NextResponse | null = null;
+
+    if (!verifiedToken && verifyResult.valid === false && verifyResult.expired && refreshToken) {
+        const refreshPayload = await verifyRefreshToken(refreshToken);
+        if (refreshPayload) {
+            // Refresh token carries role/tokenVersion/contractorId claims so
+            // middleware can rebuild the access token without a DB lookup
+            // (Edge runtime is incompatible with Prisma).
+            // The apiHandler session-validator still does the DB check on every
+            // API call, so role/status changes are caught within 15 min.
+            const refreshUserId = (refreshPayload.userId || refreshPayload.sub) as string;
+            const refreshRole = refreshPayload.role as string;
+            const refreshTokenVersion = refreshPayload.tokenVersion as number | undefined;
+            const refreshContractorId = refreshPayload.contractorId as string | undefined;
+
+            if (refreshUserId && refreshRole) {
+                try {
+                    const newAccessToken = await signAccessToken({
+                        id: refreshUserId,
+                        role: refreshRole,
+                        tokenVersion: refreshTokenVersion ?? 0,
+                        contractorId: refreshContractorId || undefined,
+                    });
+
+                    verifiedToken = {
+                        id: refreshUserId,
+                        role: refreshRole,
+                        tokenVersion: refreshTokenVersion ?? 0,
+                        contractorId: refreshContractorId || undefined,
+                    };
+
+                    // Prepare response with refreshed access token cookie
+                    const isProd = process.env.NODE_ENV === 'production';
+                    refreshResponse = NextResponse.next({
+                        request: { headers: requestHeaders },
+                    });
+                    const accessCookie = `token=${newAccessToken}; Max-Age=900; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}; HttpOnly`;
+                    refreshResponse.headers.set('Set-Cookie', accessCookie);
+
+                    console.log(`[AUTH] Access token auto-refreshed for user: ${refreshUserId}`);
+                } catch (e) {
+                    console.warn('[AUTH] Token refresh failed:', (e as Error).message);
+                }
+            }
+        }
+    }
+
+    // If not authenticated (and refresh didn't succeed)
     if (!verifiedToken) {
         if (pathname.startsWith('/api')) {
             return NextResponse.json(
@@ -212,11 +267,19 @@ export async function middleware(request: NextRequest) {
     // in api-handler.ts still blocks all non-exempt endpoints.
 
     // Prevent browser caching of protected pages (stops back-button from showing stale auth pages)
-    const response = NextResponse.next({
+    // If we refreshed the token, use the refreshResponse to carry the Set-Cookie header
+    const response = refreshResponse || NextResponse.next({
         request: {
             headers: requestHeaders,
         },
     });
+
+    // If refreshResponse was used, still need to set the forwarded headers
+    if (refreshResponse) {
+        for (const [key, value] of requestHeaders.entries()) {
+            response.headers.set(key, value);
+        }
+    }
 
     // Apply security headers to all authenticated responses
     applySecurityHeaders(response);

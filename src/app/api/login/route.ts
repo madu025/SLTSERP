@@ -13,15 +13,14 @@ const loginSchema = z.object({
 export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginSchema>) => {
     const loginStart = Date.now();
     try {
-        const { token, user } = await UserService.login({ username: data.username, password: data.password });
+        const { token, refreshToken, user } = await UserService.login({ username: data.username, password: data.password });
         console.log(`[LOGIN] AuthService succeeded in ${Date.now() - loginStart}ms for user: ${user.username}`);
 
+        const isProd = process.env.NODE_ENV === 'production';
         const cookieOptions = {
             httpOnly: true,
-            // HTTPS-only in production; local dev still serves over plain HTTP
-            secure: process.env.NODE_ENV === 'production',
+            secure: isProd,
             sameSite: 'lax' as const,
-            maxAge: 86400, // 24 hours
             path: '/',
         };
 
@@ -29,15 +28,18 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
             message: 'Login successful',
             user,
             token,
+            refreshToken,
         });
 
-        // Explicitly set Set-Cookie on the response to guarantee the header
-        // survives the apiHandler wrapper boundary (cookies().set() alone
-        // may not propagate through nested Response objects).
-        const cookieValue = `token=${token}; Max-Age=${cookieOptions.maxAge}; Path=${cookieOptions.path}; SameSite=${cookieOptions.sameSite}${cookieOptions.secure ? '; Secure' : ''}${cookieOptions.httpOnly ? '; HttpOnly' : ''}`;
-        response.headers.set('Set-Cookie', cookieValue);
+        // Set access token cookie (15 min expiry, httpOnly)
+        const accessCookie = `token=${token}; Max-Age=900; Path=${cookieOptions.path}; SameSite=${cookieOptions.sameSite}${cookieOptions.secure ? '; Secure' : ''}${cookieOptions.httpOnly ? '; HttpOnly' : ''}`;
+        response.headers.set('Set-Cookie', accessCookie);
 
-        console.log(`[LOGIN] Response ready in ${Date.now() - loginStart}ms, Set-Cookie header present: ${response.headers.has('Set-Cookie')}`);
+        // Set refresh token cookie (7 day expiry, httpOnly)
+        const refreshCookie = `refresh_token=${refreshToken}; Max-Age=604800; Path=${cookieOptions.path}; SameSite=${cookieOptions.sameSite}${cookieOptions.secure ? '; Secure' : ''}; HttpOnly`;
+        response.headers.append('Set-Cookie', refreshCookie);
+
+        console.log(`[LOGIN] Response ready in ${Date.now() - loginStart}ms, Set-Cookie headers present: ${response.headers.has('Set-Cookie')}`);
         return response;
 
     } catch (error: unknown) {
