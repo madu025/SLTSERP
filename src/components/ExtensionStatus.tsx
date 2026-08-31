@@ -344,10 +344,10 @@ export default function ExtensionStatus() {
                         <Button
                             className="w-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
                             size="sm"
-                            onClick={() => window.open('/slt-bridge.zip', '_blank')}
+                            onClick={() => window.location.href = '/extension-download'}
                         >
                             <Download className="w-4 h-4 mr-2" />
-                            Download Extension v4.5.1
+                            Install Extension v{bridgeInfo.version || '4.5.2'}
                         </Button>
 
                         <button
