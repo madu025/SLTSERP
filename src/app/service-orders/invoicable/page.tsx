@@ -74,7 +74,8 @@ function InvoicableServiceOrdersContent() {
             let allContractors: Array<{ id: string; name: string }> = [];
             if (contractorRes.ok) {
                 const cJson = await contractorRes.json();
-                allContractors = (cJson.contractors || cJson.data || cJson.items || []) as Array<{ id: string; name: string }>;
+                const rawContractors = cJson.contractors || cJson.data || cJson.items || [];
+                allContractors = Array.isArray(rawContractors) ? rawContractors : [];
             }
 
             if (sodRes.ok) {
