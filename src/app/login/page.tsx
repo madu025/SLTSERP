@@ -101,16 +101,34 @@ function LoginContent() {
           localStorage.setItem("user", JSON.stringify(data.user));
           if (data.token) {
             localStorage.setItem("token", data.token);
-            // Also set cookie client-side as fallback for immediate availability
-            // This ensures the cookie is available for the navigation request
-            // even if the Set-Cookie header hasn't been fully processed
+            // Set cookie client-side for immediate availability
             const isProd = window.location.protocol === 'https:';
             document.cookie = `token=${data.token}; Max-Age=86400; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
           }
 
-          // Brief pause to ensure the browser has fully committed the Set-Cookie
-          // header from the fetch response before the navigation request fires.
-          await new Promise(r => setTimeout(r, 200));
+          // Wait for cookie to be available before navigating
+          // Poll until cookie is set or timeout after 1 second
+          const waitForCookie = (token: string, timeout = 1000): Promise<boolean> => {
+            return new Promise((resolve) => {
+              const startTime = Date.now();
+              const check = () => {
+                if (document.cookie.includes(`token=${token}`)) {
+                  resolve(true);
+                } else if (Date.now() - startTime > timeout) {
+                  resolve(false);
+                } else {
+                  setTimeout(check, 50);
+                }
+              };
+              check();
+            });
+          };
+
+          if (data.token) {
+            await waitForCookie(data.token);
+          } else {
+            await new Promise(r => setTimeout(r, 200));
+          }
 
           const contractorLogin = isContractorRole(data.user?.role);
           const storesLogin = isStoresRole(data.user?.role);
