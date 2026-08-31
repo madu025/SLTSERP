@@ -135,3 +135,43 @@ export const SOD_PENDING_DEFAULT_STATUSES = [
     SodStatus.PROV_CLOSED,
     SodStatus.DISAPPEARED,
 ] as const;
+
+// ── Display Helpers (single computed status for the UI) ──
+
+/** Human-readable labels for statuses that live only in the workflow `status` field */
+const SOD_WORKFLOW_DISPLAY_LABELS: Record<string, string> = {
+    [SodStatus.DISAPPEARED]: 'DISAPPEARED',
+    [SodStatus.PAT_OPMC_PASSED]: 'PAT OPMC PASSED',
+    [SodStatus.PAT_OPMC_REJECTED]: 'PAT OPMC REJECTED',
+    [SodStatus.PAT_CORRECTED]: 'PAT CORRECTED',
+    [SodStatus.PAT_REJECTED]: 'PAT REJECTED',
+    [SodStatus.RETURNED]: 'RETURN',
+    [SodStatus.ASSIGNED]: 'ASSIGNED',
+    [SodStatus.ASSIGN]: 'ASSIGNED',
+};
+
+/** Minimal shape needed to compute the display status (works with Prisma rows and API DTOs) */
+export interface SodStatusSource {
+    sltsStatus?: string | null;
+    status?: string | null;
+}
+
+/**
+ * Single computed operational status for display, merging both stored fields.
+ * Precedence:
+ *  1. DISAPPEARED / PAT stage / RETURNED / ASSIGNED - workflow-only dimensions,
+ *     surfaced because sltsStatus cannot represent them
+ *  2. RETURN - workflow return beats a stale portal state
+ *  3. sltsStatus - portal truth (COMPLETED / INSTALL_CLOSED / INPROGRESS /
+ *     RETURN / PROV_CLOSED / OFFLINE / ...); workflow PENDING beneath an
+ *     active portal status resolves to the portal status
+ */
+export function getComputedSodStatus(order: SodStatusSource): string {
+    const workflowStatus = (order.status || '').toUpperCase();
+    const portalStatus = (order.sltsStatus || '').toUpperCase();
+
+    if (SOD_WORKFLOW_DISPLAY_LABELS[workflowStatus]) return SOD_WORKFLOW_DISPLAY_LABELS[workflowStatus];
+    if (workflowStatus === SodStatus.RETURN) return SodStatus.RETURN;
+    if (portalStatus) return portalStatus;
+    return workflowStatus || '-';
+}

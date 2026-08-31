@@ -17,6 +17,7 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getComputedSodStatus } from "@/lib/constants/sod-constants";
 
 interface SODSheetTableProps {
     orders: ServiceOrder[];
@@ -166,8 +167,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                     return dateStr.includes(filterValue);
                 }
                 if (key === "returnReason") {
-                    const reason = order.returnReason || order.status || "";
+                    const reason = order.returnReason || "";
                     return reason.toLowerCase().includes(lowerFilter);
+                }
+                if (key === "status") {
+                    // Filter must match the displayed computed badge, not the raw workflow field
+                    return getComputedSodStatus(order).toLowerCase().includes(lowerFilter);
                 }
                 
                 const val = order[key as keyof ServiceOrder];
@@ -1020,8 +1025,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         )}
                                         {isColumnVisible('status') && (
                                         <td className="px-2 border-r border-border/15">
-                                            <span className={`px-2 py-0.5 rounded-full font-black text-[10px] uppercase border ${getStatusColorClass(order.status)}`}>
-                                                {order.status || "-"}
+                                            <span className={`px-2 py-0.5 rounded-full font-black text-[10px] uppercase border ${getStatusColorClass(getComputedSodStatus(order))}`} title={`Portal: ${order.sltsStatus || "-"} / Workflow: ${order.status || "-"}`}>
+                                                {getComputedSodStatus(order)}
                                             </span>
                                         </td>
                                         )}
@@ -1116,8 +1121,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
                                         )}
                                         {isColumnVisible('returnReason') && (
-                                        <td className="px-2 border-r border-border/15 text-[10px] truncate font-semibold text-rose-500 uppercase" title={order.returnReason || order.status || ""}>
-                                            {order.returnReason || order.status || "-"}
+                                        <td className="px-2 border-r border-border/15 text-[10px] truncate font-semibold text-rose-500 uppercase" title={order.returnReason || ""}>
+                                            {order.returnReason || "-"}
                                         </td>
                                         )}
                                         {isColumnVisible('comments') && (
