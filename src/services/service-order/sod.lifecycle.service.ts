@@ -340,11 +340,10 @@ export class SODLifecycleService {
         } else if (conStatusUpper === 'PROV_CLOSED') {
             return 'PROV_CLOSED';
         } else if (conStatusUpper === 'RETURN_PENDING') {
-            // RETURN_PENDING = return requested but NOT executed. It must not trigger
-            // the RETURN flow (material/ledger rollback) — the portal cancels pending
-            // returns (observed: RETURN_PENDING -> INSTALL_CLOSED). SOD stays active
-            // until the portal confirms the actual return.
-            return 'INPROGRESS';
+            // BUSINESS RULE: every portal RETURN_PENDING (return request raised) must
+            // present as RETURN in the ERP immediately. Explicit branch - never rely on
+            // the includes('RETURN') fallback, which silently absorbs unknown variants.
+            return 'RETURN';
         } else if (!isPatRejection && ((SOD_RETURN_STATUSES as readonly string[]).includes(conStatusUpper) || conStatusUpper.includes('RETURN') || conStatusUpper.includes('CANCEL'))) {
             return 'RETURN';
         }
