@@ -68,11 +68,15 @@ export default function SessionManager() {
                     // Avoid redirect loops if already on login page or public pages
                     const publicPages = ['/login', '/contractor/login', '/privacy'];
                     if (!publicPages.some(p => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
+                        // Check if user had a session before clearing it
+                        const hadSession = !!localStorage.getItem('token');
                         console.warn('[SESSION-MANAGER] 401 intercepted — session invalidated, redirecting to login');
                         localStorage.removeItem('user');
                         localStorage.removeItem('token');
                         const isContractor = window.location.pathname.startsWith('/contractor');
-                        const targetLogin = isContractor ? '/contractor/login?session=expired' : '/login?session=expired';
+                        // Only add session=expired if user actually had a session
+                        const sessionParam = hadSession ? '?session=expired' : '';
+                        const targetLogin = isContractor ? `/contractor/login${sessionParam}` : `/login${sessionParam}`;
                         window.location.href = targetLogin;
                         // Return a never-resolving promise to halt the calling code
                         return new Promise(() => {});
