@@ -65,8 +65,9 @@ export default function SessionManager() {
                 const isAgentAuthEndpoint = AGENT_AUTH_PATHS.some((p) => requestUrl.includes(p));
                 // Only intercept API 401s, not login/auth endpoint responses
                 if (requestUrl.includes('/api/') && !isAgentAuthEndpoint && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth')) {
-                    // Avoid redirect loops if already on login page
-                    if (window.location.pathname !== '/login' && window.location.pathname !== '/contractor/login') {
+                    // Avoid redirect loops if already on login page or public pages
+                    const publicPages = ['/login', '/contractor/login', '/privacy'];
+                    if (!publicPages.some(p => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
                         console.warn('[SESSION-MANAGER] 401 intercepted — session invalidated, redirecting to login');
                         localStorage.removeItem('user');
                         localStorage.removeItem('token');
