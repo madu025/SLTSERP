@@ -84,6 +84,7 @@ function LoginContent() {
     const maxRetries = 2;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        console.log(`[LOGIN] Attempt ${attempt}/${maxRetries} started at ${new Date().toISOString()}`);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for cold starts
         const response = await fetch("/api/login", {
@@ -94,38 +95,54 @@ function LoginContent() {
         });
         clearTimeout(timeoutId);
         const data = await response.json();
+        console.log(`[LOGIN] Response status: ${response.status}, ok: ${response.ok}`);
+
         if (response.ok) {
           localStorage.setItem("user", JSON.stringify(data.user));
           if (data.token) {
             localStorage.setItem("token", data.token);
           }
 
+          // Brief pause to ensure the browser has fully committed the Set-Cookie
+          // header from the fetch response before the navigation request fires.
+          // Without this, the middleware on the target page may not see the token
+          // cookie yet and redirect back to /login.
+          await new Promise(r => setTimeout(r, 150));
+
           const contractorLogin = isContractorRole(data.user?.role);
           const storesLogin = isStoresRole(data.user?.role);
 
-          if (callbackUrl) {
-            window.location.href = callbackUrl;
-          } else if (contractorLogin) {
-            window.location.href = "/contractor/dashboard";
-          } else if (storesLogin) {
-            window.location.href = "/inventory";
-          } else {
-            window.location.href = "/dashboard";
-          }
+          const targetUrl = callbackUrl
+            || (contractorLogin ? "/contractor/dashboard" : null)
+            || (storesLogin ? "/inventory" : null)
+            || "/dashboard";
+
+          console.log(`[LOGIN] Success, redirecting to: ${targetUrl}`);
+          window.location.href = targetUrl;
           return; // Success, exit
-        } else {
-          // Auth error - don't retry, show immediately
-          setError(data.error?.message || data.message || "Login failed");
-          return;
         }
+
+        // Server-side errors (500/502/503/504) — likely cold start or connection
+        // initialization failure. Retry once so the warm connection succeeds.
+        const isServerError = [500, 502, 503, 504].includes(response.status);
+        if (isServerError && attempt < maxRetries) {
+          console.warn(`[LOGIN] Server error ${response.status} on attempt ${attempt}, retrying after 1.5s...`);
+          await new Promise(r => setTimeout(r, 1500));
+          continue;
+        }
+
+        // Auth error (401/403) or final attempt server error — show immediately
+        setError(data.error?.message || data.message || "Login failed");
+        return;
       } catch (err) {
         if (attempt < maxRetries) {
           // Network/timeout error - retry after 1s
-          console.warn(`[LOGIN] Attempt ${attempt} failed, retrying...`, err);
+          console.warn(`[LOGIN] Attempt ${attempt} network error, retrying...`, err);
           await new Promise(r => setTimeout(r, 1000));
         } else {
           // Final attempt failed
           const isTimeout = err instanceof DOMException && err.name === 'AbortError';
+          console.error(`[LOGIN] Final attempt failed:`, err);
           setError(isTimeout
             ? "Server is starting up. Please try again."
             : "Connection failed. Please check your network and try again.");

@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
@@ -12,10 +11,10 @@ const loginSchema = z.object({
 });
 
 export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginSchema>) => {
+    const loginStart = Date.now();
     try {
         const { token, user } = await UserService.login({ username: data.username, password: data.password });
-
-        const cookieStore = await cookies();
+        console.log(`[LOGIN] AuthService succeeded in ${Date.now() - loginStart}ms for user: ${user.username}`);
 
         const cookieOptions = {
             httpOnly: true,
@@ -25,8 +24,6 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
             maxAge: 86400, // 24 hours
             path: '/',
         };
-
-        cookieStore.set('token', token, cookieOptions);
 
         const response = NextResponse.json({
             message: 'Login successful',
@@ -38,12 +35,14 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
         // survives the apiHandler wrapper boundary (cookies().set() alone
         // may not propagate through nested Response objects).
         const cookieValue = `token=${token}; Max-Age=${cookieOptions.maxAge}; Path=${cookieOptions.path}; SameSite=${cookieOptions.sameSite}${cookieOptions.secure ? '; Secure' : ''}${cookieOptions.httpOnly ? '; HttpOnly' : ''}`;
-        response.headers.append('Set-Cookie', cookieValue);
+        response.headers.set('Set-Cookie', cookieValue);
 
+        console.log(`[LOGIN] Response ready in ${Date.now() - loginStart}ms, Set-Cookie header present: ${response.headers.has('Set-Cookie')}`);
         return response;
 
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[LOGIN] AuthService failed in ${Date.now() - loginStart}ms: ${errorMessage}`);
 
         if (errorMessage === 'INVALID_CREDENTIALS') {
             throw AppError.unauthorized('Invalid credentials');
