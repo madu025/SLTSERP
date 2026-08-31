@@ -15,6 +15,18 @@ export const GET = apiHandler(async (request) => {
     // Normalize "ALL" sentinel to empty string — rtomId is a UUID column and
     // passing the literal "ALL" to Prisma causes a 500 UUID parse error.
     const rawRtomId = searchParams.get('rtomId') || searchParams.get('opmcId') || searchParams.get('rtom') || '';
+    
+    // Safe JSON parse for columnFilters
+    let columnFilters = undefined;
+    const columnFiltersParam = searchParams.get('columnFilters');
+    if (columnFiltersParam) {
+        try {
+            columnFilters = JSON.parse(columnFiltersParam);
+        } catch (e) {
+            console.warn('[service-orders] Invalid columnFilters JSON:', columnFiltersParam);
+        }
+    }
+    
     const params = {
         rtomId: rawRtomId && rawRtomId !== 'ALL' ? rawRtomId : '',
         filter: searchParams.get('filter') || 'pending',
@@ -22,7 +34,7 @@ export const GET = apiHandler(async (request) => {
         statusFilter: searchParams.get('statusFilter') || undefined,
         patFilter: searchParams.get('patFilter') || undefined,
         matFilter: searchParams.get('matFilter') || undefined,
-        columnFilters: searchParams.get('columnFilters') ? JSON.parse(searchParams.get('columnFilters')!) : undefined,
+        columnFilters,
         page: parseInt(searchParams.get('page') || '1'),
         limit: parseInt(searchParams.get('limit') || '50'),
         cursor: searchParams.get('cursor') || undefined,
