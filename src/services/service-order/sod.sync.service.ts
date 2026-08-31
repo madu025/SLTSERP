@@ -511,6 +511,22 @@ export class SODSyncService {
                 }
             }
 
+            // ── Self-healing guard: portal-confirmed install closures must advance the ERP
+            // workflow status. Re-asserted every cycle so stragglers (legacy deployments,
+            // race windows, out-of-band writes) cannot leave terminal SODs looking active.
+            const healed = await prisma.serviceOrder.updateMany({
+                where: {
+                    sltsStatus: 'INSTALL_CLOSED',
+                    status: {
+                        in: ['PENDING', 'INPROGRESS', 'PROV_CLOSED', 'ASSIGNED', 'ASSIGN', 'OFFLINE'] as import("@prisma/client").ServiceOrderStatus[]
+                    }
+                },
+                data: { status: 'INSTALL_CLOSED' }
+            });
+            if (healed.count > 0) {
+                console.log(`[SYNC] Self-heal: advanced ${healed.count} INSTALL_CLOSED SODs with stale workflow status.`);
+            }
+
             const stats = {
                 queuedCount: 0,
                 jobIds: [],
