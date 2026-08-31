@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SOD_WORKFLOW_STATUS_VALUES } from '@/lib/constants/sod-constants';
 
 export const serviceOrderPatchSchema = z.object({
     id: z.string().min(1, "ID is required"),
@@ -62,7 +63,7 @@ export const serviceOrderCreateSchema = z.object({
     voiceNumber: z.string().optional().nullable(),
     customerName: z.string().optional().nullable(),
     techContact: z.string().optional().nullable(),
-    status: z.string().default('INPROGRESS'),
+    status: z.enum([...SOD_WORKFLOW_STATUS_VALUES] as [string, ...string[]]).default('INPROGRESS'),
     orderType: z.string().optional().nullable(),
     serviceType: z.string().optional().nullable(),
     package: z.string().optional().nullable(),

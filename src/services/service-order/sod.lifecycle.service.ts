@@ -8,7 +8,7 @@ import { SODInvoicingService } from './sod.invoicing.service';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { eventBus } from '@/lib/events/event-bus';
 import { safe } from '@/utils/safe-await.util';
-import { SOD_EXTERNAL_COMPLETION_STATUSES, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
+import { SOD_EXTERNAL_COMPLETION_STATUSES, SOD_RETURN_STATUSES, SOD_SLTS_TERMINAL_STATUSES } from '@/lib/constants/sod-constants';
 
 /** Valid ServiceOrderStatus enum members — guards raw portal/UI strings before Prisma writes */
 export const SERVICE_ORDER_STATUS_VALUES = new Set<string>(Object.keys(ServiceOrderStatus));
@@ -47,6 +47,13 @@ export class SODLifecycleService {
             updateData.sltsStatus = sltsStatus as ServiceOrderStatus;
             if (sltsStatus === 'COMPLETED' && !completedDate) {
                 updateData.completedDate = new Date();
+            }
+
+            // Manual edits must keep both status fields coherent: when the portal-mirror
+            // status goes terminal, advance the ERP workflow status to the same value.
+            // Mirrors the sync-layer rule and satisfies the DB status invariant trigger.
+            if ((SOD_SLTS_TERMINAL_STATUSES as readonly string[]).includes(sltsStatus)) {
+                updateData.status = sltsStatus as ServiceOrderStatus;
             }
 
             // Logic for Restoring a RETURNED SOD

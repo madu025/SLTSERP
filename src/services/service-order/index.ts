@@ -119,6 +119,7 @@ export class ServiceOrderService {
                 // FSM intercepted this transition. Block the immediate status change and wait for approval.
                 delete updateData.sltsStatus;
                 delete updateData.completedDate;
+                delete updateData.status;
             }
         }
 

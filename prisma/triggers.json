@@ -97,6 +97,14 @@
       "events": "UPDATE",
       "function": "fn_audit_sod_status_change()",
       "when": "OLD.status IS DISTINCT FROM NEW.status"
+    },
+    {
+      "name": "trg_sod_status_validate",
+      "table": "ServiceOrder",
+      "timing": "BEFORE",
+      "events": "UPDATE",
+      "function": "fn_validate_sod_status_transition()",
+      "when": null
     }
   ]
 }

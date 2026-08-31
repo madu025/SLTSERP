@@ -25,6 +25,58 @@ export enum SodStatus {
     CANCELLED = 'CANCELLED',
 }
 
+// ── Status Domain Validation (single source of truth for writers) ──
+
+/** Values legitimately writable to `sltsStatus` (portal-mirror domain) */
+export const SOD_SLTS_STATUS_VALUES = [
+    SodStatus.INPROGRESS,
+    SodStatus.PROV_CLOSED,
+    SodStatus.INSTALL_CLOSED,
+    SodStatus.COMPLETED,
+    SodStatus.RETURN,
+    SodStatus.DISAPPEARED,
+    SodStatus.OFFLINE,
+    SodStatus.PAT_OPMC_PASSED,
+    SodStatus.PAT_OPMC_REJECTED,
+    SodStatus.PAT_CORRECTED,
+    SodStatus.PAT_REJECTED,
+] as const;
+
+/** Values legitimately writable to `status` (ERP internal workflow domain) */
+export const SOD_WORKFLOW_STATUS_VALUES = [
+    SodStatus.PENDING,
+    SodStatus.ASSIGNED,
+    SodStatus.ASSIGN,
+    SodStatus.INPROGRESS,
+    SodStatus.PROV_CLOSED,
+    SodStatus.INSTALL_CLOSED,
+    SodStatus.COMPLETED,
+    SodStatus.DISAPPEARED,
+    SodStatus.RETURNED,
+    SodStatus.PAT_OPMC_PASSED,
+    SodStatus.PAT_OPMC_REJECTED,
+    SodStatus.PAT_CORRECTED,
+    SodStatus.PAT_REJECTED,
+] as const;
+
+/** Portal-terminal statuses: the portal has confirmed the work is done */
+export const SOD_SLTS_TERMINAL_STATUSES = [
+    SodStatus.INSTALL_CLOSED,
+    SodStatus.COMPLETED,
+    SodStatus.PAT_OPMC_PASSED,
+    SodStatus.PAT_CORRECTED,
+] as const;
+
+/** Workflow statuses that must NEVER exist beneath a portal-terminal sltsStatus */
+export const SOD_STALE_ACTIVE_STATUSES = [
+    SodStatus.PENDING,
+    SodStatus.ASSIGNED,
+    SodStatus.ASSIGN,
+    SodStatus.INPROGRESS,
+    SodStatus.OFFLINE,
+    SodStatus.PROV_CLOSED,
+] as const;
+
 // ── External Status Mappings (from SLT Portal / ISHAMP / Excel) ──
 
 /** External statuses that indicate physical field work is done */
