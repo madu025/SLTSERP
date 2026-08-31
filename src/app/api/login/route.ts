@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { UserService } from '@/services/hr/user.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
@@ -17,30 +18,33 @@ export const POST = apiHandler(async (_req, _params, data: z.infer<typeof loginS
         console.log(`[LOGIN] AuthService succeeded in ${Date.now() - loginStart}ms for user: ${user.username}`);
 
         const isProd = process.env.NODE_ENV === 'production';
-        const cookieOptions = {
+
+        // Use next/headers cookies() — Next.js ensures each Set-Cookie is a
+        // separate header (headers.set/append merges them into one comma-
+        // separated header which browsers parse incorrectly).
+        const cookieStore = await cookies();
+        cookieStore.set('token', token, {
             httpOnly: true,
             secure: isProd,
-            sameSite: 'lax' as const,
+            sameSite: 'lax',
             path: '/',
-        };
+            maxAge: 900, // 15 minutes
+        });
+        cookieStore.set('refresh_token', refreshToken, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 604800, // 7 days
+        });
 
-        const response = NextResponse.json({
+        console.log(`[LOGIN] Response ready in ${Date.now() - loginStart}ms`);
+        return NextResponse.json({
             message: 'Login successful',
             user,
             token,
             refreshToken,
         });
-
-        // Set access token cookie (15 min expiry, httpOnly)
-        const accessCookie = `token=${token}; Max-Age=900; Path=${cookieOptions.path}; SameSite=${cookieOptions.sameSite}${cookieOptions.secure ? '; Secure' : ''}${cookieOptions.httpOnly ? '; HttpOnly' : ''}`;
-        response.headers.set('Set-Cookie', accessCookie);
-
-        // Set refresh token cookie (7 day expiry, httpOnly)
-        const refreshCookie = `refresh_token=${refreshToken}; Max-Age=604800; Path=${cookieOptions.path}; SameSite=${cookieOptions.sameSite}${cookieOptions.secure ? '; Secure' : ''}; HttpOnly`;
-        response.headers.append('Set-Cookie', refreshCookie);
-
-        console.log(`[LOGIN] Response ready in ${Date.now() - loginStart}ms, Set-Cookie headers present: ${response.headers.has('Set-Cookie')}`);
-        return response;
 
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';

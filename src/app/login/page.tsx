@@ -101,39 +101,12 @@ function LoginContent() {
           localStorage.setItem("user", JSON.stringify(data.user));
           if (data.token) {
             localStorage.setItem("token", data.token);
-            // Set access token cookie client-side for immediate availability
-            const isProd = window.location.protocol === 'https:';
-            document.cookie = `token=${data.token}; Max-Age=900; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
-          }
-          if (data.refreshToken) {
-            // Set refresh token cookie client-side for immediate availability
-            const isProd = window.location.protocol === 'https:';
-            document.cookie = `refresh_token=${data.refreshToken}; Max-Age=604800; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
           }
 
-          // Wait for cookie to be available before navigating
-          // Poll until cookie is set or timeout after 1 second
-          const waitForCookie = (token: string, timeout = 1000): Promise<boolean> => {
-            return new Promise((resolve) => {
-              const startTime = Date.now();
-              const check = () => {
-                if (document.cookie.includes(`token=${token}`)) {
-                  resolve(true);
-                } else if (Date.now() - startTime > timeout) {
-                  resolve(false);
-                } else {
-                  setTimeout(check, 50);
-                }
-              };
-              check();
-            });
-          };
-
-          if (data.token) {
-            await waitForCookie(data.token);
-          } else {
-            await new Promise(r => setTimeout(r, 200));
-          }
+          // Brief pause for server Set-Cookie headers to be processed by the
+          // browser before navigation. Server sets HttpOnly cookies via
+          // next/headers cookies() — not readable via document.cookie.
+          await new Promise(r => setTimeout(r, 200));
 
           const contractorLogin = isContractorRole(data.user?.role);
           const storesLogin = isStoresRole(data.user?.role);
