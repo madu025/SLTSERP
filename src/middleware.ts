@@ -42,6 +42,7 @@ const publicPaths = [
     '/public/invoices',
     '/api/public/invoices',
     '/api/approvals/webhook',
+    '/privacy',
 ];
 
 // Public prefixes kept INTENTIONALLY narrow (GET-only, bounded depth).

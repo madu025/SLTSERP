@@ -6,7 +6,7 @@
  * - Version aligned
  */
 
-const BRIDGE_VERSION = '4.5.1';
+const BRIDGE_VERSION = '4.5.2';
 
 console.log(`%c[SLT-BRIDGE] v${BRIDGE_VERSION} Engaged`, 'color: #8b5cf6; font-weight: bold; font-size: 14px;');
 
