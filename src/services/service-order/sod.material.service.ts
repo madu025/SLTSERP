@@ -23,11 +23,29 @@ export class SODMaterialService {
         },
         userId: string = 'SYSTEM'
     ) {
+        // Serialize concurrent writers per SOD (the bridge push and an ERP-side sync
+        // raced on AN202607230049085 and double-inserted a usage line). Transaction-
+        // scoped advisory lock: re-entrant here, released automatically at commit.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${serviceOrderId}::text, 0))`;
+
         // Essential for idempotency on re-patching
         await this.rollbackMaterialUsage(tx, serviceOrderId, userId);
 
         const finalUsageRecords: Prisma.SODMaterialUsageUncheckedCreateWithoutServiceOrderInput[] = [];
         const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
+
+        // Merge duplicate input lines (same item + usage type + serial) so a single
+        // submission can never violate the uq_sod_material_usage_line DB guard.
+        const mergedUsage = new Map<string, MaterialUsageInput>();
+        for (const m of materialUsage) {
+            const key = `${m.itemId}|${m.usageType}|${(m.serialNumber || '').trim()}`;
+            const existing = mergedUsage.get(key);
+            if (existing) {
+                existing.quantity = String(parseFloat(existing.quantity || '0') + parseFloat(m.quantity || '0'));
+            } else {
+                mergedUsage.set(key, { ...m });
+            }
+        }
 
         // 1. Identify Source Store
         const opmc = await ContractorRepository.findOpmcWithStore(opmcId, tx);
@@ -36,7 +54,7 @@ export class SODMaterialService {
         if (hasActiveDeductions && !contractorId && !storeId) throw AppError.badRequest('STORE_NOT_FOUND_FOR_OPMC');
 
         // 2. Process each material
-        for (const m of materialUsage) {
+        for (const m of mergedUsage.values()) {
             const qty = parseFloat(m.quantity || '0');
             if (qty <= 0) continue;
 
@@ -142,6 +160,10 @@ export class SODMaterialService {
      * Rollback material usage for an SOD (Inventory Reversal)
      */
     static async rollbackMaterialUsage(tx: TransactionClient, serviceOrderId: string, userId: string = 'SYSTEM') {
+        // Direct callers (RETURN flows, ledger rollbacks) mutate usage rows too - take
+        // the same per-SOD lock. Re-entrant when already held by processMaterialUsage.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${serviceOrderId}::text, 0))`;
+
         const usage = await MaterialRepository.findByServiceOrderId(serviceOrderId, tx);
         if (usage.length === 0) return;
 
