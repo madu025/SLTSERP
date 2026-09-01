@@ -3,8 +3,7 @@ setlocal EnableDelayedExpansion
 
 :: ============================================================
 :: SLT-ERP Bridge - Chrome Extension Installer (No Admin)
-:: Extracts extension and auto-loads via --load-extension flag
-:: Creates Desktop shortcut for Chrome with extension
+:: Extracts extension and guides manual load (confirmed working)
 :: ============================================================
 
 title SLT-ERP Bridge Installer
@@ -17,11 +16,9 @@ echo  ============================================
 echo.
 
 :: Set paths
-set "EXTENSION_DIR=%LOCALAPPDATA%\SLT-Bridge-Extension"
+set "EXTENSION_DIR=C:\SLT-Bridge"
 set "SCRIPT_DIR=%~dp0"
 set "ZIP_FILE=%SCRIPT_DIR%slt-bridge.zip"
-set "DESKTOP=%USERPROFILE%\Desktop"
-set "SHORTCUT_NAME=Chrome with SLT-Bridge"
 
 :: Check if zip exists
 if not exist "%ZIP_FILE%" (
@@ -67,38 +64,32 @@ if not exist "%EXTENSION_DIR%\manifest.json" (
 echo  Extension extracted successfully!
 echo.
 
-:: Create Desktop shortcut
-echo  Creating Desktop shortcut...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%.lnk'); $sc.TargetPath = 'C:\Program Files\Google\Chrome\Application\chrome.exe'; $sc.Arguments = '--load-extension=""%EXTENSION_DIR%""'; $sc.Description = 'Chrome with SLT-ERP Bridge extension'; $sc.IconLocation = 'C:\Program Files\Google\Chrome\Application\chrome.exe,0'; $sc.Save()"
+:: Copy path to clipboard
+echo | set /p="%EXTENSION_DIR%" | clip
 
-if exist "%DESKTOP%\%SHORTCUT_NAME%.lnk" (
-    echo  Desktop shortcut created: %SHORTCUT_NAME%.lnk
-) else (
-    echo  WARNING: Could not create Desktop shortcut.
-)
-echo.
-
-:: Kill Chrome
-echo  Restarting Chrome with extension...
-taskkill /f /im chrome.exe >nul 2>&1
-timeout /t 3 /nobreak >nul
-
-:: Start Chrome with extension loaded
-start "" "chrome.exe" --load-extension="%EXTENSION_DIR%"
+:: Open chrome://extensions
+echo  Opening Chrome Extensions page...
+start "" "chrome://extensions"
 
 echo.
 echo  ============================================
-echo  SUCCESS!
+echo  FINAL STEP - Manual Load (30 seconds):
 echo  ============================================
 echo.
-echo  Chrome started with SLT-ERP Bridge extension.
+echo  1. Enable "Developer mode" toggle (top-right)
+echo  2. Click "Load unpacked" button
+echo  3. Paste path (Ctrl+V) in folder picker:
 echo.
-echo  FROM NOW ON: Use the Desktop shortcut
-echo  "%SHORTCUT_NAME%" to start Chrome.
+echo     %EXTENSION_DIR%
 echo.
-echo  NOTE: If you see a yellow bar about developer
-echo  mode extensions, click "Keep changes".
+echo  4. Click "Select Folder"
 echo.
-echo  To update: Re-run this installer.
+echo  ============================================
+echo.
+echo  Path copied to clipboard! Just paste it.
+echo.
+echo  After loading, the extension works immediately.
+echo  To update: Re-run this installer, then click
+echo  "Reload" on the extension card.
 echo.
 pause

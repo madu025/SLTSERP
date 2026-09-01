@@ -10,10 +10,8 @@ namespace SLTBridgeInstaller
     class Program
     {
         const string ExtensionId = "mhbnhnpammnagfmgomcpakeeohbnkajm";
-        const string UpdateManifest = "https://sltserp.vercel.app/slt-bridge-updates.xml";
         const string PolicyPath = @"Software\Policies\Google\Chrome\ExtensionInstallForcelist";
-        const string ExtensionDir = "SLT-Bridge-Extension";
-        const string ShortcutName = "Chrome with SLT-Bridge";
+        const string ExtensionDir = @"C:\SLT-Bridge";
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
@@ -49,8 +47,8 @@ namespace SLTBridgeInstaller
                         "SLT-ERP Bridge Installer\n\n" +
                         "This will:\n" +
                         "1. Remove old Chrome policy (requires admin)\n" +
-                        "2. Install extension via --load-extension\n" +
-                        "3. Create Desktop shortcut\n\n" +
+                        "2. Extract extension files\n" +
+                        "3. Open Chrome for manual load\n\n" +
                         "Click Yes to continue.",
                         "SLT-ERP Bridge Install",
                         MB_YESNO | MB_ICONINFORMATION);
@@ -58,32 +56,60 @@ namespace SLTBridgeInstaller
                     if (result != 6) return;
 
                     var exe = Process.GetCurrentProcess().MainModule!.FileName!;
-                    var psi = new ProcessStartInfo(exe)
+                    Process.Start(new ProcessStartInfo(exe)
                     {
                         UseShellExecute = true,
                         Verb = "runas"
-                    };
-                    Process.Start(psi);
+                    });
                     return;
                 }
 
                 // We are admin - clean up dead HKLM policy
                 CleanUpDeadPolicy();
 
-                // Step 2: Set up --load-extension approach (no admin needed)
-                SetupLoadExtension();
+                // Step 2: Extract extension (should already be done by batch, but verify)
+                if (!Directory.Exists(ExtensionDir) || !File.Exists(Path.Combine(ExtensionDir, "manifest.json")))
+                {
+                    MessageBox(IntPtr.Zero,
+                        "Extension files not found at:\n" + ExtensionDir + "\n\n" +
+                        "Please run Install-SLTBridge-NoAdmin.bat first to extract the extension.",
+                        "SLT-ERP Bridge Install",
+                        MB_OK | MB_ICONERROR);
+                    return;
+                }
+
+                // Step 3: Open chrome://extensions and show instructions
+                Process.Start(new ProcessStartInfo("chrome")
+                {
+                    Arguments = "chrome://extensions",
+                    UseShellExecute = true
+                });
+
+                // Copy path to clipboard via PowerShell
+                try
+                {
+                    var psi = new ProcessStartInfo("powershell.exe")
+                    {
+                        Arguments = $"-NoProfile -Command \"Set-Clipboard -Value '{ExtensionDir}'\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    var proc = Process.Start(psi);
+                    proc?.WaitForExit(3000);
+                }
+                catch { /* Clipboard is best-effort */ }
 
                 MessageBox(IntPtr.Zero,
-                    "SLT-ERP Bridge installed successfully!\n\n" +
-                    "Chrome will restart with the extension loaded.\n" +
-                    "A Desktop shortcut 'Chrome with SLT-Bridge' was created.\n\n" +
-                    "Use this shortcut to start Chrome with the extension.\n" +
-                    "If a yellow bar appears, click 'Keep changes'.",
+                    "SLT-ERP Bridge - Final Step\n\n" +
+                    "Extension files extracted to:\n" + ExtensionDir + "\n\n" +
+                    "Path copied to clipboard.\n\n" +
+                    "In Chrome:\n" +
+                    "1. Enable 'Developer mode' (top-right)\n" +
+                    "2. Click 'Load unpacked'\n" +
+                    "3. Paste path (Ctrl+V)\n" +
+                    "4. Click 'Select Folder'",
                     "SLT-ERP Bridge Install",
                     MB_OK | MB_ICONINFORMATION);
-
-                // Restart Chrome with extension
-                RestartChromeWithExtension();
             }
             catch (System.ComponentModel.Win32Exception)
             {
@@ -120,70 +146,6 @@ namespace SLTBridgeInstaller
             catch { /* Policy cleanup is best-effort */ }
         }
 
-        static void SetupLoadExtension()
-        {
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string extDir = Path.Combine(localAppData, ExtensionDir);
-
-            // Extension should already be extracted by the batch file or previous install
-            if (!Directory.Exists(extDir) || !File.Exists(Path.Combine(extDir, "manifest.json")))
-            {
-                throw new DirectoryNotFoundException(
-                    $"Extension not found at {extDir}\n\n" +
-                    "Please run Install-SLTBridge-NoAdmin.bat first to extract the extension.");
-            }
-
-            // Create Desktop shortcut
-            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            string shortcutPath = Path.Combine(desktop, $"{ShortcutName}.lnk");
-
-            try
-            {
-                // Use PowerShell to create shortcut
-                string psCmd = $"$ws = New-Object -ComObject WScript.Shell; " +
-                    $"$sc = $ws.CreateShortcut('{shortcutPath}'); " +
-                    $"$sc.TargetPath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'; " +
-                    $"$sc.Arguments = '--load-extension=\"{extDir}\"'; " +
-                    $"$sc.Description = 'Chrome with SLT-ERP Bridge extension'; " +
-                    $"$sc.IconLocation = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe,0'; " +
-                    $"$sc.Save()";
-
-                var psi = new ProcessStartInfo("powershell.exe")
-                {
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psCmd}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                var proc = Process.Start(psi);
-                proc?.WaitForExit(5000);
-            }
-            catch { /* Shortcut creation is best-effort */ }
-        }
-
-        static void RestartChromeWithExtension()
-        {
-            try
-            {
-                // Kill all Chrome processes
-                foreach (var p in Process.GetProcessesByName("chrome"))
-                {
-                    p.Kill();
-                }
-                System.Threading.Thread.Sleep(2000);
-
-                // Start Chrome with --load-extension
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string extDir = Path.Combine(localAppData, ExtensionDir);
-
-                Process.Start(new ProcessStartInfo("chrome")
-                {
-                    Arguments = $"--load-extension=\"{extDir}\"",
-                    UseShellExecute = true
-                });
-            }
-            catch { /* Chrome restart is best-effort */ }
-        }
-
         static void Uninstall()
         {
             try
@@ -204,24 +166,16 @@ namespace SLTBridgeInstaller
                 CleanUpDeadPolicy();
 
                 // Remove extension directory
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string extDir = Path.Combine(localAppData, ExtensionDir);
-                if (Directory.Exists(extDir))
+                if (Directory.Exists(ExtensionDir))
                 {
-                    Directory.Delete(extDir, true);
-                }
-
-                // Remove Desktop shortcut
-                string desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                string shortcutPath = Path.Combine(desktop, $"{ShortcutName}.lnk");
-                if (File.Exists(shortcutPath))
-                {
-                    File.Delete(shortcutPath);
+                    Directory.Delete(ExtensionDir, true);
                 }
 
                 MessageBox(IntPtr.Zero,
-                    "SLT-ERP Bridge uninstalled successfully!\n\n" +
-                    "Restart Chrome normally (without the shortcut) to complete.",
+                    "SLT-ERP Bridge uninstalled!\n\n" +
+                    "Also remove from Chrome:\n" +
+                    "1. Go to chrome://extensions\n" +
+                    "2. Click 'Remove' on SLT-ERP Bridge",
                     "SLT-ERP Bridge Uninstall",
                     MB_OK | MB_ICONINFORMATION);
             }
