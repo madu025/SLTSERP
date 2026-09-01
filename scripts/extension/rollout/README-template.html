@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="utf-8">
+<title>SLT-ERP Bridge v{{VERSION}} - Install Guide</title>
+<style>
+  body { font-family: "Segoe UI", "Nirmala UI", sans-serif; margin: 0; padding: 24px; background: #f1f5f9; color: #0f172a; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 28px 32px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 28px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
+  .meta { font-size: 12px; color: #64748b; margin-bottom: 18px; }
+  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+  ol { padding-left: 20px; line-height: 1.8; }
+  .box { background: #f8fafc; border-left: 4px solid #2563eb; padding: 12px 14px; font-size: 14px; margin: 10px 0; }
+  .warn { background: #fffbeb; border-left-color: #d97706; }
+  .en { color: #475569; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  td { border: 1px solid #e2e8f0; padding: 6px 8px; vertical-align: top; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SLT-ERP Bridge v{{VERSION}}</h1>
+  <div class="meta">
+    Extension ID: <code>{{ID}}</code> &nbsp;|&nbsp;
+    Package: <code>{{ZIP_NAME}}</code> &nbsp;|&nbsp;
+    Updates: <code>{{UPDATE_URL}}</code>
+  </div>
+
+  <p>SLT Service Portal එකේ Service Orders, Team assignments සහ Materials SLTSERP එකට sync කරන bridge එක මෙය. Install කරාට පස්සේ වැඩ කරන්න click එකක්වත් දෙන්න ඕන නෑ — portal tab එකක් open කරාම data ERP එකට යනවා.</p>
+
+  <h2>A) ඔයාටම install කරගන්න (මිනිත්තු 2ක් — Chrome / Edge)</h2>
+  <p class="en">Install it yourself in about two minutes.</p>
+  <ol>
+    <li>පහත ZIP URL එක browser එකෙන් download කරන්න (ERP login එකක් අවශ්‍ය නෑ):<br>
+      <code>https://sltserp.vercel.app/slt-bridge.zip</code><br>
+      නැත්නම් package එකේ තියෙන <code>{{ZIP_NAME}}</code> එක පාවිච්චි කරන්න.</li>
+    <li>ZIP එක <strong>Extract All</strong> කරන්න. Extract කරන folder එක
+      <strong>Documents වගේ ස්ථිර තැනකට</strong> හදන්න — පස්සේ ඒක move/delete කළොත් extension එක නතර වෙනවා.</li>
+    <li>Address bar එකේ <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>) open කරන්න.</li>
+    <li>දකුණු ඉහළ corner එකේ <strong>Developer mode</strong> switch එක ON කරන්න.</li>
+    <li><strong>Load unpacked</strong> click කරලා extract කරපු folder එක select කරන්න (<code>manifest.json</code> තියෙන folder එක).</li>
+    <li>SLTSERP tab එක refresh කරන්න — ඉහළදී bridge badge එක කොළ පාටයි <code>v{{VERSION}}</code> කියලා පේනවා නම් වැඩ කරනවා.</li>
+  </ol>
+  <div class="box">
+    <strong>Confirm කරන්න:</strong> F12 &rarr; Console එකේ
+    <code>[SLT-BRIDGE] v{{VERSION}} Ready on ERP</code> පේන්න ඕන.
+    නැත්නම් <code>https://sltserp.vercel.app/admin/test-extension</code> monitor page එක බලන්න.
+  </div>
+
+  <h2>B) IT department ට — developer mode එකක්වත් නැතුව machine 200කට</h2>
+  <p class="en">Silent, restart-safe, no Developer mode, no admin rights.</p>
+  <ol>
+    <li><strong>Install-SLTBridge.ps1</strong> එක run කරන්න (SCCM / Intune / Group Policy logon script එකක් විදිහට machine 200ට පේළියට යවන්න පුළුවන්):
+      <code>powershell -NoProfile -ExecutionPolicy Bypass -File Install-SLTBridge.ps1</code></li>
+    <li>PowerShell එකට බයයි නම් <strong>ForceInstall-SLTBridge.reg</strong> එකට double-click කරන්න — එකම දේ registry එකට ලියනවා.</li>
+    <li>Chrome/Edge එක <strong>සම්පූර්ණයෙන්ම close</strong> කරලා ආයේ open කරන්න. ඊට පස්සේ
+      <code>chrome://policy</code> → <strong>Reload policies</strong>. ඉන්තර්ෆේස් එකේ
+      &quot;SLT-ERP Bridge — Installed by enterprise policy&quot; කියලා පේනවා.</li>
+    <li>ආපහු ඉවත් කරන්න: <code>RemoveForceInstall-SLTBridge.reg</code> දෙකකල්, නැත්නම්
+      <code>Install-SLTBridge.ps1 -Uninstall</code>.</li>
+  </ol>
+  <div class="box warn">
+    <strong>මේ ක්‍රමය ගැන දැනගන්න:</strong> මේ ක්‍රමේ දෙකටම browser එක &quot;managed by your organisation&quot;
+    කියලා පෙන්නනවා, සහ SLT-ERP Bridge එක පමණයි enforce වෙන්නේ — අනිත් settings වලට අත ගහන්නේ නෑ.
+    දැනට තියෙන IT force-install entries මත <code>90</code> වැනි හිස් අංක slot එකක් තමා තෝරාගන්නේ.
+    Browser එකට <code>{{UPDATE_URL}}</code> එකට HTTPS access එකක් ඕන — proxy එකකින් block කරා නම් install එක fail වෙනවා.
+  </div>
+
+  <h2>C) Firefox (දැනට experimental)</h2>
+  <p>Chrome/Edge package එක Firefox වලට කෙලින්ම බෑ — MV3 service worker support නෑ නිසා වෙන manifest එකක් ඕන. ඒ නිසා package එකේ <code>{{XPI_NAME}}</code> එක වෙනම දුන්නා (Firefox වලට ගැලපෙන manifest එකකින්).</p>
+  <ol>
+    <li>Address bar එකේ <code>about:debugging#/runtime/this-firefox</code> open කරන්න.</li>
+    <li><strong>Load Temporary Add-on…</strong> click කරලා <code>{{XPI_NAME}}</code> එක select කරන්න (හෝ extract කරපු folder එකේ <code>manifest.json</code>).</li>
+    <li>Firefox restart එකකින් ඒක අහෝසි වෙනවා — permanent install එකකට Mozilla AMO (unlisted/self-hosted) signature එකක් ඕන. ඒක නොමිලේ, automated validation එකකින් ලබාගන්න පුළුවන්; signature එකක් හම්බ වුණාම මේ xpi එකම ඒ වෙනුවට දාන්න පුළුවන්.</li>
+  </ol>
+  <p class="en">Repository checkout එකකින් නම් <code>npm run ext:firefox</code> ඕන නම් <code>.xpi</code> එක නැවත build කරගන්න පුළුවන්.</p>
+
+  <h2>Troubleshooting</h2>
+  <table>
+    <tr><td>Badge එක &quot;Not installed&quot; ලෙසම තියෙනවා</td><td>Extension folder එක move කරලා තිබේද බලන්න; chrome://extensions හි error එකක් තිබේද? ERP tab එක hard-refresh (Ctrl+Shift+R) කරන්න.</td></tr>
+    <tr><td>Portal එකෙන් data යන්නේ නෑ</td><td>portal session එක expire වෙලා තිබේද? <code>serviceportal.slt.lk</code> වෙත නැවත login වන්න. Popup එකේ diagnostics බලන්න.</td></tr>
+    <tr><td>Policy එක apply වුණේ නෑ</td><td>HKLM මට්ටමින් දැනටමත් policy එකක් තියෙනවා නම් ඒක HKCU ට ඉහළින් වැඩ කරනවා - <code>chrome://policy</code> හි Source බලන්න (Platform vs User).</td></tr>
+    <tr><td>Local dev (localhost:3000) එකේ detect වෙන්නේ නෑ</td><td>v{{VERSION}} සිට localhost permissions තියෙනවා - extension එක reload කරලා tab එක නැවත open කරන්න.</td></tr>
+  </table>
+
+  <p class="meta" style="margin-top:26px">Generated by <code>scripts/extension/build-rollout-package.ps1</code> in the SLTSERP repository. Do not edit by hand.</p>
+</div>
+</body>
+</html>
