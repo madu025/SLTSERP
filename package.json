@@ -18,6 +18,7 @@
     "ext:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extension/install-bridge.ps1 -Mode status",
     "ext:store": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extension/install-bridge.ps1 -Mode store",
     "ext:amo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extension/install-bridge.ps1 -Mode amo",
+    "ext:enterprise": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extension/Install-SLTBridge.ps1",
     "db:sync": "node scripts/db-sync.js",
     "rbac:check": "node scripts/rbac-sync.js",
     "check:email-templates": "node scripts/check-email-template-wiring.mjs",
