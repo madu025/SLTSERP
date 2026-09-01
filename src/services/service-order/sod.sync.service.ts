@@ -1133,12 +1133,20 @@ export class SODSyncService {
 
         const deepData = SodUtils.deepParse(masterData);
 
+        // Scraper header-leak guard: the plain-text capture can grab an adjacent
+        // portal label as the value (CIRCUIT -> 'STATUS', ORDER TYPE -> 'LINE TYPE').
+        // Reject junk before it overwrites synced portal truth; a voice number must
+        // carry digits, an order/service type must not be one of the portal labels.
+        const HEADER_LABELS = new Set(['STATUS', 'LINE TYPE', 'ORDER TYPE', 'SERVICE TYPE', 'SERVICE', 'TYPE', 'TEST TYPE', 'RECEIVED DATE', 'STATUS DATE', 'STATUSDATE', 'CIRCUIT', 'VOICE NUMBER', 'VOICENUMBER', 'PRIMARY', 'LEA', 'RTOM', 'PACKAGE', 'TASK', 'CUSTOMER NAME', 'ADDRESS', 'CONTRACTOR', 'CONTACT NO', 'CONNECTION DETAIL']);
+        const isPlausibleVoice = (v: unknown): v is string => typeof v === 'string' && /\d{7,}/.test(v.replace(/\s/g, ''));
+        const isPlausibleLabel = (v: unknown): v is string => typeof v === 'string' && v.trim().length >= 2 && !HEADER_LABELS.has(v.trim().toUpperCase());
+
         const mapping: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             rtom: masterData['RTOM'] || masterData['CON_RTOM'] || deepData['RTOM'],
             lea: masterData['LEA'],
-            voiceNumber: masterData['VOICENUMBER'] || masterData['CIRCUIT'] || masterData['VOICE NUMBER'] || deepData['CIRCUIT'] || masterData['PRIMARY'],
-            orderType: masterData['ORDER_TYPE'] || masterData['ORDER TYPE'] || deepData['ORDER TYPE'],
-            serviceType: masterData['S_TYPE'] || masterData['SERVICE TYPE'] || masterData['SERVICE'] || deepData['SERVICE'],
+            voiceNumber: [masterData['VOICENUMBER'], masterData['CIRCUIT'], masterData['VOICE NUMBER'], deepData['CIRCUIT'], masterData['PRIMARY']].find(isPlausibleVoice),
+            orderType: [masterData['ORDER_TYPE'], masterData['ORDER TYPE'], deepData['ORDER TYPE']].find(isPlausibleLabel),
+            serviceType: [masterData['S_TYPE'], masterData['SERVICE TYPE'], masterData['SERVICE'], deepData['SERVICE']].find(isPlausibleLabel),
             customerName: masterData['CON_CUS_NAME'] || masterData['CUS_NAME'] || masterData['CUSTOMER NAME'] || deepData['CUSTOMER NAME'],
             techContact: masterData['CON_TEC_CONTACT'] || masterData['CONTACT NO'] || masterData['CONTACT NUMBER'] || deepData['CONTACT NO'],
             address: masterData['ADDRE'] || masterData['ADDRESS'] || deepData['ADDRESS'],
@@ -1174,7 +1182,8 @@ export class SODSyncService {
 
         // ── SLT API Fallback: fill missing header fields from portal data ──
         // Bridge extension may only capture material/team data (plain text headers missed)
-        const missingCriticalFields = !mapping.rtom && !mapping.customerName && !mapping.address;
+        const missingCriticalFields = (!mapping.rtom && !mapping.customerName && !mapping.address) ||
+            !mapping.voiceNumber || !mapping.orderType;
         if (missingCriticalFields) {
             try {
                 // Try to resolve RTOM from PAT status record first

@@ -224,6 +224,12 @@ class BridgeScanEngine {
             if (next) {
                 val = Scanner.extractValue(next);
                 if (!val || val === normalizedText || val.length < 1 || val.length > 300) return;
+                // Adjacent-label leak guard: the captured "value" is itself one of
+                // the portal's field labels (CIRCUIT -> 'STATUS', ORDER TYPE -> 'LINE TYPE').
+                const valUpper = val.toUpperCase().replace(/[:\s]+$/, '').trim();
+                const isLeakedLabel = ORDER_HEADER_FIELDS.some(f => valUpper === f || valUpper === f.replace(/_/g, ' ')) ||
+                    valUpper === 'LINE TYPE' || valUpper === 'TEST TYPE';
+                if (isLeakedLabel) return;
             }
             if (val) {
                 const key = normalizedText.replace(/[^A-Z0-9_]/g, '_').replace(/_+/g, '_');
