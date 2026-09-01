@@ -1394,6 +1394,9 @@ export class SODSyncService {
             dataToUpdate.completedDate = null;
             dataToUpdate.revenueAmount = null;
             dataToUpdate.contractorAmount = null;
+        } else if (currentStatus === 'ASSIGN' || currentStatus === 'ASSIGNED') {
+            // Mirror the portal assignment flag verbatim - pending tables display it as ASSIGNED
+            dataToUpdate.sltsStatus = SodStatus.ASSIGNED;
         }
 
         const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;

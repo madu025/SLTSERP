@@ -334,6 +334,12 @@ export class SODLifecycleService {
         const conStatusUpper = (externalStatus || '').toUpperCase();
         
         const isPatRejection = conStatusUpper.includes('PAT') || conStatusUpper.includes('OPMC_REJECT') || conStatusUpper.includes('HO_REJECT');
+
+        // Portal assignment flag (ASSIGN/ASSIGNED) mirrors verbatim: the pending
+        // tables must display ASSIGNED as ASSIGNED, not collapse it into INPROGRESS.
+        if (conStatusUpper === 'ASSIGN' || conStatusUpper === 'ASSIGNED') {
+            return 'ASSIGNED';
+        }
         
         if ((SOD_EXTERNAL_COMPLETION_STATUSES as readonly string[]).includes(conStatusUpper)) {
             return 'COMPLETED';
