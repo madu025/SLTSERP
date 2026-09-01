@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Microsoft.Win32;
@@ -11,6 +12,8 @@ namespace SLTBridgeInstaller
         const string ExtensionId = "mhbnhnpammnagfmgomcpakeeohbnkajm";
         const string UpdateManifest = "https://sltserp.vercel.app/slt-bridge-updates.xml";
         const string PolicyPath = @"Software\Policies\Google\Chrome\ExtensionInstallForcelist";
+        const string ExtensionDir = "SLT-Bridge-Extension";
+        const string ShortcutName = "Chrome with SLT-Bridge";
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
@@ -33,29 +36,26 @@ namespace SLTBridgeInstaller
         {
             try
             {
-                // Handle --uninstall flag
                 if (args.Length > 0 && args[0] == "--uninstall")
                 {
                     Uninstall();
                     return;
                 }
 
-                // If not admin, re-launch with UAC elevation
+                // Step 1: Clean up dead HKLM policy (needs admin)
                 if (!IsAdmin())
                 {
                     var result = MessageBox(IntPtr.Zero,
-                        "SLT-ERP Bridge needs administrator access to install the Chrome extension policy.\n\nClick Yes to continue.",
+                        "SLT-ERP Bridge Installer\n\n" +
+                        "This will:\n" +
+                        "1. Remove old Chrome policy (requires admin)\n" +
+                        "2. Install extension via --load-extension\n" +
+                        "3. Create Desktop shortcut\n\n" +
+                        "Click Yes to continue.",
                         "SLT-ERP Bridge Install",
                         MB_YESNO | MB_ICONINFORMATION);
 
-                    if (result != 6) // IDYES
-                    {
-                        MessageBox(IntPtr.Zero,
-                            "Installation cancelled.\n\nWithout admin access, the extension cannot be auto-installed.\nUse the batch file installer for manual installation instead.",
-                            "SLT-ERP Bridge Install",
-                            MB_OK | MB_ICONERROR);
-                        return;
-                    }
+                    if (result != 6) return;
 
                     var exe = Process.GetCurrentProcess().MainModule!.FileName!;
                     var psi = new ProcessStartInfo(exe)
@@ -67,51 +67,27 @@ namespace SLTBridgeInstaller
                     return;
                 }
 
-                // We are admin - write HKLM registry policy
-                using (var key = Registry.LocalMachine.CreateSubKey(PolicyPath))
-                {
-                    if (key == null)
-                    {
-                        MessageBox(IntPtr.Zero,
-                            "Failed to create registry key.",
-                            "SLT-ERP Bridge Install",
-                            MB_OK | MB_ICONERROR);
-                        return;
-                    }
+                // We are admin - clean up dead HKLM policy
+                CleanUpDeadPolicy();
 
-                    // Find next available index
-                    int index = 1;
-                    while (key.GetValue(index.ToString()) != null)
-                    {
-                        // Check if our extension is already registered
-                        var existing = key.GetValue(index.ToString())?.ToString();
-                        if (existing != null && existing.StartsWith(ExtensionId))
-                        {
-                            MessageBox(IntPtr.Zero,
-                                "SLT-ERP Bridge is already installed!\n\nRegistry policy is configured.\nRestart Chrome to apply.",
-                                "SLT-ERP Bridge Install",
-                                MB_OK | MB_ICONINFORMATION);
-                            return;
-                        }
-                        index++;
-                    }
-
-                    // Write policy: extensionId;updateManifestUrl
-                    key.SetValue(index.ToString(), $"{ExtensionId};{UpdateManifest}", RegistryValueKind.String);
-                }
+                // Step 2: Set up --load-extension approach (no admin needed)
+                SetupLoadExtension();
 
                 MessageBox(IntPtr.Zero,
                     "SLT-ERP Bridge installed successfully!\n\n" +
-                    "Chrome will auto-download and install the extension.\n" +
-                    "Please restart Chrome if it's currently running.\n\n" +
-                    "The extension will auto-update from the server.",
+                    "Chrome will restart with the extension loaded.\n" +
+                    "A Desktop shortcut 'Chrome with SLT-Bridge' was created.\n\n" +
+                    "Use this shortcut to start Chrome with the extension.\n" +
+                    "If a yellow bar appears, click 'Keep changes'.",
                     "SLT-ERP Bridge Install",
                     MB_OK | MB_ICONINFORMATION);
+
+                // Restart Chrome with extension
+                RestartChromeWithExtension();
             }
             catch (System.ComponentModel.Win32Exception)
             {
-                // User clicked "No" on UAC prompt
-                return;
+                return; // User clicked No on UAC
             }
             catch (Exception ex)
             {
@@ -122,23 +98,10 @@ namespace SLTBridgeInstaller
             }
         }
 
-        static void Uninstall()
+        static void CleanUpDeadPolicy()
         {
             try
             {
-                if (!IsAdmin())
-                {
-                    var exe = Process.GetCurrentProcess().MainModule!.FileName!;
-                    var psi = new ProcessStartInfo(exe)
-                    {
-                        UseShellExecute = true,
-                        Verb = "runas",
-                        Arguments = "--uninstall"
-                    };
-                    Process.Start(psi);
-                    return;
-                }
-
                 using (var key = Registry.LocalMachine.OpenSubKey(PolicyPath, true))
                 {
                     if (key != null)
@@ -149,14 +112,116 @@ namespace SLTBridgeInstaller
                             if (val != null && val.StartsWith(ExtensionId))
                             {
                                 key.DeleteValue(name);
-                                break;
                             }
                         }
                     }
                 }
+            }
+            catch { /* Policy cleanup is best-effort */ }
+        }
+
+        static void SetupLoadExtension()
+        {
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string extDir = Path.Combine(localAppData, ExtensionDir);
+
+            // Extension should already be extracted by the batch file or previous install
+            if (!Directory.Exists(extDir) || !File.Exists(Path.Combine(extDir, "manifest.json")))
+            {
+                throw new DirectoryNotFoundException(
+                    $"Extension not found at {extDir}\n\n" +
+                    "Please run Install-SLTBridge-NoAdmin.bat first to extract the extension.");
+            }
+
+            // Create Desktop shortcut
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            string shortcutPath = Path.Combine(desktop, $"{ShortcutName}.lnk");
+
+            try
+            {
+                // Use PowerShell to create shortcut
+                string psCmd = $"$ws = New-Object -ComObject WScript.Shell; " +
+                    $"$sc = $ws.CreateShortcut('{shortcutPath}'); " +
+                    $"$sc.TargetPath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'; " +
+                    $"$sc.Arguments = '--load-extension=\"{extDir}\"'; " +
+                    $"$sc.Description = 'Chrome with SLT-ERP Bridge extension'; " +
+                    $"$sc.IconLocation = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe,0'; " +
+                    $"$sc.Save()";
+
+                var psi = new ProcessStartInfo("powershell.exe")
+                {
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psCmd}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                var proc = Process.Start(psi);
+                proc?.WaitForExit(5000);
+            }
+            catch { /* Shortcut creation is best-effort */ }
+        }
+
+        static void RestartChromeWithExtension()
+        {
+            try
+            {
+                // Kill all Chrome processes
+                foreach (var p in Process.GetProcessesByName("chrome"))
+                {
+                    p.Kill();
+                }
+                System.Threading.Thread.Sleep(2000);
+
+                // Start Chrome with --load-extension
+                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string extDir = Path.Combine(localAppData, ExtensionDir);
+
+                Process.Start(new ProcessStartInfo("chrome")
+                {
+                    Arguments = $"--load-extension=\"{extDir}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch { /* Chrome restart is best-effort */ }
+        }
+
+        static void Uninstall()
+        {
+            try
+            {
+                if (!IsAdmin())
+                {
+                    var exe = Process.GetCurrentProcess().MainModule!.FileName!;
+                    Process.Start(new ProcessStartInfo(exe)
+                    {
+                        UseShellExecute = true,
+                        Verb = "runas",
+                        Arguments = "--uninstall"
+                    });
+                    return;
+                }
+
+                // Clean up dead policy
+                CleanUpDeadPolicy();
+
+                // Remove extension directory
+                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string extDir = Path.Combine(localAppData, ExtensionDir);
+                if (Directory.Exists(extDir))
+                {
+                    Directory.Delete(extDir, true);
+                }
+
+                // Remove Desktop shortcut
+                string desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                string shortcutPath = Path.Combine(desktop, $"{ShortcutName}.lnk");
+                if (File.Exists(shortcutPath))
+                {
+                    File.Delete(shortcutPath);
+                }
 
                 MessageBox(IntPtr.Zero,
-                    "SLT-ERP Bridge uninstalled successfully!\n\nRestart Chrome to complete removal.",
+                    "SLT-ERP Bridge uninstalled successfully!\n\n" +
+                    "Restart Chrome normally (without the shortcut) to complete.",
                     "SLT-ERP Bridge Uninstall",
                     MB_OK | MB_ICONINFORMATION);
             }
