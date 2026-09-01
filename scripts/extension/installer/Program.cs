@@ -1,6 +1,6 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
-using Microsoft.Win32;
 
 namespace SLTBridgeInstaller
 {
@@ -8,7 +8,6 @@ namespace SLTBridgeInstaller
     {
         const string ExtensionId = "mhbnhnpammnagfmgomcpakeeohbnkajm";
         const string UpdateManifest = "https://sltserp.vercel.app/slt-bridge-updates.xml";
-        const string RegistryPath = @"Software\Policies\Google\Chrome\ExtensionInstallForcelist";
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
@@ -21,21 +20,20 @@ namespace SLTBridgeInstaller
         {
             try
             {
-                using (var key = Registry.CurrentUser.CreateSubKey(RegistryPath))
+                // Chrome External Extensions via JSON (no admin, no registry)
+                // Path: %LOCALAPPDATA%\Google\Chrome\User Data\External Extensions\{id}.json
+                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string chromeExtensionsDir = Path.Combine(localAppData, "Google", "Chrome", "User Data", "External Extensions");
+
+                if (!Directory.Exists(chromeExtensionsDir))
                 {
-                    if (key == null)
-                    {
-                        MessageBox(IntPtr.Zero, "Failed to create registry key.", "SLT-ERP Bridge Install", MB_OK | MB_ICONERROR);
-                        return;
-                    }
-
-                    int index = 1;
-                    while (key.GetValue(index.ToString()) != null)
-                        index++;
-
-                    string value = $"{ExtensionId};{UpdateManifest}";
-                    key.SetValue(index.ToString(), value, RegistryValueKind.String);
+                    Directory.CreateDirectory(chromeExtensionsDir);
                 }
+
+                string jsonPath = Path.Combine(chromeExtensionsDir, $"{ExtensionId}.json");
+                string jsonContent = $"{{\"external_update_url\": \"{UpdateManifest}\"}}";
+
+                File.WriteAllText(jsonPath, jsonContent);
 
                 MessageBox(IntPtr.Zero,
                     "SLT-ERP Bridge installed successfully!\n\nPlease restart Chrome.\nThe extension will auto-update from the server.",
