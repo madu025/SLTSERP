@@ -1,0 +1,2 @@
+D:\MyProject\SLTSERP\dist\installer\Install-SLTBridge.exe
+D:\MyProject\SLTSERP\dist\installer\Install-SLTBridge.pdb
