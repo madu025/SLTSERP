@@ -28,6 +28,8 @@ build-output.txt
 *.pem
 *.zip
 deploy.zip
+# the Windows agent installer lives on GitHub releases, never in the deploy
+public/downloads/*.exe
 
 # debug
 npm-debug.log*

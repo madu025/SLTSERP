@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Download, CheckCircle2, Monitor, RefreshCw, ExternalLink, AlertTriangle, Chrome } from 'lucide-react';
+import { Download, CheckCircle2, Monitor, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,16 @@ interface BrowserInfo {
 }
 
 const EXTENSION_VERSION = '4.5.3';
+
+/** Published install links. A button renders only once its URL is filled in, so an
+ *  unpublished store never shows a dead link. Chrome and Edge get their URLs pasted
+ *  in after store review (docs/EXTENSION_STORE_PUBLISHING.md); Firefox uses the
+ *  AMO-signed .xpi committed to public/downloads by  npm run ext:amo. */
+const STORE_LINKS: { browser: string; label: string; url: string }[] = [
+    { browser: 'chrome', label: 'Install from Chrome Web Store', url: '' },
+    { browser: 'edge', label: 'Install from Edge Add-ons', url: '' },
+    { browser: 'firefox', label: 'Install for Firefox - signed .xpi, no Developer mode', url: '/downloads/SLT-Bridge-Firefox.xpi' },
+];
 
 const BROWSER_INFO: Record<string, BrowserInfo> = {
     chrome: { type: 'chrome', name: 'Google Chrome', icon: 'chrome', supported: true },
@@ -79,14 +89,10 @@ export default function ExtensionDownloadPage() {
         window.open('/slt-bridge.zip', '_blank');
     };
 
-    const getExtensionsUrl = () => {
-        switch (browser.type) {
-            case 'chrome': return 'chrome://extensions/';
-            case 'edge': return 'edge://extensions/';
-            case 'firefox': return 'about:debugging#/runtime/this-firefox';
-            default: return '#';
-        }
-    };
+    // The detected browser's link leads the list, so a Firefox user sees the
+    // signed .xpi first while Chrome/Edge users still see what is live.
+    const storeLinks = STORE_LINKS.filter((s) => s.url)
+        .sort((a, b) => Number(b.browser === browser.type) - Number(a.browser === browser.type));
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8">
@@ -152,9 +158,44 @@ export default function ExtensionDownloadPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <Button onClick={handleDownload} size="lg" className="w-full">
-                                <Download className="w-5 h-5 mr-2" />
-                                Download SLT Bridge v{EXTENSION_VERSION} (.zip)
+                            {storeLinks.length > 0 ? (
+                                <div className="space-y-2">
+                                    <p className="text-sm font-semibold text-slate-700">
+                                        One-click install - no Developer mode
+                                    </p>
+                                    {storeLinks.map((s) => (
+                                        <Button
+                                            key={s.browser}
+                                            variant="outline"
+                                            className="w-full justify-start"
+                                            onClick={() => window.open(s.url, '_blank')}
+                                        >
+                                            <Download className="w-4 h-4 mr-2" />
+                                            {s.label}
+                                        </Button>
+                                    ))}
+                                    {storeLinks.length < STORE_LINKS.length && (
+                                        <p className="text-xs text-slate-500">
+                                            Chrome and Edge are still in store review - the manual install
+                                            below works meanwhile. The Firefox file is signed by Mozilla
+                                            (AMO unlisted) and installs permanently.
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <p className="text-sm font-medium text-amber-900">Store publication in progress</p>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                        The bridge is being published to the Chrome Web Store, Edge Add-ons and
+                                        Firefox Add-ons. Until those reviews pass, use the manual install below -
+                                        it takes about two minutes.
+                                    </p>
+                                </div>
+                            )}
+
+                            <Button onClick={handleDownload} variant="outline" className="w-full">
+                                <Download className="w-4 h-4 mr-2" />
+                                Download SLT Bridge v{EXTENSION_VERSION} (.zip) - manual install
                             </Button>
 
                             {!browser.supported && (
@@ -232,24 +273,6 @@ export default function ExtensionDownloadPage() {
     );
 }
 
-/** Chrome and Edge both honour a self-hosted force-install policy, which is the
- *  only supported way to install without flipping Developer mode. */
-function SilentInstallNote() {
-    return (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-            <p className="text-xs font-semibold text-slate-700">Skip Developer mode (IT / managed rollout)</p>
-            <p className="text-xs text-slate-600 mt-1">
-                Chrome and Edge install this build silently through the enterprise force-install policy,
-                and it survives restarts. From a checkout of this repository run
-                <code className="mx-1 px-1 bg-slate-100 rounded font-mono">npm run ext:policy</code>
-                (add <code className="mx-1 px-1 bg-slate-100 rounded font-mono">-WhatIf</code> for a dry run,
-                <code className="mx-1 px-1 bg-slate-100 rounded font-mono">npm run ext:uninstall</code> rolls it back).
-                It writes only per-user registry policy - no admin rights, no other browser settings touched.
-            </p>
-        </div>
-    );
-}
-
 function ChromeInstructions() {
     return (
         <div className="space-y-4">
@@ -270,7 +293,6 @@ function ChromeInstructions() {
             <Step number={5} title="Verify & Refresh">
                 <p>The extension should appear in the list with a green icon. Then refresh this page to connect.</p>
             </Step>
-            <SilentInstallNote />
         </div>
     );
 }
@@ -295,7 +317,6 @@ function EdgeInstructions() {
             <Step number={5} title="Verify & Refresh">
                 <p>The extension should appear in the list. Then refresh this page to connect.</p>
             </Step>
-            <SilentInstallNote />
         </div>
     );
 }
@@ -303,33 +324,26 @@ function EdgeInstructions() {
 function FirefoxInstructions() {
     return (
         <div className="space-y-4">
-            <Step number={1} title="Extract the ZIP file">
-                <p>Right-click the downloaded ZIP file and extract it to a folder you can find easily later.</p>
-                <p className="mt-2 text-xs text-slate-500">
-                    Firefox cannot run the background service worker in this package - it needs the
-                    Firefox manifest. Build it with
-                    <code className="mx-1 px-1 bg-slate-100 rounded font-mono">npm run ext:firefox</code>
-                    (same source, patched manifest) and use the resulting <code className="bg-slate-100 px-1 rounded">.xpi</code>.
+            <Step number={1} title="Download the signed add-on">
+                <p>
+                    Click the Firefox button above. Firefox downloads
+                    <code className="mx-1 px-1 bg-slate-100 rounded">SLT-Bridge-Firefox.xpi</code>
+                    - already signed by Mozilla (AMO unlisted), so nothing is flagged as unsafe.
                 </p>
             </Step>
-            <Step number={2} title="Open Firefox Debug Page">
-                <p>Open a new Firefox tab and navigate to:</p>
-                <code className="block mt-2 p-2 bg-slate-100 rounded text-sm font-mono">about:debugging#/runtime/this-firefox</code>
-            </Step>
-            <Step number={3} title="Load Temporary Add-on">
-                <p>Click &quot;Load Temporary Add-on...&quot; button and select the <code className="bg-slate-100 px-1 rounded">manifest.json</code> file inside the extracted folder.</p>
-            </Step>
-            <Step number={4} title="Verify & Refresh">
-                <p>The extension should appear in the list. Then refresh this page to connect.</p>
-            </Step>
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-xs text-amber-700">
-                    <strong>Note:</strong> Firefox temporary add-ons are removed when you close Firefox.
-                    For a permanent install, submit the <code className="bg-slate-100 px-1 rounded">.xpi</code> once to
-                    addons.mozilla.org as an unlisted (self-hosted) add-on - signing is free and automatically validated -
-                    or use Firefox ESR/Dev Edition where the signature requirement can be disabled.
+            <Step number={2} title="Install it">
+                <p>
+                    Open the downloaded file (Ctrl+J shows downloads). Firefox asks for confirmation -
+                    click <strong>Add</strong>. The bridge installs permanently: no Developer mode,
+                    and it survives restarts.
                 </p>
-            </div>
+            </Step>
+            <Step number={3} title="Verify & Refresh">
+                <p>
+                    Check <code className="block mt-2 p-2 bg-slate-100 rounded text-sm font-mono">about:addons</code>
+                    for SLT-ERP Bridge, then refresh this page to connect.
+                </p>
+            </Step>
         </div>
     );
 }

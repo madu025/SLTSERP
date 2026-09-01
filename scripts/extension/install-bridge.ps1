@@ -1,40 +1,43 @@
 <#
 .SYNOPSIS
-    Stages / installs / removes the SLT-ERP Bridge for Chrome, Edge and Firefox.
+    Stages / packages / reports the SLT-ERP Bridge for Chrome, Edge and Firefox.
 
 .DESCRIPTION
     Modes
       stage     Copy the unpacked extension to a stable path under %LOCALAPPDATA%
                 and open the right extensions page. Needs the browser Developer
                 mode toggle on - this is the two-click fallback.
-      policy    No developer mode at all. Chrome and Edge honour the
-                ExtensionInstallForcelist policy in HKCU, so a self-hosted CRX3
-                (built with the repo signing key) installs silently on next start.
-                Only touches HKCU - no admin rights, existing entries preserved.
+      store     Produce the store upload packages in dist\extension-store: a
+                Chromium zip for the Chrome Web Store and Edge Add-ons, and a
+                Firefox .xpi for addons.mozilla.org. Store installs need no
+                Developer mode, no admin rights, and update themselves - see
+                docs/EXTENSION_STORE_PUBLISHING.md.
       firefox   Builds a Firefox-compatible .xpi from the same sources and prints
                 the three ways to get it permanently installed.
-      uninstall Removes only this extension's policy entries.
+      amo       Signs the Firefox .xpi through the addons.mozilla.org API
+                (web-ext, unlisted channel) so it installs permanently from a
+                link, no Developer mode. Reads AMO_JWT_ISSUER and
+                AMO_JWT_SECRET from .env; the signed file lands in
+                public\downloads\SLT-Bridge-Firefox.xpi.
       status    Shows what is currently staged / enforced on this machine.
 
-    Nothing in this script sends anything anywhere; the only outbound dependency
-    is the browser fetching the .crx from -UpdateUrlBase in policy mode, which
-    must already be deployed (public/slt-bridge.crx + public/slt-bridge-updates.xml).
+    The old ExtensionInstallForcelist policy mode is gone: Windows 11 denies a
+    standard user every browser policy key write, there is no AD domain to push
+    policy from, and the stores cover the same need with auto-updates.
 
 .EXAMPLE
     ./scripts/extension/install-bridge.ps1                       # stage + open page
-    ./scripts/extension/install-bridge.ps1 -Mode policy -WhatIf  # dry run
-    ./scripts/extension/install-bridge.ps1 -Mode uninstall
+    ./scripts/extension/install-bridge.ps1 -Mode store           # store upload packages
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [ValidateSet('stage', 'policy', 'firefox', 'uninstall', 'status')]
+    [ValidateSet('stage', 'store', 'firefox', 'amo', 'status')]
     [string] $Mode = 'stage',
 
     [ValidateSet('chrome', 'edge', 'all')]
     [string] $Browser = 'all',
 
-    # Must be an HTTPS origin that actually serves slt-bridge.crx and
-    # slt-bridge-updates.xml after the next deploy.
+    # Base URL the staged copy is told to sync against.
     [string] $UpdateUrlBase = 'https://sltserp.vercel.app',
 
     [string] $GeckoId = 'slt-erp-bridge@slts.lk'
@@ -111,132 +114,79 @@ function Show-Stage {
     Write-Host '    Edge   : edge://extensions    -> Developer mode -> Load unpacked -> paste path'
     Write-Host '    Firefox: needs its own package - run  ./scripts/extension/install-bridge.ps1 -Mode firefox' -ForegroundColor White
     Write-Host ''
-    Write-Host '  Developer mode is only needed for this mode. For a click-free install' -ForegroundColor Yellow
-    Write-Host '  that survives restarts on Chrome/Edge, run:  ' -NoNewline -ForegroundColor Yellow
-    Write-Host './scripts/extension/install-bridge.ps1 -Mode policy' -ForegroundColor White
+    Write-Host '  Developer mode is only needed for this mode. Store installs need' -ForegroundColor Yellow
+    Write-Host '  none - build the upload packages with:  ' -NoNewline -ForegroundColor Yellow
+    Write-Host './scripts/extension/install-bridge.ps1 -Mode store' -ForegroundColor White
     Write-Host ''
     Write-Host '  After loading, open the ERP once so the bridge can record its origin:' -ForegroundColor DarkGray
     Write-Host "    $UpdateUrlBase/extension-download" -ForegroundColor DarkGray
 }
 
-function Set-ForcedInstall {
-    param([string]$Hive, [string]$Entry)
-    $values = @()
-    if (Test-Path $Hive) {
-        $existing = Get-ItemProperty -Path $Hive -Name ExtensionInstallForcelist -ErrorAction SilentlyContinue
-        if ($existing) { $values = @($existing.PSObject.Properties |
-            Where-Object { $_.Name -match '^\d+$' } | Sort-Object { [int]$_.Name } | ForEach-Object { $_.Value }) }
-    }
-    if ($values -contains $Entry) {
-        Write-Host "    already enforced: $Entry" -ForegroundColor DarkGray
-        return
-    }
-    # Chrome/Edge read this list as individually numbered REG_SZ values, so the
-    # merge has to keep whatever an IT department already put there.
-    $values = @($values) + $Entry
-    if ($PSCmdlet.ShouldProcess($Hive, 'force-install bridge')) {
-        if (-not (Test-Path $Hive)) { New-Item -Path $Hive -Force | Out-Null }
-        for ($i = 0; $i -lt $values.Count; $i++) {
-            New-ItemProperty -Path $Hive -Name ($i + 1) -Value $values[$i] -PropertyType String -Force | Out-Null
-        }
-    }
-    Write-Host "    enforced: $Entry" -ForegroundColor White
-}
-
-function Show-Policy {
-    $targets = Get-TargetBrowsers
-    if (-not $targets) {
-        Write-Warning 'Neither Chrome nor Edge was found - nothing to configure. Pass -Browser explicitly if needed.'
-        return
-    }
-    $id = Get-BridgeId
-    Write-Host ''
-    Write-Host "  Building CRX3 for SLT-ERP Bridge v$Version" -ForegroundColor Cyan
-    Write-Host "  extension id: $id" -ForegroundColor White
-    if ($PSCmdlet.ShouldProcess('public\slt-bridge.crx', 'repack')) {
-        Invoke-Bridge @('pack-crx')
-        $xml = Invoke-Bridge @('updates-xml', '--base-url', $UpdateUrlBase) | ConvertFrom-Json
-        Write-Host "  update manifest: $($xml.file)" -ForegroundColor DarkGray
-    }
-    $entry = "$id;$UpdateUrlBase/slt-bridge-updates.xml"
-
-    Write-Host ''
-    Write-Host '  Policy sources already present (these win over HKCU):' -ForegroundColor Cyan
-    foreach ($name in $targets) {
-        $machine = $PolicyHives[$name] -replace '^HKCU:', 'HKLM:'
-        $managed = $false
-        if (Test-Path $machine) {
-            $managed = @(Get-Item -Path $machine | ForEach-Object { $_.GetValueNames() }) -contains 'ExtensionInstallForcelist'
-        }
-        if ($managed) {
-            Write-Host "    $machine forces extensions itself - HKCU loses for conflicting ids" -ForegroundColor Yellow
-        }
-        else {
-            Write-Host "    $machine : nothing enforced (HKCU will apply)" -ForegroundColor DarkGray
-        }
-    }
-
-    Write-Host ''
-    Write-Host '  Writing HKCU force-install entries:' -ForegroundColor Cyan
-    foreach ($name in $targets) {
-        Write-Host "  [$name]" -ForegroundColor White
-        Set-ForcedInstall -Hive $PolicyHives[$name] -Entry $entry
-    }
-
-    Write-Host ''
-    Write-Host '  Next steps:' -ForegroundColor Green
-    Write-Host "   1. Commit + deploy public/slt-bridge.crx and public/slt-bridge-updates.xml"
-    Write-Host "      (the browser downloads $UpdateUrlBase/slt-bridge.crx)"
-    Write-Host '   2. Fully close and reopen the browser, then open chrome://policy'
-    Write-Host '      and click Reload policies. Expect "SLT-ERP Bridge" with'
-    Write-Host '      "Installed by enterprise policy" - no developer mode, no prompts.'
-    Write-Host '   3. Roll back any time with:  ./scripts/extension/install-bridge.ps1 -Mode uninstall'
-    Write-Host ''
-    Write-Host '  Note: the browser will report that it is managed by your organisation,' -ForegroundColor Yellow
-    Write-Host '  and a self-hosted force-install never auto-updates unless the .crx at' -ForegroundColor Yellow
-    Write-Host '  that URL is replaced (Chrome re-checks the update manifest on a timer).' -ForegroundColor Yellow
-}
-
-function Remove-ForcedInstall {
-    param([string]$Hive, [string]$Id)
-    if (-not (Test-Path $Hive)) { Write-Host '    no policy key' -ForegroundColor DarkGray; return }
-    $props = Get-Item -Path $Hive |
-        ForEach-Object { $_.GetValueNames() } | Where-Object { $_ -match '^\d+$' }
-    $kept = @()
-    foreach ($p in $props) {
-        $value = (Get-ItemProperty -Path $Hive -Name $p).$p
-        if ($value -like "$Id;*") {
-            if ($PSCmdlet.ShouldProcess("$Hive\$p", 'remove force-install')) {
-                Remove-ItemProperty -Path $Hive -Name $p
-            }
-            Write-Host "    removed $p = $value" -ForegroundColor White
-        }
-        else { $kept += $value }
-    }
-    if ($kept.Count -gt 0 -and $PSCmdlet.ShouldProcess($Hive, 'renumber force-install list')) {
-        # Chrome reads a contiguous numbered list, so re-pack whatever survived.
-        foreach ($p in $props) { Remove-ItemProperty -Path $Hive -Name $p -ErrorAction SilentlyContinue }
-        for ($i = 0; $i -lt $kept.Count; $i++) {
-            New-ItemProperty -Path $Hive -Name ($i + 1) -Value $kept[$i] -PropertyType String -Force | Out-Null
-        }
-    }
-}
-
-function Show-Uninstall {
-    $id = Get-BridgeId
-    Write-Host ''
-    Write-Host "  Removing force-install entries for $id" -ForegroundColor Cyan
-    foreach ($name in @('chrome', 'edge')) {
-        Write-Host "  [$name]" -ForegroundColor White
-        Remove-ForcedInstall -Hive $PolicyHives[$name] -Id $id
-    }
-    if (Test-Path $StageRoot) {
+function Show-Store {
+    $outDir = Join-Path $RepoRoot 'dist\extension-store'
+    if ($PSCmdlet.ShouldProcess($outDir, 'build store upload packages')) {
+        New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+        # Chromium: the Chrome Web Store and Edge Add-ons take the same plain zip,
+        # manifest.json at the archive root, no signing key inside.
+        $chrome = Join-Path $outDir "slt-bridge-v$Version-chrome-cws.zip"
+        if (Test-Path $chrome) { Remove-Item $chrome -Force }
+        Compress-Archive -Path (Join-Path $ExtSource '*') -DestinationPath $chrome -Force
+        $xpi = New-FirefoxXpi
+        $xpiOut = Join-Path $outDir (Split-Path $xpi -Leaf)
+        Copy-Item $xpi $xpiOut -Force
         Write-Host ''
-        Write-Host "  Staged copies left in place (delete manually if you want):" -ForegroundColor DarkGray
-        Write-Host "    $StageRoot" -ForegroundColor DarkGray
+        Write-Host "  Chrome Web Store + Edge Add-ons upload: $chrome  ($((Get-Item $chrome).Length) b)" -ForegroundColor Green
+        Write-Host "  Firefox (AMO) upload:                   $xpiOut  ($((Get-Item $xpiOut).Length) b)" -ForegroundColor Green
+        Write-Host ''
+        Write-Host '  Accounts, fees, permission justifications and the exact steps:' -ForegroundColor Cyan
+        Write-Host '    docs/EXTENSION_STORE_PUBLISHING.md' -ForegroundColor White
+        Write-Host ''
+        Write-Host '  Store item ids will differ from the self-hosted id - expected;' -ForegroundColor DarkGray
+        Write-Host '  the ERP page detects the bridge from the page, not the extension id.' -ForegroundColor DarkGray
     }
-    Write-Host ''
-    Write-Host '  Restart the browser to drop the extension.' -ForegroundColor Green
+}
+
+function Show-Amo {
+    # AMO API credentials live in .env (git-ignored) - never in the repo.
+    $amoKeys = @{}
+    foreach ($line in (Get-Content (Join-Path $RepoRoot '.env'))) {
+        if ($line -match '^\s*(AMO_[A-Z_]+)\s*=\s*(.+?)\s*$') { $amoKeys[$Matches[1]] = $Matches[2] }
+    }
+    if (-not ($amoKeys['AMO_JWT_ISSUER'] -and $amoKeys['AMO_JWT_SECRET'])) {
+        Write-Error 'Put AMO_JWT_ISSUER and AMO_JWT_SECRET in .env first (addons.mozilla.org -> Tools -> Manage API Keys).'
+        return
+    }
+    $outDir = Join-Path $RepoRoot 'dist\extension-store\amo'
+    if ($PSCmdlet.ShouldProcess($outDir, 'sign the Firefox .xpi via the AMO API')) {
+        $null = New-FirefoxXpi   # re-stages the patched sources into $StageRoot\firefox\v$Version
+        New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+        & npx --yes web-ext sign `
+            --source-dir (Join-Path $StageRoot "firefox\v$Version") `
+            --artifacts-dir $outDir `
+            --channel unlisted `
+            --api-key $amoKeys['AMO_JWT_ISSUER'] `
+            --api-secret $amoKeys['AMO_JWT_SECRET'] `
+            --timeout 300000
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error 'web-ext sign failed - see the output above. "Version already exists" means: bump the manifest version and re-run.'
+            return
+        }
+        # web-ext downloads the signed package as an .xpi (named <file-id>-<version>.xpi).
+        $signed = Get-ChildItem $outDir -File |
+            Where-Object { $_.Extension -in '.xpi', '.zip' } |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $signed) {
+            Write-Error 'web-ext reported success but no signed package was found in the artifacts dir.'
+            return
+        }
+        $target = Join-Path $RepoRoot 'public\downloads\SLT-Bridge-Firefox.xpi'
+        Copy-Item $signed.FullName $target -Force
+        Write-Host ''
+        Write-Host "  signed package: $target  ($((Get-Item $target).Length) b)" -ForegroundColor Green
+        Write-Host '  Commit + deploy it, then point the firefox entry in STORE_LINKS at' -ForegroundColor White
+        Write-Host '  /downloads/SLT-Bridge-Firefox.xpi - clicking that link in Firefox' -ForegroundColor White
+        Write-Host '  installs permanently, no Developer mode, no policy, no admin rights.' -ForegroundColor White
+    }
 }
 
 function New-FirefoxXpi {
@@ -299,9 +249,9 @@ function Show-Status {
 Write-Host ''
 Write-Host "=== SLT-ERP Bridge installer ($Mode) ===" -ForegroundColor Cyan
 switch ($Mode) {
-    'stage'     { Show-Stage }
-    'policy'    { Show-Policy }
-    'firefox'   { Show-Firefox }
-    'uninstall' { Show-Uninstall }
-    'status'    { Show-Status }
+    'stage'   { Show-Stage }
+    'store'   { Show-Store }
+    'firefox' { Show-Firefox }
+    'amo'     { Show-Amo }
+    'status'  { Show-Status }
 }
