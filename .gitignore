@@ -23,6 +23,8 @@ build-output.txt
 /build
 /dist/
 dist/installer/*.exe
+scripts/extension/installer/bin/
+scripts/extension/installer/obj/
 
 # misc
 .DS_Store
