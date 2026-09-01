@@ -1,10 +1,14 @@
 /**
- * SLT-ERP Bridge v4.5.1
+ * SLT-ERP Bridge (manifest-driven version)
  * World: MAIN
  * Role: ERP Smart Injector (fills ERP forms from scraped SLT Portal data)
  */
 
-const BRIDGE_VERSION = "4.5.1";
+// MAIN world has no chrome.runtime.getManifest(), but content-erp.js (ISOLATED,
+// document_start) has already stamped the real manifest version on <html> before
+// this script runs, so read it from there instead of hardcoding a drifting literal.
+const BRIDGE_VERSION = document.documentElement.getAttribute('data-slt-bridge-version')
+    || 'unknown';
 
 console.log(`%c[SLT-BRIDGE] Injector v${BRIDGE_VERSION} Engaged`, 'color: #3b82f6; font-weight: bold;');
 

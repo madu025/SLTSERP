@@ -1,12 +1,12 @@
 /**
- * SLT-ERP Bridge v4.5.1
+ * SLT-ERP Bridge (version comes from manifest.json - the single source of truth)
  * Background: Persistence Proxy & ERP Bridge
  * - Pre-configured extension key (auto-set on install)
  * - Retry queue for failed syncs
  * - Sync status tracking
  */
 
-const VERSION = '4.5.1';
+const VERSION = chrome.runtime.getManifest().version;
 
 // ─── Pre-configured Extension Key ────────────────────────────────────
 // This key is baked into the extension build. It matches EXTENSION_SECRET

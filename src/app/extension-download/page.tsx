@@ -16,7 +16,7 @@ interface BrowserInfo {
     supported: boolean;
 }
 
-const EXTENSION_VERSION = '4.5.2';
+const EXTENSION_VERSION = '4.5.3';
 
 const BROWSER_INFO: Record<string, BrowserInfo> = {
     chrome: { type: 'chrome', name: 'Google Chrome', icon: 'chrome', supported: true },
@@ -232,6 +232,24 @@ export default function ExtensionDownloadPage() {
     );
 }
 
+/** Chrome and Edge both honour a self-hosted force-install policy, which is the
+ *  only supported way to install without flipping Developer mode. */
+function SilentInstallNote() {
+    return (
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <p className="text-xs font-semibold text-slate-700">Skip Developer mode (IT / managed rollout)</p>
+            <p className="text-xs text-slate-600 mt-1">
+                Chrome and Edge install this build silently through the enterprise force-install policy,
+                and it survives restarts. From a checkout of this repository run
+                <code className="mx-1 px-1 bg-slate-100 rounded font-mono">npm run ext:policy</code>
+                (add <code className="mx-1 px-1 bg-slate-100 rounded font-mono">-WhatIf</code> for a dry run,
+                <code className="mx-1 px-1 bg-slate-100 rounded font-mono">npm run ext:uninstall</code> rolls it back).
+                It writes only per-user registry policy - no admin rights, no other browser settings touched.
+            </p>
+        </div>
+    );
+}
+
 function ChromeInstructions() {
     return (
         <div className="space-y-4">
@@ -252,6 +270,7 @@ function ChromeInstructions() {
             <Step number={5} title="Verify & Refresh">
                 <p>The extension should appear in the list with a green icon. Then refresh this page to connect.</p>
             </Step>
+            <SilentInstallNote />
         </div>
     );
 }
@@ -276,6 +295,7 @@ function EdgeInstructions() {
             <Step number={5} title="Verify & Refresh">
                 <p>The extension should appear in the list. Then refresh this page to connect.</p>
             </Step>
+            <SilentInstallNote />
         </div>
     );
 }
@@ -285,6 +305,12 @@ function FirefoxInstructions() {
         <div className="space-y-4">
             <Step number={1} title="Extract the ZIP file">
                 <p>Right-click the downloaded ZIP file and extract it to a folder you can find easily later.</p>
+                <p className="mt-2 text-xs text-slate-500">
+                    Firefox cannot run the background service worker in this package - it needs the
+                    Firefox manifest. Build it with
+                    <code className="mx-1 px-1 bg-slate-100 rounded font-mono">npm run ext:firefox</code>
+                    (same source, patched manifest) and use the resulting <code className="bg-slate-100 px-1 rounded">.xpi</code>.
+                </p>
             </Step>
             <Step number={2} title="Open Firefox Debug Page">
                 <p>Open a new Firefox tab and navigate to:</p>
@@ -299,7 +325,9 @@ function FirefoxInstructions() {
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-xs text-amber-700">
                     <strong>Note:</strong> Firefox temporary add-ons are removed when you close Firefox.
-                    For permanent install, the extension needs to be signed by Mozilla or use Firefox ESR with policies.
+                    For a permanent install, submit the <code className="bg-slate-100 px-1 rounded">.xpi</code> once to
+                    addons.mozilla.org as an unlisted (self-hosted) add-on - signing is free and automatically validated -
+                    or use Firefox ESR/Dev Edition where the signature requirement can be disabled.
                 </p>
             </div>
         </div>

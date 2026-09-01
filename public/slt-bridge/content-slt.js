@@ -1,12 +1,12 @@
 /**
- * SLT-ERP Bridge v4.5.1
+ * SLT-ERP Bridge (manifest-driven version)
  * Content Script: SLT Portal Scraper
  * - Debounced MutationObserver (no duplicate setInterval)
  * - Consistent naming
  * - Version aligned
  */
 
-const BRIDGE_VERSION = '4.5.2';
+const BRIDGE_VERSION = chrome.runtime.getManifest().version;
 
 console.log(`%c[SLT-BRIDGE] v${BRIDGE_VERSION} Engaged`, 'color: #8b5cf6; font-weight: bold; font-size: 14px;');
 

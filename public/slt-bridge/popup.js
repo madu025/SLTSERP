@@ -1,5 +1,5 @@
 /**
- * SLT-ERP Bridge v4.5.1
+ * SLT-ERP Bridge (manifest-driven version)
  * Popup: Sync Controller + History + Settings
  */
 
@@ -173,6 +173,13 @@ document.addEventListener('DOMContentLoaded', () => {
             settingsMsg.className = 'status-msg msg-success';
             setTimeout(() => { settingsMsg.innerText = ''; }, 2000);
         });
+    });
+
+    // ─── Version Badge (manifest is the source of truth) ─────────────
+    const manifestVersion = `v${chrome.runtime.getManifest().version}`;
+    ['hdrVersion', 'settingVersion'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = manifestVersion;
     });
 
     // ─── Init ────────────────────────────────────────────────────────

@@ -1,11 +1,13 @@
 /**
- * SLT-ERP Bridge v4.5.1
+ * SLT-ERP Bridge (manifest-driven version)
  * World: ISOLATED
  * Role: ERP Identity & Bridge Detection
  */
 
 (function () {
-    const version = "4.5.1";
+    // manifest.json is the only place a version is declared - never hardcode it here,
+    // otherwise the ERP badge and the packaged build drift apart.
+    const version = chrome.runtime.getManifest().version;
 
     // Set identity for ERP website to detect the extension
     document.documentElement.setAttribute('data-slt-bridge', 'active');

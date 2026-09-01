@@ -755,7 +755,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
 
                 <div className="p-5 border-t flex justify-between items-center bg-slate-50 dark:bg-slate-900/20 shrink-0">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
-                        SLT BRIDGE v4.5.1 • Forensic Capture Suite
+                        SLT BRIDGE v4.5.3 • Forensic Capture Suite
                     </p>
                     <div className="flex gap-2">
                         <Button onClick={onClose} variant="secondary" size="sm" className="h-8 text-xs font-bold">DISMISS</Button>

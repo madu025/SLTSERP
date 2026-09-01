@@ -10,6 +10,10 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 
+// Shown only as an install prompt hint - the running version always comes from the
+// extension itself (data-slt-bridge-version), never from this constant.
+const LATEST_BRIDGE_VERSION = '4.5.3';
+
 interface BridgeInfo {
     installed: boolean;
     version: string;
@@ -159,7 +163,7 @@ export default function ExtensionStatus() {
             setStatus('installed');
             setBridgeInfo({
                 installed: true,
-                version: detail?.version || "4.5.1",
+                version: detail?.version || LATEST_BRIDGE_VERSION,
                 type: detail?.type || 'bridge',
                 timestamp: new Date().toISOString()
             });
@@ -259,7 +263,7 @@ export default function ExtensionStatus() {
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-slate-500">Version</span>
                                 <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded">
-                                    {bridgeInfo.version || "4.5.1"}
+                                    {bridgeInfo.version || LATEST_BRIDGE_VERSION}
                                 </span>
                             </div>
                             {lastChecked && (
@@ -347,7 +351,7 @@ export default function ExtensionStatus() {
                             onClick={() => window.location.href = '/extension-download'}
                         >
                             <Download className="w-4 h-4 mr-2" />
-                            Install Extension v{bridgeInfo.version || '4.5.2'}
+                            Install Extension v{bridgeInfo.version || LATEST_BRIDGE_VERSION}
                         </Button>
 
                         <button

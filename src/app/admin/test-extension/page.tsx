@@ -255,7 +255,7 @@ export default function ExtensionTestPage() {
                                     </div>
                                     SLT Bridge Monitor
                                 </h1>
-                                <p className="text-slate-500 text-sm mt-1">Live data interception from SLT Service Portal. Powered by SLT Bridge v4.5.1</p>
+                                <p className="text-slate-500 text-sm mt-1">Live data interception from SLT Service Portal. Powered by SLT Bridge v4.5.3</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <Button

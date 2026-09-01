@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "SLT-ERP Bridge",
-    "version": "4.5.2",
+    "version": "4.5.3",
     "description": "High-Precision SLT Portal to ERP Sync Bridge",
     "permissions": [
         "storage",
@@ -14,7 +14,9 @@
         "https://serviceportal.slt.lk/*",
         "https://*.slt.lk/*",
         "https://d2ixqikwtprwf0.cloudfront.net/*",
-        "https://sltserp.vercel.app/*"
+        "https://sltserp.vercel.app/*",
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*"
     ],
     "background": {
         "service_worker": "background.js"
@@ -42,7 +44,9 @@
         {
             "matches": [
                 "https://d2ixqikwtprwf0.cloudfront.net/*",
-                "https://sltserp.vercel.app/*"
+                "https://sltserp.vercel.app/*",
+                "http://localhost:3000/*",
+                "http://127.0.0.1:3000/*"
             ],
             "js": ["content-erp.js"],
             "run_at": "document_start"
@@ -50,7 +54,9 @@
         {
             "matches": [
                 "https://d2ixqikwtprwf0.cloudfront.net/*",
-                "https://sltserp.vercel.app/*"
+                "https://sltserp.vercel.app/*",
+                "http://localhost:3000/*",
+                "http://127.0.0.1:3000/*"
             ],
             "js": ["content-main.js"],
             "run_at": "document_end",
@@ -64,7 +70,9 @@
                 "https://serviceportal.slt.lk/*",
                 "https://*.slt.lk/*",
                 "https://sltserp.vercel.app/*",
-                "https://d2ixqikwtprwf0.cloudfront.net/*"
+                "https://d2ixqikwtprwf0.cloudfront.net/*",
+                "http://localhost:3000/*",
+                "http://127.0.0.1:3000/*"
             ]
         }
     ]
