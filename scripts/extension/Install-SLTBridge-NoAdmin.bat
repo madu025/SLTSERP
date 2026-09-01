@@ -3,7 +3,8 @@ setlocal EnableDelayedExpansion
 
 :: ============================================================
 :: SLT-ERP Bridge - No-Admin Chrome Extension Installer
-:: Extracts extension and opens chrome://extensions for manual load
+:: Extracts extension and auto-loads via --load-extension flag
+:: No admin required, no registry, no manual clicks
 :: ============================================================
 
 title SLT-ERP Bridge Installer
@@ -19,15 +20,13 @@ echo.
 set "EXTENSION_DIR=%LOCALAPPDATA%\SLT-Bridge-Extension"
 set "SCRIPT_DIR=%~dp0"
 set "ZIP_FILE=%SCRIPT_DIR%slt-bridge.zip"
+set "LAUNCHER=%LOCALAPPDATA%\SLT-Bridge-Extension\Start-Chrome-With-Bridge.bat"
 
 :: Check if zip exists
 if not exist "%ZIP_FILE%" (
     color 0C
     echo  ERROR: slt-bridge.zip not found!
     echo  Expected at: %ZIP_FILE%
-    echo.
-    echo  Download it from: https://sltserp.vercel.app/downloads/SLT-Bridge-Firefox.xpi
-    echo  Or from the /extension-download page.
     echo.
     pause
     exit /b 1
@@ -69,34 +68,44 @@ if not exist "%EXTENSION_DIR%\manifest.json" (
 echo  Extension extracted successfully!
 echo.
 
-:: Open chrome://extensions
-echo  Opening Chrome Extensions page...
-echo.
-echo  ============================================
-echo  IMPORTANT: Complete these 3 steps:
-echo  ============================================
-echo.
-echo  1. Enable "Developer mode" (bottom-left toggle)
-echo  2. Click "Load unpacked" button
-echo  3. Select this folder:
-echo     %EXTENSION_DIR%
-echo.
-echo  Copy this path (Ctrl+C):
-echo  %EXTENSION_DIR%
-echo.
-echo  ============================================
+:: Create Chrome launcher batch file
+echo  Creating Chrome launcher...
+(
+    echo @echo off
+    echo :: Start Chrome with SLT-Bridge extension loaded
+    echo taskkill /f /im chrome.exe ^>nul 2^>^&1
+    echo timeout /t 2 /nobreak ^>nul
+    echo start "" "chrome.exe" --load-extension="%EXTENSION_DIR%"
+    echo exit
+) > "%LAUNCHER%"
+
+echo  Launcher created: %LAUNCHER%
 echo.
 
-:: Copy path to clipboard
-echo | set /p="%EXTENSION_DIR%" | clip
+:: Kill Chrome
+echo  Restarting Chrome with extension...
+taskkill /f /im chrome.exe >nul 2>&1
+timeout /t 3 /nobreak >nul
 
-:: Open chrome://extensions
-start "" "chrome://extensions"
+:: Start Chrome with extension loaded
+start "" "chrome.exe" --load-extension="%EXTENSION_DIR%"
 
-echo  Path copied to clipboard!
-echo  Paste it (Ctrl+V) in the folder picker dialog.
 echo.
-echo  After installation, the extension will work immediately.
-echo  Updates require re-running this installer.
+echo  ============================================
+echo  SUCCESS!
+echo  ============================================
+echo.
+echo  Chrome started with SLT-ERP Bridge extension.
+echo.
+echo  NOTE: A yellow bar may appear at the top of Chrome.
+echo  This is normal. Click "Keep changes" if prompted.
+echo.
+echo  FROM NOW ON: Use the launcher to start Chrome:
+echo  %LAUNCHER%
+echo.
+echo  Or double-click "Start-Chrome-With-Bridge.bat"
+echo  in %EXTENSION_DIR%
+echo.
+echo  To update: Re-run this installer.
 echo.
 pause
