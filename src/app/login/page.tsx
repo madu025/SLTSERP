@@ -57,6 +57,21 @@ function LoginContent() {
 
   const { isSubmitting } = form.formState;
 
+  // The SSR HTML is interactive (and submittable) long before this component
+  // hydrates. Until then the form has no onSubmit handler, so a "Sign In" click
+  // or Enter falls back to a NATIVE GET submission: no /api/login call happens,
+  // the page silently reloads with empty fields, and the credentials land in the
+  // URL. Gate the submit control on hydration and adopt anything already typed.
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const typedUsername = (document.getElementById('login-username') as HTMLInputElement | null)?.value ?? '';
+    const typedPassword = (document.getElementById('login-password') as HTMLInputElement | null)?.value ?? '';
+    if (typedUsername) form.setValue('username', typedUsername);
+    if (typedPassword) form.setValue('password', typedPassword);
+    setHydrated(true);
+  }, [form]);
+
   // Check database health
   useEffect(() => {
     const checkHealth = async () => {
@@ -298,8 +313,8 @@ function LoginContent() {
               />
 
               <Button
-                type="submit"
-                disabled={isSubmitting}
+                type={hydrated ? "submit" : "button"}
+                disabled={!hydrated || isSubmitting}
                 id="login-submit-btn"
                 className="slt-submit-btn"
               >

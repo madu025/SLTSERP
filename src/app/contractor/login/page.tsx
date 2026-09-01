@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Truck, Lock, User, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
@@ -12,6 +12,13 @@ export default function ContractorLoginPage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+
+    // Same guard as the staff login page: this SSR form is submittable before
+    // React hydrates, and an unhandled native submit silently reloads the page
+    // instead of authenticating. Field staff on slow mobile connections hit that
+    // window constantly, so the submit control stays inert until the handler exists.
+    const [hydrated, setHydrated] = useState(false);
+    useEffect(() => setHydrated(true), []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -131,8 +138,8 @@ export default function ContractorLoginPage() {
                     </div>
 
                     <Button
-                        type="submit"
-                        disabled={loading}
+                        type={hydrated ? 'submit' : 'button'}
+                        disabled={!hydrated || loading}
                         className="w-full h-11 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 mt-2 transition-all"
                     >
                         {loading ? 'Authenticating...' : 'Login to Contractor App'}
