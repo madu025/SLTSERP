@@ -47,59 +47,166 @@ interface SODSummaryProps {
 }
 
 export function SODSummary({ filterType, summary, missingCount }: SODSummaryProps) {
+    // Page-specific card configurations
+    const renderCards = () => {
+        switch (filterType) {
+            case 'return':
+                return (
+                    <>
+                        <SummaryCard 
+                            title="Total Returns" 
+                            value={summary.totalReturns || summary.totalSod || 0} 
+                            icon={AlertCircle} 
+                            colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                        />
+                        <SummaryCard 
+                            title="Pending" 
+                            value={summary.statusBreakdown?.PENDING || 0} 
+                            icon={FileText} 
+                            colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                        />
+                        <SummaryCard 
+                            title="In Progress" 
+                            value={summary.statusBreakdown?.INPROGRESS || 0} 
+                            icon={Activity} 
+                            colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                        />
+                        <SummaryCard 
+                            title="Assigned" 
+                            value={summary.statusBreakdown?.ASSIGNED || 0} 
+                            icon={UserCheck} 
+                            colorClass="bg-violet-500/10 text-violet-600 dark:text-violet-400" 
+                        />
+                    </>
+                );
+            
+            case 'disappeared':
+                return (
+                    <>
+                        <SummaryCard 
+                            title="Total Disappeared" 
+                            value={summary.totalSod || 0} 
+                            icon={AlertCircle} 
+                            colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                        />
+                        <SummaryCard 
+                            title="Missing from Sync" 
+                            value={missingCount || 0} 
+                            icon={AlertCircle} 
+                            colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                        />
+                        <SummaryCard 
+                            title="Last Month" 
+                            value={summary.statusBreakdown?.DISAPPEARED || 0} 
+                            icon={FileText} 
+                            colorClass="bg-slate-500/10 text-slate-600 dark:text-slate-400" 
+                        />
+                        <SummaryCard 
+                            title="This Month" 
+                            value={(summary as any).thisMonthCount || 0} 
+                            icon={CalendarCheck} 
+                            colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                        />
+                    </>
+                );
+            
+            case 'completed':
+                return (
+                    <>
+                        <SummaryCard 
+                            title="Total Completed" 
+                            value={summary.totalSod || 0} 
+                            icon={FileText} 
+                            colorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                        />
+                        <SummaryCard 
+                            title="Pending HO PAT" 
+                            value={summary.patBreakdown?.ho?.PENDING || 0} 
+                            icon={ClipboardList} 
+                            colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                        />
+                        <SummaryCard 
+                            title="Pending SLT PAT" 
+                            value={summary.patBreakdown?.slt?.PENDING || 0} 
+                            icon={Activity} 
+                            colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                        />
+                        <SummaryCard 
+                            title="Rejected" 
+                            value={(summary.patBreakdown?.opmc?.REJECTED || 0) + (summary.patBreakdown?.ho?.REJECTED || 0) + (summary.patBreakdown?.slt?.REJECTED || 0)} 
+                            icon={AlertCircle} 
+                            colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                        />
+                    </>
+                );
+            
+            case 'install_closed':
+                return (
+                    <>
+                        <SummaryCard 
+                            title="Total Install Closed" 
+                            value={summary.totalSod || 0} 
+                            icon={FileText} 
+                            colorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                        />
+                        <SummaryCard 
+                            title="Pending PAT" 
+                            value={(summary.patBreakdown?.opmc?.PENDING || 0) + (summary.patBreakdown?.ho?.PENDING || 0) + (summary.patBreakdown?.slt?.PENDING || 0)} 
+                            icon={ClipboardList} 
+                            colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                        />
+                        <SummaryCard 
+                            title="Approved PAT" 
+                            value={(summary.patBreakdown?.opmc?.APPROVED || 0) + (summary.patBreakdown?.ho?.APPROVED || 0) + (summary.patBreakdown?.slt?.APPROVED || 0)} 
+                            icon={UserCheck} 
+                            colorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                        />
+                        <SummaryCard 
+                            title="Rejected PAT" 
+                            value={(summary.patBreakdown?.opmc?.REJECTED || 0) + (summary.patBreakdown?.ho?.REJECTED || 0) + (summary.patBreakdown?.slt?.REJECTED || 0)} 
+                            icon={AlertCircle} 
+                            colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                        />
+                    </>
+                );
+            
+            default: // pending
+                return (
+                    <>
+                        <SummaryCard 
+                            title="Total Pending" 
+                            value={summary.totalSod || 0} 
+                            icon={FileText} 
+                            colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                        />
+                        <SummaryCard 
+                            title="Contractors" 
+                            value={summary.contractorAssigned || 0} 
+                            icon={UserCheck} 
+                            colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                        />
+                        <SummaryCard 
+                            title="Appointments" 
+                            value={summary.appointments || 0} 
+                            icon={CalendarCheck} 
+                            colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                        />
+                        <SummaryCard 
+                            title="Missing" 
+                            value={missingCount || summary.statusBreakdown?.DISAPPEARED || 0} 
+                            icon={AlertCircle} 
+                            colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                        />
+                    </>
+                );
+        }
+    };
+
     return (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-            <SummaryCard 
-                title="Total SODs" 
-                value={summary.totalSod || 0} 
-                icon={FileText} 
-                colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
-            />
+            {renderCards()}
 
-            {filterType === 'completed' ? (
-                <>
-                    <SummaryCard 
-                        title="Pending HO PAT" 
-                        value={summary.patBreakdown?.ho?.PENDING || 0} 
-                        icon={ClipboardList} 
-                        colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
-                    />
-                    <SummaryCard 
-                        title="Pending SLT PAT" 
-                        value={summary.patBreakdown?.slt?.PENDING || 0} 
-                        icon={Activity} 
-                        colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400" 
-                    />
-                    <SummaryCard 
-                        title="Rejected" 
-                        value={(summary.patBreakdown?.opmc?.REJECTED || 0) + (summary.patBreakdown?.ho?.REJECTED || 0) + (summary.patBreakdown?.slt?.REJECTED || 0)} 
-                        icon={AlertCircle} 
-                        colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
-                    />
-                </>
-            ) : (
-                <>
-                    <SummaryCard 
-                        title="Contractors" 
-                        value={summary.contractorAssigned || 0} 
-                        icon={UserCheck} 
-                        colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
-                    />
-                    <SummaryCard 
-                        title="Appointments" 
-                        value={summary.appointments || 0} 
-                        icon={CalendarCheck} 
-                        colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
-                    />
-                    <SummaryCard 
-                        title="Missing" 
-                        value={missingCount || summary.statusBreakdown?.DISAPPEARED || 0} 
-                        icon={AlertCircle} 
-                        colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
-                    />
-                </>
-            )}
-
+            {/* Progress breakdown card - shown on all pages */}
             <Card className="shadow-sm border border-border/40 h-12">
                 <CardContent className="h-full px-3 py-1 flex items-center justify-center">
                     <div className="flex flex-wrap items-center justify-between w-full gap-x-3 gap-y-0.5 text-[9px] font-mono">
@@ -121,7 +228,7 @@ export function SODSummary({ filterType, summary, missingCount }: SODSummaryProp
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="text-muted-foreground uppercase font-bold text-[8px]">Ret:</span> 
-                            <span className="font-extrabold text-rose-600 dark:text-rose-500">{summary.totalReturns || 0}</span>
+                            <span className="font-extrabold text-rose-600 dark:text-rose-500">{summary.totalReturns || summary.statusBreakdown?.RETURN || 0}</span>
                         </div>
                     </div>
                 </CardContent>
