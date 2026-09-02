@@ -451,7 +451,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         <th className="w-[36px] px-1 py-1.5 border-r border-border/20 text-center md:sticky md:left-0 bg-muted/90 z-50">
                             <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-slate-400 dark:border-slate-500 data-[state=checked]:border-primary data-[state=checked]:bg-primary" />
                         </th>
-                        <th className="w-[135px] min-w-[135px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
+                        <th className="w-[150px] min-w-[150px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[36px] bg-muted/90 z-50">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
                                     <span>SO Number</span>
@@ -922,8 +922,17 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 </td>
                                 {/* SO Number (Read-only, clickable details) */}
                                 <td className={`px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-[36px] z-20 ${stickyBg}`}>
-                                    <div className="flex flex-col gap-0.5 py-0.5">
-                                        <div className="flex items-center gap-1.5">
+                                    <div className="flex flex-col gap-0.5 py-0.5 min-w-0">
+                                        <button
+                                            type="button"
+                                            className="w-full text-foreground hover:text-primary transition-colors text-left truncate font-bold"
+                                            onClick={() => onOpenModal(order, "detail")}
+                                            title={`${order.soNum} — View Details`}
+                                        >
+                                            {order.soNum}
+                                        </button>
+                                        {/* Badges/dates live on the second line so the OFFLINE tag can never squeeze the SO number out of view */}
+                                        <div className="flex items-center gap-1.5 font-sans flex-wrap min-w-0">
                                             {(order.isOfflineWorkOrder || order.completionMode?.toUpperCase() === 'OFFLINE' || order.status?.toUpperCase() === 'OFFLINE' || String(order.completionMode).toUpperCase().includes('OFFLINE')) && (
                                                 <span 
                                                     className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-rose-600 text-white shadow-xs shrink-0 inline-flex items-center gap-1 cursor-help" 
@@ -933,14 +942,6 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                     OFFLINE
                                                 </span>
                                             )}
-                                            <button
-                                                type="button"
-                                                className="text-foreground hover:text-primary transition-colors text-left truncate font-bold"
-                                                onClick={() => onOpenModal(order, "detail")}
-                                                title="View Details"
-                                            >
-                                                {order.soNum}
-                                            </button>
                                             {order.hasBridgeLog && (
                                                 <span 
                                                     className="p-1 rounded-full bg-indigo-600/10 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-500/30 shadow-xs shrink-0 inline-flex items-center justify-center cursor-help" 
@@ -949,7 +950,6 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                     <Zap className="w-2.5 h-2.5 text-indigo-500 animate-pulse" />
                                                 </span>
                                             )}
-                                        </div>
                                          {/* Received Date Subtext & Dynamic KPI Aging/Turnaround Indicator */}
                                          {(() => {
                                              const parsedDate = parseSoNumberDate(order.soNum);
@@ -982,6 +982,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                  </div>
                                              );
                                          })()}
+                                        </div>
                                     </div>
                                 </td>
 
