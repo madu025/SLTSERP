@@ -595,7 +595,13 @@ export class ReportService {
     const ontShortageMap = new Map<string, number>(ontShortageInHandRaw.map(r => [r.rtom, r._count.id]));
 
     const reportData: ReportRow[] = opmcs.map(opmc => {
-      const orders = opmc.serviceOrders as unknown as ServiceOrderWithRelations[];
+      // Deduplicate orders (OPMC relation join can return duplicate rows for the same order)
+      const seenIds = new Set<string>();
+      const orders = (opmc.serviceOrders as unknown as ServiceOrderWithRelations[]).filter(o => {
+        if (seenIds.has(o.id)) return false;
+        seenIds.add(o.id);
+        return true;
+      });
       const regularTeams = opmc.contractorTeams.length;
       // Only count teams from orders actively in today's flow (received today or still pending)
       const activeTodayOrders = orders.filter(o => {
@@ -647,6 +653,8 @@ export class ReportService {
       const returned: ReturnedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const wiredOnly: WiredOnlyEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const delays: DelaysEntry = { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 };
+      // Track wiredOnly orders NOT already counted as completed (PROV_CLOSED without INSTALL_CLOSED)
+      const wiredOnlyExtra: { nc: number; rl: number; data: number } = { nc: 0, rl: 0, data: 0 };
 
       orders.forEach(order => {
         const category = categorizeOrder(order);
@@ -670,7 +678,8 @@ export class ReportService {
           h.statusDate && new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
         );
 
-        if (isInstallClosedToday || hadInstallClosedHistoryToday) {
+        const isCompletedToday = isInstallClosedToday || hadInstallClosedHistoryToday;
+        if (isCompletedToday) {
           const orderType = order.orderType?.toUpperCase() || '';
           const packageInfo = (order.package || '').toUpperCase();
 
@@ -718,6 +727,10 @@ export class ReportService {
         if ((isProvClosedToday || hadProvClosedHistoryToday || order.wiredOnly === true) && (receivedToday || inMorningCarryForward)) {
           wiredOnly[category]++;
           wiredOnly.total++;
+          // If this wiredOnly order was NOT counted as completed, track it for balance deduction
+          if (!isCompletedToday) {
+            wiredOnlyExtra[category]++;
+          }
         }
 
         if (order.delayReasons) {
@@ -770,9 +783,9 @@ export class ReportService {
       const totalInHand = inHandMorning.total + received.total;
 
       const balance: BalanceEntry = {
-        nc: inHandMorning.nc + received.nc - (completed.create + completed.fnc + completed.recon + completed.upgrade) - returned.nc,
-        rl: inHandMorning.rl + received.rl - (completed.or + completed.ml + completed.frl) - returned.rl,
-        data: inHandMorning.data + received.data - completed.data - returned.data,
+        nc: inHandMorning.nc + received.nc - (completed.create + completed.fnc + completed.recon + completed.upgrade) - returned.nc - wiredOnlyExtra.nc,
+        rl: inHandMorning.rl + received.rl - (completed.or + completed.ml + completed.frl) - returned.rl - wiredOnlyExtra.rl,
+        data: inHandMorning.data + received.data - completed.data - returned.data - wiredOnlyExtra.data,
         total: 0
       };
       balance.total = balance.nc + balance.rl + balance.data;

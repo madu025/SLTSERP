@@ -187,7 +187,7 @@ export default function DailyOperationalReportPage() {
         // Headers
         worksheetData.push([
             "Province", "RTOM", "In Hand Morning", "Received Today", "Total In Hand",
-            "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "Total Completed",
+            "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "DATA", "Total Completed",
             "DW", "Pole 5.6", "Pole 6.7", "Pole 8.0", "Returned SOD", "Wired Only", "Balance"
         ]);
 
@@ -198,17 +198,17 @@ export default function DailyOperationalReportPage() {
                     const s = summaries[currentRegion];
                     worksheetData.push([
                         "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
-                        s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.total,
+                        s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total,
                         s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
                     ]);
                 }
                 currentRegion = row.region;
-                worksheetData.push([row.region, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+                worksheetData.push([row.region, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
             }
 
             worksheetData.push([
                 row.province, row.rtom, row.inHandMorning.total, row.received.total, row.totalInHand,
-                row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.total,
+                row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.data, row.completed.total,
                 row.material.dw.toFixed(2), row.material.pole56, row.material.pole67, row.material.pole80, row.returned.total, row.wiredOnly.total, row.balance.total
             ]);
         });
@@ -217,7 +217,7 @@ export default function DailyOperationalReportPage() {
             const s = summaries[currentRegion];
             worksheetData.push([
                 "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
-                s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.total,
+                s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total,
                 s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
             ]);
         }
@@ -225,7 +225,7 @@ export default function DailyOperationalReportPage() {
         if (grandTotal) {
             worksheetData.push([
                 "GRAND TOTAL", "", grandTotal.inHandMorning.total, grandTotal.received.total, grandTotal.totalInHand,
-                grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.total,
+                grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.data, grandTotal.completed.total,
                 grandTotal.material.dw.toFixed(2), grandTotal.material.pole56, grandTotal.material.pole67, grandTotal.material.pole80, grandTotal.returned.total, grandTotal.wiredOnly.total, grandTotal.balance.total
             ]);
         }
@@ -310,6 +310,7 @@ export default function DailyOperationalReportPage() {
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.or}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.ml}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.frl}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.data}</td>
             <td className="border border-slate-300 px-1 py-1 text-center font-bold bg-green-500 text-white">{data.completed.total}</td>
 
             <td className="border border-slate-300 px-1 py-1 text-center">{data.material.dw.toFixed(1)}</td>
@@ -427,7 +428,7 @@ export default function DailyOperationalReportPage() {
                                         <th rowSpan={2} className="px-1 py-2 bg-blue-800 text-center w-14">In Hand<br />(AM)</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-emerald-800 text-center w-14">Recv<br />Today</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-indigo-800 text-center w-14">Total<br />Hand</th>
-                                        <th colSpan={8} className="px-2 py-1 bg-green-800 text-center border-b border-green-700">Completed Orders</th>
+                                        <th colSpan={9} className="px-2 py-1 bg-green-800 text-center border-b border-green-700">Completed Orders</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-amber-800 text-center w-12">DW</th>
                                         <th colSpan={3} className="px-2 py-1 bg-cyan-800 text-center border-b border-cyan-700">Poles</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-rose-800 text-center w-12">Ret<br />SOD</th>
@@ -442,6 +443,7 @@ export default function DailyOperationalReportPage() {
                                         <th className="px-0.5 py-1 w-7 bg-green-700 text-white">OR</th>
                                         <th className="px-0.5 py-1 w-7 bg-green-700 text-white">ML</th>
                                         <th className="px-0.5 py-1 w-7 bg-green-700 text-white">FRL</th>
+                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">DT</th>
                                         <th className="px-1 py-1 w-10 bg-green-600 text-white">Total</th>
                                         <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">5.6</th>
                                         <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">6.7</th>
@@ -451,7 +453,7 @@ export default function DailyOperationalReportPage() {
                                 <tbody className="bg-white">
                                     {reportData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={20} className="text-center py-12 text-slate-400">
+                                            <td colSpan={21} className="text-center py-12 text-slate-400">
                                                 {loading ? (
                                                     <div className="flex flex-col items-center gap-2">
                                                         <RefreshCw className="w-8 h-8 animate-spin text-slate-300" />
@@ -475,7 +477,7 @@ export default function DailyOperationalReportPage() {
                                                         currentRegion = row.region;
                                                         rows.push(
                                                             <tr key={`header-${row.region}`} className="bg-slate-200 border-y border-slate-300">
-                                                                <td colSpan={20} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
+                                                                <td colSpan={21} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
                                                             </tr>
                                                         );
                                                     }
@@ -496,6 +498,7 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.or}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.ml}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.frl}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.data}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-green-100/50 font-black text-green-900">{row.completed.total}</td>
 
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-amber-50/50 text-amber-900 font-medium">{row.material.dw.toFixed(1)}</td>
