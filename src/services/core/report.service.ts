@@ -552,6 +552,7 @@ export class ReportService {
          OR ("receivedDate" >= ${startDate} AND "receivedDate" <= ${endDate})
          OR ("completedDate" >= ${startDate} AND "completedDate" <= ${endDate})
          OR ("statusDate" >= ${startDate} AND "statusDate" <= ${endDate})
+         OR ("updatedAt" >= ${startDate} AND "updatedAt" <= ${endDate})
     `;
 
     const sourceMap = new Map<string, string>(rawSources.map(s => [s.id, s.materialSource]));
@@ -596,7 +597,15 @@ export class ReportService {
     const reportData: ReportRow[] = opmcs.map(opmc => {
       const orders = opmc.serviceOrders as unknown as ServiceOrderWithRelations[];
       const regularTeams = opmc.contractorTeams.length;
-      const teamsWorked = new Set(orders.map(o => o.teamId).filter(Boolean)).size;
+      // Only count teams from orders actively in today's flow (received today or still pending)
+      const activeTodayOrders = orders.filter(o => {
+        const rd = o.receivedDate || o.createdAt;
+        const receivedToday = rd >= startDate && rd <= endDate;
+        const pendingToday = !excludedStatuses.includes(o.sltsStatus as ServiceOrderStatus)
+          && pendingStatuses.includes(o.status as ServiceOrderStatus);
+        return receivedToday || pendingToday;
+      });
+      const teamsWorked = new Set(activeTodayOrders.map(o => o.teamId).filter(Boolean)).size;
 
       const categorizeOrder = (order: { orderType?: string | null; package?: string | null }) => {
         const orderType = order.orderType?.toUpperCase() || '';
@@ -699,7 +708,14 @@ export class ReportService {
           h.statusDate && new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
         );
 
-        if (isProvClosedToday || hadProvClosedHistoryToday || order.wiredOnly === true) {
+        // Scope wiredOnly to orders in today's flow (received today or morning carry-forward)
+        const rd = order.receivedDate || order.createdAt;
+        const receivedToday = rd >= startDate && rd <= endDate;
+        const inMorningCarryForward = !receivedToday && rd < startDate
+          && !excludedStatuses.includes(order.sltsStatus as ServiceOrderStatus)
+          && pendingStatuses.includes(order.status as ServiceOrderStatus);
+
+        if ((isProvClosedToday || hadProvClosedHistoryToday || order.wiredOnly === true) && (receivedToday || inMorningCarryForward)) {
           wiredOnly[category]++;
           wiredOnly.total++;
         }
