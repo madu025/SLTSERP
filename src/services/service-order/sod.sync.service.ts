@@ -528,6 +528,21 @@ export class SODSyncService {
                 console.log(`[SYNC] Self-heal: advanced ${healed.count} INSTALL_CLOSED SODs with stale workflow status.`);
             }
 
+            // RETURN rows are terminal too. A stale workflow status (PENDING/INPROGRESS/...)
+            // leaves the detail modal showing an active-looking status on a returned SOD.
+            const healedReturns = await prisma.serviceOrder.updateMany({
+                where: {
+                    sltsStatus: 'RETURN',
+                    status: {
+                        in: ['PENDING', 'INPROGRESS', 'ASSIGNED', 'PROV_CLOSED'] as import("@prisma/client").ServiceOrderStatus[]
+                    }
+                },
+                data: { status: 'RETURN' }
+            });
+            if (healedReturns.count > 0) {
+                console.log(`[SYNC] Self-heal: advanced ${healedReturns.count} RETURN SODs with stale workflow status.`);
+            }
+
             const stats = {
                 queuedCount: 0,
                 jobIds: [],
@@ -961,6 +976,23 @@ export class SODSyncService {
                 console.error(`[SYNC] Failed to batch create SODs for ${rtom}:`, createErr);
             } else {
                 created = toCreate.length;
+                // Born-RETURN creates bypass handlePostUpdate — seed their RETURN history
+                // entry so the Work History timeline shows the return event.
+                const returnCreates = toCreate.filter(c => c.sltsStatus === 'RETURN');
+                if (returnCreates.length > 0) {
+                    const createdRows = await prisma.serviceOrder.findMany({
+                        where: { soNum: { in: returnCreates.map(c => c.soNum as string) } },
+                        select: { id: true, soNum: true }
+                    });
+                    const [histErr] = await safe(prisma.serviceOrderStatusHistory.createMany({
+                        data: createdRows.map(r => {
+                            const src = returnCreates.find(c => c.soNum === r.soNum);
+                            return { serviceOrderId: r.id, status: 'RETURN', statusDate: (src?.completedDate as Date | null) ?? new Date() };
+                        }),
+                        skipDuplicates: true
+                    }));
+                    if (histErr) console.error(`[SYNC] Failed to seed born-RETURN history for ${rtom}:`, histErr);
+                }
             }
         }
 
@@ -1751,17 +1783,26 @@ export class SODSyncService {
                 timeout: 20000
             });
         } else {
+            const createdSltsStatus = (dataToUpdate.sltsStatus as string) || 'INPROGRESS';
             syncedOrder = await (prisma.serviceOrder as unknown as { create: (args: { data: unknown }) => Promise<import('@prisma/client').ServiceOrder> }).create({
                 data: {
                     ...dataToUpdate,
                     soNum: soNum || "",
-                    status: 'PENDING',
-                    sltsStatus: (dataToUpdate.sltsStatus as string) || 'INPROGRESS',
+                    status: createdSltsStatus === 'RETURN' ? 'RETURN' : 'PENDING',
+                    sltsStatus: createdSltsStatus,
                     iptvSerials: iptvSerials.length > 0 ? {
                         create: iptvSerials.map(sn => ({ serialNumber: sn }))
                     } : undefined
                 }
             });
+            // Born-RETURN bridge creates bypass handlePostUpdate — seed the RETURN
+            // history entry so Work History shows the return event.
+            if (syncedOrder.sltsStatus === 'RETURN') {
+                const [histErr] = await safe(prisma.serviceOrderStatusHistory.create({
+                    data: { serviceOrderId: syncedOrder.id, status: 'RETURN', statusDate: syncedOrder.completedDate ?? new Date() }
+                }));
+                if (histErr) console.error('[BRIDGE-SYNC] Failed to seed born-RETURN history:', histErr);
+            }
         }
 
         // Sync comments list to ServiceOrderComment table if present in payload

@@ -72,8 +72,11 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
     const [bridgeData, setBridgeData] = useState<BridgeData | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
 
+    const isReturnSod = (coreOrder?.sltsStatus || selectedOrder?.sltsStatus) === 'RETURN';
+
     useEffect(() => {
         if (isOpen && selectedOrder?.soNum) {
+            setActiveTab("details"); // Reset stale tab selection (e.g. hidden Smart Inspector)
             setCoreOrder(selectedOrder); // Reset to prop first
             const fetchCoreData = async () => {
                 setIsLoadingCore(true);
@@ -191,10 +194,12 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     <span className="ml-2 text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-black">{coreOrder.statusHistory.length}</span>
                                 )}
                             </TabsTrigger>
-                            <TabsTrigger value="inspector" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-indigo-600">
-                                <Activity className="w-3.5 h-3.5 mr-2" />
-                                Smart Inspector
-                            </TabsTrigger>
+                            {!isReturnSod && (
+                                <TabsTrigger value="inspector" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-indigo-600">
+                                    <Activity className="w-3.5 h-3.5 mr-2" />
+                                    Smart Inspector
+                                </TabsTrigger>
+                            )}
                         </TabsList>
                     </div>
 
@@ -204,6 +209,9 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <DetailItem icon={<Info className="w-3.5 h-3.5" />} label="SO Number" value={coreOrder?.soNum} isMono />
                                 <DetailItem icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="SLTS Status" value={coreOrder?.sltsStatus} isBold />
+                                {isReturnSod && (
+                                    <DetailItem icon={<RotateCcw className="w-3.5 h-3.5" />} label="Return Reason" value={coreOrder?.returnReason || selectedOrder?.returnReason || null} isBold />
+                                )}
                                 <DetailItem icon={<User className="w-3.5 h-3.5" />} label="Customer Name" value={coreOrder?.customerName} />
                                 <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="Voice Number" value={coreOrder?.voiceNumber} />
                                 <DetailItem icon={<Package className="w-3.5 h-3.5" />} label="Service Type" value={coreOrder?.serviceType} />
@@ -323,7 +331,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                 {/* Material Usage moved to Smart Inspector tab to avoid duplication */}
 
                                 {/* NEW: Forensic Audit Summary in Standard View */}
-                                {coreOrder?.forensicAudit && (
+                                {coreOrder?.forensicAudit && !isReturnSod && (
                                     <div className="md:col-span-2 lg:col-span-3">
                                         <div className="flex items-center gap-2 mb-3 mt-2">
                                             <Camera className="w-3.5 h-3.5 text-indigo-600" />
@@ -512,7 +520,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </div>
                         </TabsContent>
 
-                        {/* Tab 3: Smart Inspector */}
+                        {/* Tab 3: Smart Inspector — hidden for RETURN SODs (forensic tooling irrelevant) */}
+                        {!isReturnSod && (
                         <TabsContent value="inspector" className="p-0 m-0 outline-none min-h-[500px] bg-slate-50/50">
                             <div className="p-6 space-y-8 animate-in fade-in duration-300">
 
@@ -749,6 +758,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                 </div>
                             </div>
                         </TabsContent>
+                        )}
 
                     </ScrollArea>
                 </Tabs>
