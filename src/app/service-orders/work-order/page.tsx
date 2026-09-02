@@ -75,7 +75,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     const [matFilter, setMatFilter] = useState("ALL");
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
-        key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' || filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
+        key: filterType === 'completed' || filterType === 'return' ? 'completedDate' : (filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
         direction: "desc"
     });
 
