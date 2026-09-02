@@ -108,6 +108,10 @@ export function SODSummary({ filterType, summary, missingCount }: SODSummaryProp
                             <span className="font-extrabold text-amber-600 dark:text-amber-500">{summary.statusBreakdown?.INPROGRESS || 0}</span>
                         </div>
                         <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground uppercase font-bold text-[8px]">Asgd:</span> 
+                            <span className="font-extrabold text-violet-600 dark:text-violet-500">{summary.statusBreakdown?.ASSIGNED || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
                             <span className="text-muted-foreground uppercase font-bold text-[8px]">Inst:</span> 
                             <span className="font-extrabold text-emerald-600 dark:text-emerald-500">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span>
                         </div>
