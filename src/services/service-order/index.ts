@@ -329,6 +329,10 @@ export class ServiceOrderService {
         return SODSyncService.syncAllOpmcs(offset, limit);
     }
 
+    static async syncReturnReasons(maxRtoms: number = 4) {
+        return SODSyncService.syncReturnReasons(maxRtoms);
+    }
+
     static async updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }) {
         return SODSyncService.updateGlobalSyncStats(incremental);
     }

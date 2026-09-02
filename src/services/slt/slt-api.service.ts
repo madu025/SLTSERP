@@ -43,6 +43,16 @@ export interface SLTApiResponse {
     data: SLTServiceOrderData[];
 }
 
+/** Rich row from the ishamp RETURNED_SLTS mirror — carries the raw SLT return reason and free-text comment. */
+export interface SLTReturnedSODReason {
+    SO_NUM: string;
+    RTOM?: string;
+    LEA?: string;
+    RETURNED_DATE?: string;
+    RETURNED_REASON?: string;
+    RETURNED_COMMENT?: string;
+}
+
 export class SLTApiService {
     private baseUrl = 'https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php';
 
@@ -333,6 +343,55 @@ export class SLTApiService {
                                 CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
                             } as SLTServiceOrderData;
                         });
+                    }
+                }
+            } catch {
+                // Try next endpoint
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Fetch RETURNED SODs with the raw reason/comment fields from the ishamp mirror.
+     * The serviceportal RETURNED_SLTS view only exposes CON_STATUS; the ishamp mirror
+     * additionally returns RETURNED_DATE, RETURNED_REASON and RETURNED_COMMENT —
+     * the only source of the actual return explanation (e.g. "OSS DATA ERROR" +
+     * "LEA Changed (HC)") for rows classified as OTHER.
+     */
+    async fetchReturnedSODReasons(rtom: string, startDate: string, endDate: string): Promise<SLTReturnedSODReason[]> {
+        const endpoints = [
+            `https://ishamp.slt.lk/iShamp/contr/dynamic_load?x=ftth&z=${rtom}_${startDate}_${endDate}_RETURNED_SLTS`,
+            `https://ishamp.slt.lk/iShamp/contr/dynamic_load.php?x=ftth&z=${rtom}_${startDate}_${endDate}_RETURNED_SLTS`,
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load?x=ftth&z=${rtom}_${startDate}_${endDate}_RETURNED_SLTS`
+        ];
+
+        for (const url of endpoints) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                    },
+                    signal: AbortSignal.timeout(30000),
+                });
+
+                if (response.ok) {
+                    const data: { data?: Record<string, unknown>[] } = await response.json();
+                    if (data && Array.isArray(data.data)) {
+                        const rows = data.data
+                            .filter(item => typeof item.SO_NUM === 'string' && (item as { SO_NUM: string }).SO_NUM)
+                            .map(item => ({
+                                SO_NUM: String(item.SO_NUM),
+                                RTOM: item.RTOM ? String(item.RTOM) : undefined,
+                                LEA: item.LEA ? String(item.LEA) : undefined,
+                                RETURNED_DATE: item.RETURNED_DATE ? String(item.RETURNED_DATE) : undefined,
+                                RETURNED_REASON: item.RETURNED_REASON ? String(item.RETURNED_REASON) : undefined,
+                                RETURNED_COMMENT: item.RETURNED_COMMENT ? String(item.RETURNED_COMMENT) : undefined,
+                            }));
+                        if (rows.length > 0) return rows;
                     }
                 }
             } catch {

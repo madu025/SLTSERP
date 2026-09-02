@@ -22,6 +22,13 @@ export const GET = apiHandler(async (req) => {
         const { ServiceOrderService } = await import('@/services/service-order/sod.service');
         await ServiceOrderService.syncAllOpmcs();
         console.log('[CRON] Synchronous SOD Sync completed.');
+        // Return-reason enrichment: capture the raw SLT RETURNED_REASON/COMMENT for RETURN SODs
+        try {
+            const reasonResult = await ServiceOrderService.syncReturnReasons();
+            console.log(`[CRON] Return reason enrichment: ${JSON.stringify(reasonResult)}`);
+        } catch (reasonError) {
+            console.warn('[CRON] Return reason enrichment failed:', reasonError);
+        }
     } else {
         await addJob(sodSyncQueue, 'periodic-pending-sync', { type: 'PERIODIC_PENDING_SYNC' });
         console.log('[CRON] Enqueued SOD Sync Job');

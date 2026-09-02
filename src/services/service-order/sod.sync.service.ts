@@ -576,6 +576,87 @@ export class SODSyncService {
     }
 
     /**
+     * Capture the portal's raw RETURNED_REASON / RETURNED_COMMENT for RETURN SODs.
+     * The ishamp RETURNED_SLTS mirror carries the actual SLT return reason and the
+     * free-text comment (e.g. "OSS DATA ERROR - LEA Changed (HC)") that CON_STATUS-only
+     * views never expose — previously OTHER returns arrived with no explanation.
+     * Time-budgeted: enriches a rotating subset of RTOMs per call; pass a large
+     * maxRtoms for a full backfill.
+     */
+    static async syncReturnReasons(maxRtoms: number = 4): Promise<{ updated: number; checked: number }> {
+        const returnRows = await prisma.serviceOrder.findMany({
+            where: { sltsStatus: 'RETURN' },
+            select: { id: true, soNum: true, rtom: true, returnReason: true, comments: true },
+        });
+
+        // Only touch rows still carrying bare classifier output or portal placeholders —
+        // never downgrade richer reasons captured via the extension.
+        const needsEnrichment = (reason: string | null): boolean =>
+            !reason || /^[A-Z_]+$/.test(reason.trim()) || reason.startsWith('Portal Return') || reason.startsWith('Portal Returned');
+        const byRtom = new Map<string, { id: string; soNum: string; returnReason: string | null; comments: string | null }[]>();
+        for (const row of returnRows) {
+            if (!row.soNum || !row.rtom) continue;
+            if (!needsEnrichment(row.returnReason)) continue;
+            const list = byRtom.get(row.rtom as string) || [];
+            list.push({ id: row.id, soNum: row.soNum as string, returnReason: row.returnReason, comments: row.comments });
+            byRtom.set(row.rtom as string, list);
+        }
+        if (byRtom.size === 0) return { updated: 0, checked: 0 };
+
+        const today = new Date();
+        const startDate = format(subMonths(today, 3), 'yyyy-MM-dd');
+        const endDate = format(today, 'yyyy-MM-dd');
+
+        const rtoms = [...byRtom.keys()].sort();
+        // Rotate the starting RTOM across 30-minute cron cycles so every region is
+        // covered over time without exceeding the sync time budget in one run.
+        const cycle = Math.floor(Date.now() / (30 * 60 * 1000));
+        const startIdx = maxRtoms >= rtoms.length ? 0 : cycle % rtoms.length;
+        const selected: string[] = [];
+        for (let i = 0; i < Math.min(maxRtoms, rtoms.length); i++) {
+            selected.push(rtoms[(startIdx + i) % rtoms.length]);
+        }
+
+        let updated = 0;
+        let checked = 0;
+        for (const rtom of selected) {
+            const portalRows = await sltApiService.fetchReturnedSODReasons(rtom, startDate, endDate);
+            const reasonMap = new Map(
+                portalRows.filter(p => p.RETURNED_REASON || p.RETURNED_COMMENT).map(p => [p.SO_NUM, p])
+            );
+            if (reasonMap.size === 0) continue;
+
+            for (const local of byRtom.get(rtom) || []) {
+                const portal = reasonMap.get(local.soNum);
+                if (!portal) continue;
+                checked++;
+                const reason = (portal.RETURNED_REASON || '').trim();
+                const comment = (portal.RETURNED_COMMENT || '').trim();
+                const classification = SODReturnClassifierService.classify(`${reason} ${comment}`);
+                const formattedReason = reason.toUpperCase();
+                const commentPart = comment && comment.toUpperCase() !== formattedReason ? ` - ${comment}` : '';
+                const newReason = formattedReason || comment
+                    ? `${formattedReason}${commentPart} (${classification.category})`
+                    : classification.category;
+                if (local.returnReason === newReason) continue;
+
+                const appendLine = `[PORTAL_SYNC] Reason: ${reason || 'N/A'}${comment ? ` | Comment: ${comment}` : ''}`;
+                const newComments = local.comments
+                    ? (local.comments.includes(appendLine) ? local.comments : `${local.comments}\n${appendLine}`)
+                    : appendLine;
+
+                await prisma.serviceOrder.update({
+                    where: { id: local.id },
+                    data: { returnReason: newReason, comments: newComments },
+                });
+                updated++;
+            }
+        }
+        if (updated > 0) console.log(`[SYNC] Return reason enrichment: checked ${checked}, updated ${updated}.`);
+        return { updated, checked };
+    }
+
+    /**
      * Update global sync stats from background jobs
      */
     static async updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }) {
@@ -1288,8 +1369,10 @@ export class SODSyncService {
 
             const classification = SODReturnClassifierService.classify(String(rawReason) + ' ' + String(rawComment));
             const formattedReason = String(rawReason).toUpperCase().trim();
-            mapping.returnReason = formattedReason
-                ? `${formattedReason} (${classification.category})`
+            const trimmedComment = String(rawComment).trim();
+            const commentPart = trimmedComment && trimmedComment.toUpperCase() !== formattedReason ? ` - ${trimmedComment}` : '';
+            mapping.returnReason = formattedReason || trimmedComment
+                ? `${formattedReason}${commentPart} (${classification.category})`
                 : classification.category;
 
             const combinedComment = `[AUTO_CAPTURED] Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
@@ -1456,12 +1539,23 @@ export class SODSyncService {
             }
         } else if (isServiceReturn || (SOD_RETURN_STATUSES as readonly string[]).includes(currentStatus)) {
             dataToUpdate.sltsStatus = SodStatus.RETURN;
-            const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
-            const classification = SODReturnClassifierService.classify(rawReason);
-            dataToUpdate.returnReason = classification.category;
-            dataToUpdate.comments = serviceOrder?.comments
-                ? `${serviceOrder.comments}\n[AI_CLASSIFIED] Reason: ${rawReason}`
-                : `[AI_CLASSIFIED] Reason: ${rawReason}`;
+            // The mapping block above already captured the raw portal reason + comment
+            // (richer: includes rt_comment). Only fill gaps when it did not run
+            // (status-token returns with no master return fields).
+            if (!mapping.returnReason) {
+                const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
+                const rawComment = String(masterData['RETCMT_HIDDEN'] || masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || masterData['rtcmtall'] || masterData['rt_comment'] || '').trim();
+                const classification = SODReturnClassifierService.classify(`${rawReason} ${rawComment}`);
+                const formattedReason = String(rawReason).toUpperCase().trim();
+                const commentPart = rawComment && rawComment.toUpperCase() !== formattedReason ? ` - ${rawComment}` : '';
+                dataToUpdate.returnReason = formattedReason || rawComment
+                    ? `${formattedReason}${commentPart} (${classification.category})`
+                    : classification.category;
+                const fallbackComment = `[AI_CLASSIFIED] Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
+                dataToUpdate.comments = serviceOrder?.comments
+                    ? (serviceOrder.comments.includes(fallbackComment) ? serviceOrder.comments : `${serviceOrder.comments}\n${fallbackComment}`)
+                    : fallbackComment;
+            }
             // Return date = the ERP capture time: when the bridge first learned the return
             // (new row) or caught the transition (active -> RETURN). Re-pushes of an
             // already-RETURN SOD touch nothing.
