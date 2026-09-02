@@ -12,7 +12,7 @@ import {
 
 // Shown only as an install prompt hint - the running version always comes from the
 // extension itself (data-slt-bridge-version), never from this constant.
-const LATEST_BRIDGE_VERSION = '4.5.3';
+const LATEST_BRIDGE_VERSION = '4.5.5';
 
 interface BridgeInfo {
     installed: boolean;

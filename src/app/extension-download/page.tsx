@@ -16,7 +16,7 @@ interface BrowserInfo {
     supported: boolean;
 }
 
-const EXTENSION_VERSION = '4.5.3';
+const EXTENSION_VERSION = '4.5.5';
 
 /** Published install links. A button renders only once its URL is filled in, so an
  *  unpublished store never shows a dead link. Chrome and Edge get their URLs pasted
