@@ -211,20 +211,20 @@ export function SODSummary({ filterType, summary, missingCount }: SODSummaryProp
                 <CardContent className="h-full px-3 py-1 flex items-center justify-center">
                     <div className="flex flex-wrap items-center justify-between w-full gap-x-3 gap-y-0.5 text-[9px] font-mono">
                         <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground uppercase font-bold text-[8px]">Prog:</span> 
-                            <span className="font-extrabold text-amber-600 dark:text-amber-500">{summary.statusBreakdown?.INPROGRESS || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
                             <span className="text-muted-foreground uppercase font-bold text-[8px]">Asgd:</span> 
                             <span className="font-extrabold text-violet-600 dark:text-violet-500">{summary.statusBreakdown?.ASSIGNED || 0}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground uppercase font-bold text-[8px]">Inst:</span> 
-                            <span className="font-extrabold text-emerald-600 dark:text-emerald-500">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span>
+                            <span className="text-muted-foreground uppercase font-bold text-[8px]">Prog:</span> 
+                            <span className="font-extrabold text-amber-600 dark:text-amber-500">{summary.statusBreakdown?.INPROGRESS || 0}</span>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="text-muted-foreground uppercase font-bold text-[8px]">Prov:</span> 
                             <span className="font-extrabold text-blue-600 dark:text-blue-500">{summary.statusBreakdown?.PROV_CLOSED || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground uppercase font-bold text-[8px]">Inst:</span> 
+                            <span className="font-extrabold text-emerald-600 dark:text-emerald-500">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span>
                         </div>
                         <div className="flex items-center gap-1">
                             <span className="text-muted-foreground uppercase font-bold text-[8px]">Ret:</span> 
