@@ -700,9 +700,13 @@ export class SODSyncService {
 
             // For returned SODs that are re-completed, CON_STATUS_DATE might be the original date
             // Use receivedDate (reactivation date) if it's later than CON_STATUS_DATE
+            // RETURN transitions use the ERP-side sync time: the return date is when the ERP
+            // learned about the return (drives Return Date column + return month attribution),
+            // not the portal CON_STATUS_DATE which can lag the actual notification by days.
+            const isReturnTransition = initialSltsStatus === 'RETURN' && (!existing || existing.sltsStatus !== 'RETURN');
             const effectiveCompletedDate = (initialSltsStatus === 'COMPLETED' || isInstallClosed)
                 ? (existing?.receivedDate && statusDate < existing.receivedDate ? existing.receivedDate : statusDate)
-                : undefined;
+                : (isReturnTransition ? new Date() : undefined);
 
             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
                 lea: item.LEA,
@@ -749,7 +753,7 @@ export class SODSyncService {
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
                         receivedDate: statusDate,
-                        completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed) ? statusDate : null,
+                        completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed) ? statusDate : (initialSltsStatus === 'RETURN' ? new Date() : null),
                         sltsStatus: effectiveSltsStatus,
                         status: isInstallClosed ? 'INSTALL_CLOSED' : (contractorId ? 'INPROGRESS' : 'PENDING')
                     } as Prisma.ServiceOrderUncheckedCreateInput);
@@ -780,6 +784,7 @@ export class SODSyncService {
                 // When portal restores a RETURNED SOD to active status, clear return-specific fields
                 if (isRestoring && initialSltsStatus === 'INPROGRESS') {
                     updatePayload.returnReason = null;
+                    updatePayload.completedDate = null; // Return date no longer applies once reactivated
                     // Use portal's CON_STATUS_DATE (actual reactivation date), not sync run time
                     updatePayload.receivedDate = updatePayload.statusDate || new Date();
                     const restoreDate = updatePayload.statusDate ? new Date(updatePayload.statusDate as string).toLocaleDateString() : 'N/A';
@@ -946,7 +951,10 @@ export class SODSyncService {
                                 statusDate,
                                 sltsStatus: nextSltsStatus as import("@prisma/client").ServiceOrderStatus,
                                 completionMode: isOfflineType ? 'OFFLINE' : undefined,
-                                completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED') ? statusDate : null,
+                                // RETURN: ERP-side time (when the recovery sync learned the return)
+                                completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED')
+                                    ? statusDate
+                                    : (nextSltsStatus === 'RETURN' ? new Date() : null),
                                 returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined,
                                 // Clear completion data for RETURN - connection did not complete successfully
                                 ...(nextSltsStatus === 'RETURN' ? { revenueAmount: null, contractorAmount: null } : {}),

@@ -19,6 +19,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getComputedSodStatus } from "@/lib/constants/sod-constants";
 
+// Asia/Colombo-pinned date formatting: return/completed date cells and their column
+// filters must not depend on the viewer's machine timezone.
+const fmtColomboDate = (value?: Date | string | null): string =>
+    value
+        ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Colombo", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value))
+        : "";
+const fmtColomboTime = (value?: Date | string | null): string =>
+    value
+        ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Colombo", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(value))
+        : "";
+
 interface SODSheetTableProps {
     orders: ServiceOrder[];
     filterType: "pending" | "install_closed" | "completed" | "return" | "disappeared";
@@ -155,11 +166,11 @@ export function SODSheetTable(props: SODSheetTableProps) {
             const lowerFilter = filterValue.toLowerCase();
             result = result.filter(order => {
                 if (key === "completedDate") {
-                    const dateStr = order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "";
+                    const dateStr = fmtColomboDate(order.completedDate);
                     return dateStr.includes(filterValue);
                 }
                 if (key === "statusDate") {
-                    const dateStr = order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "";
+                    const dateStr = fmtColomboDate(order.statusDate);
                     return dateStr.includes(filterValue);
                 }
                 if (key === "scheduledDate") {
@@ -980,9 +991,9 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         {isColumnVisible('completedDate') && (
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-emerald-500 font-mono">
                                             {order.completedDate 
-                                                ? new Date(order.completedDate).toLocaleDateString("en-GB") 
+                                                ? fmtColomboDate(order.completedDate)
                                                 : order.statusDate 
-                                                    ? new Date(order.statusDate).toLocaleDateString("en-GB") 
+                                                    ? fmtColomboDate(order.statusDate)
                                                     : "-"
                                             }
                                         </td>
@@ -1071,7 +1082,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                     <>
                                         {isColumnVisible('completedDate') && (
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-rose-500 font-mono">
-                                            {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "-"}
+                                            {(order.completedDate || order.statusDate) ? (
+                                                <div className="flex flex-col leading-tight">
+                                                    <span>{fmtColomboDate(order.completedDate || order.statusDate)}</span>
+                                                    <span className="text-[7.5px] font-semibold text-rose-400/80">{fmtColomboTime(order.completedDate || order.statusDate)}</span>
+                                                </div>
+                                            ) : "-"}
                                         </td>
                                         )}
                                         {isColumnVisible('customerName') && (

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, formatSLTDateTime, formatSLTDate } from "@/lib/utils";
 
 // Define the shape of the Bridge Data (Scraped Data)
 export interface BridgeData {
@@ -234,7 +234,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     <DetailItem
                                         icon={<Clock className="w-3.5 h-3.5" />}
                                         label={coreOrder.sltsStatus === 'RETURN' ? "Returned Date" : "Completed Date"}
-                                        value={`${new Date(coreOrder.completedDate).toLocaleDateString()} ${new Date(coreOrder.completedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                        value={formatSLTDateTime(coreOrder.completedDate)}
                                         isBold
                                     />
                                 )}
@@ -242,7 +242,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     <DetailItem
                                         icon={<Clock className="w-3.5 h-3.5" />}
                                         label="Return Date (SLT)"
-                                        value={new Date(coreOrder.statusDate).toLocaleDateString()}
+                                        value={formatSLTDate(coreOrder.statusDate)}
                                         isBold
                                     />
                                 )}
