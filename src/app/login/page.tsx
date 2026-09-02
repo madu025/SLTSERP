@@ -40,7 +40,6 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 function LoginContent() {
   const [error, setError] = useState("");
   const [quoteIndex, setQuoteIndex] = useState(0);
-  const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const searchParams = useSearchParams();
 
   // Session expired banner (set by global 401 interceptor in SessionManager)
@@ -71,20 +70,6 @@ function LoginContent() {
     if (typedPassword) form.setValue('password', typedPassword);
     setHydrated(true);
   }, [form]);
-
-  // Check database health
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const response = await fetch('/api/health');
-        const data = await response.json();
-        setDbStatus(data.services?.database === 'healthy' ? 'connected' : 'disconnected');
-      } catch {
-        setDbStatus('disconnected');
-      }
-    };
-    checkHealth();
-  }, []);
 
   // Cycle through quotes
   useEffect(() => {
@@ -394,12 +379,6 @@ function LoginContent() {
 
           {/* Footer status */}
           <div className="slt-footer">
-            <div className="slt-db-status">
-              <span className={`slt-db-dot ${dbStatus === 'connected' ? 'slt-db-ok' : dbStatus === 'disconnected' ? 'slt-db-err' : 'slt-db-wait'}`} />
-              <span className={`slt-db-label ${dbStatus === 'connected' ? 'slt-db-label-ok' : dbStatus === 'disconnected' ? 'slt-db-label-err' : 'slt-db-label-wait'}`}>
-                {dbStatus === 'connected' ? 'Database Connected' : dbStatus === 'disconnected' ? 'Database Offline' : 'Checking…'}
-              </span>
-            </div>
             <p className="slt-footer-note">Protected by Enterprise Security. Unauthorized access is prohibited.</p>
           </div>
         </div>

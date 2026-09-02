@@ -394,20 +394,4 @@
 
 /* Footer */
 .slt-footer { text-align: center; display: flex; flex-direction: column; gap: 0.5rem; }
-.slt-db-status { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
-.slt-db-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  animation: sltPulse 2s ease-in-out infinite;
-}
-.slt-db-ok  { background: #10b981; }
-.slt-db-err { background: #ef4444; }
-.slt-db-wait { background: #f59e0b; }
-@keyframes sltPulse {
-  0%,100% { opacity: 1; }
-  50%      { opacity: 0.4; }
-}
-.slt-db-label    { font-size: 0.72rem; font-weight: 600; }
-.slt-db-label-ok   { color: #34d399; }
-.slt-db-label-err  { color: #f87171; }
-.slt-db-label-wait { color: #fbbf24; }
 .slt-footer-note { font-size: 0.68rem; color: rgba(255,255,255,0.2); line-height: 1.5; }
