@@ -753,7 +753,12 @@ export class SODSyncService {
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
                         receivedDate: statusDate,
-                        completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed) ? statusDate : (initialSltsStatus === 'RETURN' ? new Date() : null),
+                        // Born-RETURN: the portal CON_STATUS_DATE is the true return moment
+                        // (re-anchored from SL wall-clock to a real instant); the import time
+                        // is only when the ERP first saw the SOD.
+                        completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed)
+                            ? statusDate
+                            : (initialSltsStatus === 'RETURN' && statusDate ? SodUtils.portalWallClockToUtc(statusDate) : null),
                         sltsStatus: effectiveSltsStatus,
                         status: isInstallClosed ? 'INSTALL_CLOSED' : (contractorId ? 'INPROGRESS' : 'PENDING')
                     } as Prisma.ServiceOrderUncheckedCreateInput);
@@ -1457,10 +1462,12 @@ export class SODSyncService {
             dataToUpdate.comments = serviceOrder?.comments
                 ? `${serviceOrder.comments}\n[AI_CLASSIFIED] Reason: ${rawReason}`
                 : `[AI_CLASSIFIED] Reason: ${rawReason}`;
-            // RETURN transition: return date = ERP-side sync time (when the extension push
-            // learned the return), consistent with the bulk sync path. Re-pushes of an
-            // already-RETURN SOD must not touch completedDate.
-            if (!serviceOrder || serviceOrder.sltsStatus !== 'RETURN') {
+            // RETURN date: new rows born RETURN use the portal's own CON_STATUS_DATE as the
+            // true return moment (re-anchored from SL wall-clock); active-to-RETURN transitions
+            // use the ERP-side catch time. Re-pushes of an already-RETURN SOD touch nothing.
+            if (!serviceOrder) {
+                dataToUpdate.completedDate = stDate ? SodUtils.portalWallClockToUtc(stDate) : new Date();
+            } else if (serviceOrder.sltsStatus !== 'RETURN') {
                 dataToUpdate.completedDate = new Date();
             }
             dataToUpdate.revenueAmount = null;
