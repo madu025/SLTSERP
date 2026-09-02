@@ -1457,8 +1457,12 @@ export class SODSyncService {
             dataToUpdate.comments = serviceOrder?.comments
                 ? `${serviceOrder.comments}\n[AI_CLASSIFIED] Reason: ${rawReason}`
                 : `[AI_CLASSIFIED] Reason: ${rawReason}`;
-            // Clear completion data - RETURN means connection did not complete successfully
-            dataToUpdate.completedDate = null;
+            // RETURN transition: return date = ERP-side sync time (when the extension push
+            // learned the return), consistent with the bulk sync path. Re-pushes of an
+            // already-RETURN SOD must not touch completedDate.
+            if (!serviceOrder || serviceOrder.sltsStatus !== 'RETURN') {
+                dataToUpdate.completedDate = new Date();
+            }
             dataToUpdate.revenueAmount = null;
             dataToUpdate.contractorAmount = null;
         } else if (currentStatus === 'ASSIGN' || currentStatus === 'ASSIGNED') {
@@ -1701,6 +1705,14 @@ export class SODSyncService {
 
         if (syncedOrder && syncedOrder.sltsStatus !== oldStatus) {
             await safe((async () => {
+                // Audit trail: single-SOD bridge pushes bypass handlePostUpdate on purpose
+                // (publishing sod.status_changed here would double-fire the notification below)
+                const { ServiceOrderRepository } = await import('@/repositories/service-order.repository');
+                await ServiceOrderRepository.createStatusHistory({
+                    serviceOrderId: syncedOrder.id,
+                    status: syncedOrder.sltsStatus,
+                    statusDate: syncedOrder.statusDate || new Date()
+                });
                 const { StatsService } = await import('@/lib/stats.service');
                 await StatsService.handleStatusChange(syncedOrder.opmcId, oldStatus, syncedOrder.sltsStatus);
 
