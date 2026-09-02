@@ -63,6 +63,32 @@ function LoginContent() {
   // URL. Gate the submit control on hydration and adopt anything already typed.
   const [hydrated, setHydrated] = useState(false);
 
+  // ── TEMPORARY DIAGNOSTIC (first-attempt login bug) ─────────────────────
+  // Records every branch of the submit flow to localStorage and re-displays
+  // it on the next /login mount, so a failing machine self-reports which
+  // path bounced it back (bounce params, probe statuses, nav target).
+  const [diag, setDiag] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('loginTrace');
+      if (raw) {
+        const trace = JSON.parse(raw) as { ts: number; steps: string[] };
+        if (Date.now() - trace.ts < 10 * 60 * 1000) {
+          setDiag(`RETURN search=${location.search}\n${trace.steps.join('\n')}`);
+        }
+        localStorage.removeItem('loginTrace');
+      }
+    } catch { /* ignore */ }
+  }, []);
+  const traceStep = (msg: string) => {
+    try {
+      const raw = localStorage.getItem('loginTrace');
+      const trace = raw ? (JSON.parse(raw) as { ts: number; steps: string[] }) : { ts: Date.now(), steps: [] as string[] };
+      trace.steps.push(`${new Date().toISOString()} ${msg}`);
+      localStorage.setItem('loginTrace', JSON.stringify(trace));
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
     const typedUsername = (document.getElementById('login-username') as HTMLInputElement | null)?.value ?? '';
     const typedPassword = (document.getElementById('login-password') as HTMLInputElement | null)?.value ?? '';
@@ -81,6 +107,8 @@ function LoginContent() {
 
   const onSubmit = async (values: LoginFormValues) => {
     setError("");
+    try { localStorage.removeItem('loginTrace'); } catch { /* ignore */ }
+    traceStep(`submit start ua=${navigator.userAgent.slice(0, 80)}`);
     const maxRetries = 2;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -96,6 +124,7 @@ function LoginContent() {
         clearTimeout(timeoutId);
         const data = await response.json();
         console.log(`[LOGIN] Response status: ${response.status}, ok: ${response.ok}`);
+        traceStep(`post /api/login status=${response.status}`);
 
         if (response.ok) {
           localStorage.setItem("user", JSON.stringify(data.user));
@@ -115,8 +144,10 @@ function LoginContent() {
               const probe = await fetch('/api/profile', { credentials: 'same-origin' });
               // 401 = cookie not yet visible; any other status means it was.
               sessionConfirmed = probe.status !== 401;
+              traceStep(`probe #${i} status=${probe.status}`);
             } catch {
               // Network hiccup — retry.
+              traceStep(`probe #${i} network-error`);
             }
             if (!sessionConfirmed) await new Promise(r => setTimeout(r, 250));
           }
@@ -136,6 +167,7 @@ function LoginContent() {
             || "/dashboard";
 
           console.log(`[LOGIN] Success, redirecting to: ${targetUrl}`);
+          traceStep(`navigate -> ${targetUrl}`);
           window.location.href = targetUrl;
           return; // Success, exit
         }
@@ -249,6 +281,13 @@ function LoginContent() {
               </svg>
               <span>Your session was updated by an administrator. Please login again.</span>
             </div>
+          )}
+
+          {/* TEMPORARY DIAGNOSTIC: self-reported trace of the previous failed attempt */}
+          {diag && (
+            <pre className="p-3 mb-4 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-[11px] overflow-x-auto whitespace-pre-wrap">
+              {diag}
+            </pre>
           )}
 
           {/* Error alert */}
