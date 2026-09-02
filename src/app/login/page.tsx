@@ -118,10 +118,29 @@ function LoginContent() {
             localStorage.setItem("token", data.token);
           }
 
-          // Brief pause for server Set-Cookie headers to be processed by the
-          // browser before navigation. Server sets HttpOnly cookies via
-          // next/headers cookies() — not readable via document.cookie.
-          await new Promise(r => setTimeout(r, 200));
+          // Confirm the session cookie is actually visible to the server BEFORE
+          // navigating. A fixed delay loses the Set-Cookie commit race on some
+          // machines/browsers: the /dashboard navigation then goes out without
+          // the token, middleware bounces back to /login, and only the second
+          // login attempt works. Probe an authenticated endpoint until it stops
+          // returning 401 (cookie committed) instead of sleeping blindly.
+          let sessionConfirmed = false;
+          for (let i = 0; i < 10 && !sessionConfirmed; i++) {
+            try {
+              const probe = await fetch('/api/profile', { credentials: 'same-origin' });
+              // 401 = cookie not yet visible; any other status means it was.
+              sessionConfirmed = probe.status !== 401;
+            } catch {
+              // Network hiccup — retry.
+            }
+            if (!sessionConfirmed) await new Promise(r => setTimeout(r, 250));
+          }
+
+          if (!sessionConfirmed) {
+            console.error('[LOGIN] Session cookie not visible after login — aborting redirect');
+            setError('Session could not be established. Please try again.');
+            return;
+          }
 
           const contractorLogin = isContractorRole(data.user?.role);
           const storesLogin = isStoresRole(data.user?.role);
