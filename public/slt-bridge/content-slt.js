@@ -225,10 +225,12 @@ class BridgeScanEngine {
                 val = Scanner.extractValue(next);
                 if (!val || val === normalizedText || val.length < 1 || val.length > 300) return;
                 // Adjacent-label leak guard: the captured "value" is itself one of
-                // the portal's field labels (CIRCUIT -> 'STATUS', ORDER TYPE -> 'LINE TYPE').
+                // the portal's field labels (CIRCUIT -> 'STATUS', ORDER TYPE -> 'LINE TYPE')
+                // or a UI section/tab title (RTOM -> 'SERVICE ORDER').
+                const UI_LABELS = ['SERVICE ORDER', 'MATERIALS', 'MATERIALS REGISTRY', 'HISTORY', 'EQUIPMENT CLASS', 'ATTRIBUTE NAME DEFAULT VALUE', 'NUMBER OF POLES', 'LINE TYPE', 'TEST TYPE'];
                 const valUpper = val.toUpperCase().replace(/[:\s]+$/, '').trim();
                 const isLeakedLabel = ORDER_HEADER_FIELDS.some(f => valUpper === f || valUpper === f.replace(/_/g, ' ')) ||
-                    valUpper === 'LINE TYPE' || valUpper === 'TEST TYPE';
+                    UI_LABELS.includes(valUpper);
                 if (isLeakedLabel) return;
             }
             if (val) {
@@ -236,6 +238,14 @@ class BridgeScanEngine {
                 if (!data.details[key]) data.details[key] = val;
             }
         });
+
+        // 4c. Portal URL status: sod_details URLs embed the real status token
+        // (?sod=<SO>_<STATUS>_<ledgerId>_FTTH). The DOM label-value pairing on
+        // these pages is unreliable, so prefer the URL when CON_STATUS is absent.
+        const urlStatusMatch = window.location.href.match(/sod=[A-Z0-9]+_([A-Z_]+)_\d+/i);
+        if (urlStatusMatch && !data.details['CON_STATUS']) {
+            data.details['CON_STATUS'] = urlStatusMatch[1].toUpperCase();
+        }
 
         // 5. Advanced Table Scraper
         document.querySelectorAll('table').forEach(table => {

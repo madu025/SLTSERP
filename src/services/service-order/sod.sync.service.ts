@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '@/services/slt/slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
@@ -1298,20 +1299,53 @@ export class SODSyncService {
         }
 
         let opmcId = serviceOrder?.opmcId;
-        const rtomVal = (mapping.rtom as string) || (serviceOrder?.rtom);
+
+        // Resolve the assigned portal team early — it drives both the OPMC
+        // (region) fallback and the contractor/team linkage below. Portal team
+        // names look like "SLTSKON_T14 - Anuradha".
+        const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;
+        let resolvedTeam: { id: string; contractorId: string; opmcId: string | null; opmc: { rtom: string } | null } | null = null;
+        if (teamName) {
+            const teamCode = teamName.split('-')[0].trim();
+            resolvedTeam = await prisma.contractorTeam.findFirst({
+                where: {
+                    OR: [
+                        { name: { contains: teamName.trim(), mode: 'insensitive' } },
+                        { sltCode: teamCode.trim().toUpperCase() }
+                    ]
+                },
+                select: { id: true, contractorId: true, opmcId: true, opmc: { select: { rtom: true } } }
+            });
+        }
+
+        // RTOM sanity: the scraper can capture a neighbouring UI label (e.g.
+        // "SERVICE ORDER") as the RTOM value on sod_details pages. Only accept
+        // real RTOM codes (R-XX / R-XXX / R-XXXX).
+        const isValidRtom = (v: unknown): v is string => typeof v === 'string' && /^R-[A-Z]{2,4}$/.test(v.trim().toUpperCase());
+        const rtomVal = [mapping.rtom, serviceOrder?.rtom].find(isValidRtom)?.trim().toUpperCase();
+
         if (!opmcId && rtomVal) {
             // Use exact match on indexed rtom column first, then fallback to prefix contains
             const opmc = await prisma.oPMC.findFirst({
-                where: { rtom: rtomVal.substring(0, 4) }
+                where: { rtom: rtomVal }
             }) || await prisma.oPMC.findFirst({
                 where: { rtom: { contains: rtomVal.substring(0, 4), mode: 'insensitive' } }
             });
             opmcId = opmc?.id;
         }
+        // Region fallback: teams are OPMC-bound — derive the region from the
+        // assigned portal team when the RTOM is missing or garbage.
+        if (!opmcId && resolvedTeam?.opmcId) {
+            opmcId = resolvedTeam.opmcId;
+        }
+        // Never silently default to an arbitrary OPMC (previously the first
+        // OPMC alphabetically, which dumped unknown-region SODs into R-AD):
+        // a new SOD whose region cannot be resolved rejects the push instead.
+        // The extension retry queue surfaces it as FAILED for manual triage.
         if (!opmcId) {
-            // Use indexed rtom ordering instead of bare seq scan
-            const firstOpmc = await prisma.oPMC.findFirst({ select: { id: true }, orderBy: { rtom: 'asc' } });
-            opmcId = firstOpmc?.id || '';
+            throw AppError.validation(
+                `Cannot determine region (OPMC) for SOD ${soNum}: portal RTOM missing/invalid and team "${teamName ?? 'N/A'}" is not mapped to an OPMC. Assign the region manually before re-syncing.`
+            );
         }
 
         const isOffline = (payload.url && payload.url.toLowerCase().includes('offline')) ||
@@ -1320,7 +1354,7 @@ export class SODSyncService {
         const dataToUpdate: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             ...mapping,
             completionMode: isOffline ? 'OFFLINE' : (mapping.completionMode || serviceOrder?.completionMode || 'Standard'),
-            rtom: (mapping.rtom as string) || serviceOrder?.rtom || 'UNKNOWN',
+            rtom: rtomVal || resolvedTeam?.opmc?.rtom || serviceOrder?.rtom || 'UNKNOWN',
             opmcId,
             updatedAt: new Date(),
         };
@@ -1331,8 +1365,24 @@ export class SODSyncService {
         const stDate = SodUtils.safeParseDate(masterData['STATUS DATE'] || SodUtils.deepParse(masterData)['STATUS DATE']);
         if (stDate) dataToUpdate.statusDate = stDate;
 
-        const statusStr = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString();
-        const currentStatus = statusStr.toUpperCase();
+        // Scraper label-leak guard: on sod_details pages the scraped STATUS
+        // often captures a neighbouring table row or a UI label. Only accept
+        // known portal status tokens; otherwise fall back to the status token
+        // embedded in the portal URL (sod=<SO>_<STATUS>_<ledgerId>_FTTH).
+        const KNOWN_PORTAL_STATUSES = new Set([
+            'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC',
+            'RETURN', 'RETURN_PENDING', 'ASSIGN', 'ASSIGNED', 'INPROGRESS',
+            'PROV_CLOSED', 'CANCELLED', 'REJECTED', 'PENDING'
+        ]);
+        let statusStr = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString().toUpperCase().trim();
+        if (!KNOWN_PORTAL_STATUSES.has(statusStr)) {
+            const urlStatusMatch = (payload.url || '').match(/sod=[A-Z0-9]+_([A-Z_]+)_\d+/i);
+            const urlStatus = urlStatusMatch?.[1]?.toUpperCase();
+            if (urlStatus && KNOWN_PORTAL_STATUSES.has(urlStatus)) {
+                statusStr = urlStatus;
+            }
+        }
+        const currentStatus = statusStr;
 
         const isCompletedStatus =
             [SodStatus.COMPLETED, 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus);
@@ -1408,21 +1458,12 @@ export class SODSyncService {
             dataToUpdate.sltsStatus = SodStatus.ASSIGNED;
         }
 
-        const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;
+        // Team linkage reuses the team resolved during OPMC resolution above
         if (teamName) {
             dataToUpdate.directTeam = teamName.trim();
-            const teamCode = teamName.split('-')[0].trim();
-            const team = await prisma.contractorTeam.findFirst({
-                where: {
-                    OR: [
-                        { name: { contains: teamName.trim(), mode: 'insensitive' } },
-                        { sltCode: teamCode.trim().toUpperCase() }
-                    ]
-                }
-            });
-            if (team) {
-                dataToUpdate.teamId = team.id;
-                dataToUpdate.contractorId = team.contractorId;
+            if (resolvedTeam) {
+                dataToUpdate.teamId = resolvedTeam.id;
+                dataToUpdate.contractorId = resolvedTeam.contractorId;
             }
         }
 
