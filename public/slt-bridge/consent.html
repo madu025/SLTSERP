@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SLT-ERP Bridge - Data Collection Consent</title>
+    <meta charset="utf-8">
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 40px 16px;
+        }
+        .card {
+            width: 100%;
+            max-width: 640px;
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 28px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .brand {
+            font-size: 12px; font-weight: 900; letter-spacing: 2px;
+            color: var(--primary); margin-bottom: 4px;
+        }
+        h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; }
+        .lede { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 18px; }
+        h2 {
+            font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--primary); margin: 20px 0 8px;
+        }
+        ul { margin: 0; padding-left: 20px; }
+        li { font-size: 13px; line-height: 1.6; color: var(--text); margin-bottom: 4px; }
+        li b { color: var(--primary); }
+        .policy-link { display: inline-block; margin-top: 18px; font-size: 12px; color: var(--primary); }
+        .actions { display: flex; gap: 10px; margin-top: 22px; }
+        .btn {
+            border: none; padding: 12px 18px; border-radius: 8px; font-weight: 800;
+            font-size: 13px; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: #fff; flex: 1; box-shadow: 0 6px 16px rgba(139,92,246,0.3); }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-ghost { background: transparent; color: var(--muted); border: 1px solid rgba(255,255,255,0.15); }
+        .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
+        .status { margin-top: 16px; font-size: 13px; font-weight: 700; min-height: 18px; }
+        .status.ok { color: var(--success); }
+        .status.warn { color: var(--warning); }
+        .footer { margin-top: 18px; font-size: 10px; color: var(--muted); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="brand">SLT-ERP BRIDGE</div>
+        <h1>Data Collection Consent</h1>
+        <p class="lede">
+            Before this extension starts working, Chrome Web Store policy requires your explicit
+            consent. Nothing is collected or transmitted until you agree below.
+        </p>
+
+        <h2>What this extension collects</h2>
+        <ul>
+            <li><b>Service order data</b> from SLT Service Portal pages you have open: order number,
+                status, customer name / address / contact, material usage, team assignment,
+                forensic audit photo status, and BOM (bill of materials) CSV data.</li>
+            <li><b>Your SLT portal username</b>, used only to attribute synced data to the correct operator.</li>
+            <li><b>Your SLT portal session cookie (PHPSESSID)</b> from serviceportal.slt.lk /
+                ishamp.slt.lk, so the ERP can validate the portal session and resume sync.</li>
+        </ul>
+
+        <h2>How it is used</h2>
+        <ul>
+            <li>Transmitted over <b>HTTPS only</b> to your organization's SLTS ERP
+                (sltserp.vercel.app) to synchronize service orders.</li>
+            <li>Never sold, rented, or shared with third parties, advertisers, or analytics services.</li>
+            <li>Never used for any purpose unrelated to SLT-portal to ERP synchronization.</li>
+        </ul>
+
+        <h2>Your control</h2>
+        <ul>
+            <li><b>Declining</b> disables all data collection — the extension stays installed but inert.</li>
+            <li>You can <b>withdraw consent anytime</b> from the extension popup (Settings tab),
+                which immediately stops all collection and transmission.</li>
+            <li>Uninstalling the extension deletes all locally stored data automatically.</li>
+        </ul>
+
+        <a class="policy-link" href="https://sltserp.vercel.app/privacy" target="_blank" rel="noopener">
+            Full privacy policy: sltserp.vercel.app/privacy
+        </a>
+
+        <div class="actions">
+            <button id="agree" class="btn btn-primary">I AGREE — ENABLE SYNC</button>
+            <button id="decline" class="btn btn-ghost">DECLINE</button>
+        </div>
+
+        <p id="status" class="status"></p>
+        <p class="footer">SLT Network Solutions (Pvt) Ltd — internal workforce tool</p>
+    </div>
+
+    <script src="consent.js"></script>
+</body>
+</html>

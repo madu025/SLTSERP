@@ -121,6 +121,14 @@ function packCrx() {
 }
 
 /**
+ * Returns true for http:// / https:// / *:// match patterns that point at
+ * localhost or 127.0.0.1. These dev-only entries live in the source manifest
+ * but must NOT ship in store upload packages (CWS / Edge Add-ons / AMO reject
+ * them). The source manifest itself is never modified.
+ */
+const isLocalDevPattern = (p) => /^(http|https|\*):\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?(\/|$|\*)/.test(p);
+
+/**
  * Firefox cannot run an MV3 service worker, and it needs an explicit add-on id.
  * Everything else in the bridge (storage/tabs/cookies/alarms + the chrome.* alias)
  * is already portable, so only the manifest is patched.
@@ -132,6 +140,23 @@ function writeFirefoxManifest(outDir, geckoId) {
     manifest.browser_specific_settings = {
         gecko: { id: geckoId, strict_min_version: '128.0' },
     };
+    // Strip dev-only localhost match patterns from the AMO upload package
+    // (same policy as the Chromium CWS zip; source manifest keeps them).
+    if (Array.isArray(manifest.host_permissions)) {
+        manifest.host_permissions = manifest.host_permissions.filter((p) => !isLocalDevPattern(p));
+    }
+    if (Array.isArray(manifest.content_scripts)) {
+        manifest.content_scripts = manifest.content_scripts.map((cs) => ({
+            ...cs,
+            matches: (cs.matches ?? []).filter((p) => !isLocalDevPattern(p)),
+        }));
+    }
+    if (Array.isArray(manifest.web_accessible_resources)) {
+        manifest.web_accessible_resources = manifest.web_accessible_resources.map((war) => ({
+            ...war,
+            matches: (war.matches ?? []).filter((p) => !isLocalDevPattern(p)),
+        }));
+    }
     fs.mkdirSync(outDir, { recursive: true });
     const target = path.join(outDir, 'manifest.json');
     fs.writeFileSync(target, `${JSON.stringify(manifest, null, 4)}\n`, 'utf8');

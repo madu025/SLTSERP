@@ -23,6 +23,18 @@ const BRIDGE_CONFIG = {
 let GLOBAL_RECON = { so: '', tabs: {}, lastHash: '' };
 let debounceTimer = null;
 
+// ─── Consent Gate (Chrome Web Store User Data policy) ────────────────
+// Portal scraping and every ERP transmission only run after the user has
+// affirmatively agreed on consent.html. Withdrawing consent in the popup
+// Settings tab stops all collection here on the very next cycle.
+async function bridgeHasConsent() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(['consentGiven'], (res) => {
+            resolve(res.consentGiven === true);
+        });
+    });
+}
+
 // ─── DOM Scanner Utilities ───────────────────────────────────────────
 const Scanner = {
     clean: t => t ? t.replace(/\s+/g, ' ').trim() : '',
@@ -402,6 +414,15 @@ function enableManualScrape() {
 // ─── Orchestrator (Debounced) ────────────────────────────────────────
 async function orchestrate() {
     if (!chrome.runtime?.id) return;
+    // Consent gate: do not scrape portal pages or push data before consent.
+    if (!(await bridgeHasConsent())) {
+        const hudStatus = document.querySelector('#bridge-hud #bridge-status');
+        if (hudStatus && !hudStatus.dataset.consentShown) {
+            hudStatus.dataset.consentShown = '1';
+            hudStatus.innerText = 'SLT-BRIDGE [CONSENT REQUIRED - OPEN POPUP]';
+        }
+        return;
+    }
     const url = window.location.href;
     const soMatch = url.match(/[?&]sod=([A-Z0-9]+)/i);
     const soNum = soMatch ? soMatch[1].toUpperCase() : '';
@@ -509,6 +530,12 @@ if (!document.getElementById('bridge-hud')) {
 function initializeBOMSyncSystem() {
     if (!window.location.href.includes('/contr/bom_list')) return;
     if (document.getElementById('bom-sync-style')) return;
+
+    // Consent gate: BOM rows are order data transmitted to the ERP - do not
+    // inject sync controls until the user has consented.
+    bridgeHasConsent().then((ok) => { if (ok) bootBOMSync(); });
+
+    function bootBOMSync() {
 
     const style = document.createElement('style');
     style.id = 'bom-sync-style';
@@ -672,6 +699,7 @@ function initializeBOMSyncSystem() {
     setInterval(() => { enrichRows(); addPageSyncButton(); }, 1500);
     enrichRows();
     addPageSyncButton();
+    } // bootBOMSync
 }
 
 initializeBOMSyncSystem();

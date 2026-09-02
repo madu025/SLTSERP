@@ -50,6 +50,12 @@ export default function PrivacyPolicyPage() {
                             account details, precise location, health data, biometric data, or any advertising
                             identifiers.
                         </p>
+                        <p className="mt-3 leading-relaxed text-slate-600">
+                            <strong>Collection starts only after your explicit consent.</strong> When the extension
+                            is installed, a consent screen opens in the browser and no data is collected or
+                            transmitted until you click &quot;I Agree — Enable Sync&quot;. Declining leaves the extension
+                            installed but completely inactive.
+                        </p>
                     </section>
 
                     <section>
@@ -134,11 +140,11 @@ export default function PrivacyPolicyPage() {
                     <section>
                         <h2 className="mb-3 text-xl font-semibold text-slate-800">9. Your Rights and Choices</h2>
                         <p className="leading-relaxed text-slate-600">
-                            You may uninstall the extension at any time, which immediately and permanently removes all
-                            locally stored data. You may also clear stored extension data through your browser
-                            settings. Subject to applicable data protection law, you may request access to,
-                            correction of, or deletion of data held on the SLTS ERP server by contacting the address
-                            in Section 12.
+                            You may withdraw consent at any time from the extension popup (Settings tab,
+                            &quot;Data Sync Consent&quot;), which immediately stops all collection and transmission. You may
+                            also uninstall the extension at any time, which removes all locally stored data. Subject
+                            to applicable data protection law, you may request access to, correction of, or deletion
+                            of data held on the SLTS ERP server by contacting the address in Section 12.
                         </p>
                     </section>
 

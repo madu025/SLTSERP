@@ -122,20 +122,61 @@ function Show-Stage {
     Write-Host "    $UpdateUrlBase/extension-download" -ForegroundColor DarkGray
 }
 
+function Test-LocalDevPattern {
+    # Returns $true for http:// / https:// / *:// match patterns that point
+    # at localhost or 127.0.0.1. These dev-only entries are in the source
+    # manifest but must NOT ship in store upload packages (CWS / Edge Add-ons /
+    # AMO reject them). The source manifest itself is never modified.
+    param([string]$Pattern)
+    return $Pattern -match '^(http|https|\*):\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?(\/|$|\*)'
+}
+
+function Invoke-StripLocalDevFromManifest {
+    param([string]$ManifestPath)
+    $manifest = Get-Content $ManifestPath -Raw | ConvertFrom-Json
+    if ($manifest.host_permissions) {
+        $manifest.host_permissions = @($manifest.host_permissions | Where-Object { -not (Test-LocalDevPattern $_) })
+    }
+    if ($manifest.content_scripts) {
+        foreach ($cs in $manifest.content_scripts) {
+            $cs.matches = @($cs.matches | Where-Object { -not (Test-LocalDevPattern $_) })
+        }
+    }
+    if ($manifest.web_accessible_resources) {
+        foreach ($war in $manifest.web_accessible_resources) {
+            $war.matches = @($war.matches | Where-Object { -not (Test-LocalDevPattern $_) })
+        }
+    }
+    $manifest | ConvertTo-Json -Depth 10 | Set-Content $ManifestPath -Encoding UTF8
+}
+
 function Show-Store {
     $outDir = Join-Path $RepoRoot 'dist\extension-store'
     if ($PSCmdlet.ShouldProcess($outDir, 'build store upload packages')) {
         New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+        # --- Strip dev-only (localhost) match patterns from the Chromium upload
+        #     manifest. The source manifest must keep them for local development;
+        #     CWS and Edge Add-ons reject http:// patterns, so we patch a copy
+        #     inside a throwaway staging directory and zip THAT.
+        $cwsWork = Join-Path $outDir '_cws-staging'
+        if (Test-Path $cwsWork) { Remove-Item $cwsWork -Recurse -Force }
+        Copy-Stage -Source $ExtSource -Destination $cwsWork
+        Invoke-StripLocalDevFromManifest -ManifestPath (Join-Path $cwsWork 'manifest.json')
+
         # Chromium: the Chrome Web Store and Edge Add-ons take the same plain zip,
         # manifest.json at the archive root, no signing key inside.
         $chrome = Join-Path $outDir "slt-bridge-v$Version-chrome-cws.zip"
         if (Test-Path $chrome) { Remove-Item $chrome -Force }
-        Compress-Archive -Path (Join-Path $ExtSource '*') -DestinationPath $chrome -Force
+        Compress-Archive -Path (Join-Path $cwsWork '*') -DestinationPath $chrome -Force
+        Remove-Item $cwsWork -Recurse -Force
+
         $xpi = New-FirefoxXpi
         $xpiOut = Join-Path $outDir (Split-Path $xpi -Leaf)
         Copy-Item $xpi $xpiOut -Force
         Write-Host ''
         Write-Host "  Chrome Web Store + Edge Add-ons upload: $chrome  ($((Get-Item $chrome).Length) b)" -ForegroundColor Green
+        Write-Host "  (localhost dev patterns stripped from this zip only - source manifest is unchanged)" -ForegroundColor DarkGray
         Write-Host "  Firefox (AMO) upload:                   $xpiOut  ($((Get-Item $xpiOut).Length) b)" -ForegroundColor Green
         Write-Host ''
         Write-Host '  Accounts, fees, permission justifications and the exact steps:' -ForegroundColor Cyan

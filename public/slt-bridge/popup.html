@@ -98,12 +98,38 @@
 
         .loader { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .consent-overlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 50;
+            background: var(--bg); padding: 20px 16px;
+            flex-direction: column; gap: 12px;
+        }
+        .consent-overlay.visible { display: flex; }
+        .consent-overlay .card { gap: 12px; }
+        .consent-overlay p { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0; }
+        .consent-overlay a { color: var(--primary); font-size: 10px; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>SLT-ERP BRIDGE</h1>
         <div class="version" id="hdrVersion">v-</div>
+    </div>
+
+    <!-- Consent Gate Overlay (CWS User Data policy: collection requires affirmative consent) -->
+    <div id="consent-overlay" class="consent-overlay">
+        <div class="card">
+            <div class="so-label">Data Sync Disabled</div>
+            <p>
+                This extension collects SLT portal service order data, your portal username,
+                and your portal session cookie, and transmits them to the SLTS ERP
+                (sltserp.vercel.app) for work order synchronization. It runs only after you
+                explicitly agree, and you can withdraw consent here at any time.
+            </p>
+            <a href="https://sltserp.vercel.app/privacy" id="consent-privacy-link">Privacy policy: sltserp.vercel.app/privacy</a>
+            <button id="open-consent" class="btn btn-primary">REVIEW &amp; CHOOSE</button>
+        </div>
     </div>
 
     <div class="content">
@@ -158,6 +184,15 @@
                 <div class="setting-row">
                     <label class="setting-label">Extension Version</label>
                     <div style="font-size: 11px; color: var(--text); font-weight: 600;" id="settingVersion">v-</div>
+                </div>
+
+                <div class="setting-row">
+                    <label class="setting-label">Data Sync Consent</label>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="dot dot-muted" id="consent-dot"></span>
+                        <span id="consent-state" style="font-size: 11px; font-weight: 600; color: var(--muted);">Checking...</span>
+                    </div>
+                    <button id="toggle-consent" class="btn btn-ghost btn-sm" style="margin-top: 4px;">...</button>
                 </div>
 
                 <button id="reset-settings" class="btn btn-ghost btn-sm" style="margin-top: 8px;">RE-DETECT ERP ORIGIN</button>

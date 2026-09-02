@@ -22,6 +22,19 @@ async function getExtensionKey() {
     });
 }
 
+// ─── Consent Gate (Chrome Web Store User Data policy) ─────────────────
+// No user data may be collected or transmitted until the user has
+// affirmatively agreed on consent.html (opened on install). The popup
+// Settings tab can withdraw consent at any time, which stops every data
+// path below because each one checks this flag first.
+async function hasConsent() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(['consentGiven'], (res) => {
+            resolve(res.consentGiven === true);
+        });
+    });
+}
+
 // ─── Retry Queue (IndexedDB-backed) ──────────────────────────────────
 const DB_NAME = 'slt_bridge_queue';
 const DB_VERSION = 1;
@@ -148,6 +161,10 @@ async function pushToERP(payload) {
 
 // ─── Process Retry Queue ─────────────────────────────────────────────
 async function processRetryQueue() {
+    // Consent gate: queued payloads contain scraped portal data - do not
+    // transmit them while consent is not given.
+    if (!(await hasConsent())) return;
+
     const pending = await getPendingSyncs();
     const now = Date.now();
 
@@ -188,28 +205,42 @@ async function processRetryQueue() {
 // ─── Message Handler ─────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'pushToERP') {
-        pushToERP(request.data)
-            .then(data => {
-                sendResponse({ success: true, data });
-                updateSyncStatus({
-                    soNum: request.data.soNum,
-                    state: 'SUCCESS',
-                    message: 'Sync successful'
+        hasConsent().then((ok) => {
+            if (!ok) {
+                sendResponse({ success: false, error: 'Consent not given - enable sync from the consent page or popup first' });
+                return;
+            }
+            pushToERP(request.data)
+                .then(data => {
+                    sendResponse({ success: true, data });
+                    updateSyncStatus({
+                        soNum: request.data.soNum,
+                        state: 'SUCCESS',
+                        message: 'Sync successful'
+                    });
+                    // Notify ERP tabs
+                    notifyERPTabs(request.data);
+                })
+                .catch(err => {
+                    console.warn('[BRIDGE] ERP sync failed, queuing retry:', err.message);
+                    enqueueRetry(request.data);
+                    updateSyncStatus({
+                        soNum: request.data.soNum,
+                        state: 'FAILED',
+                        message: err.message
+                    });
+                    sendResponse({ success: false, error: err.message });
                 });
-                // Notify ERP tabs
-                notifyERPTabs(request.data);
-            })
-            .catch(err => {
-                console.warn('[BRIDGE] ERP sync failed, queuing retry:', err.message);
-                enqueueRetry(request.data);
-                updateSyncStatus({
-                    soNum: request.data.soNum,
-                    state: 'FAILED',
-                    message: err.message
-                });
-                sendResponse({ success: false, error: err.message });
-            });
+        });
         return true; // Keep channel open for async response
+    }
+
+    if (request.action === 'consentGranted') {
+        // User just agreed on the consent page - run the session cookie sync
+        // immediately so the very next portal interaction can reach the ERP.
+        syncSLTCookie();
+        sendResponse({ success: true });
+        return true;
     }
 
     if (request.action === 'getSyncHistory') {
@@ -252,6 +283,10 @@ function notifyERPTabs(payload) {
 
 // ─── Cookie Sync (SLT Portal Session) ────────────────────────────────
 async function syncSLTCookie() {
+    // Consent gate: the portal session cookie is authentication data and may
+    // only be read/transmitted after explicit consent (CWS User Data policy).
+    if (!(await hasConsent())) return;
+
     const getCookie = (url) => new Promise((resolve) => {
         chrome.cookies.get({ url, name: 'PHPSESSID' }, resolve);
     });
@@ -299,7 +334,15 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.storage.local.set({ extensionKey: DEFAULT_EXTENSION_KEY }, () => {
         console.log(`[BRIDGE] v${VERSION} installed - key pre-configured`);
     });
-    syncSLTCookie();
+    // CWS User Data policy: collection must not start before affirmative
+    // consent. Open the consent page unless consent was already recorded.
+    chrome.storage.local.get(['consentGiven'], (res) => {
+        if (res.consentGiven === true) {
+            syncSLTCookie();
+        } else {
+            chrome.tabs.create({ url: chrome.runtime.getURL('consent.html') });
+        }
+    });
 });
 chrome.runtime.onStartup.addListener(syncSLTCookie);
 

@@ -18,6 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const originDisplay = document.getElementById('origin-display');
     const resetSettingsBtn = document.getElementById('reset-settings');
     const settingsMsg = document.getElementById('settings-msg');
+    const consentOverlay = document.getElementById('consent-overlay');
+    const openConsentBtn = document.getElementById('open-consent');
+    const consentPrivacyLink = document.getElementById('consent-privacy-link');
+    const consentDot = document.getElementById('consent-dot');
+    const consentState = document.getElementById('consent-state');
+    const toggleConsentBtn = document.getElementById('toggle-consent');
 
     let currentSoNum = null;
 
@@ -31,6 +37,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (tab.dataset.tab === 'tab-history') loadHistory();
             if (tab.dataset.tab === 'tab-settings') loadSettings();
+        });
+    });
+
+    // ─── Consent Gate (CWS User Data policy) ─────────────────────────
+    function applyConsentState(given) {
+        consentOverlay.classList.toggle('visible', given !== true);
+        if (given === true) {
+            consentDot.className = 'dot dot-success';
+            consentState.innerText = 'Enabled (consent given)';
+            consentState.style.color = 'var(--success)';
+            toggleConsentBtn.innerText = 'DISABLE SYNC (OPT OUT)';
+        } else {
+            consentDot.className = 'dot dot-warning';
+            consentState.innerText = 'Disabled (no consent)';
+            consentState.style.color = 'var(--warning)';
+            toggleConsentBtn.innerText = 'REVIEW & ENABLE SYNC';
+        }
+    }
+
+    chrome.storage.local.get(['consentGiven'], (res) => applyConsentState(res.consentGiven));
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.consentGiven) {
+            applyConsentState(changes.consentGiven.newValue);
+        }
+    });
+
+    function openConsentPage() {
+        chrome.tabs.create({ url: chrome.runtime.getURL('consent.html') });
+    }
+
+    openConsentBtn.addEventListener('click', openConsentPage);
+    consentPrivacyLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        chrome.tabs.create({ url: consentPrivacyLink.href });
+    });
+
+    toggleConsentBtn.addEventListener('click', () => {
+        chrome.storage.local.get(['consentGiven'], (res) => {
+            if (res.consentGiven === true) {
+                // Opt out: stop all collection immediately (gates live in the
+                // background worker and content scripts).
+                chrome.storage.local.set({ consentGiven: false, consentAt: new Date().toISOString() }, () => {
+                    settingsMsg.innerText = 'Sync disabled - no data will be collected';
+                    settingsMsg.className = 'status-msg msg-pending';
+                    setTimeout(() => { settingsMsg.innerText = ''; }, 3000);
+                });
+            } else {
+                // Re-enabling goes through the full disclosure page so the
+                // choice stays affirmative and informed.
+                openConsentPage();
+            }
         });
     });
 
