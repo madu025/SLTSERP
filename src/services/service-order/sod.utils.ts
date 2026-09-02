@@ -48,16 +48,4 @@ export class SodUtils {
         const d = new Date(dateStr);
         return isNaN(d.getTime()) ? undefined : d;
     }
-
-    /**
-     * Re-anchor a portal wall-clock timestamp to a real instant.
-     * Portal CON_STATUS_DATE strings are Sri Lanka local time but parseStatusDate
-     * parses them on a UTC server, so stored values are Colombo wall-clock
-     * labelled UTC. Subtracting the +05:30 offset recovers the true instant
-     * (same calendar day in Colombo). Used only where the true moment matters
-     * (return dates) — statusDate/receivedDate keep the wall-clock convention.
-     */
-    static portalWallClockToUtc(d: Date): Date {
-        return new Date(d.getTime() - 330 * 60 * 1000);
-    }
 }

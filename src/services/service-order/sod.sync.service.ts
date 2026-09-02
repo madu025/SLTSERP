@@ -753,12 +753,12 @@ export class SODSyncService {
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
                         receivedDate: statusDate,
-                        // Born-RETURN: the portal CON_STATUS_DATE is the true return moment
-                        // (re-anchored from SL wall-clock to a real instant); the import time
-                        // is only when the ERP first saw the SOD.
+                        // Born-RETURN: return date = the ERP capture moment (when the import
+                        // learned the return). Portal CON_STATUS_DATE is the received-date
+                        // mirror, NOT the return date.
                         completedDate: (initialSltsStatus === 'COMPLETED' || isInstallClosed)
                             ? statusDate
-                            : (initialSltsStatus === 'RETURN' && statusDate ? SodUtils.portalWallClockToUtc(statusDate) : null),
+                            : (initialSltsStatus === 'RETURN' ? new Date() : null),
                         sltsStatus: effectiveSltsStatus,
                         status: isInstallClosed ? 'INSTALL_CLOSED' : (contractorId ? 'INPROGRESS' : 'PENDING')
                     } as Prisma.ServiceOrderUncheckedCreateInput);
@@ -1462,12 +1462,10 @@ export class SODSyncService {
             dataToUpdate.comments = serviceOrder?.comments
                 ? `${serviceOrder.comments}\n[AI_CLASSIFIED] Reason: ${rawReason}`
                 : `[AI_CLASSIFIED] Reason: ${rawReason}`;
-            // RETURN date: new rows born RETURN use the portal's own CON_STATUS_DATE as the
-            // true return moment (re-anchored from SL wall-clock); active-to-RETURN transitions
-            // use the ERP-side catch time. Re-pushes of an already-RETURN SOD touch nothing.
-            if (!serviceOrder) {
-                dataToUpdate.completedDate = stDate ? SodUtils.portalWallClockToUtc(stDate) : new Date();
-            } else if (serviceOrder.sltsStatus !== 'RETURN') {
+            // Return date = the ERP capture time: when the bridge first learned the return
+            // (new row) or caught the transition (active -> RETURN). Re-pushes of an
+            // already-RETURN SOD touch nothing.
+            if (!serviceOrder || serviceOrder.sltsStatus !== 'RETURN') {
                 dataToUpdate.completedDate = new Date();
             }
             dataToUpdate.revenueAmount = null;
