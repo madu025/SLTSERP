@@ -53,6 +53,7 @@ interface ReportRowData {
     material: MaterialMetrics;
     returned: ReportMetrics;
     wiredOnly: ReportMetrics;
+    installClosed: ReportMetrics;
     delays: Record<string, number>;
     balance: ReportMetrics;
     shortages: { [key: string]: number; stb: number; ont: number };
@@ -104,6 +105,7 @@ export default function DailyOperationalReportPage() {
             material: { dwSlt: 0, dwCompany: 0, dw: 0, pole56: 0, pole67: 0, pole80: 0 },
             returned: { nc: 0, rl: 0, data: 0, total: 0 },
             wiredOnly: { nc: 0, rl: 0, data: 0, total: 0 },
+            installClosed: { nc: 0, rl: 0, data: 0, total: 0 },
             delays: { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 },
             balance: { nc: 0, rl: 0, data: 0, total: 0 },
             shortages: { stb: 0, ont: 0 }
@@ -137,6 +139,7 @@ export default function DailyOperationalReportPage() {
             acc(summaries[region].material, row.material);
             acc(summaries[region].returned, row.returned);
             acc(summaries[region].wiredOnly, row.wiredOnly);
+            acc(summaries[region].installClosed, row.installClosed);
             acc(summaries[region].delays, row.delays);
             acc(summaries[region].balance, row.balance);
             acc(summaries[region].shortages, row.shortages);
@@ -147,6 +150,7 @@ export default function DailyOperationalReportPage() {
             recalcTotal(summaries[region].completed, ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data']);
             recalcTotal(summaries[region].returned, ['nc', 'rl', 'data']);
             recalcTotal(summaries[region].wiredOnly, ['nc', 'rl', 'data']);
+            recalcTotal(summaries[region].installClosed, ['nc', 'rl', 'data']);
             recalcTotal(summaries[region].balance, ['nc', 'rl', 'data']);
 
             // Accumulate grand totals
@@ -159,6 +163,7 @@ export default function DailyOperationalReportPage() {
             acc(grandTotal.material, row.material);
             acc(grandTotal.returned, row.returned);
             acc(grandTotal.wiredOnly, row.wiredOnly);
+            acc(grandTotal.installClosed, row.installClosed);
             acc(grandTotal.delays, row.delays);
             acc(grandTotal.balance, row.balance);
             acc(grandTotal.shortages, row.shortages);
@@ -170,6 +175,7 @@ export default function DailyOperationalReportPage() {
         recalcTotal(grandTotal.completed, ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data']);
         recalcTotal(grandTotal.returned, ['nc', 'rl', 'data']);
         recalcTotal(grandTotal.wiredOnly, ['nc', 'rl', 'data']);
+        recalcTotal(grandTotal.installClosed, ['nc', 'rl', 'data']);
         recalcTotal(grandTotal.balance, ['nc', 'rl', 'data']);
 
         return { summaries, grandTotal };
@@ -187,7 +193,7 @@ export default function DailyOperationalReportPage() {
         // Headers
         worksheetData.push([
             "Province", "RTOM", "In Hand Morning", "Received Today", "Total In Hand",
-            "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "DATA", "Total Completed",
+            "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "DATA", "Total Completed", "Install Closed",
             "DW", "Pole 5.6", "Pole 6.7", "Pole 8.0", "Returned SOD", "Wired Only", "Balance"
         ]);
 
@@ -198,7 +204,7 @@ export default function DailyOperationalReportPage() {
                     const s = summaries[currentRegion];
                     worksheetData.push([
                         "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
-                        s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total,
+                        s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total, s.installClosed.total,
                         s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
                     ]);
                 }
@@ -208,7 +214,7 @@ export default function DailyOperationalReportPage() {
 
             worksheetData.push([
                 row.province, row.rtom, row.inHandMorning.total, row.received.total, row.totalInHand,
-                row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.data, row.completed.total,
+                row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.data, row.completed.total, row.installClosed.total,
                 row.material.dw.toFixed(2), row.material.pole56, row.material.pole67, row.material.pole80, row.returned.total, row.wiredOnly.total, row.balance.total
             ]);
         });
@@ -217,7 +223,7 @@ export default function DailyOperationalReportPage() {
             const s = summaries[currentRegion];
             worksheetData.push([
                 "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
-                s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total,
+                s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total, s.installClosed.total,
                 s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
             ]);
         }
@@ -225,7 +231,7 @@ export default function DailyOperationalReportPage() {
         if (grandTotal) {
             worksheetData.push([
                 "GRAND TOTAL", "", grandTotal.inHandMorning.total, grandTotal.received.total, grandTotal.totalInHand,
-                grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.data, grandTotal.completed.total,
+                grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.data, grandTotal.completed.total, grandTotal.installClosed.total,
                 grandTotal.material.dw.toFixed(2), grandTotal.material.pole56, grandTotal.material.pole67, grandTotal.material.pole80, grandTotal.returned.total, grandTotal.wiredOnly.total, grandTotal.balance.total
             ]);
         }
@@ -260,6 +266,11 @@ export default function DailyOperationalReportPage() {
             `          CR-OR :\t${row.completed.or}`,
             `          ML :\t${row.completed.ml}`,
             `          Data :\t${row.completed.data}`,
+            ``,
+            `Install Closed within day :\t${row.installClosed.total}`,
+            `          NC :\t${row.installClosed.nc}`,
+            `          RL :\t${row.installClosed.rl}`,
+            `          DATA :\t${row.installClosed.data}`,
             ``,
             `DW Usage :\t${row.material.dw}`,
             `Pole Usage :\t${row.material.pole56 + row.material.pole67 + row.material.pole80}`,
@@ -297,7 +308,7 @@ export default function DailyOperationalReportPage() {
     };
 
     const SummaryRow = ({ label, data, isGrandTotal = false }: { label: string; data: ReportRowData; isGrandTotal?: boolean }) => (
-        <tr className={isGrandTotal ? "bg-slate-900 text-white font-bold" : "bg-slate-100 font-bold"}>
+        <tr className={isGrandTotal ? "bg-slate-900 text-white font-bold" : "bg-indigo-200/70 font-bold text-indigo-950"}>
             <td colSpan={2} className="border border-slate-300 px-2 py-1.5 text-right uppercase tracking-wider">{label}</td>
             <td className="border border-slate-300 px-1 py-1 text-center bg-blue-50/10 font-bold">{data.inHandMorning.total}</td>
             <td className="border border-slate-300 px-1 py-1 text-center bg-emerald-50/10 font-bold">{data.received.total}</td>
@@ -306,12 +317,13 @@ export default function DailyOperationalReportPage() {
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.create}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.recon}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.upgrade}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.fnc}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center bg-green-500/20 font-bold">{data.completed.fnc}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.or}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.ml}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.frl}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center bg-green-500/20 font-bold">{data.completed.frl}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.data}</td>
             <td className="border border-slate-300 px-1 py-1 text-center font-bold bg-green-500 text-white">{data.completed.total}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.installClosed.total}</td>
 
             <td className="border border-slate-300 px-1 py-1 text-center">{data.material.dw.toFixed(1)}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.material.pole56}</td>
@@ -429,6 +441,7 @@ export default function DailyOperationalReportPage() {
                                         <th rowSpan={2} className="px-1 py-2 bg-emerald-800 text-center w-14">Recv<br />Today</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-indigo-800 text-center w-14">Total<br />Hand</th>
                                         <th colSpan={9} className="px-2 py-1 bg-green-800 text-center border-b border-green-700">Completed Orders</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-teal-800 text-center w-12">IC</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-amber-800 text-center w-12">DW</th>
                                         <th colSpan={3} className="px-2 py-1 bg-cyan-800 text-center border-b border-cyan-700">Poles</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-rose-800 text-center w-12">Ret<br />SOD</th>
@@ -453,7 +466,7 @@ export default function DailyOperationalReportPage() {
                                 <tbody className="bg-white">
                                     {reportData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={21} className="text-center py-12 text-slate-400">
+                                            <td colSpan={22} className="text-center py-12 text-slate-400">
                                                 {loading ? (
                                                     <div className="flex flex-col items-center gap-2">
                                                         <RefreshCw className="w-8 h-8 animate-spin text-slate-300" />
@@ -477,7 +490,7 @@ export default function DailyOperationalReportPage() {
                                                         currentRegion = row.region;
                                                         rows.push(
                                                             <tr key={`header-${row.region}`} className="bg-slate-200 border-y border-slate-300">
-                                                                <td colSpan={21} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
+                                                                <td colSpan={22} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
                                                             </tr>
                                                         );
                                                     }
@@ -494,12 +507,13 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.create}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.recon}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.upgrade}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.fnc}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-green-50/70 font-bold text-green-800">{row.completed.fnc}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.or}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.ml}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.frl}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-green-50/70 font-bold text-green-800">{row.completed.frl}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.data}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-green-100/50 font-black text-green-900">{row.completed.total}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-teal-50/50 text-teal-900 font-medium">{row.installClosed.total}</td>
 
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-amber-50/50 text-amber-900 font-medium">{row.material.dw.toFixed(1)}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-cyan-50/40 text-cyan-900 font-medium">{row.material.pole56}</td>
@@ -553,6 +567,7 @@ export default function DailyOperationalReportPage() {
                                             const metrics: { label: string; m: { nc: number; rl: number; data: number; total: number } }[] = [
                                                 { label: 'C/F (In Hand AM)', m: row.inHandMorning },
                                                 { label: 'SOD Receiving', m: row.received },
+                                                { label: 'Install Closed', m: row.installClosed },
                                                 { label: 'Returned', m: row.returned },
                                                 { label: 'Wired Only', m: row.wiredOnly },
                                                 { label: 'Balance C/F', m: row.balance },
@@ -560,7 +575,7 @@ export default function DailyOperationalReportPage() {
                                             return metrics.map(({ label, m }, mi) => (
                                                 <tr key={`${row.rtom}-${label}`} className={`border-b border-slate-100 hover:bg-blue-50/40 ${mi === 0 ? 'border-t-2 border-t-slate-300' : ''}`}>
                                                     {mi === 0 && (
-                                                        <td rowSpan={5} className="border-r border-slate-200 px-2 py-1 text-center font-bold text-slate-900 bg-slate-50 align-middle">{row.rtom}</td>
+                                                        <td rowSpan={6} className="border-r border-slate-200 px-2 py-1 text-center font-bold text-slate-900 bg-slate-50 align-middle">{row.rtom}</td>
                                                     )}
                                                     <td className="border-r border-slate-200 px-2 py-1 text-slate-600">{label}</td>
                                                     <td className="border-r border-slate-100 px-2 py-1 text-center text-slate-800">{m.nc}</td>

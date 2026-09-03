@@ -15,8 +15,8 @@
 * **Class**: `ContractorPaymentService`
   * **Methods**:
     * `getConfigs(): any`
-    * `createConfig(data: any, userId?: string): any`
-    * `updateConfig(id: string, data: any): any`
+    * `createConfig(data: CreatePaymentConfigInput, userId?: string): any`
+    * `updateConfig(id: string, data: UpdatePaymentConfigInput): any`
     * `deleteConfig(id: string): any`
 
 ### [grafana-dashboard.ts](src/services/admin/grafana-dashboard.ts)
@@ -27,6 +27,15 @@
 * **Class**: `JobQueueService`
   * **Methods**:
     * `getQueueStats(): any`
+
+### [notification-template.service.ts](src/services/admin/notification-template.service.ts)
+* **Class**: `NotificationTemplateService`
+  * **Methods**:
+    * `list(filter: TemplateFilter): any`
+    * `create(data: CreateTemplateInput): any`
+    * `update(data: UpdateTemplateInput): any`
+    * `delete(id: string): any`
+    * `getById(id: string): any`
 
 ### [process-gate.service.ts](src/services/admin/process-gate.service.ts)
 * **Class**: `ProcessGateAdminService`
@@ -81,6 +90,12 @@
     * `updateRole(roleId: string, data: UpdateRoleInput): any`
     * `deleteRole(roleId: string): any`
 
+### [smtp-config.service.ts](src/services/admin/smtp-config.service.ts)
+* **Class**: `SmtpConfigService`
+  * **Methods**:
+    * `getConfig(): Promise<SmtpConfigValue>`
+    * `updateConfig(validated: SmtpConfigValue): Promise<SmtpConfigValue>`
+
 ### [sod-revenue.service.ts](src/services/admin/sod-revenue.service.ts)
 * **Class**: `SodRevenueService`
   * **Methods**:
@@ -113,15 +128,19 @@
     * `getTableSettings(tableName?: string | null, tableColumnsDef: Record<string, TableColumnDef[]> = {}): any`
     * `updateTableSettings(tableName: string, visibleColumns: string[], tableColumnsDef: Record<string, TableColumnDef[]>): any`
 
+### [workflow-status.service.ts](src/services/admin/workflow-status.service.ts)
+* **Class**: `WorkflowStatusService`
+  * **Methods**:
+    * `getGroupedStatuses(): Promise<Record<string, WorkflowStatusEntry[]>>`
+
 ### [ai-prediction.service.ts](src/services/ai/ai-prediction.service.ts)
 * **Class**: `AiPredictionService`
   * **Methods**:
-    * `predictDelay(projectId: string): any`
-    * `predictBudgetOverrun(projectId: string): any`
-    * `predictPermitDelay(projectId: string): any`
-    * `predictMaterialShortage(): any`
-    * `getAllPredictions(projectId: string): any`
-    * `getSavedPredictions(projectId: string): any`
+    * `predictDelay(projectId: UUID): any`
+    * `predictBudgetOverrun(projectId: UUID): any`
+    * `predictPermitDelay(projectId: UUID): any`
+    * `getAllPredictions(projectId: UUID): any`
+    * `getSavedPredictions(projectId: UUID): any`
 
 ### [nexus-agent.service.ts](src/services/ai/nexus-agent.service.ts)
 * **Class**: `NexusAgentService`
@@ -130,9 +149,6 @@
     * `getSystemContext(): any`
     * `getSelfHealingProposals(): Promise<NexusAction[]>`
     * `executeAction(action: NexusAction, userId: string): any`
-    * `lookupAssetCustody(serialNumber: string, staffNameOrCode: string): Promise<NexusAction | null>`
-    * `lookupStockTransfer(itemCodeOrName: string, fromStoreName: string, toStoreName: string, quantity: number): Promise<NexusAction | null>`
-    * `lookupCreateUser(username: string, name: string, password: string, role: string, rtomCode?: string): Promise<NexusAction | null>`
     * `ask(message: string, userId: string): Promise<NexusResponse>`
 
 ### [nexus-alerts.service.ts](src/services/ai/nexus-alerts.service.ts)
@@ -174,7 +190,6 @@
 * **Class**: `NexusMemoryService`
   * **Methods**:
     * `getConversation(userId: string): Promise<ChatMessage[]>`
-    * `saveMessage(userId: string, role: 'user' | 'model', text: string): any`
     * `clearConversation(userId: string): any`
     * `getFrequentSuggestions(userId: string): Promise<string[]>`
 
@@ -185,7 +200,7 @@
     * `saveDraft(token: string, data: Partial<PublicRegistrationSchema>): any`
     * `submitRegistration(token: string, data: PublicRegistrationSchema): any`
     * `getStaticData(): any`
-    * `uploadFile(file: File, fieldName: string, onProgress?: (p: number) => void): any`
+    * `uploadFile(file: File, fieldName: string, onProgress?: (p: number) => void, registrationToken?: string): any`
 
 ### [domain-dispatcher.service.ts](src/services/approval/domain-dispatcher.service.ts)
 * **Class**: `DomainActionDispatcher`
@@ -196,8 +211,10 @@
 * **Class**: `DynamicApprovalService`
   * **Methods**:
     * `generateActionToken(instanceId: string, action: 'APPROVED' | 'REJECTED', userId: string): any`
+    * `generateViewToken(instanceId: string, userId: string): any`
     * `sendActionableEmail(instanceId: string, entityType: string, entityId: string, approverEmail: string, userId: string, amount?: number): any`
     * `sendMaterialRequestEmail(instanceId: string, stockRequestId: string, approverEmail: string, userId: string, requiredRole: string): any`
+    * `getApprovalDetails(instanceId: string): any`
     * `processApprovalWebhook(token: string): any`
 
 ### [process-gate-engine.ts](src/services/approval/process-gate-engine.ts)
@@ -248,10 +265,9 @@
 ### [contractor-kpi.service.ts](src/services/contractor/contractor-kpi.service.ts)
 * **Class**: `ContractorKPIService`
   * **Methods**:
-    * `getProjectContractorId(projectId: string): Promise<string | null>`
-    * `calculateMonthlyScore(contractorId: string, month: string, projectId?: string): any`
-    * `getContractorRanking(limit = 10): any`
-    * `getForProject(projectId: string): any`
+    * `getProjectContractorId(projectId: UUID): Promise<UUID | null>`
+    * `calculateMonthlyScore(contractorId: UUID, month: string, projectId?: UUID): any`
+    * `getForProject(projectId: UUID): any`
 
 ### [contractor.lifecycle.service.ts](src/services/contractor/contractor.lifecycle.service.ts)
 * **Class**: `ContractorLifecycleService`
@@ -341,9 +357,9 @@
 ### [dashboard.service.ts](src/services/core/dashboard.service.ts)
 * **Class**: `DashboardService`
   * **Methods**:
-    * `getFinanceMetrics(rtom: string = 'ALL'): any`
-    * `getInventoryMetrics(rtom: string = 'ALL'): any`
-    * `getProcurementMetrics(rtom: string = 'ALL'): any`
+    * `getFinanceMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]): any`
+    * `getInventoryMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]): any`
+    * `getProcurementMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]): any`
 
 ### [executive-dashboard.service.ts](src/services/core/executive-dashboard.service.ts)
 * **Class**: `ExecutiveDashboardService`
@@ -355,6 +371,8 @@
   * **Methods**:
     * `getAnalyticsReport(view: string, period: string, options: AnalyticsReportOptions): any`
     * `getDailyOperationalReport(options: DailyOperationalReportOptions): any`
+    * `writeDailyReportSnapshot(dateKey: string, reportData: ReportRow[]): Promise<void>`
+    * `persistDailyReportSnapshot(dateKey: string): Promise<number>`
     * `getPaymentsReport(options: PaymentsReportOptions): any`
 
 ### [section.service.ts](src/services/core/section.service.ts)
@@ -478,9 +496,9 @@
 * **Class**: `BankCashService`
   * **Methods**:
     * `getCashBook(glAccountCode: string = ACCOUNTS.BANK, fromDate?: Date, toDate?: Date): Promise<CashBookReport>`
-    * `importBankStatement(bankAccountId: string, lines: { statementDate: Date; description: string; referenceNumber?: string; debit: number; credit: number }[]): any`
+    * `importBankStatement(bankAccountId: UUID, lines: { statementDate: Date; description: string; referenceNumber?: string; debit: number; credit: number }[]): any`
     * `reconcileStatementLine(statementLineId: string, journalLineId: string): any`
-    * `getBankReconciliationSummary(bankAccountId: string): Promise<BankReconciliationSummary>`
+    * `getBankReconciliationSummary(bankAccountId: UUID): Promise<BankReconciliationSummary>`
 
 ### [bank-reconciliation.service.ts](src/services/finance/bank-reconciliation.service.ts)
 * **Class**: `BankReconciliationService`
@@ -528,8 +546,8 @@
     * `deleteBudget(id: string): Promise<void>`
     * `listBudgets(params: BudgetListParams): Promise<BudgetDTO[]>`
     * `getBudgetById(id: string): Promise<BudgetDTO | null>`
-    * `getBudgetVsActual(opmcId: string, fiscalYear: number, quarter?: number): Promise<BudgetVsActualItem[]>`
-    * `getCrossOpmcSummary(fiscalYear: number): Promise<{ opmcId: string; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }[]>`
+    * `getBudgetVsActual(opmcId: UUID, fiscalYear: number, quarter?: number): Promise<BudgetVsActualItem[]>`
+    * `getCrossOpmcSummary(fiscalYear: number): Promise<{ opmcId: UUID; capexBudget: number; opexBudget: number; capexActual: number; opexActual: number }[]>`
 
 ### [budget-tracking.service.ts](src/services/finance/budget-tracking.service.ts)
 * **Class**: `BudgetTrackingService`
@@ -569,9 +587,9 @@
   * **Methods**:
     * `recordEntry(input: CreateLedgerEntryInput): Promise<CapexOpexLedgerEntry>`
     * `getEntries(params: LedgerListParams): Promise<LedgerPage>`
-    * `getAggregatedSpend(opmcId: string, fiscalYear: number, quarter?: number): Promise<AggregatedSpend[]>`
-    * `getMonthlyTotals(opmcId: string, fiscalYear: number): Promise<{ month: number; quarter: number; capex: number; opex: number }[]>`
-    * `bulkSyncFromProjectExpenses(opmcId: string, projectIds: string[], createdById: string): Promise<{ synced: number; skipped: number }>`
+    * `getAggregatedSpend(opmcId: UUID, fiscalYear: number, quarter?: number): Promise<AggregatedSpend[]>`
+    * `getMonthlyTotals(opmcId: UUID, fiscalYear: number): Promise<{ month: number; quarter: number; capex: number; opex: number }[]>`
+    * `bulkSyncFromProjectExpenses(opmcId: UUID, projectIds: string[], createdById: string): Promise<{ synced: number; skipped: number }>`
     * `isAlreadySynced(sourceType: string, sourceId: string): Promise<boolean>`
     * `deleteEntry(id: string): Promise<void>`
 
@@ -595,20 +613,10 @@
     * `createAllocationMemo(payload: CreateMemoPayload): any`
     * `getAllocationMemos(): any`
 
-### [credit-note.service.ts](src/services/finance/credit-note.service.ts)
-* **Class**: `CreditNoteService`
-  * **Methods**:
-    * `issueCreditNote(data: {
-        invoiceId: string;
-        amount: number;
-        reason: string;
-        issuedById: string;
-    }): any`
-
 ### [dashboard.service.ts](src/services/finance/dashboard.service.ts)
 * **Class**: `FinanceDashboardService`
   * **Methods**:
-    * `getDashboardMetrics(): any`
+    * `getDashboardMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]): any`
 
 ### [fiscal-period.service.ts](src/services/finance/fiscal-period.service.ts)
 * **Class**: `FiscalPeriodService`
@@ -632,7 +640,6 @@
 ### [fx.service.ts](src/services/finance/fx.service.ts)
 * **Class**: `FXService`
   * **Methods**:
-    * `getCurrentRate(currencyCode: string): Promise<number>`
     * `setExchangeRate(currencyCode: string, rate: number, effectiveDate: Date = new Date()): any`
     * `calculateRealizedGainLoss(foreignAmount: number, bookedRate: number, paymentRate: number, isPayable: boolean = true): number`
     * `getAllLatestRates(): any`
@@ -676,7 +683,7 @@
     * `logGrnReceipt(tx: TransactionClient, grnId: string, totalCost: number, description?: string): any`
     * `logSodConsumption(tx: TransactionClient, sodId: string, totalCost: number, description?: string): any`
     * `logSodRevenue(tx: TransactionClient, sodId: string, revenueAmount: number, description?: string): any`
-    * `logInvoiceGeneration(tx: TransactionClient, invoiceId: string, invoiceNumber: string, totalRevenue: number, contractorAmountA: number, retentionAmount: number, description?: string, vatAmount: number = 0, ssclAmount: number = 0): any`
+    * `logInvoiceGeneration(tx: TransactionClient, invoiceId: UUID, invoiceNumber: string, totalRevenue: number, contractorAmountA: number, retentionAmount: number, description?: string, vatAmount: number = 0, ssclAmount: number = 0): any`
     * `logWastage(tx: TransactionClient, wastageId: string, totalCost: number, description?: string): any`
     * `logCycleCountAdjustment(tx: TransactionClient, cycleCountId: string, cycleCountNumber: string, totalVarianceValue: number, description?: string): any`
     * `rollbackSodTransaction(tx: TransactionClient, sodId: string, description?: string): any`
@@ -685,7 +692,7 @@
     * `logPettyCashExpense(tx: TransactionClient, voucherId: string, amount: number, category: string, description?: string): any`
     * `logPettyCashReimbursement(tx: TransactionClient, reimbursementId: string, amount: number, description?: string): any`
     * `logContractorAccrual(tx: TransactionClient, sodId: string, amount: number, contractorName: string, description?: string): any`
-    * `logInvoiceIssuance(tx: TransactionClient, invoiceId: string, amount: number, type: string, invoiceNumber: string, description?: string): any`
+    * `logInvoiceIssuance(tx: TransactionClient, invoiceId: UUID, amount: number, type: string, invoiceNumber: string, description?: string): any`
     * `logPaymentVoucherPayment(tx: TransactionClient, pvId: string, amount: number, type: string, pvNumber: string, payeeName: string, description?: string): any`
     * `getLedgerEntries(pagination?: { page?: number; limit?: number }): any`
     * `getGlDrilldown(accountCode: string, fromDate?: Date, toDate?: Date): any`
@@ -771,7 +778,7 @@
 ### [osp-ledger.service.ts](src/services/finance/osp-ledger.service.ts)
 * **Class**: `OSPLedgerService`
   * **Methods**:
-    * `postAutomatedTransaction(tx: any, args: {
+    * `postAutomatedTransaction(tx: TransactionClient, args: {
       sourceModule: string;
       transactionType: string;
       referenceId: string;
@@ -900,7 +907,7 @@
 ### [sod-wip-revenue.service.ts](src/services/finance/sod-wip-revenue.service.ts)
 * **Class**: `SODWipRevenueService`
   * **Methods**:
-    * `getWipSummary(opmcId?: string): Promise<{ metrics: WipSummaryMetrics; items: WipSodItem[] }>`
+    * `getWipSummary(opmcId?: string, accessibleOpmcs?: string[]): Promise<{ metrics: WipSummaryMetrics; items: WipSodItem[] }>`
     * `postWipAccrualJournal(createdById?: string): any`
 
 ### [tax-config.service.ts](src/services/finance/tax-config.service.ts)
@@ -957,7 +964,7 @@
   * **Methods**:
     * `getActiveDrivers(): Promise<Array<{ id: string; first_name: string; last_name: string; phone: string }>>`
     * `createVehicle(data: CreateVehicleDTO): Promise<Vehicle>`
-    * `getVehicle(vehicleId: string): Promise<Vehicle | null>`
+    * `getVehicle(vehicleId: UUID): Promise<Vehicle | null>`
     * `listVehicles(filters: {
       site_id?: string;
       status?: string;
@@ -965,24 +972,23 @@
       page?: number;
       limit?: number;
     } = {}): Promise<{ data: Vehicle[]; total: number }>`
-    * `updateVehicle(vehicleId: string, data: UpdateVehicleDTO): Promise<Vehicle>`
-    * `deleteVehicle(vehicleId: string): Promise<boolean>`
-    * `updateVehicleLocation(vehicleId: string, latitude: number, longitude: number, speed?: number, heading?: number): Promise<Vehicle>`
-    * `getVehicleLocation(vehicleId: string): Promise<{
+    * `updateVehicle(vehicleId: UUID, data: UpdateVehicleDTO): Promise<Vehicle>`
+    * `deleteVehicle(vehicleId: UUID): Promise<boolean>`
+    * `updateVehicleLocation(vehicleId: UUID, latitude: number, longitude: number, speed?: number, heading?: number): Promise<Vehicle>`
+    * `getVehicleLocation(vehicleId: UUID): Promise<{
     latitude: number;
     longitude: number;
     timestamp: Date;
     accuracy: number;
   } | null>`
-    * `getVehicleUtilization(vehicleId: string, fromDate: Date, toDate: Date): any`
+    * `getVehicleUtilization(vehicleId: UUID, fromDate: Date, toDate: Date): any`
 
 ### [gis-ai.service.ts](src/services/gis/gis-ai.service.ts)
 * **Class**: `GISAIService`
   * **Methods**:
-    * `optimizeRoute(startCoord: [number, number], endCoord: [number, number], projectId: string, options: AIOptimizeRouteOptions = {}): Promise<AIOptimizeRouteResult>`
+    * `optimizeRoute(startCoord: [number, number], endCoord: [number, number], projectId: UUID, options: AIOptimizeRouteOptions = {}): Promise<AIOptimizeRouteResult>`
     * `detectGISAnomalies(geojsonData: any): GISAnomaly[]`
     * `detectBuiltMismatch(plannedGeoJSON: any, builtGeoJSON: any): any`
-    * `generateBOQFromGIS(projectId: string, geojsonData: any): any`
 
 ### [gis-audit.service.ts](src/services/gis/gis-audit.service.ts)
 * **Class**: `GISAuditService`
@@ -1014,7 +1020,7 @@
 ### [gis-optimizer.service.ts](src/services/gis/gis-optimizer.service.ts)
 * **Class**: `GISRouteOptimizerService`
   * **Methods**:
-    * `optimizeRoute(projectId: string, routeId: string, toleranceMeters: number = 10): any`
+    * `optimizeRoute(projectId: UUID, routeId: UUID, toleranceMeters: number = 10): any`
 
 ### [GISAITrainingService.ts](src/services/gis/GISAITrainingService.ts)
 * **Class**: `GISAITrainingService`
@@ -1085,7 +1091,7 @@
 ### [GISReconciliationService.ts](src/services/gis/GISReconciliationService.ts)
 * **Class**: `GISReconciliationService`
   * **Methods**:
-    * `reconcile(projectId: string, userId: string): any`
+    * `reconcile(projectId: UUID, userId: string): any`
 
 ### [GISRoadNetwork.ts](src/services/gis/GISRoadNetwork.ts)
 * **Class**: `GISRoadNetwork`
@@ -1123,11 +1129,11 @@
 ### [GISRouteService.ts](src/services/gis/GISRouteService.ts)
 * **Class**: `GISRouteService`
   * **Methods**:
-    * `listProjectRoutes(projectId: string): any`
-    * `createGISRoute(projectId: string, data: CreateGISRouteDTO, userId: string): any`
-    * `generateBOQFromRoute(projectId: string, routeId: string, data: { notes?: string | null; createdById?: string | null }, userId: string): any`
-    * `getRoute(routeId: string): any`
-    * `updateRoute(projectId: string, routeId: string, data: {
+    * `listProjectRoutes(projectId: UUID): any`
+    * `createGISRoute(projectId: UUID, data: CreateGISRouteDTO, userId: string): any`
+    * `generateBOQFromRoute(projectId: UUID, routeId: UUID, data: { notes?: string | null; createdById?: string | null }, userId: string): any`
+    * `getRoute(routeId: UUID): any`
+    * `updateRoute(projectId: UUID, routeId: UUID, data: {
             name?: string;
             description?: string | null;
             routeLength?: string | number | null;
@@ -1137,21 +1143,21 @@
             geojsonData?: any;
             isActive?: boolean;
         }, userId: string): any`
-    * `deleteRoute(projectId: string, routeId: string, userId: string): any`
-    * `getRouteProgress(projectId: string, routeId: string): any`
-    * `updateGISRouteElements(projectId: string, routeId: string, data: {
+    * `deleteRoute(projectId: UUID, routeId: UUID, userId: UUID): any`
+    * `getRouteProgress(projectId: UUID, routeId: UUID): any`
+    * `updateGISRouteElements(projectId: UUID, routeId: UUID, data: {
             elementType: 'POLE' | 'CHAMBER' | 'CLOSURE' | 'CABLE';
             elementIds: string[];
             status: 'PLANNED' | 'INSTALLED' | 'VERIFIED';
             installationDate?: string | null;
         }): any`
     * `getActiveRoutesAndStats(): any`
-    * `getProjectGISData(projectId: string): any`
+    * `getProjectGISData(projectId: UUID): any`
     * `updateCableSegment(segmentId: string, coordinates: number[][], computedLength: number): any`
     * `addSlackLoop(segmentId: string): any`
-    * `getProjectGISMapping(projectId: string): any`
-    * `saveProjectGISMapping(projectId: string, mappings: Record<string, { materialId: string }>): any`
-    * `createPreSurveyRoute(projectId: string, data: {
+    * `getProjectGISMapping(projectId: UUID): any`
+    * `saveProjectGISMapping(projectId: UUID, mappings: Record<string, { materialId: string }>): any`
+    * `createPreSurveyRoute(projectId: UUID, data: {
             routeName?: string;
             startLat: number;
             startLng: number;
@@ -1409,7 +1415,6 @@
 ### [sla-worker.service.ts](src/services/helpdesk/sla-worker.service.ts)
 * **Class**: `SLABreachWorkerService`
   * **Methods**:
-    * `processSLA(job: Job<SLAJobData>): any`
     * `getSLAStats(): any`
 
 ### [telemetry.service.ts](src/services/helpdesk/telemetry.service.ts)
@@ -1492,10 +1497,10 @@
   * **Methods**:
     * `acceptMaterialReturn(returnId: string, acceptedQuantity: number | undefined, storekeeperNotes: string | undefined, userId: string | null, acceptedQuantities?: Record<string, number>): any`
     * `acceptMaterialIssue(issueId: string, signatureName: string | undefined, userId: string | null): any`
-    * `getMaterialReturns(contractorId: string): any`
-    * `getMaterialIssues(contractorId: string): any`
-    * `createMaterialReturn(contractorId: string, data: { itemId: string, quantity: number, condition?: string, reason?: string }): any`
-    * `getContractorStockDashboard(contractorId: string | null, userId: string | null, teamId?: string, month?: string, year?: string): any`
+    * `getMaterialReturns(contractorId: UUID): any`
+    * `getMaterialIssues(contractorId: UUID): any`
+    * `createMaterialReturn(contractorId: UUID, data: { itemId: UUID, quantity: number, condition?: string, reason?: string }): any`
+    * `getContractorStockDashboard(contractorId: UUID | null, userId: UUID | null, teamId?: UUID, month?: string, year?: string): any`
     * `getTeamWiseMaterialBalance(params: TeamMaterialBalanceParams): any`
 
 ### [cpe.service.ts](src/services/inventory/cpe.service.ts)
@@ -1546,7 +1551,7 @@
 ### [issue.service.ts](src/services/inventory/issue.service.ts)
 * **Class**: `IssueService`
   * **Methods**:
-    * `getMaterialIssues(contractorId: string, month?: string): any`
+    * `getMaterialIssues(contractorId: UUID, month?: string): any`
     * `issueMaterial(data: {
         contractorId: string;
         storeId: string;
@@ -1593,7 +1598,7 @@
 ### [material-excel-import.service.ts](src/services/inventory/material-excel-import.service.ts)
 * **Class**: `MaterialExcelImportService`
   * **Methods**:
-    * `importMaterialReport(filePath: string, opmcId: string | null = null, createdById: string = 'system-import'): Promise<ImportResult>`
+    * `importMaterialReport(filePath: string, opmcId: UUID | null = null, createdById: string = 'system-import'): Promise<ImportResult>`
 
 ### [mrn.service.ts](src/services/inventory/mrn.service.ts)
 * **Class**: `MRNService`
@@ -1625,13 +1630,6 @@
 * **Class**: `ROPService`
   * **Methods**:
     * `updateDynamicSafetyLevels(): any`
-
-### [serial-tracking.service.ts](src/services/inventory/serial-tracking.service.ts)
-* **Class**: `SerialTrackingService`
-  * **Methods**:
-    * `validateSerialForSOD(serialNumber: string, contractorId?: string | null): any`
-    * `markSerialInstalled(serialNumber: string, sodId: string, performedById: string): any`
-    * `issueSerialToContractor(serialNumber: string, contractorId: string, performedById: string): any`
 
 ### [stock-request.service.ts](src/services/inventory/stock-request.service.ts)
 * **Class**: `StockRequestService`
@@ -1665,30 +1663,30 @@
 * **Class**: `StockService`
   * **Methods**:
     * `round(val: number): number`
-    * `getStock(storeId: string): any`
-    * `getStoreBatches(storeId: string, itemId?: string): Promise<InventoryBatchStock[]>`
-    * `getContractorBatches(contractorId: string, itemId?: string): Promise<ContractorBatchStock[]>`
-    * `pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
-    * `pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
-    * `pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
-    * `pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: string; itemId: string; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: string }>, itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
-    * `initializeStock(storeId: string, items: { itemId: string; quantity: string | number }[], reason?: string, userId?: string): any`
+    * `getStock(storeId: UUID): any`
+    * `getStoreBatches(storeId: UUID, itemId?: UUID): Promise<InventoryBatchStock[]>`
+    * `getContractorBatches(contractorId: UUID, itemId?: UUID): Promise<ContractorBatchStock[]>`
+    * `pickStoreBatchesFIFO(tx: TransactionClient, storeId: UUID, itemId: UUID, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
+    * `pickStoreBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID; batch?: Partial<import('@prisma/client').InventoryBatch> }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
+    * `pickContractorBatchesFIFO(tx: TransactionClient, contractorId: UUID, itemId: UUID, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
+    * `pickContractorBatchesFIFOBulk(availableBatches: Array<{ id: UUID; itemId: UUID; quantity: import('@prisma/client').Prisma.Decimal | number; batchId: UUID; batch?: Partial<import('@prisma/client').InventoryBatch> }>, itemId: UUID, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
+    * `initializeStock(storeId: UUID, items: { itemId: UUID; quantity: string | number }[], reason?: string, userId?: string): any`
     * `createStockIssue(data: {
-        storeId: string;
+        storeId: UUID;
         issuedById: string;
         issueType: string;
-        projectId?: string;
-        contractorId?: string;
-        teamId?: string;
+        projectId?: UUID;
+        contractorId?: UUID;
+        teamId?: UUID;
         recipientName: string;
         remarks?: string;
-        items: { itemId: string; quantity: string | number; remarks?: string; serials?: string[] }[];
+        items: { itemId: UUID; quantity: string | number; remarks?: string; serials?: string[] }[];
     }): any`
     * `getStockIssues(filters: {
         storeId?: string;
         issueType?: string;
     }): Promise<StockIssue[]>`
-    * `getItemSerials(storeId: string, itemId: string): any`
+    * `getItemSerials(storeId: UUID, itemId: UUID): any`
     * `getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }): any`
 
 ### [store-variance-reconciliation.service.ts](src/services/inventory/store-variance-reconciliation.service.ts)
@@ -1699,6 +1697,7 @@
 ### [store.service.ts](src/services/inventory/store.service.ts)
 * **Class**: `StoreService`
   * **Methods**:
+    * `assertStoreWriteAccess(userId: string | null | undefined, storeId: UUID, tx?: TransactionClient): Promise<void>`
     * `getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]>`
     * `getStores(where: Prisma.InventoryStoreWhereInput = {}): Promise<StoreWithDetails[]>`
     * `createStore(data: {
@@ -1717,8 +1716,15 @@
     }): Promise<InventoryStore>`
     * `getStore(id: string): Promise<StoreWithDetails | null>`
     * `deleteStore(id: string): Promise<void>`
-    * `checkLowStock(storeId: string, itemId: string): Promise<void>`
-    * `checkAllLowStock(storeId: string): Promise<number>`
+    * `checkLowStock(storeId: UUID, itemId: UUID): Promise<void>`
+    * `getMaterialBalance(storeId: UUID, category?: string | null): any`
+    * `getLowStockAlerts(storeId: UUID): any`
+    * `getInventoryValue(storeId: UUID): any`
+    * `getExpiringBatches(storeId: UUID, daysAhead: number = 30): any`
+    * `getMultiStoreMaterialBalance(storeIds: UUID[], category?: string | null): any`
+    * `getMultiStoreExpiringBatches(storeIds: UUID[], daysAhead: number = 30): any`
+    * `getDashboardSummary(storeId: UUID): any`
+    * `getStockMovementReport(storeId: UUID, fromDate?: Date | null, toDate?: Date | null): any`
     * `getPublicSiteOffices(): any`
 
 ### [transaction.service.ts](src/services/inventory/transaction.service.ts)
@@ -1883,73 +1889,73 @@
 * **Class**: `DomainNotificationPolicies`
   * **Methods**:
     * `notifyTicketCreated(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
         priority: string;
         category: string;
-        createdById: string;
-        assignedToId?: string | null;
+        createdById: UUID;
+        assignedToId?: UUID | null;
     }): any`
     * `notifyTicketAssigned(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
-        assignedToId: string;
+        assignedToId: UUID;
         assignedByName?: string;
     }): any`
     * `notifyTicketStatusChanged(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
         status: string;
         previousStatus: string;
-        changedById: string;
-        createdById: string;
-        assignedToId?: string | null;
+        changedById: UUID;
+        createdById: UUID;
+        assignedToId?: UUID | null;
     }): any`
     * `notifyTicketResolved(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
-        createdById: string;
-        resolvedById: string;
+        createdById: UUID;
+        resolvedById: UUID;
     }): any`
     * `notifyTicketCommented(ticket: {
-        id: string;
+        id: UUID;
         ticketNumber: string;
         title: string;
         commenterName: string;
-        createdById: string;
-        assignedToId?: string | null;
-        commenterId: string;
+        createdById: UUID;
+        assignedToId?: UUID | null;
+        commenterId: UUID;
     }): any`
     * `notifySODStatusChanged(order: {
         soNum: string;
         status: string;
         previousStatus: string;
         customerName?: string;
-        changedByUserId: string;
-        opmcId?: string;
+        changedByUserId: UUID;
+        opmcId?: UUID;
     }): any`
     * `notifySODCompleted(order: {
         soNum: string;
         customerName?: string;
-        completedByUserId: string;
-        opmcId?: string;
+        completedByUserId: UUID;
+        opmcId?: UUID;
         materialsCount?: number;
         cpeCount?: number;
     }): any`
     * `notifySODAssignment(order: {
         soNum: string;
         customerName?: string;
-        assignedToUserId?: string;
+        assignedToUserId?: UUID;
         teamName?: string;
         contractorName?: string;
-        opmcId?: string;
+        opmcId?: UUID;
     }): any`
     * `notifyMilestoneDue(project: {
-        id: string;
+        id: UUID;
         name: string;
         code: string;
         milestoneName: string;
@@ -1957,16 +1963,16 @@
         daysRemaining: number;
     }): any`
     * `notifyProjectTaskAssigned(task: {
-        id: string;
+        id: UUID;
         title: string;
         projectName: string;
         projectCode: string;
-        assignedToId: string;
+        assignedToId: UUID;
         dueDate?: Date;
         priority: string;
     }): any`
     * `notifyProjectBudgetAlert(project: {
-        id: string;
+        id: UUID;
         name: string;
         code: string;
         budgetUtilization: number; // percentage
@@ -1974,7 +1980,7 @@
         spent: number;
     }): any`
     * `notifyVariationOrderCreated(vo: {
-        id: string;
+        id: UUID;
         voNumber: string;
         projectName: string;
         projectCode: string;
@@ -1983,7 +1989,7 @@
         status: string;
     }): any`
     * `notifyProjectResourceShortage(project: {
-        id: string;
+        id: UUID;
         name: string;
         code: string;
         resourceType: string;
@@ -1991,15 +1997,15 @@
         available: number;
     }): any`
     * `notifyPaymentReceived(payment: {
-        id: string;
+        id: UUID;
         invoiceNumber: string;
         amount: number;
         payer: string;
-        projectId?: string;
+        projectId?: UUID;
         projectName?: string;
     }): any`
     * `notifyInvoiceDue(invoice: {
-        id: string;
+        id: UUID;
         invoiceNumber: string;
         amount: number;
         dueDate: Date;
@@ -2007,7 +2013,7 @@
         clientName: string;
     }): any`
     * `notifyExpenseApproval(expense: {
-        id: string;
+        id: UUID;
         expenseNumber: string;
         amount: number;
         submittedByName: string;
@@ -2015,17 +2021,17 @@
         projectName?: string;
     }): any`
     * `notifyAppointmentReminder(appointment: {
-        id: string;
+        id: UUID;
         soNum: string;
         customerName: string;
         date: Date;
         time: string;
-        assignedToId?: string;
+        assignedToId?: UUID;
         contactNumber?: string;
         interval?: string;
         rtom?: string;
     }): any`
-    * `sendDailyDigest(userId: string, userEmail: string): Promise<void>`
+    * `sendDailyDigest(userId: UUID, userEmail: string): Promise<void>`
     * `checkEscalations(): Promise<{ escalated: number }>`
 
 ### [email.service.ts](src/services/notification/email.service.ts)
@@ -2048,7 +2054,8 @@
         type = 'SYSTEM',
         priority = 'MEDIUM',
         link,
-        metadata
+        metadata,
+        replaceByCategory = true
     }: {
         userId: string;
         title: string;
@@ -2057,6 +2064,7 @@
         priority?: NotificationPriority;
         link?: string;
         metadata?: Record<string, unknown>;
+        replaceByCategory?: boolean;
     }): any`
     * `broadcast({
         userIds,
@@ -2179,6 +2187,7 @@
 * **Class**: `NotificationTemplateEngineService`
   * **Methods**:
     * `renderTemplate(templateStr: string, variables: Record<string, string | number | boolean | undefined>): string`
+    * `renderEmailByCode(code: string, variables: Record<string, string | number | boolean | undefined>): Promise<RenderedEmailTemplate | null>`
     * `renderByCode(code: string, variables: Record<string, string | number | boolean | undefined>): Promise<{ title: string; message: string; channels: string[] } | null>`
 
 ### [as-built.service.ts](src/services/project/as-built.service.ts)
@@ -2558,24 +2567,24 @@
 * **Class**: `ProjectStockIssueService`
   * **Methods**:
     * `createIssueRequest(data: {
-        projectId: string;
-        storeId: string;
-        items: { itemId: string; quantity: number | string; remarks?: string }[];
+        projectId: UUID;
+        storeId: UUID;
+        items: { itemId: UUID; quantity: number | string; remarks?: string }[];
         remarks?: string;
-        userId: string;
+        userId: UUID;
         issueDate?: Date | string;
     }): any`
-    * `getProjectIssues(projectId: string): any`
-    * `approveIssueRequest(issueId: string, approvedById: string): any`
+    * `getProjectIssues(projectId: UUID): any`
+    * `approveIssueRequest(issueId: UUID, approvedById: UUID): any`
     * `createReturnRequest(data: {
-        projectId: string;
-        storeId: string;
-        items: { itemId: string; quantity: number | string; condition?: string; remarks?: string }[];
+        projectId: UUID;
+        storeId: UUID;
+        items: { itemId: UUID; quantity: number | string; condition?: string; remarks?: string }[];
         reason?: string;
-        userId: string;
+        userId: UUID;
     }): any`
-    * `getProjectReturns(projectId: string): any`
-    * `approveReturnRequest(returnId: string, approvedById: string): any`
+    * `getProjectReturns(projectId: UUID): any`
+    * `approveReturnRequest(returnId: UUID, approvedById: UUID): any`
 
 ### [project-supervisor.service.ts](src/services/project/project-supervisor.service.ts)
 * **Class**: `ProjectSupervisorService`
@@ -2631,7 +2640,7 @@
 ### [project.service.ts](src/services/project/project.service.ts)
 * **Class**: `ProjectService`
   * **Methods**:
-    * `getProjects(filters: ProjectFilters, pagination: { page?: number; limit?: number; isPaginated?: boolean }): any`
+    * `getProjects(filters: ProjectFilters, pagination: { page?: number; limit?: number; isPaginated?: boolean }, accessibleOpmcs?: string[]): any`
     * `getProjectDetails(id: string): any`
     * `createProject(data: CreateProjectInput): any`
     * `updateProject(id: string, updateData: UpdateProjectInput): any`
@@ -2659,6 +2668,7 @@
     * `syncCompletedSODs(customStartDate?: string): Promise<{
         checked: number;
         completed: number;
+        enriched: number;
         errors: string[];
     }>`
     * `startPeriodicSync(): void`
@@ -2677,14 +2687,15 @@
         limit?: number;
     }): any`
     * `getServiceOrderBySoNum(soNum: string): any`
-    * `bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string): any`
-    * `patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder>`
-    * `syncPatResults(opmcId: string, rtom: string): any`
+    * `bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: UUID): any`
+    * `updateServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder>`
+    * `syncPatResults(opmcId: UUID, rtom: string): any`
     * `syncHoApprovedResults(): any`
     * `syncHoRejectedResults(): any`
     * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
+    * `syncReturnReasons(maxRtoms: number = 4): any`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
-    * `syncServiceOrders(opmcId: string, rtom: string): any`
+    * `syncServiceOrders(opmcId: UUID, rtom: string): any`
     * `getExtensionRawData(soNum: string): any`
     * `getPatResults(params: {
         page?: number;
@@ -2695,6 +2706,7 @@
         region?: string;
         startDate?: string;
         endDate?: string;
+        accessibleRtoms?: string[];
     }): any`
     * `getOspFtthItems(): any`
     * `bulkImportLegacyServiceOrders(rows: Parameters<typeof SODImportService.bulkImportLegacyServiceOrders>[0], skipMaterials?: boolean): any`
@@ -2780,13 +2792,13 @@
   * **Methods**:
     * `validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string): any`
     * `prepareStatusTransition(oldOrder: { sltsStatus: string; status: string | null; statusDate: Date | null; comments: string | null; returnReason: string | null; sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isInvoicable?: boolean }, data: ServiceOrderUpdateData): Promise<Prisma.ServiceOrderUncheckedUpdateInput>`
-    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
+    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: UUID; status: string; sltsStatus: string; opmcId: UUID; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
     * `toggleOfflineWorkOrder(id: string, isOffline: boolean, offlineReference?: string, reason?: string): any`
-    * `getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null): any`
+    * `getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null, accessibleOpmcs?: string[]): any`
     * `registerOfflineOrder(data: {
         soNum: string;
         rtom: string;
-        opmcId: string;
+        opmcId: UUID;
         customerName?: string;
         voiceNumber?: string;
         serviceType: string;
@@ -2799,7 +2811,7 @@
         comments?: string;
         completedDate?: Date;
     }): any`
-    * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN'`
+    * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'ASSIGNED' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN'`
 
 ### [sod.material.service.ts](src/services/service-order/sod.material.service.ts)
 * **Class**: `SODMaterialService`
@@ -2825,6 +2837,7 @@
         region?: string;
         startDate?: string;
         endDate?: string;
+        accessibleRtoms?: string[];
     }): any`
     * `getOspFtthItems(): any`
     * `getContractorAssignedSODs(params: {
@@ -2839,12 +2852,13 @@
 ### [sod.sync.service.ts](src/services/service-order/sod.sync.service.ts)
 * **Class**: `SODSyncService`
   * **Methods**:
-    * `syncPatResults(opmcId: string, rtom: string): any`
+    * `syncPatResults(opmcId: UUID, rtom: string): any`
     * `syncHoApprovedResults(): any`
     * `syncHoRejectedResults(): any`
     * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
+    * `syncReturnReasons(maxRtoms: number = 4): Promise<{ updated: number; checked: number }>`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
-    * `syncServiceOrders(opmcId: string, rtom: string, preloadedPendingSods?: { id: string; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: string }[]): any`
+    * `syncServiceOrders(opmcId: UUID, rtom: string, preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[]): any`
     * `bridgeSync(payload: {
         soNum?: string;
         allTabs?: Record<string, Record<string, string>>;
@@ -2874,9 +2888,9 @@
 * **Class**: `PricingAuditService`
   * **Methods**:
     * `getRateRules(): Promise<{ count: number; rules: RateRuleDTO[] }>`
-    * `updateRateRule(id: string, rateAmount: number): Promise<RateRuleDTO>`
+    * `updateRateRule(id: UUID, rateAmount: number): Promise<RateRuleDTO>`
     * `getPendingAmendmentRequests(): Promise<{ count: number; requests: AmendmentRequestDTO[] }>`
-    * `createAmendmentRequest(invoiceId: string, requestedAmount: number, reason: string, userId: string): any`
+    * `createAmendmentRequest(invoiceId: UUID, requestedAmount: number, reason: string, userId: string): any`
     * `processAmendmentRequest(requestId: string, status: 'APPROVED' | 'REJECTED', userId: string, rejectionReason?: string): any`
 
 ### [opmc.service.ts](src/services/slt/opmc.service.ts)
@@ -2898,6 +2912,8 @@
     * `fetchPATResultsByDate(dateStr: string): Promise<SLTPATData[]>`
     * `fetchOpmcRejected(rtom: string): Promise<SLTPATData[]>`
     * `fetchHORejected(dateStr?: string): Promise<SLTPATData[]>`
+    * `fetchReturnedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]>`
+    * `fetchReturnedSODReasons(rtom: string, startDate: string, endDate: string): Promise<SLTReturnedSODReason[]>`
     * `parseStatusDate(dateStr: string | null): Date | null`
 
 ### [slt-contract-pdf-parser.ts](src/services/slt/slt-contract-pdf-parser.ts)
@@ -2959,9 +2975,11 @@
 | `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `PATCH`, `DELETE` |
 | `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
+| `/api/admin/notification-templates/codes` | [route.ts](src/app/api/admin/notification-templates/codes/route.ts) | `GET` |
+| `/api/admin/notification-templates` | [route.ts](src/app/api/admin/notification-templates/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
+| `/api/admin/notification-templates/test-send` | [route.ts](src/app/api/admin/notification-templates/test-send/route.ts) | `POST` |
 | `/api/admin/process-gates` | [route.ts](src/app/api/admin/process-gates/route.ts) | `GET`, `POST` |
 | `/api/admin/process-gates/seed` | [route.ts](src/app/api/admin/process-gates/seed/route.ts) | `POST` |
-| `/api/admin/process-gates/simulate` | [route.ts](src/app/api/admin/process-gates/simulate/route.ts) | `POST` |
 | `/api/admin/process-gates/[id]/levels` | [route.ts](src/app/api/admin/process-gates/[id]/levels/route.ts) | `POST`, `PUT` |
 | `/api/admin/process-gates/[id]/levels/[levelId]` | [route.ts](src/app/api/admin/process-gates/[id]/levels/[levelId]/route.ts) | `DELETE` |
 | `/api/admin/process-gates/[id]` | [route.ts](src/app/api/admin/process-gates/[id]/route.ts) | `PUT`, `DELETE` |
@@ -2993,6 +3011,7 @@
 | `/api/ai/alerts` | [route.ts](src/app/api/ai/alerts/route.ts) | `GET`, `PATCH` |
 | `/api/ai/copilot` | [route.ts](src/app/api/ai/copilot/route.ts) | `GET`, `POST` |
 | `/api/ai/feedback` | [route.ts](src/app/api/ai/feedback/route.ts) | `POST` |
+| `/api/approvals/view` | [route.ts](src/app/api/approvals/view/route.ts) | `GET` |
 | `/api/approvals/webhook` | [route.ts](src/app/api/approvals/webhook/route.ts) | `GET`, `POST` |
 | `/api/assets/register` | [route.ts](src/app/api/assets/register/route.ts) | `POST` |
 | `/api/assets/sync` | [route.ts](src/app/api/assets/sync/route.ts) | `POST` |
@@ -3000,6 +3019,7 @@
 | `/api/auth/forgot-password/reset` | [route.ts](src/app/api/auth/forgot-password/reset/route.ts) | `POST` |
 | `/api/auth/forgot-password/verify` | [route.ts](src/app/api/auth/forgot-password/verify/route.ts) | `POST` |
 | `/api/auth/forgot-password/verify-answer` | [route.ts](src/app/api/auth/forgot-password/verify-answer/route.ts) | `POST` |
+| `/api/auth/refresh` | [route.ts](src/app/api/auth/refresh/route.ts) | `POST` |
 | `/api/automation/completed-sod-sync` | [route.ts](src/app/api/automation/completed-sod-sync/route.ts) | `POST` |
 | `/api/automation/sod-auto-complete` | [route.ts](src/app/api/automation/sod-auto-complete/route.ts) | `GET`, `POST` |
 | `/api/banks` | [route.ts](src/app/api/banks/route.ts) | `GET`, `POST` |
@@ -3036,6 +3056,7 @@
 | `/api/contracts/slt` | [route.ts](src/app/api/contracts/slt/route.ts) | `GET`, `POST` |
 | `/api/contracts/slt/[id]` | [route.ts](src/app/api/contracts/slt/[id]/route.ts) | `DELETE` |
 | `/api/cron/appointment-reminders` | [route.ts](src/app/api/cron/appointment-reminders/route.ts) | `GET` |
+| `/api/cron/daily-report-snapshot` | [route.ts](src/app/api/cron/daily-report-snapshot/route.ts) | `GET` |
 | `/api/cron/drift-correction` | [route.ts](src/app/api/cron/drift-correction/route.ts) | `GET` |
 | `/api/cron/sync-all` | [route.ts](src/app/api/cron/sync-all/route.ts) | `GET` |
 | `/api/cron/sync-pat` | [route.ts](src/app/api/cron/sync-pat/route.ts) | `GET` |
@@ -3352,7 +3373,7 @@
 | `/api/trips/[id]` | [route.ts](src/app/api/trips/[id]/route.ts) | `GET` |
 | `/api/trips/[id]/start` | [route.ts](src/app/api/trips/[id]/start/route.ts) | `PATCH` |
 | `/api/upload` | [route.ts](src/app/api/upload/route.ts) | `POST` |
-| `/api/users` | [route.ts](src/app/api/users/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
+| `/api/users` | [route.ts](src/app/api/users/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `/api/vehicles` | [route.ts](src/app/api/vehicles/route.ts) | `GET`, `POST` |
 | `/api/vehicles/[id]/location` | [route.ts](src/app/api/vehicles/[id]/location/route.ts) | `GET`, `POST` |
 | `/api/vehicles/[id]/log` | [route.ts](src/app/api/vehicles/[id]/log/route.ts) | `GET`, `POST`, `PUT` |
@@ -4220,7 +4241,7 @@
   * `priority: TicketPriority` `[@default(MEDIUM)]`
   * `status: TicketStatus` `[@default(OPEN)]`
   * `assignedToId: String?` `[@db.Uuid]`
-  * `anydeskId: String?` `[@db.Uuid]`
+  * `anydeskId: String?`
   * `anydeskSession: String?`
   * `photoUrls: String[]` `[@default([])]`
   * `createdAt: DateTime` `[@default(now())]`
@@ -5000,7 +5021,7 @@
 ### [AuthorityEntity](prisma/schema/permits.prisma)
 * **Fields**:
   * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
-  * `name: String`
+  * `name: String` `[@unique]`
   * `shortName: String?`
   * `contactPerson: String?`
   * `contactNumber: String?`
@@ -7492,6 +7513,17 @@
   * `isRead: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
 
+### [DailyReportSnapshot](prisma/schema/system.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `snapshotDate: DateTime` `[@db.Date]`
+  * `orderIndex: Int`
+  * `rtom: String`
+  * `region: String`
+  * `province: String`
+  * `payload: Json`
+  * `createdAt: DateTime` `[@default(now())]`
+
 ### [User](prisma/schema/user.prisma)
 * **Fields**:
   * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
@@ -7602,20 +7634,13 @@
   * `code: String` `[@unique]`
   * `title: String`
   * `message: String`
+  * `subject: String?`
+  * `htmlBody: String?`
+  * `entityType: String?`
+  * `isActive: Boolean` `[@default(true)]`
   * `channels: String[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
-
-### [NotificationEvent](prisma/schema/user.prisma)
-* **Fields**:
-  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
-  * `tenantId: String?` `[@db.Uuid]`
-  * `eventType: String`
-  * `payload: Json`
-  * `status: String` `[@default("PENDING")]`
-  * `processedAt: DateTime?`
-  * `errorReason: String?`
-  * `createdAt: DateTime` `[@default(now())]`
 
 ### [AuditLog](prisma/schema/user.prisma)
 * **Fields**:
@@ -10554,6 +10579,7 @@
   * `inspectedAt: DateTime?`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
+  * `checklistItems: ChecklistItem[]`
 
 ### [ProjectType](prisma/schema.prisma)
 * **Fields**:

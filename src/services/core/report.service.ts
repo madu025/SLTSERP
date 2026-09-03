@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { subMonths, subDays, subYears, format } from 'date-fns';
 import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
 import { PaymentTypeEnum, PaymentStatusEnum, Prisma, ServiceOrderStatus } from '@prisma/client';
-import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
+import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES, categorizeSodOrder } from '@/lib/constants/sod-constants';
 
 export interface AnalyticsReportOptions {
   customFrom?: string | null;
@@ -73,6 +73,13 @@ interface WiredOnlyEntry {
   total: number;
 }
 
+interface InstallClosedEntry {
+  nc: number;
+  rl: number;
+  data: number;
+  total: number;
+}
+
 interface DelaysEntry {
   ontShortage: number;
   stbShortage: number;
@@ -109,10 +116,15 @@ interface ReportRow {
   material: MaterialEntry;
   returned: ReturnedEntry;
   wiredOnly: WiredOnlyEntry;
+  installClosed: InstallClosedEntry;
   delays: DelaysEntry;
   balance: BalanceEntry;
   shortages: ShortagesEntry;
 }
+
+/** Sri Lanka (UTC+5:30) calendar-day key, e.g. '2026-09-02'. */
+const slDateKey = (d: Date): string =>
+  new Date(d.getTime() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
 
 interface StatusHistoryEntry {
   status: string;
@@ -142,6 +154,9 @@ interface ServiceOrderWithRelations {
   completedDate: Date | null;
   wiredOnly: boolean | null;
   teamId: string | null;
+  opmcPatStatus: string | null;
+  hoPatStatus: string | null;
+  sltsPatStatus: string | null;
   materialUsage: MaterialUsageEntry[];
   statusHistory: StatusHistoryEntry[];
   delayReasons?: Record<string, boolean> | null;
@@ -479,6 +494,47 @@ export class ReportService {
   static async getDailyOperationalReport(options: DailyOperationalReportOptions) {
     const { date } = options;
     const selectedDate = date ? new Date(date) : new Date();
+    const dateKey = date || slDateKey(selectedDate);
+
+    // Past days are served verbatim from the frozen end-of-day snapshot; live fallback when none exists.
+    if (selectedDate < getSriLankaStartOfDay(new Date())) {
+      try {
+        const snaps = await prisma.dailyReportSnapshot.findMany({
+          where: { snapshotDate: new Date(`${dateKey}T00:00:00.000Z`) },
+          orderBy: { orderIndex: 'asc' }
+        });
+        if (snaps.length > 0) {
+          return {
+            reportData: snaps.map(s => s.payload as unknown as ReportRow),
+            date: dateKey,
+            snapshot: true
+          };
+        }
+      } catch (err) {
+        console.error('[DailyReport] snapshot read failed, computing live:', err);
+      }
+    }
+
+    const reportData = await ReportService.computeDailyOperationalReport(selectedDate);
+
+    // Same-day self-heal: today's live views refresh the provisional snapshot (idempotent).
+    if (slDateKey(selectedDate) === slDateKey(new Date())) {
+      try {
+        await ReportService.writeDailyReportSnapshot(dateKey, reportData);
+      } catch (err) {
+        console.error('[DailyReport] same-day snapshot persist failed:', err);
+      }
+    }
+
+    return {
+      reportData,
+      date: dateKey,
+      snapshot: false
+    };
+  }
+
+  /** Pure live computation of the daily report rows (no snapshot logic). */
+  private static async computeDailyOperationalReport(selectedDate: Date): Promise<ReportRow[]> {
     const startDate = getSriLankaStartOfDay(selectedDate);
     const endDate = getSriLankaEndOfDay(selectedDate);
 
@@ -496,10 +552,7 @@ export class ReportService {
               { statusDate: { gte: startDate, lte: endDate } },
               { receivedDate: { gte: startDate, lte: endDate } },
               { updatedAt: { gte: startDate, lte: endDate } },
-              // Event-based completion counting (see detection block below):
-              // an SOD whose only today-relevant event is a statusHistory row
-              // (e.g. INSTALL_CLOSED today after completion last month) must
-              // still be fetched for the selected day.
+              // Fetch SODs whose only today-relevant event is a statusHistory row.
               { statusHistory: { some: { statusDate: { gte: startDate, lte: endDate } } } }
             ]
           },
@@ -511,6 +564,9 @@ export class ReportService {
             statusDate: true,
             receivedDate: true,
             completedDate: true,
+            opmcPatStatus: true,
+            hoPatStatus: true,
+            sltsPatStatus: true,
             orderType: true,
             package: true,
             wiredOnly: true,
@@ -618,30 +674,9 @@ export class ReportService {
       });
       const teamsWorked = new Set(activeTodayOrders.map(o => o.teamId).filter(Boolean)).size;
 
-      const categorizeOrder = (order: { orderType?: string | null; package?: string | null }) => {
-        const orderType = order.orderType?.toUpperCase() || '';
-        const packageInfo = (order.package || '').toUpperCase();
-
-        if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION') || orderType.includes('F-RL') || packageInfo.includes('FRL')) {
-          return 'rl' as const;
-        }
-
-        if (
-          orderType.includes('CREATE') ||
-          orderType.includes('F-NC') ||
-          orderType.includes('RECON') ||
-          orderType.includes('UPGRADE') ||
-          orderType.includes('UPGRD') ||
-          packageInfo.includes('FNC') ||
-          packageInfo.includes('VOICE') ||
-          packageInfo.includes('INT') ||
-          packageInfo.includes('IPTV')
-        ) {
-          return 'nc' as const;
-        }
-
-        return 'data' as const;
-      };
+      // Family split delegates to the shared categorizeSodOrder rule (sod-constants.ts).
+      const categorizeOrder = (order: { orderType?: string | null; package?: string | null }) =>
+        categorizeSodOrder(order.orderType, order.package).family;
 
       const inHandMorning = { nc: 0, rl: 0, data: 0, total: 0 };
       const opmcInHandMorning = inHandMorningOrders.filter(row => row.rtom === opmc.rtom);
@@ -657,6 +692,7 @@ export class ReportService {
       const material: MaterialEntry = { dwSlt: 0, dwCompany: 0, dw: 0, pole56: 0, pole67: 0, pole80: 0 };
       const returned: ReturnedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const wiredOnly: WiredOnlyEntry = { nc: 0, rl: 0, data: 0, total: 0 };
+      const installClosed: InstallClosedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const delays: DelaysEntry = { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 };
       // Track wiredOnly orders NOT already counted as completed (PROV_CLOSED without INSTALL_CLOSED)
       const wiredOnlyExtra: { nc: number; rl: number; data: number } = { nc: 0, rl: 0, data: 0 };
@@ -672,14 +708,8 @@ export class ReportService {
           received.total++;
         }
 
-        // Event-based completion counting (domain rule 2026-09-03): count each
-        // SOD on the day its events actually happened — COMPLETED when it
-        // completed, INSTALL_CLOSED when it was install-closed. statusHistory
-        // rows carry the true event date (portal CON_STATUS_DATE via the sync
-        // path, action time via the manual path); completedDate is the
-        // row-state anchor for rows without history. The old statusDate row
-        // heuristic miscounted: a stale statusDate left behind by an earlier
-        // transition re-counted an SOD on the wrong day after a later change.
+        // Event-anchored counting: history rows carry the true event date; completedDate
+        // is the row-state fallback. A stale statusDate must never re-count an SOD.
         const inDay = (d: string | Date | null | undefined) =>
           !!d && new Date(d) >= startDate && new Date(d) <= endDate;
         const hadHistoryEventToday = (eventStatus: string) =>
@@ -687,42 +717,41 @@ export class ReportService {
             (h) => h.status?.toUpperCase() === eventStatus && inDay(h.statusDate)
           ) ?? false;
 
+        // Install Closed mirrors the install_closed page: status OR sltsStatus = INSTALL_CLOSED,
+        // RETURN/DISAPPEARED excluded; anchor: event → completedDate → statusDate fallback.
         const isInstallClosedToday =
-          hadHistoryEventToday('INSTALL_CLOSED') ||
-          (order.status === 'INSTALL_CLOSED' && inDay(order.completedDate));
+          (order.status === 'INSTALL_CLOSED' || order.sltsStatus === 'INSTALL_CLOSED') &&
+          order.sltsStatus !== 'RETURN' && order.sltsStatus !== 'DISAPPEARED' &&
+          order.status !== 'DISAPPEARED' &&
+          (hadHistoryEventToday('INSTALL_CLOSED') ||
+            inDay(order.completedDate) ||
+            (!order.completedDate && inDay(order.statusDate)));
 
         const isCompletedToday =
           isInstallClosedToday ||
           hadHistoryEventToday('COMPLETED') ||
           ((order.sltsStatus === 'COMPLETED' || order.status === 'COMPLETED') && inDay(order.completedDate));
         if (isCompletedToday) {
-          const orderType = order.orderType?.toUpperCase() || '';
-          const packageInfo = (order.package || '').toUpperCase();
-
-          if (orderType.includes('RECON')) {
-            completed.recon++;
-          } else if (orderType.includes('UPGRADE') || orderType.includes('UPGRD')) {
-            completed.upgrade++;
-          } else if (orderType.includes('CREATE-OR')) {
-            completed.or++;
-          } else if (orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION')) {
-            completed.ml++;
-          } else if (orderType.includes('F-NC') || packageInfo.includes('FNC')) {
-            completed.fnc++;
-          } else if (orderType.includes('F-RL') || packageInfo.includes('FRL')) {
-            completed.frl++;
-          } else if (orderType.includes('CREATE')) {
-            completed.create++;
-          } else if (packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
-            completed.create++;
-          } else {
-            completed.data++;
-          }
+          // Same categorizeSodOrder rule as the family split — the views cannot drift.
+          completed[categorizeSodOrder(order.orderType, order.package).bucket]++;
           completed.total++;
         }
 
-        if (order.sltsStatus === 'RETURN' && order.statusDate &&
-          order.statusDate >= startDate && order.statusDate <= endDate) {
+        if (isInstallClosedToday) {
+          installClosed[category]++;
+          installClosed.total++;
+        }
+
+        // Returns mirror the Return page: capture instant (completedDate) anchor, event first,
+        // statusDate only for born-RETURN rows; PAT-REJECTED excluded.
+        const isReturnedToday = order.sltsStatus === 'RETURN' && (
+          hadHistoryEventToday('RETURN') ||
+          inDay(order.completedDate) ||
+          (!order.completedDate && inDay(order.statusDate))
+        );
+        const patRejected = order.opmcPatStatus === 'REJECTED' ||
+          order.hoPatStatus === 'REJECTED' || order.sltsPatStatus === 'REJECTED';
+        if (isReturnedToday && !patRejected) {
           returned[category]++;
           returned.total++;
         }
@@ -796,11 +825,15 @@ export class ReportService {
         }
       });
 
+      // FNC = CR+RC+UP, FRL = OR+ML — group subtotals; F-NC/F-RL order types do not exist in portal data.
+      completed.fnc = completed.create + completed.recon + completed.upgrade;
+      completed.frl = completed.or + completed.ml;
+
       const totalInHand = inHandMorning.total + received.total;
 
       const balance: BalanceEntry = {
-        nc: inHandMorning.nc + received.nc - (completed.create + completed.fnc + completed.recon + completed.upgrade) - returned.nc - wiredOnlyExtra.nc,
-        rl: inHandMorning.rl + received.rl - (completed.or + completed.ml + completed.frl) - returned.rl - wiredOnlyExtra.rl,
+        nc: inHandMorning.nc + received.nc - completed.fnc - returned.nc - wiredOnlyExtra.nc,
+        rl: inHandMorning.rl + received.rl - completed.frl - returned.rl - wiredOnlyExtra.rl,
         data: inHandMorning.data + received.data - completed.data - returned.data - wiredOnlyExtra.data,
         total: 0
       };
@@ -825,16 +858,39 @@ export class ReportService {
         material,
         returned,
         wiredOnly,
+        installClosed,
         delays,
         balance,
         shortages
       };
     });
 
-    return {
-      reportData,
-      date: selectedDate.toISOString().split('T')[0]
-    };
+    return reportData;
+  }
+
+  /** Idempotently writes the frozen snapshot rows for one calendar day. */
+  static async writeDailyReportSnapshot(dateKey: string, reportData: ReportRow[]): Promise<void> {
+    const day = new Date(`${dateKey}T00:00:00.000Z`);
+    await prisma.$transaction([
+      prisma.dailyReportSnapshot.deleteMany({ where: { snapshotDate: day } }),
+      prisma.dailyReportSnapshot.createMany({
+        data: reportData.map((r, i) => ({
+          snapshotDate: day,
+          orderIndex: i,
+          rtom: r.rtom,
+          region: r.region,
+          province: r.province,
+          payload: r as unknown as Prisma.InputJsonValue
+        }))
+      })
+    ]);
+  }
+
+  /** End-of-day close: computes live and freezes the day (never reads a snapshot). */
+  static async persistDailyReportSnapshot(dateKey: string): Promise<number> {
+    const reportData = await ReportService.computeDailyOperationalReport(new Date(`${dateKey}T00:00:00.000Z`));
+    await ReportService.writeDailyReportSnapshot(dateKey, reportData);
+    return reportData.length;
   }
 
   /**

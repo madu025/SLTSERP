@@ -155,3 +155,18 @@ model QCNotification {
   @@index([soNum])
   @@index([isRead])
 }
+
+/// Frozen end-of-day Daily Operational Report rows (one per RTOM per day).
+model DailyReportSnapshot {
+  id           String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  snapshotDate DateTime @db.Date
+  orderIndex   Int
+  rtom         String
+  region       String
+  province     String
+  payload      Json
+  createdAt    DateTime @default(now())
+
+  @@unique([snapshotDate, rtom])
+  @@index([snapshotDate])
+}

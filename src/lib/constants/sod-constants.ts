@@ -164,3 +164,32 @@ export function getComputedSodStatus(order: SodStatusSource): string {
     if (portalStatus) return portalStatus;
     return workflowStatus || '-';
 }
+
+/** Report family groups: FNC aggregates the nc-family buckets, FRL the rl-family buckets. */
+export type SodOrderFamily = 'nc' | 'rl' | 'data';
+
+/** Completed sub-buckets: create/recon/upgrade roll up into FNC; or/ml roll up into FRL. */
+export type SodCompletedBucket = 'create' | 'recon' | 'upgrade' | 'or' | 'ml' | 'data';
+
+/** Single categorization rule for the NC/RL/DATA breakdown and the CR/RC/UP/OR/ML/DT buckets. CREATE-OR must win over CREATE. */
+export function categorizeSodOrder(
+    orderType?: string | null,
+    pkg?: string | null
+): { family: SodOrderFamily; bucket: SodCompletedBucket } {
+    const ot = (orderType || '').toUpperCase();
+    const p = (pkg || '').toUpperCase();
+
+    // Relocation family first
+    if (ot.includes('CREATE-OR')) return { family: 'rl', bucket: 'or' };
+    if (ot.includes('MODIFY-LOCATION') || ot.includes('MODIFY LOCATION')) return { family: 'rl', bucket: 'ml' };
+    if (ot.includes('F-RL') || p.includes('FRL')) return { family: 'rl', bucket: 'data' };
+
+    // New-connection family
+    if (ot.includes('RECON')) return { family: 'nc', bucket: 'recon' };
+    if (ot.includes('UPGRADE') || ot.includes('UPGRD')) return { family: 'nc', bucket: 'upgrade' };
+    if (ot.includes('F-NC') || p.includes('FNC')) return { family: 'nc', bucket: 'create' };
+    if (ot.includes('CREATE')) return { family: 'nc', bucket: 'create' };
+    if (p.includes('VOICE') || p.includes('INT') || p.includes('IPTV')) return { family: 'nc', bucket: 'create' };
+
+    return { family: 'data', bucket: 'data' };
+}
