@@ -745,6 +745,10 @@ export class SODSyncService {
         const toUpdate: { existing: { id: string; soNum?: string | null; status: string; sltsStatus: string; returnReason?: string | null; contractorId?: string | null; completedDate?: Date | null; receivedDate?: Date | null; comments?: string | null; completionMode?: string | null; rtom?: string | null; statusDate?: Date | null }, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
 
         for (const item of syncableData) {
+            // Skip INSTALL_CLOSED — handled exclusively by completed-sod-sync service
+            const cleanStatusForSkip = (item.CON_STATUS || '').toUpperCase().trim();
+            if (cleanStatusForSkip === 'INSTALL_CLOSED') continue;
+
             const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
             const cleanStatus = (item.CON_STATUS || '').toUpperCase().trim();
             const initialSltsStatus = SODLifecycleService.mapExternalStatusToSltsStatus(cleanStatus);
