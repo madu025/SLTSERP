@@ -495,7 +495,12 @@ export class ReportService {
               { completedDate: { gte: startDate, lte: endDate } },
               { statusDate: { gte: startDate, lte: endDate } },
               { receivedDate: { gte: startDate, lte: endDate } },
-              { updatedAt: { gte: startDate, lte: endDate } }
+              { updatedAt: { gte: startDate, lte: endDate } },
+              // Event-based completion counting (see detection block below):
+              // an SOD whose only today-relevant event is a statusHistory row
+              // (e.g. INSTALL_CLOSED today after completion last month) must
+              // still be fetched for the selected day.
+              { statusHistory: { some: { statusDate: { gte: startDate, lte: endDate } } } }
             ]
           },
           select: {
@@ -667,18 +672,29 @@ export class ReportService {
           received.total++;
         }
 
-        const statusStr = order.status?.toUpperCase() || '';
-        const isInstallClosedToday = (statusStr === 'INSTALL_CLOSED' || order.sltsStatus === 'COMPLETED') && (
-          (order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate) ||
-          (order.completedDate && order.completedDate >= startDate && order.completedDate <= endDate)
-        );
+        // Event-based completion counting (domain rule 2026-09-03): count each
+        // SOD on the day its events actually happened — COMPLETED when it
+        // completed, INSTALL_CLOSED when it was install-closed. statusHistory
+        // rows carry the true event date (portal CON_STATUS_DATE via the sync
+        // path, action time via the manual path); completedDate is the
+        // row-state anchor for rows without history. The old statusDate row
+        // heuristic miscounted: a stale statusDate left behind by an earlier
+        // transition re-counted an SOD on the wrong day after a later change.
+        const inDay = (d: string | Date | null | undefined) =>
+          !!d && new Date(d) >= startDate && new Date(d) <= endDate;
+        const hadHistoryEventToday = (eventStatus: string) =>
+          order.statusHistory?.some(
+            (h) => h.status?.toUpperCase() === eventStatus && inDay(h.statusDate)
+          ) ?? false;
 
-        const hadInstallClosedHistoryToday = order.statusHistory?.some((h) =>
-          h.status?.toUpperCase() === 'INSTALL_CLOSED' &&
-          h.statusDate && new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
-        );
+        const isInstallClosedToday =
+          hadHistoryEventToday('INSTALL_CLOSED') ||
+          (order.status === 'INSTALL_CLOSED' && inDay(order.completedDate));
 
-        const isCompletedToday = isInstallClosedToday || hadInstallClosedHistoryToday;
+        const isCompletedToday =
+          isInstallClosedToday ||
+          hadHistoryEventToday('COMPLETED') ||
+          ((order.sltsStatus === 'COMPLETED' || order.status === 'COMPLETED') && inDay(order.completedDate));
         if (isCompletedToday) {
           const orderType = order.orderType?.toUpperCase() || '';
           const packageInfo = (order.package || '').toUpperCase();

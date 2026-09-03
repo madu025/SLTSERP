@@ -1543,7 +1543,16 @@ export class SODSyncService {
                 }
             }
 
-            dataToUpdate.completedDate = installDate || new Date();
+            // Only set a completion date we actually know. The contractor-view
+            // scrape carries no completion date field; fabricating the push time
+            // would bucket the SOD into the push month (born-completed SODs whose
+            // real completion was months earlier would surface on the wrong
+            // completed page). Leave unset — completed-sod-sync enriches it from
+            // the portal's CON_STATUS_DATE, and the completed page buckets
+            // strictly by completedDate.
+            if (installDate) {
+                dataToUpdate.completedDate = installDate;
+            }
 
             // 2. PAT Approval / OPMC System Completion Date (Caught by Extension)
             let patDate = SodUtils.safeParseDate(masterData['PAT_APPROVED_DATE'] || masterData['OPMC_PASSED_DATE'] || masterData['STATUS DATE'] || masterData['STATUS_DATE']);
@@ -1784,11 +1793,22 @@ export class SODSyncService {
             });
         } else {
             const createdSltsStatus = (dataToUpdate.sltsStatus as string) || 'INPROGRESS';
+            // Workflow status must mirror the portal status coherently. The
+            // SOD_STATUS_INVARIANT trigger only guards UPDATE, so an incoherent
+            // born-terminal row is accepted at CREATE but becomes permanently
+            // update-locked afterwards (every later write rejects). Map the
+            // workflow status to the same terminal value on create.
+            const createdWorkflowStatus =
+                createdSltsStatus === 'RETURN' ? 'RETURN' as const
+                    : createdSltsStatus === 'INSTALL_CLOSED' ? 'INSTALL_CLOSED' as const
+                        : ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(createdSltsStatus) ? 'COMPLETED' as const
+                            : createdSltsStatus === 'ASSIGNED' ? 'ASSIGNED' as const
+                                : 'PENDING' as const;
             syncedOrder = await (prisma.serviceOrder as unknown as { create: (args: { data: unknown }) => Promise<import('@prisma/client').ServiceOrder> }).create({
                 data: {
                     ...dataToUpdate,
                     soNum: soNum || "",
-                    status: createdSltsStatus === 'RETURN' ? 'RETURN' : 'PENDING',
+                    status: createdWorkflowStatus,
                     sltsStatus: createdSltsStatus,
                     iptvSerials: iptvSerials.length > 0 ? {
                         create: iptvSerials.map(sn => ({ serialNumber: sn }))
@@ -1847,12 +1867,23 @@ export class SODSyncService {
             await safe((async () => {
                 // Audit trail: single-SOD bridge pushes bypass handlePostUpdate on purpose
                 // (publishing sod.status_changed here would double-fire the notification below)
-                const { ServiceOrderRepository } = await import('@/repositories/service-order.repository');
-                await ServiceOrderRepository.createStatusHistory({
-                    serviceOrderId: syncedOrder.id,
-                    status: syncedOrder.sltsStatus,
-                    statusDate: syncedOrder.statusDate || new Date()
-                });
+                // Event-date discipline: never label a completion event with the push
+                // time. A born-terminal SOD (the extension saw it already completed)
+                // carries no truthful completion date — completed-sod-sync seeds its
+                // history event later, dated with the portal's real date. Writing
+                // COMPLETED@push-time here made the Daily Report count the birth day
+                // instead of the actual completion day.
+                const bornTerminalWithoutDate =
+                    [SodStatus.COMPLETED, SodStatus.INSTALL_CLOSED].includes(syncedOrder.sltsStatus as SodStatus) &&
+                    !syncedOrder.completedDate && !syncedOrder.statusDate;
+                if (!bornTerminalWithoutDate) {
+                    const { ServiceOrderRepository } = await import('@/repositories/service-order.repository');
+                    await ServiceOrderRepository.createStatusHistory({
+                        serviceOrderId: syncedOrder.id,
+                        status: syncedOrder.sltsStatus,
+                        statusDate: syncedOrder.completedDate || syncedOrder.statusDate || new Date()
+                    });
+                }
                 const { StatsService } = await import('@/lib/stats.service');
                 await StatsService.handleStatusChange(syncedOrder.opmcId, oldStatus, syncedOrder.sltsStatus);
 

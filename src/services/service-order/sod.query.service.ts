@@ -123,23 +123,14 @@ export class SODQueryService {
                     isInvoicable: true
                 });
             } else if (filter === 'completed') {
+                // Domain rule: the completed page buckets STRICTLY by completedDate.
+                // A row belongs only to the month in which it actually completed.
+                // statusDate/updatedAt fallbacks pulled rows whose completion month
+                // was unknown into the wrong page — removed.
+                // Rows with completedDate = null are enriched by completed-sod-sync
+                // (portal CON_STATUS_DATE) and appear once a true date exists.
                 andFilters.push({
-                    OR: [
-                        { completedDate: { gte: startDate, lt: nextMonth } },
-                        {
-                            AND: [
-                                { completedDate: null },
-                                { statusDate: { gte: startDate, lt: nextMonth } }
-                            ]
-                        },
-                        {
-                            AND: [
-                                { completedDate: null },
-                                { statusDate: null },
-                                { updatedAt: { gte: startDate, lt: nextMonth } }
-                            ]
-                        }
-                    ]
+                    completedDate: { gte: startDate, lt: nextMonth }
                 });
             } else if (filter === 'return' || filter === 'disappeared') {
                 andFilters.push({

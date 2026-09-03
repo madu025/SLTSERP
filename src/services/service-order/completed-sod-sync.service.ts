@@ -14,6 +14,7 @@ export class CompletedSODSyncService {
     static async syncCompletedSODs(customStartDate?: string): Promise<{
         checked: number;
         completed: number;
+        enriched: number;
         errors: string[];
     }> {
         console.log(`[COMPLETED-SOD-SYNC] Starting sync... (Mode: ${customStartDate ? 'FULL HISTORY' : 'BACKGROUND/RECENT'})`);
@@ -32,6 +33,7 @@ export class CompletedSODSyncService {
 
         const errors: string[] = [];
         let completedCount = 0;
+        let enrichedCount = 0;
         let checkedCount = 0;
 
         try {
@@ -69,11 +71,11 @@ export class CompletedSODSyncService {
                     const allSoNums = uniqueResults.map(r => r.SO_NUM);
                     const localSODsBatch = allSoNums.length > 0 ? await prisma.serviceOrder.findMany({
                         where: { soNum: { in: allSoNums } },
-                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true, ontSerialNumber: true, receivedDate: true }
+                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true, customerName: true, ontSerialNumber: true, receivedDate: true, statusDate: true, orderType: true, package: true, serviceType: true, lea: true, woroTaskName: true, woroSeit: true, ftthInstSeit: true, ftthWifi: true, iptv: true }
                     }) : [];
 
                     // Group local service orders by soNum in-memory
-                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null, ontSerialNumber: string | null, receivedDate: Date | null }>>();
+                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null, customerName: string | null, ontSerialNumber: string | null, receivedDate: Date | null, statusDate: Date | null, orderType: string | null, package: string | null, serviceType: string | null, lea: string | null, woroTaskName: string | null, woroSeit: string | null, ftthInstSeit: string | null, ftthWifi: string | null, iptv: string | null }>>();
                     localSODsBatch.forEach(sod => {
                         const key = sod.soNum;
                         if (key) {
@@ -170,6 +172,73 @@ export class CompletedSODSyncService {
                                         }
 
                                         completedCount++;
+                                    } else if (!localSOD.customerName && sltData.CON_CUS_NAME) {
+                                        // Identity backfill: bridge-born SODs completed via the contractor
+                                        // portal view are created without customer fields (the contr/sod_details
+                                        // scrape carries no CON_CUS_NAME/ADDRE, and the SLT API fallback is
+                                        // skipped on create because the RTOM is not yet resolvable), and the
+                                        // status guard above skips them forever once COMPLETED with a date.
+                                        // Null-fill identity fields from the OPMC completed record —
+                                        // existing values are never overwritten.
+                                        await prisma.serviceOrder.update({
+                                            where: { id: localSOD.id },
+                                            data: {
+                                                customerName: sltData.CON_CUS_NAME,
+                                                ...(sltData.ADDRE ? { address: sltData.ADDRE } : {}),
+                                                ...(sltData.CON_TEC_CONTACT ? { techContact: sltData.CON_TEC_CONTACT } : {}),
+                                            }
+                                        });
+                                        enrichedCount++;
+                                    }
+
+                                    // Born-terminal event seeding: a bridge-born SOD created already
+                                    // COMPLETED/INSTALL_CLOSED has no truthful completion event
+                                    // (bridgeSync skips the history row rather than label it with
+                                    // the push time). The guard above fired because completedDate
+                                    // was missing — now that the portal's true date is known, seed
+                                    // the event once, dated with the real completion date. The
+                                    // findFirst guard also skips rows whose status change already
+                                    // wrote the event via the lifecycle path.
+                                    if (localSOD.sltsStatus === effectiveSltsStatus && !localSOD.completedDate && completedDate) {
+                                        const existingEvent = await prisma.serviceOrderStatusHistory.findFirst({
+                                            where: { serviceOrderId: localSOD.id, status: effectiveSltsStatus }
+                                        });
+                                        if (!existingEvent) {
+                                            await prisma.serviceOrderStatusHistory.create({
+                                                data: {
+                                                    serviceOrderId: localSOD.id,
+                                                    status: effectiveSltsStatus,
+                                                    statusDate: completedDate
+                                                }
+                                            });
+                                        }
+                                    }
+
+                                    // Born-row detail backfill: the contractor-view scrape carries
+                                    // no orderType/package/serviceType (etc.), so bridge-born SODs
+                                    // display "-" everywhere and land in the Daily Report's DT
+                                    // catch-all. Null-fill every field the OPMC completed record
+                                    // carries — existing values are never overwritten. receivedDate
+                                    // and statusDate follow the CASE B convention (completion date
+                                    // as the proxy when the row has neither).
+                                    const bornDetailFill = {
+                                        ...(!localSOD.orderType && sltData.ORDER_TYPE ? { orderType: sltData.ORDER_TYPE } : {}),
+                                        ...(!localSOD.package && sltData.PKG ? { package: sltData.PKG } : {}),
+                                        ...(!localSOD.serviceType && sltData.S_TYPE ? { serviceType: sltData.S_TYPE } : {}),
+                                        ...(!localSOD.lea && sltData.LEA ? { lea: sltData.LEA } : {}),
+                                        ...(!localSOD.woroTaskName && sltData.CON_WORO_TASK_NAME ? { woroTaskName: sltData.CON_WORO_TASK_NAME } : {}),
+                                        ...(!localSOD.woroSeit && sltData.CON_WORO_SEIT ? { woroSeit: sltData.CON_WORO_SEIT } : {}),
+                                        ...(!localSOD.ftthInstSeit && sltData.FTTH_INST_SIET ? { ftthInstSeit: sltData.FTTH_INST_SIET } : {}),
+                                        ...(!localSOD.ftthWifi && sltData.FTTH_WIFI ? { ftthWifi: sltData.FTTH_WIFI } : {}),
+                                        ...(!localSOD.iptv && sltData.IPTV && String(sltData.IPTV).trim().length > 5 ? { iptv: sltData.IPTV } : {}),
+                                        ...(!localSOD.receivedDate && completedDate ? { receivedDate: completedDate } : {}),
+                                        ...(!localSOD.statusDate && completedDate ? { statusDate: completedDate } : {}),
+                                    };
+                                    if (Object.keys(bornDetailFill).length > 0) {
+                                        await prisma.serviceOrder.update({
+                                            where: { id: localSOD.id },
+                                            data: bornDetailFill
+                                        });
                                     }
                                 }
                             } else {
@@ -241,6 +310,7 @@ export class CompletedSODSyncService {
             return {
                 checked: checkedCount,
                 completed: completedCount,
+                enriched: enrichedCount,
                 errors
             };
 
@@ -249,6 +319,7 @@ export class CompletedSODSyncService {
             return {
                 checked: 0,
                 completed: 0,
+                enriched: 0,
                 errors: [error instanceof Error ? error.message : 'Unknown error']
             };
         }

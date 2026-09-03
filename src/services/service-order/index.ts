@@ -154,7 +154,9 @@ export class ServiceOrderService {
                 await ServiceOrderRepository.createComment({
                     serviceOrderId: id,
                     comment: data.comments,
-                    authorId: userId
+                    // authorId is a UUID FK to User — system actors (SYNC_SERVICE,
+                    // BRIDGE_SYNC) have no User row and must not crash the comment write
+                    authorId: userId && isValidUuid(userId) ? userId : undefined
                 }, tx);
             }
 
