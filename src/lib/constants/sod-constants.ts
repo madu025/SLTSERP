@@ -171,6 +171,47 @@ export type SodOrderFamily = 'nc' | 'rl' | 'data';
 /** Completed sub-buckets: create/recon/upgrade roll up into FNC; or/ml roll up into FRL. */
 export type SodCompletedBucket = 'create' | 'recon' | 'upgrade' | 'or' | 'ml' | 'data';
 
+/**
+ * SLT portal SOD numbers embed the date the order was raised: <PREFIX><YYYYMMDD><seq>
+ * (e.g. CEN202608170082986 -> 2026-08-17). The portal feeds no receipt timestamp, so
+ * this is the only truthful lower bound for when the RTOM got the job; measured across
+ * live data the real receivedDate is never earlier than it (median lag 2 days).
+ * Returns midnight UTC of that date, or null when the number carries no plausible date.
+ */
+export function orderRaiseDateFromSoNum(soNum?: string | null): Date | null {
+    const raw = (soNum || '').trim().toUpperCase();
+    const letters = raw.search(/[^A-Z]/);
+    if (letters <= 0) return null;
+    const digits = raw.slice(letters);
+    if (digits.length < 8 || !/^[0-9]+$/.test(digits.slice(0, 8))) return null;
+
+    const year = Number(digits.slice(0, 4));
+    const month = Number(digits.slice(4, 6));
+    const day = Number(digits.slice(6, 8));
+    const currentYear = new Date().getUTCFullYear();
+    if (year < 2018 || year > currentYear + 1 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const stamp = Date.UTC(year, month - 1, day);
+    // Reject impossible dates such as 2026-02-30 (epoch day rolls into another month).
+    const probe = new Date(stamp);
+    if (probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return null;
+    return probe;
+}
+
+/**
+ * Truthful receipt anchor for a SOD whose row only appeared after the work had already
+ * closed (missing-history backfill): the order-raise date carried in the SOD number,
+ * clamped so it can never land after the completion instant. Falls back to the
+ * completion instant only when the number holds no date, which the daily report then
+ * recognises as a sync artifact rather than a receipt.
+ */
+export function backfillReceiptDate(soNum?: string | null, completionDate?: Date | null): Date | null {
+    const raised = orderRaiseDateFromSoNum(soNum);
+    if (!raised) return completionDate || null;
+    if (!completionDate) return raised;
+    return raised.getTime() <= completionDate.getTime() ? raised : completionDate;
+}
+
 /** Single categorization rule for the NC/RL/DATA breakdown and the CR/RC/UP/OR/ML/DT buckets. CREATE-OR must win over CREATE. */
 export function categorizeSodOrder(
     orderType?: string | null,

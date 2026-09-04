@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { sltApiService } from '@/services/slt/slt-api.service';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from '@/services/service-order/sod.lifecycle.service';
-import { SodStatus } from '@/lib/constants/sod-constants';
+import { SodStatus, backfillReceiptDate } from '@/lib/constants/sod-constants';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export class CompletedSODSyncService {
@@ -117,6 +117,11 @@ export class CompletedSODSyncService {
                                 ? localSODs[0].receivedDate
                                 : rawCompletedDate;
                             const isCompletionStatus = finalSltsStatus === SodStatus.COMPLETED || finalSltsStatus === SodStatus.INSTALL_CLOSED;
+                            // Receipt anchor: the portal sends no received-on value for closed
+                            // records, and stamping the completion instant as the receipt date made
+                            // August jobs show up as "Received Today". Use the date embedded in the
+                            // SOD number (never later than the completion).
+                            const receiptDate = backfillReceiptDate(sltData.SO_NUM, completedDate);
                             // Enum-guard legacy status — raw portal strings outside the enum must not hit Prisma
                             // For the `status` field: fall back to finalSltsStatus when legacyStatus is undefined
                             // (e.g. PROV_CLOSED is valid for sltsStatus but may not be in the legacy status enum)
@@ -219,8 +224,8 @@ export class CompletedSODSyncService {
                                     // display "-" everywhere and land in the Daily Report's DT
                                     // catch-all. Null-fill every field the OPMC completed record
                                     // carries — existing values are never overwritten. receivedDate
-                                    // and statusDate follow the CASE B convention (completion date
-                                    // as the proxy when the row has neither).
+                                    // and statusDate follow the CASE B convention: the order-raise
+                                    // date from the SOD number, and the portal closure instant.
                                     const bornDetailFill = {
                                         ...(!localSOD.orderType && sltData.ORDER_TYPE ? { orderType: sltData.ORDER_TYPE } : {}),
                                         ...(!localSOD.package && sltData.PKG ? { package: sltData.PKG } : {}),
@@ -231,7 +236,7 @@ export class CompletedSODSyncService {
                                         ...(!localSOD.ftthInstSeit && sltData.FTTH_INST_SIET ? { ftthInstSeit: sltData.FTTH_INST_SIET } : {}),
                                         ...(!localSOD.ftthWifi && sltData.FTTH_WIFI ? { ftthWifi: sltData.FTTH_WIFI } : {}),
                                         ...(!localSOD.iptv && sltData.IPTV && String(sltData.IPTV).trim().length > 5 ? { iptv: sltData.IPTV } : {}),
-                                        ...(!localSOD.receivedDate && completedDate ? { receivedDate: completedDate } : {}),
+                                        ...(!localSOD.receivedDate && receiptDate ? { receivedDate: receiptDate } : {}),
                                         ...(!localSOD.statusDate && completedDate ? { statusDate: completedDate } : {}),
                                     };
                                     if (Object.keys(bornDetailFill).length > 0) {
@@ -269,8 +274,9 @@ export class CompletedSODSyncService {
                                     status: (legacyStatus || finalSltsStatus) as Prisma.ServiceOrderCreateManyInput['status'],
                                     sltsStatus: finalSltsStatus,
 
-                                    // Dates
-                                    receivedDate: completedDate,
+                                    // Dates — receivedDate is the order-raise date, never the
+                                    // closure instant (see receiptDate above).
+                                    receivedDate: receiptDate,
                                     statusDate: completedDate,
                                     completedDate: isCompletionStatus ? completedDate : null,
 

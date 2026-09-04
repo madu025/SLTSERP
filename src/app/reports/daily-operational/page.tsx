@@ -53,7 +53,7 @@ interface ReportRowData {
     material: MaterialMetrics;
     returned: ReportMetrics;
     wiredOnly: ReportMetrics;
-    installClosed: ReportMetrics;
+    installClosed: CompletedMetrics;
     delays: Record<string, number>;
     balance: ReportMetrics;
     shortages: { [key: string]: number; stb: number; ont: number };
@@ -64,10 +64,112 @@ interface ReportData {
     date: string;
 }
 
+/**
+ * Completed Orders and Install Closed expose the same order-type breakdown, so they are
+ * painted from one config: green marks the Completed area, blue the Install Closed area.
+ */
+type BreakdownTone = 'green' | 'blue';
+
+type BreakdownKey = 'create' | 'recon' | 'upgrade' | 'fnc' | 'or' | 'ml' | 'frl' | 'data' | 'total';
+
+const BREAKDOWN_COLUMNS: { label: string; key: BreakdownKey; kind: 'bucket' | 'subtotal' | 'total' }[] = [
+    { label: 'CR', key: 'create', kind: 'bucket' },
+    { label: 'RC', key: 'recon', kind: 'bucket' },
+    { label: 'UP', key: 'upgrade', kind: 'bucket' },
+    { label: 'FNC', key: 'fnc', kind: 'subtotal' },
+    { label: 'OR', key: 'or', kind: 'bucket' },
+    { label: 'ML', key: 'ml', kind: 'bucket' },
+    { label: 'FRL', key: 'frl', kind: 'subtotal' },
+    { label: 'DT', key: 'data', kind: 'bucket' },
+    { label: 'Total', key: 'total', kind: 'total' },
+];
+
+const BREAKDOWN_STYLE: Record<BreakdownTone, {
+    group: string; sub: string; subTotal: string; edge: string;
+    bucket: string; subtotal: string; total: string;
+    sumBucket: string; sumSubtotal: string; sumTotal: string;
+}> = {
+    green: {
+        group: 'px-2 py-1 text-center bg-green-800 border-b border-green-700 border-l-2 border-l-green-400',
+        sub: 'bg-green-700',
+        subTotal: 'bg-green-600',
+        edge: 'border-l-2 border-l-green-400',
+        bucket: 'bg-green-50/70 text-green-950',
+        subtotal: 'bg-green-200/60 font-bold text-green-900',
+        total: 'bg-green-500/25 font-black text-green-900',
+        sumBucket: 'bg-green-500/15',
+        sumSubtotal: 'bg-green-500/30 font-bold',
+        sumTotal: 'bg-green-500 text-white font-bold',
+    },
+    blue: {
+        group: 'px-2 py-1 text-center bg-blue-800 border-b border-blue-700 border-l-2 border-l-blue-400',
+        sub: 'bg-blue-700',
+        subTotal: 'bg-blue-600',
+        edge: 'border-l-2 border-l-blue-400',
+        bucket: 'bg-blue-50/70 text-blue-950',
+        subtotal: 'bg-blue-200/60 font-bold text-blue-900',
+        total: 'bg-blue-500/25 font-black text-blue-900',
+        sumBucket: 'bg-blue-500/15',
+        sumSubtotal: 'bg-blue-500/30 font-bold',
+        sumTotal: 'bg-blue-500 text-white font-bold',
+    },
+};
+
+const breakdownFill = (tone: BreakdownTone, kind: 'bucket' | 'subtotal' | 'total', summary: boolean): string => {
+    const s = BREAKDOWN_STYLE[tone];
+    if (summary) return kind === 'total' ? s.sumTotal : kind === 'subtotal' ? s.sumSubtotal : s.sumBucket;
+    return kind === 'total' ? s.total : kind === 'subtotal' ? s.subtotal : s.bucket;
+};
+
+/** Column-label header cells of one breakdown group. */
+function BreakdownHeadCells({ tone }: { tone: BreakdownTone }) {
+    const s = BREAKDOWN_STYLE[tone];
+    return (
+        <>
+            {BREAKDOWN_COLUMNS.map(({ label, key, kind }, i) => (
+                <th
+                    key={key}
+                    className={`${kind === 'total' ? `px-1 py-1 w-10 ${s.subTotal}` : `px-0.5 py-1 w-7 ${s.sub}`}${i === 0 ? ` ${s.edge}` : ''} text-white`}
+                >
+                    {label}
+                </th>
+            ))}
+        </>
+    );
+}
+
+/** The nine figures of one breakdown group; shared by RTOM rows and the region / grand total rows. */
+function BreakdownCells({ metrics, tone, summary = false }: { metrics: CompletedMetrics; tone: BreakdownTone; summary?: boolean }) {
+    const s = BREAKDOWN_STYLE[tone];
+    const border = summary ? 'border border-slate-300' : 'border border-slate-200';
+    return (
+        <>
+            {BREAKDOWN_COLUMNS.map(({ key, kind }, i) => (
+                <td
+                    key={key}
+                    className={`${border} px-1 py-1 text-center ${breakdownFill(tone, kind, summary)}${i === 0 ? ` ${s.edge}` : ''}`}
+                >
+                    {metrics[key]}
+                </td>
+            ))}
+        </>
+    );
+}
+
 export default function DailyOperationalReportPage() {
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(false);
     const [selectedDate, setSelectedDate] = useState(getSriLankaToday());
+
+    // React hydrates in time slices, so a response that lands while the server markup is
+    // still being compared re-renders the tree underneath it - the toolbar buttons sit
+    // before the 30-column body, so their `disabled` flag was the first node to disagree
+    // (server: disabled because data was null; client: enabled because data had arrived).
+    // Holding the fetch until after the hydration commit keeps both passes identical; the
+    // buttons additionally carry suppressHydrationWarning because whether a report exists
+    // is unknowable at render time and losing hydration costs a full client re-render of
+    // the whole table.
+    const [hydrated, setHydrated] = useState(false);
 
     const fetchReport = React.useCallback(async () => {
         setLoading(true);
@@ -85,8 +187,12 @@ export default function DailyOperationalReportPage() {
     }, [selectedDate]);
 
     React.useEffect(() => {
-        fetchReport();
-    }, [fetchReport]);
+        setHydrated(true);
+    }, []);
+
+    React.useEffect(() => {
+        if (hydrated) fetchReport();
+    }, [hydrated, fetchReport]);
 
     const reportData = data?.reportData || [];
 
@@ -105,7 +211,7 @@ export default function DailyOperationalReportPage() {
             material: { dwSlt: 0, dwCompany: 0, dw: 0, pole56: 0, pole67: 0, pole80: 0 },
             returned: { nc: 0, rl: 0, data: 0, total: 0 },
             wiredOnly: { nc: 0, rl: 0, data: 0, total: 0 },
-            installClosed: { nc: 0, rl: 0, data: 0, total: 0 },
+            installClosed: { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 },
             delays: { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 },
             balance: { nc: 0, rl: 0, data: 0, total: 0 },
             shortages: { stb: 0, ont: 0 }
@@ -147,10 +253,11 @@ export default function DailyOperationalReportPage() {
             // Recalculate totals from individual fields
             recalcTotal(summaries[region].inHandMorning, ['nc', 'rl', 'data']);
             recalcTotal(summaries[region].received, ['nc', 'rl', 'data']);
-            recalcTotal(summaries[region].completed, ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data']);
+            // FNC/FRL are subtotals of the buckets above, so they stay out of the total.
+            recalcTotal(summaries[region].completed, ['create', 'recon', 'upgrade', 'or', 'ml', 'data']);
             recalcTotal(summaries[region].returned, ['nc', 'rl', 'data']);
             recalcTotal(summaries[region].wiredOnly, ['nc', 'rl', 'data']);
-            recalcTotal(summaries[region].installClosed, ['nc', 'rl', 'data']);
+            recalcTotal(summaries[region].installClosed, ['create', 'recon', 'upgrade', 'or', 'ml', 'data']);
             recalcTotal(summaries[region].balance, ['nc', 'rl', 'data']);
 
             // Accumulate grand totals
@@ -172,10 +279,10 @@ export default function DailyOperationalReportPage() {
         // Recalculate grand totals from individual fields
         recalcTotal(grandTotal.inHandMorning, ['nc', 'rl', 'data']);
         recalcTotal(grandTotal.received, ['nc', 'rl', 'data']);
-        recalcTotal(grandTotal.completed, ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data']);
+        recalcTotal(grandTotal.completed, ['create', 'recon', 'upgrade', 'or', 'ml', 'data']);
         recalcTotal(grandTotal.returned, ['nc', 'rl', 'data']);
         recalcTotal(grandTotal.wiredOnly, ['nc', 'rl', 'data']);
-        recalcTotal(grandTotal.installClosed, ['nc', 'rl', 'data']);
+        recalcTotal(grandTotal.installClosed, ['create', 'recon', 'upgrade', 'or', 'ml', 'data']);
         recalcTotal(grandTotal.balance, ['nc', 'rl', 'data']);
 
         return { summaries, grandTotal };
@@ -189,11 +296,15 @@ export default function DailyOperationalReportPage() {
         if (!data || reportData.length === 0) return;
 
         const worksheetData: (string | number)[][] = [];
+        // Install Closed exports the same order-type breakdown as Completed Orders.
+        const breakdown = (m: CompletedMetrics): number[] =>
+            [m.create, m.recon, m.upgrade, m.fnc, m.or, m.ml, m.frl, m.data, m.total];
 
         // Headers
         worksheetData.push([
             "Province", "RTOM", "In Hand Morning", "Received Today", "Total In Hand",
-            "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "DATA", "Total Completed", "Install Closed",
+            "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "DATA", "Total Completed",
+            "IC CR", "IC RC", "IC UP", "IC FNC", "IC OR", "IC ML", "IC FRL", "IC DATA", "IC Total",
             "DW", "Pole 5.6", "Pole 6.7", "Pole 8.0", "Returned SOD", "Wired Only", "Balance"
         ]);
 
@@ -204,7 +315,7 @@ export default function DailyOperationalReportPage() {
                     const s = summaries[currentRegion];
                     worksheetData.push([
                         "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
-                        s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total, s.installClosed.total,
+                        s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total, ...breakdown(s.installClosed),
                         s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
                     ]);
                 }
@@ -214,7 +325,7 @@ export default function DailyOperationalReportPage() {
 
             worksheetData.push([
                 row.province, row.rtom, row.inHandMorning.total, row.received.total, row.totalInHand,
-                row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.data, row.completed.total, row.installClosed.total,
+                row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.data, row.completed.total, ...breakdown(row.installClosed),
                 row.material.dw.toFixed(2), row.material.pole56, row.material.pole67, row.material.pole80, row.returned.total, row.wiredOnly.total, row.balance.total
             ]);
         });
@@ -223,7 +334,7 @@ export default function DailyOperationalReportPage() {
             const s = summaries[currentRegion];
             worksheetData.push([
                 "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
-                s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total, s.installClosed.total,
+                s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.data, s.completed.total, ...breakdown(s.installClosed),
                 s.material.dw.toFixed(2), s.material.pole56, s.material.pole67, s.material.pole80, s.returned.total, s.wiredOnly.total, s.balance.total
             ]);
         }
@@ -231,7 +342,7 @@ export default function DailyOperationalReportPage() {
         if (grandTotal) {
             worksheetData.push([
                 "GRAND TOTAL", "", grandTotal.inHandMorning.total, grandTotal.received.total, grandTotal.totalInHand,
-                grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.data, grandTotal.completed.total, grandTotal.installClosed.total,
+                grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.data, grandTotal.completed.total, ...breakdown(grandTotal.installClosed),
                 grandTotal.material.dw.toFixed(2), grandTotal.material.pole56, grandTotal.material.pole67, grandTotal.material.pole80, grandTotal.returned.total, grandTotal.wiredOnly.total, grandTotal.balance.total
             ]);
         }
@@ -268,9 +379,12 @@ export default function DailyOperationalReportPage() {
             `          Data :\t${row.completed.data}`,
             ``,
             `Install Closed within day :\t${row.installClosed.total}`,
-            `          NC :\t${row.installClosed.nc}`,
-            `          RL :\t${row.installClosed.rl}`,
-            `          DATA :\t${row.installClosed.data}`,
+            `          CR :\t${row.installClosed.create}`,
+            `          CR-Recon :\t${row.installClosed.recon}`,
+            `          CR-UP-SN :\t${row.installClosed.upgrade}`,
+            `          CR-OR :\t${row.installClosed.or}`,
+            `          ML :\t${row.installClosed.ml}`,
+            `          Data :\t${row.installClosed.data}`,
             ``,
             `DW Usage :\t${row.material.dw}`,
             `Pole Usage :\t${row.material.pole56 + row.material.pole67 + row.material.pole80}`,
@@ -314,16 +428,8 @@ export default function DailyOperationalReportPage() {
             <td className="border border-slate-300 px-1 py-1 text-center bg-emerald-50/10 font-bold">{data.received.total}</td>
             <td className="border border-slate-300 px-1 py-1 text-center bg-indigo-50/10 font-bold">{data.totalInHand}</td>
 
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.create}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.recon}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.upgrade}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center bg-green-500/20 font-bold">{data.completed.fnc}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.or}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.ml}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center bg-green-500/20 font-bold">{data.completed.frl}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.data}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center font-bold bg-green-500 text-white">{data.completed.total}</td>
-            <td className="border border-slate-300 px-1 py-1 text-center">{data.installClosed.total}</td>
+            <BreakdownCells metrics={data.completed} tone="green" summary />
+            <BreakdownCells metrics={data.installClosed} tone="blue" summary />
 
             <td className="border border-slate-300 px-1 py-1 text-center">{data.material.dw.toFixed(1)}</td>
             <td className="border border-slate-300 px-1 py-1 text-center">{data.material.pole56}</td>
@@ -373,6 +479,7 @@ export default function DailyOperationalReportPage() {
                                 disabled={loading || !data}
                                 size="sm"
                                 className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                                suppressHydrationWarning
                             >
                                 <Download className="w-4 h-4" /> Export
                             </Button>
@@ -383,6 +490,7 @@ export default function DailyOperationalReportPage() {
                                 variant="outline"
                                 className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
                                 title="Copy FN Progress text format for sharing"
+                                suppressHydrationWarning
                             >
                                 <ClipboardCopy className="w-4 h-4" /> Copy Text
                             </Button>
@@ -440,8 +548,8 @@ export default function DailyOperationalReportPage() {
                                         <th rowSpan={2} className="px-1 py-2 bg-blue-800 text-center w-14">In Hand<br />(AM)</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-emerald-800 text-center w-14">Recv<br />Today</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-indigo-800 text-center w-14">Total<br />Hand</th>
-                                        <th colSpan={9} className="px-2 py-1 bg-green-800 text-center border-b border-green-700">Completed Orders</th>
-                                        <th rowSpan={2} className="px-1 py-2 bg-teal-800 text-center w-12">IC</th>
+                                        <th colSpan={9} className={BREAKDOWN_STYLE.green.group}>Completed Orders</th>
+                                        <th colSpan={9} className={BREAKDOWN_STYLE.blue.group}>Install Closed</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-amber-800 text-center w-12">DW</th>
                                         <th colSpan={3} className="px-2 py-1 bg-cyan-800 text-center border-b border-cyan-700">Poles</th>
                                         <th rowSpan={2} className="px-1 py-2 bg-rose-800 text-center w-12">Ret<br />SOD</th>
@@ -449,15 +557,8 @@ export default function DailyOperationalReportPage() {
                                         <th rowSpan={2} className="px-2 py-2 bg-slate-700 text-center w-16 uppercase">BAL</th>
                                     </tr>
                                     <tr className="text-white text-[9px] uppercase font-bold tracking-tighter divide-x divide-slate-700">
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">CR</th>
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">RC</th>
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">UP</th>
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">FNC</th>
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">OR</th>
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">ML</th>
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">FRL</th>
-                                        <th className="px-0.5 py-1 w-7 bg-green-700 text-white">DT</th>
-                                        <th className="px-1 py-1 w-10 bg-green-600 text-white">Total</th>
+                                        <BreakdownHeadCells tone="green" />
+                                        <BreakdownHeadCells tone="blue" />
                                         <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">5.6</th>
                                         <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">6.7</th>
                                         <th className="px-0.5 py-1 w-7 bg-cyan-700 text-white">8.0</th>
@@ -466,7 +567,7 @@ export default function DailyOperationalReportPage() {
                                 <tbody className="bg-white">
                                     {reportData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={22} className="text-center py-12 text-slate-400">
+                                            <td colSpan={30} className="text-center py-12 text-slate-400">
                                                 {loading ? (
                                                     <div className="flex flex-col items-center gap-2">
                                                         <RefreshCw className="w-8 h-8 animate-spin text-slate-300" />
@@ -490,7 +591,7 @@ export default function DailyOperationalReportPage() {
                                                         currentRegion = row.region;
                                                         rows.push(
                                                             <tr key={`header-${row.region}`} className="bg-slate-200 border-y border-slate-300">
-                                                                <td colSpan={22} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
+                                                                <td colSpan={30} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
                                                             </tr>
                                                         );
                                                     }
@@ -504,16 +605,8 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-emerald-50/50 text-emerald-700 font-bold">{row.received.total}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-indigo-50 font-black text-indigo-900">{row.totalInHand}</td>
 
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.create}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.recon}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.upgrade}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-green-50/70 font-bold text-green-800">{row.completed.fnc}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.or}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.ml}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-green-50/70 font-bold text-green-800">{row.completed.frl}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.data}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-green-100/50 font-black text-green-900">{row.completed.total}</td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-teal-50/50 text-teal-900 font-medium">{row.installClosed.total}</td>
+                                                            <BreakdownCells metrics={row.completed} tone="green" />
+                                                            <BreakdownCells metrics={row.installClosed} tone="blue" />
 
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-amber-50/50 text-amber-900 font-medium">{row.material.dw.toFixed(1)}</td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center bg-cyan-50/40 text-cyan-900 font-medium">{row.material.pole56}</td>
@@ -564,10 +657,10 @@ export default function DailyOperationalReportPage() {
                                     </thead>
                                     <tbody className="bg-white">
                                         {reportData.map((row) => {
+                                            // Install Closed is excluded: it now breaks down by order type, not family.
                                             const metrics: { label: string; m: { nc: number; rl: number; data: number; total: number } }[] = [
                                                 { label: 'C/F (In Hand AM)', m: row.inHandMorning },
                                                 { label: 'SOD Receiving', m: row.received },
-                                                { label: 'Install Closed', m: row.installClosed },
                                                 { label: 'Returned', m: row.returned },
                                                 { label: 'Wired Only', m: row.wiredOnly },
                                                 { label: 'Balance C/F', m: row.balance },
@@ -575,7 +668,7 @@ export default function DailyOperationalReportPage() {
                                             return metrics.map(({ label, m }, mi) => (
                                                 <tr key={`${row.rtom}-${label}`} className={`border-b border-slate-100 hover:bg-blue-50/40 ${mi === 0 ? 'border-t-2 border-t-slate-300' : ''}`}>
                                                     {mi === 0 && (
-                                                        <td rowSpan={6} className="border-r border-slate-200 px-2 py-1 text-center font-bold text-slate-900 bg-slate-50 align-middle">{row.rtom}</td>
+                                                        <td rowSpan={5} className="border-r border-slate-200 px-2 py-1 text-center font-bold text-slate-900 bg-slate-50 align-middle">{row.rtom}</td>
                                                     )}
                                                     <td className="border-r border-slate-200 px-2 py-1 text-slate-600">{label}</td>
                                                     <td className="border-r border-slate-100 px-2 py-1 text-center text-slate-800">{m.nc}</td>

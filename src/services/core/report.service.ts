@@ -4,6 +4,8 @@ import { subMonths, subDays, subYears, format } from 'date-fns';
 import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
 import { PaymentTypeEnum, PaymentStatusEnum, Prisma, ServiceOrderStatus } from '@prisma/client';
 import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES, categorizeSodOrder } from '@/lib/constants/sod-constants';
+import { classifySodDayActivity, type SodDayActivitySource, type SodDayWindow } from './daily-report-activity';
+import { sumMaterialsForSods, type DailyMaterialTotals, type MaterialSodLike } from './daily-report-material';
 
 export interface AnalyticsReportOptions {
   customFrom?: string | null;
@@ -50,14 +52,8 @@ interface CompletedEntry {
   total: number;
 }
 
-interface MaterialEntry {
-  dwSlt: number;
-  dwCompany: number;
-  dw: number;
-  pole56: number;
-  pole67: number;
-  pole80: number;
-}
+/** DW and pole totals for one RTOM row; shape owned by the material rule module. */
+type MaterialEntry = DailyMaterialTotals;
 
 interface ReturnedEntry {
   nc: number;
@@ -73,12 +69,8 @@ interface WiredOnlyEntry {
   total: number;
 }
 
-interface InstallClosedEntry {
-  nc: number;
-  rl: number;
-  data: number;
-  total: number;
-}
+/** Install Closed carries the same order-type breakdown as Completed Orders. */
+type InstallClosedEntry = CompletedEntry;
 
 interface DelaysEntry {
   ontShortage: number;
@@ -126,39 +118,15 @@ interface ReportRow {
 const slDateKey = (d: Date): string =>
   new Date(d.getTime() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-interface StatusHistoryEntry {
-  status: string;
-  statusDate: Date | null | string;
-}
-
-interface MaterialUsageItem {
-  category: string | null;
-  name: string | null;
-  code: string | null;
-}
-
-interface MaterialUsageEntry {
-  item: MaterialUsageItem | null;
-  quantity: number | string | { toNumber(): number };
-}
-
-interface ServiceOrderWithRelations {
+/**
+ * A report SOD is both a day-activity subject and a material carrier; the shapes
+ * come from the rule modules so the report cannot drift from them.
+ */
+interface ServiceOrderWithRelations extends SodDayActivitySource, MaterialSodLike {
   id: string;
   orderType: string | null;
   package: string | null;
-  status: string | null;
-  statusDate: Date | null;
-  receivedDate: Date | null;
-  createdAt: Date;
-  sltsStatus: string | null;
-  completedDate: Date | null;
-  wiredOnly: boolean | null;
   teamId: string | null;
-  opmcPatStatus: string | null;
-  hoPatStatus: string | null;
-  sltsPatStatus: string | null;
-  materialUsage: MaterialUsageEntry[];
-  statusHistory: StatusHistoryEntry[];
   delayReasons?: Record<string, boolean> | null;
   stbShortage?: boolean;
   ontShortage?: boolean;
@@ -572,6 +540,7 @@ export class ReportService {
             wiredOnly: true,
             delayReasons: true,
             teamId: true,
+            materialSource: true,
             stbShortage: true,
             ontShortage: true,
             materialUsage: {
@@ -579,11 +548,14 @@ export class ReportService {
                 quantity: true,
                 item: {
                   select: {
-                    category: true,
-                    name: true,
                     code: true
                   }
                 }
+              }
+            },
+            erectedPoles: {
+              select: {
+                poleType: true
               }
             },
             statusHistory: {
@@ -607,16 +579,7 @@ export class ReportService {
       ]
     });
 
-    const rawSources: { id: string; materialSource: string }[] = await prisma.$queryRaw`
-      SELECT "id", "materialSource" FROM "ServiceOrder" 
-      WHERE ("createdAt" >= ${startDate} AND "createdAt" <= ${endDate})
-         OR ("receivedDate" >= ${startDate} AND "receivedDate" <= ${endDate})
-         OR ("completedDate" >= ${startDate} AND "completedDate" <= ${endDate})
-         OR ("statusDate" >= ${startDate} AND "statusDate" <= ${endDate})
-         OR ("updatedAt" >= ${startDate} AND "updatedAt" <= ${endDate})
-    `;
-
-    const sourceMap = new Map<string, string>(rawSources.map(s => [s.id, s.materialSource]));
+    const dayWindow: SodDayWindow = { start: startDate, end: endDate };
 
     // Morning carry-forward: orders received before today that are still pending.
     // Uses same logic as pending SODs table: excludes COMPLETED, INSTALL_CLOSED, RETURN, DISAPPEARED
@@ -664,15 +627,21 @@ export class ReportService {
         return true;
       });
       const regularTeams = opmc.contractorTeams.length;
+
+      // One classification per SOD drives every counter of this row, so no two columns
+      // can disagree about which day an SOD belongs to.
+      const activities = orders.map((order) => ({
+        order,
+        activity: classifySodDayActivity(order, dayWindow),
+      }));
+
       // Only count teams from orders actively in today's flow (received today or still pending)
-      const activeTodayOrders = orders.filter(o => {
-        const rd = o.receivedDate || o.createdAt;
-        const receivedToday = rd >= startDate && rd <= endDate;
-        const pendingToday = !excludedStatuses.includes(o.sltsStatus as ServiceOrderStatus)
-          && pendingStatuses.includes(o.status as ServiceOrderStatus);
-        return receivedToday || pendingToday;
-      });
-      const teamsWorked = new Set(activeTodayOrders.map(o => o.teamId).filter(Boolean)).size;
+      const teamsWorked = new Set(
+        activities
+          .filter(({ activity }) => activity.receivedToday || activity.pendingNow)
+          .map(({ order }) => order.teamId)
+          .filter(Boolean)
+      ).size;
 
       // Family split delegates to the shared categorizeSodOrder rule (sod-constants.ts).
       const categorizeOrder = (order: { orderType?: string | null; package?: string | null }) =>
@@ -689,93 +658,65 @@ export class ReportService {
 
       const received: ReceivedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const completed: CompletedEntry = { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 };
-      const material: MaterialEntry = { dwSlt: 0, dwCompany: 0, dw: 0, pole56: 0, pole67: 0, pole80: 0 };
       const returned: ReturnedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const wiredOnly: WiredOnlyEntry = { nc: 0, rl: 0, data: 0, total: 0 };
-      const installClosed: InstallClosedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
+      const installClosed: InstallClosedEntry = { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 };
       const delays: DelaysEntry = { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 };
-      // Track wiredOnly orders NOT already counted as completed (PROV_CLOSED without INSTALL_CLOSED)
-      const wiredOnlyExtra: { nc: number; rl: number; data: number } = { nc: 0, rl: 0, data: 0 };
+      // Balance halves counted directly instead of derived by subtracting the day's
+      // closures from a queue that already dropped them (inHandMorning is measured on the
+      // current status, so a job received in July and closed today is absent from it).
+      const receivedStillOpen: { nc: number; rl: number; data: number } = { nc: 0, rl: 0, data: 0 };
+      // Morning-queue rows treated as out of the working balance because they are wired only.
+      const morningWiredOnly: { nc: number; rl: number; data: number } = { nc: 0, rl: 0, data: 0 };
+      const completedSods: ServiceOrderWithRelations[] = [];
 
-      orders.forEach(order => {
-        const category = categorizeOrder(order);
-        const source = sourceMap.get(order.id) || 'SLT';
+      activities.forEach(({ order, activity }) => {
+        // One categorize call supplies the NC/RL/DATA family and the completed bucket.
+        const { family: category, bucket } = categorizeSodOrder(order.orderType, order.package);
 
-        // Canonical receiving date (SLT portal date), fallback to row creation
-        const rDate = order.receivedDate || order.createdAt;
-        if (rDate >= startDate && rDate <= endDate) {
+        if (activity.receivedToday) {
           received[category]++;
           received.total++;
         }
 
-        // Event-anchored counting: history rows carry the true event date; completedDate
-        // is the row-state fallback. A stale statusDate must never re-count an SOD.
-        const inDay = (d: string | Date | null | undefined) =>
-          !!d && new Date(d) >= startDate && new Date(d) <= endDate;
-        const hadHistoryEventToday = (eventStatus: string) =>
-          order.statusHistory?.some(
-            (h) => h.status?.toUpperCase() === eventStatus && inDay(h.statusDate)
-          ) ?? false;
-
-        // Install Closed mirrors the install_closed page: status OR sltsStatus = INSTALL_CLOSED,
-        // RETURN/DISAPPEARED excluded; anchor: event → completedDate → statusDate fallback.
-        const isInstallClosedToday =
-          (order.status === 'INSTALL_CLOSED' || order.sltsStatus === 'INSTALL_CLOSED') &&
-          order.sltsStatus !== 'RETURN' && order.sltsStatus !== 'DISAPPEARED' &&
-          order.status !== 'DISAPPEARED' &&
-          (hadHistoryEventToday('INSTALL_CLOSED') ||
-            inDay(order.completedDate) ||
-            (!order.completedDate && inDay(order.statusDate)));
-
-        const isCompletedToday =
-          isInstallClosedToday ||
-          hadHistoryEventToday('COMPLETED') ||
-          ((order.sltsStatus === 'COMPLETED' || order.status === 'COMPLETED') && inDay(order.completedDate));
-        if (isCompletedToday) {
+        if (activity.completedToday) {
           // Same categorizeSodOrder rule as the family split — the views cannot drift.
-          completed[categorizeSodOrder(order.orderType, order.package).bucket]++;
+          completed[bucket]++;
           completed.total++;
+          // Material is charged to the day the work was finished, so only completions consume.
+          completedSods.push(order);
         }
 
-        if (isInstallClosedToday) {
-          installClosed[category]++;
+        if (activity.installClosedToday) {
+          // Same bucket rule as Completed Orders, so the two breakdowns are comparable.
+          installClosed[bucket]++;
           installClosed.total++;
         }
 
-        // Returns mirror the Return page: capture instant (completedDate) anchor, event first,
-        // statusDate only for born-RETURN rows; PAT-REJECTED excluded.
-        const isReturnedToday = order.sltsStatus === 'RETURN' && (
-          hadHistoryEventToday('RETURN') ||
-          inDay(order.completedDate) ||
-          (!order.completedDate && inDay(order.statusDate))
-        );
-        const patRejected = order.opmcPatStatus === 'REJECTED' ||
-          order.hoPatStatus === 'REJECTED' || order.sltsPatStatus === 'REJECTED';
-        if (isReturnedToday && !patRejected) {
+        // Returns mirror the Return page: capture instant anchor, PAT-REJECTED excluded.
+        if (activity.returnedToday && !activity.patRejected) {
           returned[category]++;
           returned.total++;
         }
 
-        const isProvClosedToday = order.status === 'PROV_CLOSED' && order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate;
-        const hadProvClosedHistoryToday = order.statusHistory?.some((h) =>
-          h.status === 'PROV_CLOSED' &&
-          h.statusDate && new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
-        );
+        // Wired only is scoped to orders in today's flow (received today or morning carry-forward)
+        const wiredOnlyish =
+          activity.provClosedToday || activity.provClosedEventToday || activity.wiredOnlyFlagged;
 
-        // Scope wiredOnly to orders in today's flow (received today or morning carry-forward)
-        const rd = order.receivedDate || order.createdAt;
-        const receivedToday = rd >= startDate && rd <= endDate;
-        const inMorningCarryForward = !receivedToday && rd < startDate
-          && !excludedStatuses.includes(order.sltsStatus as ServiceOrderStatus)
-          && pendingStatuses.includes(order.status as ServiceOrderStatus);
-
-        if ((isProvClosedToday || hadProvClosedHistoryToday || order.wiredOnly === true) && (receivedToday || inMorningCarryForward)) {
+        if (wiredOnlyish && activity.inTodayFlow) {
           wiredOnly[category]++;
           wiredOnly.total++;
-          // If this wiredOnly order was NOT counted as completed, track it for balance deduction
-          if (!isCompletedToday) {
-            wiredOnlyExtra[category]++;
-          }
+        }
+
+        // Intake that is still open at report time: the balance half that inHandMorning
+        // cannot see, because those orders arrived inside the report day.
+        if (activity.receivedToday && activity.pendingNow && !wiredOnlyish) {
+          receivedStillOpen[category]++;
+        }
+
+        // Backlog that is wired only stays out of the working balance.
+        if (wiredOnlyish && activity.morningCarryForward && !activity.completedToday) {
+          morningWiredOnly[category]++;
         }
 
         if (order.delayReasons) {
@@ -789,52 +730,22 @@ export class ReportService {
           if (reasons.sameDay) delays.sameDay++;
           if (reasons.polePending) delays.polePending++;
         }
-
-        if (order.materialUsage && order.materialUsage.length > 0) {
-          order.materialUsage.forEach((usage) => {
-            const itemCategory = usage.item?.category?.toLowerCase() || '';
-            const itemName = usage.item?.name?.toLowerCase() || '';
-            const itemCode = usage.item?.code?.toUpperCase() || '';
-
-            let quantity = 0;
-            if (typeof usage.quantity === 'number') {
-              quantity = usage.quantity;
-            } else if (usage.quantity && typeof usage.quantity === 'object' && 'toNumber' in usage.quantity) {
-              quantity = (usage.quantity as { toNumber(): number }).toNumber();
-            } else {
-              quantity = parseFloat(usage.quantity as string) || 0;
-            }
-
-            if (itemCode === 'OSPFTA003' || itemName.includes('drop wire')) {
-              if (source === 'COMPANY') {
-                material.dwCompany += quantity;
-              } else {
-                material.dwSlt += quantity;
-              }
-              material.dw += quantity;
-            } else if (itemCategory.includes('pole')) {
-              if (itemName.includes('5.6')) {
-                material.pole56 += quantity;
-              } else if (itemName.includes('6.7')) {
-                material.pole67 += quantity;
-              } else if (itemName.includes('8.0') || itemName.includes('8')) {
-                material.pole80 += quantity;
-              }
-            }
-          });
-        }
       });
+
+      const material: MaterialEntry = sumMaterialsForSods(completedSods);
 
       // FNC = CR+RC+UP, FRL = OR+ML — group subtotals; F-NC/F-RL order types do not exist in portal data.
       completed.fnc = completed.create + completed.recon + completed.upgrade;
       completed.frl = completed.or + completed.ml;
+      installClosed.fnc = installClosed.create + installClosed.recon + installClosed.upgrade;
+      installClosed.frl = installClosed.or + installClosed.ml;
 
       const totalInHand = inHandMorning.total + received.total;
 
       const balance: BalanceEntry = {
-        nc: inHandMorning.nc + received.nc - completed.fnc - returned.nc - wiredOnlyExtra.nc,
-        rl: inHandMorning.rl + received.rl - completed.frl - returned.rl - wiredOnlyExtra.rl,
-        data: inHandMorning.data + received.data - completed.data - returned.data - wiredOnlyExtra.data,
+        nc: inHandMorning.nc - morningWiredOnly.nc + receivedStillOpen.nc,
+        rl: inHandMorning.rl - morningWiredOnly.rl + receivedStillOpen.rl,
+        data: inHandMorning.data - morningWiredOnly.data + receivedStillOpen.data,
         total: 0
       };
       balance.total = balance.nc + balance.rl + balance.data;
