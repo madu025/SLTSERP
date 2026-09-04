@@ -5,12 +5,12 @@ import { assertCronAuth } from '@/lib/cron-auth';
 import { enqueueCronJob } from '@/lib/cron-enqueue';
 
 /**
- * GET /api/cron/sync-completed — enqueue only.
+ * GET /api/cron/sync-completed — enqueue only, manual kick.
  *
  * The INSTALL_CLOSED sweep walks several months of portal pages per RTOM; measured work far
- * exceeds what a request handler may hold, which is why the same sync already runs as the
- * worker's 20-minute PERIODIC_COMPLETED_SYNC repeatable. This endpoint is the manual/external
- * kick: it queues the job and returns.
+ * exceeds what a request handler may hold, so this endpoint only queues the job and returns. The
+ * regular trigger is the master tick (/api/cron/sync-all), which seeds the same PERIODIC_COMPLETED_SYNC
+ * bucket on a 20-minute cadence. Calling this from a scheduler as well would double the portal work.
  */
 export const GET = apiHandler(async (req) => {
     assertCronAuth(req);
@@ -25,4 +25,4 @@ export const GET = apiHandler(async (req) => {
         method: 'queued',
         timestamp: new Date().toISOString(),
     }, { status: accepted ? 200 : 503 });
-});
+}, { rawResponse: true });

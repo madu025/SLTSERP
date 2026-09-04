@@ -18,6 +18,7 @@ import { safe } from '@/utils/safe-await.util';
 import { enqueueCronJob } from '@/lib/cron-enqueue';
 import {
     claimSlot,
+    isSlotDue,
     readSweepCursor,
     releaseSlot,
     releaseTickLock,
@@ -45,6 +46,15 @@ interface MaterialDetailInput {
     RAW?: Record<string, string>;
 }
 
+/** One unit of scheduled work an inline tick may run, described once so budget maths and runner agree. */
+interface InlineTickTask {
+    taskId: string;
+    plan: SlotPlan;
+    label: string;
+    needMs: number;
+    run: () => Promise<unknown>;
+}
+
 export class SODSyncService {
     /** Per-RTOM live-worklist refresh window - equals the external scheduler's tick interval. */
     static readonly RTOM_SWEEP_WINDOW_MS = 10 * 60 * 1000;
@@ -53,12 +63,21 @@ export class SODSyncService {
     /** Asia/Colombo is UTC+5:30 all year (no DST) - same assumption as lib/timezone. */
     private static readonly SL_OFFSET_MS = 330 * 60 * 1000;
 
-    /** RTOMs swept in parallel per inline chunk; the queue path staggers instead of batching. */
-    private static readonly RTOM_INLINE_CONCURRENCY = 10;
+    /**
+     * RTOMs swept in parallel per inline chunk - the size the pre-existing serverless path proved
+     * it could finish inside ~10s, so a chunk is a predictable unit of the tick budget.
+     */
+    private static readonly RTOM_INLINE_CONCURRENCY = 15;
     /** Per-RTOM inline ceiling - one wedged portal call must not eat the whole tick budget. */
-    private static readonly RTOM_INLINE_TIMEOUT_MS = 15000;
+    private static readonly RTOM_INLINE_TIMEOUT_MS = 12000;
+    /** Time kept back at the end of an inline tick so it still returns a response. */
+    private static readonly TICK_RETURN_RESERVE_MS = 5000;
+    /** Share of the budget the RTOM sweep may take; the rest is for the scheduled tasks. */
+    private static readonly SWEEP_BUDGET_FRACTION = 0.6;
+    /** Ceiling on what may be held back from the sweep for the due tasks, however long they need. */
+    private static readonly TASK_RESERVE_FRACTION = 0.5;
     /** Tick lease lifetime; a function killed mid-tick unblocks the next tick after this. */
-    private static readonly TICK_LEASE_MS = 9 * 60 * 1000;
+    private static readonly TICK_LEASE_MS = 3 * 60 * 1000;
 
     /**
      * Work that is due less often than the tick. There is exactly ONE external scheduler in this
@@ -66,15 +85,21 @@ export class SODSyncService {
      * is expressed as a bucket-aligned job id: `tick-<TYPE>-<bucket>` is identical for every tick
      * that falls inside the same bucket, and the queue rejects the duplicate. 20/30-minute work
      * therefore still runs 20/30-minute-ly without a second clock.
+     *
+     * `inlineCostMs` is what the serverless path needs on top: the observed cost of the task, used
+     * to refuse a start it cannot finish (0 = never inline, because the work outlives any function
+     * window and belongs to a worker).
      */
     private static readonly TICK_BUCKET_JOBS: ReadonlyArray<{
         name: string;
         type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC';
         everyMs: number;
+        inlineCostMs: number;
     }> = [
-            { name: 'periodic-completed-sync', type: 'PERIODIC_COMPLETED_SYNC', everyMs: 20 * 60 * 1000 },
-            { name: 'periodic-global-sync', type: 'PERIODIC_GLOBAL_SYNC', everyMs: 30 * 60 * 1000 },
-            { name: 'periodic-return-sync', type: 'PERIODIC_RETURN_SYNC', everyMs: 30 * 60 * 1000 },
+            // Walks months of portal pages per RTOM: it timed out at 30s even as its own cron entry.
+            { name: 'periodic-completed-sync', type: 'PERIODIC_COMPLETED_SYNC', everyMs: 20 * 60 * 1000, inlineCostMs: 0 },
+            { name: 'periodic-global-sync', type: 'PERIODIC_GLOBAL_SYNC', everyMs: 30 * 60 * 1000, inlineCostMs: 20000 },
+            { name: 'periodic-return-sync', type: 'PERIODIC_RETURN_SYNC', everyMs: 30 * 60 * 1000, inlineCostMs: 20000 },
         ];
 
     /**
@@ -92,11 +117,12 @@ export class SODSyncService {
         type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP';
         at: string;
         onlyOn?: number;
+        inlineCostMs: number;
     }> = [
-            { name: 'daily-report-snapshot', type: 'DAILY_REPORT_SNAPSHOT', at: '00:15' },
-            { name: 'appointment-reminders', type: 'APPOINTMENT_REMINDERS', at: '05:45' },
-            { name: 'daily-automation', type: 'DAILY_AUTOMATION', at: '06:30' },
-            { name: 'notification-cleanup', type: 'NOTIFICATION_CLEANUP', at: '02:00', onlyOn: 0 },
+            { name: 'daily-report-snapshot', type: 'DAILY_REPORT_SNAPSHOT', at: '00:15', inlineCostMs: 10000 },
+            { name: 'appointment-reminders', type: 'APPOINTMENT_REMINDERS', at: '05:45', inlineCostMs: 10000 },
+            { name: 'daily-automation', type: 'DAILY_AUTOMATION', at: '06:30', inlineCostMs: 20000 },
+            { name: 'notification-cleanup', type: 'NOTIFICATION_CLEANUP', at: '02:00', onlyOn: 0, inlineCostMs: 8000 },
         ];
 
     /**
@@ -864,16 +890,20 @@ export class SODSyncService {
         return process.env.VERCEL === '1';
     }
 
-    /** Keep the inline budget below the function ceiling (60s) so work finishes before the kill. */
+    /** Default 40s of a 60s function window - the rest is cold start, task tail and margin. */
     private static inlineTickBudgetMs(): number {
         const raw = Number(process.env.CRON_TICK_BUDGET_MS);
-        return Number.isFinite(raw) && raw >= 5000 && raw <= 50000 ? raw : 45000;
+        return Number.isFinite(raw) && raw >= 10000 && raw <= 55000 ? raw : 40000;
     }
 
     /**
-     * Serverless tick: sweep RTOMs until the budget is spent, then run whichever interval tasks
-     * and wall-clock dailies are due. Slots are claimed in Postgres, so an overlapping or duplicated
-     * tick does no work twice, and anything left over simply stays due for the next one.
+     * Serverless tick: reserve what the due scheduled tasks need, sweep RTOMs with the remainder,
+     * then run the tasks. Slots are claimed in Postgres, so an overlapping or duplicated tick does no
+     * work twice, and anything left over simply stays due for the next one.
+     *
+     * The reserve is computed before the sweep on purpose. The sweep has 144 chances a day and
+     * resumes from a cursor; a 30-minute task starved by every sweep gets two windows an hour and
+     * would silently never run.
      */
     static async runInlineTick(budgetMs: number = SODSyncService.inlineTickBudgetMs()) {
         const startedAt = Date.now();
@@ -888,22 +918,22 @@ export class SODSyncService {
 
         let sweep = { synced: 0, total: 0, nextCursor: 0 };
         try {
-            sweep = await this.runInlineSweepChunk(deadline, report);
-
-            await this.runDueTask('SELF_HEAL', { kind: 'interval', intervalMs: 10 * 60 * 1000 }, deadline, report,
-                'self-heal', () => this.selfHealTerminalStatuses());
-
-            for (const job of SODSyncService.TICK_BUCKET_JOBS) {
-                const plan: SlotPlan = { kind: 'interval', intervalMs: job.everyMs };
-                await this.runDueTask(job.type, plan, deadline, report, job.name, () => this.runPeriodicTask(job.type));
+            const due: InlineTickTask[] = [];
+            for (const task of this.buildInlineTasks(new Date(startedAt))) {
+                if (await isSlotDue(task.taskId, task.plan)) due.push(task);
             }
 
-            for (const job of SODSyncService.TICK_DAILY_JOBS) {
-                const due = this.resolveDailyRun(job, new Date());
-                if (!due) continue;
-                const plan: SlotPlan = { kind: 'daily', dayKey: due.dateKey, notBefore: Date.now() + due.delayMs };
-                await this.runDueTask(job.type, plan, deadline, report, job.name, () => this.runDailyTask(job.type));
-            }
+            const taskReserve = Math.min(
+                due.reduce((sum, task) => sum + Math.max(0, task.needMs), 0),
+                Math.round(budgetMs * SODSyncService.TASK_RESERVE_FRACTION)
+            );
+            const sweepUntil = Math.max(startedAt, Math.min(
+                deadline - SODSyncService.TICK_RETURN_RESERVE_MS - taskReserve,
+                startedAt + Math.round(budgetMs * SODSyncService.SWEEP_BUDGET_FRACTION)
+            ));
+            sweep = await this.runInlineSweepChunk(sweepUntil, report);
+
+            for (const task of due) await this.runInlineTask(task, deadline, report);
         } finally {
             await releaseTickLock(lease);
         }
@@ -914,13 +944,52 @@ export class SODSyncService {
     }
 
     /**
+     * Describe every unit the inline tick may run: the terminal-status self-heal on the tick interval,
+     * the sub-tick cadences and today's wall-clock dailies. Cost comes from the same tables the queue
+     * path seeds, so both models stay aligned by construction.
+     */
+    private static buildInlineTasks(now: Date): InlineTickTask[] {
+        const tasks: InlineTickTask[] = [{
+            taskId: 'SELF_HEAL',
+            plan: { kind: 'interval', intervalMs: SODSyncService.RTOM_SWEEP_WINDOW_MS },
+            label: 'self-heal',
+            needMs: 10000,
+            run: () => SODSyncService.selfHealTerminalStatuses(),
+        }];
+
+        for (const job of SODSyncService.TICK_BUCKET_JOBS) {
+            tasks.push({
+                taskId: job.type,
+                plan: { kind: 'interval', intervalMs: job.everyMs },
+                label: job.name,
+                needMs: job.inlineCostMs,
+                run: () => SODSyncService.runPeriodicTask(job.type),
+            });
+        }
+
+        for (const job of SODSyncService.TICK_DAILY_JOBS) {
+            const slot = SODSyncService.resolveDailyRun(job, now);
+            if (!slot) continue;
+            tasks.push({
+                taskId: job.type,
+                plan: { kind: 'daily', dayKey: slot.dateKey, notBefore: now.getTime() + slot.delayMs },
+                label: job.name,
+                needMs: job.inlineCostMs,
+                run: () => SODSyncService.runDailyTask(job.type),
+            });
+        }
+
+        return tasks;
+    }
+
+    /**
      * Sweep from the stored cursor until the budget is spent, writing the cursor after every chunk so
      * a killed function resumes where it stopped instead of re-pulling the same RTOMs. A timed-out
      * RTOM cannot actually be cancelled, so its writes may still land after the cursor moves past it;
      * the next pass reconciles that RTOM, which is the same trade the queue path accepts.
      */
     private static async runInlineSweepChunk(
-        deadline: number,
+        budgetUntil: number,
         report: { ran: string[]; failed: string[]; deferred: string[] }
     ): Promise<{ synced: number; total: number; nextCursor: number }> {
         const targets = await this.getRtomSweepTargets();
@@ -931,7 +1000,7 @@ export class SODSyncService {
         let created = 0;
         let updated = 0;
 
-        while (Date.now() + SODSyncService.RTOM_INLINE_TIMEOUT_MS < deadline) {
+        while (Date.now() + SODSyncService.RTOM_INLINE_TIMEOUT_MS < budgetUntil) {
             const chunk = targets.slice(cursor, cursor + SODSyncService.RTOM_INLINE_CONCURRENCY);
             const results = await Promise.all(chunk.map(async (target) => {
                 const [err, res] = await safe(this.withTimeout(
@@ -960,31 +1029,29 @@ export class SODSyncService {
     }
 
     /**
-     * Run one scheduled task when its slot is due and the budget is still open. A failure hands the
-     * claim back, so the next tick retries instead of waiting out the whole interval (or losing a
-     * whole day for a daily). Not-due and lost-race both come back as a silent no-op.
+     * Run one already-due task when the remaining budget can actually carry its observed cost - a
+     * serverless tick that starts a minute-long sweep at second 50 is killed before it can answer,
+     * and a killed tick leaves its claim burned for the whole interval. A failure hands the claim back
+     * so the next tick retries instead of waiting out the interval.
      */
-    private static async runDueTask(
-        taskId: string,
-        plan: SlotPlan,
+    private static async runInlineTask(
+        task: InlineTickTask,
         deadline: number,
-        report: { ran: string[]; failed: string[]; deferred: string[] },
-        label: string,
-        work: () => Promise<unknown>
+        report: { ran: string[]; failed: string[]; deferred: string[] }
     ): Promise<void> {
-        if (Date.now() > deadline) {
-            report.deferred.push(label);
+        if (task.needMs <= 0 || deadline - Date.now() < SODSyncService.TICK_RETURN_RESERVE_MS + task.needMs) {
+            report.deferred.push(`${task.label}=${task.needMs <= 0 ? 'worker-only' : 'no-headroom'}`);
             return;
         }
-        if (!await claimSlot(taskId, plan)) return;
+        if (!await claimSlot(task.taskId, task.plan)) return;
 
         const started = Date.now();
         try {
-            await work();
-            report.ran.push(`${label}=${Date.now() - started}ms`);
+            await task.run();
+            report.ran.push(`${task.label}=${Date.now() - started}ms`);
         } catch (err: unknown) {
-            report.failed.push(`${label} - ${err instanceof Error ? err.message : String(err)}`);
-            await releaseSlot(taskId);
+            report.failed.push(`${task.label} - ${err instanceof Error ? err.message : String(err)}`);
+            await releaseSlot(task.taskId);
         }
     }
 

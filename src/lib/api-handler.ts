@@ -482,6 +482,16 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 }
 
                 // ── 10. Success Envelope ───────────────────────────────────
+                if (result instanceof Response) {
+                    // A handler that returns a Response owns its status and body. Without
+                    // rawResponse the envelope below serialises it to {} and forces HTTP 200,
+                    // silently swallowing the non-2xx signal cron endpoints exist to emit.
+                    logger.warn(
+                        `[API HANDLER] ${req.method} ${req.url} returned a Response without rawResponse:true; status ${result.status} and body are being dropped`,
+                        { requestId },
+                    );
+                }
+
                 const envelope: ApiResponse<T> = {
                     success: true,
                     data: result,

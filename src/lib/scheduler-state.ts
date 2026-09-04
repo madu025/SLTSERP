@@ -65,6 +65,15 @@ function isDue(entry: SlotEntry | undefined, plan: SlotPlan, now: number): boole
 }
 
 /**
+ * Read-only version of the claim decision, so a caller can report "this was due but I could not
+ * run it" without consuming the slot.
+ */
+export async function isSlotDue(taskId: string, plan: SlotPlan, now: number = Date.now()): Promise<boolean> {
+    const map = parseSlots(await readRaw(SLOTS_KEY));
+    return isDue(map[taskId], plan, now);
+}
+
+/**
  * Claim a task slot for this tick. True means "nobody has run this task in its current slot, and
  * it is now yours to run". False means not due yet, or another instance won the compare-and-set.
  */

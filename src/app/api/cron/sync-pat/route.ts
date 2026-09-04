@@ -23,4 +23,4 @@ export const GET = apiHandler(async (req) => {
         method: 'queued',
         timestamp: new Date().toISOString(),
     }, { status: accepted ? 200 : 503 });
-});
+}, { rawResponse: true });

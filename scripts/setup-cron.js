@@ -39,6 +39,9 @@ const jobs = [
         url: `${baseUrl}/api/cron/sync-all`,
         // Secret travels in a header, not the query string, so it never lands in access logs.
         headers: { Authorization: `Bearer ${CRON_SECRET}` },
+        // The serverless tick works inside the request for up to ~50s (function budget 60s). At the
+        // 30s default this job would be reported as a timeout while the tick is still succeeding.
+        requestTimeout: 90,
         schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [0, 10, 20, 30, 40, 50], months: [-1], wdays: [-1] }
     }
 ];
@@ -90,6 +93,10 @@ async function createCronJob(jobData) {
             enabled: true,
             saveResponses: true,
             title: jobData.title,
+            requestTimeout: jobData.requestTimeout ?? 90,
+            // Deterministic firing: a tick shifted a few minutes early still dedupes, but the
+            // cadence tables (10/20/30-minute buckets) are written against the scheduled minute.
+            disabledEarlyExecution: true,
             ...(jobData.headers ? { headers: jobData.headers } : {}),
             schedule: jobData.schedule
         }

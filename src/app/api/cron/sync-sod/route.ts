@@ -35,4 +35,4 @@ export const GET = apiHandler(async (req) => {
         sync: syncResult,
         automation: automationResults
     }, { status: syncResult.success ? 200 : 503 });
-});
+}, { rawResponse: true });

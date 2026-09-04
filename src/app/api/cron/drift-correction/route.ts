@@ -15,4 +15,4 @@ export const GET = apiHandler(async (req) => {
         message: 'Drift correction completed.',
         rtomsUpdated: corrected
     });
-});
+}, { rawResponse: true });
