@@ -128,14 +128,24 @@ export class SODSyncService {
     /**
      * Upsert PAT status records — replaces DELETE+INSERT pattern (saves 1 query per batch).
      * Uses INSERT ... ON CONFLICT (soNum) DO UPDATE since soNum is @unique.
+     *
+     * `updatedAt` is filled by the Prisma client, which raw SQL bypasses: it must be set here or every
+     * row hits the NOT NULL column (23502) and the whole batch is lost.
      */
     private static async upsertPatStatusBatch(records: Prisma.SLTPATStatusCreateManyInput[]): Promise<number> {
         if (records.length === 0) return 0;
         const cols = ['"soNum"', '"rtom"', '"lea"', '"voiceNumber"', '"sType"', '"orderType"',
             '"task"', '"package"', '"conName"', '"patUser"', '"status"', '"source"', '"statusDate"', '"hasDuplicate"'];
-        const updateCols = cols.filter(c => c !== '"soNum"').map(c => `${c} = EXCLUDED.${c}`);
-        const sql = `INSERT INTO "SLTPATStatus" (${cols.join(', ')}) VALUES ${records.map((_, i) =>
-            `(${cols.map((_, j) => `$${i * cols.length + j + 1}`).join(', ')})`
+        const rowPlaceholders = (row: number) => [
+            ...cols.map((_, j) => `$${row * cols.length + j + 1}`),
+            'now()',
+        ].join(', ');
+        const updateCols = [
+            ...cols.filter(c => c !== '"soNum"').map(c => `${c} = EXCLUDED.${c}`),
+            '"updatedAt" = now()',
+        ];
+        const sql = `INSERT INTO "SLTPATStatus" (${[...cols, '"updatedAt"'].join(', ')}) VALUES ${records.map((_, i) =>
+            `(${rowPlaceholders(i)})`
         ).join(', ')} ON CONFLICT ("soNum") DO UPDATE SET ${updateCols.join(', ')}`;
         const flatValues = records.flatMap(r => [
             r.soNum, r.rtom ?? null, r.lea ?? null, r.voiceNumber ?? null,

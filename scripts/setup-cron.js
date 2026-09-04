@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const https = require('https');
 const dotenv = require('dotenv');
 
@@ -37,12 +37,13 @@ const jobs = [
     {
         title: "SLTSERP - Master Tick (Every 10 Mins, 24h)",
         url: `${baseUrl}/api/cron/sync-all`,
-        // Secret travels in a header, not the query string, so it never lands in access logs.
+        // Secret travels in a request header, not the query string, so it never lands in access
+        // logs or in the job URL that cron-job.org stores and shows.
         headers: { Authorization: `Bearer ${CRON_SECRET}` },
-        // The serverless tick works inside the request for up to ~50s (function budget 60s). At the
-        // 30s default this job would be reported as a timeout while the tick is still succeeding.
+        // 90s: the serverless tick works inside the request for up to ~50s (60s function budget),
+        // and -1 (platform default) was recorded as lastStatus=5 Failed (timeout) on healthy runs.
         requestTimeout: 90,
-        schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [0, 10, 20, 30, 40, 50], months: [-1], wdays: [-1] }
+        schedule: { timezone: "Asia/Colombo", expiresAt: 0, hours: [-1], mdays: [-1], minutes: [0, 10, 20, 30, 40, 50], months: [-1], wdays: [-1] }
     }
 ];
 
@@ -94,10 +95,9 @@ async function createCronJob(jobData) {
             saveResponses: true,
             title: jobData.title,
             requestTimeout: jobData.requestTimeout ?? 90,
-            // Deterministic firing: a tick shifted a few minutes early still dedupes, but the
-            // cadence tables (10/20/30-minute buckets) are written against the scheduled minute.
-            disabledEarlyExecution: true,
-            ...(jobData.headers ? { headers: jobData.headers } : {}),
+            // Custom request headers belong to extendedData - at the top level of the job they are
+            // silently ignored, which is why the secret used to have to ride in the query string.
+            ...(jobData.headers ? { extendedData: { headers: jobData.headers } } : {}),
             schedule: jobData.schedule
         }
     });
