@@ -25,4 +25,6 @@ export interface QueueProvider {
     getFailedJobs(queueName: string, start?: number, limit?: number): Promise<JobInfo[]>;
     getCompletedJobs(queueName: string, start?: number, limit?: number): Promise<Record<string, unknown>[]>;
     getRepeatableJobs(queueName: string): Promise<Record<string, unknown>[]>;
+    /** Clears every registered repeatable in a queue; returns how many were removed. */
+    removeRepeatableJobs(queueName: string): Promise<number>;
 }

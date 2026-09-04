@@ -1,14 +1,14 @@
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
 
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { assertCronAuth } from '@/lib/cron-auth';
+import { enqueueCronJob } from '@/lib/cron-enqueue';
 
 /**
  * GET /api/cron/sync-sod
- * This endpoint triggers a complete sync of all RTOMs/OPMCs.
- * Designed to be called by a cron job every 30 minutes.
+ * Enqueues per-RTOM sync jobs for one OPMC slice; the background worker does the portal work.
+ * `syncAllOpmcs` is enqueue-only, so this handler stays cheap regardless of slice size.
  */
 export const GET = apiHandler(async (req) => {
     assertCronAuth(req);
@@ -21,19 +21,18 @@ export const GET = apiHandler(async (req) => {
 
     const syncResult = await ServiceOrderService.syncAllOpmcs(offset, limit);
 
-    // Check for daily tasks trigger
+    // Daily automation runs on the worker's own repeatable; queue it rather than holding the request.
     let automationResults = null;
     const runDailyTasks = searchParams.get('tasks') === 'daily';
-
     if (runDailyTasks) {
-        const { AutomationService } = await import('@/services/automation/automation.service');
-        automationResults = await AutomationService.runAllDailyTasks();
+        const { systemQueue } = await import('@/lib/queue');
+        automationResults = await enqueueCronJob(systemQueue, 'daily-automation', { type: 'DAILY_AUTOMATION' });
     }
 
     return Response.json({
-        success: true,
+        success: syncResult.success,
         timestamp: new Date().toISOString(),
         sync: syncResult,
         automation: automationResults
-    });
+    }, { status: syncResult.success ? 200 : 503 });
 });

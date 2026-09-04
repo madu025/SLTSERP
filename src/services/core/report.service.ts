@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { subMonths, subDays, subYears, format } from 'date-fns';
-import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
+import { getSriLankaToday, getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
 import { PaymentTypeEnum, PaymentStatusEnum, Prisma, ServiceOrderStatus } from '@prisma/client';
 import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES, categorizeSodOrder } from '@/lib/constants/sod-constants';
 import { classifySodDayActivity, type SodDayActivitySource, type SodDayWindow } from './daily-report-activity';
@@ -802,6 +802,16 @@ export class ReportService {
     const reportData = await ReportService.computeDailyOperationalReport(new Date(`${dateKey}T00:00:00.000Z`));
     await ReportService.writeDailyReportSnapshot(dateKey, reportData);
     return reportData.length;
+  }
+
+  /**
+   * Freezes the SL calendar day that just ended (run at 00:15 Asia/Colombo). One rule for both
+   * the worker repeatable and /api/cron/daily-report-snapshot, instead of a hand-rolled UTC
+   * offset living in the route handler.
+   */
+  static async persistClosedSriLankaDaySnapshot(): Promise<{ dateKey: string; rows: number }> {
+    const dateKey = format(subDays(new Date(`${getSriLankaToday()}T00:00:00Z`), 1), 'yyyy-MM-dd');
+    return { dateKey, rows: await ReportService.persistDailyReportSnapshot(dateKey) };
   }
 
   /**

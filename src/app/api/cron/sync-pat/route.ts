@@ -1,34 +1,26 @@
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
 
 import { apiHandler } from "@/lib/api-handler";
-import { ServiceOrderService } from "@/services/service-order/sod.service";
 import { assertCronAuth } from "@/lib/cron-auth";
+import { enqueueCronJob } from '@/lib/cron-enqueue';
 
 /**
- * GET /api/cron/sync-pat
- * Triggers HO Approved + Rejected PAT Result sync.
- * Designed to be called every 30 minutes by GitHub Actions.
+ * GET /api/cron/sync-pat — enqueue only.
+ *
+ * HO approved + rejected PAT results are pulled per RTOM, so the run is far longer than any
+ * request budget. The worker already owns this as the 30-minute PERIODIC_GLOBAL_SYNC repeatable;
+ * this endpoint is the manual/external kick that queues the same job.
  */
 export const GET = apiHandler(async (req) => {
     assertCronAuth(req);
 
-    console.log(`[CRON] Starting PAT Sync at ${new Date().toISOString()}...`);
-    const startTime = Date.now();
+    const { sodSyncQueue } = await import('@/lib/queue');
+    const { accepted } = await enqueueCronJob(sodSyncQueue, 'periodic-global-sync', { type: 'PERIODIC_GLOBAL_SYNC' });
 
-    const [approvedResult, rejectedResult] = await Promise.all([
-        ServiceOrderService.syncHoApprovedResults(),
-        ServiceOrderService.syncHoRejectedResults(),
-    ]);
-
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`[CRON] PAT Sync completed in ${duration}s`);
-
+    console.log(`[CRON] PAT-sync enqueue ${accepted ? 'accepted' : 'LOST'}.`);
     return Response.json({
-        success: true,
+        success: accepted,
+        method: 'queued',
         timestamp: new Date().toISOString(),
-        duration: `${duration}s`,
-        approvedResult,
-        rejectedResult,
-    });
+    }, { status: accepted ? 200 : 503 });
 });

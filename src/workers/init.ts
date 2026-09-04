@@ -37,51 +37,22 @@ export async function initializeBackgroundWorkers() {
         console.error('[WORKERS] ❌ Worker initialization failed:', err);
     }
 
-    // 🕊️ REGISTER REPEATABLE JOBS (The "One Truth" Scheduler)
-    // BullMQ handles redundancy automatically across multiple server instances.
+    // 🕊️ ONE CLOCK ONLY - no internal scheduler is registered here any more.
+    //
+    // Scheduling comes from the external cron (cron-job.org, every 10 minutes, 24h) hitting
+    // /api/cron/sync-all. That tick seeds everything (SODSyncService.runPendingSyncTick): the
+    // per-RTOM sweep window, the bucket-aligned 20/30-minute cadences, the wall-clock dailies and
+    // the terminal-status self-heal.
+    //
+    // BullMQ repeatables survive in Redis even after their registration code is deleted, so they
+    // are cleared once at boot - leaving them would silently double every portal call.
     try {
-        // 1. Completed SOD Sync (Every 20 minutes)
-        await sodSyncQueue.add(
-            'periodic-completed-sync',
-            { type: 'PERIODIC_COMPLETED_SYNC' },
-            { repeat: { every: 20 * 60 * 1000 }, jobId: 'repeat-completed-sync' }
-        );
-
-        // 2. Pending SOD sync tick (Every 15 minutes - cadence unchanged).
-        //    On a persistent worker this tick is a watchdog: it (re)seeds one short job per RTOM
-        //    so every RTOM's live worklist refreshes every sweep window (10 min) via the
-        //    self-rescheduling chain, instead of only the first 15-OPMC slice.
-        await sodSyncQueue.add(
-            'periodic-pending-sync',
-            { type: 'PERIODIC_PENDING_SYNC' },
-            { repeat: { every: 15 * 60 * 1000 }, jobId: 'repeat-pending-sync' }
-        );
-
-        // 2b. Seed the per-RTOM sweep immediately on boot (one-shot, not a schedule change) so a
-        //     freshly started worker is not stale until the next watchdog tick.
-        await sodSyncQueue.add(
-            'pending-sync-boot-seed',
-            { type: 'PERIODIC_PENDING_SYNC' },
-            { jobId: 'pending-sync-boot-seed', delay: 10_000 }
-        );
-
-        // 3. Global PAT Sync / Rejections (Every 30 minutes)
-        await sodSyncQueue.add(
-            'periodic-global-sync',
-            { type: 'PERIODIC_GLOBAL_SYNC' },
-            { repeat: { every: 30 * 60 * 1000 }, jobId: 'repeat-global-sync' }
-        );
-
-        // 4. Daily Automation (Every 24 hours)
-        await systemQueue.add(
-            'daily-automation',
-            { type: 'DAILY_AUTOMATION' },
-            { repeat: { pattern: '0 1 * * *' }, jobId: 'repeat-daily-auto' } // Every day at 1:00 AM
-        );
-
-        console.log('[WORKERS] ✅ All Periodic Tasks successfully scheduled in BullMQ');
+        const cleared = (await sodSyncQueue.removeRepeatableJobs()) + (await systemQueue.removeRepeatableJobs());
+        console.log(cleared > 0
+            ? `[WORKERS] 🧹 Cleared ${cleared} legacy BullMQ repeatable job(s); the external 10-minute cron tick is now the only scheduler.`
+            : '[WORKERS] No internal repeatables registered - scheduling is owned by the external 10-minute cron tick.');
     } catch (err) {
-        console.error('[WORKERS] ❌ Scheduling repeatable jobs failed:', err);
+        console.error('[WORKERS] ❌ Clearing legacy repeatable jobs failed:', err);
     }
 
     console.log('[WORKERS] Background system initialization complete');

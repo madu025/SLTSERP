@@ -1,42 +1,28 @@
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 5 minutes for large datasets
 
 import { apiHandler } from '@/lib/api-handler';
-import { CompletedSODSyncService } from '@/services/service-order/completed-sod-sync.service';
 import { assertCronAuth } from '@/lib/cron-auth';
+import { enqueueCronJob } from '@/lib/cron-enqueue';
 
 /**
- * GET /api/cron/sync-completed
- * Syncs all INSTALL_CLOSED SODs from the SLT portal.
- * Designed to be called by cron-job.org every 30 minutes.
- * Serves as the authoritative source for INSTALL_CLOSED counts.
+ * GET /api/cron/sync-completed — enqueue only.
+ *
+ * The INSTALL_CLOSED sweep walks several months of portal pages per RTOM; measured work far
+ * exceeds what a request handler may hold, which is why the same sync already runs as the
+ * worker's 20-minute PERIODIC_COMPLETED_SYNC repeatable. This endpoint is the manual/external
+ * kick: it queues the job and returns.
  */
 export const GET = apiHandler(async (req) => {
     assertCronAuth(req);
 
-    console.log('[CRON-COMPLETED] Starting Completed SOD Sync...');
-    const startTime = Date.now();
+    const { sodSyncQueue } = await import('@/lib/queue');
+    const { accepted } = await enqueueCronJob(sodSyncQueue, 'periodic-completed-sync', { type: 'PERIODIC_COMPLETED_SYNC' });
 
-    try {
-        const result = await CompletedSODSyncService.syncCompletedSODs();
-
-        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-        console.log(`[CRON-COMPLETED] Completed in ${duration}s: ${result.completed} completed, ${result.enriched} enriched, ${result.errors.length} errors`);
-
-        return {
-            success: true,
-            message: 'Completed SOD sync finished',
-            duration: `${duration}s`,
-            data: {
-                checked: result.checked,
-                completed: result.completed,
-                enriched: result.enriched,
-                errorCount: result.errors.length,
-                errors: result.errors.slice(0, 10) // Return first 10 errors max
-            }
-        };
-    } catch (error) {
-        console.error('[CRON-COMPLETED] Fatal error:', error);
-        throw error;
-    }
+    console.log(`[CRON-COMPLETED] Completed-sync enqueue ${accepted ? 'accepted' : 'LOST'}.`);
+    // Non-2xx on a lost enqueue so the scheduler itself reports the failure.
+    return Response.json({
+        success: accepted,
+        method: 'queued',
+        timestamp: new Date().toISOString(),
+    }, { status: accepted ? 200 : 503 });
 });

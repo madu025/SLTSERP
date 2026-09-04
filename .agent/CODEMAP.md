@@ -384,6 +384,7 @@
     * `getDailyOperationalReport(options: DailyOperationalReportOptions): any`
     * `writeDailyReportSnapshot(dateKey: string, reportData: ReportRow[]): Promise<void>`
     * `persistDailyReportSnapshot(dateKey: string): Promise<number>`
+    * `persistClosedSriLankaDaySnapshot(): Promise<{ dateKey: string; rows: number }>`
     * `getPaymentsReport(options: PaymentsReportOptions): any`
 
 ### [section.service.ts](src/services/core/section.service.ts)
@@ -2706,6 +2707,7 @@
     * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
     * `syncPendingIntake(rtom: string, startDate: string, endDate: string): any`
     * `runPendingSyncTick(): any`
+    * `runCronTick(): Promise<Record<string, unknown>>`
     * `scheduleRtomSweep(windowMs?: number): any`
     * `rescheduleRtomSweep(opmcId: string, rtom: string, windowMs?: number, slotMs?: number): any`
     * `selfHealTerminalStatuses(): any`
@@ -2872,11 +2874,14 @@
     * `syncHoApprovedResults(): any`
     * `syncHoRejectedResults(): any`
     * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
-    * `selfHealTerminalStatuses(): Promise<{ installClosed: number; returned: number }>`
+    * `selfHealTerminalStatuses(): Promise<{ installClosed: number; returned: number; restored: number }>`
     * `syncReturnReasons(maxRtoms: number = 4): Promise<{ updated: number; checked: number }>`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
     * `syncPendingIntake(rtom: string, startDate: string, endDate: string): any`
     * `runPendingSyncTick(): any`
+    * `scheduleTickJobs(): Promise<{ buckets: string[]; dailies: string[] }>`
+    * `runCronTick(): Promise<Record<string, unknown>>`
+    * `runInlineTick(budgetMs: number = SODSyncService.inlineTickBudgetMs()): any`
     * `scheduleRtomSweep(windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS): any`
     * `rescheduleRtomSweep(opmcId: string, rtom: string, windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS, slotMs: number = 0): any`
     * `syncServiceOrders(opmcId: UUID, rtom: string, preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[], options?: { rows?: SLTServiceOrderData[]; scopedToRange?: boolean }): any`

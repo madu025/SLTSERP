@@ -145,4 +145,20 @@ export class BullMQQueueProvider implements QueueProvider {
         }
         return [];
     }
+
+    async removeRepeatableJobs(queueName: string): Promise<number> {
+        try {
+            const queue = this.getQueue(queueName);
+            if (queue) {
+                const repeatables = await queue.getRepeatableJobs();
+                for (const repeatable of repeatables) {
+                    await queue.removeRepeatableByKey(String(repeatable.key));
+                }
+                return repeatables.length;
+            }
+        } catch (error: unknown) {
+            console.warn(`[BullMQ] Failed to clear repeatable jobs for queue '${queueName}'.`, error);
+        }
+        return 0;
+    }
 }

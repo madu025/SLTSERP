@@ -4,22 +4,11 @@
   "functions": {
     "src/app/api/**/*": {
       "maxDuration": 15
+    },
+    "src/app/api/cron/**/*": {
+      "maxDuration": 60
     }
   },
-  "crons": [
-    {
-      "path": "/api/cron/sync-all",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/sync-pat",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/daily-report-snapshot",
-      "schedule": "45 18 * * *"
-    }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",

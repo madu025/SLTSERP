@@ -5,53 +5,41 @@ const dotenv = require('dotenv');
 // Load environment variables from .env
 dotenv.config();
 
-const API_KEY = '7NSj1jDnC546l3n0GNaNrFZ3cvId1fWD4eVAaHmgGfM=';
-const CRON_SECRET = process.env.CRON_SECRET || 'cd63fa6924b48cb930713ba7d5fd153f53794c0fe9c485f9731f4807308f3ef6';
+const API_KEY = process.env.CRONJOB_API_KEY;
+const CRON_SECRET = process.env.CRON_SECRET;
 
 const DOMAIN = process.argv[2];
 
 if (!DOMAIN) {
-    console.error("❌ Please provide your Vercel Domain as an argument.");
-    console.error("👉 Example: node scripts/setup-cron.js https://sltserp.vercel.app");
+    console.error("❌ Please provide the app's public base URL as an argument.");
+    console.error("👉 Example: node scripts/setup-cron.js https://sltserp.example.com");
+    process.exit(1);
+}
+
+// No defaults on purpose: both values were hardcoded here once and are therefore in git history.
+// Rotate them (cron-job.org console + CRON_SECRET) and keep this file secret-free.
+if (!API_KEY || !CRON_SECRET) {
+    console.error("❌ Missing credentials. Set CRONJOB_API_KEY and CRON_SECRET in .env before running this script.");
     process.exit(1);
 }
 
 // Remove trailing slash if exists
 const baseUrl = DOMAIN.replace(/\/$/, '');
 
-// Cron schedules use cron-job.org instead of GitHub Actions — GitHub's
-// scheduled workflows are delayed 30-60+ mins during peak load, cron-job.org
-// fires within seconds of the scheduled minute.
+// ONE job, ONE clock. This endpoint enqueues a single scheduler tick; the worker seeds everything
+// else from it (per-RTOM sweep every 10 min, 20/30-minute syncs, wall-clock dailies, self-heal)
+// using deterministic job ids. Registering per-work-item endpoints here would duplicate the portal
+// calls the tick already covers.
+//
+// cron-job.org is used instead of GitHub Actions because GitHub's scheduled workflows are delayed
+// 30-60+ mins under peak load; cron-job.org fires within seconds of the scheduled minute.
 const jobs = [
     {
-        title: "SLTSERP - SOD Sync Batch 1 (Every 15 Mins)",
-        url: `${baseUrl}/api/cron/sync-sod?secret=${CRON_SECRET}&offset=0&limit=15`,
-        schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [0, 15, 30, 45], months: [-1], wdays: [-1] }
-    },
-    {
-        title: "SLTSERP - SOD Sync Batch 2 (Every 15 Mins)",
-        url: `${baseUrl}/api/cron/sync-sod?secret=${CRON_SECRET}&offset=15&limit=15`,
-        schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [1, 16, 31, 46], months: [-1], wdays: [-1] }
-    },
-    {
-        title: "SLTSERP - SOD Sync Batch 3 (Every 15 Mins)",
-        url: `${baseUrl}/api/cron/sync-sod?secret=${CRON_SECRET}&offset=30&limit=15`,
-        schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [2, 17, 32, 47], months: [-1], wdays: [-1] }
-    },
-    {
-        title: "SLTSERP - PAT Sync (Every 30 Mins)",
-        url: `${baseUrl}/api/cron/sync-pat?secret=${CRON_SECRET}`,
-        schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [10, 40], months: [-1], wdays: [-1] }
-    },
-    {
-        title: "SLTSERP - Master Sync (Every 15 Mins)",
-        url: `${baseUrl}/api/cron/sync-all?secret=${CRON_SECRET}`,
-        schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [0, 15, 30, 45], months: [-1], wdays: [-1] }
-    },
-    {
-        title: "SLTSERP - Notification Cleanup (Weekly)",
-        url: `${baseUrl}/api/notifications/cleanup?secret=${CRON_SECRET}`,
-        schedule: { timezone: "Asia/Colombo", hours: [2], mdays: [-1], minutes: [0], months: [-1], wdays: [0] }
+        title: "SLTSERP - Master Tick (Every 10 Mins, 24h)",
+        url: `${baseUrl}/api/cron/sync-all`,
+        // Secret travels in a header, not the query string, so it never lands in access logs.
+        headers: { Authorization: `Bearer ${CRON_SECRET}` },
+        schedule: { timezone: "Asia/Colombo", hours: [-1], mdays: [-1], minutes: [0, 10, 20, 30, 40, 50], months: [-1], wdays: [-1] }
     }
 ];
 
@@ -102,6 +90,7 @@ async function createCronJob(jobData) {
             enabled: true,
             saveResponses: true,
             title: jobData.title,
+            ...(jobData.headers ? { headers: jobData.headers } : {}),
             schedule: jobData.schedule
         }
     });

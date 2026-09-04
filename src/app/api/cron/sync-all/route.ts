@@ -1,67 +1,48 @@
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // Allow up to 5 minutes on Vercel Pro (60s on Hobby)
+export const maxDuration = 60;
 import { apiHandler } from '@/lib/api-handler';
-import { AppointmentNotificationService } from '@/services/notification/notification.service';
 import { assertCronAuth } from '@/lib/cron-auth';
+import { ServiceOrderService } from '@/services/service-order/sod.service';
 
 /**
- * Scheduled Sync for all Service Orders from SLT API
- * Can be triggered by a Cron Job service (e.g., Vercel Cron, GitHub Actions)
+ * Master cron tick - the single endpoint the external scheduler (cron-job.org, every 10 minutes,
+ * 24h) is allowed to call.
+ *
+ * It runs one scheduler tick, and the tick picks its own execution model (see runCronTick):
+ * a persistent install enqueues one job and the worker seeds the per-RTOM sweep, the 20/30-minute
+ * cadences, the wall-clock dailies and the self-heal from it; a serverless install has no Redis and
+ * no worker, so the tick does the work itself within the function budget and resumes from a stored
+ * cursor on the next ping.
+ *
+ * The per-work-item endpoints (/api/cron/sync-pat, /sync-completed, /daily-report-snapshot,
+ * /appointment-reminders) still exist, but only as manual kicks. Registering them in a scheduler as
+ * well would double the portal calls this tick already covers.
  */
 export const GET = apiHandler(async (req) => {
     assertCronAuth(req);
 
-    console.log('[CRON] Starting Master Cron Job (Enqueueing to Background Workers)...');
     const startTime = Date.now();
+    const tick = await ServiceOrderService.runCronTick();
 
-    const { addJob, sodSyncQueue } = await import('@/lib/queue');
+    const failedItems = Array.isArray(tick.failed) ? (tick.failed as string[]) : [];
+    const swept = typeof tick.sweep === 'object' && tick.sweep !== null
+        ? Number((tick.sweep as Record<string, unknown>).synced ?? 0)
+        : 0;
+    const ranTasks = Array.isArray(tick.ran) ? (tick.ran as string[]) : [];
+    const didWork = tick.mode === 'queued'
+        ? tick.accepted === true
+        : swept > 0 || ranTasks.length > 0 || tick.skipped === 'overlap';
 
-    // 1. SOD Sync
-    if (process.env.VERCEL) {
-        console.log('[CRON] Vercel environment detected. Executing SOD Sync synchronously...');
-        const { ServiceOrderService } = await import('@/services/service-order/sod.service');
-        await ServiceOrderService.syncAllOpmcs();
-        console.log('[CRON] Synchronous SOD Sync completed.');
-        // Return-reason enrichment: capture the raw SLT RETURNED_REASON/COMMENT for RETURN SODs
-        try {
-            const reasonResult = await ServiceOrderService.syncReturnReasons();
-            console.log(`[CRON] Return reason enrichment: ${JSON.stringify(reasonResult)}`);
-        } catch (reasonError) {
-            console.warn('[CRON] Return reason enrichment failed:', reasonError);
-        }
-    } else {
-        await addJob(sodSyncQueue, 'periodic-pending-sync', { type: 'PERIODIC_PENDING_SYNC' });
-        console.log('[CRON] Enqueued SOD Sync Job');
-    }
-
-    // 2. Appointment Reminders
-    await AppointmentNotificationService.checkAndNotify();
-
-    // 3. PAT Sync (Runs ONLY once an hour around the 30-minute mark)
-    const currentMinute = new Date().getMinutes();
-    let patSyncEnqueued = false;
-    if (currentMinute >= 25 && currentMinute <= 40) {
-        if (process.env.VERCEL) {
-            console.log('[CRON] Executing Hourly PAT Sync synchronously...');
-            const { ServiceOrderService } = await import('@/services/service-order/sod.service');
-            await ServiceOrderService.syncHoApprovedResults();
-            await ServiceOrderService.syncHoRejectedResults();
-            console.log('[CRON] Synchronous PAT Sync completed.');
-        } else {
-            console.log('[CRON] Enqueueing Hourly PAT Sync...');
-            await addJob(sodSyncQueue, 'periodic-global-sync', { type: 'PERIODIC_GLOBAL_SYNC' });
-            patSyncEnqueued = true;
-        }
-    }
-
+    // Only a tick that accomplished nothing while throwing is worth alerting on; one slow RTOM out
+    // of a ten-RTOM chunk is normal and must not page anyone.
+    const status = didWork || failedItems.length === 0 ? 200 : 502;
     const duration = (Date.now() - startTime) / 1000;
-    console.log(`[CRON] Master Cron executed in ${duration}s`);
+    console.log(`[CRON] Master tick mode=${String(tick.mode)} in ${duration}s -> HTTP ${status}`);
 
     return Response.json({
-        success: true,
-        message: 'Master cron tasks successfully enqueued to background workers',
+        success: status === 200,
+        ...tick,
         duration: `${duration}s`,
-        patSyncEnqueued
-
-    });
+        timestamp: new Date().toISOString(),
+    }, { status });
 });

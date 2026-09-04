@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { Prisma, ServiceOrder, ServiceOrderStatus } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '@/services/slt/slt-api.service';
-import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
+import { addJob, statsUpdateQueue, sodSyncQueue, systemQueue } from '../../lib/queue';
 import { UUID } from '@/types/common';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
@@ -15,6 +15,16 @@ import { SodStatus, SOD_RETURN_STATUSES, backfillReceiptDate, orderRaiseDateFrom
 import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
 import { format, subMonths } from 'date-fns';
 import { safe } from '@/utils/safe-await.util';
+import { enqueueCronJob } from '@/lib/cron-enqueue';
+import {
+    claimSlot,
+    readSweepCursor,
+    releaseSlot,
+    releaseTickLock,
+    tryAcquireTickLock,
+    writeSweepCursor,
+    type SlotPlan,
+} from '@/lib/scheduler-state';
 
 interface SyncStats {
     queuedCount: number;
@@ -36,10 +46,59 @@ interface MaterialDetailInput {
 }
 
 export class SODSyncService {
-    /** Per-RTOM live-worklist refresh window (queue-level; independent of any cron cadence). */
+    /** Per-RTOM live-worklist refresh window - equals the external scheduler's tick interval. */
     static readonly RTOM_SWEEP_WINDOW_MS = 10 * 60 * 1000;
     /** Deterministic job-id prefix so multi-instance seeding dedupes instead of doubling portal calls. */
     static readonly RTOM_SWEEP_JOB_PREFIX = 'rtom-sweep';
+    /** Asia/Colombo is UTC+5:30 all year (no DST) - same assumption as lib/timezone. */
+    private static readonly SL_OFFSET_MS = 330 * 60 * 1000;
+
+    /** RTOMs swept in parallel per inline chunk; the queue path staggers instead of batching. */
+    private static readonly RTOM_INLINE_CONCURRENCY = 10;
+    /** Per-RTOM inline ceiling - one wedged portal call must not eat the whole tick budget. */
+    private static readonly RTOM_INLINE_TIMEOUT_MS = 15000;
+    /** Tick lease lifetime; a function killed mid-tick unblocks the next tick after this. */
+    private static readonly TICK_LEASE_MS = 9 * 60 * 1000;
+
+    /**
+     * Work that is due less often than the tick. There is exactly ONE external scheduler in this
+     * deployment (cron-job.org, every 10 minutes, 24h) and no BullMQ repeatables, so a sub-cadence
+     * is expressed as a bucket-aligned job id: `tick-<TYPE>-<bucket>` is identical for every tick
+     * that falls inside the same bucket, and the queue rejects the duplicate. 20/30-minute work
+     * therefore still runs 20/30-minute-ly without a second clock.
+     */
+    private static readonly TICK_BUCKET_JOBS: ReadonlyArray<{
+        name: string;
+        type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC';
+        everyMs: number;
+    }> = [
+            { name: 'periodic-completed-sync', type: 'PERIODIC_COMPLETED_SYNC', everyMs: 20 * 60 * 1000 },
+            { name: 'periodic-global-sync', type: 'PERIODIC_GLOBAL_SYNC', everyMs: 30 * 60 * 1000 },
+            { name: 'periodic-return-sync', type: 'PERIODIC_RETURN_SYNC', everyMs: 30 * 60 * 1000 },
+        ];
+
+    /**
+     * Wall-clock dailies (Asia/Colombo), keyed on the SL date so each calendar day is seeded once.
+     * A tick that arrives after the scheduled minute reuses the same job id, so a worker that was
+     * down across the close still catches up instead of silently skipping the day.
+     *
+     * Former cadences are preserved 1:1: report close 00:15 SL, appointment sweep 05:45 SL (was
+     * Vercel 00:00 UTC), daily automation 06:30 SL (was a tz-less BullMQ pattern `0 1 * * *`, which
+     * the UTC container resolved as 01:00 UTC), notification cleanup Sun 02:00 SL (was the weekly
+     * cron-job.org entry at 02:00 Asia/Colombo on weekday 0).
+     */
+    private static readonly TICK_DAILY_JOBS: ReadonlyArray<{
+        name: string;
+        type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP';
+        at: string;
+        onlyOn?: number;
+    }> = [
+            { name: 'daily-report-snapshot', type: 'DAILY_REPORT_SNAPSHOT', at: '00:15' },
+            { name: 'appointment-reminders', type: 'APPOINTMENT_REMINDERS', at: '05:45' },
+            { name: 'daily-automation', type: 'DAILY_AUTOMATION', at: '06:30' },
+            { name: 'notification-cleanup', type: 'NOTIFICATION_CLEANUP', at: '02:00', onlyOn: 0 },
+        ];
+
     /**
      * Upsert PAT status records — replaces DELETE+INSERT pattern (saves 1 query per batch).
      * Uses INSERT ... ON CONFLICT (soNum) DO UPDATE since soNum is @unique.
@@ -444,7 +503,13 @@ export class SODSyncService {
     }
 
     /**
-     * Trigger sync for all OPMCs
+     * Trigger sync for all OPMCs - enqueue only.
+     *
+     * The background worker does the work. The old inline path (9.5s budget, 7.5s per-OPMC
+     * race, 15-OPMC slice) was built for a 15s serverless function, but one RTOM sync measures
+     * 7-13s of portal + DB time, so most rows in a chunk died on 'OPMC Sync Timeout' and every
+     * rank outside the slice went stale. Queueing per RTOM gives each one its own attempt
+     * budget and BullMQ retry instead of a shared stopwatch.
      */
     static async syncAllOpmcs(offset: number = 0, limit: number = 15) {
         let opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
@@ -453,110 +518,37 @@ export class SODSyncService {
             opmcs = opmcs.slice(offset, offset + limit);
         }
 
-        if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') {
-            console.log(`[SYNC] Syncing OPMCs batch ${offset} to ${offset + opmcs.length} of ${totalOpmcs}...`);
-            let created = 0;
-            let updated = 0;
-            const results: Array<{ rtom: string; success: boolean; created?: number; updated?: number; error?: string }> = [];
-
-            // ── Optimization: Pre-load all open SODs across every OPMC in one query ──
-            // This eliminates 44 per-OPMC findMany queries for disappeared SOD detection.
-            // PROV_CLOSED included per domain rule: stuck-in-PROV_CLOSED + portal drop-off = DISAPPEARED.
-            const allOpmcIds = opmcs.map(o => o.id);
-            const allPendingSods = await prisma.serviceOrder.findMany({
-                where: {
-                    opmcId: { in: allOpmcIds },
-                    sltsStatus: { in: ['INPROGRESS', 'PROV_CLOSED'] },
-                    isOfflineWorkOrder: false,
-                    isManualEntry: false,
-                    isLegacyImport: false
-                },
-                select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, opmcId: true }
-            });
-            // Group by opmcId → O(P) build time, O(1) lookup per OPMC
-            const pendingByOpmc = new Map<string, typeof allPendingSods>();
-            for (const sod of allPendingSods) {
-                const list = pendingByOpmc.get(sod.opmcId) || [];
-                list.push(sod);
-                pendingByOpmc.set(sod.opmcId, list);
-            }
-
-            const concurrencyLimit = 15;
-            const startTime = Date.now();
-            const maxAllowedTimeMs = 9500; // 9.5s deadline for Vercel Hobby 15s serverless cap
-
-            for (let i = 0; i < opmcs.length; i += concurrencyLimit) {
-                if (Date.now() - startTime > maxAllowedTimeMs) {
-                    console.log(`[SYNC] Reached 9.5s Vercel serverless time limit threshold after processing ${results.length} OPMCs. Gracefully returning.`);
-                    break;
-                }
-                const chunk = opmcs.slice(i, i + concurrencyLimit);
-                const chunkResults = await Promise.all(chunk.map(async (opmc) => {
-                    const localPendingSods = pendingByOpmc.get(opmc.id) || [];
-                    const [e, res] = await safe(Promise.race([
-                        this.syncServiceOrders(opmc.id, opmc.rtom, localPendingSods),
-                        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('OPMC Sync Timeout')), 7500))
-                    ]));
-                    
-                    if (e || !res) {
-                        return { rtom: opmc.rtom, success: false, error: String(e) };
-                    }
-                    
-                    return { rtom: opmc.rtom, success: true, created: res.created, updated: res.updated };
-                }));
-
-                for (const r of chunkResults) {
-                    if (r.success) {
-                        created += r.created || 0;
-                        updated += r.updated || 0;
-                        results.push({ rtom: r.rtom, success: true, created: r.created, updated: r.updated });
-                    } else {
-                        results.push({ rtom: r.rtom, success: false, error: r.error });
-                    }
-                }
-            }
-
-            // ── Self-healing guard: portal-confirmed install closures must advance the ERP
-            // workflow status. Re-asserted every cycle so stragglers (legacy deployments,
-            // race windows, out-of-band writes) cannot leave terminal SODs looking active.
-            await this.selfHealTerminalStatuses();
-
-            const stats = {
-                queuedCount: 0,
-                jobIds: [],
-                lastSyncTriggered: new Date().toISOString(),
-                created,
-                updated,
-                failed: results.filter(r => 'error' in r).length
-            };
-
-            await prisma.systemSetting.upsert({
-                where: { key: 'LAST_SYNC_STATS' },
-                update: { value: stats as unknown as Prisma.InputJsonValue },
-                create: { key: 'LAST_SYNC_STATS', value: stats as unknown as Prisma.InputJsonValue }
-            });
-
-            return { success: true, method: 'synchronous', stats, results };
-        }
-
+        const dayKey = format(new Date(), 'yyyy-MM-dd');
         const jobs = await Promise.all(
-            opmcs.map(opmc =>
-                sodSyncQueue.add(`sync-${opmc.rtom}`, {
+            opmcs.map(async (opmc) => {
+                const jobId = `sync-${opmc.id}-${dayKey}-${Date.now()}`;
+                const job = await sodSyncQueue.add(`sync-${opmc.rtom}`, {
                     opmcId: opmc.id,
                     rtom: opmc.rtom
-                }, {
-                    jobId: `sync-${opmc.id}-${new Date().toISOString().split('T')[0]}-${Date.now()}`
-                })
-            )
+                }, { jobId });
+                // The queue provider hands back a generated fallback id when Redis is down, so
+                // echoing our own jobId is the only proof the job was actually persisted.
+                return { rtom: opmc.rtom, jobId, accepted: String(job.id) === jobId };
+            })
         );
 
+        const lost = jobs.filter(j => !j.accepted);
+        if (lost.length > 0) {
+            console.error(`[SYNC] Queue accepted ${jobs.length - lost.length}/${jobs.length} jobs - ${lost.length} lost (Redis unavailable?). Background sync is NOT running.`);
+        }
+
+        // ── Self-healing guard: portal-confirmed install closures must advance the ERP
+        // workflow status. Re-asserted every cycle so stragglers (legacy deployments,
+        // race windows, out-of-band writes) cannot leave terminal SODs looking active.
+        await this.selfHealTerminalStatuses();
+
         const stats = {
-            queuedCount: opmcs.length,
-            jobIds: jobs.map((j) => String(j.id)),
+            queuedCount: jobs.length - lost.length,
+            jobIds: jobs.filter(j => j.accepted).map(j => j.jobId),
             lastSyncTriggered: new Date().toISOString(),
             created: 0,
             updated: 0,
-            failed: 0
+            failed: lost.length
         };
 
         await prisma.systemSetting.upsert({
@@ -565,7 +557,8 @@ export class SODSyncService {
             create: { key: 'LAST_SYNC_STATS', value: stats as unknown as Prisma.InputJsonValue }
         });
 
-        return { success: true, stats };
+        console.log(`[SYNC] Enqueued ${stats.queuedCount}/${totalOpmcs} OPMC sync jobs (offset=${offset}, limit=${limit}).`);
+        return { success: lost.length === 0, method: 'queued', stats };
     }
 
     /**
@@ -754,34 +747,304 @@ export class SODSyncService {
     }
 
     /**
-     * Pending-sync tick entry point (called by the 15-minute PERIODIC_PENDING_SYNC job).
+     * Scheduler tick - the single entry point the external cron drives. One call seeds everything:
+     * the per-RTOM sweep window, the bucket-aligned sub-cadences, the wall-clock dailies, and the
+     * terminal-status self-heal re-assertion.
      *
-     * A persistent worker can pick up delayed per-RTOM jobs, so it switches to the queue-level
-     * sweep: every RTOM refreshed each window, cron cadence untouched. Serverless runtimes
-     * freeze between invocations and would never drain those jobs, so they keep the bounded
-     * inline slice sync that fits the ~9.5s budget.
+     * Nothing is executed inline here: one RTOM sync costs 7-13s of portal + DB time, so a request
+     * handler must never hold it. Every item becomes a queue job the worker drains.
      */
     static async runPendingSyncTick() {
-        if (process.env.VERCEL === '1') {
-            const result = await this.syncAllOpmcs();
-            return { mode: 'inline-slice' as const, result };
-        }
         const sweep = await this.scheduleRtomSweep();
+        const cadences = await this.scheduleTickJobs();
         const healed = await this.selfHealTerminalStatuses();
-        return { mode: 'rtom-sweep' as const, sweep, healed };
+        return { mode: 'cron-tick' as const, sweep, cadences, healed };
+    }
+
+    /**
+     * Seed the sub-tick cadences for the buckets the current moment falls in. Idempotent by job id,
+     * so N worker instances and N ticks inside one bucket all collapse to a single queued job.
+     */
+    static async scheduleTickJobs(): Promise<{ buckets: string[]; dailies: string[] }> {
+        const now = Date.now();
+        const buckets: string[] = [];
+        const dailies: string[] = [];
+
+        for (const job of SODSyncService.TICK_BUCKET_JOBS) {
+            const bucket = Math.floor(now / job.everyMs);
+            const jobId = `tick-${job.type}-${bucket}`;
+            const seeded = await this.addTickJob(sodSyncQueue, job.name, { type: job.type }, jobId, 0, job.everyMs);
+            if (seeded) buckets.push(`${job.type}:${bucket}`);
+        }
+
+        for (const job of SODSyncService.TICK_DAILY_JOBS) {
+            const plan = this.resolveDailyRun(job, new Date(now));
+            if (!plan) continue;
+            const jobId = `tick-${job.type}-${plan.dateKey}`;
+            const seeded = await this.addTickJob(systemQueue, job.name, { type: job.type }, jobId, plan.delayMs, 26 * 60 * 60 * 1000);
+            if (seeded) dailies.push(`${job.type}:${plan.dateKey}${plan.delayMs > 0 ? `+${Math.round(plan.delayMs / 60000)}m` : '(catch-up)'}`);
+        }
+
+        if (buckets.length > 0 || dailies.length > 0) {
+            console.log(`[TICK] seeded buckets=[${buckets.join(', ')}] dailies=[${dailies.join(', ')}]`);
+        }
+        return { buckets, dailies };
+    }
+
+    /**
+     * Resolve the SL wall-clock slot for today. Returns null when the day gate (onlyOn weekday) does
+     * not match, and delayMs 0 when the slot has already passed - that turns a late first tick after
+     * an outage into an immediate catch-up run instead of a skipped day.
+     */
+    private static resolveDailyRun(job: { at: string; onlyOn?: number }, now: Date): { dateKey: string; delayMs: number } | null {
+        const slNow = new Date(now.getTime() + SODSyncService.SL_OFFSET_MS);
+        if (job.onlyOn !== undefined && slNow.getUTCDay() !== job.onlyOn) return null;
+
+        const [hh, mm] = job.at.split(':').map(Number);
+        const dayStartUtcMs = Date.UTC(slNow.getUTCFullYear(), slNow.getUTCMonth(), slNow.getUTCDate());
+        const slotUtcMs = dayStartUtcMs + (hh * 60 + mm) * 60 * 1000 - SODSyncService.SL_OFFSET_MS;
+        return {
+            dateKey: format(new Date(dayStartUtcMs), 'yyyy-MM-dd'),
+            delayMs: Math.max(0, slotUtcMs - now.getTime()),
+        };
+    }
+
+    /**
+     * One tick-driven job. `jobId` is the dedupe key and the completed job is retained for the whole
+     * bucket, otherwise a fast job would be re-queued by the next tick inside the same bucket.
+     * A non-matching returned id means the queue already holds that bucket (or Redis refused the
+     * write - the provider never throws), which is logged rather than reported as success.
+     */
+    private static async addTickJob(
+        queue: { name: string },
+        name: string,
+        data: Record<string, unknown>,
+        jobId: string,
+        delayMs: number,
+        retainMs: number
+    ): Promise<boolean> {
+        try {
+            const job = await addJob(queue, name, data, {
+                jobId,
+                delay: Math.max(0, Math.round(delayMs)),
+                removeOnComplete: { age: Math.ceil(retainMs / 1000) },
+            });
+            if (String(job.id) === jobId) return true;
+            console.log(`[TICK] ${name} not re-seeded (bucket already queued or Redis unavailable): ${jobId}`);
+            return false;
+        } catch (err: unknown) {
+            console.warn(`[TICK] ${name} seed failed:`, err instanceof Error ? err.message : String(err));
+            return false;
+        }
+    }
+
+    /**
+     * The scheduled entry point. It chooses the execution model from the deployment instead of
+     * assuming one, because the two available hosts cannot share a model:
+     *
+     * - persistent install: Redis + worker exist, so the tick only enqueues and the worker seeds
+     *   the sweep windows, bucket cadences and dailies from it (no portal call in a request).
+     * - serverless: there is no Redis and `instrumentation.ts` never boots a worker, so an enqueued
+     *   job has no drainer. The tick therefore performs the work itself within its function budget
+     *   and resumes next time from a Postgres cursor.
+     */
+    static async runCronTick(): Promise<Record<string, unknown>> {
+        if (!this.shouldRunInlineTick()) {
+            const enqueued = await enqueueCronJob(sodSyncQueue, 'cron-tick', { type: 'PERIODIC_PENDING_SYNC' });
+            return { mode: 'queued', accepted: enqueued.accepted, jobId: enqueued.id };
+        }
+        return { mode: 'inline', ...(await this.runInlineTick()) };
+    }
+
+    /** VERCEL=1 is the authoritative signal - that is exactly when the worker is skipped. */
+    private static shouldRunInlineTick(): boolean {
+        const forced = process.env.CRON_INLINE_MODE;
+        if (forced === 'true') return true;
+        if (forced === 'false') return false;
+        return process.env.VERCEL === '1';
+    }
+
+    /** Keep the inline budget below the function ceiling (60s) so work finishes before the kill. */
+    private static inlineTickBudgetMs(): number {
+        const raw = Number(process.env.CRON_TICK_BUDGET_MS);
+        return Number.isFinite(raw) && raw >= 5000 && raw <= 50000 ? raw : 45000;
+    }
+
+    /**
+     * Serverless tick: sweep RTOMs until the budget is spent, then run whichever interval tasks
+     * and wall-clock dailies are due. Slots are claimed in Postgres, so an overlapping or duplicated
+     * tick does no work twice, and anything left over simply stays due for the next one.
+     */
+    static async runInlineTick(budgetMs: number = SODSyncService.inlineTickBudgetMs()) {
+        const startedAt = Date.now();
+        const deadline = startedAt + budgetMs;
+        const report: { ran: string[]; failed: string[]; deferred: string[] } = { ran: [], failed: [], deferred: [] };
+
+        const lease = await tryAcquireTickLock(SODSyncService.TICK_LEASE_MS);
+        if (!lease) {
+            console.log('[TICK-INLINE] another tick holds the lease - nothing done');
+            return { skipped: 'overlap', elapsedMs: Date.now() - startedAt };
+        }
+
+        let sweep = { synced: 0, total: 0, nextCursor: 0 };
+        try {
+            sweep = await this.runInlineSweepChunk(deadline, report);
+
+            await this.runDueTask('SELF_HEAL', { kind: 'interval', intervalMs: 10 * 60 * 1000 }, deadline, report,
+                'self-heal', () => this.selfHealTerminalStatuses());
+
+            for (const job of SODSyncService.TICK_BUCKET_JOBS) {
+                const plan: SlotPlan = { kind: 'interval', intervalMs: job.everyMs };
+                await this.runDueTask(job.type, plan, deadline, report, job.name, () => this.runPeriodicTask(job.type));
+            }
+
+            for (const job of SODSyncService.TICK_DAILY_JOBS) {
+                const due = this.resolveDailyRun(job, new Date());
+                if (!due) continue;
+                const plan: SlotPlan = { kind: 'daily', dayKey: due.dateKey, notBefore: Date.now() + due.delayMs };
+                await this.runDueTask(job.type, plan, deadline, report, job.name, () => this.runDailyTask(job.type));
+            }
+        } finally {
+            await releaseTickLock(lease);
+        }
+
+        console.log(`[TICK-INLINE] sweep=${sweep.synced}/${sweep.total} ran=[${report.ran.join(', ')}] ` +
+            `deferred=[${report.deferred.join(', ')}] failed=[${report.failed.join(', ')}] in ${Date.now() - startedAt}ms`);
+        return { sweep, ...report, elapsedMs: Date.now() - startedAt };
+    }
+
+    /**
+     * Sweep from the stored cursor until the budget is spent, writing the cursor after every chunk so
+     * a killed function resumes where it stopped instead of re-pulling the same RTOMs. A timed-out
+     * RTOM cannot actually be cancelled, so its writes may still land after the cursor moves past it;
+     * the next pass reconciles that RTOM, which is the same trade the queue path accepts.
+     */
+    private static async runInlineSweepChunk(
+        deadline: number,
+        report: { ran: string[]; failed: string[]; deferred: string[] }
+    ): Promise<{ synced: number; total: number; nextCursor: number }> {
+        const targets = await this.getRtomSweepTargets();
+        if (targets.length === 0) return { synced: 0, total: 0, nextCursor: 0 };
+
+        let cursor = await readSweepCursor(targets.length);
+        let synced = 0;
+        let created = 0;
+        let updated = 0;
+
+        while (Date.now() + SODSyncService.RTOM_INLINE_TIMEOUT_MS < deadline) {
+            const chunk = targets.slice(cursor, cursor + SODSyncService.RTOM_INLINE_CONCURRENCY);
+            const results = await Promise.all(chunk.map(async (target) => {
+                const [err, res] = await safe(this.withTimeout(
+                    this.syncServiceOrders(target.id, target.rtom),
+                    SODSyncService.RTOM_INLINE_TIMEOUT_MS,
+                    `RTOM ${target.rtom} sweep`
+                ));
+                if (err || !res) {
+                    report.failed.push(`sweep:${target.rtom} - ${err instanceof Error ? err.message : String(err)}`);
+                    return { created: 0, updated: 0 };
+                }
+                return res;
+            }));
+
+            for (const r of results) {
+                created += r.created;
+                updated += r.updated;
+            }
+            synced += chunk.length;
+            cursor = (cursor + chunk.length) % targets.length;
+            await writeSweepCursor(cursor);
+        }
+
+        if (created > 0 || updated > 0) await this.updateGlobalSyncStats({ created, updated });
+        return { synced, total: targets.length, nextCursor: cursor };
+    }
+
+    /**
+     * Run one scheduled task when its slot is due and the budget is still open. A failure hands the
+     * claim back, so the next tick retries instead of waiting out the whole interval (or losing a
+     * whole day for a daily). Not-due and lost-race both come back as a silent no-op.
+     */
+    private static async runDueTask(
+        taskId: string,
+        plan: SlotPlan,
+        deadline: number,
+        report: { ran: string[]; failed: string[]; deferred: string[] },
+        label: string,
+        work: () => Promise<unknown>
+    ): Promise<void> {
+        if (Date.now() > deadline) {
+            report.deferred.push(label);
+            return;
+        }
+        if (!await claimSlot(taskId, plan)) return;
+
+        const started = Date.now();
+        try {
+            await work();
+            report.ran.push(`${label}=${Date.now() - started}ms`);
+        } catch (err: unknown) {
+            report.failed.push(`${label} - ${err instanceof Error ? err.message : String(err)}`);
+            await releaseSlot(taskId);
+        }
+    }
+
+    /** Same bodies the sod-sync worker branches run, so both execution models do identical work. */
+    private static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown> {
+        if (type === 'PERIODIC_COMPLETED_SYNC') {
+            const { CompletedSODSyncService } = await import('./completed-sod-sync.service');
+            return CompletedSODSyncService.syncCompletedSODs();
+        }
+        if (type === 'PERIODIC_GLOBAL_SYNC') {
+            const approved = await this.syncHoApprovedResults();
+            const rejected = await this.syncHoRejectedResults();
+            return { approved, rejected };
+        }
+        return this.syncReturnReasons();
+    }
+
+    /** Same bodies the system worker branches run. */
+    private static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP'): Promise<unknown> {
+        if (type === 'DAILY_REPORT_SNAPSHOT') {
+            const { ReportService } = await import('../core/report.service');
+            return ReportService.persistClosedSriLankaDaySnapshot();
+        }
+        if (type === 'APPOINTMENT_REMINDERS') {
+            const { AppointmentNotificationService } = await import('../notification/appointment-notification.service');
+            return AppointmentNotificationService.checkAndNotify();
+        }
+        if (type === 'DAILY_AUTOMATION') {
+            const { AutomationService } = await import('../automation/automation.service');
+            return AutomationService.runAllDailyTasks();
+        }
+        const { NotificationService } = await import('../notification/notification.service');
+        return NotificationService.cleanup();
+    }
+
+    /** Bound one unit of work; the underlying promise cannot be cancelled, only ignored. */
+    private static async withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+            return await Promise.race([
+                work,
+                new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => reject(new Error(`${label} exceeded ${ms}ms`)), ms);
+                }),
+            ]);
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
     }
 
     /**
      * Queue-level RTOM sweep scheduler - refreshes EVERY RTOM's live worklist (ASSIGNED /
-     * INPROGRESS / PROV_CLOSED / INSTALL_CLOSED) on a fixed window, without touching any
-     * cron or repeatable-job cadence.
+     * INPROGRESS / PROV_CLOSED / INSTALL_CLOSED) on a fixed window.
      *
-     * syncAllOpmcs can only visit a 15-OPMC slice per call because the serverless path caps
-     * a run at ~9.5s; ranks outside it went minutes-to-days without a refresh. Here the tick
-     * just enqueues one short single-RTOM job per RTOM, staggered across the coming window,
-     * and each executed job re-seeds its own next window (self-sustaining chain). The
-     * unchanged 15-minute PERIODIC_PENDING_SYNC tick is only a watchdog that re-seeds
-     * whatever a restart dropped.
+     * syncAllOpmcs still defaults to a 15-OPMC slice per call (a historical limit), so ranks
+     * outside the slice went minutes-to-days without a refresh. The sweep ignores slicing
+     * altogether: one short single-RTOM job per RTOM, staggered across the coming window, and
+     * each executed job re-seeds its own next window (self-sustaining chain). The external
+     * 10-minute tick seeds the same window with the same deterministic ids, so the ping is a
+     * recovery path rather than a second source of portal calls.
      *
      * Job ids are deterministic per (rtom, window) so seeding from several worker instances
      * is a no-op instead of duplicate portal calls.
@@ -1188,9 +1451,9 @@ export class SODSyncService {
             }
         }
 
-        // ── Optimization: Use pre-loaded pending SODs instead of re-querying DB ──
-        // When called from syncAllOpmcs, pendingSods are pre-loaded globally (O(1) lookup)
-        // When called standalone, fall back to per-OPMC query
+        // ── Pending set for disappearance inference ──
+        // Callers may hand in a pre-loaded set to skip this query; the per-RTOM sweep and the
+        // worker path pass nothing, so the open SODs for this OPMC are read here.
         // A range-scoped feed holds only the orders touched inside one window. Comparing it
         // against every local open SOD would flag all the others as DISAPPEARED, so the
         // pending set is forced empty and the whole block below becomes a no-op.

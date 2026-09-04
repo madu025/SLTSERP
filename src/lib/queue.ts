@@ -51,6 +51,9 @@ const createQueueWrapper = (name: string) => {
         },
         getRepeatableJobs: async () => {
             return await queueProvider.getRepeatableJobs(name);
+        },
+        removeRepeatableJobs: async () => {
+            return await queueProvider.removeRepeatableJobs(name);
         }
     };
 };

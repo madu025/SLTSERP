@@ -342,6 +342,14 @@ export class ServiceOrderService {
     }
 
     /**
+     * The one scheduled call. Queues the tick when a worker exists to drain it, otherwise runs the
+     * tick inline within the function budget - see SODSyncService.runCronTick.
+     */
+    static async runCronTick(): Promise<Record<string, unknown>> {
+        return SODSyncService.runCronTick();
+    }
+
+    /**
      * Queue-level RTOM sweep: seeds one single-RTOM job per RTOM for the next window so every
      * RTOM's live worklist refreshes on that cadence without changing any cron frequency.
      */
