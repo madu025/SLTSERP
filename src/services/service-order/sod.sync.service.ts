@@ -1,7 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import { Prisma, ServiceOrder } from '@prisma/client';
+import { Prisma, ServiceOrder, ServiceOrderStatus } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '@/services/slt/slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 import { UUID } from '@/types/common';
@@ -11,7 +11,7 @@ import { SODReturnClassifierService } from './sod-return-classifier.service';
 import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from './sod.lifecycle.service';
 import { SodUtils } from './sod.utils';
 import { SystemConfigService } from '@/services/core/system-config.service';
-import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
+import { SodStatus, SOD_RETURN_STATUSES, backfillReceiptDate, orderRaiseDateFromSoNum } from '@/lib/constants/sod-constants';
 import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
 import { format, subMonths } from 'date-fns';
 import { safe } from '@/utils/safe-await.util';
@@ -36,6 +36,10 @@ interface MaterialDetailInput {
 }
 
 export class SODSyncService {
+    /** Per-RTOM live-worklist refresh window (queue-level; independent of any cron cadence). */
+    static readonly RTOM_SWEEP_WINDOW_MS = 10 * 60 * 1000;
+    /** Deterministic job-id prefix so multi-instance seeding dedupes instead of doubling portal calls. */
+    static readonly RTOM_SWEEP_JOB_PREFIX = 'rtom-sweep';
     /**
      * Upsert PAT status records — replaces DELETE+INSERT pattern (saves 1 query per batch).
      * Uses INSERT ... ON CONFLICT (soNum) DO UPDATE since soNum is @unique.
@@ -515,33 +519,7 @@ export class SODSyncService {
             // ── Self-healing guard: portal-confirmed install closures must advance the ERP
             // workflow status. Re-asserted every cycle so stragglers (legacy deployments,
             // race windows, out-of-band writes) cannot leave terminal SODs looking active.
-            const healed = await prisma.serviceOrder.updateMany({
-                where: {
-                    sltsStatus: 'INSTALL_CLOSED',
-                    status: {
-                        in: ['PENDING', 'INPROGRESS', 'ASSIGNED', 'PROV_CLOSED'] as import("@prisma/client").ServiceOrderStatus[]
-                    }
-                },
-                data: { status: 'INSTALL_CLOSED' }
-            });
-            if (healed.count > 0) {
-                console.log(`[SYNC] Self-heal: advanced ${healed.count} INSTALL_CLOSED SODs with stale workflow status.`);
-            }
-
-            // RETURN rows are terminal too. A stale workflow status (PENDING/INPROGRESS/...)
-            // leaves the detail modal showing an active-looking status on a returned SOD.
-            const healedReturns = await prisma.serviceOrder.updateMany({
-                where: {
-                    sltsStatus: 'RETURN',
-                    status: {
-                        in: ['PENDING', 'INPROGRESS', 'ASSIGNED', 'PROV_CLOSED'] as import("@prisma/client").ServiceOrderStatus[]
-                    }
-                },
-                data: { status: 'RETURN' }
-            });
-            if (healedReturns.count > 0) {
-                console.log(`[SYNC] Self-heal: advanced ${healedReturns.count} RETURN SODs with stale workflow status.`);
-            }
+            await this.selfHealTerminalStatuses();
 
             const stats = {
                 queuedCount: 0,
@@ -588,6 +566,65 @@ export class SODSyncService {
         });
 
         return { success: true, stats };
+    }
+
+    /**
+     * Repair stale ERP workflow statuses on portal-confirmed rows. Idempotent and indexed on
+     * sltsStatus, so it is safe to re-assert from any sync tick.
+     *
+     * Two directions are healed:
+     *  - terminal sltsStatus (INSTALL_CLOSED / RETURN) still showing an active workflow status;
+     *  - a row previously marked DISAPPEARED that came back on the portal worklist: the sync
+     *    refreshes sltsStatus (the effective routing field) but leaves `status` stuck, which is
+     *    what made 0112458844 read DISAPPEARED in the UI while the portal said PROV_CLOSED.
+     */
+    static async selfHealTerminalStatuses(): Promise<{ installClosed: number; returned: number; restored: number }> {
+        const staleStatuses = ['PENDING', 'INPROGRESS', 'ASSIGNED', 'PROV_CLOSED'] as import("@prisma/client").ServiceOrderStatus[];
+
+        const healed = await prisma.serviceOrder.updateMany({
+            where: { sltsStatus: 'INSTALL_CLOSED', status: { in: staleStatuses } },
+            data: { status: 'INSTALL_CLOSED' }
+        });
+        if (healed.count > 0) {
+            console.log(`[SYNC] Self-heal: advanced ${healed.count} INSTALL_CLOSED SODs with stale workflow status.`);
+        }
+
+        // RETURN rows are terminal too. A stale workflow status (PENDING/INPROGRESS/...)
+        // leaves the detail modal showing an active-looking status on a returned SOD.
+        const healedReturns = await prisma.serviceOrder.updateMany({
+            where: { sltsStatus: 'RETURN', status: { in: staleStatuses } },
+            data: { status: 'RETURN' }
+        });
+        if (healedReturns.count > 0) {
+            console.log(`[SYNC] Self-heal: advanced ${healedReturns.count} RETURN SODs with stale workflow status.`);
+        }
+
+        // Reappeared rows: workflow status stuck on DISAPPEARED although the portal feed put a
+        // different live status on the row. Grouped by target status so each write stays typed
+        // (never a raw enum cast) and one updateMany covers each group.
+        const stuckDisappeared = await prisma.serviceOrder.findMany({
+            where: { status: 'DISAPPEARED', sltsStatus: { not: 'DISAPPEARED' } },
+            select: { id: true, soNum: true, sltsStatus: true }
+        });
+        let restored = 0;
+        if (stuckDisappeared.length > 0) {
+            const idsByStatus = new Map<ServiceOrderStatus, string[]>();
+            for (const row of stuckDisappeared) {
+                if (!SERVICE_ORDER_STATUS_VALUES.has(row.sltsStatus)) continue;
+                const target = row.sltsStatus as ServiceOrderStatus;
+                const ids = idsByStatus.get(target) || [];
+                ids.push(row.id);
+                idsByStatus.set(target, ids);
+            }
+            for (const [target, ids] of idsByStatus) {
+                const done = await prisma.serviceOrder.updateMany({ where: { id: { in: ids } }, data: { status: target } });
+                restored += done.count;
+            }
+            const healedNums = stuckDisappeared.map((r) => r.soNum).filter(Boolean).slice(0, 15);
+            console.log(`[SYNC] Self-heal: restored ${restored} reappeared SODs stuck on DISAPPEARED workflow status (${healedNums.join(', ')}).`);
+        }
+
+        return { installClosed: healed.count, returned: healedReturns.count, restored };
     }
 
     /**
@@ -696,14 +733,148 @@ export class SODSyncService {
     }
 
     /**
+     * Date-range intake sweep for one RTOM through the portal's PENDING_SLTS feed.
+     *
+     * Ranged re-pull companion to the per-RTOM ftthpen sweep (scheduleRtomSweep): use it to
+     * backfill a specific day/period for one RTOM, e.g. after an outage, without waiting for
+     * the sweep to observe the rows.
+     *
+     * The rows are a date slice, therefore scopedToRange disables disappearance detection -
+     * absence from a slice proves nothing and would mass-flag DISAPPEARED.
+     */
+    static async syncPendingIntake(rtom: string, startDate: string, endDate: string) {
+        const opmc = await prisma.oPMC.findFirst({ where: { rtom }, select: { id: true, rtom: true } });
+        if (!opmc) return { rtom, checked: 0, created: 0, updated: 0, error: 'Unknown RTOM' };
+
+        const rows = await sltApiService.fetchPendingSODs(rtom, startDate, endDate);
+        if (rows.length === 0) return { rtom, checked: 0, created: 0, updated: 0 };
+
+        const result = await this.syncServiceOrders(opmc.id, opmc.rtom, undefined, { rows, scopedToRange: true });
+        return { rtom, checked: rows.length, created: result.created, updated: result.updated };
+    }
+
+    /**
+     * Pending-sync tick entry point (called by the 15-minute PERIODIC_PENDING_SYNC job).
+     *
+     * A persistent worker can pick up delayed per-RTOM jobs, so it switches to the queue-level
+     * sweep: every RTOM refreshed each window, cron cadence untouched. Serverless runtimes
+     * freeze between invocations and would never drain those jobs, so they keep the bounded
+     * inline slice sync that fits the ~9.5s budget.
+     */
+    static async runPendingSyncTick() {
+        if (process.env.VERCEL === '1') {
+            const result = await this.syncAllOpmcs();
+            return { mode: 'inline-slice' as const, result };
+        }
+        const sweep = await this.scheduleRtomSweep();
+        const healed = await this.selfHealTerminalStatuses();
+        return { mode: 'rtom-sweep' as const, sweep, healed };
+    }
+
+    /**
+     * Queue-level RTOM sweep scheduler - refreshes EVERY RTOM's live worklist (ASSIGNED /
+     * INPROGRESS / PROV_CLOSED / INSTALL_CLOSED) on a fixed window, without touching any
+     * cron or repeatable-job cadence.
+     *
+     * syncAllOpmcs can only visit a 15-OPMC slice per call because the serverless path caps
+     * a run at ~9.5s; ranks outside it went minutes-to-days without a refresh. Here the tick
+     * just enqueues one short single-RTOM job per RTOM, staggered across the coming window,
+     * and each executed job re-seeds its own next window (self-sustaining chain). The
+     * unchanged 15-minute PERIODIC_PENDING_SYNC tick is only a watchdog that re-seeds
+     * whatever a restart dropped.
+     *
+     * Job ids are deterministic per (rtom, window) so seeding from several worker instances
+     * is a no-op instead of duplicate portal calls.
+     *
+     * @returns number of RTOM jobs that were scheduled for the next window.
+     */
+    static async scheduleRtomSweep(windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS) {
+        const targets = await this.getRtomSweepTargets();
+        if (targets.length === 0) return { seeded: 0, window: 0, windowMs };
+
+        const now = Date.now();
+        const window = Math.floor(now / windowMs) + 1;
+        const staggerMs = Math.max(1000, Math.floor(windowMs / targets.length));
+        let seeded = 0;
+
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            const scheduled = await this.scheduleRtomSweepJob(target, window, windowMs, i * staggerMs);
+            if (scheduled) seeded++;
+        }
+
+        console.log(`[RTOM-SWEEP] seeded=${seeded}/${targets.length} window=${window} every=${Math.round(windowMs / 60000)}min stagger=${staggerMs}ms`);
+        return { seeded, window, windowMs };
+    }
+
+    /**
+     * Seed one RTOM's job for a given absolute window. `slotMs` staggers the run inside the
+     * window; a duplicate jobId (already queued by another instance/chain hop) is treated as
+     * success rather than an error.
+     */
+    private static async scheduleRtomSweepJob(
+        target: { id: string; rtom: string },
+        window: number,
+        windowMs: number,
+        slotMs: number
+    ): Promise<boolean> {
+        const jobId = `${SODSyncService.RTOM_SWEEP_JOB_PREFIX}-${target.rtom}-${window}`;
+        const delay = Math.max(0, window * windowMs - Date.now() + slotMs);
+        try {
+            await addJob(sodSyncQueue, 'rtom-sweep', {
+                opmcId: target.id,
+                rtom: target.rtom,
+                type: 'RTOM_SWEEP',
+                windowMs,
+                slotMs
+            }, { jobId, delay });
+            return true;
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!/already exists|duplicate/i.test(msg)) console.warn(`[RTOM-SWEEP] ${target.rtom} seed failed: ${msg}`);
+            return false;
+        }
+    }
+
+    /**
+     * Continuation hop used by the worker after a RTOM_SWEEP job finishes: re-seed only this
+     * RTOM's next window so the chain survives without a new cron entry. `slotMs` carries the
+     * RTOM's stagger position, otherwise every chain hop would pile all RTOMs onto the window
+     * boundary and burst the portal instead of spreading the load.
+     */
+    static async rescheduleRtomSweep(opmcId: string, rtom: string, windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS, slotMs: number = 0) {
+        const window = Math.floor(Date.now() / windowMs) + 1;
+        return this.scheduleRtomSweepJob({ id: opmcId, rtom }, window, windowMs, Math.max(0, slotMs));
+    }
+
+    /** Distinct RTOM sweep targets (one job per RTOM, stable order). */
+    private static async getRtomSweepTargets(): Promise<Array<{ id: string; rtom: string }>> {
+        const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
+        const seen = new Set<string>();
+        const targets: Array<{ id: string; rtom: string }> = [];
+        for (const opmc of opmcs) {
+            if (!opmc.rtom || seen.has(opmc.rtom)) continue;
+            seen.add(opmc.rtom);
+            targets.push({ id: opmc.id, rtom: opmc.rtom });
+        }
+        return targets;
+    }
+
+    /**
      * Sync single OPMC Service Orders
+     *
+     * options.rows feeds a caller-supplied portal result set (e.g. the ranged PENDING_SLTS
+     * intake feed) instead of the full ftthpen snapshot; options.scopedToRange declares that
+     * the supplied rows are a partial slice, which turns off DISAPPEARED inference.
      */
     static async syncServiceOrders(
         opmcId: UUID,
         rtom: string,
-        preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[]
+        preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[],
+        options?: { rows?: SLTServiceOrderData[]; scopedToRange?: boolean }
     ) {
-        const sltData = await sltApiService.fetchServiceOrders(rtom);
+        const scopedToRange = options?.scopedToRange === true;
+        const sltData = options?.rows ?? await sltApiService.fetchServiceOrders(rtom);
         if (!sltData || sltData.length === 0) return { created: 0, updated: 0 };
 
         const configs = await SystemConfigService.getConfigs();
@@ -845,6 +1016,13 @@ export class SODSyncService {
             } else {
                 const isFinished = effectiveSltsStatus === 'COMPLETED' || effectiveSltsStatus === 'INSTALL_CLOSED';
                 const isRecent = statusDate.getFullYear() >= 2026;
+                // A row that surfaces in a portal date range only because someone touched its
+                // status is not today's intake. The SOD number carries the order-raise date
+                // (never later than the real receipt), so when the status instant trails that
+                // date by more than a day the receipt anchor moves back to the raise date.
+                // Genuine same-day / next-day intake keeps the portal status date untouched.
+                const raisedDate = orderRaiseDateFromSoNum(item.SO_NUM);
+                const receiptWasRedated = !!raisedDate && statusDate.getTime() - raisedDate.getTime() > 86400000;
                 if (!isFinished || isRecent) {
                     toCreate.push({
                         ...updatePayload,
@@ -852,7 +1030,15 @@ export class SODSyncService {
                         contractorId: contractorId || null,
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
-                        receivedDate: statusDate,
+                        // A record that arrives already closed carries its closure instant in
+                        // CON_STATUS_DATE, not a receipt. Stamping that as receivedDate made
+                        // month-old jobs show up as "Received Today" on the Daily Operational
+                        // Report, so born-finished rows take the order-raise date embedded in
+                        // the SOD number instead. Open rows keep the portal status date, which
+                        // is the genuine received/assigned moment.
+                        receivedDate: (isFinished || receiptWasRedated)
+                            ? backfillReceiptDate(item.SO_NUM, statusDate)
+                            : statusDate,
                         // Born-RETURN: return date = the ERP capture moment (when the import
                         // learned the return). Portal CON_STATUS_DATE is the received-date
                         // mirror, NOT the return date.
@@ -947,7 +1133,9 @@ export class SODSyncService {
                         where: { id: existing.id },
                         data: {
                             ...updatePayload,
-                            sltsStatus: updatePayload.sltsStatus as any
+                            // Portal-mapped status is validated upstream (mapExternalStatusToSltsStatus);
+                            // this only narrows the string type to the Prisma enum for the spread.
+                            sltsStatus: updatePayload.sltsStatus as ServiceOrderStatus | undefined
                         }
                     });
 
@@ -1003,7 +1191,11 @@ export class SODSyncService {
         // ── Optimization: Use pre-loaded pending SODs instead of re-querying DB ──
         // When called from syncAllOpmcs, pendingSods are pre-loaded globally (O(1) lookup)
         // When called standalone, fall back to per-OPMC query
-        const localPendingSods = preloadedPendingSods ?? await prisma.serviceOrder.findMany({
+        // A range-scoped feed holds only the orders touched inside one window. Comparing it
+        // against every local open SOD would flag all the others as DISAPPEARED, so the
+        // pending set is forced empty and the whole block below becomes a no-op.
+        const emptyPending: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null }[] = [];
+        const localPendingSods = scopedToRange ? emptyPending : (preloadedPendingSods ?? await prisma.serviceOrder.findMany({
             where: {
                 opmcId,
                 // PROV_CLOSED included: a SOD stuck in PROV_CLOSED that drops off the portal
@@ -1014,10 +1206,18 @@ export class SODSyncService {
                 isLegacyImport: false
             },
             select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
-        });
+        }));
 
         const sltSoNumSet = new Set(sltSoNums);
-        const disappearedSods = localPendingSods.filter(sod => sod.soNum && !sltSoNumSet.has(sod.soNum));
+        // Coverage guard: the per-RTOM sweep now visits every RTOM every window, so a thin or
+        // partial portal response must not be able to mass-flag DISAPPEARED. A live ftthpen
+        // worklist normally carries tens of rows; a handful of rows against a large local open
+        // backlog means the feed failed, not that the work vanished.
+        const feedTooThinToInfer = !scopedToRange && sltData.length < 5 && localPendingSods.length > 10;
+        if (feedTooThinToInfer) {
+            console.warn(`[SYNC-DISAPPEARED] Skipped inference for ${rtom}: feed rows=${sltData.length} vs local open=${localPendingSods.length} (partial portal response assumed).`);
+        }
+        const disappearedSods = feedTooThinToInfer ? [] : localPendingSods.filter(sod => sod.soNum && !sltSoNumSet.has(sod.soNum));
 
         if (disappearedSods.length > 0) {
             console.log(`[SYNC-DISAPPEARED] Found ${disappearedSods.length} disappeared SODs for RTOM: ${rtom}. Fetching external status...`);

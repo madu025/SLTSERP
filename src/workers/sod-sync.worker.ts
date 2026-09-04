@@ -4,16 +4,16 @@ import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
 import { QUEUE_NAMES, statsUpdateQueue, addJob } from '../lib/queue';
 import { ServiceOrderService } from '../services/service-order/sod.service';
-import { SLTPATData } from '../services/slt/slt-api.service';
 
 export const sodSyncWorker = new Worker(
     QUEUE_NAMES.SOD_SYNC,
     async (job: Job) => {
-        const { opmcId, rtom, type, hoRejected } = job.data as {
+        const { opmcId, rtom, type, windowMs, slotMs } = job.data as {
             opmcId: string;
             rtom: string;
-            type?: 'PENDING' | 'PAT_REJECTION';
-            hoRejected?: SLTPATData[];
+            type?: 'PENDING' | 'PAT_REJECTION' | 'RTOM_SWEEP' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_PENDING_SYNC' | 'PERIODIC_COMPLETED_SYNC';
+            windowMs?: number;
+            slotMs?: number;
         };
 
         try {
@@ -24,18 +24,33 @@ export const sodSyncWorker = new Worker(
                 await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
                 console.log(`[SOD-SYNC-WORKER] Completed PAT sync for RTOM: ${rtom}. Updated: ${result.updated}`);
                 return result;
-            } else if (type as any === 'PERIODIC_GLOBAL_SYNC') {
+            } else if (type === 'PERIODIC_GLOBAL_SYNC') {
                 console.log(`[SOD-SYNC-WORKER] Starting Periodic Global PAT Sync (Job ID: ${job.id})`);
                 const approvedResult = await ServiceOrderService.syncHoApprovedResults();
                 const rejectedResult = await ServiceOrderService.syncHoRejectedResults();
                 console.log(`[SOD-SYNC-WORKER] Completed Periodic Global PAT Sync.`);
                 return { approvedResult, rejectedResult };
-            } else if (type as any === 'PERIODIC_PENDING_SYNC') {
-                console.log(`[SOD-SYNC-WORKER] Starting Periodic Pending SOD Sync (Job ID: ${job.id})`);
-                const result = await ServiceOrderService.syncAllOpmcs();
-                console.log(`[SOD-SYNC-WORKER] Completed Periodic Pending SOD Sync.`);
+            } else if (type === 'PERIODIC_PENDING_SYNC') {
+                // Watchdog tick (cadence unchanged): the per-RTOM sweep chain keeps itself alive,
+                // so this only re-seeds windows a restart/Redis flush dropped, then re-asserts
+                // the terminal-status self-heal that used to ride along with syncAllOpmcs.
+                console.log(`[SOD-SYNC-WORKER] Pending-sync tick (Job ID: ${job.id})`);
+                return await ServiceOrderService.runPendingSyncTick();
+            } else if (type === 'RTOM_SWEEP') {
+                console.log(`[SOD-SYNC-WORKER] RTOM sweep start for ${rtom} (Job ID: ${job.id})`);
+                const result = await ServiceOrderService.syncServiceOrders(opmcId, rtom);
+                await ServiceOrderService.updateGlobalSyncStats({ created: result.created, updated: result.updated });
+                await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+                // Continuation hop: queue this RTOM's next window before returning, so a failing
+                // sync still keeps the chain (Bull retries the current window separately).
+                try {
+                    await ServiceOrderService.rescheduleRtomSweep(opmcId, rtom, windowMs, slotMs);
+                } catch (rescheduleErr) {
+                    console.error(`[SOD-SYNC-WORKER] RTOM sweep re-seed failed for ${rtom}:`, rescheduleErr);
+                }
+                console.log(`[SOD-SYNC-WORKER] RTOM sweep done for ${rtom}. Created: ${result.created}, Updated: ${result.updated}`);
                 return result;
-            } else if (type as any === 'PERIODIC_COMPLETED_SYNC') {
+            } else if (type === 'PERIODIC_COMPLETED_SYNC') {
                 console.log(`[SOD-SYNC-WORKER] Starting Periodic Completed SOD Sync (Job ID: ${job.id})`);
                 const { CompletedSODSyncService } = await import('../services/service-order/completed-sod-sync.service');
                 const result = await CompletedSODSyncService.syncCompletedSODs();

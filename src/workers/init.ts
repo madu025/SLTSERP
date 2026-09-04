@@ -18,7 +18,7 @@ export async function initializeBackgroundWorkers() {
             redis.ping(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Redis ping timeout')), 1500))
         ]);
-    } catch (pingErr: unknown) {
+    } catch {
         console.warn('[WORKERS] ⚠️ Local Redis server (port 6379) is not reachable. Skipping background workers.');
         return;
     }
@@ -47,11 +47,22 @@ export async function initializeBackgroundWorkers() {
             { repeat: { every: 20 * 60 * 1000 }, jobId: 'repeat-completed-sync' }
         );
 
-        // 2. Pending SOD Sync (Every 15 minutes)
+        // 2. Pending SOD sync tick (Every 15 minutes - cadence unchanged).
+        //    On a persistent worker this tick is a watchdog: it (re)seeds one short job per RTOM
+        //    so every RTOM's live worklist refreshes every sweep window (10 min) via the
+        //    self-rescheduling chain, instead of only the first 15-OPMC slice.
         await sodSyncQueue.add(
             'periodic-pending-sync',
             { type: 'PERIODIC_PENDING_SYNC' },
             { repeat: { every: 15 * 60 * 1000 }, jobId: 'repeat-pending-sync' }
+        );
+
+        // 2b. Seed the per-RTOM sweep immediately on boot (one-shot, not a schedule change) so a
+        //     freshly started worker is not stale until the next watchdog tick.
+        await sodSyncQueue.add(
+            'pending-sync-boot-seed',
+            { type: 'PERIODIC_PENDING_SYNC' },
+            { jobId: 'pending-sync-boot-seed', delay: 10_000 }
         );
 
         // 3. Global PAT Sync / Rejections (Every 30 minutes)

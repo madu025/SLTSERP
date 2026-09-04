@@ -136,6 +136,58 @@ export class SLTApiService {
         return [];
     }
 
+    /**
+     * Fetch PENDING SODs for an RTOM inside a portal date range
+     * (z=<RTOM>_<from>_<to>_PENDING_SLTS - the iShamp "Pending" tab).
+     *
+     * Read the range semantics before using this for anything date-shaped: the portal
+     * filters on the LAST STATUS TOUCH (CON_STATUS_DATE), not on the day the order was
+     * received. An order raised months ago re-appears in today's slice the moment anyone
+     * edits it - the same re-dating behaviour already measured on COMPLETED_SLTS.
+     *
+     * Deliberate difference from the other feed mappers: a blank CON_STATUS_DATE is left
+     * blank instead of being replaced by `new Date()`. Inventing "now" as the portal stamp
+     * is what turned stale rows into today's intake, so the caller must handle null and
+     * fall back to the SOD-number receipt anchor.
+     */
+    async fetchPendingSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]> {
+        const endpoints = [
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load?x=ftth&z=${rtom}_${startDate}_${endDate}_PENDING_SLTS`,
+            `https://ishamp.slt.lk/iShamp/contr/dynamic_load?x=ftth&z=${rtom}_${startDate}_${endDate}_PENDING_SLTS`,
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=ftth&z=${rtom}_${startDate}_${endDate}_PENDING_SLTS`
+        ];
+
+        for (const url of endpoints) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                    },
+                    signal: AbortSignal.timeout(30000),
+                });
+
+                if (response.ok) {
+                    const data: SLTApiResponse = await response.json();
+                    if (data && Array.isArray(data.data)) {
+                        return data.data.map((item) => {
+                            const status = item.CON_STATUS || 'UNKNOWN';
+                            return {
+                                ...item,
+                                CON_STATUS: status === 'ASSIGN' ? 'ASSIGNED' : status
+                            } as SLTServiceOrderData;
+                        });
+                    }
+                }
+            } catch {
+                // Try next endpoint
+            }
+        }
+        return [];
+    }
+
     async fetchServiceOrders(rtom: string): Promise<SLTServiceOrderData[]> {
         try {
             const url = `${this.baseUrl}?x=ftthpen&z=SLTS_${rtom}`;

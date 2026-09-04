@@ -331,6 +331,34 @@ export class ServiceOrderService {
         return SODSyncService.syncAllOpmcs(offset, limit);
     }
 
+    /** Rotating PENDING_SLTS intake for one date range (admin/manual ranged re-pull). */
+    static async syncPendingIntake(rtom: string, startDate: string, endDate: string) {
+        return SODSyncService.syncPendingIntake(rtom, startDate, endDate);
+    }
+
+    /** Pending-sync tick: per-RTOM sweep on a persistent worker, inline slice on serverless. */
+    static async runPendingSyncTick() {
+        return SODSyncService.runPendingSyncTick();
+    }
+
+    /**
+     * Queue-level RTOM sweep: seeds one single-RTOM job per RTOM for the next window so every
+     * RTOM's live worklist refreshes on that cadence without changing any cron frequency.
+     */
+    static async scheduleRtomSweep(windowMs?: number) {
+        return SODSyncService.scheduleRtomSweep(windowMs);
+    }
+
+    /** Continuation hop: re-seed one RTOM's own next sweep window (keeps its stagger slot). */
+    static async rescheduleRtomSweep(opmcId: string, rtom: string, windowMs?: number, slotMs?: number) {
+        return SODSyncService.rescheduleRtomSweep(opmcId, rtom, windowMs, slotMs);
+    }
+
+    /** Repair stale ERP workflow statuses on portal-confirmed terminal rows. */
+    static async selfHealTerminalStatuses() {
+        return SODSyncService.selfHealTerminalStatuses();
+    }
+
     static async syncReturnReasons(maxRtoms: number = 4) {
         return SODSyncService.syncReturnReasons(maxRtoms);
     }

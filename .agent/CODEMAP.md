@@ -349,6 +349,17 @@
 * **Exported Functions**:
   * `generateAssetId(serialNumber: string): string`
 
+### [daily-report-activity.ts](src/services/core/daily-report-activity.ts)
+* **Exported Functions**:
+  * `classifySodDayActivity(order: SodDayActivitySource, window: SodDayWindow): SodDayActivity`
+
+### [daily-report-material.ts](src/services/core/daily-report-material.ts)
+* **Exported Functions**:
+  * `toQuantity(value: Prisma.Decimal | number | string | null): number`
+  * `classifyItemCode(code: string | null | undefined): DailyMaterialBucket | null`
+  * `classifyPoleType(poleType: string | null | undefined): DailyPoleBucket | null`
+  * `sumMaterialsForSods(sods: readonly MaterialSodLike[]): DailyMaterialTotals`
+
 ### [dashboard-alert.service.ts](src/services/core/dashboard-alert.service.ts)
 * **Class**: `DashboardAlertService`
   * **Methods**:
@@ -2693,6 +2704,11 @@
     * `syncHoApprovedResults(): any`
     * `syncHoRejectedResults(): any`
     * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
+    * `syncPendingIntake(rtom: string, startDate: string, endDate: string): any`
+    * `runPendingSyncTick(): any`
+    * `scheduleRtomSweep(windowMs?: number): any`
+    * `rescheduleRtomSweep(opmcId: string, rtom: string, windowMs?: number, slotMs?: number): any`
+    * `selfHealTerminalStatuses(): any`
     * `syncReturnReasons(maxRtoms: number = 4): any`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
     * `syncServiceOrders(opmcId: UUID, rtom: string): any`
@@ -2856,9 +2872,14 @@
     * `syncHoApprovedResults(): any`
     * `syncHoRejectedResults(): any`
     * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
+    * `selfHealTerminalStatuses(): Promise<{ installClosed: number; returned: number }>`
     * `syncReturnReasons(maxRtoms: number = 4): Promise<{ updated: number; checked: number }>`
     * `updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }): any`
-    * `syncServiceOrders(opmcId: UUID, rtom: string, preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[]): any`
+    * `syncPendingIntake(rtom: string, startDate: string, endDate: string): any`
+    * `runPendingSyncTick(): any`
+    * `scheduleRtomSweep(windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS): any`
+    * `rescheduleRtomSweep(opmcId: string, rtom: string, windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS, slotMs: number = 0): any`
+    * `syncServiceOrders(opmcId: UUID, rtom: string, preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[], options?: { rows?: SLTServiceOrderData[]; scopedToRange?: boolean }): any`
     * `bridgeSync(payload: {
         soNum?: string;
         allTabs?: Record<string, Record<string, string>>;
@@ -2906,6 +2927,7 @@
   * **Methods**:
     * `fetchCompletedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]>`
     * `fetchApprovedSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]>`
+    * `fetchPendingSODs(rtom: string, startDate: string, endDate: string): Promise<SLTServiceOrderData[]>`
     * `fetchServiceOrders(rtom: string): Promise<SLTServiceOrderData[]>`
     * `fetchPATResults(rtom: string): Promise<SLTPATData[]>`
     * `fetchHOApprovedGlobal(): Promise<SLTPATData[]>`
@@ -3059,6 +3081,7 @@
 | `/api/cron/daily-report-snapshot` | [route.ts](src/app/api/cron/daily-report-snapshot/route.ts) | `GET` |
 | `/api/cron/drift-correction` | [route.ts](src/app/api/cron/drift-correction/route.ts) | `GET` |
 | `/api/cron/sync-all` | [route.ts](src/app/api/cron/sync-all/route.ts) | `GET` |
+| `/api/cron/sync-completed` | [route.ts](src/app/api/cron/sync-completed/route.ts) | `GET` |
 | `/api/cron/sync-pat` | [route.ts](src/app/api/cron/sync-pat/route.ts) | `GET` |
 | `/api/cron/sync-sod` | [route.ts](src/app/api/cron/sync-sod/route.ts) | `GET` |
 | `/api/dashboard/alerts` | [route.ts](src/app/api/dashboard/alerts/route.ts) | `GET` |
