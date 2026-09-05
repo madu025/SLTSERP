@@ -1,20 +1,20 @@
 import { Queue } from 'bullmq';
-import { redis } from '../redis';
+import { queueConnection, queueConnectionAlive } from '../redis-queue';
 import { QueueProvider, JobInfo, QueueMetrics } from './queue-provider.interface';
 
 export class BullMQQueueProvider implements QueueProvider {
     private queues = new Map<string, Queue>();
 
     private getQueue(name: string): Queue | null {
-        // Fallback immediately if Redis connection is closed/closing or unavailable
-        if (redis.status === 'end' || redis.status === 'close') {
+        // Fallback immediately if the queue connection is closed/closing or unavailable
+        if (!queueConnectionAlive()) {
             return null;
         }
         let q = this.queues.get(name);
         if (!q) {
             try {
                 q = new Queue(name, {
-                    connection: redis as unknown as Record<string, unknown>,
+                    connection: queueConnection,
                     defaultJobOptions: {
                         attempts: 3,
                         backoff: {

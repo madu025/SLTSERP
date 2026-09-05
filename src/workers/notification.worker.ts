@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq';
-import { redis } from '@/lib/redis';
+import { createQueueConnection } from '@/lib/redis-queue';
 import { QUEUE_NAMES } from '@/lib/queue';
 import { PushNotificationService } from '@/services/notification/push/push.service';
 import { EmailService } from '@/services/notification/email.service';
@@ -65,7 +65,7 @@ export const notificationWorker = new Worker(QUEUE_NAMES.NOTIFICATIONS, async (j
             }
         }
     }
-}, { connection: redis as unknown as import('bullmq').ConnectionOptions });
+}, { connection: createQueueConnection('worker:notification') });
 
 notificationWorker.on('failed', (job, err) => {
     console.error(`[NOTIFICATION-WORKER] Job ${job?.id} failed with error:`, err.message);

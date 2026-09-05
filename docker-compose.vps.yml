@@ -1,0 +1,103 @@
+# ==========================================================================
+# SLTSERP - VPS sync host (runs the FULL 10-minute workload)
+# ==========================================================================
+# Why this file exists instead of docker-compose.prod.yml:
+#   prod compose starts its own Postgres container and HARD-CODES
+#   DATABASE_URL at it (with a default password). Production data lives in
+#   Supabase, so that stack would migrate an empty database and serve a blank
+#   ERP. Here the database URL always comes from .env - nothing is hard-coded.
+#
+# Three containers only:
+#   app    - the same Next.js standalone build Vercel runs, but VERCEL is
+#            unset, so src/instrumentation.ts boots the BullMQ workers and the
+#            Master Tick ENQUEUES work instead of doing it inside a 60-second
+#            serverless window. The sweep, the 20-minute INSTALL_CLOSED pass and
+#            the dailies all drain here with no time ceiling.
+#   redis  - queue backing. Never published to the host, so it stays inside the
+#            docker network and is unreachable from the internet.
+#   nginx  - TLS front door exposing ONLY /api/cron/* and /api/health.
+#
+# Users keep signing in on https://sltserp.vercel.app (NEXTAUTH_URL in .env);
+# this box is only the clock's executor.
+#
+# First boot on a fresh VPS: sudo bash scripts/vps-prepare.sh <domain>
+# Deploy from Windows:      ./smart-deploy.ps1 -ComposeFile docker-compose.vps.yml -Ip <vps-ip> -Key <pem>
+# ==========================================================================
+name: sltserp-vps
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: sltserp-app
+    restart: unless-stopped
+    # Supabase DATABASE_URL/DIRECT_URL, SLT_PORTAL_* credentials, SMTP, etc.
+    env_file: .env
+    environment:
+      # These win over env_file - the local dev .env would break the container.
+      NODE_ENV: production                  # .env carries "development"
+      REDIS_URL: redis://redis:6379         # .env carries redis://localhost
+      DISABLE_BACKGROUND_WORKERS: "false"   # .env carries true; workers are the point
+      CRON_INLINE_MODE: "false"             # queue + worker, never the 40s inline budget
+      HOSTNAME: 0.0.0.0
+      TZ: Asia/Colombo
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - sltserp-network
+    healthcheck:
+      # Port check, not /api/health: that endpoint answers 503 while Redis reports
+      # unhealthy through the pooler, which would leave the container flagged.
+      test: ["CMD", "nc", "-z", "127.0.0.1", "3000"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  redis:
+    image: redis:7-alpine
+    container_name: sltserp-redis
+    restart: unless-stopped
+    # noeviction so a full queue errors loudly instead of silently dropping the
+    # delayed jobs that carry our bucket cadences; RDB every 60s survives restarts.
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 200mb --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    networks:
+      - sltserp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.vps
+    container_name: sltserp-nginx
+    restart: unless-stopped
+    environment:
+      SLTSERP_DOMAIN: ${SLTSERP_DOMAIN:?set SLTSERP_DOMAIN in .env}
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - app
+    networks:
+      - sltserp-network
+
+volumes:
+  redis_data:
+  uploads_data:
+
+networks:
+  sltserp-network:
+    driver: bridge

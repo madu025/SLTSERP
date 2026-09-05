@@ -1,4 +1,5 @@
 import { AuditRepository } from '@/repositories/audit.repository';
+import { toUuidOrNull } from '@/lib/uuid';
 
 export interface AuditLogParams {
     userId: string;
@@ -20,7 +21,11 @@ export class AuditService {
     static async log(params: AuditLogParams) {
         try {
             return await AuditRepository.create({
-                userId: params.userId,
+                // AuditLog.userId is a uuid column, but sync and automation callers pass labels
+                // ('SYNC_SERVICE', 'SYSTEM_AUTO_COMPLETE'). Prisma rejects those with P2023 and,
+                // because log() swallows the error, the whole audit trail of that change silently
+                // disappears. Non-user actors are stored as null, exactly as the schema documents.
+                userId: toUuidOrNull(params.userId),
                 action: params.action,
                 entity: params.entity,
                 entityId: params.entityId,

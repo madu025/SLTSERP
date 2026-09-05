@@ -58,6 +58,14 @@ interface InlineTickTask {
 export class SODSyncService {
     /** Per-RTOM live-worklist refresh window - equals the external scheduler's tick interval. */
     static readonly RTOM_SWEEP_WINDOW_MS = 10 * 60 * 1000;
+    /**
+     * Ceiling on the gap between two seeded sweep jobs. The window is divided by the RTOM count
+     * only while that stays below this cap; beyond it the grid is compressed so the whole pass is
+     * fired early and the worker lanes absorb it in parallel. A full window-long spread made the
+     * pass take 586s while each sweep only waits ~7s on the portal, i.e. the schedule - not the
+     * machine - set the duration, and any late RTOM drifted into the next window.
+     */
+    private static readonly RTOM_SWEEP_STAGGER_MAX_MS = 1500;
     /** Deterministic job-id prefix so multi-instance seeding dedupes instead of doubling portal calls. */
     static readonly RTOM_SWEEP_JOB_PREFIX = 'rtom-sweep';
     /** Asia/Colombo is UTC+5:30 all year (no DST) - same assumption as lib/timezone. */
@@ -1118,8 +1126,8 @@ export class SODSyncService {
      *
      * syncAllOpmcs still defaults to a 15-OPMC slice per call (a historical limit), so ranks
      * outside the slice went minutes-to-days without a refresh. The sweep ignores slicing
-     * altogether: one short single-RTOM job per RTOM, staggered across the coming window, and
-     * each executed job re-seeds its own next window (self-sustaining chain). The external
+     * altogether: one short single-RTOM job per RTOM, staggered over the start of the coming
+     * window, and each executed job re-seeds its own next window (self-sustaining chain). The external
      * 10-minute tick seeds the same window with the same deterministic ids, so the ping is a
      * recovery path rather than a second source of portal calls.
      *
@@ -1134,7 +1142,10 @@ export class SODSyncService {
 
         const now = Date.now();
         const window = Math.floor(now / windowMs) + 1;
-        const staggerMs = Math.max(1000, Math.floor(windowMs / targets.length));
+        const staggerMs = Math.min(
+            SODSyncService.RTOM_SWEEP_STAGGER_MAX_MS,
+            Math.max(1000, Math.floor(windowMs / targets.length))
+        );
         let seeded = 0;
 
         for (let i = 0; i < targets.length; i++) {

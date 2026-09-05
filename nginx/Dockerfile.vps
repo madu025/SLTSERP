@@ -1,0 +1,11 @@
+# Front door for the VPS sync host (docker-compose.vps.yml).
+# The official entrypoint renders /etc/nginx/templates/*.template through
+# envsubst with the container's own variable names, so ${SLTSERP_DOMAIN} is
+# filled in while nginx runtime vars ($host, $remote_addr) survive untouched.
+FROM nginx:alpine
+
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+COPY ./templates/vps.conf.template /etc/nginx/templates/vps.conf.template
+
+EXPOSE 80 443

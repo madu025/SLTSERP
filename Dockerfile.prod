@@ -17,6 +17,12 @@ RUN addgroup --system --gid 1001 nodejs && \
 # The bundle already contains: server.js, node_modules, .next/, public/, prisma/, scripts/
 COPY --chown=nextjs:nodejs . .
 
+# A zip created on Windows stores directory entries as 0444, i.e. without the
+# execute bit. On Linux "no x on a directory" means "cannot look inside it", so
+# node fails to resolve next's main entry (dist/server/next.js) and reports it as
+# a missing module. Restore traversal for the whole bundle.
+RUN chmod -R a+rX /app
+
 # Ensure entrypoint is executable
 RUN chmod +x docker-entrypoint.sh
 

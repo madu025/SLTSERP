@@ -33,9 +33,12 @@ export const GET = apiHandler(async (req) => {
         ? tick.accepted === true
         : swept > 0 || ranTasks.length > 0 || tick.skipped === 'overlap';
 
-    // Only a tick that accomplished nothing while throwing is worth alerting on; one slow RTOM out
-    // of a ten-RTOM chunk is normal and must not page anyone.
-    const status = didWork || failedItems.length === 0 ? 200 : 502;
+    // A queued tick that the queue refused (Redis down or the write rejected) means nothing will
+    // run for the next 10 minutes, so it is an outage even when no task threw. Otherwise only a
+    // tick that accomplished nothing while throwing is worth alerting on; one slow RTOM out of a
+    // ten-RTOM chunk is normal and must not page anyone.
+    const queuedButRejected = tick.mode === 'queued' && tick.accepted !== true;
+    const status = queuedButRejected || (!didWork && failedItems.length > 0) ? 502 : 200;
     const duration = (Date.now() - startTime) / 1000;
     console.log(`[CRON] Master tick mode=${String(tick.mode)} in ${duration}s -> HTTP ${status}`);
 

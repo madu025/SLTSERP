@@ -1,0 +1,4 @@
+# Shell scripts are executed inside Linux containers (docker-entrypoint.sh,
+# scripts/vps-prepare.sh). With core.autocrlf=true a fresh Windows checkout would
+# otherwise hand them CRLF line endings and the shebang breaks on the box.
+*.sh text eol=lf

@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
-import { redis } from '../lib/redis';
+import { createQueueConnection } from '../lib/redis-queue';
 import { QUEUE_NAMES } from '../lib/queue';
 import { AutomationService } from '../services/automation/automation.service';
 
@@ -48,7 +48,7 @@ export const systemWorker = new Worker(
         }
     },
     {
-        connection: redis as any,
+        connection: createQueueConnection('worker:system'),
         concurrency: 1
     }
 );

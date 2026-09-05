@@ -103,4 +103,9 @@ tsc_errors_*.txt
 # root-level test screenshots (ad-hoc QA artifacts)
 test-*.png
 
+# SSH keypairs for the sync VPS (private keys must never be committed; .next is
+# wiped by every build, so keys live here instead)
+.ssh-vps/
 
+
+deploy_staging/

@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
-import { redis } from '../lib/redis';
+import { createQueueConnection } from '../lib/redis-queue';
 import { QUEUE_NAMES, statsUpdateQueue, addJob } from '../lib/queue';
 import { ServiceOrderService } from '../services/service-order/sod.service';
 
@@ -78,9 +78,13 @@ export const sodSyncWorker = new Worker(
         }
     },
     {
-        connection: redis as any,
-        concurrency: 2 // Run 2 sync jobs simultaneously as requested
+        connection: createQueueConnection('worker:sod-sync'),
+        // One portal request per RTOM is a hard limit of the iShamp feed (it rejects every batch
+        // form: con=SLTS, z=SLTS, comma/space lists all answer {"data":[]}), so throughput comes
+        // from firing several RTOMs at once. A sweep waits 2-16s (avg ~7s) entirely on portal I/O,
+        // which matches the seeded 1.5s stagger: ~5 jobs in flight, all 43 RTOMs inside ~70s.
+        concurrency: 6
     }
 );
 
-console.log('✅ SOD Sync Worker initialized (Concurrency: 2)');
+console.log('✅ SOD Sync Worker initialized (Concurrency: 6)');

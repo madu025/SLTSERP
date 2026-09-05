@@ -11,15 +11,32 @@ export async function initializeBackgroundWorkers() {
     console.log(`[WORKERS] Runtime: ${process.env.NEXT_RUNTIME}`);
     console.log(`[WORKERS] Redis URL: ${process.env.REDIS_URL || 'NOT SET'}`);
 
-    // Pre-check if Redis is reachable before attempting BullMQ Worker instantiation
+    // Pre-check if Redis is reachable before attempting BullMQ Worker instantiation.
+    // The shared client runs with enableOfflineQueue: false, so ioredis rejects any command
+    // issued before the socket is 'ready' ("Stream isn't writeable and enableOfflineQueue
+    // options is false"). Worker init happens during boot, i.e. while the connect is still in
+    // flight, so a bare ping() reported a healthy Redis as unreachable and the entire worker
+    // pool was skipped. Wait for 'ready' first, then confirm with a ping.
     try {
         const { redis } = await import('../lib/redis');
-        await Promise.race([
-            redis.ping(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Redis ping timeout')), 1500))
-        ]);
+        await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('Redis connect timeout')), 5000);
+            const probe = () => {
+                redis.ping().then(() => { clearTimeout(timer); resolve(); }, (err: unknown) => { clearTimeout(timer); reject(err); });
+            };
+            if (redis.status === 'ready') {
+                probe();
+            } else {
+                // retryStrategy gives up after a couple of attempts, which leaves the singleton
+                // permanently 'end'; nudge it so a Redis that came up later is still usable.
+                if (redis.status === 'end' || redis.status === 'close') {
+                    void redis.connect().catch(() => undefined);
+                }
+                redis.once('ready', probe);
+            }
+        });
     } catch {
-        console.warn('[WORKERS] ⚠️ Local Redis server (port 6379) is not reachable. Skipping background workers.');
+        console.warn('[WORKERS] ⚠️ Redis is not reachable, background workers skipped. Check REDIS_URL.');
         return;
     }
 
