@@ -87,6 +87,13 @@ export class SyncAuditService {
      * Claim a window. Returns IN_FLIGHT / REPLAY when another execution already owns the key, in
      * which case the caller must skip the pass. A stale unfinished row (crashed process) is
      * reclaimed so the feed cannot deadlock.
+     *
+     * The claim is a conditional insert: `skipDuplicates` answers "did I create this window?" with
+     * the row count, atomically against the unique index. It used to be an `upsert`, which cannot
+     * tell an insert from a match, so the code fell through to the age test with the row it had just
+     * written itself: age 0, verdict IN_FLIGHT, every pass refusing its own window. Measured on
+     * production 2026-09-05 - 129 RTOM sweep windows claimed, 129 refused, zero executed, and the
+     * census rows stayed open because nothing ever finished.
      */
     static async startRun(params: {
         feed: SyncFeed;
@@ -99,9 +106,8 @@ export class SyncAuditService {
         const key = windowKeyFor(feed, rtom, window);
         const now = new Date();
 
-        const run = await primaryClient.syncRun.upsert({
-            where: { feed_windowKey: { feed, windowKey: key } },
-            create: {
+        const inserted = await primaryClient.syncRun.createMany({
+            data: {
                 feed,
                 windowKey: key,
                 rtom,
@@ -111,19 +117,34 @@ export class SyncAuditService {
                 startedAt: now,
                 mode: syncStatusPolicyMode(),
             },
-            update: {},
+            skipDuplicates: true,
+        });
+        if (inserted.count === 1) {
+            const mine = await primaryClient.syncRun.findUnique({
+                where: { feed_windowKey: { feed, windowKey: key } },
+                select: { id: true },
+            });
+            // count 1 means we wrote it and the key is unique, so the row is there.
+            if (mine) return { runId: mine.id, state: 'STARTED', windowKey: key };
+        }
+
+        const run = await primaryClient.syncRun.findUnique({
+            where: { feed_windowKey: { feed, windowKey: key } },
             select: { id: true, startedAt: true, finishedAt: true },
         });
+        if (!run) {
+            // Only reachable if retention deleted the row between the failed insert and this read.
+            // Refusing one pass out loud beats running it with no row to close.
+            console.warn(`[SYNC-RUN] ${feed} window ${key} vanished between claim and read - pass refused`);
+            return { runId: '', state: 'IN_FLIGHT', windowKey: key };
+        }
 
-        const unfinished = !run.finishedAt;
-        const ageMs = now.getTime() - new Date(run.startedAt).getTime();
-
-        if (!unfinished) {
+        if (run.finishedAt) {
             // This exact window already ran to completion: a double-fired tick. The census row is
             // left exactly as it was, so the duplicate attempt is itself visible in the table.
             return { runId: run.id, state: 'REPLAY', windowKey: key };
         }
-        if (ageMs <= STALE_RUN_MS) {
+        if (now.getTime() - run.startedAt.getTime() <= STALE_RUN_MS) {
             // Another process owns this window. Skip; do not touch its row (its counters live there).
             return { runId: run.id, state: 'IN_FLIGHT', windowKey: key };
         }
