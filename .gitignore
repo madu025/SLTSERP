@@ -58,6 +58,10 @@ test_*.ts
 *.test.ts
 *.spec.js
 *.spec.ts
+# ...but the node:test suites are real deliverables and CI must be able to see them.
+# (*.spec.ts is left ignored: the Playwright suite's tracking state predates this rule.)
+!tests/unit/**/*.test.ts
+!tests/integration/**/*.test.ts
 
 # temporary and local files
 temp_*.txt

@@ -1,7 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import { Prisma, ServiceOrder, ServiceOrderStatus } from '@prisma/client';
+import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '@/services/slt/slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue, systemQueue } from '../../lib/queue';
 import { UUID } from '@/types/common';
@@ -12,6 +12,9 @@ import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from './sod.lifecycl
 import { SodUtils } from './sod.utils';
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES, backfillReceiptDate, orderRaiseDateFromSoNum } from '@/lib/constants/sod-constants';
+import { authorityActorFor } from '@/lib/constants/sod-status-policy';
+import { applySodStatus, countDecision } from './sync/sod-status.writer';
+import { SyncAuditService, syncCountersOf, tickWindow } from './sync/sync-audit.service';
 import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
 import { format, subMonths } from 'date-fns';
 import { safe } from '@/utils/safe-await.util';
@@ -175,7 +178,7 @@ export class SODSyncService {
 
         if (err || !results) {
             console.error('[PAT-SYNC] Sync Failed:', err);
-            return { total: 0, error: String(err) };
+            return { total: 0, updated: 0, error: String(err) };
         }
 
         const sltData = [
@@ -183,7 +186,7 @@ export class SODSyncService {
             ...(results[1] || [])
         ];
 
-            if (sltData.length === 0) return { total: 0 };
+            if (sltData.length === 0) return { total: 0, updated: 0 };
 
             const soNums = sltData.map(item => item.SO_NUM);
             const statusHistory = sltData.map(item => ({
@@ -614,54 +617,62 @@ export class SODSyncService {
      *  - a row previously marked DISAPPEARED that came back on the portal worklist: the sync
      *    refreshes sltsStatus (the effective routing field) but leaves `status` stuck, which is
      *    what made 0112458844 read DISAPPEARED in the UI while the portal said PROV_CLOSED.
+     *
+     * Each repair goes through the status writer rather than an `updateMany`: the writer owns the
+     * column, so a repair that patched it in place used to be invisible to history and to the audit
+     * trigger. Bounded per pass so a legacy backlog cannot make a tick unbounded.
      */
     static async selfHealTerminalStatuses(): Promise<{ installClosed: number; returned: number; restored: number }> {
+        const SELF_HEAL_BATCH = 200;
         const staleStatuses = ['PENDING', 'INPROGRESS', 'ASSIGNED', 'PROV_CLOSED'] as import("@prisma/client").ServiceOrderStatus[];
 
-        const healed = await prisma.serviceOrder.updateMany({
-            where: { sltsStatus: 'INSTALL_CLOSED', status: { in: staleStatuses } },
-            data: { status: 'INSTALL_CLOSED' }
+        const stuckRows = await prisma.serviceOrder.findMany({
+            where: {
+                OR: [
+                    { sltsStatus: 'INSTALL_CLOSED', status: { in: staleStatuses } },
+                    { sltsStatus: 'RETURN', status: { in: staleStatuses } },
+                    { status: 'DISAPPEARED', sltsStatus: { not: 'DISAPPEARED' } },
+                ],
+            },
+            select: { id: true, soNum: true, opmcId: true, sltsStatus: true, status: true },
+            take: SELF_HEAL_BATCH,
         });
-        if (healed.count > 0) {
-            console.log(`[SYNC] Self-heal: advanced ${healed.count} INSTALL_CLOSED SODs with stale workflow status.`);
+
+        let installClosed = 0; let returned = 0; let restored = 0;
+        const healedNums: string[] = [];
+        for (const row of stuckRows) {
+            // Mirror rule: the workflow column follows the portal-mirror column, never the reverse.
+            const target = row.sltsStatus;
+            if (!target || row.status === target || !SERVICE_ORDER_STATUS_VALUES.has(target)) continue;
+
+            const write = await applySodStatus({
+                sodId: row.id,
+                soNum: row.soNum ?? row.id,
+                opmcId: row.opmcId,
+                next: { status: target },
+                anchor: null,
+                actor: 'API',
+                reason: 'SELF_HEAL',
+            });
+            if (!write.changed) continue;
+
+            if (target === 'INSTALL_CLOSED') installClosed++;
+            else if (target === 'RETURN') returned++;
+            else restored++;
+            if (row.soNum && healedNums.length < 15) healedNums.push(row.soNum);
         }
 
-        // RETURN rows are terminal too. A stale workflow status (PENDING/INPROGRESS/...)
-        // leaves the detail modal showing an active-looking status on a returned SOD.
-        const healedReturns = await prisma.serviceOrder.updateMany({
-            where: { sltsStatus: 'RETURN', status: { in: staleStatuses } },
-            data: { status: 'RETURN' }
-        });
-        if (healedReturns.count > 0) {
-            console.log(`[SYNC] Self-heal: advanced ${healedReturns.count} RETURN SODs with stale workflow status.`);
+        if (installClosed > 0 || returned > 0) {
+            console.log(`[SYNC] Self-heal: advanced ${installClosed} INSTALL_CLOSED and ${returned} RETURN SODs with stale workflow status.`);
         }
-
-        // Reappeared rows: workflow status stuck on DISAPPEARED although the portal feed put a
-        // different live status on the row. Grouped by target status so each write stays typed
-        // (never a raw enum cast) and one updateMany covers each group.
-        const stuckDisappeared = await prisma.serviceOrder.findMany({
-            where: { status: 'DISAPPEARED', sltsStatus: { not: 'DISAPPEARED' } },
-            select: { id: true, soNum: true, sltsStatus: true }
-        });
-        let restored = 0;
-        if (stuckDisappeared.length > 0) {
-            const idsByStatus = new Map<ServiceOrderStatus, string[]>();
-            for (const row of stuckDisappeared) {
-                if (!SERVICE_ORDER_STATUS_VALUES.has(row.sltsStatus)) continue;
-                const target = row.sltsStatus as ServiceOrderStatus;
-                const ids = idsByStatus.get(target) || [];
-                ids.push(row.id);
-                idsByStatus.set(target, ids);
-            }
-            for (const [target, ids] of idsByStatus) {
-                const done = await prisma.serviceOrder.updateMany({ where: { id: { in: ids } }, data: { status: target } });
-                restored += done.count;
-            }
-            const healedNums = stuckDisappeared.map((r) => r.soNum).filter(Boolean).slice(0, 15);
+        if (restored > 0) {
             console.log(`[SYNC] Self-heal: restored ${restored} reappeared SODs stuck on DISAPPEARED workflow status (${healedNums.join(', ')}).`);
         }
+        if (stuckRows.length === SELF_HEAL_BATCH) {
+            console.warn(`[SYNC] Self-heal hit its ${SELF_HEAL_BATCH}-row cap; more stale rows remain for the next tick.`);
+        }
 
-        return { installClosed: healed.count, returned: healedReturns.count, restored };
+        return { installClosed, returned, restored };
     }
 
     /**
@@ -675,19 +686,19 @@ export class SODSyncService {
     static async syncReturnReasons(maxRtoms: number = 4): Promise<{ updated: number; checked: number }> {
         const returnRows = await prisma.serviceOrder.findMany({
             where: { sltsStatus: 'RETURN' },
-            select: { id: true, soNum: true, rtom: true, returnReason: true, comments: true },
+            select: { id: true, soNum: true, opmcId: true, rtom: true, returnReason: true, comments: true },
         });
 
         // Only touch rows still carrying bare classifier output or portal placeholders —
         // never downgrade richer reasons captured via the extension.
         const needsEnrichment = (reason: string | null): boolean =>
             !reason || /^[A-Z_]+$/.test(reason.trim()) || reason.startsWith('Portal Return') || reason.startsWith('Portal Returned');
-        const byRtom = new Map<string, { id: string; soNum: string; returnReason: string | null; comments: string | null }[]>();
+        const byRtom = new Map<string, { id: string; soNum: string; opmcId: string; returnReason: string | null; comments: string | null }[]>();
         for (const row of returnRows) {
             if (!row.soNum || !row.rtom) continue;
             if (!needsEnrichment(row.returnReason)) continue;
             const list = byRtom.get(row.rtom as string) || [];
-            list.push({ id: row.id, soNum: row.soNum as string, returnReason: row.returnReason, comments: row.comments });
+            list.push({ id: row.id, soNum: row.soNum as string, opmcId: row.opmcId, returnReason: row.returnReason, comments: row.comments });
             byRtom.set(row.rtom as string, list);
         }
         if (byRtom.size === 0) return { updated: 0, checked: 0 };
@@ -734,10 +745,27 @@ export class SODSyncService {
                     ? (local.comments.includes(appendLine) ? local.comments : `${local.comments}\n${appendLine}`)
                     : appendLine;
 
-                await prisma.serviceOrder.update({
-                    where: { id: local.id },
-                    data: { returnReason: newReason, comments: newComments },
-                });
+                // `returnReason` is one of the writer's owned columns: the return feed is the only
+                // authority that may restate why a connection came back. No status is expressed, so
+                // the write produces neither a history row nor an event - only the free-text `comments`
+                // trail stays a plain field update.
+                const [writeErr] = await safe(prisma.$transaction(async (tx) => {
+                    await applySodStatus({
+                        sodId: local.id,
+                        soNum: local.soNum,
+                        opmcId: local.opmcId as UUID,
+                        next: { returnReason: newReason },
+                        anchor: null,
+                        actor: 'PORTAL_RETURN',
+                        reason: 'RETURN_REASON_ENRICHMENT',
+                        tx,
+                    });
+                    await tx.serviceOrder.update({ where: { id: local.id }, data: { comments: newComments } });
+                }));
+                if (writeErr) {
+                    console.error(`[SYNC] Failed to enrich return reason for ${local.soNum}:`, writeErr);
+                    continue;
+                }
                 updated++;
             }
         }
@@ -1022,14 +1050,24 @@ export class SODSyncService {
             const chunk = targets.slice(cursor, cursor + SODSyncService.RTOM_INLINE_CONCURRENCY);
             const results = await Promise.all(chunk.map(async (target) => {
                 const [err, res] = await safe(this.withTimeout(
-                    this.syncServiceOrders(target.id, target.rtom),
+                    // Same census row the queue path writes, so the serverless deployment is
+                    // observable too - and a portal failure lands in SystemErrorLog either way
+                    // (defect O7: 54 feed failures in 1.5h, zero rows).
+                    SyncAuditService.tracedRun(
+                        { feed: 'RTOM_SWEEP', opmcId: target.id, rtom: target.rtom, window: tickWindow() },
+                        () => this.syncServiceOrders(target.id, target.rtom),
+                        syncCountersOf,
+                    ),
                     SODSyncService.RTOM_INLINE_TIMEOUT_MS,
                     `RTOM ${target.rtom} sweep`
                 ));
-                if (err || !res) {
+                if (err) {
                     report.failed.push(`sweep:${target.rtom} - ${err instanceof Error ? err.message : String(err)}`);
-                    return { created: 0, updated: 0 };
+                    return { fetched: 0, created: 0, updated: 0, skippedNoChange: 0, blockedByPolicy: 0, decisions: {} };
                 }
+                // null means another execution owns this window (overlapping tick), which is a skip
+                // rather than a failure - the cursor still advances.
+                if (!res) return { fetched: 0, created: 0, updated: 0, skippedNoChange: 0, blockedByPolicy: 0, decisions: {} };
                 return res;
             }));
 
@@ -1069,29 +1107,76 @@ export class SODSyncService {
             report.ran.push(`${task.label}=${Date.now() - started}ms`);
         } catch (err: unknown) {
             report.failed.push(`${task.label} - ${err instanceof Error ? err.message : String(err)}`);
+            // The inline path has no per-feed SyncRun row for most of these tasks, so without this an
+            // entire serverless day of failures would leave no trace outside the function log
+            // (defect O7). Feed passes that trace themselves append their own row error too - a
+            // SystemErrorLog line per distinct failure is the point of the exercise.
+            await SyncAuditService.recordError({ feed: 'TICK', context: `inline task ${task.label}`, error: err });
             await releaseSlot(task.taskId);
         }
     }
 
-    /** Same bodies the sod-sync worker branches run, so both execution models do identical work. */
-    private static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown> {
+    /**
+     * The sub-tick bucket feeds, censused here rather than in the worker: both execution models
+     * (queue worker, serverless inline tick) call this one body, so a feed can never be observable on
+     * one path and silent on the other. Same reason `inlineCostMs` is read from the same table.
+     *
+     * The window is the declared bucket (`everyMs`), which matches the `tick-<TYPE>-<bucket>` job id:
+     * a duplicated tick inside one bucket resolves to the same key and is refused. The completed feed
+     * traces itself because its data window is far wider than its cadence.
+     */
+    static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown> {
         if (type === 'PERIODIC_COMPLETED_SYNC') {
             const { CompletedSODSyncService } = await import('./completed-sod-sync.service');
             return CompletedSODSyncService.syncCompletedSODs();
         }
+
+        const bucketMs = this.TICK_BUCKET_JOBS.find(job => job.type === type)?.everyMs ?? 30 * 60 * 1000;
+        const window = tickWindow(new Date(), bucketMs);
+
         if (type === 'PERIODIC_GLOBAL_SYNC') {
-            const approved = await this.syncHoApprovedResults();
-            const rejected = await this.syncHoRejectedResults();
+            // One bucket, two feeds: separate rows so a stalled HO feed is visible on its own.
+            const approved = await SyncAuditService.tracedRun(
+                { feed: 'PAT_HO_APPROVED', window },
+                () => this.syncHoApprovedResults(),
+                (r) => ({ counters: { fetched: r.totalCached, updated: r.totalUpdated } }),
+            );
+            const rejected = await SyncAuditService.tracedRun(
+                { feed: 'PAT_HO_REJECTED', window },
+                () => this.syncHoRejectedResults(),
+                (r) => ({ counters: { fetched: r.totalCached, updated: r.totalUpdated } }),
+            );
             return { approved, rejected };
         }
-        return this.syncReturnReasons();
+
+        // Return-reason enrichment picks its RTOM slice from the 30-minute clock, so a second pass
+        // inside the same bucket would re-walk the identical slice - the refusal is the point.
+        return SyncAuditService.tracedRun(
+            { feed: 'RETURN', window },
+            () => this.syncReturnReasons(),
+            (r) => ({ counters: { fetched: r.checked, updated: r.updated } }),
+        );
     }
 
-    /** Same bodies the system worker branches run. */
-    private static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP'): Promise<unknown> {
+    /**
+     * Shared body for the wall-clock dailies, used by both execution models. The census window is one
+     * minute wide: a daily has no data window to dedupe against (the tick's `tick-<TYPE>-<dateKey>` job
+     * id already owns the day), so the row records what ran and when while a genuine same-day re-run
+     * stays possible. Public because the system worker delegates here - two bodies for one job is how
+     * a queued pass and a serverless pass start disagreeing.
+     */
+    static async runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP'): Promise<unknown> {
+        const window = tickWindow(new Date(), 60_000);
+
         if (type === 'DAILY_REPORT_SNAPSHOT') {
             const { ReportService } = await import('../core/report.service');
-            return ReportService.persistClosedSriLankaDaySnapshot();
+            const result = await SyncAuditService.tracedRun(
+                { feed: 'DAILY_REPORT', window },
+                () => ReportService.persistClosedSriLankaDaySnapshot(),
+                (r) => ({ counters: { created: r.rows } }),
+            );
+            if (result) console.log(`[SOD-SYNC] Daily report snapshot frozen for ${result.dateKey} (${result.rows} rows).`);
+            return result;
         }
         if (type === 'APPOINTMENT_REMINDERS') {
             const { AppointmentNotificationService } = await import('../notification/appointment-notification.service');
@@ -1101,8 +1186,20 @@ export class SODSyncService {
             const { AutomationService } = await import('../automation/automation.service');
             return AutomationService.runAllDailyTasks();
         }
+
         const { NotificationService } = await import('../notification/notification.service');
-        return NotificationService.cleanup();
+        const result = await SyncAuditService.tracedRun(
+            { feed: 'NOTIFICATION_CLEANUP', window },
+            () => NotificationService.cleanup(),
+            (r) => ({
+                // `updated` is rows the pass affected; the retention split goes in `decisions`, which
+                // is the Json tally column - reading it is how you tell an idle day from a broken rule.
+                counters: { updated: r.count },
+                decisions: { READ_STALE: r.read, EXPIRED: r.expired, SUPERSEDED: r.superseded },
+            }),
+        );
+        if (result) console.log(`[SOD-SYNC] Notification cleanup removed ${result.count} row(s) (read ${result.read}, expired ${result.expired}, superseded ${result.superseded}).`);
+        return result;
     }
 
     /** Bound one unit of work; the underlying promise cannot be cancelled, only ignored. */
@@ -1226,7 +1323,9 @@ export class SODSyncService {
     ) {
         const scopedToRange = options?.scopedToRange === true;
         const sltData = options?.rows ?? await sltApiService.fetchServiceOrders(rtom);
-        if (!sltData || sltData.length === 0) return { created: 0, updated: 0 };
+        // `fetched` is the denominator the SyncRun row needs: created+updated alone cannot tell a
+        // healthy empty feed apart from a feed that returned rows and matched none of them.
+        if (!sltData || sltData.length === 0) return { fetched: 0, created: 0, updated: 0, skippedNoChange: 0, blockedByPolicy: 0, decisions: {} };
 
         const configs = await SystemConfigService.getConfigs();
         const offlineOrderTypes = (configs['OFFLINE_ORDER_TYPES'] || 'MODIFY-LOCATION')
@@ -1260,6 +1359,12 @@ export class SODSyncService {
         const syncableData = Array.from(uniqueSyncMap.values());
 
         let created = 0; let updated = 0;
+        // Census for the single status writer: reopens this pass attempted and the policy refused,
+        // writes that had nothing to change, and the verdict tally per SyncRun row.
+        let blockedByAuthority = 0;
+        let skippedNoChange = 0;
+        const statusDecisions: Record<string, number> = {};
+        const authorityProtected: string[] = [];
 
         // ── Optimization: Collect new records in a batch, flush with createMany ──
         // Reduces O(N) individual DB round-trips to O(1) per OPMC
@@ -1414,7 +1519,6 @@ export class SODSyncService {
                 // Track RETURN/restore transitions for material and ledger processing
                 const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
                 const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus !== 'RETURN');
-                const isStatusChange = updatePayload.sltsStatus && updatePayload.sltsStatus !== existing.sltsStatus;
 
                 // Portal can reactivate a returned SOD (RETURN → INPROGRESS). Allow it.
                 // But block RETURN → terminal status (COMPLETED/INSTALL_CLOSED) — those go through completed-sod-sync.
@@ -1435,74 +1539,71 @@ export class SODSyncService {
                     console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (reactivated: ${restoreDate})`);
                 }
 
-                let blockStatusUpdate = false;
+                // ── Status identity belongs to the single writer ──
+                // ftthpen keeps returning the pre-closure CON_STATUS for SODs the completion feed
+                // already closed, so this sweep wrote INPROGRESS back and the 20-minute completion pass
+                // wrote COMPLETED again: the same SOD flipped every 10 minutes (measured 2026-09-05:
+                // 3,056 spurious status-history rows in one day, 1,910 completion notifications for 91
+                // SODs). The refusal used to be implemented here by deleting columns out of the payload,
+                // which duplicated the policy rules and silently swallowed a gate verdict (defect O6).
+                // The status columns are now pulled out and handed to applySodStatus, which owns the
+                // authority rules, the process gate, history, and the event. Everything else in this
+                // payload still updates.
+                const {
+                    sltsStatus: intentSltsStatus,
+                    status: intentStatus,
+                    completedDate: intentCompletedDate,
+                    returnReason: intentReturnReason,
+                    statusDate: intentStatusDate,
+                    ...fieldPayload
+                } = updatePayload;
+                const anchor = (intentStatusDate as Date | undefined) ?? null;
+                const isStatusChange = !!intentSltsStatus && intentSltsStatus !== existing.sltsStatus;
 
-                if (isStatusChange) {
-                    const { ProcessGateEngine } = await import('../approval/process-gate-engine');
-                    try {
-                        const gateResult = await ProcessGateEngine.startGate({
-                            entityType: 'SOD',
-                            entityId: existing.id,
-                            currentStatus: existing.sltsStatus,
-                            entityPayload: updatePayload as Record<string, unknown>
-                        });
-
-                        if (gateResult.status === 'GATE_STARTED') {
-                            blockStatusUpdate = true;
-                            console.log(`[SYNC] FSM Intercepted transition for ${existing.soNum}. Halting sync-driven status update.`);
-                        }
-                    } catch (gateErr: unknown) {
-                        const errMsg = gateErr instanceof Error ? gateErr.message : String(gateErr);
-                        console.warn(`[SYNC] FSM blocked transition for ${existing.soNum}:`, errMsg);
-                        blockStatusUpdate = true;
-                    }
+                // ── Change detection: skip the DB write if nothing meaningful changed (O8) ──
+                // statusDate is the portal's last-modified timestamp. If it has not moved, the SOD
+                // data is identical to the last sync, so the whole transaction is skipped.
+                const existingTime = existing.statusDate ? new Date(existing.statusDate).getTime() : null;
+                const contractorChanged = fieldPayload.contractorId !== undefined && fieldPayload.contractorId !== existing.contractorId;
+                if (!isStatusChange && !contractorChanged && anchor !== null && existingTime !== null && Math.abs(anchor.getTime() - existingTime) < 1000) {
+                    skippedNoChange++;
+                    return;
                 }
 
-                if (blockStatusUpdate) {
-                    delete updatePayload.sltsStatus;
-                    delete updatePayload.completedDate;
-                    delete updatePayload.status;
-                }
-
-                // ── Change detection: skip DB write if nothing meaningful changed ──
-                // statusDate is the portal's last-modified timestamp. If it hasn't changed,
-                // the SOD data is identical to last sync — skip the entire transaction.
-                const incomingStatusDate = updatePayload.statusDate as Date | undefined;
-                const existingStatusDate = existing.statusDate;
-                const contractorChanged = updatePayload.contractorId !== undefined && updatePayload.contractorId !== existing.contractorId;
-                
-                if (!isStatusChange && !contractorChanged && incomingStatusDate && existingStatusDate) {
-                    const incomingTime = incomingStatusDate.getTime();
-                    const existingTime = new Date(existingStatusDate).getTime();
-                    if (Math.abs(incomingTime - existingTime) < 1000) {
-                        return; // statusDate unchanged, no status/contractor change → skip DB write
-                    }
-                }
-                
                 const [err] = await safe(prisma.$transaction(async (tx) => {
-                    const updatedOrder = await tx.serviceOrder.update({
-                        where: { id: existing.id },
-                        data: {
-                            ...updatePayload,
-                            // Portal-mapped status is validated upstream (mapExternalStatusToSltsStatus);
-                            // this only narrows the string type to the Prisma enum for the spread.
-                            sltsStatus: updatePayload.sltsStatus as ServiceOrderStatus | undefined
-                        }
+                    const write = await applySodStatus({
+                        sodId: existing.id,
+                        soNum: existing.soNum ?? existing.id,
+                        opmcId,
+                        // The payload is a Prisma update-input object, so its field types also admit a
+                        // nested field-operations value. This sweep writes plain scalars into the status
+                        // columns, which is what the writer's narrower intent contract expects.
+                        next: {
+                            sltsStatus: intentSltsStatus as string | null | undefined,
+                            status: intentStatus as string | null | undefined,
+                            completedDate: intentCompletedDate as Date | string | null | undefined,
+                            returnReason: intentReturnReason as string | null | undefined,
+                        },
+                        anchor,
+                        actor: 'PORTAL_SWEEP',
+                        reason: 'LIVE_WORKLIST',
+                        tx,
                     });
+
+                    countDecision(statusDecisions, write.decision, write.wouldHaveBlocked);
+                    if (write.refusedByPolicy) {
+                        blockedByAuthority++;
+                        authorityProtected.push(existing.soNum ?? existing.id);
+                    }
+
+                    if (Object.keys(fieldPayload).length > 0) {
+                        await tx.serviceOrder.update({ where: { id: existing.id }, data: fieldPayload });
+                    }
 
                     if (isReturning) {
                         await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
                         await LedgerService.rollbackSodTransaction(tx, existing.id);
                     }
-
-                    // Audit trail: write status history + publish status-change event for sync-driven transitions
-                    await SODLifecycleService.handlePostUpdate(
-                        { status: existing.status, sltsStatus: existing.sltsStatus, statusDate: null },
-                        updatedOrder,
-                        updatePayload,
-                        'SYNC_SERVICE',
-                        tx
-                    );
                 }));
 
                 if (err) {
@@ -1619,17 +1720,11 @@ export class SODSyncService {
 
                     if (nextSltsStatus !== 'INPROGRESS') {
                         const [disError] = await safe(prisma.$transaction(async (tx) => {
-                            const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                                status: SERVICE_ORDER_STATUS_VALUES.has(statusUpper) ? statusUpper as import("@prisma/client").ServiceOrderStatus : (nextSltsStatus as import("@prisma/client").ServiceOrderStatus),
-                                statusDate,
-                                sltsStatus: nextSltsStatus as import("@prisma/client").ServiceOrderStatus,
+                            // Status identity through the writer; the actor is whichever feed actually
+                            // owns this verdict (completed / returned / open worklist).
+                            const fieldPayload: Prisma.ServiceOrderUncheckedUpdateInput = {
                                 completionMode: isOfflineType ? 'OFFLINE' : undefined,
-                                // RETURN: ERP-side time (when the recovery sync learned the return)
-                                completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED')
-                                    ? statusDate
-                                    : (nextSltsStatus === 'RETURN' ? new Date() : null),
-                                returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined,
-                                // Clear completion data for RETURN - connection did not complete successfully
+                                // Clear completion financials for RETURN - connection did not complete successfully
                                 ...(nextSltsStatus === 'RETURN' ? { revenueAmount: null, contractorAmount: null } : {}),
                                 // Clear stale "[AUTO-SYNC] Disappeared" comment when recovering from DISAPPEARED
                                 comments: null,
@@ -1637,7 +1732,7 @@ export class SODSyncService {
 
                             if (rawItemObj) {
                                 const item = rawItemObj;
-                                Object.assign(updatePayload, {
+                                Object.assign(fieldPayload, {
                                     lea: item.LEA || undefined,
                                     voiceNumber: item.VOICENUMBER || undefined,
                                     orderType: item.ORDER_TYPE || undefined,
@@ -1658,24 +1753,33 @@ export class SODSyncService {
                                 });
                             }
 
-                            const updatedDisappeared = await tx.serviceOrder.update({
-                                where: { id: disappearedSod.id },
-                                data: updatePayload
+                            const write = await applySodStatus({
+                                sodId: disappearedSod.id,
+                                soNum: disappearedSod.soNum ?? disappearedSod.id,
+                                opmcId,
+                                next: {
+                                    sltsStatus: nextSltsStatus,
+                                    status: SERVICE_ORDER_STATUS_VALUES.has(statusUpper) ? statusUpper : nextSltsStatus,
+                                    // RETURN: ERP-side time (when the recovery sync learned the return)
+                                    completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED')
+                                        ? statusDate
+                                        : (nextSltsStatus === 'RETURN' ? new Date() : null),
+                                    returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined,
+                                },
+                                anchor: statusDate,
+                                actor: authorityActorFor(nextSltsStatus),
+                                reason: 'DISAPPEARED_RECOVERY',
+                                tx,
                             });
+                            countDecision(statusDecisions, write.decision, write.wouldHaveBlocked);
+                            if (write.refusedByPolicy) blockedByAuthority++;
+
+                            await tx.serviceOrder.update({ where: { id: disappearedSod.id }, data: fieldPayload });
 
                             if (nextSltsStatus === 'RETURN') {
                                 await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'SYNC_SERVICE');
                                 await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
                             }
-
-                            // Audit trail: record disappeared-SOD status transition
-                            await SODLifecycleService.handlePostUpdate(
-                                { status: disappearedSod.status, sltsStatus: disappearedSod.sltsStatus, statusDate: null },
-                                updatedDisappeared,
-                                updatePayload,
-                                'SYNC_SERVICE',
-                                tx
-                            );
                         }));
                         if (disError) {
                             console.error(`[SYNC-DISAPPEARED] Failed to process disappeared SOD ${disappearedSod.soNum}:`, disError);
@@ -1687,14 +1791,26 @@ export class SODSyncService {
                     // Disappeared and not found anywhere in completed or rejected -> mark as DISAPPEARED
                     console.log(`[SYNC-DISAPPEARED] SOD ${disappearedSod.soNum} not found in completed/rejected lists. Marking as DISAPPEARED.`);
                     const [disError] = await safe(prisma.$transaction(async (tx) => {
-                        const markedDisappeared = await tx.serviceOrder.update({
-                            where: { id: disappearedSod.id },
-                            data: {
-                                status: 'DISAPPEARED',
+                        await applySodStatus({
+                            sodId: disappearedSod.id,
+                            soNum: disappearedSod.soNum ?? disappearedSod.id,
+                            opmcId,
+                            next: {
                                 sltsStatus: 'DISAPPEARED',
-                                returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing',
+                                status: 'DISAPPEARED',
                                 // Clear stale completion data - DISAPPEARED means connection never completed
                                 completedDate: null,
+                                returnReason: 'Missing from portal / Awaiting PROV_CLOSED processing',
+                            },
+                            anchor: new Date(),
+                            actor: 'PORTAL_SWEEP',
+                            reason: 'DISAPPEARED_MARK',
+                            tx,
+                        });
+
+                        await tx.serviceOrder.update({
+                            where: { id: disappearedSod.id },
+                            data: {
                                 revenueAmount: null,
                                 contractorAmount: null,
                                 contractorId: null,
@@ -1706,15 +1822,6 @@ export class SODSyncService {
                         await tx.sODMaterialUsage.deleteMany({
                             where: { serviceOrderId: disappearedSod.id }
                         });
-
-                        // Audit trail: record DISAPPEARED transition
-                        await SODLifecycleService.handlePostUpdate(
-                            { status: disappearedSod.status, sltsStatus: disappearedSod.sltsStatus, statusDate: null },
-                            markedDisappeared,
-                            { statusDate: new Date() },
-                            'SYNC_SERVICE',
-                            tx
-                        );
                     }));
                     if (disError) {
                         console.error(`[SYNC-DISAPPEARED] Failed to process disappeared SOD ${disappearedSod.soNum}:`, disError);
@@ -1723,6 +1830,11 @@ export class SODSyncService {
                     }
                 }
             }
+        }
+
+        if (blockedByAuthority > 0) {
+            const sample = authorityProtected.slice(0, 5).join(', ');
+            console.log(`[SYNC-AUTHORITY] ${rtom}: live worklist reopen refused for ${blockedByAuthority} closed SOD(s)${authorityProtected.length > 5 ? ` (${sample}, ...)` : ` (${sample})`}.`);
         }
 
         if (created > 0 || updated > 0) {
@@ -1756,7 +1868,11 @@ export class SODSyncService {
                     priority: 'MEDIUM',
                     link: `/service-orders?rtom=${encodeURIComponent(rtom)}&opmcId=${opmcId}`,
                     opmcId,
-                    metadata: { count: created + updated, created, updated, opmcId, rtom }
+                    metadata: { count: created + updated, created, updated, opmcId, rtom },
+                    // One row per recipient per RTOM per Master Tick bucket (was 80 events per RTOM
+                    // per four hours): repeats inside the same bucket bump groupedCount on the row
+                    // instead of inserting another alert.
+                    dedupKey: `sod-sweep:${rtom}:${tickWindow().start.toISOString()}`
                 });
             })());
             if (err) {
@@ -1764,7 +1880,7 @@ export class SODSyncService {
             }
         }
 
-        return { created, updated };
+        return { fetched: sltData.length, created, updated, skippedNoChange, blockedByPolicy: blockedByAuthority, decisions: statusDecisions };
     }
 
     /**

@@ -5,18 +5,33 @@ import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from '@/services/service-order/sod.lifecycle.service';
 import { SodStatus, backfillReceiptDate } from '@/lib/constants/sod-constants';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { applySodStatus, countDecision } from './sync/sod-status.writer';
+import { SyncAuditService, tickWindow } from './sync/sync-audit.service';
+import { emptySyncCounters } from './sync/types';
 
 export class CompletedSODSyncService {
     /**
      * Sync completed SODs based on PAT success data
      * This uses the existing PAT success endpoint which works
+     *
+     * Census: one SyncRun row per Master Tick bucket. The data window is deliberately wide (the whole
+     * current month, so late-arriving closures are never missed), which is why the dedup key is the
+     * tick bucket and not the date range - see tickWindow(). A double-fired tick inside the same
+     * bucket resolves to the same key and is refused instead of re-walking and re-notifying.
      */
     static async syncCompletedSODs(customStartDate?: string): Promise<{
         checked: number;
         completed: number;
         enriched: number;
+        blockedByPolicy: number;
         errors: string[];
     }> {
+        const run = await SyncAuditService.startRun({ feed: 'COMPLETED', window: tickWindow() });
+        if (run.state !== 'STARTED') {
+            console.log(`[COMPLETED-SOD-SYNC] Pass refused (${run.state}, key ${run.windowKey})`);
+            return { checked: 0, completed: 0, enriched: 0, blockedByPolicy: 0, errors: [] };
+        }
+
         console.log(`[COMPLETED-SOD-SYNC] Starting sync... (Mode: ${customStartDate ? 'FULL HISTORY' : 'BACKGROUND/RECENT'})`);
 
         const today = new Date();
@@ -32,9 +47,12 @@ export class CompletedSODSyncService {
         const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
 
         const errors: string[] = [];
+        const counters = emptySyncCounters();
+        const decisions: Record<string, number> = {};
         let completedCount = 0;
         let enrichedCount = 0;
         let checkedCount = 0;
+        let blockedByPolicy = 0;
 
         try {
             // Get all OPMCs with RTOM
@@ -71,11 +89,12 @@ export class CompletedSODSyncService {
                     const allSoNums = uniqueResults.map(r => r.SO_NUM);
                     const localSODsBatch = allSoNums.length > 0 ? await prisma.serviceOrder.findMany({
                         where: { soNum: { in: allSoNums } },
-                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true, customerName: true, ontSerialNumber: true, receivedDate: true, statusDate: true, orderType: true, package: true, serviceType: true, lea: true, woroTaskName: true, woroSeit: true, ftthInstSeit: true, ftthWifi: true, iptv: true }
+                        select: { id: true, soNum: true, opmcId: true, sltsStatus: true, status: true, completedDate: true, customerName: true, ontSerialNumber: true, receivedDate: true, statusDate: true, orderType: true, package: true, serviceType: true, lea: true, woroTaskName: true, woroSeit: true, ftthInstSeit: true, ftthWifi: true, iptv: true }
                     }) : [];
 
                     // Group local service orders by soNum in-memory
-                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null, customerName: string | null, ontSerialNumber: string | null, receivedDate: Date | null, statusDate: Date | null, orderType: string | null, package: string | null, serviceType: string | null, lea: string | null, woroTaskName: string | null, woroSeit: string | null, ftthInstSeit: string | null, ftthWifi: string | null, iptv: string | null }>>();
+                    type LocalSodRow = { id: string, soNum: string | null, opmcId: string, sltsStatus: string, status: string, completedDate: Date | null, customerName: string | null, ontSerialNumber: string | null, receivedDate: Date | null, statusDate: Date | null, orderType: string | null, package: string | null, serviceType: string | null, lea: string | null, woroTaskName: string | null, woroSeit: string | null, ftthInstSeit: string | null, ftthWifi: string | null, iptv: string | null };
+                    const localSODsMap = new Map<string, LocalSodRow[]>();
                     localSODsBatch.forEach(sod => {
                         const key = sod.soNum;
                         if (key) {
@@ -146,36 +165,43 @@ export class CompletedSODSyncService {
                                         // If SOD was previously DISAPPEARED, clear the stale
                                         // "[AUTO-SYNC] Disappeared from active portal list" comment
                                         const wasDisappeared = localSOD.sltsStatus === SodStatus.DISAPPEARED;
-
+                                    
+                                        // Status identity goes through the single writer (defect O10: this
+                                        // feed used to write status through the facade and then patch it
+                                        // again with a raw update). Everything else stays a normal update.
+                                        const write = await applySodStatus({
+                                            sodId: localSOD.id,
+                                            soNum: localSOD.soNum as string,
+                                            opmcId: localSOD.opmcId,
+                                            next: {
+                                                sltsStatus: effectiveSltsStatus,
+                                                status: effectiveLegacyStatus,
+                                                completedDate: isCompletionStatus ? completedDate : localSOD.completedDate,
+                                            },
+                                            anchor: completedDate,
+                                            actor: 'PORTAL_COMPLETED',
+                                            reason: 'COMPLETED_FEED',
+                                        });
+                                        countDecision(decisions, write.decision, write.wouldHaveBlocked);
+                                        if (!write.changed) counters.skippedNoChange++;
+                                    
                                         await ServiceOrderService.updateServiceOrder(
                                             localSOD.id,
                                             {
-                                                status: effectiveLegacyStatus,
-                                                sltsStatus: effectiveSltsStatus,
-                                                completedDate: isCompletionStatus ? completedDate : localSOD.completedDate,
                                                 wiredOnly: isWiredOnly,
                                                 dpDetails: sltData.DP,
                                                 ontSerialNumber: localSOD.ontSerialNumber ? localSOD.ontSerialNumber : (sltData.CON_WORO_SEIT || undefined),
                                                 iptvSerialNumbers: (sltData.IPTV && String(sltData.IPTV).trim().length > 5) ? [String(sltData.IPTV).trim()] : undefined,
                                                 dropWireDistance: dropWireDistance,
-                                                comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,
+                                                comments: wasDisappeared ? null : `Auto-updated via Sync (${sltData.CON_STATUS})`,
                                             },
                                             'SYNC_SERVICE'
                                         );
-
-                                        // FIX: When recovering from DISAPPEARED, ensure status field is also updated
-                                        // updateServiceOrder may not update status if there's a collision check
-                                        // Also clear stale "[AUTO-SYNC] Disappeared" text from comments column
-                                        if (wasDisappeared) {
-                                            await prisma.serviceOrder.update({
-                                                where: { id: localSOD.id },
-                                                data: {
-                                                    status: effectiveSltsStatus,
-                                                    comments: null,
-                                                },
-                                            });
+                                    
+                                        if (write.refusedByPolicy) {
+                                            blockedByPolicy++;
+                                            console.log(`[COMPLETED-SYNC] ${localSOD.soNum} refused by the status policy (${write.decision.reason}${write.wouldHaveBlocked ? ', logonly: written anyway' : ''}).`);
                                         }
-
                                         completedCount++;
                                     } else if (!localSOD.customerName && sltData.CON_CUS_NAME) {
                                         // Identity backfill: bridge-born SODs completed via the contractor
@@ -300,6 +326,7 @@ export class CompletedSODSyncService {
                                 skipDuplicates: true
                             });
                             completedCount += result.count;
+                            counters.created += result.count;
                         } catch (batchErr) {
                             console.error(`[COMPLETED-SOD-SYNC] [BATCH-ERROR] OPMC ${opmc.name} Batch Insert Failed:`, batchErr);
                             errors.push(`Batch Insert for OPMC ${opmc.name} failed: ${(batchErr as Error).message}`);
@@ -311,21 +338,30 @@ export class CompletedSODSyncService {
                 }
             }
 
-            console.log(`[COMPLETED-SOD-SYNC] ✅ Completed ${completedCount} SODs from ${checkedCount} SLT records`);
+            console.log(`[COMPLETED-SOD-SYNC] Completed ${completedCount} SODs from ${checkedCount} SLT records (${blockedByPolicy} policy refusals)`);
+
+            counters.fetched = checkedCount;
+            counters.updated = completedCount - counters.created;
+            counters.blockedByPolicy = blockedByPolicy;
+            await SyncAuditService.finishRun(run.runId, { counters, decisions, errors });
 
             return {
                 checked: checkedCount,
                 completed: completedCount,
                 enriched: enrichedCount,
+                blockedByPolicy,
                 errors
             };
 
         } catch (error) {
-            console.error('[COMPLETED-SOD-SYNC] Fatal error:', error);
+            await SyncAuditService.recordError({ feed: 'COMPLETED', context: 'syncCompletedSODs', error, runId: run.runId });
+            counters.fetched = checkedCount;
+            await SyncAuditService.finishRun(run.runId, { counters, decisions, errors });
             return {
                 checked: 0,
                 completed: 0,
                 enriched: 0,
+                blockedByPolicy,
                 errors: [error instanceof Error ? error.message : 'Unknown error']
             };
         }

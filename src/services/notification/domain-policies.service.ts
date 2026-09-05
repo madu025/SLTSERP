@@ -11,6 +11,7 @@ import { NotificationService, NotificationPriority } from './index';
 import { NotificationRetryService } from './retry.service';
 import { prisma } from '@/lib/prisma';
 import { emitSystemEvent } from '@/lib/events';
+import { getSriLankaDayKey } from '@/lib/timezone';
 
 export class DomainNotificationPolicies {
 
@@ -199,6 +200,7 @@ export class DomainNotificationPolicies {
         opmcId?: UUID;
         materialsCount?: number;
         cpeCount?: number;
+        completedDate?: Date | null;
     }) {
         const details = [];
         if (order.materialsCount) details.push(`${order.materialsCount} materials consumed`);
@@ -214,6 +216,10 @@ export class DomainNotificationPolicies {
             link: '/service-orders/work-order/completed',
             opmcId: order.opmcId,
             metadata: { soNum: order.soNum, status: 'COMPLETED' },
+            // One alert per SOD per Sri Lanka day. The portal feeds re-assert a completion every
+            // time a feed replays the row, and each re-assertion used to be a fresh row for every
+            // OPS recipient (measured 2026-09-05: 1,910 rows for 91 distinct SODs in four hours).
+            dedupKey: `sod-complete:${order.soNum}:${getSriLankaDayKey(order.completedDate ?? undefined)}`,
         });
 
         emitSystemEvent('SOD_COMPLETED', { soNum: order.soNum });
@@ -238,6 +244,9 @@ export class DomainNotificationPolicies {
             link: '/service-orders',
             opmcId: order.opmcId,
             metadata: { soNum: order.soNum },
+            // The assignee is part of the key so a genuine reassignment to another team still
+            // announces, while a feed re-asserting the same team does not re-ping every PM.
+            dedupKey: `sod-assign:${order.soNum}:${assignee}:${getSriLankaDayKey()}`,
         });
 
         if (order.assignedToUserId) {

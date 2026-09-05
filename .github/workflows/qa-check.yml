@@ -31,6 +31,19 @@ jobs:
       - name: Strict TypeScript Compilation (Zero `any` Rule Check)
         run: npx tsc --noEmit
 
+      - name: Unit tests (SOD status authority policy and domain tables)
+        run: npm run test:unit
+
+      - name: SOD sync invariants (read-only census against the live schema)
+        # Diagnostic until the rewrite is in enforce mode: the census is legitimately empty and the
+        # pre-rewrite history still holds its duplicate rows, so failing the job here would block
+        # every PR for a state this rollout exists to remove. Promote it to a gate afterwards.
+        continue-on-error: true
+        run: npm run check:sync -- --hours=6
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 

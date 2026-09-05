@@ -138,48 +138,50 @@ export class DomainActionDispatcher {
     // ==========================================
 
     private static async handleSodAssigned(payload: ActionPayload, tx: TransactionClient) {
-        // Update SOD status to INPROGRESS without hardcoded rules in the API
-        await tx.serviceOrder.update({
-            where: { id: payload.entityId },
-            data: { 
-                status: 'INPROGRESS',
-                sltsStatus: 'INPROGRESS',
-                statusDate: new Date()
-            }
-        });
-        
-        await tx.serviceOrderStatusHistory.create({
-            data: {
-                serviceOrderId: payload.entityId,
-                status: 'INPROGRESS',
-                statusDate: new Date()
-            }
-        });
-        
-        console.log(`[DomainActionDispatcher] SOD ${payload.entityId} assigned and updated to INPROGRESS`);
+        await DomainActionDispatcher.applySodStatus(payload, tx, 'INPROGRESS', 'GATE_APPROVED_ASSIGN');
     }
 
     private static async handleSodCompleted(payload: ActionPayload, tx: TransactionClient) {
-        // Update SOD status to COMPLETED
-        await tx.serviceOrder.update({
+        await DomainActionDispatcher.applySodStatus(payload, tx, 'COMPLETED', 'GATE_APPROVED_COMPLETE');
+    }
+
+    /**
+     * Apply the status a cleared gate authorised.
+     *
+     * The status columns belong to the single SOD writer (defect O10). This handler used to write
+     * `status` / `sltsStatus` / `statusDate` / `completedDate` itself and then insert its own history
+     * row, which meant a gate-approved transition bypassed the authority policy, the duplicate
+     * suppression and the `sod.status_changed` event. `skipGate` is required, not cosmetic: the gate
+     * has already passed for this transition, and `startGate` would open a second instance for it.
+     */
+    private static async applySodStatus(payload: ActionPayload, tx: TransactionClient, status: string, reason: string) {
+        const sod = await tx.serviceOrder.findUnique({
             where: { id: payload.entityId },
-            data: { 
-                status: 'COMPLETED',
-                sltsStatus: 'COMPLETED',
-                statusDate: new Date(),
-                completedDate: new Date()
-            }
+            select: { soNum: true, opmcId: true }
+        });
+        if (!sod) {
+            console.warn(`[DomainActionDispatcher] ${reason}: SOD ${payload.entityId} not found, status write skipped`);
+            return;
+        }
+
+        const { applySodStatus } = await import('@/services/service-order/sync/sod-status.writer');
+        const now = new Date();
+        const write = await applySodStatus({
+            sodId: payload.entityId,
+            soNum: sod.soNum ?? payload.entityId,
+            opmcId: sod.opmcId,
+            next: status === 'COMPLETED'
+                ? { sltsStatus: status, status, completedDate: now }
+                : { sltsStatus: status, status },
+            anchor: now,
+            actor: 'USER',
+            reason,
+            actorUserId: payload.userId,
+            skipGate: true,
+            tx,
         });
 
-        await tx.serviceOrderStatusHistory.create({
-            data: {
-                serviceOrderId: payload.entityId,
-                status: 'COMPLETED',
-                statusDate: new Date()
-            }
-        });
-        
-        console.log(`[DomainActionDispatcher] SOD ${payload.entityId} marked as COMPLETED (PAT Approved)`);
+        console.log(`[DomainActionDispatcher] SOD ${write.soNum} ${reason}: ${write.changed ? 'applied' : `refused (${write.decision.reason})`}`);
     }
 
 }

@@ -106,6 +106,7 @@ model ServiceOrder {
   @@index([isOfflineWorkOrder])
   @@index([opmcId, isOfflineWorkOrder])
   @@index([invoiceId])
+  @@index([status, sltsStatus, receivedDate])
 }
 
 model SODForensicAudit {
@@ -145,6 +146,8 @@ model ServiceOrderStatusHistory {
   @@index([serviceOrderId])
   @@index([statusDate])
   @@index([status])
+  // Duplicate-suppression reads the newest row for a SOD on every status write.
+  @@index([serviceOrderId, createdAt])
 }
 
 model ServiceOrderComment {

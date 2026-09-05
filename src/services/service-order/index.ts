@@ -14,6 +14,25 @@ import { ServiceOrderRepository } from '@/repositories/service-order.repository'
 import { prisma } from '@/lib/prisma';
 import { ROLE_GROUPS } from '@/config/roles';
 import { isValidUuid } from '@/lib/uuid';
+import type { SyncActor } from '@/lib/constants/sod-status-policy';
+import { applySodStatus } from './sync/sod-status.writer';
+
+/**
+ * Which authority a status write arriving through this facade is asserting.
+ *
+ * `userId` doubles as an audit marker for system callers, and a marker is not a person. Handing every
+ * non-UUID marker the flat 'API' actor granted them policy rule 7 (humans and integrations are always
+ * allowed), which is exactly how a background job could reopen a row the portal had closed. The
+ * markers that actually call this facade are named here; anything unknown stays 'API', because an
+ * unlabelled integration cannot be told apart from a privileged one and a wrong portal label would
+ * refuse legitimate writes.
+ */
+function statusActorFor(userId?: string): SyncActor {
+    if (userId && isValidUuid(userId)) return 'USER';
+    if (userId === 'SYSTEM_AUTO_COMPLETE') return 'AUTO_COMPLETE';
+    if (userId === 'SYNC_SERVICE') return 'PORTAL_SWEEP';
+    return 'API';
+}
 
 /**
  * ServiceOrderService (Facade)
@@ -102,29 +121,36 @@ export class ServiceOrderService {
             return this.updateServiceOrder(collisionId, { ...data, status: undefined }, userId);
         }
 
-        // 2. Prepare Update Data
-        const updateData = await SODLifecycleService.prepareStatusTransition(oldOrder, data);
+        // 2. Prepare Update Data (validation, enum guards, derivation, field mapping)
+        const prepared = await SODLifecycleService.prepareStatusTransition(oldOrder, data);
 
-        // 2.5 FSM Workflow Engine Interception
-        if (updateData.sltsStatus && updateData.sltsStatus !== oldOrder.sltsStatus) {
-            const { ProcessGateEngine } = await import('../approval/process-gate-engine');
-            const gateResult = await ProcessGateEngine.startGate({
-                entityType: 'SERVICE_ORDER',
-                entityId: id,
-                currentStatus: oldOrder.sltsStatus as string,
-                entityPayload: updateData
-            });
-
-            if (gateResult.status === 'GATE_STARTED') {
-                // FSM intercepted this transition. Block the immediate status change and wait for approval.
-                delete updateData.sltsStatus;
-                delete updateData.completedDate;
-                delete updateData.status;
-            }
-        }
+        // 2.5 Status ownership
+        // `sltsStatus`, `status`, `completedDate`, `returnReason`, `statusDate` belong to the single
+        // status writer (defect O10: four independent writers, each with a partial rule set, which is
+        // how a SOD ended up oscillating every tick). Pull them out of the prepared payload here so
+        // nothing below can write them a second time, and hand them to `applySodStatus` inside the
+        // transaction. The human-evidence process gate moved with them: it is evaluated once, in the
+        // writer, against the real (entityType, fromStatus, toStatus) triple, and a GATE_STARTED
+        // verdict refuses the status write instead of silently deleting columns (defects O4, O5, O6).
+        const {
+            sltsStatus: intentSltsStatus,
+            status: intentStatus,
+            completedDate: intentCompletedDate,
+            returnReason: intentReturnReason,
+            statusDate: intentStatusDate,
+            ...updateData
+        } = prepared;
+        const hasStatusIntent = intentSltsStatus !== undefined || intentStatus !== undefined
+            || intentCompletedDate !== undefined || intentReturnReason !== undefined;
+        const asDateValue = (v: unknown): Date | null => {
+            if (v === null || v === undefined) return null;
+            if (v instanceof Date) return v;
+            if (typeof v === 'string' || typeof v === 'number') return new Date(v);
+            return null;
+        };
 
         // 3. Financial calculations
-        const isCompleting = updateData.sltsStatus === 'COMPLETED' || (oldOrder.sltsStatus !== 'COMPLETED' && data.sltsStatus === 'COMPLETED');
+        const isCompleting = intentSltsStatus === 'COMPLETED' || (oldOrder.sltsStatus !== 'COMPLETED' && data.sltsStatus === 'COMPLETED');
         if (isCompleting) {
             const distance = (updateData.dropWireDistance as number) ?? oldOrder.dropWireDistance ?? 0;
             const { revenueAmount, contractorAmount } = await SODInvoicingService.calculateAmounts(oldOrder.opmcId, distance);
@@ -248,7 +274,31 @@ export class ServiceOrderService {
                 }
             }
 
-            // Database update via Repository (Single Update)
+            // Status identity is written by the single door, inside this transaction: the RETURN
+            // material rollback above and the ledger postings below then all observe one atomic view
+            // of the row, and history/event emission follows the real stored delta.
+            const statusWrite = hasStatusIntent ? await applySodStatus({
+                sodId: id,
+                soNum: oldOrder.soNum,
+                opmcId: oldOrder.opmcId,
+                next: {
+                    // `prepared` is a Prisma update-input object, so each field type also admits a
+                    // nested field-operations value. prepareStatusTransition only ever writes scalars
+                    // here; the writer's intent contract is the narrower one.
+                    sltsStatus: intentSltsStatus as string | null | undefined,
+                    status: intentStatus as string | null | undefined,
+                    completedDate: intentCompletedDate as Date | string | null | undefined,
+                    returnReason: intentReturnReason as string | null | undefined,
+                },
+                anchor: asDateValue(intentStatusDate) ?? asDateValue(intentCompletedDate),
+                actor: statusActorFor(userId),
+                reason: 'MANUAL_UPDATE',
+                actorUserId: userId,
+                gatePayload: { ...updateData, sltsStatus: intentSltsStatus, status: intentStatus } as Record<string, unknown>,
+                tx,
+            }) : null;
+
+            // Database update via Repository (Single Update) - non-status columns only
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
 
             // console.log("=== SOD DEBUG STATE ===");
@@ -286,8 +336,16 @@ export class ServiceOrderService {
                 }
             }
 
-            // Post-update actions
-            await SODLifecycleService.handlePostUpdate(oldOrder, updatedOrder, updateData, userId, tx);
+            // Post-update actions. The status columns were already recorded by the writer, so it is
+            // handed the pre-write status view as the "old" order: it sees no status delta and does
+            // not publish `sod.status_changed` a second time for one transition (defect O2).
+            await SODLifecycleService.handlePostUpdate(
+                statusWrite?.previous ? { ...oldOrder, ...statusWrite.previous } : oldOrder,
+                updatedOrder,
+                updateData,
+                userId,
+                tx
+            );
 
             return updatedOrder;
         }, {
@@ -339,6 +397,14 @@ export class ServiceOrderService {
     /** Pending-sync tick: per-RTOM sweep on a persistent worker, inline slice on serverless. */
     static async runPendingSyncTick() {
         return SODSyncService.runPendingSyncTick();
+    }
+
+    /**
+     * One traced body for the bucket cadences, shared by the queue worker and the serverless inline
+     * slice. Whichever path runs it, the pass writes exactly one SyncRun row per feed.
+     */
+    static async runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown> {
+        return SODSyncService.runPeriodicTask(type);
     }
 
     /**
@@ -428,6 +494,7 @@ export class ServiceOrderService {
             select: {
                 id: true,
                 soNum: true,
+                opmcId: true,
                 completedDate: true,
                 updatedAt: true
             }
@@ -450,11 +517,17 @@ export class ServiceOrderService {
             if (order.completedDate) {
                 const newDate = new Date(order.completedDate.getTime() - 330 * 60000);
 
-                await prisma.serviceOrder.update({
-                    where: { id: order.id },
-                    data: {
-                        completedDate: newDate
-                    }
+                // `completedDate` is one of the writer's owned columns. A raw update here used to
+                // re-stamp a completion date behind the writer's back; routed through the door, the
+                // write carries no status delta, so it produces neither a history row nor an event.
+                await applySodStatus({
+                    sodId: order.id,
+                    soNum: order.soNum ?? order.id,
+                    opmcId: order.opmcId,
+                    next: { completedDate: newDate },
+                    anchor: null,
+                    actor: 'API',
+                    reason: 'MANUAL_DATE_FIX',
                 });
                 fixedCount++;
             }

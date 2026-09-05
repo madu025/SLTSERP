@@ -4,6 +4,7 @@ import { NotificationService, NotificationPriority } from '@/services/notificati
 import { EmailService } from './email.service';
 import { NotificationTemplateEngineService } from './template-engine.service';
 import { prisma } from '@/lib/prisma';
+import { getSriLankaDayKey } from '@/lib/timezone';
 
 /**
  * Roles that receive all stock/inventory alert emails.
@@ -156,7 +157,10 @@ export class NotificationPolicyService {
             priority: 'HIGH',
             link: '/service-orders/work-order/return',
             opmcId: sod.opmcId,
-            metadata: { soNum: sod.soNum, id: sod.id }
+            metadata: { soNum: sod.soNum, id: sod.id },
+            // Same discipline as the completion alert: one row per SOD per Sri Lanka day, so a feed
+            // that re-asserts the same RETURN bumps groupedCount instead of alerting OPS again.
+            dedupKey: `sod-return:${sod.soNum}:${getSriLankaDayKey()}`
         });
     }
 

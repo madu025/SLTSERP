@@ -27,6 +27,8 @@ export class NotificationService {
      * By default uses category-based upsert: if an unread notification with the
      * same userId + type + link exists, it is replaced in-place (groupedCount++).
      * Set replaceByCategory: false to always insert a new row.
+     * Pass dedupKey to pin the row to a business identity instead (one row per user per key,
+     * repeats only bump groupedCount) - that wins over the category replacement.
      */
     static async send({
         userId,
@@ -36,7 +38,8 @@ export class NotificationService {
         priority = 'MEDIUM',
         link,
         metadata,
-        replaceByCategory = true
+        replaceByCategory = true,
+        dedupKey
     }: {
         userId: string;
         title: string;
@@ -46,6 +49,7 @@ export class NotificationService {
         link?: string;
         metadata?: Record<string, unknown>;
         replaceByCategory?: boolean;
+        dedupKey?: string;
     }) {
         try {
             // Check user preferences
@@ -72,7 +76,19 @@ export class NotificationService {
             // Category-based upsert: replace existing unread notification in same category
             // instead of accumulating duplicate rows (reduces egress + table bloat)
             let notification;
-            if (replaceByCategory) {
+            let reasserted = false;
+            if (dedupKey) {
+                const result = await NotificationRepository.upsertByDedupKey(userId, dedupKey, {
+                    title,
+                    message,
+                    type,
+                    priority,
+                    link,
+                    metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
+                });
+                notification = result.notification;
+                reasserted = result.replaced;
+            } else if (replaceByCategory) {
                 const result = await NotificationRepository.replaceUnreadByCategory(
                     userId,
                     type,
@@ -99,7 +115,11 @@ export class NotificationService {
 
             if (notification) {
                 emitNotification(userId, notification);
-                
+
+                // A deduped repeat has already been delivered the first time it was inserted; do
+                // not re-push/re-email the same business event to the recipient.
+                if (reasserted) return notification;
+
                 // Offload heavy processing (Push/Email) to BullMQ Background Worker
                 await notificationsQueue.add('process-notification', {
                     notificationId: notification.id,
@@ -134,7 +154,8 @@ export class NotificationService {
         type = 'SYSTEM',
         priority = 'MEDIUM',
         link,
-        metadata
+        metadata,
+        dedupKey
     }: {
         userIds: string[];
         title: string;
@@ -143,6 +164,7 @@ export class NotificationService {
         priority?: NotificationPriority;
         link?: string;
         metadata?: Record<string, unknown>;
+        dedupKey?: string;
     }) {
         try {
             // Fix #5: Offload FIFO cleanup to background worker for all users in the broadcast
@@ -166,6 +188,36 @@ export class NotificationService {
                 link,
                 metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
             }));
+
+            if (dedupKey) {
+                // One row per (user, key): a repeat of the same business event bumps groupedCount
+                // instead of inserting, and only the first insert is pushed/emailed.
+                const results = await Promise.all(filteredUserIds.map(userId =>
+                    NotificationRepository.upsertByDedupKey(userId, dedupKey, {
+                        title,
+                        message,
+                        type,
+                        priority,
+                        link,
+                        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
+                    })
+                ));
+
+                results.forEach(({ notification, replaced }) => {
+                    emitNotification(notification.userId, notification);
+                    if (replaced) return;
+                    notificationsQueue.add('process-notification', {
+                        notificationId: notification.id,
+                        userId: notification.userId,
+                        title,
+                        message,
+                        type,
+                        link
+                    }, { removeOnComplete: true, removeOnFail: 10 }).catch(() => {});
+                });
+
+                return { count: results.length };
+            }
 
             const createdNotifications = await NotificationRepository.createManyAndReturn(data);
 
@@ -202,7 +254,8 @@ export class NotificationService {
         priority = 'MEDIUM',
         link,
         metadata,
-        opmcId // Optional filter by OPMC
+        opmcId, // Optional filter by OPMC
+        dedupKey  // Business identity: one row per recipient per key, repeats bump groupedCount
     }: {
         roles: string[];
         title: string;
@@ -212,6 +265,7 @@ export class NotificationService {
         link?: string;
         metadata?: Record<string, unknown>;
         opmcId?: string;
+        dedupKey?: string;
     }) {
         try {
             // Fix #8: Strict validation of roles array against Prisma Role enum
@@ -259,7 +313,8 @@ export class NotificationService {
                 type,
                 priority,
                 link,
-                metadata
+                metadata,
+                dedupKey
             });
         } catch (error) {
             console.error('Failed to notify by role:', error);
@@ -329,16 +384,36 @@ export class NotificationService {
     }
 
     /**
-     * Delete old notifications (e.g., older than 30 days)
+     * Retention sweep (weekly, NOTIFICATION_CLEANUP).
+     *
+     * Three rules, all bounded by the same age cutoff:
+     *  - read rows older than `days` (the historical behaviour);
+     *  - any row whose `expiresAt` is more than `days` in the past - an alert past its own lifetime
+     *    is dead regardless of read state, and unread-but-expired rows were never collectable;
+     *  - superseded duplicates of a dedup key, keeping the newest row per (user, key).
      */
     static async cleanup(days = 30, onlyRead = true) {
         const thresholdDate = new Date();
         thresholdDate.setDate(thresholdDate.getDate() - days);
 
-        return await NotificationRepository.deleteMany({
+        const stale = await NotificationRepository.deleteMany({
             createdAt: { lt: thresholdDate },
             ...(onlyRead ? { isRead: true } : {})
         });
+
+        // expiresAt is set by the producer, so it can be in the future; only delete once the
+        // notification is past its lifetime by the full retention window.
+        const expired = await NotificationRepository.deleteMany({
+            expiresAt: { lt: thresholdDate }
+        });
+
+        const superseded = await NotificationRepository.deleteSupersededByDedupKey();
+
+        const count = stale.count + expired.count + superseded;
+        if (expired.count > 0 || superseded > 0) {
+            console.log(`[NotificationService] cleanup: ${stale.count} read, ${expired.count} expired, ${superseded} superseded dedup row(s) removed.`);
+        }
+        return { count, read: stale.count, expired: expired.count, superseded };
     }
 
     /**

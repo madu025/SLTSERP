@@ -417,7 +417,8 @@ export class ReminderSchedulerService {
      */
     static async cleanupOldNotifications(days = 30): Promise<{ deleted: number }> {
         try {
-            return await NotificationService.cleanup(days);
+            const result = await NotificationService.cleanup(days);
+            return { deleted: result.count };
         } catch (error) {
             console.error('[Scheduler] Notification cleanup failed:', error);
             return { deleted: 0 };

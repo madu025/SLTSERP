@@ -120,6 +120,9 @@ model Notification {
   @@index([tenantId, userId, isRead])
   @@index([userId, type, isRead])
   @@index([userId, type, link, isRead])
+  // link prefix scans (mark-as-read-by-link) need btree(link text_pattern_ops).
+  // Prisma PSL has no operator class for btree text, so that index is declared in
+  // prisma/post-push-indexes.sql and re-applied after every `prisma db push`.
 }
 
 model NotificationTemplate {

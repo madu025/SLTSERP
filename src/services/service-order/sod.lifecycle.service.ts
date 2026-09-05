@@ -9,6 +9,8 @@ import { ServiceOrderRepository } from '@/repositories/service-order.repository'
 import { eventBus } from '@/lib/events/event-bus';
 import { safe } from '@/utils/safe-await.util';
 import { SOD_EXTERNAL_COMPLETION_STATUSES, SOD_RETURN_STATUSES, SOD_SLTS_TERMINAL_STATUSES } from '@/lib/constants/sod-constants';
+import { getSriLankaDayKey } from '@/lib/timezone';
+import type { SyncActor } from '@/lib/constants/sod-status-policy';
 
 /** Valid ServiceOrderStatus enum members — guards raw portal/UI strings before Prisma writes */
 export const SERVICE_ORDER_STATUS_VALUES = new Set<string>(Object.keys(ServiceOrderStatus));
@@ -151,36 +153,70 @@ export class SODLifecycleService {
     }
 
     /**
+     * Is this status event newsworthy, or the same state re-asserted by a replaying feed?
+     *
+     * ServiceOrderStatusHistory is an event log and the Daily Operational Report counts it, so a
+     * second row for the same state on the same Sri Lanka day is pure noise (defect O3: 3,056
+     * inflated events in one day from 166 SODs the portal kept re-asserting). A repeat on a later
+     * day is a genuine re-close after a reopen and is kept.
+     */
+    private static async isNewStatusEvent(
+        db: typeof prisma | TransactionClient,
+        serviceOrderId: UUID,
+        status: string,
+        statusDate: Date,
+    ): Promise<boolean> {
+        const last = await db.serviceOrderStatusHistory.findFirst({
+            where: { serviceOrderId },
+            orderBy: { createdAt: 'desc' },
+            select: { status: true, statusDate: true },
+        });
+        if (!last) return true;
+        if ((last.status as string) !== status) return true;
+        return getSriLankaDayKey(last.statusDate) !== getSriLankaDayKey(statusDate);
+    }
+
+    /**
      * Post-update actions (History, Notifications, Stats)
+     *
+     * `actor` is the sync-authority identity of the writer (see sod-status-policy.ts). It travels on
+     * the event so listeners can tell a real transition from a feed re-assertion; omitting it keeps
+     * the historical behaviour for callers that predate the policy.
      */
     static async handlePostUpdate(
         oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null },
         serviceOrder: { id: UUID; status: string; sltsStatus: string; opmcId: UUID; soNum: string; returnReason: string | null },
         updateData: Prisma.ServiceOrderUncheckedUpdateInput,
         userId: string = 'SYSTEM',
-        tx?: TransactionClient
+        tx?: TransactionClient,
+        actor?: SyncActor
     ) {
+        const db = tx || prisma;
+
         // Track status history if legacy status changed
         const legacyStatusChanged = !!serviceOrder.status && serviceOrder.status !== oldOrder.status;
-        if (legacyStatusChanged) {
+        const legacyStatusDate = updateData.statusDate
+            ? new Date(updateData.statusDate as string | Date)
+            : (oldOrder.statusDate || new Date());
+        if (legacyStatusChanged && await this.isNewStatusEvent(db, serviceOrder.id, serviceOrder.status, legacyStatusDate)) {
             await ServiceOrderRepository.createStatusHistory({
                 serviceOrderId: serviceOrder.id,
                 status: serviceOrder.status as ServiceOrderStatus,
-                statusDate: updateData.statusDate 
-                    ? new Date(updateData.statusDate as string | Date) 
-                    : (oldOrder.statusDate || new Date())
+                statusDate: legacyStatusDate
             }, tx || prisma);
         }
 
         // Track sltsStatus transitions (effective routing field) — skip exact duplicate of legacy row
         const sltsStatusChanged = serviceOrder.sltsStatus !== oldOrder.sltsStatus;
-        if (sltsStatusChanged && (!legacyStatusChanged || serviceOrder.sltsStatus !== serviceOrder.status)) {
+        const sltsStatusDate = updateData.statusDate
+            ? new Date(updateData.statusDate as string | Date)
+            : (updateData.completedDate ? new Date(updateData.completedDate as string | Date) : new Date());
+        if (sltsStatusChanged && (!legacyStatusChanged || serviceOrder.sltsStatus !== serviceOrder.status)
+            && await this.isNewStatusEvent(db, serviceOrder.id, serviceOrder.sltsStatus, sltsStatusDate)) {
             await ServiceOrderRepository.createStatusHistory({
                 serviceOrderId: serviceOrder.id,
                 status: serviceOrder.sltsStatus as ServiceOrderStatus,
-                statusDate: updateData.statusDate
-                    ? new Date(updateData.statusDate as string | Date)
-                    : (updateData.completedDate ? new Date(updateData.completedDate as string | Date) : new Date())
+                statusDate: sltsStatusDate
             }, tx || prisma);
         }
 
@@ -193,7 +229,8 @@ export class SODLifecycleService {
                     oldStatus: oldOrder.sltsStatus || 'PENDING',
                     newStatus: serviceOrder.sltsStatus,
                     returnReason: serviceOrder.returnReason,
-                    userId
+                    userId,
+                    actor
                 }));
                 if (e) {
                     console.error('[LIFECYCLE-EVENT] Failed to publish status change event:', e);

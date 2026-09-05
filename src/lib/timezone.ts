@@ -3,19 +3,26 @@
  */
 
 /**
- * Returns the current date in Sri Lanka (YYYY-MM-DD format)
- * regardless of the visitor's local computer time.
+ * Colombo calendar day (YYYY-MM-DD) for any instant.
+ * Used by notification dedup keys so "one alert per SOD per SL day" survives a UTC midnight
+ * boundary (a 01:00 Colombo completion is still the previous UTC day).
  */
-export function getSriLankaToday(): string {
-    const now = new Date();
-    // Use Intl to format exactly in SL timezone
-    const formatter = new Intl.DateTimeFormat('en-CA', {
+export function getSriLankaDayKey(date: Date | string = new Date()): string {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Colombo',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit'
-    });
-    return formatter.format(now); // Returns YYYY-MM-DD
+    }).format(d); // Returns YYYY-MM-DD
+}
+
+/**
+ * Returns the current date in Sri Lanka (YYYY-MM-DD format)
+ * regardless of the visitor's local computer time.
+ */
+export function getSriLankaToday(): string {
+    return getSriLankaDayKey(new Date());
 }
 
 /**

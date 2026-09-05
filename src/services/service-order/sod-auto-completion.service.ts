@@ -170,7 +170,11 @@ export class SODAutoCompletionService {
                                 continue; // SOD not found or already completed
                             }
 
-                            // Use existing ServiceOrderService to maintain consistency
+                            // The status columns are not written here. This goes through the update
+                            // facade, which now pulls them out of its payload and hands them to the
+                            // single status writer as actor AUTO_COMPLETE (completion authority, so the
+                            // policy allows it) while keeping the completion bookkeeping this path
+                            // depends on: revenue/contractor amounts and the General Ledger postings.
                             const { ServiceOrderService } = await import('@/services/service-order/sod.service');
 
                             await ServiceOrderService.updateServiceOrder(
@@ -180,28 +184,28 @@ export class SODAutoCompletionService {
                                     sltsStatus: 'COMPLETED',
                                     completedDate: this.parseSLTDate(sltSOD.CON_STATUS_DATE),
                                 },
-                                'SYSTEM_AUTO_COMPLETE' // System user ID for audit
+                                'SYSTEM_AUTO_COMPLETE' // System marker -> AUTO_COMPLETE actor
                             );
 
                             completedCount++;
 
-                            console.log(`[SOD-AUTO-COMPLETE] ✅ Completed: ${sltSOD.SO_NUM}`);
+                            console.log(`[SOD-AUTO-COMPLETE] Completed: ${sltSOD.SO_NUM}`);
 
                         } catch (error) {
                             const errorMsg = `Failed to process ${sltSOD.SO_NUM}: ${error instanceof Error ? error.message : 'Unknown error'}`;
                             errors.push(errorMsg);
-                            console.error(`[SOD-AUTO-COMPLETE] ❌ ${errorMsg}`);
+                            console.error(`[SOD-AUTO-COMPLETE] ${errorMsg}`);
                         }
                     }
 
                 } catch (error) {
                     const errorMsg = `Failed to process OPMC ${opmc.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
                     errors.push(errorMsg);
-                    console.error(`[SOD-AUTO-COMPLETE] ❌ ${errorMsg}`);
+                    console.error(`[SOD-AUTO-COMPLETE] ${errorMsg}`);
                 }
             }
 
-            console.log(`[SOD-AUTO-COMPLETE] ✅ Completed ${completedCount} SODs`);
+            console.log(`[SOD-AUTO-COMPLETE] Completed ${completedCount} SODs`);
 
             // Send ONE batch summary notification instead of N individual ones (anti-spam)
             if (completedCount > 0) {

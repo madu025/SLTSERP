@@ -170,3 +170,37 @@ model DailyReportSnapshot {
   @@unique([snapshotDate, rtom])
   @@index([snapshotDate])
 }
+
+/// One row per feed pass - the observability record that replaces log-grepping the container.
+/// (feed, windowKey) is unique on purpose: a duplicated Master Tick or a retried worker job hits
+/// the same key, so the second caller updates the existing row instead of starting the same
+/// window twice. That is the structural half of the O1/O2 fix (the policy is the other half).
+model SyncRun {
+  id      String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  /// Feed vocabulary; the authoritative list is SYNC_FEEDS in src/services/service-order/sync/types.ts.
+  feed    String
+  /// Deterministic pass identity: rtom | windowStart | windowEnd (minute-truncated). See windowKeyFor().
+  windowKey    String
+  rtom         String?
+  opmcId       String?   @db.Uuid
+  windowStart  DateTime?
+  windowEnd    DateTime?
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  fetched      Int       @default(0)
+  created      Int       @default(0)
+  updated      Int       @default(0)
+  skippedNoChange Int     @default(0)
+  /// Writes the policy refused (or would have refused in logonly) - the rollout measurement.
+  blockedByPolicy Int     @default(0)
+  /// Tally keyed by StatusWriteReason: { APPLIED: n, TERMINAL_PROTECTED: n, ... }
+  decisions  Json      @default("{}")
+  errors     Json      @default("[]")
+  /// enforce | logonly - the mode this pass ran under, so a census row is self-describing.
+  mode       String    @default("logonly")
+
+  @@unique([feed, windowKey])
+  @@index([feed, startedAt])
+  @@index([rtom, startedAt])
+  @@index([finishedAt])
+}

@@ -7,6 +7,8 @@
  * fallback `Record<string, unknown>` shape because the channel
  * name varies at runtime.
  */
+import type { SyncActor } from '@/lib/constants/sod-status-policy';
+
 export interface EventMap {
     'inventory.stock_request_created': {
         request: {
@@ -52,10 +54,17 @@ export interface EventMap {
         serviceOrderId: string;
         soNum: string;
         opmcId?: string | null;
+        /** Both status fields here are the portal-mirror `sltsStatus` dimension. */
         oldStatus: string;
         newStatus: string;
         returnReason?: string | null;
         userId: string;
+        /**
+         * Which writer moved it. Listeners need this to distinguish a live feed re-assertion
+         * (PORTAL_SWEEP replaying a closed row) from a real business transition, which is exactly
+         * what the completion-notification flood (O2) was built on.
+         */
+        actor?: SyncActor;
     };
     'system-event': {
         type: string;

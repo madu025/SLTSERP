@@ -3,47 +3,74 @@ process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
 import { createQueueConnection } from '../lib/redis-queue';
 import { QUEUE_NAMES } from '../lib/queue';
-import { AutomationService } from '../services/automation/automation.service';
+import { AppError } from '@/lib/error';
+import type { DailyJobType } from '@/services/service-order/sync/types';
 
 /**
  * System Worker
- * Handles miscellaneous background tasks like daily automation, 
- * cleanup, and other system-wide maintenance.
+ * -------------
+ * Wall-clock maintenance jobs (daily automation, appointment sweep, retention, report snapshot).
+ * They are queued by the master tick's TICK_DAILY_JOBS, which decides *when*; this file only
+ * decides *what runs* for a given job type.
  */
+type SystemJobData = { type?: DailyJobType };
+
+/**
+ * One handler per job type, typed so a new DailyJobType is a compile error rather than a silent
+ * fallthrough (defect O9). The previous if/else chain ended in `console.warn('Unknown job type')`
+ * and acknowledged the job, so a mistyped or renamed payload looked like a completed run in the
+ * logs while doing nothing.
+ */
+const HANDLERS: Record<DailyJobType, (job: Job<SystemJobData>) => Promise<unknown>> = {
+    DAILY_AUTOMATION: async () => {
+        const { AutomationService } = await import('@/services/automation/automation.service');
+        return AutomationService.runAllDailyTasks();
+    },
+
+    APPOINTMENT_REMINDERS: async () => {
+        // Moved out of /api/cron/sync-all: it reads our own tables, so it only ever belongs in a worker.
+        const { AppointmentNotificationService } = await import('@/services/notification/appointment-notification.service');
+        return AppointmentNotificationService.checkAndNotify();
+    },
+
+    NOTIFICATION_CLEANUP: async () => {
+        // The body lives in SODSyncService.runDailyTask so the queue path and the serverless inline
+        // path cannot diverge on what a pass is, or on whether it is censused.
+        const { SODSyncService } = await import('@/services/service-order/sod.sync.service');
+        const result = await SODSyncService.runDailyTask('NOTIFICATION_CLEANUP');
+        if (!result) return { skipped: 'window-owned' };
+        return result;
+    },
+
+    DAILY_REPORT_SNAPSHOT: async () => {
+        // End-of-day close for the Daily Operational Report. The sweep runs here rather than in the
+        // request handler so a 10-minute cron ping only has to enqueue it.
+        const { SODSyncService } = await import('@/services/service-order/sod.sync.service');
+        const result = await SODSyncService.runDailyTask('DAILY_REPORT_SNAPSHOT');
+        if (!result) return { skipped: 'window-owned' };
+        return result;
+    },
+};
+
 export const systemWorker = new Worker(
     QUEUE_NAMES.SYSTEM,
-    async (job: Job) => {
-        const { type } = job.data as { type: string };
+    async (job: Job<SystemJobData>) => {
+        const { type } = job.data ?? {};
+        const handler = type ? HANDLERS[type] : undefined;
 
+        if (!type || !handler) {
+            // Fail loudly: the job lands in the failed set with the offending type in the message
+            // instead of being acknowledged as if it had worked.
+            throw AppError.badRequest(`SYSTEM_WORKER_UNKNOWN_JOB_TYPE: ${String(type)}`);
+        }
+
+        console.log(`[SYSTEM-WORKER] Running ${type}... (Job ID: ${job.id})`);
         try {
-            if (type === 'DAILY_AUTOMATION') {
-                console.log(`[SYSTEM-WORKER] Running daily automation tasks... (Job ID: ${job.id})`);
-                await AutomationService.runAllDailyTasks();
-                console.log(`[SYSTEM-WORKER] Daily automation tasks completed.`);
-            } else if (type === 'APPOINTMENT_REMINDERS') {
-                // Appointment sweep moved out of /api/cron/sync-all: it read from our own tables
-                // inside a request handler, so it only ever ran when an external cron pinged the URL.
-                console.log(`[SYSTEM-WORKER] Running appointment reminder sweep... (Job ID: ${job.id})`);
-                const { AppointmentNotificationService } = await import('../services/notification/appointment-notification.service');
-                await AppointmentNotificationService.checkAndNotify();
-                console.log(`[SYSTEM-WORKER] Appointment reminder sweep completed.`);
-            } else if (type === 'NOTIFICATION_CLEANUP') {
-                console.log(`[SYSTEM-WORKER] Running notification cleanup... (Job ID: ${job.id})`);
-                const { NotificationService } = await import('../services/notification/notification.service');
-                const result = await NotificationService.cleanup();
-                console.log(`[SYSTEM-WORKER] Notification cleanup removed ${result.count} row(s).`);
-            } else if (type === 'DAILY_REPORT_SNAPSHOT') {
-                // End-of-day close for the Daily Operational Report. The sweep runs here rather than
-                // in the request handler so a 10-minute cron ping only has to enqueue it.
-                console.log(`[SYSTEM-WORKER] Freezing daily report snapshot... (Job ID: ${job.id})`);
-                const { ReportService } = await import('../services/core/report.service');
-                const result = await ReportService.persistClosedSriLankaDaySnapshot();
-                console.log(`[SYSTEM-WORKER] Daily report snapshot frozen for ${result.dateKey} (${result.rows} rows).`);
-            } else {
-                console.warn(`[SYSTEM-WORKER] Unknown job type: ${type}`);
-            }
+            const result = await handler(job);
+            console.log(`[SYSTEM-WORKER] ${type} completed.`);
+            return result;
         } catch (err) {
-            console.error(`[SYSTEM-WORKER] ❌ Error in job ${job.id} (${type}):`, err);
+            console.error(`[SYSTEM-WORKER] Error in job ${job.id} (${type}):`, err);
             throw err;
         }
     },
@@ -53,4 +80,4 @@ export const systemWorker = new Worker(
     }
 );
 
-console.log('✅ System Worker initialized');
+console.log('System Worker initialized');

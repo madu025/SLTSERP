@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import type { UUID } from '@/types/common';
 import { addJob, statsUpdateQueue } from '../../lib/queue';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
 import { ErrorUtil } from "../../utils/error.util";
@@ -129,12 +130,45 @@ export class SODImportService {
 
         const { SODMaterialService } = await import('./sod.material.service');
         const { LedgerService } = await import('../finance/ledger.service');
+        const { applySodStatus } = await import('./sync/sod-status.writer');
 
         for (const chunk of updateChunks) {
             await Promise.all(chunk.map(async ({ existing, updateData }) => {
+                // The status columns belong to the single writer. An operator curating a spreadsheet
+                // is a privileged ERP action, so it keeps always-allow authority ('API') but stops
+                // writing the columns itself: history rows, the anchor and the status event are then
+                // produced once, by the same code path every other writer uses.
+                const {
+                    sltsStatus: intentSltsStatus,
+                    status: intentStatus,
+                    completedDate: intentCompletedDate,
+                    returnReason: intentReturnReason,
+                    ...fieldPayload
+                } = updateData;
+                const nextSltsStatus = intentSltsStatus as string | null | undefined;
+                const isReturning = (nextSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
+
                 const [err] = await safe(prisma.$transaction(async (tx) => {
-                    const isReturning = (updateData.sltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
-                    await tx.serviceOrder.update({ where: { id: existing.id }, data: updateData });
+                    await applySodStatus({
+                        sodId: existing.id,
+                        soNum: existing.soNum,
+                        opmcId: opmcId as UUID,
+                        next: {
+                            sltsStatus: nextSltsStatus,
+                            status: intentStatus as string | null | undefined,
+                            completedDate: intentCompletedDate as Date | string | null | undefined,
+                            returnReason: intentReturnReason as string | null | undefined,
+                        },
+                        // The import carries no portal status instant, so the anchor is left alone.
+                        anchor: null,
+                        actor: 'API',
+                        reason: 'EXCEL_IMPORT',
+                        tx,
+                    });
+
+                    if (Object.keys(fieldPayload).length > 0) {
+                        await tx.serviceOrder.update({ where: { id: existing.id }, data: fieldPayload });
+                    }
                     if (isReturning) {
                         await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'EXCEL_IMPORT');
                         await LedgerService.rollbackSodTransaction(tx, existing.id);

@@ -30,18 +30,26 @@ export interface UpdateUniversalApprovalInstancePayload {
 export class ProcessGateEngine {
     /**
      * Resolves the matching ProcessGatePolicy for an entity and current status using the RuleEngine.
+     *
+     * `toStatus` is optional on purpose. A workflow that knows where it is going (the SOD status
+     * writer) must say so: policies are keyed uniquely by (entityType, fromStatus, toStatus), so
+     * matching on fromStatus alone makes an ASSIGNED -> COMPLETED write inherit the
+     * ASSIGNED -> INPROGRESS photo rule and throw. Callers that only advance a stage cursor
+     * (stock requests) omit it and keep the historical fromStatus-only semantics.
      */
     static async findMatchingPolicy(params: {
         entityType: string;
         fromStatus: string;
+        toStatus?: string;
         entityPayload?: Record<string, unknown>;
     }) {
-        const { entityType, fromStatus, entityPayload = {} } = params;
+        const { entityType, fromStatus, toStatus, entityPayload = {} } = params;
 
         const policies = await prisma.processGatePolicy.findMany({
             where: {
                 entityType,
                 fromStatus,
+                ...(toStatus ? { toStatus } : {}),
                 isEnabled: true
             },
             include: {
@@ -67,16 +75,19 @@ export class ProcessGateEngine {
         entityType: string;
         entityId: string;
         currentStatus: string;
+        /** Target status. See findMatchingPolicy: pass it whenever the transition has one. */
+        toStatus?: string;
         entityPayload?: Record<string, unknown>;
         makerId?: string; // Add makerId parameter
     }) {
-        const { entityType, entityId, currentStatus, entityPayload = {}, makerId } = params;
+        const { entityType, entityId, currentStatus, toStatus, entityPayload = {}, makerId } = params;
 
-        // 1. Find all active policies for this transition based on currentStatus (which is fromStatus)
+        // 1. Find all active policies for this transition (fromStatus, and toStatus when known)
         const policies = await prisma.processGatePolicy.findMany({
             where: {
                 entityType,
                 fromStatus: currentStatus,
+                ...(toStatus ? { toStatus } : {}),
                 isEnabled: true
             },
             include: {
