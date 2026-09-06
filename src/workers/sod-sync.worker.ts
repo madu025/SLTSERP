@@ -44,22 +44,56 @@ const JOB_HANDLERS: Record<SyncJobType, (job: Job<SyncJobData>) => Promise<unkno
         console.log(`[SOD-SYNC-WORKER] RTOM sweep start for ${rtom} (Job ID: ${job.id})`);
         // `windowMs` is the sweep window the job was seeded for; when absent (legacy queue row) the
         // tick default is exactly the seeded window, so the key still matches the job id.
-        const result = await SyncAuditService.tracedRun(
-            { feed: 'RTOM_SWEEP', opmcId, rtom, window: tickWindow(new Date(), windowMs) },
-            () => ServiceOrderService.syncServiceOrders(opmcId, rtom),
-            syncCountersOf,
-        );
-        if (result) {
-            await ServiceOrderService.updateGlobalSyncStats({ created: result.created, updated: result.updated });
-            await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
-        }
-        // Continuation hop: outside the traced body on purpose. This RTOM's next window is queued
-        // whether or not this one was ours to run, so a refused duplicate can never end the chain.
+        type SweepResult = Awaited<ReturnType<typeof ServiceOrderService.syncServiceOrders>>;
+        let result: SweepResult | null = null;
+        let sweepError: unknown = null;
+        // D-12: distinguish a LOST window (tracedRun returns null - another instance owns the claim)
+        // from a WON one. tracedRun only throws AFTER startRun returned STARTED, i.e. this worker won
+        // the claim and the sync body then failed, so a throw still counts as a won window.
+        let windowWon = false;
         try {
-            await ServiceOrderService.rescheduleRtomSweep(opmcId, rtom, windowMs, slotMs);
-        } catch (rescheduleErr) {
-            console.error(`[SOD-SYNC-WORKER] RTOM sweep re-seed failed for ${rtom}:`, rescheduleErr);
+            result = await SyncAuditService.tracedRun(
+                { feed: 'RTOM_SWEEP', opmcId, rtom, window: tickWindow(new Date(), windowMs) },
+                () => ServiceOrderService.syncServiceOrders(opmcId, rtom),
+                syncCountersOf,
+            );
+            windowWon = !!result;
+            if (result) {
+                await ServiceOrderService.updateGlobalSyncStats({ created: result.created, updated: result.updated });
+                await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+            }
+        } catch (err) {
+            // Mark M1: capture and re-throw AFTER the finally hop, so BullMQ still retries and the
+            // outer handler still counts the failure, but a rethrow can no longer skip the
+            // continuation - repeated sweep failures during an outage cannot kill the chain.
+            sweepError = err;
+            windowWon = true; // tracedRun throws only after this worker won the window claim.
+            console.error(`[SOD-SYNC-WORKER] RTOM sweep failed for ${rtom}:`, err);
+        } finally {
+            // Continuation hop: ALWAYS runs (Mark M1). This RTOM's next window is queued whether or
+            // not this one was ours to run and whether or not it threw, so neither a refused duplicate
+            // nor a repeated failure can end the self-chaining sweep.
+            try {
+                await ServiceOrderService.rescheduleRtomSweep(opmcId, rtom, windowMs, slotMs);
+            } catch (rescheduleErr) {
+                console.error(`[SOD-SYNC-WORKER] RTOM sweep re-seed failed for ${rtom}:`, rescheduleErr);
+            }
+            // G3 resilience + D-12: re-assert the 20/30-minute buckets, wall-clock dailies and the
+            // terminal self-heal (Mark M3) from the self-chaining hop, so a missed external Master
+            // Tick cannot silently stop them. Gated on windowWon so a worker that LOST the claim does
+            // NOT add a second cadence writer (the winner re-asserts), and on stagger-slot-0 so it
+            // fires once per window; idempotent by deterministic job id, quiet so the normal
+            // already-queued case does not spam the log.
+            if (windowWon && (slotMs ?? 0) === 0) {
+                try {
+                    await ServiceOrderService.reassertTickCadences();
+                } catch (reassertErr) {
+                    console.error('[SOD-SYNC-WORKER] Tick cadence re-assert failed:', reassertErr);
+                }
+            }
         }
+        // Preserve the failure semantics: rethrow so BullMQ retries and the outer handler counts it.
+        if (sweepError) throw sweepError;
         if (!result) return { skipped: 'window-owned' };
         console.log(`[SOD-SYNC-WORKER] RTOM sweep done for ${rtom}. Created: ${result.created}, Updated: ${result.updated}`);
         return result;

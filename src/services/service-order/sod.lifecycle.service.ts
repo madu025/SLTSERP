@@ -1,5 +1,5 @@
 import { AppError } from '@/lib/error';
-import { prisma } from '@/lib/prisma';
+import { prisma, primaryClient } from '@/lib/prisma';
 import { Prisma, ServiceOrderStatus } from '@prisma/client';
 import { ServiceOrderUpdateData } from '@/types/service-order/sod-sync.types';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
@@ -237,6 +237,69 @@ export class SODLifecycleService {
                 }
             })();
         }
+    }
+
+    /**
+     * Batch-seed the birth status-history events for freshly `createMany`'d SODs (D-M7 / Ryan S3).
+     *
+     * A row created by `createMany` never passes through `applySodStatus`/`handlePostUpdate`, so
+     * without this it carries no ServiceOrderStatusHistory event and day-level reporting undercounts
+     * the SOD on the day it was first observed. This replaces the previous 2N sequential round-trips
+     * (an `isNewStatusEvent` findFirst plus a create per row) with ONE findMany of the resolved ids'
+     * existing history plus ONE `createMany({ skipDuplicates: true })` - creates/day reach ~3,983
+     * against the 15-session Supabase pooler shared with the Vercel tier, so the round-trip count
+     * matters. The per-(status, Sri Lanka day) dedupe is applied in memory against the fetched
+     * history: that is the same rule `isNewStatusEvent` enforces and exactly the census invariant
+     * "one history row per (SOD, status, SL day)". It deliberately does NOT publish
+     * `sod.status_changed` - a birth is not a transition the notification policy should announce, and
+     * firing it here would double-notify (the bridge-sync born-row path suppresses it too - defect O2).
+     *
+     * D-C2 coupling: callers MUST pass `statusDate` = the row's ERP `createdAt` (the capture instant),
+     * NOT the portal CON_STATUS_DATE. daily-report-activity.ts identifies the birth event by that
+     * instant (statusDate === createdAt) and excludes it from the closure-evidence channel, so a
+     * born-terminal SOD discovered today cannot flip completedToday/installClosedToday. Seeding with
+     * the portal stamp instead would inflate the Daily Operational Report by ~255/day.
+     *
+     * Deliberate exclusions (Mark S2): the Excel import tier (sod.import.service.ts) and the BOM stub
+     * tier (bom-invoice.service.ts) also bulk-create SOD rows, but they are non-sync/legacy paths that
+     * do not feed the portal-driven Daily Report closure channel, so they are intentionally NOT seeded
+     * here. Only the two portal sync feeds (per-RTOM sweep and COMPLETED_SLTS) seed birth events.
+     *
+     * @returns the number of history rows actually inserted.
+     */
+    static async seedBirthHistoryBatch(
+        items: { serviceOrderId: UUID; status: string; statusDate: Date }[],
+    ): Promise<number> {
+        const valid = items.filter(i => SERVICE_ORDER_STATUS_VALUES.has(i.status));
+        if (valid.length === 0) return 0;
+
+        const ids = [...new Set(valid.map(i => i.serviceOrderId))];
+        const existing = await primaryClient.serviceOrderStatusHistory.findMany({
+            where: { serviceOrderId: { in: ids } },
+            select: { serviceOrderId: true, status: true, statusDate: true },
+        });
+        const keyOf = (serviceOrderId: string, status: string, statusDate: Date): string =>
+            `${serviceOrderId}|${status}|${getSriLankaDayKey(statusDate)}`;
+
+        const seen = new Set(existing.map(h => keyOf(h.serviceOrderId, h.status as string, h.statusDate)));
+        const toInsert: { serviceOrderId: string; status: ServiceOrderStatus; statusDate: Date }[] = [];
+        for (const item of valid) {
+            const key = keyOf(item.serviceOrderId, item.status, item.statusDate);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            toInsert.push({
+                serviceOrderId: item.serviceOrderId,
+                status: item.status as ServiceOrderStatus,
+                statusDate: item.statusDate,
+            });
+        }
+        if (toInsert.length === 0) return 0;
+
+        const result = await primaryClient.serviceOrderStatusHistory.createMany({
+            data: toInsert,
+            skipDuplicates: true,
+        });
+        return result.count;
     }
 
     /**

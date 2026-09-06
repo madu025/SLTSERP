@@ -428,6 +428,15 @@ export class ServiceOrderService {
         return SODSyncService.rescheduleRtomSweep(opmcId, rtom, windowMs, slotMs);
     }
 
+    /**
+     * G3 resilience: re-assert the 20/30-minute bucket and wall-clock daily cadences from the
+     * self-chaining RTOM sweep hop, so a missed external Master Tick cannot silently stop them.
+     * Idempotent by deterministic job id; adds no second clock and changes no cadence.
+     */
+    static async reassertTickCadences() {
+        return SODSyncService.reassertTickCadences();
+    }
+
     /** Repair stale ERP workflow statuses on portal-confirmed terminal rows. */
     static async selfHealTerminalStatuses() {
         return SODSyncService.selfHealTerminalStatuses();

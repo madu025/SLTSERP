@@ -18,7 +18,7 @@ enum OfficeAssetStatus {
 }
 
 model OfficeAsset {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id           String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   assetNumber  String              @unique
   serialNumber String?             @unique
   name         String
@@ -32,12 +32,12 @@ model OfficeAsset {
   locationDetails String? // specific room/floor
 
   // Financial link
-  fixedAssetId String? @db.Uuid @unique
+  fixedAssetId String? @unique @db.Uuid
 
   // Metadata & Details
   brand          String?
   model          String?
-  purchaseCost   Decimal? @db.Decimal(14, 2)
+  purchaseCost   Decimal?  @db.Decimal(14, 2)
   purchaseDate   DateTime?
   warrantyExpiry DateTime?
   metadata       Json? // Dynamic properties without hardcoding
@@ -63,15 +63,15 @@ model OfficeAsset {
 }
 
 model OfficeAssetMovementLog {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  assetId       String @db.Uuid
-  fromStaffId   String? @db.Uuid
-  toStaffId     String? @db.Uuid
-  fromSiteId    String? @db.Uuid
-  toSiteId      String? @db.Uuid
+  id            String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  assetId       String   @db.Uuid
+  fromStaffId   String?  @db.Uuid
+  toStaffId     String?  @db.Uuid
+  fromSiteId    String?  @db.Uuid
+  toSiteId      String?  @db.Uuid
   action        String // e.g. "ASSIGNED", "RETURNED", "TRANSFERRED"
   remarks       String?
-  performedById String @db.Uuid
+  performedById String   @db.Uuid
   createdAt     DateTime @default(now())
 
   asset       OfficeAsset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -90,14 +90,14 @@ model OfficeAssetMovementLog {
 }
 
 model OfficeAssetMaintenanceLog {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  assetId         String @db.Uuid
+  id              String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  assetId         String    @db.Uuid
   serviceDate     DateTime
   nextServiceDate DateTime?
   vendorName      String?
-  cost            Decimal? @db.Decimal(14, 2)
+  cost            Decimal?  @db.Decimal(14, 2)
   description     String
-  performedById   String @db.Uuid
+  performedById   String    @db.Uuid
   createdAt       DateTime  @default(now())
 
   asset       OfficeAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)

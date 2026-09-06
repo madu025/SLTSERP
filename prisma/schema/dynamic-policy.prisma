@@ -1,5 +1,5 @@
 model ProcessGatePolicy {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id         String  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   entityType String // "SOD", "PROJECT", "INVOICE", "STOCK_TRANSFER", "MRN", "GRN", "PURCHASE_ORDER"
   fromStatus String // "COMPLETED", "DRAFT", "PENDING"
   toStatus   String // "INVOICABLE", "APPROVED", "ISSUED"
@@ -35,11 +35,11 @@ model ProcessGatePolicy {
 }
 
 model ProcessApprovalLevel {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  gatePolicyId   String @db.Uuid
+  id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  gatePolicyId   String   @db.Uuid
   level          Int // 1, 2, 3...
   requiredRole   String // e.g. "ENGINEER", "AREA_MANAGER", "FINANCE_MANAGER"
-  specificUserId String? @db.Uuid // Optional specific user assignment
+  specificUserId String?  @db.Uuid // Optional specific user assignment
   description    String? // Instructions for approver
   minAmount      Decimal? // Condition: Only apply if amount >= X
   maxAmount      Decimal? // Condition: Only apply if amount <= X
@@ -54,17 +54,17 @@ model ProcessApprovalLevel {
 }
 
 model UniversalApprovalInstance {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id             String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   entityType     String // "SOD", "INVOICE", "STOCK_ISSUE"
   entityId       String // The ID of the SOD, Invoice, etc. (free-form: may be non-UUID in simulations)
-  policyId       String? @db.Uuid // Linked Gate Policy
+  policyId       String?   @db.Uuid // Linked Gate Policy
   levelIndex     Int       @default(0) // Current Level Index in policy
   level          Int
   requiredRole   String
-  assignedUserId String? @db.Uuid
-  makerId        String? @db.Uuid // The ID of the original creator/requester of the entity
+  assignedUserId String?   @db.Uuid
+  makerId        String?   @db.Uuid // The ID of the original creator/requester of the entity
   status         String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
-  actionedById   String? @db.Uuid
+  actionedById   String?   @db.Uuid
   actionedAt     DateTime?
   comments       String?
   payload        Json? // Payload data attached during approval (e.g. qty, deductions)
@@ -88,7 +88,7 @@ model UniversalApprovalInstance {
 // ============================================================================
 
 model WorkflowStatus {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id         String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   entityType String // e.g. "MATERIAL_REQUEST", "SERVICE_ORDER"
   value      String // e.g. "DRAFT", "PENDING"
   label      String // e.g. "DRAFT (Initial Material Request)"

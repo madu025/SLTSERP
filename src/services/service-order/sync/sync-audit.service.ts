@@ -15,6 +15,7 @@
 import { primaryClient } from '@/lib/prisma';
 import { SystemMonitoringService } from '@/services/admin/system-monitoring.service';
 import { syncStatusPolicyMode } from '@/lib/constants/sod-status-policy';
+import { SYNC_FEEDS } from './types';
 import type { SyncCounters, SyncFeed, SyncWindow } from './types';
 
 /** A run row still unfilled after this long is a crash artifact, not a live pass. */
@@ -262,6 +263,42 @@ export class SyncAuditService {
         }
 
         return line;
+    }
+
+    /**
+     * Read helper for the health probe: the newest clean successful SyncRun per feed.
+     *
+     * "Successful" = the pass finished (`finishedAt` set) with an empty `errors` array. This scans
+     * PER FEED (`distinct: ['feed']` over the canonical SYNC_FEEDS vocabulary, newest `finishedAt`
+     * first) instead of a flat `take: N` of the newest rows. The flat cap was the bug: RTOM_SWEEP
+     * writes one row per RTOM per 10-minute window (~516 rows/24h measured), so a `take: 400` scan
+     * covered < 24h and the low-volume feeds (DAILY_REPORT 1/day, NOTIFICATION_CLEANUP weekly) fell
+     * outside it entirely - they came back absent, and because the caller only mapped returned rows
+     * an absent feed read as healthy (never stale). `distinct` guarantees one candidate per feed
+     * regardless of how many high-volume rows sit on top of it. A feed still absent from the result
+     * has NO clean successful run inside the retained window; the caller (health route) seeds it from
+     * the SYNC_FEEDS vocabulary and reports it {stale:true, lastSuccessAt:null}. Cheap, read-only,
+     * and it lives here because this service owns the SyncRun table, so the health route keeps its
+     * no-direct-prisma-in-controller discipline.
+     */
+    static async latestSuccessfulRuns(): Promise<Array<{ feed: string; lastSuccessAt: Date }>> {
+        const rows = await primaryClient.syncRun.findMany({
+            where: { feed: { in: [...SYNC_FEEDS] }, finishedAt: { not: null } },
+            select: { feed: true, finishedAt: true, errors: true },
+            distinct: ['feed'],
+            orderBy: { finishedAt: 'desc' },
+        });
+        const newest = new Map<string, Date>();
+        for (const row of rows) {
+            if (!row.finishedAt) continue;
+            const errs = Array.isArray(row.errors) ? (row.errors as unknown[]) : [];
+            // distinct returns the newest FINISHED row per feed. If that newest pass logged errors it
+            // is not a clean success, so the feed is omitted here and the caller seeds it as stale -
+            // a currently-erroring feed must not borrow freshness from an older clean run.
+            if (errs.length > 0) continue;
+            newest.set(row.feed, row.finishedAt);
+        }
+        return [...newest.entries()].map(([feed, lastSuccessAt]) => ({ feed, lastSuccessAt }));
     }
 
     /** Retention: SyncRun is an operational table, not a history archive. */

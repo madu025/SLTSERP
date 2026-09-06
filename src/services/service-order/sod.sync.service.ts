@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '@/services/slt/slt-api.service';
-import { addJob, statsUpdateQueue, sodSyncQueue, systemQueue } from '../../lib/queue';
+import { addJob, getQueueProvider, statsUpdateQueue, sodSyncQueue, systemQueue } from '../../lib/queue';
 import { UUID } from '@/types/common';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
@@ -56,6 +56,32 @@ interface InlineTickTask {
     label: string;
     needMs: number;
     run: () => Promise<unknown>;
+}
+
+/**
+ * Truthful outcome of one tick-job seed attempt (Ryan M3). BullMQ collapses a duplicate `jobId` onto
+ * the same id, so `seeded` alone could not tell a fresh queue from an already-queued bucket; the
+ * caller reports these separately and never logs "seeded" for work that was already there.
+ */
+interface TickJobSeedResult {
+    /** This call queued a job that was genuinely absent. */
+    seeded: boolean;
+    /** The bucket was already present (pre-check found it) - no re-add attempted. */
+    alreadyQueued: boolean;
+    /** An add was attempted but the queue/Redis refused it (non-matching id or throw). */
+    refused?: boolean;
+}
+
+/** What one scheduleTickJobs pass actually did, so runPendingSyncTick reports reality. */
+interface TickCadenceReport {
+    /** Newly-seeded bucket jobs, as `<TYPE>:<bucket>` labels. */
+    buckets: string[];
+    /** Newly-seeded wall-clock daily jobs, as `<TYPE>:<dateKey>` labels. */
+    dailies: string[];
+    /** Buckets/dailies already queued by a prior tick - correctly NOT counted as seeded. */
+    alreadyQueued: number;
+    /** Seed attempts the queue refused (Redis unavailable). */
+    refused: number;
 }
 
 export class SODSyncService {
@@ -836,31 +862,66 @@ export class SODSyncService {
     /**
      * Seed the sub-tick cadences for the buckets the current moment falls in. Idempotent by job id,
      * so N worker instances and N ticks inside one bucket all collapse to a single queued job.
+     *
+     * `quiet` suppresses the per-job "already queued" log so the resilience re-assert (which runs
+     * every window from the RTOM sweep hop, where the buckets are normally already seeded by the
+     * external tick) does not spam the worker log. Newly-seeded buckets are still reported.
      */
-    static async scheduleTickJobs(): Promise<{ buckets: string[]; dailies: string[] }> {
+    static async scheduleTickJobs(quiet: boolean = false): Promise<TickCadenceReport> {
         const now = Date.now();
         const buckets: string[] = [];
         const dailies: string[] = [];
+        let alreadyQueued = 0;
+        let refused = 0;
 
         for (const job of SODSyncService.TICK_BUCKET_JOBS) {
             const bucket = Math.floor(now / job.everyMs);
             const jobId = `tick-${job.type}-${bucket}`;
-            const seeded = await this.addTickJob(sodSyncQueue, job.name, { type: job.type }, jobId, 0, job.everyMs);
-            if (seeded) buckets.push(`${job.type}:${bucket}`);
+            const res = await this.addTickJob(sodSyncQueue, job.name, { type: job.type }, jobId, 0, job.everyMs, quiet);
+            if (res.seeded) buckets.push(`${job.type}:${bucket}`);
+            else if (res.alreadyQueued) alreadyQueued++;
+            else if (res.refused) refused++;
         }
 
         for (const job of SODSyncService.TICK_DAILY_JOBS) {
             const plan = this.resolveDailyRun(job, new Date(now));
             if (!plan) continue;
             const jobId = `tick-${job.type}-${plan.dateKey}`;
-            const seeded = await this.addTickJob(systemQueue, job.name, { type: job.type }, jobId, plan.delayMs, 26 * 60 * 60 * 1000);
-            if (seeded) dailies.push(`${job.type}:${plan.dateKey}${plan.delayMs > 0 ? `+${Math.round(plan.delayMs / 60000)}m` : '(catch-up)'}`);
+            const res = await this.addTickJob(systemQueue, job.name, { type: job.type }, jobId, plan.delayMs, 26 * 60 * 60 * 1000, quiet);
+            if (res.seeded) dailies.push(`${job.type}:${plan.dateKey}${plan.delayMs > 0 ? `+${Math.round(plan.delayMs / 60000)}m` : '(catch-up)'}`);
+            else if (res.alreadyQueued) alreadyQueued++;
+            else if (res.refused) refused++;
         }
 
+        // Ryan M3: log the "seeded" summary ONLY when this pass queued something genuinely new. The
+        // 20/30-minute buckets stay present across several consecutive 10-minute ticks, so the
+        // pre-check reports them alreadyQueued and this stays silent instead of firing every tick.
         if (buckets.length > 0 || dailies.length > 0) {
             console.log(`[TICK] seeded buckets=[${buckets.join(', ')}] dailies=[${dailies.join(', ')}]`);
         }
-        return { buckets, dailies };
+        return { buckets, dailies, alreadyQueued, refused };
+    }
+
+    /**
+     * G3 resilience: re-assert the tick-* bucket and daily jobs from inside the self-chaining
+     * RTOM_SWEEP flow. The 20/30-minute buckets and wall-clock dailies are otherwise seeded ONLY by
+     * the external Master Tick (scheduleTickJobs); if that tick is missed while running in queue
+     * mode they silently stop, because only the RTOM_SWEEP chain self-sustains. The sweep hop calls
+     * this every window, so a missed external tick is healed within one window WITHOUT adding a
+     * second clock or changing any cadence. Idempotent by the deterministic `tick-<TYPE>-<bucket>`
+     * job ids: a bucket the external tick already queued is a no-op, never a double-run. Runs quiet
+     * so the normal already-queued case does not spam the worker log.
+     *
+     * Mark M3: also re-runs selfHealTerminalStatuses. The self-heal is otherwise driven ONLY by the
+     * external Master Tick (runPendingSyncTick); on a queue-tier deploy a missed external tick would
+     * silently stop stale-status repair even though the RTOM_SWEEP chain keeps running. It is bounded
+     * (SELF_HEAL_BATCH=200) and idempotent, so re-asserting it from the slot-0 hop every window is
+     * safe and adds no clock and no cadence change.
+     */
+    static async reassertTickCadences(): Promise<TickCadenceReport & { healed: { installClosed: number; returned: number; restored: number } }> {
+        const cadences = await this.scheduleTickJobs(true);
+        const healed = await this.selfHealTerminalStatuses();
+        return { ...cadences, healed };
     }
 
     /**
@@ -884,8 +945,14 @@ export class SODSyncService {
     /**
      * One tick-driven job. `jobId` is the dedupe key and the completed job is retained for the whole
      * bucket, otherwise a fast job would be re-queued by the next tick inside the same bucket.
-     * A non-matching returned id means the queue already holds that bucket (or Redis refused the
-     * write - the provider never throws), which is logged rather than reported as success.
+     *
+     * Ryan M3: BullMQ collapses a duplicate `jobId` onto the SAME id (handleDuplicatedJob), so the id
+     * returned by `addJob` cannot distinguish "I queued it now" from "it was already queued" - the old
+     * `String(job.id) === jobId` check reported BOTH as seeded, which is why the summary log fired
+     * every 10 minutes for already-queued work. The provider's `getJob` is therefore consulted FIRST:
+     * a present job (or a Redis-down synthetic) is reported `alreadyQueued` with no re-add, and only a
+     * genuinely absent bucket is added. AFTER an add, a NON-matching id means Redis refused the write
+     * and the provider returned a fallback id - reported `refused`, never `seeded`.
      */
     private static async addTickJob(
         queue: { name: string },
@@ -893,20 +960,38 @@ export class SODSyncService {
         data: Record<string, unknown>,
         jobId: string,
         delayMs: number,
-        retainMs: number
-    ): Promise<boolean> {
+        retainMs: number,
+        quiet: boolean = false
+    ): Promise<TickJobSeedResult> {
+        // Pre-check: is this bucket already queued? getJob returns null ONLY when Redis is up and the
+        // job is genuinely absent; a non-null result is either the real queued job or the provider's
+        // Redis-down synthetic. Either way an add is pointless (a down Redis refuses it), so skip it.
+        try {
+            const existing = await getQueueProvider().getJob(queue.name, jobId);
+            if (existing) {
+                if (!quiet) console.log(`[TICK] ${name} already queued: ${jobId}`);
+                return { seeded: false, alreadyQueued: true };
+            }
+        } catch (err: unknown) {
+            // The BullMQ provider catches internally, so this is defensive: a failed pre-check must
+            // NOT be mis-reported as alreadyQueued. Fall through and let the add decide.
+            if (!quiet) console.warn(`[TICK] ${name} pre-check failed, attempting add:`, err instanceof Error ? err.message : String(err));
+        }
+
         try {
             const job = await addJob(queue, name, data, {
                 jobId,
                 delay: Math.max(0, Math.round(delayMs)),
                 removeOnComplete: { age: Math.ceil(retainMs / 1000) },
             });
-            if (String(job.id) === jobId) return true;
-            console.log(`[TICK] ${name} not re-seeded (bucket already queued or Redis unavailable): ${jobId}`);
-            return false;
+            if (String(job.id) === jobId) return { seeded: true, alreadyQueued: false };
+            // Pre-check said absent but the id came back non-matching: Redis refused the write and the
+            // provider handed back a fallback id. Report the refusal, never a false "seeded".
+            if (!quiet) console.log(`[TICK] ${name} seed refused by queue: ${jobId}`);
+            return { seeded: false, alreadyQueued: false, refused: true };
         } catch (err: unknown) {
-            console.warn(`[TICK] ${name} seed failed:`, err instanceof Error ? err.message : String(err));
-            return false;
+            if (!quiet) console.warn(`[TICK] ${name} seed failed:`, err instanceof Error ? err.message : String(err));
+            return { seeded: false, alreadyQueued: false, refused: true };
         }
     }
 
@@ -1369,6 +1454,13 @@ export class SODSyncService {
         // ── Optimization: Collect new records in a batch, flush with createMany ──
         // Reduces O(N) individual DB round-trips to O(1) per OPMC
         const toCreate: Prisma.ServiceOrderUncheckedCreateInput[] = [];
+        // G1: birth status-history seed metadata, captured at create-decision time (soNum and the
+        // effective sltsStatus) so the post-createMany seeding below never has to reverse-engineer
+        // Prisma input unions. Kept parallel to `toCreate`. The birth event DATE is deliberately NOT
+        // captured here: D-C2 dates every birth at the row's own ERP `createdAt` (resolved after
+        // createMany), never the portal CON_STATUS_DATE, so a born-terminal row cannot inflate the
+        // Daily Operational Report's closure counters.
+        const createSeedMeta: { soNum: string; status: string }[] = [];
         const toUpdate: { existing: { id: string; soNum?: string | null; status: string; sltsStatus: string; returnReason?: string | null; contractorId?: string | null; completedDate?: Date | null; receivedDate?: Date | null; comments?: string | null; completionMode?: string | null; rtom?: string | null; statusDate?: Date | null }, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
 
         for (const item of syncableData) {
@@ -1504,6 +1596,13 @@ export class SODSyncService {
                         sltsStatus: effectiveSltsStatus,
                         status: isInstallClosed ? 'INSTALL_CLOSED' : (contractorId ? 'INPROGRESS' : 'PENDING')
                     } as Prisma.ServiceOrderUncheckedCreateInput);
+                    // G1: record the birth history seed for this new row. Only the status is captured;
+                    // D-C2 dates every birth event at the row's ERP createdAt after createMany (see the
+                    // seed block below), so the portal CON_STATUS_DATE is never used as the event date.
+                    createSeedMeta.push({
+                        soNum: item.SO_NUM,
+                        status: effectiveSltsStatus,
+                    });
                 }
             }
         }
@@ -1615,27 +1714,47 @@ export class SODSyncService {
         }
 
         if (toCreate.length > 0) {
-            const [createErr] = await safe(prisma.serviceOrder.createMany({ data: toCreate, skipDuplicates: true }));
+            // D-M7: createMany uses skipDuplicates, so `created = toCreate.length` OVERSTATED real
+            // inserts whenever a concurrent pass had already written one of these soNums. Take the
+            // truthful count from the BatchPayload instead.
+            const [createErr, createRes] = await safe(prisma.serviceOrder.createMany({ data: toCreate, skipDuplicates: true }));
             if (createErr) {
                 console.error(`[SYNC] Failed to batch create SODs for ${rtom}:`, createErr);
             } else {
-                created = toCreate.length;
-                // Born-RETURN creates bypass handlePostUpdate — seed their RETURN history
-                // entry so the Work History timeline shows the return event.
-                const returnCreates = toCreate.filter(c => c.sltsStatus === 'RETURN');
-                if (returnCreates.length > 0) {
+                created = createRes?.count ?? 0;
+                // G1 / D-C2: seed the birth status-history event for EVERY newly created SOD, not just
+                // born-RETURN ones. A createMany row never passes through applySodStatus/handlePostUpdate,
+                // so without this the Daily Operational Report (which counts a day's activity by
+                // status-change date) undercounts every freshly observed SOD on its birth day.
+                //
+                // D-M7 / Ryan S3: ONE findMany (resolve the rows actually written) + ONE batched
+                // createMany inside seedBirthHistoryBatch, replacing the previous 2N sequential
+                // round-trips against the 15-session pooler. Ryan S4: the resolve is scoped to THIS
+                // pass's opmcId to shrink the concurrent-pass soNum race. The birth event is dated at
+                // the row's own ERP `createdAt` (D-C2): daily-report-activity.ts recognises that
+                // instant and excludes the birth event from closure-evidence, so a born-terminal SOD
+                // discovered today cannot flip completedToday/installClosedToday. The seeded set is
+                // derived from rows resolved, not toCreate.length, so it reflects real inserts.
+                if (createSeedMeta.length > 0) {
+                    const seedBySoNum = new Map(createSeedMeta.map(m => [m.soNum, m]));
                     const createdRows = await prisma.serviceOrder.findMany({
-                        where: { soNum: { in: returnCreates.map(c => c.soNum as string) } },
-                        select: { id: true, soNum: true }
+                        where: { opmcId, soNum: { in: [...seedBySoNum.keys()] } },
+                        select: { id: true, soNum: true, createdAt: true }
                     });
-                    const [histErr] = await safe(prisma.serviceOrderStatusHistory.createMany({
-                        data: createdRows.map(r => {
-                            const src = returnCreates.find(c => c.soNum === r.soNum);
-                            return { serviceOrderId: r.id, status: 'RETURN', statusDate: (src?.completedDate as Date | null) ?? new Date() };
-                        }),
-                        skipDuplicates: true
-                    }));
-                    if (histErr) console.error(`[SYNC] Failed to seed born-RETURN history for ${rtom}:`, histErr);
+                    const seedItems: { serviceOrderId: UUID; status: string; statusDate: Date }[] = [];
+                    for (const row of createdRows) {
+                        const meta = seedBySoNum.get(row.soNum as string);
+                        if (!meta) continue;
+                        seedItems.push({
+                            serviceOrderId: row.id,
+                            status: meta.status,
+                            statusDate: row.createdAt,
+                        });
+                    }
+                    if (seedItems.length > 0) {
+                        const [histErr] = await safe(SODLifecycleService.seedBirthHistoryBatch(seedItems));
+                        if (histErr) console.error(`[SYNC] Failed to seed birth history for ${rtom}:`, histErr);
+                    }
                 }
             }
         }

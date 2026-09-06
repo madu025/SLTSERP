@@ -4,23 +4,23 @@
 /// Both are raw strings (no FK relations) to support polymorphic assignment.
 /// Use assignee lookup endpoints: GET /api/staff, GET /api/contractors/teams
 model SurveyRequest {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId      String @db.Uuid
+  id             String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String          @db.Uuid
   requestNumber  String          @unique
   title          String
   description    String?
   surveyType     String
   priority       String          @default("MEDIUM")
   status         String          @default("PENDING")
-  assignedTeamId String? @db.Uuid
-  assignedToId   String? @db.Uuid
+  assignedTeamId String?         @db.Uuid
+  assignedToId   String?         @db.Uuid
   scheduledDate  DateTime?
   completedDate  DateTime?
-  estimatedBOQ   Decimal? @db.Decimal(14, 2)
-  finalBOQ       Decimal? @db.Decimal(14, 2)
+  estimatedBOQ   Decimal?        @db.Decimal(14, 2)
+  finalBOQ       Decimal?        @db.Decimal(14, 2)
   remarks        String?
-  createdById    String @db.Uuid
-  approvedById   String? @db.Uuid
+  createdById    String          @db.Uuid
+  approvedById   String?         @db.Uuid
   approvedAt     DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -39,14 +39,14 @@ model SurveyRequest {
 }
 
 model SurveyCheckIn {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  surveyRequestId String @db.Uuid
+  id              String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  surveyRequestId String        @db.Uuid
   checkInType     String
   timestamp       DateTime      @default(now())
-  latitude        Decimal? @db.Decimal(11, 8)
-  longitude       Decimal? @db.Decimal(11, 8)
+  latitude        Decimal?      @db.Decimal(11, 8)
+  longitude       Decimal?      @db.Decimal(11, 8)
   address         String?
-  userId          String @db.Uuid
+  userId          String        @db.Uuid
   remarks         String?
   surveyRequest   SurveyRequest @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
 
@@ -55,17 +55,17 @@ model SurveyCheckIn {
 }
 
 model SurveyPhoto {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  surveyRequestId String @db.Uuid
+  id              String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  surveyRequestId String        @db.Uuid
   fileName        String
   fileUrl         String
-  latitude        Decimal? @db.Decimal(11, 8)
-  longitude       Decimal? @db.Decimal(11, 8)
-  altitude        Decimal? @db.Decimal(11, 8)
-  bearing         Decimal? @db.Decimal(11, 8)
+  latitude        Decimal?      @db.Decimal(11, 8)
+  longitude       Decimal?      @db.Decimal(11, 8)
+  altitude        Decimal?      @db.Decimal(11, 8)
+  bearing         Decimal?      @db.Decimal(11, 8)
   photoType       String
   description     String?
-  uploadedById    String @db.Uuid
+  uploadedById    String        @db.Uuid
   uploadedAt      DateTime      @default(now())
   surveyRequest   SurveyRequest @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
 
@@ -74,18 +74,18 @@ model SurveyPhoto {
 }
 
 model SurveyFinding {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  surveyRequestId String @db.Uuid
+  id              String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  surveyRequestId String        @db.Uuid
   findingType     String
   description     String
   severity        String        @default("MEDIUM")
-  latitude        Decimal? @db.Decimal(11, 8)
-  longitude       Decimal? @db.Decimal(11, 8)
+  latitude        Decimal?      @db.Decimal(11, 8)
+  longitude       Decimal?      @db.Decimal(11, 8)
   recommendation  String?
   status          String        @default("OPEN")
   resolvedAt      DateTime?
-  resolvedById    String? @db.Uuid
-  photoId         String? @db.Uuid
+  resolvedById    String?       @db.Uuid
+  photoId         String?       @db.Uuid
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   surveyRequest   SurveyRequest @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
@@ -97,11 +97,11 @@ model SurveyFinding {
 }
 
 model FieldTask {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId       String @db.Uuid
-  taskInstanceId  String? @db.Uuid
-  assignedTeamId  String? @db.Uuid
-  assignedUserId  String? @db.Uuid
+  id              String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId       String           @db.Uuid
+  taskInstanceId  String?          @db.Uuid
+  assignedTeamId  String?          @db.Uuid
+  assignedUserId  String?          @db.Uuid
   title           String
   description     String?
   status          String           @default("ASSIGNED")
@@ -110,11 +110,11 @@ model FieldTask {
   startedAt       DateTime?
   completedAt     DateTime?
   durationMinutes Int?
-  latitude        Decimal? @db.Decimal(11, 8)
-  longitude       Decimal? @db.Decimal(11, 8)
+  latitude        Decimal?         @db.Decimal(11, 8)
+  longitude       Decimal?         @db.Decimal(11, 8)
   address         String?
   syncStatus      String           @default("PENDING")
-  deviceId        String? @db.Uuid
+  deviceId        String?          @db.Uuid
   appVersion      String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -133,13 +133,13 @@ model FieldTask {
 }
 
 model FieldPhoto {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  fieldTaskId String @db.Uuid
+  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  fieldTaskId String    @db.Uuid
   fileName    String
   fileUrl     String
   photoType   String
-  latitude    Decimal? @db.Decimal(11, 8)
-  longitude   Decimal? @db.Decimal(11, 8)
+  latitude    Decimal?  @db.Decimal(11, 8)
+  longitude   Decimal?  @db.Decimal(11, 8)
   uploadedAt  DateTime  @default(now())
   fieldTask   FieldTask @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
 
@@ -147,8 +147,8 @@ model FieldPhoto {
 }
 
 model FieldChecklist {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  fieldTaskId   String @db.Uuid
+  id            String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  fieldTaskId   String    @db.Uuid
   label         String
   isMandatory   Boolean   @default(true)
   isCompleted   Boolean   @default(false)
@@ -161,8 +161,8 @@ model FieldChecklist {
 }
 
 model FieldSignature {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  fieldTaskId      String @db.Uuid
+  id               String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  fieldTaskId      String    @db.Uuid
   signatoryName    String
   signatureDataUrl String
   role             String?
@@ -173,9 +173,9 @@ model FieldSignature {
 }
 
 model OTDRTest {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId       String @db.Uuid
-  cableSegmentId  String? @db.Uuid
+  id              String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId       String           @db.Uuid
+  cableSegmentId  String?          @db.Uuid
   testNumber      String           @unique
   testDate        DateTime         @default(now())
   testType        String
@@ -184,24 +184,24 @@ model OTDRTest {
   traceFileName   String?
   traceFileUrl    String?
   fileFormat      String?
-  totalLength     Decimal? @db.Decimal(12, 4)
-  endToEndLoss    Decimal? @db.Decimal(12, 4)
-  lossPerKm       Decimal? @db.Decimal(12, 4)
-  orl             Decimal? @db.Decimal(12, 4)
-  spliceLoss      Decimal? @db.Decimal(12, 4)
-  connectorLoss   Decimal? @db.Decimal(12, 4)
+  totalLength     Decimal?         @db.Decimal(12, 4)
+  endToEndLoss    Decimal?         @db.Decimal(12, 4)
+  lossPerKm       Decimal?         @db.Decimal(12, 4)
+  orl             Decimal?         @db.Decimal(12, 4)
+  spliceLoss      Decimal?         @db.Decimal(12, 4)
+  connectorLoss   Decimal?         @db.Decimal(12, 4)
   spliceCount     Int?
   eventCount      Int?
-  lossLimit       Decimal? @db.Decimal(12, 4)
-  orlLimit        Decimal? @db.Decimal(12, 4)
+  lossLimit       Decimal?         @db.Decimal(12, 4)
+  orlLimit        Decimal?         @db.Decimal(12, 4)
   autoResult      String?
   failureReason   String?
-  testedById      String @db.Uuid
+  testedById      String           @db.Uuid
   equipmentModel  String?
   equipmentSerial String?
   remarks         String?
   status          String           @default("PENDING_REVIEW")
-  reviewedById    String? @db.Uuid
+  reviewedById    String?          @db.Uuid
   reviewedAt      DateTime?
   reviewNotes     String?
   createdAt       DateTime         @default(now())
@@ -219,11 +219,11 @@ model OTDRTest {
 }
 
 model OTDRTestEvent {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  testId         String @db.Uuid
+  id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  testId         String   @db.Uuid
   eventNumber    Int
   eventType      String
-  distance       Decimal @db.Decimal(14, 2)
+  distance       Decimal  @db.Decimal(14, 2)
   loss           Decimal? @db.Decimal(12, 4)
   reflectance    Decimal? @db.Decimal(12, 4)
   cumulativeLoss Decimal? @db.Decimal(12, 4)
@@ -235,8 +235,8 @@ model OTDRTestEvent {
 }
 
 model HSESafetyLog {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId        String @db.Uuid
+  id               String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId        String        @db.Uuid
   logType          String
   title            String
   description      String?
@@ -251,15 +251,15 @@ model HSESafetyLog {
   incidentType     String?
   injuryCount      Int?          @default(0)
   fatalityCount    Int?          @default(0)
-  propertyDamage   Decimal? @db.Decimal(12, 4)
+  propertyDamage   Decimal?      @db.Decimal(12, 4)
   rootCause        String?
   correctiveAction String?
   ppeChecklist     Json?
   allCompliant     Boolean?      @default(false)
   photoUrls        String[]      @default([])
   documentUrls     String[]      @default([])
-  recordedById     String @db.Uuid
-  closedById       String? @db.Uuid
+  recordedById     String        @db.Uuid
+  closedById       String?       @db.Uuid
   closedAt         DateTime?
   blocksStage      Boolean       @default(false)
   createdAt        DateTime      @default(now())
@@ -277,8 +277,8 @@ model HSESafetyLog {
 }
 
 model HSEAttendee {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  safetyLogId  String @db.Uuid
+  id           String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  safetyLogId  String       @db.Uuid
   name         String
   designation  String?
   signatureUrl String?

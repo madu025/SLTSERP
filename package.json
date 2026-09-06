@@ -24,7 +24,7 @@
     "rbac:check": "node scripts/rbac-sync.js",
     "check:email-templates": "node scripts/check-email-template-wiring.mjs",
     "check:sync": "tsx scripts/verify-sync-invariants.ts",
-    "test:unit": "node --import tsx --test tests/unit/sync/status-policy.test.ts tests/unit/sync/status-domain.test.ts",
+    "test:unit": "node --import tsx --test tests/unit/sync/status-policy.test.ts tests/unit/sync/status-domain.test.ts tests/unit/sync/daily-report-activity.test.ts",
     "test:integration": "node --import tsx --test tests/integration/sync-run-claim.test.ts tests/integration/sync-status-writer.test.ts",
     "rbac:sync": "node scripts/rbac-sync.js --write",
     "qa:seed": "node prisma/qa-seed.js",

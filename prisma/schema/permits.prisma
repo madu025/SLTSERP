@@ -1,6 +1,6 @@
 model AuthorityEntity {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  name          String   @unique
+  id            String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name          String       @unique
   shortName     String?
   contactPerson String?
   contactNumber String?
@@ -15,11 +15,11 @@ model AuthorityEntity {
 }
 
 model PermitType {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id              String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name            String
   code            String          @unique
   description     String?
-  authorityId     String @db.Uuid
+  authorityId     String          @db.Uuid
   defaultDuration Int?
   requiresRenewal Boolean         @default(false)
   isActive        Boolean         @default(true)
@@ -33,9 +33,9 @@ model PermitType {
 }
 
 model ProjectPermit {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId        String @db.Uuid
-  permitTypeId     String @db.Uuid
+  id               String                  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId        String                  @db.Uuid
+  permitTypeId     String                  @db.Uuid
   permitNumber     String?
   status           String                  @default("DRAFT")
   applicationDate  DateTime?
@@ -45,9 +45,9 @@ model ProjectPermit {
   rejectionReason  String?
   approvalDocument String?
   remarks          String?
-  appliedById      String? @db.Uuid
-  approvedById     String? @db.Uuid
-  cost             Decimal? @db.Decimal(14, 2)
+  appliedById      String?                 @db.Uuid
+  approvedById     String?                 @db.Uuid
+  cost             Decimal?                @db.Decimal(14, 2)
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   approvalSteps    PermitApprovalStep[]
@@ -64,12 +64,12 @@ model ProjectPermit {
 }
 
 model ProjectPermitDocument {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  permitId     String @db.Uuid
+  id           String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  permitId     String        @db.Uuid
   documentType String
   fileName     String
   fileUrl      String
-  uploadedById String @db.Uuid
+  uploadedById String        @db.Uuid
   uploadedAt   DateTime      @default(now())
   permit       ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
 
@@ -78,13 +78,13 @@ model ProjectPermitDocument {
 }
 
 model PermitApprovalStep {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  permitId       String @db.Uuid
+  id             String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  permitId       String        @db.Uuid
   stepNumber     Int
   roleRequired   String
-  assignedUserId String? @db.Uuid
+  assignedUserId String?       @db.Uuid
   status         String        @default("PENDING")
-  actionedById   String? @db.Uuid
+  actionedById   String?       @db.Uuid
   actionedAt     DateTime?
   comment        String?
   permit         ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)

@@ -41,6 +41,7 @@ export async function initializeBackgroundWorkers() {
     }
 
     const { sodSyncQueue, systemQueue } = await import('../lib/queue');
+    const { enqueueCronJob } = await import('../lib/cron-enqueue');
 
     // 🚀 INITIALIZE BULLMQ WORKERS
     try {
@@ -70,6 +71,45 @@ export async function initializeBackgroundWorkers() {
             : '[WORKERS] No internal repeatables registered - scheduling is owned by the external 10-minute cron tick.');
     } catch (err) {
         console.error('[WORKERS] ❌ Clearing legacy repeatable jobs failed:', err);
+    }
+
+    // G2 BOOT KICKSTART (one-shot, NOT a scheduler).
+    //
+    // After a self-hosted worker restart the process boots fresh, but the external Master Tick may
+    // be up to 10 minutes away, so sync would sit idle until then. Seed ONE PERIODIC_PENDING_SYNC
+    // tick with a short delay to make recovery near-immediate. This runs only on a persistent
+    // worker tier: instrumentation.ts skips initializeBackgroundWorkers entirely when VERCEL=1 or
+    // DISABLE_BACKGROUND_WORKERS=true, so the serverless tier (which has no drainer) never sees it.
+    //
+    // Guarded against double-running with the first external tick two ways:
+    //  1. A deterministic per-window job id (`boot-kickstart-<10-min window>`), so two boots inside
+    //     the same window collapse to a single queued kickstart.
+    //  2. runPendingSyncTick is itself idempotent - its per-RTOM/bucket/daily child jobs use
+    //     deterministic ids and its SyncRun windows dedupe - so even if the external tick fires in
+    //     the same window, no portal work runs twice.
+    // No interval, no repeatable, no cadence change: the external 10-minute tick stays the one clock.
+    //
+    // Opt-in: WORKER_BOOT_KICKSTART==='true'. Nothing in the current Vercel-only production path
+    // sets this flag, so the kickstart is dormant. A future self-hosted worker deploy can enable
+    // it explicitly; leaving it off keeps scripts/run-worker.ts on a laptop from seeding a boot tick
+    // against a shared queue and becoming a SECOND tick source alongside the external cron.
+    if (process.env.WORKER_BOOT_KICKSTART === 'true') {
+        try {
+            const kickWindow = Math.floor(Date.now() / (10 * 60 * 1000));
+            const kickJobId = `boot-kickstart-${kickWindow}`;
+            const kick = await enqueueCronJob(sodSyncQueue, 'cron-tick', { type: 'PERIODIC_PENDING_SYNC' }, {
+                jobId: kickJobId,
+                delay: 15000,
+                removeOnComplete: { age: 20 * 60 },
+            });
+            console.log(kick.accepted
+                ? `[WORKERS] Boot kickstart tick seeded (${kickJobId}, +15s) for fast post-restart recovery.`
+                : `[WORKERS] Boot kickstart tick NOT accepted (${kickJobId}); the external Master Tick will drive sync.`);
+        } catch (err) {
+            console.error('[WORKERS] Boot kickstart seed failed:', err);
+        }
+    } else {
+        console.log('[WORKERS] Boot kickstart disabled (set WORKER_BOOT_KICKSTART=true to enable fast post-restart recovery).');
     }
 
     console.log('[WORKERS] Background system initialization complete');

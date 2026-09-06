@@ -2,3 +2,12 @@
 # scripts/vps-prepare.sh). With core.autocrlf=true a fresh Windows checkout would
 # otherwise hand them CRLF line endings and the shebang breaks on the box.
 *.sh text eol=lf
+
+# smart-deploy.ps1 embeds POSIX shell payloads in here-strings that go verbatim to the box over
+# ssh (the .env probe, the .env merge, the compose step). With core.autocrlf=true a CRLF checkout
+# hands the remote shell `}\r`, `.env\r` and `umask 077\r`, which is a syntax error - and that
+# error now happens at Step 0, before anything is deployed. Same reasoning as *.sh above.
+*.ps1 text eol=lf
+
+# Rendered by envsubst inside a Linux nginx container.
+nginx/templates/*.template text eol=lf

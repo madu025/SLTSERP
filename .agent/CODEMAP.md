@@ -223,12 +223,15 @@
     * `findMatchingPolicy(params: {
         entityType: string;
         fromStatus: string;
+        toStatus?: string;
         entityPayload?: Record<string, unknown>;
     }): any`
     * `startGate(params: {
         entityType: string;
         entityId: string;
         currentStatus: string;
+        /** Target status. See findMatchingPolicy: pass it whenever the transition has one. */
+        toStatus?: string;
         entityPayload?: Record<string, unknown>;
         makerId?: string; // Add makerId parameter
     }): any`
@@ -1957,6 +1960,7 @@
         opmcId?: UUID;
         materialsCount?: number;
         cpeCount?: number;
+        completedDate?: Date | null;
     }): any`
     * `notifySODAssignment(order: {
         soNum: string;
@@ -2067,7 +2071,8 @@
         priority = 'MEDIUM',
         link,
         metadata,
-        replaceByCategory = true
+        replaceByCategory = true,
+        dedupKey
     }: {
         userId: string;
         title: string;
@@ -2077,6 +2082,7 @@
         link?: string;
         metadata?: Record<string, unknown>;
         replaceByCategory?: boolean;
+        dedupKey?: string;
     }): any`
     * `broadcast({
         userIds,
@@ -2085,7 +2091,8 @@
         type = 'SYSTEM',
         priority = 'MEDIUM',
         link,
-        metadata
+        metadata,
+        dedupKey
     }: {
         userIds: string[];
         title: string;
@@ -2094,6 +2101,7 @@
         priority?: NotificationPriority;
         link?: string;
         metadata?: Record<string, unknown>;
+        dedupKey?: string;
     }): any`
     * `notifyByRole({
         roles,
@@ -2103,7 +2111,8 @@
         priority = 'MEDIUM',
         link,
         metadata,
-        opmcId // Optional filter by OPMC
+        opmcId, // Optional filter by OPMC
+        dedupKey  // Business identity: one row per recipient per key, repeats bump groupedCount
     }: {
         roles: string[];
         title: string;
@@ -2113,6 +2122,7 @@
         link?: string;
         metadata?: Record<string, unknown>;
         opmcId?: string;
+        dedupKey?: string;
     }): any`
     * `getUserNotifications(userId: string, limit = 50): any`
     * `markAsRead(id: string): any`
@@ -2681,6 +2691,7 @@
         checked: number;
         completed: number;
         enriched: number;
+        blockedByPolicy: number;
         errors: string[];
     }>`
     * `startPeriodicSync(): void`
@@ -2707,6 +2718,7 @@
     * `syncAllOpmcs(offset: number = 0, limit: number = 15): any`
     * `syncPendingIntake(rtom: string, startDate: string, endDate: string): any`
     * `runPendingSyncTick(): any`
+    * `runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown>`
     * `runCronTick(): Promise<Record<string, unknown>>`
     * `scheduleRtomSweep(windowMs?: number): any`
     * `rescheduleRtomSweep(opmcId: string, rtom: string, windowMs?: number, slotMs?: number): any`
@@ -2810,7 +2822,7 @@
   * **Methods**:
     * `validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string): any`
     * `prepareStatusTransition(oldOrder: { sltsStatus: string; status: string | null; statusDate: Date | null; comments: string | null; returnReason: string | null; sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isInvoicable?: boolean }, data: ServiceOrderUpdateData): Promise<Prisma.ServiceOrderUncheckedUpdateInput>`
-    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: UUID; status: string; sltsStatus: string; opmcId: UUID; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
+    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: UUID; status: string; sltsStatus: string; opmcId: UUID; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient, actor?: SyncActor): any`
     * `toggleOfflineWorkOrder(id: string, isOffline: boolean, offlineReference?: string, reason?: string): any`
     * `getOfflineOrders(page: number = 1, limit: number = 50, opmcId?: string | null, status?: string | null, accessibleOpmcs?: string[]): any`
     * `registerOfflineOrder(data: {
@@ -2882,6 +2894,8 @@
     * `scheduleTickJobs(): Promise<{ buckets: string[]; dailies: string[] }>`
     * `runCronTick(): Promise<Record<string, unknown>>`
     * `runInlineTick(budgetMs: number = SODSyncService.inlineTickBudgetMs()): any`
+    * `runPeriodicTask(type: 'PERIODIC_COMPLETED_SYNC' | 'PERIODIC_GLOBAL_SYNC' | 'PERIODIC_RETURN_SYNC'): Promise<unknown>`
+    * `runDailyTask(type: 'DAILY_REPORT_SNAPSHOT' | 'APPOINTMENT_REMINDERS' | 'DAILY_AUTOMATION' | 'NOTIFICATION_CLEANUP'): Promise<unknown>`
     * `scheduleRtomSweep(windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS): any`
     * `rescheduleRtomSweep(opmcId: string, rtom: string, windowMs: number = SODSyncService.RTOM_SWEEP_WINDOW_MS, slotMs: number = 0): any`
     * `syncServiceOrders(opmcId: UUID, rtom: string, preloadedPendingSods?: { id: UUID; soNum: string | null; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; opmcId: UUID }[], options?: { rows?: SLTServiceOrderData[]; scopedToRange?: boolean }): any`
@@ -2902,6 +2916,59 @@
   * **Methods**:
     * `deepParse(masterData: Record<string, string>): Record<string, string>`
     * `safeParseDate(dateStr: string | Date | undefined | null): Date | undefined`
+
+### [sod-status.writer.ts](src/services/service-order/sync/sod-status.writer.ts)
+* **Exported Functions**:
+  * `applySodStatus(input: {
+    sodId: UUID;
+    soNum: string;
+    opmcId: UUID;
+    next: StatusWriteIntent;
+    /** Portal CON_STATUS_DATE (or the ERP instant for non-portal actors). */
+    anchor: Date | string | null;
+    actor: SyncActor;
+    /** Free-text why, logged and carried on the event. Never parsed. */
+    reason: string;
+    actorUserId?: string;
+    /**
+     * Payload the human-evidence gate evaluates its rule conditions against. The writer only owns the
+     * status columns, so it cannot judge `totalValue`-style conditions from `next` alone; callers that
+     * gate pass their full update object.
+     */
+    gatePayload?: Record<string, unknown>;
+    /**
+     * Set by a caller that already satisfied the human-evidence requirement - the approved process
+     * gate whose domain action applies this status. `startGate` creates an instance with no
+     * idempotency guard, so re-entering it for a transition that just cleared would open a second
+     * approval on top of the write that the first approval authorised.
+     */
+    skipGate?: boolean;
+    tx?: TransactionClient;
+}): Promise<StatusWriteResult>`
+  * `countDecision(tally: Record<string, number>, decision: StatusWriteDecision, blockedWouldBe = false): Record<string, number>`
+
+### [sync-audit.service.ts](src/services/service-order/sync/sync-audit.service.ts)
+* **Class**: `SyncAuditService`
+  * **Methods**:
+    * `startRun(params: {
+        feed: SyncFeed;
+        rtom?: string | null;
+        opmcId?: string | null;
+        window?: SyncWindow;
+    }): Promise<StartedRun>`
+    * `tracedRun(params: { feed: SyncFeed; rtom?: string | null; opmcId?: string | null; window?: SyncWindow }, body: () => Promise<T>, toOutcome: (result: T) => RunOutcome = () => ({})): Promise<T | null>`
+    * `finishRun(runId: string, result: RunOutcome): Promise<void>`
+    * `recordError(params: {
+        feed: SyncFeed;
+        context: string;
+        error: unknown;
+        runId?: string | null;
+        metadata?: Record<string, unknown>;
+    }): Promise<string>`
+    * `pruneRuns(retentionDays = 14): Promise<{ deleted: number; oldestKept: string }>`
+* **Exported Functions**:
+  * `windowKeyFor(feed: SyncFeed, rtom: string | null | undefined, window: SyncWindow): string`
+  * `tickWindow(now: Date = new Date(), bucketMs = 10 * 60 * 1000): SyncWindow & { start: Date }`
 
 ### [header-mapping.service.ts](src/services/sf-audit/header-mapping.service.ts)
 * **Class**: `HeaderMappingService`
@@ -3256,7 +3323,7 @@
 | `/api/maintenance/fix-dates` | [route.ts](src/app/api/maintenance/fix-dates/route.ts) | `GET` |
 | `/api/metrics` | [route.ts](src/app/api/metrics/route.ts) | `GET` |
 | `/api/notifications/analytics` | [route.ts](src/app/api/notifications/analytics/route.ts) | `GET` |
-| `/api/notifications/cleanup` | [route.ts](src/app/api/notifications/cleanup/route.ts) | `POST`, `GET` |
+| `/api/notifications/cleanup` | [route.ts](src/app/api/notifications/cleanup/route.ts) | `GET`, `POST` |
 | `/api/notifications/preferences` | [route.ts](src/app/api/notifications/preferences/route.ts) | `GET`, `POST` |
 | `/api/notifications/push` | [route.ts](src/app/api/notifications/push/route.ts) | `POST`, `DELETE` |
 | `/api/notifications/read-bulk` | [route.ts](src/app/api/notifications/read-bulk/route.ts) | `PATCH` |
@@ -7551,6 +7618,23 @@
   * `province: String`
   * `payload: Json`
   * `createdAt: DateTime` `[@default(now())]`
+
+### [SyncRun](prisma/schema/system.prisma)
+* **Fields**:
+  * `id: String` `[@id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid]`
+  * `feed: String`
+  * `windowKey: String`
+  * `rtom: String?`
+  * `opmcId: String?` `[@db.Uuid]`
+  * `windowStart: DateTime?`
+  * `windowEnd: DateTime?`
+  * `startedAt: DateTime` `[@default(now())]`
+  * `finishedAt: DateTime?`
+  * `fetched: Int` `[@default(0)]`
+  * `created: Int` `[@default(0)]`
+  * `updated: Int` `[@default(0)]`
+  * `skippedNoChange: Int` `[@default(0)]`
+  * `blockedByPolicy: Int` `[@default(0)]`
 
 ### [User](prisma/schema/user.prisma)
 * **Fields**:

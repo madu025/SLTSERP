@@ -123,9 +123,25 @@ describe('rule 3 - TERMINAL_PROTECTED (the O1 oscillation kill switch)', () => {
         }
     });
 
+    it('applies to every feed actor, not only the live worklist', () => {
+        // Measured defect: the completion feed resolved an unmapped CON_STATUS to INPROGRESS and the
+        // door let it through because the rule was scoped to PORTAL_SWEEP, so 73 SODs were demoted and
+        // healed back inside one pass, every pass. The actor that asks is irrelevant to a reopen.
+        for (const actor of ['PORTAL_COMPLETED', 'PORTAL_PAT', 'PORTAL_RETURN', 'AUTO_COMPLETE'] as SyncActor[]) {
+            assert.equal(verdict({ current: 'COMPLETED', incoming: 'INPROGRESS', actor }).reason, 'TERMINAL_PROTECTED', actor);
+        }
+    });
+
     it('is scoped to the open-work feed: the completion feed owns moves inside the terminal band', () => {
         assert.equal(verdict({ current: 'COMPLETED', incoming: 'INSTALL_CLOSED', actor: 'PORTAL_COMPLETED' }).reason, 'APPLIED');
         assert.equal(verdict({ current: 'INSTALL_CLOSED', incoming: 'COMPLETED', actor: 'PORTAL_COMPLETED' }).reason, 'APPLIED');
+    });
+
+    it('keeps the return feed able to un-complete work', () => {
+        // The portal does genuinely withdraw a completed order, and RETURN is the return feed's own
+        // authority. Everything else about the closed band stays protected.
+        assert.equal(verdict({ current: 'COMPLETED', incoming: 'RETURN', actor: 'PORTAL_RETURN' }).reason, 'APPLIED');
+        assert.equal(verdict({ current: 'COMPLETED', incoming: 'RETURN', actor: 'PORTAL_COMPLETED' }).reason, 'TERMINAL_PROTECTED');
     });
 
     it('lets a rank increase through (a closed row cannot be "reopened" by moving forward)', () => {
@@ -159,8 +175,10 @@ describe('rule 5 - STALE_ANCHOR (out-of-order feed rows)', () => {
     const older = new Date(T0.getTime() - HOUR);
 
     it('blocks a downgrade carried by an older CON_STATUS_DATE', () => {
+        // Uses the return feed's own demotion: rule 3 exempts it, which is exactly why the anchor rule
+        // has to be proven to still apply to it.
         const d = verdict({
-            current: 'COMPLETED', incoming: 'INPROGRESS', actor: 'PORTAL_RETURN',
+            current: 'COMPLETED', incoming: 'RETURN', actor: 'PORTAL_RETURN',
             incomingAnchor: older, storedAnchor: T0,
         });
         assert.equal(d.allow, false);
@@ -171,14 +189,14 @@ describe('rule 5 - STALE_ANCHOR (out-of-order feed rows)', () => {
         // 500ms behind a stored anchor is inside ANCHOR_TOLERANCE_MS, so the feed row is treated as
         // the same instant rather than as history being rewritten.
         assert.equal(verdict({
-            current: 'COMPLETED', incoming: 'INPROGRESS', actor: 'PORTAL_RETURN',
+            current: 'COMPLETED', incoming: 'RETURN', actor: 'PORTAL_RETURN',
             incomingAnchor: new Date(T0.getTime() - 500), storedAnchor: T0,
         }).reason, 'APPLIED');
     });
 
     it('is skipped when either anchor is missing (the feed did not send CON_STATUS_DATE)', () => {
         assert.equal(verdict({
-            current: 'COMPLETED', incoming: 'INPROGRESS', actor: 'PORTAL_RETURN', incomingAnchor: older,
+            current: 'COMPLETED', incoming: 'RETURN', actor: 'PORTAL_RETURN', incomingAnchor: older,
         }).reason, 'APPLIED');
     });
 
@@ -219,8 +237,13 @@ describe('SYNC_STATUS_POLICY rollout switch', () => {
 
     const reopening = input({ current: 'COMPLETED', incoming: 'INPROGRESS', actor: 'PORTAL_SWEEP' });
 
-    it('defaults to logonly when the variable is unset', () => {
+    it('defaults to enforce when the variable is unset', () => {
         delete process.env.SYNC_STATUS_POLICY;
+        assert.equal(syncStatusPolicyMode(), 'enforce');
+    });
+
+    it('logonly is an explicit opt-out escape hatch', () => {
+        process.env.SYNC_STATUS_POLICY = 'logonly';
         assert.equal(syncStatusPolicyMode(), 'logonly');
     });
 

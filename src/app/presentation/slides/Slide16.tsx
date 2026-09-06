@@ -1,17 +1,17 @@
 "use client";
-import { Server, Database, HardDrive, Layers, Bot, Globe, Mail, Plus } from 'lucide-react';
+import { Server, Database, HardDrive, Layers, Bot, Globe, Mail, Plus, Cloud } from 'lucide-react';
 export default function Slide16() {
     const doItems = [
-        { title: "VPS 1: App Host", desc: "DigitalOcean Droplet (4GB RAM, 2 vCPUs)", cost: "$24.00/mo", icon: Server, color: "text-blue-400" },
-        { title: "VPS 2: Write Master", desc: "DO Droplet - PostgreSQL Primary", cost: "$24.00/mo", icon: Database, color: "text-blue-400" },
-        { title: "VPS 3: Read Replica", desc: "DO Droplet - PostgreSQL Replica", cost: "$24.00/mo", icon: Database, color: "text-blue-400" },
-        { title: "Object Storage", desc: "DigitalOcean Spaces (250GB, S3 Compatible)", cost: "$5.00/mo", icon: HardDrive, color: "text-blue-400" },
+        { title: "Vercel: Web, API, Cron", desc: "Next.js serverless (sin1) - pages, route handlers, 10-min Master Tick", cost: "$0.00/mo (Hobby) / $20 (Pro)", icon: Cloud, color: "text-blue-400" },
+        { title: "Supabase Primary DB", desc: "Managed PostgreSQL (PostGIS, auto-backups, session pooler)", cost: "$25.00/mo", icon: Database, color: "text-blue-400" },
+        { title: "Supabase Storage", desc: "Built-in CDN storage for gate photos and attachments", cost: "$0.00 (within free quota)", icon: HardDrive, color: "text-blue-400" },
+        { title: "cron-job.org", desc: "Single Master Tick every 10 minutes Asia/Colombo", cost: "$0.00/mo (Free) / $5 (Pro)", icon: Server, color: "text-blue-400" },
     ];
     const supabaseItems = [
-        { title: "VPS 1: App Host", desc: "DigitalOcean Droplet (4GB RAM, 2 vCPUs)", cost: "$24.00/mo", icon: Server, color: "text-emerald-400" },
-        { title: "Supabase Primary DB", desc: "Managed PostgreSQL (PostGIS, auto-backups)", cost: "$25.00/mo", icon: Database, color: "text-emerald-400" },
-        { title: "Supabase Read Replica", desc: "Managed Read Replica node for heavy reporting", cost: "$25.00/mo", icon: Database, color: "text-emerald-400" },
-        { title: "Object Storage", desc: "Supabase Storage (Built-in CDN storage)", cost: "$0.00", icon: HardDrive, color: "text-emerald-400" },
+        { title: "Vercel Pro", desc: "Higher function budget, team seats, advanced analytics", cost: "$20.00/mo", icon: Cloud, color: "text-emerald-400" },
+        { title: "Supabase Pro", desc: "Managed PostgreSQL + Read Replica for reporting queries", cost: "$25.00/mo", icon: Database, color: "text-emerald-400" },
+        { title: "Supabase Read Replica", desc: "Isolated analytical node (dashboards, exports)", cost: "$25.00/mo", icon: Database, color: "text-emerald-400" },
+        { title: "Object Storage", desc: "Supabase Storage (bundled with the Pro plan)", cost: "$0.00", icon: HardDrive, color: "text-emerald-400" },
     ];
     return (
         <div className="flex flex-col h-full justify-center max-w-6xl mx-auto py-2 space-y-6">
@@ -30,10 +30,10 @@ export default function Slide16() {
                         Deployment Costing
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                        To handle 200,000 JSON writes/hour and 200 active users, a split read-write architecture on sustained-CPU infrastructure is required.
+                        Production is a two-node topology: Vercel runs every request and Supabase stores every byte. No self-hosted app tier exists.
                     </p>
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                        Below is the comparative server cost (Option A vs B) alongside the shared API and operational costs required to run the full application.
+                        Below is the plan cost (Option A: Hobby-tier baseline vs Option B: Pro-tier) alongside the shared API and operational costs required to run the full application.
                     </p>
                 </div>
                 {/* Right: Comparative Costing Grid */}
@@ -45,9 +45,9 @@ export default function Slide16() {
                             <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
                                 <div>
                                     <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                                        Option A: Self-Hosted
+                                        Option A: Baseline
                                     </h3>
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">DigitalOcean Droplets</span>
+                                    <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Vercel Hobby + Supabase Pro</span>
                                 </div>
                                 <span className="text-[10px] font-mono text-blue-400 font-bold">A</span>
                             </div>
@@ -72,7 +72,7 @@ export default function Slide16() {
                         <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-3 flex justify-between items-center mt-2">
                             <div>
                                 <p className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">Server Cost</p>
-                                <p className="text-lg font-extrabold text-blue-400 font-mono mt-0.5">~$77.00/mo</p>
+                                <p className="text-lg font-extrabold text-blue-400 font-mono mt-0.5">~$25-45/mo</p>
                             </div>
                         </div>
                     </div>
@@ -83,9 +83,9 @@ export default function Slide16() {
                             <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
                                 <div>
                                     <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                                        Option B: Managed Cloud
+                                        Option B: Production-grade
                                     </h3>
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">DO App + Supabase DB</span>
+                                    <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Vercel Pro + Supabase Pro + Replica</span>
                                 </div>
                                 <span className="text-[10px] font-mono text-emerald-500 font-bold">B</span>
                             </div>
@@ -110,7 +110,7 @@ export default function Slide16() {
                         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 flex justify-between items-center mt-2">
                             <div>
                                 <p className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">Server Cost</p>
-                                <p className="text-lg font-extrabold text-emerald-400 font-mono mt-0.5">~$74.00/mo</p>
+                                <p className="text-lg font-extrabold text-emerald-400 font-mono mt-0.5">~$95/mo</p>
                             </div>
                         </div>
                     </div>

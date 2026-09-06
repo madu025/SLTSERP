@@ -1,5 +1,5 @@
 model Job {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id              String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   jobCode         String       @unique
   name            String
   description     String?
@@ -10,8 +10,8 @@ model Job {
   district        String?
   status          JobStatus    @default(PENDING_SURVEY)
   priority        TaskPriority @default(MEDIUM)
-  assignedToId    String? @db.Uuid
-  projectId       String? @db.Uuid      @unique
+  assignedToId    String?      @db.Uuid
+  projectId       String?      @unique @db.Uuid
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   assignedTo      Staff?       @relation(fields: [assignedToId], references: [id])
@@ -23,33 +23,33 @@ model Job {
 }
 
 model Project {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id                    String                        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   projectCode           String                        @unique
   name                  String
   description           String?
   type                  String                        @default("OSP_FTTH")
   location              String?
   status                ProjectStatus                 @default(PLANNING)
-  progress              Decimal @db.Decimal(8, 4) @default(0)
-  jobId                 String? @db.Uuid
-  budget                Decimal? @db.Decimal(14, 2)
-  actualCost            Decimal @db.Decimal(14, 2) @default(0)
-  variance              Decimal? @db.Decimal(14, 2)
+  progress              Decimal                       @default(0) @db.Decimal(8, 4)
+  jobId                 String?                       @db.Uuid
+  budget                Decimal?                      @db.Decimal(14, 2)
+  actualCost            Decimal                       @default(0) @db.Decimal(14, 2)
+  variance              Decimal?                      @db.Decimal(14, 2)
   startDate             DateTime?
   endDate               DateTime?
   estimatedDuration     Int?
   actualDuration        Int?
-  areaManagerId         String? @db.Uuid
-  contractorId          String? @db.Uuid
-  opmcId                String? @db.Uuid
+  areaManagerId         String?                       @db.Uuid
+  contractorId          String?                       @db.Uuid
+  opmcId                String?                       @db.Uuid
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
-  projectTypeId         String? @db.Uuid
+  projectTypeId         String?                       @db.Uuid
   gisMapping            Json?
   routeType             String?
   routeFrom             String?
   routeTo               String?
-  routeLength           Decimal? @db.Decimal(12, 4)
+  routeLength           Decimal?                      @db.Decimal(12, 4)
   surveyLayers          String[]                      @default([])
   aiPredictions         AiPrediction[]
   boqApprovals          BOQApproval[]
@@ -110,19 +110,19 @@ model Project {
 }
 
 model ProjectBOQItem {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId      String @db.Uuid
+  id             String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String         @db.Uuid
   itemCode       String
   description    String
   unit           String
-  quantity       Decimal @db.Decimal(12, 4)
-  unitRate       Decimal @db.Decimal(12, 4)
-  amount         Decimal @db.Decimal(14, 2)
+  quantity       Decimal        @db.Decimal(12, 4)
+  unitRate       Decimal        @db.Decimal(12, 4)
+  amount         Decimal        @db.Decimal(14, 2)
   category       String?
   source         String         @default("NEW")
-  actualQuantity Decimal @db.Decimal(14, 2) @default(0)
-  actualCost     Decimal @db.Decimal(14, 2) @default(0)
-  materialId     String? @db.Uuid
+  actualQuantity Decimal        @default(0) @db.Decimal(14, 2)
+  actualCost     Decimal        @default(0) @db.Decimal(14, 2)
+  materialId     String?        @db.Uuid
   remarks        String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -136,14 +136,14 @@ model ProjectBOQItem {
 }
 
 model ProjectMilestone {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId     String @db.Uuid
+  id            String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId     String     @db.Uuid
   name          String
   description   String?
   targetDate    DateTime
   completedDate DateTime?
   status        TaskStatus @default(PENDING)
-  progress      Decimal @db.Decimal(8, 4) @default(0)
+  progress      Decimal    @default(0) @db.Decimal(8, 4)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -153,11 +153,11 @@ model ProjectMilestone {
 }
 
 model ProjectExpense {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId   String @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId   String   @db.Uuid
   type        String
   description String
-  amount      Decimal @db.Decimal(14, 2)
+  amount      Decimal  @db.Decimal(14, 2)
   date        DateTime @default(now())
   invoiceRef  String?
   remarks     String?
@@ -176,9 +176,9 @@ model ProjectExpense {
 /// Both are raw strings (no FK relations) to support polymorphic assignment across multiple entity types.
 /// Use assignee lookup endpoints: GET /api/staff, GET /api/contractors, GET /api/contractors/teams
 model ProjectTask {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId        String @db.Uuid
-  parentId         String? @db.Uuid
+  id               String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId        String            @db.Uuid
+  parentId         String?           @db.Uuid
   wbsCode          String
   name             String
   description      String?
@@ -191,14 +191,14 @@ model ProjectTask {
   actualEndDate    DateTime?
   plannedDuration  Int?
   actualDuration   Int?
-  plannedProgress  Decimal @db.Decimal(14, 2) @default(0)
-  actualProgress   Decimal @db.Decimal(14, 2) @default(0)
-  estimatedCost    Decimal? @db.Decimal(14, 2)
-  actualCost       Decimal? @db.Decimal(14, 2)
+  plannedProgress  Decimal           @default(0) @db.Decimal(14, 2)
+  actualProgress   Decimal           @default(0) @db.Decimal(14, 2)
+  estimatedCost    Decimal?          @db.Decimal(14, 2)
+  actualCost       Decimal?          @db.Decimal(14, 2)
   order            Int               @default(0)
   isCritical       Boolean           @default(false)
   assigneeType     String?
-  assigneeId       String? @db.Uuid
+  assigneeId       String?           @db.Uuid
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   parent           ProjectTask?      @relation("TaskHierarchy", fields: [parentId], references: [id])
@@ -217,9 +217,9 @@ model ProjectTask {
 }
 
 model TaskDependency {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  taskId          String @db.Uuid
-  dependsOnTaskId String @db.Uuid
+  id              String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  taskId          String      @db.Uuid
+  dependsOnTaskId String      @db.Uuid
   type            String      @default("FINISH_TO_START")
   lagDays         Int         @default(0)
   createdAt       DateTime    @default(now())
@@ -232,15 +232,15 @@ model TaskDependency {
 }
 
 model TaskProgressLog {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  taskId       String @db.Uuid
+  id           String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  taskId       String      @db.Uuid
   date         DateTime    @default(now())
-  progress     Decimal @db.Decimal(8, 4) @default(0)
+  progress     Decimal     @default(0) @db.Decimal(8, 4)
   description  String?
   photoUrls    String[]    @default([])
-  gpsLatitude  Decimal? @db.Decimal(11, 8)
-  gpsLongitude Decimal? @db.Decimal(11, 8)
-  loggedById   String? @db.Uuid
+  gpsLatitude  Decimal?    @db.Decimal(11, 8)
+  gpsLongitude Decimal?    @db.Decimal(11, 8)
+  loggedById   String?     @db.Uuid
   createdAt    DateTime    @default(now())
   task         ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
@@ -250,16 +250,16 @@ model TaskProgressLog {
 }
 
 model Timesheet {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId    String @db.Uuid
-  taskId       String @db.Uuid
-  staffId      String? @db.Uuid
-  contractorId String? @db.Uuid
+  id           String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId    String      @db.Uuid
+  taskId       String      @db.Uuid
+  staffId      String?     @db.Uuid
+  contractorId String?     @db.Uuid
   date         DateTime
-  hours        Decimal @db.Decimal(12, 4)
+  hours        Decimal     @db.Decimal(12, 4)
   description  String?
   status       String      @default("PENDING")
-  verifiedById String? @db.Uuid
+  verifiedById String?     @db.Uuid
   verifiedAt   DateTime?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -275,13 +275,13 @@ model Timesheet {
 }
 
 model ProjectResource {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId            String @db.Uuid
+  id                   String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId            String   @db.Uuid
   resourceType         String
-  resourceId           String @db.Uuid
+  resourceId           String   @db.Uuid
   name                 String
   role                 String?
-  allocationPercentage Decimal @db.Decimal(8, 4) @default(100)
+  allocationPercentage Decimal  @default(100) @db.Decimal(8, 4)
   startDate            DateTime
   endDate              DateTime
   createdAt            DateTime @default(now())
@@ -293,15 +293,15 @@ model ProjectResource {
 }
 
 model ProjectDocument {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId      String @db.Uuid
+  id             String                   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String                   @db.Uuid
   title          String
   description    String?
   category       String
   status         String                   @default("DRAFT")
   currentVersion Int                      @default(1)
   fileUrl        String
-  uploadedById   String @db.Uuid
+  uploadedById   String                   @db.Uuid
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
   approvals      ProjectApprovalRequest[]
@@ -314,12 +314,12 @@ model ProjectDocument {
 }
 
 model ProjectDocumentVersion {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  documentId    String @db.Uuid
+  id            String          @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  documentId    String          @db.Uuid
   versionNumber Int
   fileUrl       String
   changeSummary String?
-  uploadedById  String @db.Uuid
+  uploadedById  String          @db.Uuid
   createdAt     DateTime        @default(now())
   document      ProjectDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
@@ -328,7 +328,7 @@ model ProjectDocumentVersion {
 }
 
 model ProjectType {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id                String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name              String             @unique
   description       String?
   createdAt         DateTime           @default(now())
@@ -338,13 +338,13 @@ model ProjectType {
 }
 
 model BOQRateConfig {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId    String? @db.Uuid
+  id           String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId    String?  @db.Uuid
   itemCategory String
   itemCode     String   @unique
   description  String?
   unit         String   @default("UNIT")
-  unitRate     Decimal @db.Decimal(12, 4) @default(0)
+  unitRate     Decimal  @default(0) @db.Decimal(12, 4)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -356,16 +356,16 @@ model BOQRateConfig {
 }
 
 model BOQApproval {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  boqId                String @db.Uuid
-  projectId            String @db.Uuid
+  id                   String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  boqId                String    @db.Uuid
+  projectId            String    @db.Uuid
   status               String    @default("PENDING")
   currentStep          String    @default("SUPERVISOR")
-  supervisorId         String? @db.Uuid
+  supervisorId         String?   @db.Uuid
   supervisorApprovedAt DateTime?
-  pmId                 String? @db.Uuid
+  pmId                 String?   @db.Uuid
   pmApprovedAt         DateTime?
-  financeId            String? @db.Uuid
+  financeId            String?   @db.Uuid
   financeApprovedAt    DateTime?
   rejectionReason      String?
   notes                String?
@@ -382,22 +382,22 @@ model BOQApproval {
 }
 
 model DailyProgress {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId         String @db.Uuid
+  id                String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId         String   @db.Uuid
   reportDate        DateTime @default(now())
   polesErected      Int      @default(0)
-  cablePulled       Decimal @db.Decimal(12, 4) @default(0)
+  cablePulled       Decimal  @default(0) @db.Decimal(12, 4)
   chambersInstalled Int      @default(0)
   closuresInstalled Int      @default(0)
   jointsCompleted   Int      @default(0)
   fdpsInstalled     Int      @default(0)
   teamSize          Int?
   hoursWorked       Decimal? @db.Decimal(12, 4)
-  laborCost         Decimal @db.Decimal(14, 2) @default(0)
+  laborCost         Decimal  @default(0) @db.Decimal(14, 2)
   photoUrls         String[] @default([])
-  progressPct       Decimal @db.Decimal(8, 4) @default(0)
+  progressPct       Decimal  @default(0) @db.Decimal(8, 4)
   notes             String?
-  reportedById      String? @db.Uuid
+  reportedById      String?  @db.Uuid
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)

@@ -1,5 +1,5 @@
 model TableColumnSettings {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   tableName String   @unique
   columns   String
   createdAt DateTime @default(now())
@@ -7,7 +7,7 @@ model TableColumnSettings {
 }
 
 model Section {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id              String                  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name            String                  @unique
   code            String                  @unique
   description     String?
@@ -42,21 +42,20 @@ model SystemRole {
 }
 
 model RolePermission {
-  id          String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  roleId      String     @db.Uuid
-  permission  String
-  role        SystemRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id         String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  roleId     String     @db.Uuid
+  permission String
+  role       SystemRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permission])
   @@index([roleId])
 }
 
-
 model UserSectionAssignment {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  userId    String @db.Uuid
-  sectionId String @db.Uuid
-  roleId    String @db.Uuid
+  id        String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId    String     @db.Uuid
+  sectionId String     @db.Uuid
+  roleId    String     @db.Uuid
   isPrimary Boolean    @default(false)
   createdAt DateTime   @default(now())
   role      SystemRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -77,7 +76,7 @@ model SystemConfig {
 }
 
 model SystemConfigVersion {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id            String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   category      String // FINANCE, SOD, INVENTORY
   key           String // e.g. FINANCE_VAT_PERCENT, INVENTORY_DROP_WIRE_RATE
   value         String // e.g. "18.0"
@@ -92,15 +91,15 @@ model SystemConfigVersion {
 }
 
 model SystemSetting {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   key       String   @unique
   value     Json
   updatedAt DateTime @updatedAt
 }
 
 model DashboardStat {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  opmcId          String @db.Uuid   @unique
+  id              String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  opmcId          String   @unique @db.Uuid
   rtom            String
   pending         Int      @default(0)
   completed       Int      @default(0)
@@ -115,14 +114,14 @@ model DashboardStat {
 }
 
 model SystemErrorLog {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id         String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   statusCode Int       @default(500)
   errorCode  String    @default("INTERNAL_ERROR")
   message    String
   stackTrace String?   @db.Text
   path       String
   method     String    @default("GET")
-  userId     String? @db.Uuid
+  userId     String?   @db.Uuid
   userRole   String?
   ipAddress  String?
   userAgent  String?
@@ -140,10 +139,10 @@ model SystemErrorLog {
 }
 
 model QCNotification {
-  id String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id           String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   soNum        String
-  contractorId String? @db.Uuid
-  teamId       String? @db.Uuid
+  contractorId String?  @db.Uuid
+  teamId       String?  @db.Uuid
   title        String
   message      String
   severity     String   @default("WARNING") // WARNING, CRITICAL, INFO
@@ -176,28 +175,28 @@ model DailyReportSnapshot {
 /// the same key, so the second caller updates the existing row instead of starting the same
 /// window twice. That is the structural half of the O1/O2 fix (the policy is the other half).
 model SyncRun {
-  id      String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id              String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   /// Feed vocabulary; the authoritative list is SYNC_FEEDS in src/services/service-order/sync/types.ts.
-  feed    String
+  feed            String
   /// Deterministic pass identity: rtom | windowStart | windowEnd (minute-truncated). See windowKeyFor().
-  windowKey    String
-  rtom         String?
-  opmcId       String?   @db.Uuid
-  windowStart  DateTime?
-  windowEnd    DateTime?
-  startedAt    DateTime  @default(now())
-  finishedAt   DateTime?
-  fetched      Int       @default(0)
-  created      Int       @default(0)
-  updated      Int       @default(0)
-  skippedNoChange Int     @default(0)
+  windowKey       String
+  rtom            String?
+  opmcId          String?   @db.Uuid
+  windowStart     DateTime?
+  windowEnd       DateTime?
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  fetched         Int       @default(0)
+  created         Int       @default(0)
+  updated         Int       @default(0)
+  skippedNoChange Int       @default(0)
   /// Writes the policy refused (or would have refused in logonly) - the rollout measurement.
-  blockedByPolicy Int     @default(0)
+  blockedByPolicy Int       @default(0)
   /// Tally keyed by StatusWriteReason: { APPLIED: n, TERMINAL_PROTECTED: n, ... }
-  decisions  Json      @default("{}")
-  errors     Json      @default("[]")
+  decisions       Json      @default("{}")
+  errors          Json      @default("[]")
   /// enforce | logonly - the mode this pass ran under, so a census row is self-describing.
-  mode       String    @default("logonly")
+  mode            String    @default("logonly")
 
   @@unique([feed, windowKey])
   @@index([feed, startedAt])

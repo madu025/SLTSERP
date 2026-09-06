@@ -6,6 +6,7 @@ import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from '@/services/ser
 import { SodStatus, backfillReceiptDate } from '@/lib/constants/sod-constants';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { applySodStatus, countDecision } from './sync/sod-status.writer';
+import { isTerminalSltsStatus } from '@/lib/constants/sod-status-policy';
 import { SyncAuditService, tickWindow } from './sync/sync-audit.service';
 import { emptySyncCounters } from './sync/types';
 
@@ -112,12 +113,21 @@ export class CompletedSODSyncService {
                         // PAT_OPMC_REJECTED from COMPLETED_SLTS endpoint means work is done (quality issue only)
                         // Per domain rule: all records from COMPLETED_SLTS are work-order complete
                         if (statusUpper === 'PAT_OPMC_REJECTED') return SodStatus.COMPLETED;
-                        // Delegate the rest to the canonical mapper
+                        // Delegate the rest to the canonical mapper. Deliberately not forced to
+                        // COMPLETED: an unrecognised portal string resolves to INPROGRESS, and this feed
+                        // must not back-complete a row that is genuinely still open (completedDate drives
+                        // billing recognition). Rows that are already closed are protected at the write
+                        // site by `preserveTerminal`.
                         return SODLifecycleService.mapExternalStatusToSltsStatus(statusUpper) as SodStatus;
                     };
 
                     // Batch objects
                     const missingSodsToCreate: Prisma.ServiceOrderCreateManyInput[] = [];
+                    // Mark C1: birth-history seed metadata for CASE B rows, kept parallel to
+                    // missingSodsToCreate. Only the status is captured; D-C2 dates every birth event at
+                    // the row's ERP createdAt after createMany (see the seed block below), never the
+                    // portal CON_STATUS_DATE, so a born-terminal SOD cannot inflate the Daily Report.
+                    const missingSeedMeta: { soNum: string; status: string }[] = [];
 
                     // Process each unique completed SOD record sequentially for existing (to protect ledger tx)
                     // and collect missing ones for a single bulk insert
@@ -158,8 +168,38 @@ export class CompletedSODSyncService {
                                     // INSTALL_CLOSED is a terminal status — never override to COMPLETED
                                     // (COMPLETED_SLTS endpoint may return PAT_OPMC_PASSED for the same SOD)
                                     const preserveInstallClosed = localSOD.sltsStatus === 'INSTALL_CLOSED' && finalSltsStatus !== SodStatus.INSTALL_CLOSED;
-                                    const effectiveSltsStatus = preserveInstallClosed ? SodStatus.INSTALL_CLOSED : finalSltsStatus;
-                                    const effectiveLegacyStatus = preserveInstallClosed ? 'INSTALL_CLOSED' : legacyStatus;
+                                    // A record from the completion feed never reopens a closed row. An
+                                    // unmapped CON_STATUS resolves to INPROGRESS, and honouring it demoted
+                                    // a measured 73 SODs from COMPLETED every pass, only for the disappeared
+                                    // recovery later in the same pass to write them back—two history rows
+                                    // and one duplicate completion notification per SOD per pass. Keeping the
+                                    // stored status makes the door return NO_CHANGE, so nothing is written.
+                                    const preserveTerminal = isTerminalSltsStatus(localSOD.sltsStatus) && !isTerminalSltsStatus(finalSltsStatus);
+                                    const effectiveSltsStatus = preserveTerminal
+                                        ? localSOD.sltsStatus as SodStatus
+                                        : preserveInstallClosed ? SodStatus.INSTALL_CLOSED : finalSltsStatus;
+                                    const effectiveLegacyStatus = preserveTerminal
+                                        ? localSOD.status as string
+                                        : preserveInstallClosed ? 'INSTALL_CLOSED' : legacyStatus;
+
+                                    // D-M8: preserveTerminal is a second, stricter gate that runs BEFORE the
+                                    // policy door and is NOT gated by SYNC_STATUS_POLICY (defaults enforce), so
+                                    // its suppressions were invisible to the SyncRun census and blockedByPolicy.
+                                    // Record a REAL TERMINAL_PROTECTED block whenever it holds the row back from
+                                    // the feed's status (blockedWouldBe=false: it truly blocks in every mode, it
+                                    // is not hypothetical). RETURN alignment: this feed's actor is always
+                                    // PORTAL_COMPLETED (applySodStatus below) and policy rule 3 exempts ONLY
+                                    // actor PORTAL_RETURN, so rule 3 already refuses COMPLETED->RETURN here -
+                                    // preserveTerminal is aligned with rule 3 and needs no exemption of its own.
+                                    // Core suppression behaviour is unchanged. Residual: when the row also lacks a
+                                    // completedDate the applySodStatus call below still runs to backfill it and
+                                    // records its own NO_CHANGE, so the census shows TERMINAL_PROTECTED +
+                                    // NO_CHANGE for that row; blockedByPolicy is not double-counted because the
+                                    // writer returns refusedByPolicy=false for NO_CHANGE.
+                                    if (preserveTerminal && finalSltsStatus !== localSOD.sltsStatus) {
+                                        countDecision(decisions, { allow: false, reason: 'TERMINAL_PROTECTED' }, false);
+                                        blockedByPolicy++;
+                                    }
 
                                     if (localSOD.sltsStatus !== effectiveSltsStatus || !localSOD.completedDate) {
                                         // If SOD was previously DISAPPEARED, clear the stale
@@ -311,6 +351,9 @@ export class CompletedSODSyncService {
                                     dropWireDistance: dropWireDistance,
                                     wiredOnly: isWiredOnly,
                                 });
+                                // Mark C1: seed this COMPLETED_SLTS-feed birth the same way the per-RTOM
+                                // sweep does (batch seed after createMany, below).
+                                missingSeedMeta.push({ soNum: sltData.SO_NUM, status: finalSltsStatus });
                             }
                         } catch (err) {
                             console.error(`[COMPLETED-SOD-SYNC] [ERROR] Processing SOD ${sltData.SO_NUM} failed:`, err);
@@ -327,6 +370,37 @@ export class CompletedSODSyncService {
                             });
                             completedCount += result.count;
                             counters.created += result.count;
+
+                            // Mark C1 / D-C2: give COMPLETED_SLTS-feed births the SAME non-inflating
+                            // birth-history treatment as the per-RTOM sweep. Resolve the rows actually
+                            // written (scoped to THIS OPMC - Ryan S4 - and derived from rows resolved, not
+                            // missingSodsToCreate.length, so skipDuplicates cannot overstate) and batch-seed
+                            // ONE birth event each, dated at the row's own ERP `createdAt` (NOT the portal
+                            // CON_STATUS_DATE), so daily-report-activity.ts excludes it from closure-evidence
+                            // and a born-terminal SOD discovered today cannot flip completedToday/
+                            // installClosedToday. D-M7: ONE findMany + ONE batched createMany, not 2N
+                            // sequential round-trips against the 15-session pooler. Best-effort in its own
+                            // try/catch so a seed failure is never mislabelled a batch-insert failure.
+                            if (missingSeedMeta.length > 0) {
+                                try {
+                                    const seedStatusBySoNum = new Map(missingSeedMeta.map(m => [m.soNum, m.status]));
+                                    const createdRows = await prisma.serviceOrder.findMany({
+                                        where: { opmcId: opmc.id, soNum: { in: [...seedStatusBySoNum.keys()] } },
+                                        select: { id: true, soNum: true, createdAt: true }
+                                    });
+                                    const seedItems: { serviceOrderId: string; status: string; statusDate: Date }[] = [];
+                                    for (const row of createdRows) {
+                                        const status = row.soNum ? seedStatusBySoNum.get(row.soNum) : undefined;
+                                        if (!status) continue;
+                                        seedItems.push({ serviceOrderId: row.id, status, statusDate: row.createdAt });
+                                    }
+                                    if (seedItems.length > 0) {
+                                        await SODLifecycleService.seedBirthHistoryBatch(seedItems);
+                                    }
+                                } catch (seedErr) {
+                                    console.error(`[COMPLETED-SOD-SYNC] Birth-history seed failed for OPMC ${opmc.name}:`, seedErr);
+                                }
+                            }
                         } catch (batchErr) {
                             console.error(`[COMPLETED-SOD-SYNC] [BATCH-ERROR] OPMC ${opmc.name} Batch Insert Failed:`, batchErr);
                             errors.push(`Batch Insert for OPMC ${opmc.name} failed: ${(batchErr as Error).message}`);

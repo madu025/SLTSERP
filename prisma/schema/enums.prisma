@@ -262,11 +262,9 @@ enum PatStatusEnum {
   PAT_REJECTED
 }
 
-
 enum VoiceTestStatusEnum {
   PASS
   FAIL
   NOT_TESTED
   PENDING
 }
-

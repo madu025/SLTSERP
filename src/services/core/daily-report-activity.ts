@@ -82,6 +82,27 @@ const hasEventInWindow = (
   window: SodDayWindow,
 ): boolean => history.some((h) => (h.status || '').toUpperCase() === event && inWindow(h.statusDate, window));
 
+/**
+ * Birth-event match tolerance (D-C2).
+ *
+ * The sync seed dates a newly created SOD's birth status-history event at the row's ERP capture
+ * instant - its own `createdAt` (see SODLifecycleService.seedBirthHistoryBatch). A birth event's
+ * statusDate therefore equals the SOD's createdAt. Two separate timestamptz reads round to the same
+ * millisecond, so a 2s window absorbs any sub-second drift and is nowhere near the portal stamp's
+ * 5h30m offset or the 10-minute tick - a genuine post-birth transition is never mistaken for the
+ * birth. ServiceOrderStatusHistory carries no source/actor column, so this instant match is the only
+ * in-schema discriminator available without a production migration.
+ */
+const BIRTH_EVENT_MATCH_MS = 2000;
+
+const isBirthEvent = (
+  event: { statusDate: Date | string | null },
+  createdAt: Date,
+): boolean => {
+  const date = toDate(event.statusDate);
+  return !!date && Math.abs(date.getTime() - createdAt.getTime()) <= BIRTH_EVENT_MATCH_MS;
+};
+
 const isTerminalForPending = (sltsStatus: string | null, status: string | null): boolean =>
   sltsStatus === 'RETURN' || sltsStatus === 'DISAPPEARED' || status === 'DISAPPEARED';
 
@@ -111,11 +132,18 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
   // useless; the discriminator has to be evidence the ERP did the work itself: it held
   // the job before this day opened AND carries field data it captured (a resolved team,
   // material issue rows, or a status event it wrote). Backfilled rows carry none.
+  // D-C2: a birth-seed event records that the ERP *discovered* the SOD, not that it *observed* a
+  // closure. Seeding a born-terminal row (COMPLETED/INSTALL_CLOSED/PAT_*) with its portal stamp made
+  // ~255 extra/day surface as today's closures (~2,036 SODs carry a portal statusDate on their ERP
+  // createdAt day) - the exact inflation the R-MD "36 completions where iShamp listed 5" discipline
+  // exists to stop. Drop the birth event from the closure-evidence channel only; RETURN/PROV_CLOSED
+  // attribution still reads the full history (a born-RETURN today is genuinely today's return).
+  const closureEvidenceHistory = order.statusHistory.filter((h) => !isBirthEvent(h, order.createdAt));
   const erpTrackedWork =
-    !!order.teamId || order.materialUsage.length > 0 || order.statusHistory.length > 0;
+    !!order.teamId || order.materialUsage.length > 0 || closureEvidenceHistory.length > 0;
   const closureRecordedByErp =
-    hasEventInWindow(order.statusHistory, 'COMPLETED', window) ||
-    hasEventInWindow(order.statusHistory, 'INSTALL_CLOSED', window);
+    hasEventInWindow(closureEvidenceHistory, 'COMPLETED', window) ||
+    hasEventInWindow(closureEvidenceHistory, 'INSTALL_CLOSED', window);
   const closureObserved =
     closureRecordedByErp || (order.createdAt < window.start && erpTrackedWork);
 
@@ -123,14 +151,14 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
     (order.status === 'INSTALL_CLOSED' || order.sltsStatus === 'INSTALL_CLOSED') &&
     terminalGateOpen &&
     closureObserved &&
-    (hasEventInWindow(order.statusHistory, 'INSTALL_CLOSED', window) ||
+    (hasEventInWindow(closureEvidenceHistory, 'INSTALL_CLOSED', window) ||
       inWindow(order.completedDate, window) ||
       (!order.completedDate && inWindow(order.statusDate, window)));
 
   const completedToday =
     installClosedToday ||
     (closureObserved &&
-      (hasEventInWindow(order.statusHistory, 'COMPLETED', window) ||
+      (hasEventInWindow(closureEvidenceHistory, 'COMPLETED', window) ||
         ((order.sltsStatus === 'COMPLETED' || order.status === 'COMPLETED') &&
           inWindow(order.completedDate, window))));
 

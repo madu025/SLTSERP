@@ -14,7 +14,7 @@
  * The rules, in order:
  *  1. nothing changed                                     -> NO_CHANGE      (skip the write)
  *  2. incoming is not a storable sltsStatus               -> UNKNOWN_STATUS (never write raw portal strings)
- *  3. a live feed may not reopen a portal-terminal row    -> TERMINAL_PROTECTED
+ *  3. a feed may not reopen a portal-terminal row       -> TERMINAL_PROTECTED
  *  4. only completion authority may close a RETURN row    -> RETURN_LOCK
  *  5. a downgrade out of an older portal record           -> STALE_ANCHOR   (out-of-order feed)
  *  6. a downgrade the actor has no authority for          -> ILLEGAL_DOWNGRADE
@@ -108,8 +108,17 @@ export function authorityActorFor(status: string | null | undefined): SyncActor 
     return 'PORTAL_SWEEP';
 }
 
-/** Portal actors that only mirror an open-work feed and may never rewrite history backwards. */
-const OPEN_WORK_FEED_ACTORS: readonly SyncActor[] = ['PORTAL_SWEEP'];
+/**
+ * Actors that mirror portal traffic rather than decide anything. None of them may reopen a row the
+ * portal already closed; humans and the API are handled by rule 7 before this list is consulted.
+ */
+const FEED_MIRROR_ACTORS: readonly SyncActor[] = [
+    'PORTAL_SWEEP',
+    'PORTAL_COMPLETED',
+    'PORTAL_PAT',
+    'PORTAL_RETURN',
+    'AUTO_COMPLETE',
+];
 
 /** Actors allowed to move a row into a completion status. */
 const COMPLETION_AUTHORITY: readonly SyncActor[] = ['PORTAL_COMPLETED', 'AUTO_COMPLETE', 'USER', 'API'];
@@ -170,10 +179,24 @@ export function decideStatusWrite(input: StatusWriteInput): StatusWriteDecision 
     const isDowngrade =
         currentRank !== null && incomingRank !== null && incomingRank < currentRank;
 
-    // Rule 3: the open-work feed may not reopen anything the portal already closed. This is the
-    // oscillation kill switch. It is scoped to PORTAL_SWEEP on purpose - the completion feed owns
-    // lateral moves inside the terminal band (COMPLETED -> INSTALL_CLOSED, PAT refinement).
-    if (OPEN_WORK_FEED_ACTORS.includes(actor) && isTerminalSltsStatus(current) && isDowngrade) {
+    // Rule 3: no feed may reopen something the portal already closed. This is the oscillation kill
+    // switch, and it is about the *shape* of the move rather than who sent it: a completion feed
+    // owns lateral and forward moves inside the closed band (COMPLETED -> INSTALL_CLOSED, a PAT
+    // refinement), but a move from a terminal status down to an open one is a reopen whoever asks
+    // for it. Scoping this to the live worklist alone left a hole that cost a measured 146 writes
+    // per pass: `COMPLETED_FEED` asserts `INPROGRESS` for CON_STATUS values the canonical mapper
+    // defaults, the door accepted it because the actor was exempt, and the disappeared recovery in
+    // the same pass wrote the row back to COMPLETED. 73 SODs, every 20 minutes.
+    //
+    // RETURN stays reachable from a closed row for the return feed alone: the portal genuinely
+    // un-completes work, and that is the feed's own authority (rule 4 is its mirror image).
+    if (
+        FEED_MIRROR_ACTORS.includes(actor) &&
+        isTerminalSltsStatus(current) &&
+        isDowngrade &&
+        !isTerminalSltsStatus(incoming) &&
+        !(actor === 'PORTAL_RETURN' && incoming === SodStatus.RETURN)
+    ) {
         return { allow: false, reason: 'TERMINAL_PROTECTED' };
     }
 
@@ -208,9 +231,13 @@ export function decideStatusWrite(input: StatusWriteInput): StatusWriteDecision 
     return { allow: true, reason: 'APPLIED' };
 }
 
-/** Policy mode. Defaults to logonly so a rollout measures before it blocks anything. */
+/**
+ * Policy mode. Production enforces by default; set SYNC_STATUS_POLICY=logonly to measure without
+ * writing (the rollout escape hatch). The Vercel-only topology carries no env override, so the
+ * default must be the live behaviour rather than the dormant one.
+ */
 export function syncStatusPolicyMode(): 'enforce' | 'logonly' {
-    return process.env.SYNC_STATUS_POLICY === 'enforce' ? 'enforce' : 'logonly';
+    return process.env.SYNC_STATUS_POLICY === 'logonly' ? 'logonly' : 'enforce';
 }
 
 /**

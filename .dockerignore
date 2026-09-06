@@ -6,4 +6,3 @@ node_modules/
 *.pem
 .env
 build_log.txt
-deploy_staging/

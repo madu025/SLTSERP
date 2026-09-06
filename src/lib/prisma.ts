@@ -14,14 +14,14 @@ const REPLICA_LAG_WINDOW_MS = parseInt(process.env.REPLICA_LAG_WINDOW_MS || '200
  *
  * Supabase's session-mode pooler caps `pool_size` SERVER connections for the whole project (15
  * today) and holds one server connection per client connection, so every process that talks to
- * this DB shares that single ceiling: the VPS web+worker process, Vercel lambdas, local `next dev`,
- * migrations and one-off scripts. A client asking for more sessions than its share does not go
- * faster - it makes every other process fail with EMAXCONNSESSION (and a limit above the ceiling
- * guarantees it). Limits are therefore shares of the ceiling, never a free number.
+ * this DB shares that single ceiling: Vercel serverless lambdas (per instance), local `next dev`,
+ * `prisma db push` from a workstation, and one-off scripts. A client asking for more sessions than
+ * its share does not go faster - it makes every other process fail with EMAXCONNSESSION (and a
+ * limit above the ceiling guarantees it). Limits are therefore shares of the ceiling, never a free
+ * number.
  *
- * Share when nothing is overridden: worker 4 | persistent web 4 | serverless per instance 3 |
- * local dev 2. Raise a host's share with DB_CONNECTION_LIMIT (capped by DB_POOL_CEILING) once the
- * project's pool_size actually grows.
+ * Share when nothing is overridden: serverless per instance 3 | local dev 2. Raise a host's share
+ * with DB_CONNECTION_LIMIT (capped by DB_POOL_CEILING) once the project's pool_size actually grows.
  */
 const POOL_CEILING = parseInt(process.env.DB_POOL_CEILING || '15', 10);
 
@@ -98,7 +98,7 @@ globalForPrisma.primaryClient = primaryClient;
 // 2. Initialize Read Replica Connection (Optional)
 // Only a genuinely different database earns a second client: a replica URL that differs from the
 // primary by query params alone is the same Postgres, and a second client there just burns sessions
-// from the shared pooler ceiling (that duplicate cost the VPS process 4 of 15).
+// from the shared pooler ceiling.
 const hasDistinctReplica = replicaConfigured &&
     dbIdentity(process.env.READ_REPLICA_URL) !== dbIdentity(process.env.DATABASE_URL);
 
