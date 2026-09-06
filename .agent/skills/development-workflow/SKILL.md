@@ -95,8 +95,6 @@ prisma/
 │   ├── vehicle-management.prisma # VM* models (21 models)
 │   ├── petty-cash.prisma    # PettyCashAccount, PettyCashVoucher, PettyCashReimbursement
 │   └── system.prisma        # Section, SystemRole, SystemConfig, DashboardStat
-├── schema.prisma            # Combined schema file
-├── schema.prisma.bak        # Backup of original monolith
 ├── migrations/              # Migration history (DB structure unchanged)
 └── seed.js                  # Seed data
 ```
@@ -700,7 +698,7 @@ const mutation = useMutation({
 2. **Design Database Schema (MULTI-FILE — IMPORTANT):**
    ```bash
    # Schema is split into prisma/schema/ folder.
-   # DO NOT edit prisma/schema.prisma (legacy, inactive).
+   # The legacy monolith prisma/schema.prisma was deleted; the folder is the only schema.
    # Edit the correct module file:
    #
    #   New project feature?   → prisma/schema/project-core.prisma
@@ -858,7 +856,7 @@ const mutation = useMutation({
 ### Database Schema Changes (MULTI-FILE SCHEMA)
 
 > CRITICAL: The schema is split across `prisma/schema/` module files.
-> Never edit the legacy `prisma/schema.prisma` — it is inactive.
+> The legacy monolith `prisma/schema.prisma` no longer exists — never recreate it.
 
 1. **Identify the correct module file** (see table in Database Architecture section)
    and add/edit the model there:

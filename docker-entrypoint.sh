@@ -8,10 +8,10 @@
 # converges the database on the schema and never rewrites data, which is what a container boot may
 # safely do.
 #
-# The previous version of this file also pointed at the retired single-file schema
-# (prisma/schema.prisma - 192 models) instead of the authoritative folder that package.json
-# declares (prisma/schema - 259 models), so anything added to the folder could never reach a
-# container-managed database no matter how many times the deploy ran.
+# The previous version of this file also pointed at a retired single-file schema (192 models,
+# since deleted from the repo) instead of the authoritative folder that package.json declares
+# (prisma/schema), so anything added to the folder could never reach a container-managed
+# database no matter how many times the deploy ran.
 #
 # SKIP_DB_SYNC=true defers schema convergence to an operator step: `npm run db:sync` from a
 # workstation. Use it when several replicas boot at once, when the box must not run DDL on a

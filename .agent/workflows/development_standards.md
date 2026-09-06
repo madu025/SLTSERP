@@ -151,7 +151,7 @@ if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
 
 ### A. Strategic Indexing (MUST)
 - **Rule**: Every field used in a `where` clause, `orderBy`, or as a Foreign Key in a relation MUST have an index.
-- **Implementation**: Add `@@index([fieldName])` to the model in `prisma/schema.prisma`.
+- **Implementation**: Add `@@index([fieldName])` to the model in its module file under `prisma/schema/`.
 - **Target**: IDs (Foreign Keys), Status fields, Dates, and common filter categories (e.g., `opmcId`, `contractorId`).
 
 ### B. Selective Querying
