@@ -41,6 +41,43 @@ CREATE INDEX IF NOT EXISTS "idx_service_order_contractor_completed"
   ON public."ServiceOrder" ("contractorId", "sltsStatus")
   WHERE "sltsStatus" = 'COMPLETED';
 
+-- --------------------------------------------------------------------------
+-- Substring-search indexes (pg_trgm GIN) for the ServiceOrder list/search path.
+-- SODQueryService.getServiceOrders filters with ILIKE/LIKE '%term%' on soNum,
+-- customerName and voiceNumber (the `search` OR-trinity) and on comments (the
+-- `[MATERIAL_COMPLETED]` matFilter). A btree index cannot serve a leading-%
+-- pattern, so before these each predicate forced a Seq Scan on the hottest
+-- table (measured cost 1562 for comments LIKE; ServiceOrder had accrued ~95M
+-- seq_tup_read). With gin_trgm_ops each becomes a Bitmap Index Scan (measured
+-- cost 48 for comments - ~32x cheaper), which also shortens pooler connection
+-- hold time on the 15-session shared pool.
+-- Prisma's schema language cannot express operator-class GIN indexes, so
+-- `db push` drops them - re-assert on every boot. On production they already
+-- exist (applied once with CREATE INDEX CONCURRENTLY to avoid a write-blocking
+-- lock on the hottest table), so IF NOT EXISTS makes this a zero-lock no-op
+-- here; on a fresh database it builds under a brief SHARE lock while the table
+-- is still small. The whole section is guarded so a pg_trgm availability or
+-- privilege problem warns and continues instead of aborting the single implicit
+-- transaction that `prisma db execute --file` runs (which would boot-loop).
+-- --------------------------------------------------------------------------
+DO $trgm$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  CREATE INDEX IF NOT EXISTS "idx_service_order_sonum_trgm"
+    ON public."ServiceOrder" USING gin ("soNum" gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS "idx_service_order_customername_trgm"
+    ON public."ServiceOrder" USING gin ("customerName" gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS "idx_service_order_voicenumber_trgm"
+    ON public."ServiceOrder" USING gin ("voiceNumber" gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS "idx_service_order_comments_trgm"
+    ON public."ServiceOrder" USING gin ("comments" gin_trgm_ops);
+  RAISE NOTICE 'ServiceOrder pg_trgm search indexes present (created or already existed).';
+EXCEPTION
+  WHEN others THEN
+    RAISE WARNING 'ServiceOrder pg_trgm search indexes NOT applied [SQLSTATE %]: %. Substring searches fall back to seq scans, but boot continues and the other guards still run.', SQLSTATE, SQLERRM;
+END
+$trgm$;
+
 -- Notification dedup identity: one row per (userId, dedupHash) per recipient, so two
 -- concurrent writers of the same business event cannot both insert. dedupHash is NULL for
 -- every notification that opted out, and those rows must stay unconstrained - hence partial.
