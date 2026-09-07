@@ -2,6 +2,10 @@ process.env.TZ = process.env.NEXT_PUBLIC_TIMEZONE || 'Asia/Colombo';
 
 import type { NextConfig } from "next";
 
+// Skip expensive type/lint checks during Docker builds (low-RAM VPS).
+// TypeScript is fully checked on Vercel CI before every production deploy.
+const isDockerBuild = process.env.DOCKER_BUILD === '1';
+
 const nextConfig: NextConfig = {
   output: process.env.VERCEL ? undefined : 'standalone',
   reactStrictMode: true,
@@ -12,6 +16,13 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['pdf-parse'],
   compiler: {
     removeConsole: false,
+  },
+  typescript: {
+    // Skip tsc during Docker builds — prevents OOM on VPS with <4 GB RAM.
+    ignoreBuildErrors: isDockerBuild,
+  },
+  eslint: {
+    ignoreDuringBuilds: isDockerBuild,
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts']
