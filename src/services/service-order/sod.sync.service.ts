@@ -778,7 +778,7 @@ export class SODSyncService {
                     : classification.category;
                 if (local.returnReason === newReason) continue;
 
-                const appendLine = `[PORTAL_SYNC] Reason: ${reason || 'N/A'}${comment ? ` | Comment: ${comment}` : ''}`;
+                const appendLine = `Reason: ${reason || 'N/A'}${comment ? ` | Comment: ${comment}` : ''}`;
                 const newComments = local.comments
                     ? (local.comments.includes(appendLine) ? local.comments : `${local.comments}\n${appendLine}`)
                     : appendLine;
@@ -2195,35 +2195,46 @@ export class SODSyncService {
             portalStatus.includes('REJECT');
 
         if (isServiceReturn) {
-            const rawReason = masterData['RETREASON_HIDDEN'] ||
-                masterData['RTRESONALL_HIDDEN'] ||
-                masterData['SOD RETURN'] ||
-                masterData['RETURN REASON'] ||
-                masterData['RETURNED REASON'] ||
-                masterData['REASON'] ||
-                masterData['rtresonall'] ||
-                masterData['rt_reason'] ||
-                portalStatus ||
-                'NO OSP NW/PRIMARY/SECONDARY';
+            const rawReasonCandidate = [
+                masterData['RETREASON_HIDDEN'],
+                masterData['RTRESONALL_HIDDEN'],
+                masterData['SOD RETURN'],
+                masterData['RETURN REASON'],
+                masterData['RETURNED REASON'],
+                masterData['REASON'],
+                masterData['rtresonall'],
+                masterData['rt_reason'],
+                portalStatus
+            ].find(val => {
+                const s = String(val || '').trim();
+                return s && !s.includes('--Return Reason--');
+            }) || 'NO OSP NW/PRIMARY/SECONDARY';
 
-            const rawComment = masterData['RETCMT_HIDDEN'] ||
-                masterData['RTCMTALL_HIDDEN'] ||
-                masterData['RETURN COMMENT'] ||
-                masterData['RETURNED COMMENT'] ||
-                masterData['COMMENT'] ||
-                masterData['rtcmtall'] ||
-                masterData['rt_comment'] ||
-                '';
+            const rawReason = String(rawReasonCandidate).trim();
 
-            const classification = SODReturnClassifierService.classify(String(rawReason) + ' ' + String(rawComment));
-            const formattedReason = String(rawReason).toUpperCase().trim();
-            const trimmedComment = String(rawComment).trim();
-            const commentPart = trimmedComment && trimmedComment.toUpperCase() !== formattedReason ? ` - ${trimmedComment}` : '';
-            mapping.returnReason = formattedReason || trimmedComment
+            const rawCommentCandidate = [
+                masterData['RETCMT_HIDDEN'],
+                masterData['RTCMTALL_HIDDEN'],
+                masterData['RETURN COMMENT'],
+                masterData['RETURNED COMMENT'],
+                masterData['COMMENT'],
+                masterData['rtcmtall'],
+                masterData['rt_comment']
+            ].find(val => {
+                const s = String(val || '').trim();
+                return s && !s.includes('--Return Reason--');
+            }) || '';
+
+            const rawComment = String(rawCommentCandidate).trim();
+
+            const classification = SODReturnClassifierService.classify(`${rawReason} ${rawComment}`);
+            const formattedReason = rawReason.toUpperCase().trim();
+            const commentPart = rawComment && rawComment.toUpperCase() !== formattedReason ? ` - ${rawComment}` : '';
+            mapping.returnReason = formattedReason || rawComment
                 ? `${formattedReason}${commentPart} (${classification.category})`
                 : classification.category;
 
-            const combinedComment = `[AUTO_CAPTURED] Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
+            const combinedComment = `Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
             mapping.comments = serviceOrder?.comments
                 ? (serviceOrder.comments.includes(combinedComment) ? serviceOrder.comments : `${serviceOrder.comments}\n${combinedComment}`)
                 : combinedComment;
