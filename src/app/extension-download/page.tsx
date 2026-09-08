@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Download, CheckCircle2, Monitor, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Download, CheckCircle2, Monitor, RefreshCw, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,15 +17,30 @@ interface BrowserInfo {
 }
 
 const EXTENSION_VERSION = '4.5.5';
+const CHROME_STORE_URL = 'https://chromewebstore.google.com/detail/hcobjlogcddbinjoaepkgealflledmco?utm_source=item-share-cb';
 
 /** Published install links. A button renders only once its URL is filled in, so an
- *  unpublished store never shows a dead link. Chrome and Edge get their URLs pasted
- *  in after store review (docs/EXTENSION_STORE_PUBLISHING.md); Firefox uses the
- *  AMO-signed .xpi committed to public/downloads by  npm run ext:amo. */
-const STORE_LINKS: { browser: string; label: string; url: string }[] = [
-    { browser: 'chrome', label: 'Install from Chrome Web Store', url: '' },
-    { browser: 'edge', label: 'Install from Edge Add-ons', url: '' },
-    { browser: 'firefox', label: 'Install for Firefox - signed .xpi, no Developer mode', url: '/downloads/SLT-Bridge-Firefox.xpi' },
+ *  unpublished store never shows a dead link. Chrome and Edge link to the published Chrome Web Store;
+ *  Firefox uses the AMO-signed .xpi committed to public/downloads. */
+const STORE_LINKS: { browser: string; label: string; url: string; note?: string }[] = [
+    { 
+        browser: 'chrome', 
+        label: 'Install from Chrome Web Store (Recommended)', 
+        url: CHROME_STORE_URL,
+        note: 'Official Google Store - 1-Click install, auto-updates'
+    },
+    { 
+        browser: 'edge', 
+        label: 'Install for Microsoft Edge (via Chrome Web Store)', 
+        url: CHROME_STORE_URL,
+        note: 'Chromium compatible - 1-Click install'
+    },
+    { 
+        browser: 'firefox', 
+        label: 'Install for Firefox (Signed .xpi)', 
+        url: '/downloads/SLT-Bridge-Firefox.xpi',
+        note: 'Mozilla signed - no Developer mode needed'
+    },
 ];
 
 const BROWSER_INFO: Record<string, BrowserInfo> = {
@@ -70,10 +85,13 @@ export default function ExtensionDownloadPage() {
     const [extVersion, setExtVersion] = useState('');
 
     useEffect(() => {
-        setBrowser(detectBrowser());
-        const result = detectExtension();
-        setInstallStatus(result.installed ? 'installed' : 'not-installed');
-        setExtVersion(result.version);
+        const timer = setTimeout(() => {
+            setBrowser(detectBrowser());
+            const result = detectExtension();
+            setInstallStatus(result.installed ? 'installed' : 'not-installed');
+            setExtVersion(result.version);
+        }, 0);
+        return () => clearTimeout(timer);
     }, []);
 
     const handleRecheck = useCallback(() => {
@@ -158,45 +176,56 @@ export default function ExtensionDownloadPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {storeLinks.length > 0 ? (
-                                <div className="space-y-2">
-                                    <p className="text-sm font-semibold text-slate-700">
-                                        One-click install - no Developer mode
-                                    </p>
-                                    {storeLinks.map((s) => (
-                                        <Button
-                                            key={s.browser}
-                                            variant="outline"
-                                            className="w-full justify-start"
-                                            onClick={() => window.open(s.url, '_blank')}
-                                        >
-                                            <Download className="w-4 h-4 mr-2" />
-                                            {s.label}
-                                        </Button>
-                                    ))}
-                                    {storeLinks.length < STORE_LINKS.length && (
-                                        <p className="text-xs text-slate-500">
-                                            Chrome and Edge are still in store review - the manual install
-                                            below works meanwhile. The Firefox file is signed by Mozilla
-                                            (AMO unlisted) and installs permanently.
+                            {storeLinks.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-semibold text-slate-900">
+                                            Official Store Install (Recommended - 1 Click)
                                         </p>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                    <p className="text-sm font-medium text-amber-900">Store publication in progress</p>
-                                    <p className="text-xs text-amber-700 mt-1">
-                                        The bridge is being published to the Chrome Web Store, Edge Add-ons and
-                                        Firefox Add-ons. Until those reviews pass, use the manual install below -
-                                        it takes about two minutes.
-                                    </p>
+                                        <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">
+                                            Auto-Updating
+                                        </Badge>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {storeLinks.map((s) => {
+                                            const isCurrent = s.browser === browser.type;
+                                            return (
+                                                <Button
+                                                    key={s.browser}
+                                                    variant={isCurrent ? "default" : "outline"}
+                                                    className={`w-full justify-between h-auto py-3 px-4 ${
+                                                        isCurrent 
+                                                            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm ring-2 ring-blue-500/20' 
+                                                            : 'hover:bg-slate-50'
+                                                    }`}
+                                                    onClick={() => window.open(s.url, '_blank')}
+                                                >
+                                                    <div className="flex items-center gap-3 text-left">
+                                                        <Download className={`w-5 h-5 ${isCurrent ? 'text-white' : 'text-blue-600'} shrink-0`} />
+                                                        <div>
+                                                            <div className="font-semibold text-sm">{s.label}</div>
+                                                            {s.note && (
+                                                                <div className={`text-xs ${isCurrent ? 'text-blue-100' : 'text-slate-500'}`}>
+                                                                    {s.note}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <ExternalLink className={`w-4 h-4 ${isCurrent ? 'text-white/80' : 'text-slate-400'} shrink-0`} />
+                                                </Button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
 
-                            <Button onClick={handleDownload} variant="outline" className="w-full">
-                                <Download className="w-4 h-4 mr-2" />
-                                Download SLT Bridge v{EXTENSION_VERSION} (.zip) - manual install
-                            </Button>
+                            <div className="pt-2 border-t border-slate-100">
+                                <p className="text-xs text-slate-500 mb-2 font-medium">Alternative / Offline Installation:</p>
+                                <Button onClick={handleDownload} variant="ghost" size="sm" className="w-full text-slate-600 hover:text-slate-900 border border-slate-200">
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Download SLT Bridge v{EXTENSION_VERSION} (.zip) - Manual Developer Mode Install
+                                </Button>
+                            </div>
 
                             {!browser.supported && (
                                 <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -276,22 +305,27 @@ export default function ExtensionDownloadPage() {
 function ChromeInstructions() {
     return (
         <div className="space-y-4">
-            <Step number={1} title="Extract the ZIP file">
-                <p>Right-click the downloaded ZIP file and select &quot;Extract All&quot; (Windows) or &quot;Double-click to open&quot; (Mac). Extract it to a folder you can find easily later.</p>
+            <Step number={1} title="Open Chrome Web Store">
+                <p>
+                    Click the <strong>&quot;Install from Chrome Web Store&quot;</strong> button above, or open{' '}
+                    <a 
+                        href={CHROME_STORE_URL} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-blue-600 underline font-semibold inline-flex items-center gap-1"
+                    >
+                        Chrome Web Store Link <ExternalLink className="w-3 h-3" />
+                    </a>.
+                </p>
             </Step>
-            <Step number={2} title="Open Chrome Extensions">
-                <p>Open a new Chrome tab and navigate to:</p>
-                <code className="block mt-2 p-2 bg-slate-100 rounded text-sm font-mono">chrome://extensions/</code>
-                <p className="mt-2 text-xs text-slate-500">Or: Menu (three dots) &rarr; Extensions &rarr; Manage Extensions</p>
+            <Step number={2} title="Click &quot;Add to Chrome&quot;">
+                <p>On the Chrome Web Store page, click the blue <strong>&quot;Add to Chrome&quot;</strong> (Chrome වෙත එක් කරන්න) button.</p>
             </Step>
-            <Step number={3} title="Enable Developer Mode">
-                <p>Toggle the &quot;Developer mode&quot; switch in the top-right corner of the Extensions page.</p>
+            <Step number={3} title="Confirm Permission">
+                <p>When the popup appears asking for confirmation, click <strong>&quot;Add extension&quot;</strong>.</p>
             </Step>
-            <Step number={4} title="Load the Extension">
-                <p>Click &quot;Load unpacked&quot; button and select the <strong>extracted folder</strong> (the one containing <code className="bg-slate-100 px-1 rounded">manifest.json</code>).</p>
-            </Step>
-            <Step number={5} title="Verify & Refresh">
-                <p>The extension should appear in the list with a green icon. Then refresh this page to connect.</p>
+            <Step number={4} title="Verify Connection">
+                <p>The SLT Bridge icon will appear in your browser bar. Return to this page and click <strong>&quot;I&apos;ve installed it - Check Again&quot;</strong> below to complete setup.</p>
             </Step>
         </div>
     );
@@ -300,22 +334,17 @@ function ChromeInstructions() {
 function EdgeInstructions() {
     return (
         <div className="space-y-4">
-            <Step number={1} title="Extract the ZIP file">
-                <p>Right-click the downloaded ZIP file and select &quot;Extract All&quot;. Extract it to a folder you can find easily later.</p>
+            <Step number={1} title="Open Chrome Web Store in Edge">
+                <p>Click the <strong>&quot;Install for Microsoft Edge&quot;</strong> button above. Microsoft Edge natively supports Chrome extensions.</p>
             </Step>
-            <Step number={2} title="Open Edge Extensions">
-                <p>Open a new Edge tab and navigate to:</p>
-                <code className="block mt-2 p-2 bg-slate-100 rounded text-sm font-mono">edge://extensions/</code>
-                <p className="mt-2 text-xs text-slate-500">Or: Menu (three dots) &rarr; Extensions</p>
+            <Step number={2} title="Allow Extensions from Other Stores">
+                <p>If Edge displays a banner at the top of the page asking to allow extensions from other stores, click <strong>&quot;Allow extensions from other stores&quot;</strong>.</p>
             </Step>
-            <Step number={3} title="Enable Developer Mode">
-                <p>Toggle the &quot;Developer mode&quot; switch in the bottom-left corner of the Extensions page.</p>
+            <Step number={3} title="Add Extension">
+                <p>Click <strong>&quot;Add to Chrome&quot;</strong> (or <strong>&quot;Get&quot;</strong>), and confirm by clicking <strong>&quot;Add extension&quot;</strong>.</p>
             </Step>
-            <Step number={4} title="Load the Extension">
-                <p>Click &quot;Load unpacked&quot; button and select the <strong>extracted folder</strong> (the one containing <code className="bg-slate-100 px-1 rounded">manifest.json</code>).</p>
-            </Step>
-            <Step number={5} title="Verify & Refresh">
-                <p>The extension should appear in the list. Then refresh this page to connect.</p>
+            <Step number={4} title="Verify Connection">
+                <p>Return here and click <strong>&quot;I&apos;ve installed it - Check Again&quot;</strong> below.</p>
             </Step>
         </div>
     );
