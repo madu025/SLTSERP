@@ -82,8 +82,9 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
             })
             .catch(() => {});
 
-        // Poll unread notification count every 20s
+        // Poll unread notification count with visibility guard (every 60s)
         const pollNotif = () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
             fetch(`/api/contractor-portal/notifications?unreadOnly=true&_t=${Date.now()}`, { headers })
                 .then(res => res.ok ? res.json() : null)
                 .then(json => {
@@ -94,7 +95,7 @@ export default function ContractorLayout({ children }: ContractorLayoutProps) {
                 .catch(() => {});
         };
         pollNotif();
-        const notifInterval = setInterval(pollNotif, 20000);
+        const notifInterval = setInterval(pollNotif, 60000);
 
         return () => {
             clearTimeout(timer);

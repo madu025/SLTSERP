@@ -710,8 +710,30 @@ export class SODSyncService {
      * maxRtoms for a full backfill.
      */
     static async syncReturnReasons(maxRtoms: number = 4): Promise<{ updated: number; checked: number }> {
+        const opmcs = await prisma.oPMC.findMany({ select: { rtom: true } });
+        const allRtoms = [...new Set(opmcs.map(o => o.rtom).filter(Boolean))].sort();
+        if (allRtoms.length === 0) return { updated: 0, checked: 0 };
+
+        // Rotate the starting RTOM across 30-minute cron cycles so every region is
+        // covered over time without exceeding the sync time budget in one run.
+        const cycle = Math.floor(Date.now() / (30 * 60 * 1000));
+        const startIdx = maxRtoms >= allRtoms.length ? 0 : cycle % allRtoms.length;
+        const selected: string[] = [];
+        for (let i = 0; i < Math.min(maxRtoms, allRtoms.length); i++) {
+            selected.push(allRtoms[(startIdx + i) % allRtoms.length]);
+        }
+
+        // Targeted DB Query: Only fetch RETURN records for the 4 active RTOMs that actually need enrichment
         const returnRows = await prisma.serviceOrder.findMany({
-            where: { sltsStatus: 'RETURN' },
+            where: {
+                rtom: { in: selected },
+                sltsStatus: 'RETURN',
+                OR: [
+                    { returnReason: null },
+                    { returnReason: { startsWith: 'Portal Return' } },
+                    { returnReason: { startsWith: 'Portal Returned' } }
+                ]
+            },
             select: { id: true, soNum: true, opmcId: true, rtom: true, returnReason: true, comments: true },
         });
 
@@ -732,16 +754,6 @@ export class SODSyncService {
         const today = new Date();
         const startDate = format(subMonths(today, 3), 'yyyy-MM-dd');
         const endDate = format(today, 'yyyy-MM-dd');
-
-        const rtoms = [...byRtom.keys()].sort();
-        // Rotate the starting RTOM across 30-minute cron cycles so every region is
-        // covered over time without exceeding the sync time budget in one run.
-        const cycle = Math.floor(Date.now() / (30 * 60 * 1000));
-        const startIdx = maxRtoms >= rtoms.length ? 0 : cycle % rtoms.length;
-        const selected: string[] = [];
-        for (let i = 0; i < Math.min(maxRtoms, rtoms.length); i++) {
-            selected.push(rtoms[(startIdx + i) % rtoms.length]);
-        }
 
         let updated = 0;
         let checked = 0;
@@ -786,7 +798,11 @@ export class SODSyncService {
                         reason: 'RETURN_REASON_ENRICHMENT',
                         tx,
                     });
-                    await tx.serviceOrder.update({ where: { id: local.id }, data: { comments: newComments } });
+                    await tx.serviceOrder.update({
+                        where: { id: local.id },
+                        data: { comments: newComments },
+                        select: { id: true }
+                    });
                 }));
                 if (writeErr) {
                     console.error(`[SYNC] Failed to enrich return reason for ${local.soNum}:`, writeErr);
@@ -1420,9 +1436,9 @@ export class SODSyncService {
         const sltSoNums = sltData.map(item => item.SO_NUM);
         const existingSods = await prisma.serviceOrder.findMany({
             where: { soNum: { in: sltSoNums } },
-            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true, statusDate: true, contractorId: true, receivedDate: true }
+            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, statusDate: true, contractorId: true, receivedDate: true }
         });
-        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments: string | null; statusDate: Date | null; contractorId: string | null; receivedDate: Date | null }>(
+        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments?: string | null; statusDate: Date | null; contractorId: string | null; receivedDate: Date | null }>(
             existingSods.map(s => [s.soNum as string, s])
         );
 
@@ -1634,7 +1650,8 @@ export class SODSyncService {
                     updatePayload.receivedDate = updatePayload.statusDate || new Date();
                     const restoreDate = updatePayload.statusDate ? new Date(updatePayload.statusDate as string).toLocaleDateString() : 'N/A';
                     const restoreComment = `[SYNC-RESTORED] Portal reactivated returned SOD (Reactivated: ${restoreDate})`;
-                    updatePayload.comments = existing.comments ? `${existing.comments}\n${restoreComment}` : restoreComment;
+                    const currentCommentRow = await prisma.serviceOrder.findUnique({ where: { id: existing.id }, select: { comments: true } });
+                    updatePayload.comments = currentCommentRow?.comments ? `${currentCommentRow.comments}\n${restoreComment}` : restoreComment;
                     console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (reactivated: ${restoreDate})`);
                 }
 
@@ -1696,7 +1713,11 @@ export class SODSyncService {
                     }
 
                     if (Object.keys(fieldPayload).length > 0) {
-                        await tx.serviceOrder.update({ where: { id: existing.id }, data: fieldPayload });
+                        await tx.serviceOrder.update({
+                            where: { id: existing.id },
+                            data: fieldPayload,
+                            select: { id: true }
+                        });
                     }
 
                     if (isReturning) {
@@ -1893,7 +1914,11 @@ export class SODSyncService {
                             countDecision(statusDecisions, write.decision, write.wouldHaveBlocked);
                             if (write.refusedByPolicy) blockedByAuthority++;
 
-                            await tx.serviceOrder.update({ where: { id: disappearedSod.id }, data: fieldPayload });
+                            await tx.serviceOrder.update({
+                                where: { id: disappearedSod.id },
+                                data: fieldPayload,
+                                select: { id: true }
+                            });
 
                             if (nextSltsStatus === 'RETURN') {
                                 await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'SYNC_SERVICE');
@@ -1935,7 +1960,8 @@ export class SODSyncService {
                                 contractorId: null,
                                 teamId: null,
                                 // No auto-sync comments - preserve real user comments
-                            }
+                            },
+                            select: { id: true }
                         });
                         // Material rollback for DISAPPEARED: clear any material usage records
                         await tx.sODMaterialUsage.deleteMany({

@@ -329,7 +329,18 @@ export class NotificationService {
         return await NotificationRepository.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
-            take: limit
+            take: limit,
+            select: {
+                id: true,
+                type: true,
+                title: true,
+                message: true,
+                priority: true,
+                link: true,
+                isRead: true,
+                createdAt: true,
+                groupedCount: true
+            }
         });
     }
 

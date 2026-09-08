@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
     // Skip tsc during Docker builds — prevents OOM on VPS with <4 GB RAM.
     ignoreBuildErrors: isDockerBuild,
   },
+  // @ts-expect-error NextConfig types in Next 15 omit eslint property
   eslint: {
     ignoreDuringBuilds: isDockerBuild,
   },

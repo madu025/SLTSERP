@@ -33,8 +33,10 @@ const JOB_HANDLERS: Record<SyncJobType, (job: Job<SyncJobData>) => Promise<unkno
             syncCountersOf,
         );
         if (!result) return { skipped: 'window-owned' };
-        await ServiceOrderService.updateGlobalSyncStats({ created: result.created, updated: result.updated });
-        await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+        if (result.created > 0 || result.updated > 0) {
+            await ServiceOrderService.updateGlobalSyncStats({ created: result.created, updated: result.updated });
+            await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+        }
         console.log(`[SOD-SYNC-WORKER] Completed SOD sync for RTOM: ${rtom}. Created: ${result.created}, Updated: ${result.updated}`);
         return result;
     },
@@ -58,7 +60,7 @@ const JOB_HANDLERS: Record<SyncJobType, (job: Job<SyncJobData>) => Promise<unkno
                 syncCountersOf,
             );
             windowWon = !!result;
-            if (result) {
+            if (result && (result.created > 0 || result.updated > 0)) {
                 await ServiceOrderService.updateGlobalSyncStats({ created: result.created, updated: result.updated });
                 await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
             }
@@ -108,8 +110,10 @@ const JOB_HANDLERS: Record<SyncJobType, (job: Job<SyncJobData>) => Promise<unkno
             (r) => ({ counters: { fetched: r.total, updated: r.updated ?? 0 } }),
         );
         if (!result) return { skipped: 'window-owned' };
-        await ServiceOrderService.updateGlobalSyncStats({ updated: result.updated });
-        await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+        if (result && (result.updated ?? 0) > 0) {
+            await ServiceOrderService.updateGlobalSyncStats({ updated: result.updated });
+            await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+        }
         console.log(`[SOD-SYNC-WORKER] Completed PAT sync for RTOM: ${rtom}. Updated: ${result.updated}`);
         return result;
     },

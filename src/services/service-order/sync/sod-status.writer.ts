@@ -104,7 +104,7 @@ interface StatusRow {
 interface StatusWriteClient {
     serviceOrder: {
         findUnique(args: { where: { id: string }, select: typeof MINIMAL_SOD_SELECT }): Promise<StatusRow | null>;
-        update(args: { where: { id: string }, data: Prisma.ServiceOrderUncheckedUpdateInput }): Promise<StatusRow>;
+        update<T = StatusRow>(args: { where: { id: string }, data: Prisma.ServiceOrderUncheckedUpdateInput, select?: Record<string, boolean> }): Promise<T>;
     };
 }
 
@@ -216,7 +216,11 @@ export async function applySodStatus(input: {
         // the same status: recording that touch keeps the anchor honest, and because no status column
         // moves it produces neither a history row nor an event.
         if (decision.reason === 'NO_CHANGE' && anchorMoved) {
-            await db.serviceOrder.update({ where: { id: sodId }, data: { statusDate: anchorDate } });
+            await db.serviceOrder.update({
+                where: { id: sodId },
+                data: { statusDate: anchorDate },
+                select: { id: true }
+            });
         }
         return { changed: false, decision, refusedByPolicy: refused, wouldHaveBlocked, sodId, soNum };
     }
@@ -305,7 +309,18 @@ export async function applySodStatus(input: {
         };
     }
 
-    const updated = await db.serviceOrder.update({ where: { id: sodId }, data });
+    const updated = await db.serviceOrder.update({
+        where: { id: sodId },
+        data,
+        select: {
+            id: true,
+            status: true,
+            sltsStatus: true,
+            opmcId: true,
+            soNum: true,
+            returnReason: true,
+        }
+    });
 
     const previous = { status: stored.status, sltsStatus: stored.sltsStatus, statusDate: asDate(stored.statusDate) };
 

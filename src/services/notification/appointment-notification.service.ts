@@ -11,10 +11,16 @@ export class AppointmentNotificationService {
             const todayEnd = new Date(todayStart);
             todayEnd.setDate(todayEnd.getDate() + 1);
 
-            // 1. Fetch users to process
+            // 1. Fetch users to process (selective fields)
             const users = await prisma.user.findMany({
                 where: userId ? { id: userId } : {},
-                include: { accessibleOpmcs: true }
+                select: {
+                    id: true,
+                    role: true,
+                    accessibleOpmcs: {
+                        select: { id: true }
+                    }
+                }
             });
 
             if (users.length === 0) return;
@@ -24,7 +30,7 @@ export class AppointmentNotificationService {
             const tomorrowEnd = new Date(todayEnd);
             tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
 
-            // 2. Fetch all active scheduled appointments for today and tomorrow
+            // 2. Fetch all active scheduled appointments for today and tomorrow (selective fields)
             const allAppointments = await prisma.serviceOrder.findMany({
                 where: {
                     scheduledDate: {
@@ -32,6 +38,15 @@ export class AppointmentNotificationService {
                         lt: tomorrowEnd
                     },
                     sltsStatus: { notIn: ["COMPLETED", "RETURN"] }
+                },
+                select: {
+                    id: true,
+                    soNum: true,
+                    customerName: true,
+                    scheduledDate: true,
+                    scheduledTime: true,
+                    dp: true,
+                    opmcId: true
                 }
             });
 

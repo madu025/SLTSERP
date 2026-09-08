@@ -103,7 +103,7 @@ export function useSidebarNotifications(
         }
     };
 
-    // Auto-clear notifications when navigating to their respective pages
+    // Auto-clear notifications when navigating to their respective pages, or refresh on home
     useEffect(() => {
         if (!mounted || !userId) return;
 
@@ -132,6 +132,9 @@ export function useSidebarNotifications(
                     }
                 })
                 .catch(err => console.error("Failed to auto-clear notifications for link:", err));
+        } else if (currentLink === '/') {
+            fetchNotifications();
+            fetchMenuCounts();
         }
     }, [pathname, currentRtom, userId, mounted, fetchNotifications, fetchMenuCounts]);
 
@@ -198,14 +201,6 @@ export function useSidebarNotifications(
             clearTimeout(sseDebounceTimeout);
         };
     }, [mounted, userId, fetchMenuCounts, fetchNotifications]);
-
-    // Re-fetch when route changes
-    useEffect(() => {
-        if (mounted && userId) {
-            fetchNotifications();
-            fetchMenuCounts();
-        }
-    }, [pathname, mounted, userId, fetchMenuCounts, fetchNotifications]);
 
     return {
         unreadCount,

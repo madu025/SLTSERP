@@ -5,6 +5,9 @@ import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
+const lastAppointmentCheckMap = new Map<string, number>();
+const APPOINTMENT_CHECK_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
     const userId = request.headers.get('x-user-id') || searchParams.get('userId');
@@ -12,10 +15,21 @@ export const GET = apiHandler(async (request) => {
 
     const limit = parseInt(searchParams.get('limit') || '50', 10);
 
-    // Trigger today's appointments and reminder checks in background
-    AppointmentNotificationService.checkAndNotify(userId).catch(err => {
-        console.error('Failed to run appointment notification check:', err);
-    });
+    // Throttle appointment reminder checks (at most once every 15 minutes per user)
+    const now = Date.now();
+    const lastCheck = lastAppointmentCheckMap.get(userId) || 0;
+    if (now - lastCheck > APPOINTMENT_CHECK_COOLDOWN_MS) {
+        lastAppointmentCheckMap.set(userId, now);
+        if (lastAppointmentCheckMap.size > 1000) {
+            const cutoff = now - APPOINTMENT_CHECK_COOLDOWN_MS;
+            for (const [key, ts] of lastAppointmentCheckMap.entries()) {
+                if (ts < cutoff) lastAppointmentCheckMap.delete(key);
+            }
+        }
+        AppointmentNotificationService.checkAndNotify(userId).catch(err => {
+            console.error('Failed to run appointment notification check:', err);
+        });
+    }
 
     const notifications = await NotificationService.getUserNotifications(userId, limit);
     return notifications;

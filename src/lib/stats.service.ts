@@ -2,6 +2,9 @@ import { prisma } from './prisma';
 
 export type DashboardField = 'pending' | 'completed' | 'returned' | 'patPassed' | 'patRejected' | 'sltsPatRejected';
 
+const lastOpmcSyncMap = new Map<string, number>();
+const OPMC_SYNC_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes cooldown
+
 export class StatsService {
     /**
      * Increment or decrement a specific stat for an OPMC.
@@ -56,7 +59,22 @@ export class StatsService {
     /**
      * Sync stats for a specific OPMC by performing counts for the current year (2026).
      */
-    static async syncOpmcStats(opmcId: string) {
+    static async syncOpmcStats(opmcId: string, force: boolean = false) {
+        if (!force) {
+            const now = Date.now();
+            const last = lastOpmcSyncMap.get(opmcId) || 0;
+            if (now - last < OPMC_SYNC_COOLDOWN_MS) {
+                return;
+            }
+            lastOpmcSyncMap.set(opmcId, now);
+            if (lastOpmcSyncMap.size > 500) {
+                const cutoff = now - OPMC_SYNC_COOLDOWN_MS;
+                for (const [k, v] of lastOpmcSyncMap.entries()) {
+                    if (v < cutoff) lastOpmcSyncMap.delete(k);
+                }
+            }
+        }
+
         const opmc = await prisma.oPMC.findUnique({ where: { id: opmcId }, select: { rtom: true } });
         if (!opmc) return;
 

@@ -4,11 +4,12 @@ import { sltApiService } from '@/services/slt/slt-api.service';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from '@/services/service-order/sod.lifecycle.service';
 import { SodStatus, backfillReceiptDate } from '@/lib/constants/sod-constants';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { applySodStatus, countDecision } from './sync/sod-status.writer';
 import { isTerminalSltsStatus } from '@/lib/constants/sod-status-policy';
 import { SyncAuditService, tickWindow } from './sync/sync-audit.service';
 import { emptySyncCounters } from './sync/types';
+import { safe } from '@/utils/safe-await.util';
 
 export class CompletedSODSyncService {
     /**
@@ -41,8 +42,13 @@ export class CompletedSODSyncService {
         if (customStartDate) {
             startDate = customStartDate;
         } else {
-            // Strictly Current Month: 1st of current month to end of current month
-            startDate = format(startOfMonth(today), 'yyyy-MM-dd');
+            // High-frequency sync: Check the last 3 days to guarantee instant real-time
+            // tally with iShamp without pulling 30 days of historical data on every tick.
+            // Full month is checked automatically during the first 3 days or midnight snapshot.
+            const isMidnightOrStart = today.getDate() <= 3 || (today.getHours() === 0 && today.getMinutes() < 30);
+            startDate = isMidnightOrStart
+                ? format(startOfMonth(today), 'yyyy-MM-dd')
+                : format(subDays(today, 3), 'yyyy-MM-dd');
         }
 
         const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
@@ -225,18 +231,34 @@ export class CompletedSODSyncService {
                                         countDecision(decisions, write.decision, write.wouldHaveBlocked);
                                         if (!write.changed) counters.skippedNoChange++;
                                     
-                                        await ServiceOrderService.updateServiceOrder(
-                                            localSOD.id,
-                                            {
+                                        // Direct lightweight update with minimal select to prevent N+1 relation fetch and RETURNING * egress
+                                        const distance = dropWireDistance ?? 0;
+                                        const { SODInvoicingService } = await import('./sod.invoicing.service');
+                                        const amounts = await safe(SODInvoicingService.calculateAmounts(localSOD.opmcId, distance));
+                                        const revenueAmount = amounts[1]?.revenueAmount;
+                                        const contractorAmount = amounts[1]?.contractorAmount;
+
+                                        await prisma.serviceOrder.update({
+                                            where: { id: localSOD.id },
+                                            data: {
                                                 wiredOnly: isWiredOnly,
                                                 dpDetails: sltData.DP,
                                                 ontSerialNumber: localSOD.ontSerialNumber ? localSOD.ontSerialNumber : (sltData.CON_WORO_SEIT || undefined),
-                                                iptvSerialNumbers: (sltData.IPTV && String(sltData.IPTV).trim().length > 5) ? [String(sltData.IPTV).trim()] : undefined,
                                                 dropWireDistance: dropWireDistance,
+                                                revenueAmount: revenueAmount ?? undefined,
+                                                contractorAmount: contractorAmount ?? undefined,
                                                 comments: wasDisappeared ? null : `Auto-updated via Sync (${sltData.CON_STATUS})`,
                                             },
-                                            'SYNC_SERVICE'
-                                        );
+                                            select: { id: true }
+                                        });
+
+                                        if (sltData.IPTV && String(sltData.IPTV).trim().length > 5) {
+                                            const iptvSerial = String(sltData.IPTV).trim();
+                                            await prisma.sODIptvSerial.deleteMany({ where: { serviceOrderId: localSOD.id } });
+                                            await prisma.sODIptvSerial.create({
+                                                data: { serviceOrderId: localSOD.id, serialNumber: iptvSerial }
+                                            });
+                                        }
                                     
                                         if (write.refusedByPolicy) {
                                             blockedByPolicy++;
@@ -257,7 +279,8 @@ export class CompletedSODSyncService {
                                                 customerName: sltData.CON_CUS_NAME,
                                                 ...(sltData.ADDRE ? { address: sltData.ADDRE } : {}),
                                                 ...(sltData.CON_TEC_CONTACT ? { techContact: sltData.CON_TEC_CONTACT } : {}),
-                                            }
+                                            },
+                                            select: { id: true }
                                         });
                                         enrichedCount++;
                                     }
@@ -308,7 +331,8 @@ export class CompletedSODSyncService {
                                     if (Object.keys(bornDetailFill).length > 0) {
                                         await prisma.serviceOrder.update({
                                             where: { id: localSOD.id },
-                                            data: bornDetailFill
+                                            data: bornDetailFill,
+                                            select: { id: true }
                                         });
                                     }
                                 }
