@@ -65,17 +65,20 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     // Then read from localStorage after mount
     const [showMetrics, setShowMetrics] = useState<boolean>(true);
     useEffect(() => {
-        const stored = localStorage.getItem('sod_show_metrics');
-        if (stored !== null) {
-            setShowMetrics(stored !== 'false');
-        }
+        const timer = setTimeout(() => {
+            const stored = localStorage.getItem('sod_show_metrics');
+            if (stored !== null) {
+                setShowMetrics(stored !== 'false');
+            }
+        }, 0);
+        return () => clearTimeout(timer);
     }, []);
-    const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
+    const [statusFilter, setStatusFilter] = useState(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : 'DEFAULT');
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
-        key: filterType === 'completed' || filterType === 'return' ? 'completedDate' : (filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
+        key: filterType === 'completed' || filterType === 'install_closed' || filterType === 'return' ? 'completedDate' : (filterType === 'disappeared' ? 'statusDate' : 'createdAt'),
         direction: "desc"
     });
 
@@ -165,10 +168,10 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     // Serialize columnFilters for stable query key (prevents unnecessary refetches)
     const columnFiltersKey = React.useMemo(() => JSON.stringify(columnFilters), [columnFilters]);
 
-    const { data: qData, isLoading: isLoadingOrders, isError, refetch } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> }, meta?: { total: number, totalPages: number, page: number } }>({
+    const { data: qData, isLoading: isLoadingOrders, isError, refetch } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number>, missingCount?: number }, meta?: { total: number, totalPages: number, page: number } }>({
         queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, columnFiltersKey, currentPage, sortConfig],
         queryFn: async () => {
-            if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} } };
+            if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {}, missingCount: 0 } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
             const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
             const searchParam = debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : '';
@@ -189,7 +192,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                 setTotalPages(json.meta.totalPages || 1);
                 setTotalItems(json.meta.total || 0);
             }
-            return json as { items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> }, meta?: { total: number, totalPages: number, page: number } };
+            return json as { items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number>, missingCount?: number }, meta?: { total: number, totalPages: number, page: number } };
         },
         enabled: !!selectedRtomId
     });
@@ -229,7 +232,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
     });
 
     const serviceOrders: ServiceOrder[] = Array.isArray(qData?.items) ? qData!.items : [];
-    const summary = qData?.summary || { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} };
+    const summary = qData?.summary || { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {}, missingCount: 0 };
     
     // Explicit array cast for safety
     const safeOpmcs: OPMC[] = React.useMemo(() => Array.isArray(opmcs) ? opmcs : [], [opmcs]);
@@ -274,7 +277,10 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
     // Reset currentPage when columnFilters change
     useEffect(() => {
-        setCurrentPage(1);
+        const timer = setTimeout(() => {
+            setCurrentPage(1);
+        }, 0);
+        return () => clearTimeout(timer);
     }, [columnFilters]);
 
     const handleOpmcChange = (value: string) => {
@@ -392,7 +398,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             URL.revokeObjectURL(url);
             toast.dismiss();
             toast.success(`Exported ${allOrders.length} orders`);
-        } catch (err) {
+        } catch {
             toast.dismiss();
             toast.error("Failed to export data");
         }
@@ -413,7 +419,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                     <div className="flex-none px-5 py-1 space-y-1">
                         {showMetrics && (
                             <div className="pt-1">
-                                <SODSummary filterType={filterType} summary={summary} missingCount={(summary as any).missingCount || serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
+                                <SODSummary filterType={filterType} summary={summary} missingCount={summary.missingCount || serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
                             </div>
                         )}
 
@@ -509,7 +515,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                                  {/* Clear Filters */}
                                  {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL' || Object.keys(columnFilters).length > 0) && (
-                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setColumnFilters({}); setCurrentPage(1); }} title="Clear all filters">
+                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' || filterType === 'install_closed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setColumnFilters({}); setCurrentPage(1); }} title="Clear all filters">
                                          <X className="w-3.5 h-3.5" />
                                      </Button>
                                  )}

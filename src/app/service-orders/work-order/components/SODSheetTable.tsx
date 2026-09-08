@@ -201,6 +201,15 @@ export function SODSheetTable(props: SODSheetTableProps) {
                 if (aVal === null || aVal === undefined) aVal = "";
                 if (bVal === null || bVal === undefined) bVal = "";
 
+                // Date fields: sort by exact timestamp so latest dates always appear first in desc
+                if (key === 'completedDate' || key === 'statusDate' || key === 'receivedDate' || key === 'createdAt' || key === 'scheduledDate' || key === 'opmcPatDate' || key === 'hoPatDate') {
+                    const timeA = aVal ? new Date(aVal as string | Date).getTime() : 0;
+                    const timeB = bVal ? new Date(bVal as string | Date).getTime() : 0;
+                    if (timeA !== timeB) {
+                        return direction === "asc" ? timeA - timeB : timeB - timeA;
+                    }
+                }
+
                 if (typeof aVal === "number" && typeof bVal === "number") {
                     return direction === "asc" ? aVal - bVal : bVal - aVal;
                 }
@@ -969,16 +978,16 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                              </span>
                                                          );
                                                      })()}
-                                                     {filterType === 'completed' && order.completedDate && (() => {
-                                                         const compDate = new Date(order.completedDate);
-                                                         const diffTime = Math.max(0, compDate.getTime() - effectiveDate.getTime());
-                                                         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                                                         return (
-                                                             <span className="px-1 py-0.1 text-[7.5px] font-extrabold uppercase rounded border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-mono" title={`Completed in ${diffDays} days`}>
-                                                                 {diffDays}d
-                                                             </span>
-                                                         );
-                                                     })()}
+                                                     {(filterType === 'completed' || filterType === 'install_closed') && order.completedDate && (() => {
+                                                        const compDate = new Date(order.completedDate);
+                                                        const diffTime = Math.max(0, compDate.getTime() - effectiveDate.getTime());
+                                                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                                        return (
+                                                            <span className="px-1 py-0.1 text-[7.5px] font-extrabold uppercase rounded border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-mono" title={`Completed in ${diffDays} days`}>
+                                                                {diffDays}d
+                                                            </span>
+                                                        );
+                                                    })()}
                                                  </div>
                                              );
                                          })()}

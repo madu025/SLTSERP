@@ -309,7 +309,7 @@ export class SODQueryService {
 
         // Sort order
         let primaryOrderBy: Prisma.ServiceOrderOrderByWithRelationInput = { createdAt: 'desc' };
-        if (filter === 'completed') {
+        if (filter === 'completed' || filter === 'install_closed') {
             primaryOrderBy = { completedDate: 'desc' };
         } else if (filter === 'return' || filter === 'disappeared') {
             primaryOrderBy = { completedDate: 'desc' };
