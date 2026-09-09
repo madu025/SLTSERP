@@ -1436,9 +1436,9 @@ export class SODSyncService {
         const sltSoNums = sltData.map(item => item.SO_NUM);
         const existingSods = await prisma.serviceOrder.findMany({
             where: { soNum: { in: sltSoNums } },
-            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, statusDate: true, contractorId: true, receivedDate: true }
+            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, statusDate: true, contractorId: true, receivedDate: true, completedDate: true }
         });
-        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments?: string | null; statusDate: Date | null; contractorId: string | null; receivedDate: Date | null }>(
+        const existingMap = new Map<string, { id: string; soNum: string; sltsStatus: string; status: string; returnReason: string | null; comments?: string | null; statusDate: Date | null; contractorId: string | null; receivedDate: Date | null; completedDate: Date | null }>(
             existingSods.map(s => [s.soNum as string, s])
         );
 
@@ -1450,8 +1450,14 @@ export class SODSyncService {
                 const incomingMapped = SODLifecycleService.mapExternalStatusToSltsStatus(incomingStatus);
                 const isIncomingTerminal = ['COMPLETED', 'INSTALL_CLOSED', 'DISAPPEARED'].includes(incomingMapped);
                 const isExistingTerminal = ['COMPLETED', 'INSTALL_CLOSED', 'DISAPPEARED'].includes(existing.sltsStatus);
-                // Only skip if both existing and incoming are terminal AND same status (allow INSTALL_CLOSED correction)
-                if (isExistingTerminal && isIncomingTerminal && existing.sltsStatus === (incomingStatus === 'INSTALL_CLOSED' ? 'INSTALL_CLOSED' : incomingMapped)) return;
+                // Dual Check (Status + Date): Check if existing terminal record has a stale/invalid completedDate
+                // (e.g. missing or matching the initial intake receivedDate). If invalid, do NOT skip so it can auto-heal.
+                const hasStaleCompletedDate = isExistingTerminal && (
+                    !existing.completedDate ||
+                    (existing.receivedDate && Math.abs(existing.completedDate.getTime() - existing.receivedDate.getTime()) < 1000)
+                );
+                // Only skip if both existing and incoming are terminal AND same status AND completedDate is healthy
+                if (isExistingTerminal && isIncomingTerminal && existing.sltsStatus === (incomingStatus === 'INSTALL_CLOSED' ? 'INSTALL_CLOSED' : incomingMapped) && !hasStaleCompletedDate) return;
             }
             const currentInMap = uniqueSyncMap.get(item.SO_NUM);
             if (currentInMap && currentInMap.CON_STATUS === 'INSTALL_CLOSED') return;
@@ -1539,6 +1545,10 @@ export class SODSyncService {
 
             const existing = existingMap.get(item.SO_NUM);
             const isTransitioningToInstallClosed = isInstallClosed && existing && !isTerminalSltsStatus(existing.sltsStatus);
+            const hasStaleCompletedDate = isInstallClosed && existing && (
+                !existing.completedDate ||
+                (existing.receivedDate && Math.abs(existing.completedDate.getTime() - existing.receivedDate.getTime()) < 1000)
+            );
 
             // For returned SODs that are re-completed, CON_STATUS_DATE might be the original date
             // Use receivedDate (reactivation date) if it's later than CON_STATUS_DATE
@@ -1546,13 +1556,13 @@ export class SODSyncService {
             // learned about the return (drives Return Date column + return month attribution),
             // not the portal CON_STATUS_DATE which can lag the actual notification by days.
             const isReturnTransition = initialSltsStatus === 'RETURN' && (!existing || existing.sltsStatus !== 'RETURN');
-            const effectiveCompletedDate = isTransitioningToInstallClosed
+            const effectiveCompletedDate = (isTransitioningToInstallClosed || hasStaleCompletedDate)
                 ? new Date()
                 : (initialSltsStatus === 'COMPLETED' || isInstallClosed)
                     ? (existing?.receivedDate && statusDate < existing.receivedDate ? existing.receivedDate : statusDate)
                     : (isReturnTransition ? new Date() : undefined);
 
-            const effectiveStatusDate = isTransitioningToInstallClosed ? effectiveCompletedDate : statusDate;
+            const effectiveStatusDate = (isTransitioningToInstallClosed || hasStaleCompletedDate) ? effectiveCompletedDate : statusDate;
 
             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
                 lea: item.LEA,
@@ -1690,9 +1700,14 @@ export class SODSyncService {
                 // ── Change detection: skip the DB write if nothing meaningful changed (O8) ──
                 // statusDate is the portal's last-modified timestamp. If it has not moved, the SOD
                 // data is identical to the last sync, so the whole transaction is skipped.
+                const isClosingOrClosed = intentSltsStatus === 'INSTALL_CLOSED' || initialSltsStatus === 'INSTALL_CLOSED' || existing.sltsStatus === 'INSTALL_CLOSED';
+                const completedDateNeedsCorrection = isClosingOrClosed && (
+                    !existing.completedDate ||
+                    (existing.receivedDate && Math.abs(existing.completedDate.getTime() - existing.receivedDate.getTime()) < 1000)
+                );
                 const existingTime = existing.statusDate ? new Date(existing.statusDate).getTime() : null;
                 const contractorChanged = fieldPayload.contractorId !== undefined && fieldPayload.contractorId !== existing.contractorId;
-                if (!isStatusChange && !contractorChanged && anchor !== null && existingTime !== null && Math.abs(anchor.getTime() - existingTime) < 1000) {
+                if (!isStatusChange && !contractorChanged && !completedDateNeedsCorrection && anchor !== null && existingTime !== null && Math.abs(anchor.getTime() - existingTime) < 1000) {
                     skippedNoChange++;
                     return;
                 }

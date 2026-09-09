@@ -145,10 +145,14 @@ export class CompletedSODSyncService {
                             const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
 
                             const isTransitioningToInstallClosed = finalSltsStatus === SodStatus.INSTALL_CLOSED && localSODs[0] && !isTerminalSltsStatus(localSODs[0].sltsStatus);
+                            const hasStaleCompletedDate = finalSltsStatus === SodStatus.INSTALL_CLOSED && localSODs[0] && (
+                                !localSODs[0].completedDate ||
+                                (localSODs[0].receivedDate && Math.abs(localSODs[0].completedDate.getTime() - localSODs[0].receivedDate.getTime()) < 1000)
+                            );
                             const rawCompletedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
                             // For returned SODs that are re-completed, CON_STATUS_DATE might be the original date
                             // Use receivedDate (reactivation date) if it's later than CON_STATUS_DATE
-                            const completedDate = isTransitioningToInstallClosed
+                            const completedDate = (isTransitioningToInstallClosed || hasStaleCompletedDate)
                                 ? new Date()
                                 : ((localSODs[0]?.receivedDate && rawCompletedDate < localSODs[0].receivedDate)
                                     ? localSODs[0].receivedDate
@@ -209,7 +213,12 @@ export class CompletedSODSyncService {
                                         blockedByPolicy++;
                                     }
 
-                                    if (localSOD.sltsStatus !== effectiveSltsStatus || !localSOD.completedDate) {
+                                    const needsDateHealing = isCompletionStatus && (
+                                        !localSOD.completedDate ||
+                                        (localSOD.receivedDate && Math.abs(localSOD.completedDate.getTime() - localSOD.receivedDate.getTime()) < 1000)
+                                    );
+
+                                    if (localSOD.sltsStatus !== effectiveSltsStatus || needsDateHealing) {
                                         // If SOD was previously DISAPPEARED, clear the stale
                                         // "[AUTO-SYNC] Disappeared from active portal list" comment
                                         const wasDisappeared = localSOD.sltsStatus === SodStatus.DISAPPEARED;
