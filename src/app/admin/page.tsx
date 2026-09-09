@@ -7,7 +7,7 @@ import Link from 'next/link';
 import {
     Users, Briefcase, Settings, Building2, HardHat, ChevronRight,
     Warehouse, Receipt, Shield, HistoryIcon, UserCog, Upload, Terminal,
-    Network, Layers, FileText
+    Network, Layers, FileText, Activity
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -116,6 +116,13 @@ const modules = [
         href: '/admin/test-extension',
         icon: Terminal,
         color: 'text-slate-600', bgColor: 'bg-slate-100', borderColor: 'border-slate-200'
+    },
+    {
+        title: 'System Health & Monitoring',
+        description: 'Live server metrics, error logs, and SHA-256 ledger security audit',
+        href: '/admin/monitoring',
+        icon: Activity,
+        color: 'text-rose-600', bgColor: 'bg-rose-50', borderColor: 'border-rose-100'
     },
 ];
 
