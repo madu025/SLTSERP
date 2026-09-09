@@ -144,12 +144,15 @@ export class CompletedSODSyncService {
                             // CHECK MAP: Look for ANY record with this SO_NUM
                             const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
 
+                            const isTransitioningToInstallClosed = finalSltsStatus === SodStatus.INSTALL_CLOSED && localSODs[0] && !isTerminalSltsStatus(localSODs[0].sltsStatus);
                             const rawCompletedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
                             // For returned SODs that are re-completed, CON_STATUS_DATE might be the original date
                             // Use receivedDate (reactivation date) if it's later than CON_STATUS_DATE
-                            const completedDate = (localSODs[0]?.receivedDate && rawCompletedDate < localSODs[0].receivedDate)
-                                ? localSODs[0].receivedDate
-                                : rawCompletedDate;
+                            const completedDate = isTransitioningToInstallClosed
+                                ? new Date()
+                                : ((localSODs[0]?.receivedDate && rawCompletedDate < localSODs[0].receivedDate)
+                                    ? localSODs[0].receivedDate
+                                    : rawCompletedDate);
                             const isCompletionStatus = finalSltsStatus === SodStatus.COMPLETED || finalSltsStatus === SodStatus.INSTALL_CLOSED;
                             // Receipt anchor: the portal sends no received-on value for closed
                             // records, and stamping the completion instant as the receipt date made

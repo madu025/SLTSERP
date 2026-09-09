@@ -1538,6 +1538,7 @@ export class SODSyncService {
             }
 
             const existing = existingMap.get(item.SO_NUM);
+            const isTransitioningToInstallClosed = isInstallClosed && existing && !isTerminalSltsStatus(existing.sltsStatus);
 
             // For returned SODs that are re-completed, CON_STATUS_DATE might be the original date
             // Use receivedDate (reactivation date) if it's later than CON_STATUS_DATE
@@ -1545,9 +1546,13 @@ export class SODSyncService {
             // learned about the return (drives Return Date column + return month attribution),
             // not the portal CON_STATUS_DATE which can lag the actual notification by days.
             const isReturnTransition = initialSltsStatus === 'RETURN' && (!existing || existing.sltsStatus !== 'RETURN');
-            const effectiveCompletedDate = (initialSltsStatus === 'COMPLETED' || isInstallClosed)
-                ? (existing?.receivedDate && statusDate < existing.receivedDate ? existing.receivedDate : statusDate)
-                : (isReturnTransition ? new Date() : undefined);
+            const effectiveCompletedDate = isTransitioningToInstallClosed
+                ? new Date()
+                : (initialSltsStatus === 'COMPLETED' || isInstallClosed)
+                    ? (existing?.receivedDate && statusDate < existing.receivedDate ? existing.receivedDate : statusDate)
+                    : (isReturnTransition ? new Date() : undefined);
+
+            const effectiveStatusDate = isTransitioningToInstallClosed ? effectiveCompletedDate : statusDate;
 
             const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
                 lea: item.LEA,
@@ -1556,7 +1561,7 @@ export class SODSyncService {
                 serviceType: item.S_TYPE,
                 customerName: item.CON_CUS_NAME,
                 techContact: item.CON_TEC_CONTACT,
-                statusDate,
+                statusDate: effectiveStatusDate,
                 address: item.ADDRE,
                 dp: item.DP,
                 package: item.PKG,
@@ -1629,10 +1634,10 @@ export class SODSyncService {
             }
         }
 
-        // Sequential Updates (Chunked)
+        // Sequential Updates (Chunked with controlled concurrency to prevent pool contention)
         const updateChunks: (typeof toUpdate)[] = [];
-        for (let i = 0; i < toUpdate.length; i += 20) {
-            updateChunks.push(toUpdate.slice(i, i + 20));
+        for (let i = 0; i < toUpdate.length; i += 5) {
+            updateChunks.push(toUpdate.slice(i, i + 5));
         }
 
         for (const chunk of updateChunks) {
@@ -1730,7 +1735,7 @@ export class SODSyncService {
                         await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
                         await LedgerService.rollbackSodTransaction(tx, existing.id);
                     }
-                }));
+                }, { maxWait: 15000, timeout: 20000 }));
 
                 if (err) {
                     console.error(`[SYNC] Failed to update existing SOD ${existing.soNum}:`, err);
