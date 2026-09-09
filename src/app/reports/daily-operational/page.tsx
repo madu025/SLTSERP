@@ -56,6 +56,7 @@ interface ReportRowData {
     returned: ReportMetrics;
     wiredOnly: ReportMetrics;
     installClosed: CompletedMetrics;
+    sameDayCompleted?: number;
     delays: Record<string, number>;
     balance: ReportMetrics;
     shortages: { [key: string]: number; stb: number; ont: number };
@@ -70,6 +71,8 @@ export interface MonthlyPipelineEntry {
     completedFromInstallClosed: number;
     pendingCompletion: number;
     conversionRate: number;
+    sameDayCompleted: number;
+    sameDayRate: number;
 }
 
 export interface MonthlyPipelineGrandTotal {
@@ -78,6 +81,8 @@ export interface MonthlyPipelineGrandTotal {
     completedFromInstallClosed: number;
     pendingCompletion: number;
     conversionRate: number;
+    sameDayCompleted: number;
+    sameDayRate: number;
 }
 
 interface ReportData {
@@ -234,6 +239,8 @@ export default function DailyOperationalReportPage() {
                     completedFromInstallClosed: 0,
                     pendingCompletion: 0,
                     conversionRate: 0,
+                    sameDayCompleted: 0,
+                    sameDayRate: 0,
                 };
             }
             const reg = regionSummaries[item.region];
@@ -241,11 +248,15 @@ export default function DailyOperationalReportPage() {
             reg.monthInstallClosed += item.monthInstallClosed;
             reg.completedFromInstallClosed += item.completedFromInstallClosed;
             reg.pendingCompletion += item.pendingCompletion;
+            reg.sameDayCompleted += item.sameDayCompleted;
         });
 
         Object.values(regionSummaries).forEach((reg) => {
             reg.conversionRate = reg.monthInstallClosed > 0
                 ? Math.round((reg.completedFromInstallClosed / reg.monthInstallClosed) * 1000) / 10
+                : 0;
+            reg.sameDayRate = reg.monthInstallClosed > 0
+                ? Math.round((reg.sameDayCompleted / reg.monthInstallClosed) * 1000) / 10
                 : 0;
         });
 
@@ -272,6 +283,7 @@ export default function DailyOperationalReportPage() {
             returned: { nc: 0, rl: 0, data: 0, total: 0 },
             wiredOnly: { nc: 0, rl: 0, data: 0, total: 0 },
             installClosed: { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 },
+            sameDayCompleted: 0,
             delays: { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 },
             balance: { nc: 0, rl: 0, data: 0, total: 0 },
             shortages: { stb: 0, ont: 0 }
@@ -306,6 +318,7 @@ export default function DailyOperationalReportPage() {
             acc(summaries[region].returned, row.returned);
             acc(summaries[region].wiredOnly, row.wiredOnly);
             acc(summaries[region].installClosed, row.installClosed);
+            summaries[region].sameDayCompleted = (summaries[region].sameDayCompleted || 0) + (row.sameDayCompleted || 0);
             acc(summaries[region].delays, row.delays);
             acc(summaries[region].balance, row.balance);
             acc(summaries[region].shortages, row.shortages);
@@ -331,6 +344,7 @@ export default function DailyOperationalReportPage() {
             acc(grandTotal.returned, row.returned);
             acc(grandTotal.wiredOnly, row.wiredOnly);
             acc(grandTotal.installClosed, row.installClosed);
+            grandTotal.sameDayCompleted = (grandTotal.sameDayCompleted || 0) + (row.sameDayCompleted || 0);
             acc(grandTotal.delays, row.delays);
             acc(grandTotal.balance, row.balance);
             acc(grandTotal.shortages, row.shortages);
@@ -414,7 +428,7 @@ export default function DailyOperationalReportPage() {
         // Add Monthly Invoicing Pipeline sheet if data exists
         if (monthlyPipeline.length > 0) {
             const pipelineSheetData: (string | number)[][] = [
-                ["Province", "RTOM", "MTD Completed", "Month Install Closed (Invoicing Target Pool)", "Converted to Completed (PAT Passed)", "Pending Completion (Staff Action Backlog)", "Conversion Rate %"]
+                ["Province", "RTOM", "MTD Completed", "Month Install Closed (Invoicing Target Pool)", "Converted to Completed (PAT Passed)", "Pending Completion (Staff Action Backlog)", "Same-Day Completed (Zero Backlog)", "Same-Day Rate %", "Invoicing Conversion Rate %"]
             ];
 
             let pRegion = '';
@@ -423,28 +437,28 @@ export default function DailyOperationalReportPage() {
                     if (pRegion && monthlyPipelineSummaries[pRegion]) {
                         const s = monthlyPipelineSummaries[pRegion];
                         pipelineSheetData.push([
-                            "", `${pRegion} TOTAL`, s.mtdCompleted, s.monthInstallClosed, s.completedFromInstallClosed, s.pendingCompletion, `${s.conversionRate}%`
+                            "", `${pRegion} TOTAL`, s.mtdCompleted, s.monthInstallClosed, s.completedFromInstallClosed, s.pendingCompletion, s.sameDayCompleted, `${s.sameDayRate}%`, `${s.conversionRate}%`
                         ]);
                     }
                     pRegion = row.region;
-                    pipelineSheetData.push([row.region, "", "", "", "", "", ""]);
+                    pipelineSheetData.push([row.region, "", "", "", "", "", "", "", ""]);
                 }
 
                 pipelineSheetData.push([
-                    row.province, row.rtom, row.mtdCompleted, row.monthInstallClosed, row.completedFromInstallClosed, row.pendingCompletion, `${row.conversionRate}%`
+                    row.province, row.rtom, row.mtdCompleted, row.monthInstallClosed, row.completedFromInstallClosed, row.pendingCompletion, row.sameDayCompleted, `${row.sameDayRate}%`, `${row.conversionRate}%`
                 ]);
             });
 
             if (pRegion && monthlyPipelineSummaries[pRegion]) {
                 const s = monthlyPipelineSummaries[pRegion];
                 pipelineSheetData.push([
-                    "", `${pRegion} TOTAL`, s.mtdCompleted, s.monthInstallClosed, s.completedFromInstallClosed, s.pendingCompletion, `${s.conversionRate}%`
+                    "", `${pRegion} TOTAL`, s.mtdCompleted, s.monthInstallClosed, s.completedFromInstallClosed, s.pendingCompletion, s.sameDayCompleted, `${s.sameDayRate}%`, `${s.conversionRate}%`
                 ]);
             }
 
             if (monthlyPipelineGrandTotal) {
                 pipelineSheetData.push([
-                    "GRAND TOTAL", "", monthlyPipelineGrandTotal.mtdCompleted, monthlyPipelineGrandTotal.monthInstallClosed, monthlyPipelineGrandTotal.completedFromInstallClosed, monthlyPipelineGrandTotal.pendingCompletion, `${monthlyPipelineGrandTotal.conversionRate}%`
+                    "GRAND TOTAL", "", monthlyPipelineGrandTotal.mtdCompleted, monthlyPipelineGrandTotal.monthInstallClosed, monthlyPipelineGrandTotal.completedFromInstallClosed, monthlyPipelineGrandTotal.pendingCompletion, monthlyPipelineGrandTotal.sameDayCompleted, `${monthlyPipelineGrandTotal.sameDayRate}%`, `${monthlyPipelineGrandTotal.conversionRate}%`
                 ]);
             }
 
@@ -488,6 +502,7 @@ export default function DailyOperationalReportPage() {
             `          ML :\t${row.installClosed.ml}`,
             `          Data :\t${row.installClosed.data}`,
             ``,
+            `Same-Day Turnaround (Zero Backlog) :\t${row.sameDayCompleted || 0}`,
             `DW Usage :\t${row.material.dw}`,
             `Pole Usage :\t${row.material.pole56 + row.material.pole67 + row.material.pole80}`,
             `          5.6 :\t${row.material.pole56}`,
@@ -522,6 +537,7 @@ export default function DailyOperationalReportPage() {
                 `Month Install Closed Base :\t${monthlyPipelineGrandTotal.monthInstallClosed}`,
                 `Converted to Completed (PAT Passed) :\t${monthlyPipelineGrandTotal.completedFromInstallClosed}`,
                 `Pending Completion Backlog :\t${monthlyPipelineGrandTotal.pendingCompletion}`,
+                `Same-Day Turnaround (Zero Backlog) :\t${monthlyPipelineGrandTotal.sameDayCompleted} (${monthlyPipelineGrandTotal.sameDayRate}%)`,
                 `Overall Invoicing Conversion Rate :\t${monthlyPipelineGrandTotal.conversionRate}%`,
                 `========================================`
             ].join('\n');
@@ -617,40 +633,63 @@ export default function DailyOperationalReportPage() {
                     </div>
 
                     {grandTotal && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                             <Card className="bg-blue-50 border-blue-100 shadow-sm">
-                                <CardContent className="p-4 flex items-center gap-4">
-                                    <div className="p-2 bg-blue-500 rounded-lg"><Clock className="w-5 h-5 text-white" /></div>
+                                <CardContent className="p-3.5 flex items-center gap-3">
+                                    <div className="p-2 bg-blue-500 rounded-lg"><Clock className="w-4 h-4 text-white" /></div>
                                     <div>
-                                        <p className="text-xs text-blue-600 font-semibold uppercase">Morning Hand</p>
-                                        <p className="text-2xl font-bold text-blue-900">{grandTotal.inHandMorning.total}</p>
+                                        <p className="text-[10px] text-blue-600 font-semibold uppercase">Morning Hand</p>
+                                        <p className="text-xl font-bold text-blue-900">{grandTotal.inHandMorning.total}</p>
                                     </div>
                                 </CardContent>
                             </Card>
                             <Card className="bg-emerald-50 border-emerald-100 shadow-sm">
-                                <CardContent className="p-4 flex items-center gap-4">
-                                    <div className="p-2 bg-emerald-500 rounded-lg"><TrendingUp className="w-5 h-5 text-white" /></div>
+                                <CardContent className="p-3.5 flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-500 rounded-lg"><TrendingUp className="w-4 h-4 text-white" /></div>
                                     <div>
-                                        <p className="text-xs text-emerald-600 font-semibold uppercase">Received Today</p>
-                                        <p className="text-2xl font-bold text-emerald-900">{grandTotal.received.total}</p>
+                                        <p className="text-[10px] text-emerald-600 font-semibold uppercase">Received Today</p>
+                                        <p className="text-xl font-bold text-emerald-900">{grandTotal.received.total}</p>
                                     </div>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-green-50 border-green-100 shadow-sm">
-                                <CardContent className="p-4 flex items-center gap-4">
-                                    <div className="p-2 bg-green-500 rounded-lg"><CheckCircle2 className="w-5 h-5 text-white" /></div>
+                            <Card className="bg-green-50 border-green-200 shadow-sm">
+                                <CardContent className="p-3.5 flex items-center gap-3">
+                                    <div className="p-2 bg-green-600 rounded-lg"><CheckCircle2 className="w-4 h-4 text-white" /></div>
                                     <div>
-                                        <p className="text-xs text-green-600 font-semibold uppercase">Completed</p>
-                                        <p className="text-2xl font-bold text-green-900">{grandTotal.completed.total}</p>
+                                        <p className="text-[10px] text-green-700 font-semibold uppercase">Completed (PAT)</p>
+                                        <p className="text-xl font-bold text-green-950">{grandTotal.completed.total}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-sky-50 border-sky-200 shadow-sm">
+                                <CardContent className="p-3.5 flex items-center gap-3">
+                                    <div className="p-2 bg-sky-600 rounded-lg"><CheckCircle2 className="w-4 h-4 text-white" /></div>
+                                    <div>
+                                        <p className="text-[10px] text-sky-700 font-semibold uppercase">Install Closed</p>
+                                        <p className="text-xl font-bold text-sky-950">{grandTotal.installClosed.total}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-indigo-50 border-indigo-200 shadow-sm">
+                                <CardContent className="p-3.5 flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-600 rounded-lg"><CheckCircle2 className="w-4 h-4 text-white" /></div>
+                                    <div>
+                                        <p className="text-[10px] text-indigo-700 font-semibold uppercase">Same-Day Done</p>
+                                        <p className="text-xl font-bold text-indigo-950">
+                                            {grandTotal.sameDayCompleted || 0}
+                                            <span className="text-[10px] text-indigo-600 font-normal ml-1">
+                                                ({grandTotal.installClosed.total > 0 ? Math.round(((grandTotal.sameDayCompleted || 0) / grandTotal.installClosed.total) * 100) : 0}%)
+                                            </span>
+                                        </p>
                                     </div>
                                 </CardContent>
                             </Card>
                             <Card className="bg-slate-100 border-slate-200 shadow-sm">
-                                <CardContent className="p-4 flex items-center gap-4">
-                                    <div className="p-2 bg-slate-700 rounded-lg"><AlertCircle className="w-5 h-5 text-white" /></div>
+                                <CardContent className="p-3.5 flex items-center gap-3">
+                                    <div className="p-2 bg-slate-700 rounded-lg"><AlertCircle className="w-4 h-4 text-white" /></div>
                                     <div>
-                                        <p className="text-xs text-slate-600 font-semibold uppercase">Pending Balance</p>
-                                        <p className="text-2xl font-bold text-slate-900">{grandTotal.balance.total}</p>
+                                        <p className="text-[10px] text-slate-600 font-semibold uppercase">Pending Balance</p>
+                                        <p className="text-xl font-bold text-slate-900">{grandTotal.balance.total}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -790,7 +829,7 @@ export default function DailyOperationalReportPage() {
                                 </div>
 
                                 {monthlyPipelineGrandTotal && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-white/10 text-slate-100">
+                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 pt-4 border-t border-white/10 text-slate-100">
                                         <div className="bg-white/5 rounded-lg p-3 border border-white/5">
                                             <div className="text-[11px] text-slate-400 font-medium uppercase">MTD Total Completed</div>
                                             <div className="text-xl font-bold text-white mt-1">{monthlyPipelineGrandTotal.mtdCompleted}</div>
@@ -811,6 +850,14 @@ export default function DailyOperationalReportPage() {
                                             <div className="text-xl font-bold text-amber-300 mt-1">{monthlyPipelineGrandTotal.pendingCompletion}</div>
                                             <div className="text-[10px] text-amber-300/80 mt-0.5">Action Backlog for Staff</div>
                                         </div>
+                                        <div className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                            <div className="text-[11px] text-indigo-300 font-medium uppercase">Same-Day Turnaround</div>
+                                            <div className="text-xl font-bold text-indigo-300 mt-1">
+                                                {monthlyPipelineGrandTotal.sameDayCompleted}
+                                                <span className="text-xs font-normal text-slate-300 ml-1">({monthlyPipelineGrandTotal.sameDayRate}%)</span>
+                                            </div>
+                                            <div className="text-[10px] text-emerald-300/90 mt-0.5 font-semibold">Zero Backlog Speed</div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -822,11 +869,13 @@ export default function DailyOperationalReportPage() {
                                             <tr className="divide-x divide-slate-700">
                                                 <th className="px-2 py-2 text-left w-24 bg-slate-900">Province</th>
                                                 <th className="px-2 py-2 text-center w-20 bg-slate-900">RTOM</th>
-                                                <th className="px-2 py-2 text-center w-28 bg-slate-800 text-white">MTD Total<br />Completed</th>
-                                                <th className="px-2 py-2 text-center w-32 bg-blue-800 text-white">Month Install Closed<br />(Invoicing Base)</th>
-                                                <th className="px-2 py-2 text-center w-32 bg-emerald-800 text-white">Converted to<br />Completed (PAT)</th>
-                                                <th className="px-2 py-2 text-center w-32 bg-amber-800 text-white">Pending Completion<br />(Staff Backlog)</th>
-                                                <th className="px-2 py-2 text-center w-24 bg-indigo-800 text-white">Conversion<br />Rate %</th>
+                                                <th className="px-2 py-2 text-center w-24 bg-slate-800 text-white">MTD Total<br />Completed</th>
+                                                <th className="px-2 py-2 text-center w-28 bg-blue-800 text-white">Month Install Closed<br />(Invoicing Base)</th>
+                                                <th className="px-2 py-2 text-center w-28 bg-emerald-800 text-white">Converted to<br />Completed (PAT)</th>
+                                                <th className="px-2 py-2 text-center w-28 bg-amber-800 text-white">Pending Completion<br />(Staff Backlog)</th>
+                                                <th className="px-2 py-2 text-center w-24 bg-indigo-800 text-white">Same-Day Done<br />(Zero Backlog)</th>
+                                                <th className="px-2 py-2 text-center w-20 bg-indigo-700 text-white">Same-Day<br />Rate %</th>
+                                                <th className="px-2 py-2 text-center w-24 bg-slate-800 text-white">Invoicing<br />Conversion %</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white">
@@ -845,7 +894,9 @@ export default function DailyOperationalReportPage() {
                                                                     <td className="border border-slate-300 px-1 py-1 text-center font-bold text-blue-900 bg-blue-100/50">{s.monthInstallClosed}</td>
                                                                     <td className="border border-slate-300 px-1 py-1 text-center font-bold text-emerald-900 bg-emerald-100/50">{s.completedFromInstallClosed}</td>
                                                                     <td className={`border border-slate-300 px-1 py-1 text-center font-black ${s.pendingCompletion > 0 ? 'bg-amber-200/70 text-amber-950' : 'text-slate-700'}`}>{s.pendingCompletion}</td>
-                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-black text-indigo-900 bg-indigo-100/60">{s.conversionRate}%</td>
+                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-bold text-indigo-950 bg-indigo-100/60">{s.sameDayCompleted}</td>
+                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-bold text-indigo-900">{s.sameDayRate}%</td>
+                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-black text-emerald-950 bg-emerald-100/60">{s.conversionRate}%</td>
                                                                 </tr>
                                                             );
                                                         }
@@ -853,7 +904,7 @@ export default function DailyOperationalReportPage() {
                                                         currentRegion = row.region;
                                                         rows.push(
                                                             <tr key={`pipeline-header-${row.region}`} className="bg-slate-200 border-y border-slate-300">
-                                                                <td colSpan={7} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
+                                                                <td colSpan={9} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
                                                             </tr>
                                                         );
                                                     }
@@ -873,6 +924,12 @@ export default function DailyOperationalReportPage() {
                                                                 ) : (
                                                                     0
                                                                 )}
+                                                            </td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center font-bold text-indigo-700 bg-indigo-50/30">
+                                                                {row.sameDayCompleted}
+                                                            </td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center font-semibold text-indigo-900">
+                                                                {row.sameDayRate}%
                                                             </td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center font-bold">
                                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black ${
@@ -896,7 +953,9 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-300 px-1 py-1 text-center font-bold text-blue-900 bg-blue-100/50">{s.monthInstallClosed}</td>
                                                             <td className="border border-slate-300 px-1 py-1 text-center font-bold text-emerald-900 bg-emerald-100/50">{s.completedFromInstallClosed}</td>
                                                             <td className={`border border-slate-300 px-1 py-1 text-center font-black ${s.pendingCompletion > 0 ? 'bg-amber-200/70 text-amber-950' : 'text-slate-700'}`}>{s.pendingCompletion}</td>
-                                                            <td className="border border-slate-300 px-1 py-1 text-center font-black text-indigo-900 bg-indigo-100/60">{s.conversionRate}%</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-indigo-950 bg-indigo-100/60">{s.sameDayCompleted}</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-indigo-900">{s.sameDayRate}%</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-black text-emerald-950 bg-emerald-100/60">{s.conversionRate}%</td>
                                                         </tr>
                                                     );
                                                 }
@@ -909,6 +968,8 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-blue-300 bg-blue-950/60">{monthlyPipelineGrandTotal.monthInstallClosed}</td>
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-emerald-300 bg-emerald-950/60">{monthlyPipelineGrandTotal.completedFromInstallClosed}</td>
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-amber-300 bg-amber-950/60">{monthlyPipelineGrandTotal.pendingCompletion}</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-indigo-300 bg-indigo-950/60">{monthlyPipelineGrandTotal.sameDayCompleted}</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-indigo-300">{monthlyPipelineGrandTotal.sameDayRate}%</td>
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-emerald-400 bg-slate-800">{monthlyPipelineGrandTotal.conversionRate}%</td>
                                                         </tr>
                                                     );

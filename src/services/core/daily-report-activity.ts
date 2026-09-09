@@ -55,6 +55,7 @@ export interface SodDayActivity {
   inTodayFlow: boolean;
   installClosedToday: boolean;
   completedToday: boolean;
+  sameDayCompleted: boolean;
   returnedToday: boolean;
   patRejected: boolean;
   /** Row state says the SOD was provisionally closed during this day. */
@@ -156,11 +157,22 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
       (!order.completedDate && inWindow(order.statusDate, window)));
 
   const completedToday =
-    installClosedToday ||
-    (closureObserved &&
-      (hasEventInWindow(closureEvidenceHistory, 'COMPLETED', window) ||
-        ((order.sltsStatus === 'COMPLETED' || order.status === 'COMPLETED') &&
-          inWindow(order.completedDate, window))));
+    (order.status === 'COMPLETED' || order.sltsStatus === 'COMPLETED') &&
+    terminalGateOpen &&
+    closureObserved &&
+    (hasEventInWindow(closureEvidenceHistory, 'COMPLETED', window) ||
+      inWindow(order.completedDate, window) ||
+      (!order.completedDate && inWindow(order.statusDate, window)));
+
+  const sameDayClosureEvidence =
+    hasEventInWindow(closureEvidenceHistory, 'INSTALL_CLOSED', window) ||
+    hasEventInWindow(closureEvidenceHistory, 'PROV_CLOSED', window) ||
+    hasEventInWindow(order.statusHistory, 'INSTALL_CLOSED', window) ||
+    hasEventInWindow(order.statusHistory, 'PROV_CLOSED', window) ||
+    (order.createdAt >= window.start && order.createdAt <= window.end) ||
+    Boolean(order.receivedDate && order.receivedDate >= window.start && order.receivedDate <= window.end);
+
+  const sameDayCompleted = Boolean(completedToday && sameDayClosureEvidence);
 
   const returnedToday =
     order.sltsStatus === 'RETURN' &&
@@ -180,6 +192,7 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
     inTodayFlow: receivedToday || morningCarryForward,
     installClosedToday,
     completedToday,
+    sameDayCompleted,
     returnedToday,
     patRejected,
     provClosedToday: order.status === 'PROV_CLOSED' && inWindow(order.statusDate, window),

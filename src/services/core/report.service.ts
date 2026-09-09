@@ -26,6 +26,8 @@ export interface MonthlyPipelineEntry {
   completedFromInstallClosed: number;
   pendingCompletion: number;
   conversionRate: number;
+  sameDayCompleted: number;
+  sameDayRate: number;
 }
 
 export interface MonthlyPipelineGrandTotal {
@@ -34,6 +36,8 @@ export interface MonthlyPipelineGrandTotal {
   completedFromInstallClosed: number;
   pendingCompletion: number;
   conversionRate: number;
+  sameDayCompleted: number;
+  sameDayRate: number;
 }
 
 export interface PaymentsReportOptions {
@@ -128,6 +132,7 @@ export interface ReportRow {
   returned: ReturnedEntry;
   wiredOnly: WiredOnlyEntry;
   installClosed: InstallClosedEntry;
+  sameDayCompleted: number;
   delays: DelaysEntry;
   balance: BalanceEntry;
   shortages: ShortagesEntry;
@@ -570,6 +575,39 @@ export class ReportService {
       }
     }
 
+    // 3. Compute Same-Day Completed for the month per RTOM
+    const completedOrdersForMonth = await prisma.serviceOrder.findMany({
+      where: {
+        sltsStatus: 'COMPLETED',
+        completedDate: { gte: startOfM, lte: endOfDayM }
+      },
+      select: {
+        rtom: true,
+        completedDate: true,
+        receivedDate: true,
+        createdAt: true,
+        statusHistory: {
+          where: { status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] } },
+          select: { statusDate: true }
+        }
+      }
+    });
+
+    const sameDayMap = new Map<string, number>();
+    for (const o of completedOrdersForMonth) {
+      if (!o.completedDate) continue;
+      const compKey = slDateKey(o.completedDate);
+      const isSameDay =
+        (o.receivedDate && slDateKey(o.receivedDate) === compKey) ||
+        (o.createdAt && slDateKey(o.createdAt) === compKey) ||
+        o.statusHistory.some(h => h.statusDate && slDateKey(h.statusDate) === compKey);
+
+      if (isSameDay) {
+        const rtom = o.rtom || 'UNKNOWN';
+        sameDayMap.set(rtom, (sameDayMap.get(rtom) || 0) + 1);
+      }
+    }
+
     const opmcs = await prisma.oPMC.findMany({
       select: { rtom: true, region: true, province: true },
       orderBy: [{ region: 'asc' }, { province: 'asc' }, { rtom: 'asc' }]
@@ -582,6 +620,8 @@ export class ReportService {
       const completedFromIC = stat.completed;
       const pendingCompletion = stat.installClosed;
       const conversionRate = monthIC > 0 ? Math.round((completedFromIC / monthIC) * 1000) / 10 : 0;
+      const sameDayComp = sameDayMap.get(o.rtom) || 0;
+      const sameDayRate = monthIC > 0 ? Math.round((sameDayComp / monthIC) * 1000) / 10 : 0;
 
       return {
         region: o.region,
@@ -591,7 +631,9 @@ export class ReportService {
         monthInstallClosed: monthIC,
         completedFromInstallClosed: completedFromIC,
         pendingCompletion: pendingCompletion,
-        conversionRate
+        conversionRate,
+        sameDayCompleted: sameDayComp,
+        sameDayRate
       };
     });
 
@@ -600,6 +642,8 @@ export class ReportService {
     const totalCompFromIC = pipeline.reduce((sum, r) => sum + r.completedFromInstallClosed, 0);
     const totalPending = pipeline.reduce((sum, r) => sum + r.pendingCompletion, 0);
     const totalRate = totalIC > 0 ? Math.round((totalCompFromIC / totalIC) * 1000) / 10 : 0;
+    const totalSameDay = pipeline.reduce((sum, r) => sum + r.sameDayCompleted, 0);
+    const totalSameDayRate = totalIC > 0 ? Math.round((totalSameDay / totalIC) * 1000) / 10 : 0;
 
     return {
       pipeline,
@@ -608,7 +652,9 @@ export class ReportService {
         monthInstallClosed: totalIC,
         completedFromInstallClosed: totalCompFromIC,
         pendingCompletion: totalPending,
-        conversionRate: totalRate
+        conversionRate: totalRate,
+        sameDayCompleted: totalSameDay,
+        sameDayRate: totalSameDayRate
       }
     };
   }
@@ -773,6 +819,7 @@ export class ReportService {
       const returned: ReturnedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const wiredOnly: WiredOnlyEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const installClosed: InstallClosedEntry = { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 };
+      let sameDayCompleted = 0;
       const delays: DelaysEntry = { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 };
       // Balance halves counted directly instead of derived by subtracting the day's
       // closures from a queue that already dropped them (inHandMorning is measured on the
@@ -803,6 +850,10 @@ export class ReportService {
           // Same bucket rule as Completed Orders, so the two breakdowns are comparable.
           installClosed[bucket]++;
           installClosed.total++;
+        }
+
+        if (activity.sameDayCompleted) {
+          sameDayCompleted++;
         }
 
         // Returns mirror the Return page: capture instant anchor, PAT-REJECTED excluded.
@@ -882,6 +933,7 @@ export class ReportService {
         returned,
         wiredOnly,
         installClosed,
+        sameDayCompleted,
         delays,
         balance,
         shortages
