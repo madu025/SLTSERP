@@ -1480,9 +1480,15 @@ export class SODSyncService {
         const toUpdate: { existing: { id: string; soNum?: string | null; status: string; sltsStatus: string; returnReason?: string | null; contractorId?: string | null; completedDate?: Date | null; receivedDate?: Date | null; comments?: string | null; completionMode?: string | null; rtom?: string | null; statusDate?: Date | null }, updatePayload: Prisma.ServiceOrderUncheckedUpdateInput, initialSltsStatus: string }[] = [];
 
         for (const item of syncableData) {
-            // Skip INSTALL_CLOSED — handled exclusively by completed-sod-sync service
+            // Skip INSTALL_CLOSED for new rows or rows already INSTALL_CLOSED (completed-sod-sync owns completion).
+            // But allow existing active/prov-closed rows to advance to INSTALL_CLOSED when reported by ftthpen.
             const cleanStatusForSkip = (item.CON_STATUS || '').toUpperCase().trim();
-            if (cleanStatusForSkip === 'INSTALL_CLOSED') continue;
+            const existingForSkip = existingMap.get(item.SO_NUM);
+            if (cleanStatusForSkip === 'INSTALL_CLOSED') {
+                if (!existingForSkip || existingForSkip.sltsStatus === 'INSTALL_CLOSED') {
+                    continue;
+                }
+            }
 
             const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
             const cleanStatus = (item.CON_STATUS || '').toUpperCase().trim();
