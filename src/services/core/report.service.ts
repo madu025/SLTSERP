@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { subMonths, subDays, subYears, format } from 'date-fns';
-import { getSriLankaToday, getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
+import { getSriLankaToday, getSriLankaStartOfDay, getSriLankaEndOfDay, getSriLankaStartOfMonth } from '@/lib/timezone';
 import { PaymentTypeEnum, PaymentStatusEnum, Prisma, ServiceOrderStatus } from '@prisma/client';
 import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES, categorizeSodOrder } from '@/lib/constants/sod-constants';
 import { classifySodDayActivity, type SodDayActivitySource, type SodDayWindow } from './daily-report-activity';
@@ -15,6 +15,25 @@ export interface AnalyticsReportOptions {
 
 export interface DailyOperationalReportOptions {
   date?: string | null;
+}
+
+export interface MonthlyPipelineEntry {
+  region: string;
+  province: string;
+  rtom: string;
+  mtdCompleted: number;
+  monthInstallClosed: number;
+  completedFromInstallClosed: number;
+  pendingCompletion: number;
+  conversionRate: number;
+}
+
+export interface MonthlyPipelineGrandTotal {
+  mtdCompleted: number;
+  monthInstallClosed: number;
+  completedFromInstallClosed: number;
+  pendingCompletion: number;
+  conversionRate: number;
 }
 
 export interface PaymentsReportOptions {
@@ -95,7 +114,7 @@ interface ShortagesEntry {
   ont: number;
 }
 
-interface ReportRow {
+export interface ReportRow {
   region: string;
   province: string;
   rtom: string;
@@ -464,6 +483,9 @@ export class ReportService {
     const selectedDate = date ? new Date(date) : new Date();
     const dateKey = date || slDateKey(selectedDate);
 
+    // Compute monthly invoicing and completion pipeline in parallel
+    const monthlyPipelineData = await ReportService.computeMonthlyPipeline(selectedDate);
+
     // Past days are served verbatim from the frozen end-of-day snapshot; live fallback when none exists.
     if (selectedDate < getSriLankaStartOfDay(new Date())) {
       try {
@@ -474,6 +496,8 @@ export class ReportService {
         if (snaps.length > 0) {
           return {
             reportData: snaps.map(s => s.payload as unknown as ReportRow),
+            monthlyPipeline: monthlyPipelineData.pipeline,
+            monthlyPipelineGrandTotal: monthlyPipelineData.grandTotal,
             date: dateKey,
             snapshot: true
           };
@@ -496,8 +520,96 @@ export class ReportService {
 
     return {
       reportData,
+      monthlyPipeline: monthlyPipelineData.pipeline,
+      monthlyPipelineGrandTotal: monthlyPipelineData.grandTotal,
       date: dateKey,
       snapshot: false
+    };
+  }
+
+  /** Compute Month-to-Date Completed and Monthly Invoicing Pipeline per RTOM. */
+  public static async computeMonthlyPipeline(selectedDate: Date): Promise<{
+    pipeline: MonthlyPipelineEntry[];
+    grandTotal: MonthlyPipelineGrandTotal;
+  }> {
+    const startOfM = getSriLankaStartOfMonth(selectedDate);
+    const endOfDayM = getSriLankaEndOfDay(selectedDate);
+
+    // 1. MTD Total Completed (completedDate between startOfMonth and endOfDayM)
+    const mtdCompletedGrouped = await prisma.serviceOrder.groupBy({
+      by: ['rtom'],
+      where: {
+        sltsStatus: 'COMPLETED',
+        completedDate: { gte: startOfM, lte: endOfDayM }
+      },
+      _count: { id: true }
+    });
+    const mtdCompletedMap = new Map(mtdCompletedGrouped.map(g => [g.rtom || 'UNKNOWN', g._count.id]));
+
+    // 2. Month Install Closed base (SODs whose physical completion happened in this month)
+    const monthInstallClosedGrouped = await prisma.serviceOrder.groupBy({
+      by: ['rtom', 'sltsStatus'],
+      where: {
+        sltsStatus: { in: ['INSTALL_CLOSED', 'COMPLETED'] },
+        completedDate: { gte: startOfM, lte: endOfDayM }
+      },
+      _count: { id: true }
+    });
+
+    const rtomStats = new Map<string, { installClosed: number; completed: number }>();
+    for (const row of monthInstallClosedGrouped) {
+      const rtom = row.rtom || 'UNKNOWN';
+      if (!rtomStats.has(rtom)) {
+        rtomStats.set(rtom, { installClosed: 0, completed: 0 });
+      }
+      const stat = rtomStats.get(rtom)!;
+      if (row.sltsStatus === 'INSTALL_CLOSED') {
+        stat.installClosed += row._count.id;
+      } else if (row.sltsStatus === 'COMPLETED') {
+        stat.completed += row._count.id;
+      }
+    }
+
+    const opmcs = await prisma.oPMC.findMany({
+      select: { rtom: true, region: true, province: true },
+      orderBy: [{ region: 'asc' }, { province: 'asc' }, { rtom: 'asc' }]
+    });
+
+    const pipeline: MonthlyPipelineEntry[] = opmcs.map(o => {
+      const mtdComp = mtdCompletedMap.get(o.rtom) || 0;
+      const stat = rtomStats.get(o.rtom) || { installClosed: 0, completed: 0 };
+      const monthIC = stat.installClosed + stat.completed;
+      const completedFromIC = stat.completed;
+      const pendingCompletion = stat.installClosed;
+      const conversionRate = monthIC > 0 ? Math.round((completedFromIC / monthIC) * 1000) / 10 : 0;
+
+      return {
+        region: o.region,
+        province: o.province,
+        rtom: o.rtom,
+        mtdCompleted: mtdComp,
+        monthInstallClosed: monthIC,
+        completedFromInstallClosed: completedFromIC,
+        pendingCompletion: pendingCompletion,
+        conversionRate
+      };
+    });
+
+    const totalMtdComp = pipeline.reduce((sum, r) => sum + r.mtdCompleted, 0);
+    const totalIC = pipeline.reduce((sum, r) => sum + r.monthInstallClosed, 0);
+    const totalCompFromIC = pipeline.reduce((sum, r) => sum + r.completedFromInstallClosed, 0);
+    const totalPending = pipeline.reduce((sum, r) => sum + r.pendingCompletion, 0);
+    const totalRate = totalIC > 0 ? Math.round((totalCompFromIC / totalIC) * 1000) / 10 : 0;
+
+    return {
+      pipeline,
+      grandTotal: {
+        mtdCompleted: totalMtdComp,
+        monthInstallClosed: totalIC,
+        completedFromInstallClosed: totalCompFromIC,
+        pendingCompletion: totalPending,
+        conversionRate: totalRate
+      }
     };
   }
 

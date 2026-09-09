@@ -385,6 +385,10 @@
   * **Methods**:
     * `getAnalyticsReport(view: string, period: string, options: AnalyticsReportOptions): any`
     * `getDailyOperationalReport(options: DailyOperationalReportOptions): any`
+    * `computeMonthlyPipeline(selectedDate: Date): Promise<{
+    pipeline: MonthlyPipelineEntry[];
+    grandTotal: MonthlyPipelineGrandTotal;
+  }>`
     * `writeDailyReportSnapshot(dateKey: string, reportData: ReportRow[]): Promise<void>`
     * `persistDailyReportSnapshot(dateKey: string): Promise<number>`
     * `persistClosedSriLankaDaySnapshot(): Promise<{ dateKey: string; rows: number }>`

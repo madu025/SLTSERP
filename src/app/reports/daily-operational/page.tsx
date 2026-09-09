@@ -61,8 +61,29 @@ interface ReportRowData {
     shortages: { [key: string]: number; stb: number; ont: number };
 }
 
+export interface MonthlyPipelineEntry {
+    region: string;
+    province: string;
+    rtom: string;
+    mtdCompleted: number;
+    monthInstallClosed: number;
+    completedFromInstallClosed: number;
+    pendingCompletion: number;
+    conversionRate: number;
+}
+
+export interface MonthlyPipelineGrandTotal {
+    mtdCompleted: number;
+    monthInstallClosed: number;
+    completedFromInstallClosed: number;
+    pendingCompletion: number;
+    conversionRate: number;
+}
+
 interface ReportData {
     reportData: ReportRowData[];
+    monthlyPipeline?: MonthlyPipelineEntry[];
+    monthlyPipelineGrandTotal?: MonthlyPipelineGrandTotal;
     date: string;
 }
 
@@ -197,6 +218,43 @@ export default function DailyOperationalReportPage() {
     }, [hydrated, fetchReport]);
 
     const reportData = data?.reportData || [];
+    const monthlyPipeline = data?.monthlyPipeline || [];
+    const monthlyPipelineGrandTotal = data?.monthlyPipelineGrandTotal || null;
+
+    const calculateMonthlyPipelineSummaries = (pipeline: MonthlyPipelineEntry[]): Record<string, MonthlyPipelineEntry> => {
+        const regionSummaries: Record<string, MonthlyPipelineEntry> = {};
+        pipeline.forEach((item) => {
+            if (!regionSummaries[item.region]) {
+                regionSummaries[item.region] = {
+                    region: item.region,
+                    province: item.province,
+                    rtom: `${item.region} TOTAL`,
+                    mtdCompleted: 0,
+                    monthInstallClosed: 0,
+                    completedFromInstallClosed: 0,
+                    pendingCompletion: 0,
+                    conversionRate: 0,
+                };
+            }
+            const reg = regionSummaries[item.region];
+            reg.mtdCompleted += item.mtdCompleted;
+            reg.monthInstallClosed += item.monthInstallClosed;
+            reg.completedFromInstallClosed += item.completedFromInstallClosed;
+            reg.pendingCompletion += item.pendingCompletion;
+        });
+
+        Object.values(regionSummaries).forEach((reg) => {
+            reg.conversionRate = reg.monthInstallClosed > 0
+                ? Math.round((reg.completedFromInstallClosed / reg.monthInstallClosed) * 1000) / 10
+                : 0;
+        });
+
+        return regionSummaries;
+    };
+
+    const monthlyPipelineSummaries = monthlyPipeline.length > 0
+        ? calculateMonthlyPipelineSummaries(monthlyPipeline)
+        : {};
 
     const calculateSummaries = (): { summaries: Record<string, ReportRowData>, grandTotal: ReportRowData } => {
         const summaries: Record<string, ReportRowData> = {};
@@ -352,6 +410,48 @@ export default function DailyOperationalReportPage() {
         const ws = XLSX.utils.aoa_to_sheet(worksheetData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Daily Operational Report");
+
+        // Add Monthly Invoicing Pipeline sheet if data exists
+        if (monthlyPipeline.length > 0) {
+            const pipelineSheetData: (string | number)[][] = [
+                ["Province", "RTOM", "MTD Completed", "Month Install Closed (Invoicing Target Pool)", "Converted to Completed (PAT Passed)", "Pending Completion (Staff Action Backlog)", "Conversion Rate %"]
+            ];
+
+            let pRegion = '';
+            monthlyPipeline.forEach((row) => {
+                if (pRegion !== row.region) {
+                    if (pRegion && monthlyPipelineSummaries[pRegion]) {
+                        const s = monthlyPipelineSummaries[pRegion];
+                        pipelineSheetData.push([
+                            "", `${pRegion} TOTAL`, s.mtdCompleted, s.monthInstallClosed, s.completedFromInstallClosed, s.pendingCompletion, `${s.conversionRate}%`
+                        ]);
+                    }
+                    pRegion = row.region;
+                    pipelineSheetData.push([row.region, "", "", "", "", "", ""]);
+                }
+
+                pipelineSheetData.push([
+                    row.province, row.rtom, row.mtdCompleted, row.monthInstallClosed, row.completedFromInstallClosed, row.pendingCompletion, `${row.conversionRate}%`
+                ]);
+            });
+
+            if (pRegion && monthlyPipelineSummaries[pRegion]) {
+                const s = monthlyPipelineSummaries[pRegion];
+                pipelineSheetData.push([
+                    "", `${pRegion} TOTAL`, s.mtdCompleted, s.monthInstallClosed, s.completedFromInstallClosed, s.pendingCompletion, `${s.conversionRate}%`
+                ]);
+            }
+
+            if (monthlyPipelineGrandTotal) {
+                pipelineSheetData.push([
+                    "GRAND TOTAL", "", monthlyPipelineGrandTotal.mtdCompleted, monthlyPipelineGrandTotal.monthInstallClosed, monthlyPipelineGrandTotal.completedFromInstallClosed, monthlyPipelineGrandTotal.pendingCompletion, `${monthlyPipelineGrandTotal.conversionRate}%`
+                ]);
+            }
+
+            const wsPipeline = XLSX.utils.aoa_to_sheet(pipelineSheetData);
+            XLSX.utils.book_append_sheet(wb, wsPipeline, "Monthly Invoicing Pipeline");
+        }
+
         XLSX.writeFile(wb, `Daily_Operational_Report_${selectedDate}.xlsx`);
     };
 
@@ -412,6 +512,22 @@ export default function DailyOperationalReportPage() {
             `SODs inhand - STB shortage :\t${row.shortages.stb}`,
             `SODs inhand - ONT shortage :\t${row.shortages.ont}`,
         ].join('\n'));
+
+        if (monthlyPipelineGrandTotal) {
+            const pipelineSummary = [
+                `========================================`,
+                `MONTHLY INVOICING & COMPLETION PIPELINE (${dateStr})`,
+                `========================================`,
+                `MTD Total Completed :\t${monthlyPipelineGrandTotal.mtdCompleted}`,
+                `Month Install Closed Base :\t${monthlyPipelineGrandTotal.monthInstallClosed}`,
+                `Converted to Completed (PAT Passed) :\t${monthlyPipelineGrandTotal.completedFromInstallClosed}`,
+                `Pending Completion Backlog :\t${monthlyPipelineGrandTotal.pendingCompletion}`,
+                `Overall Invoicing Conversion Rate :\t${monthlyPipelineGrandTotal.conversionRate}%`,
+                `========================================`
+            ].join('\n');
+            blocks.push(pipelineSummary);
+        }
+
         return blocks.join('\n\n----------------------------------------\n\n');
     };
 
@@ -639,6 +755,173 @@ export default function DailyOperationalReportPage() {
                             </table>
                         </div>
                     </div>
+
+                    {monthlyPipeline.length > 0 && (
+                        <div className="space-y-4">
+                            <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-xl p-5 text-white shadow-md">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                Telecom Invoicing Control
+                                            </span>
+                                            <span className="text-xs text-slate-300">Month-To-Date (MTD)</span>
+                                        </div>
+                                        <h2 className="text-lg font-bold text-white tracking-wide">
+                                            Monthly Invoicing & Completion Pipeline
+                                        </h2>
+                                        <p className="text-xs text-slate-300 max-w-3xl mt-0.5">
+                                            Only SODs that reach <span className="text-blue-300 font-semibold">INSTALL_CLOSED</span> within the month are eligible for Telecom Invoicing upon completion. Operational staff must aggressively convert all <span className="text-amber-300 font-semibold">INSTALL_CLOSED</span> orders into <span className="text-emerald-300 font-semibold">COMPLETED</span> before month-end.
+                                        </p>
+                                    </div>
+                                    {monthlyPipelineGrandTotal && (
+                                        <div className="flex items-center gap-3 bg-white/10 rounded-lg px-4 py-2.5 backdrop-blur-sm border border-white/10">
+                                            <div className="text-right">
+                                                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-300">Overall Conversion</div>
+                                                <div className="text-2xl font-black text-emerald-400">{monthlyPipelineGrandTotal.conversionRate}%</div>
+                                            </div>
+                                            <div className="h-8 w-px bg-white/20" />
+                                            <div className="text-right">
+                                                <div className="text-[10px] uppercase font-bold tracking-wider text-slate-300">Pending Backlog</div>
+                                                <div className="text-2xl font-black text-amber-300">{monthlyPipelineGrandTotal.pendingCompletion}</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {monthlyPipelineGrandTotal && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-white/10 text-slate-100">
+                                        <div className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                            <div className="text-[11px] text-slate-400 font-medium uppercase">MTD Total Completed</div>
+                                            <div className="text-xl font-bold text-white mt-1">{monthlyPipelineGrandTotal.mtdCompleted}</div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">All orders finished MTD</div>
+                                        </div>
+                                        <div className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                            <div className="text-[11px] text-blue-300 font-medium uppercase">Month Install Closed</div>
+                                            <div className="text-xl font-bold text-blue-300 mt-1">{monthlyPipelineGrandTotal.monthInstallClosed}</div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">Invoicing Target Pool</div>
+                                        </div>
+                                        <div className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                            <div className="text-[11px] text-emerald-300 font-medium uppercase">Converted to Completed</div>
+                                            <div className="text-xl font-bold text-emerald-300 mt-1">{monthlyPipelineGrandTotal.completedFromInstallClosed}</div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">PAT Passed & Invoicable</div>
+                                        </div>
+                                        <div className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                            <div className="text-[11px] text-amber-300 font-medium uppercase">Pending Completion</div>
+                                            <div className="text-xl font-bold text-amber-300 mt-1">{monthlyPipelineGrandTotal.pendingCompletion}</div>
+                                            <div className="text-[10px] text-amber-300/80 mt-0.5">Action Backlog for Staff</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
+                                    <table className="w-full text-[11px] border-collapse report-table-dark">
+                                        <thead className="bg-slate-900 text-white sticky top-0 z-10">
+                                            <tr className="divide-x divide-slate-700">
+                                                <th className="px-2 py-2 text-left w-24 bg-slate-900">Province</th>
+                                                <th className="px-2 py-2 text-center w-20 bg-slate-900">RTOM</th>
+                                                <th className="px-2 py-2 text-center w-28 bg-slate-800 text-white">MTD Total<br />Completed</th>
+                                                <th className="px-2 py-2 text-center w-32 bg-blue-800 text-white">Month Install Closed<br />(Invoicing Base)</th>
+                                                <th className="px-2 py-2 text-center w-32 bg-emerald-800 text-white">Converted to<br />Completed (PAT)</th>
+                                                <th className="px-2 py-2 text-center w-32 bg-amber-800 text-white">Pending Completion<br />(Staff Backlog)</th>
+                                                <th className="px-2 py-2 text-center w-24 bg-indigo-800 text-white">Conversion<br />Rate %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white">
+                                            {(() => {
+                                                let currentRegion = '';
+                                                const rows: React.ReactNode[] = [];
+
+                                                monthlyPipeline.forEach((row, idx) => {
+                                                    if (currentRegion !== row.region) {
+                                                        if (currentRegion && monthlyPipelineSummaries[currentRegion]) {
+                                                            const s = monthlyPipelineSummaries[currentRegion];
+                                                            rows.push(
+                                                                <tr key={`pipeline-summary-${currentRegion}`} className="bg-indigo-200/70 font-bold text-indigo-950 border-b border-indigo-300">
+                                                                    <td colSpan={2} className="border border-slate-300 px-2 py-1.5 text-right uppercase tracking-wider">{currentRegion} TOTAL</td>
+                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-bold text-slate-900">{s.mtdCompleted}</td>
+                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-bold text-blue-900 bg-blue-100/50">{s.monthInstallClosed}</td>
+                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-bold text-emerald-900 bg-emerald-100/50">{s.completedFromInstallClosed}</td>
+                                                                    <td className={`border border-slate-300 px-1 py-1 text-center font-black ${s.pendingCompletion > 0 ? 'bg-amber-200/70 text-amber-950' : 'text-slate-700'}`}>{s.pendingCompletion}</td>
+                                                                    <td className="border border-slate-300 px-1 py-1 text-center font-black text-indigo-900 bg-indigo-100/60">{s.conversionRate}%</td>
+                                                                </tr>
+                                                            );
+                                                        }
+
+                                                        currentRegion = row.region;
+                                                        rows.push(
+                                                            <tr key={`pipeline-header-${row.region}`} className="bg-slate-200 border-y border-slate-300">
+                                                                <td colSpan={7} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
+                                                            </tr>
+                                                        );
+                                                    }
+
+                                                    rows.push(
+                                                        <tr key={`pipeline-${idx}-${row.rtom}`} className="hover:bg-blue-50/40 border-b group transition-colors">
+                                                            <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[10px] uppercase">{row.province}</td>
+                                                            <td className="border border-slate-200 px-2 py-1 text-center font-bold text-slate-900">{row.rtom}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center font-medium text-slate-800 bg-slate-50/50">{row.mtdCompleted}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center font-bold text-blue-700 bg-blue-50/40">{row.monthInstallClosed}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center font-bold text-emerald-700 bg-emerald-50/40">{row.completedFromInstallClosed}</td>
+                                                            <td className={`border border-slate-200 px-1 py-1 text-center font-bold ${row.pendingCompletion > 0 ? 'bg-amber-50 text-amber-900 font-black' : 'text-slate-500'}`}>
+                                                                {row.pendingCompletion > 0 ? (
+                                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200 text-[10px]">
+                                                                        {row.pendingCompletion}
+                                                                    </span>
+                                                                ) : (
+                                                                    0
+                                                                )}
+                                                            </td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center font-bold">
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black ${
+                                                                    row.conversionRate >= 80 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                                                    row.conversionRate >= 50 ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                                                    'bg-amber-100 text-amber-800 border border-amber-200'
+                                                                }`}>
+                                                                    {row.conversionRate}%
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
+
+                                                if (currentRegion && monthlyPipelineSummaries[currentRegion]) {
+                                                    const s = monthlyPipelineSummaries[currentRegion];
+                                                    rows.push(
+                                                        <tr key={`pipeline-summary-${currentRegion}`} className="bg-indigo-200/70 font-bold text-indigo-950 border-b border-indigo-300">
+                                                            <td colSpan={2} className="border border-slate-300 px-2 py-1.5 text-right uppercase tracking-wider">{currentRegion} TOTAL</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-slate-900">{s.mtdCompleted}</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-blue-900 bg-blue-100/50">{s.monthInstallClosed}</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-emerald-900 bg-emerald-100/50">{s.completedFromInstallClosed}</td>
+                                                            <td className={`border border-slate-300 px-1 py-1 text-center font-black ${s.pendingCompletion > 0 ? 'bg-amber-200/70 text-amber-950' : 'text-slate-700'}`}>{s.pendingCompletion}</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-black text-indigo-900 bg-indigo-100/60">{s.conversionRate}%</td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                if (monthlyPipelineGrandTotal) {
+                                                    rows.push(
+                                                        <tr key="pipeline-grand-total" className="bg-slate-900 text-white font-bold border-t-2 border-slate-700">
+                                                            <td colSpan={2} className="border border-slate-700 px-2 py-2 text-right uppercase tracking-wider text-slate-200">GRAND TOTAL</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-white">{monthlyPipelineGrandTotal.mtdCompleted}</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-blue-300 bg-blue-950/60">{monthlyPipelineGrandTotal.monthInstallClosed}</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-emerald-300 bg-emerald-950/60">{monthlyPipelineGrandTotal.completedFromInstallClosed}</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-amber-300 bg-amber-950/60">{monthlyPipelineGrandTotal.pendingCompletion}</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-emerald-400 bg-slate-800">{monthlyPipelineGrandTotal.conversionRate}%</td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                return rows;
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {reportData.length > 0 && (
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

@@ -68,3 +68,22 @@ export function getSriLankaEndOfDay(date: Date | string = new Date()): Date {
     const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
     return end;
 }
+
+/**
+ * Returns the start of the month in Sri Lanka Timezone as a Date object (UTC)
+ */
+export function getSriLankaStartOfMonth(date: Date | string = new Date()): Date {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    const sltStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Colombo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(d);
+    const [year, month] = sltStr.split('-').map(Number);
+    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    start.setMinutes(start.getMinutes() - 330);
+    return start;
+}
+
+
