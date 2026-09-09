@@ -2856,19 +2856,38 @@ export class SODSyncService {
 
                     const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_']) : null);
                     if (item) {
-                        await prisma.sODMaterialUsage.create({
+                        let validatedSerial: string | null = null;
+                        const serialCandidate = matSerial ? String(matSerial).trim() : null;
+                        if (serialCandidate) {
+                            const existingSerial = await prisma.inventoryItemSerial.findUnique({
+                                where: { serialNumber: serialCandidate },
+                                select: { serialNumber: true }
+                            });
+                            if (existingSerial) {
+                                validatedSerial = existingSerial.serialNumber;
+                            }
+                        }
+
+                        const commentText = serialCandidate && !validatedSerial
+                            ? `Auto-synced from Portal (Serial: ${serialCandidate})`
+                            : `Auto-synced from Portal`;
+
+                        const [usageErr] = await safe(prisma.sODMaterialUsage.create({
                             data: {
                                 serviceOrderId: syncedOrder.id,
                                 itemId: item.id,
                                 quantity: qty,
                                 unit: item.unit || "Nos",
                                 usageType: 'PORTAL_SYNC',
-                                serialNumber: matSerial || null,
+                                serialNumber: validatedSerial,
                                 unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
                                 costPrice: item.costPrice ? Number(item.costPrice) : 0,
-                                comment: `Auto-synced from Portal`
+                                comment: commentText
                             }
-                        });
+                        }));
+                        if (usageErr) {
+                            console.error(`[BRIDGE-SYNC] Failed to create material usage for SO ${syncedOrder.soNum}, item ${item.code}:`, usageErr);
+                        }
                     }
                 }
             }
