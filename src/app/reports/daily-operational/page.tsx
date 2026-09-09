@@ -57,6 +57,8 @@ interface ReportRowData {
     wiredOnly: ReportMetrics;
     installClosed: CompletedMetrics;
     sameDayCompleted?: number;
+    intakeSameDayCompleted?: number;
+    backlogSameDayCompleted?: number;
     delays: Record<string, number>;
     balance: ReportMetrics;
     shortages: { [key: string]: number; stb: number; ont: number };
@@ -73,6 +75,8 @@ export interface MonthlyPipelineEntry {
     patRejected: number;
     pendingFinalPat: number;
     sameDayCompleted: number;
+    intakeSameDayCompleted: number;
+    backlogSameDayCompleted: number;
     sameDayRate: number;
     finalPatConversionRate: number;
 }
@@ -85,6 +89,8 @@ export interface MonthlyPipelineGrandTotal {
     patRejected: number;
     pendingFinalPat: number;
     sameDayCompleted: number;
+    intakeSameDayCompleted: number;
+    backlogSameDayCompleted: number;
     sameDayRate: number;
     finalPatConversionRate: number;
 }
@@ -245,6 +251,8 @@ export default function DailyOperationalReportPage() {
                     patRejected: 0,
                     pendingFinalPat: 0,
                     sameDayCompleted: 0,
+                    intakeSameDayCompleted: 0,
+                    backlogSameDayCompleted: 0,
                     sameDayRate: 0,
                     finalPatConversionRate: 0,
                 };
@@ -257,6 +265,8 @@ export default function DailyOperationalReportPage() {
             reg.patRejected += item.patRejected;
             reg.pendingFinalPat += item.pendingFinalPat;
             reg.sameDayCompleted += item.sameDayCompleted;
+            reg.intakeSameDayCompleted += item.intakeSameDayCompleted;
+            reg.backlogSameDayCompleted += item.backlogSameDayCompleted;
         });
 
         Object.values(regionSummaries).forEach((reg) => {
@@ -292,6 +302,8 @@ export default function DailyOperationalReportPage() {
             wiredOnly: { nc: 0, rl: 0, data: 0, total: 0 },
             installClosed: { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 },
             sameDayCompleted: 0,
+            intakeSameDayCompleted: 0,
+            backlogSameDayCompleted: 0,
             delays: { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 },
             balance: { nc: 0, rl: 0, data: 0, total: 0 },
             shortages: { stb: 0, ont: 0 }
@@ -327,6 +339,8 @@ export default function DailyOperationalReportPage() {
             acc(summaries[region].wiredOnly, row.wiredOnly);
             acc(summaries[region].installClosed, row.installClosed);
             summaries[region].sameDayCompleted = (summaries[region].sameDayCompleted || 0) + (row.sameDayCompleted || 0);
+            summaries[region].intakeSameDayCompleted = (summaries[region].intakeSameDayCompleted || 0) + (row.intakeSameDayCompleted || 0);
+            summaries[region].backlogSameDayCompleted = (summaries[region].backlogSameDayCompleted || 0) + (row.backlogSameDayCompleted || 0);
             acc(summaries[region].delays, row.delays);
             acc(summaries[region].balance, row.balance);
             acc(summaries[region].shortages, row.shortages);
@@ -894,12 +908,19 @@ export default function DailyOperationalReportPage() {
                                             </div>
                                         </div>
                                         <div className="bg-white/5 rounded-lg p-3 border border-indigo-500/20">
-                                            <div className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Same-Day Done</div>
+                                            <div className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Same-Day Turnaround</div>
                                             <div className="text-2xl font-black text-indigo-300 mt-1">
                                                 {monthlyPipelineGrandTotal.sameDayCompleted}
                                                 <span className="text-xs font-normal text-slate-300 ml-1">({monthlyPipelineGrandTotal.sameDayRate}%)</span>
                                             </div>
-                                            <div className="text-[10px] text-indigo-300/90 mt-0.5 font-semibold">Zero Backlog Turnaround</div>
+                                            <div className="text-[10px] text-slate-300 mt-0.5 flex flex-wrap gap-x-2">
+                                                <span className="text-emerald-300 font-medium" title="Today Received ➔ Today Install Closed ➔ Today Completed">
+                                                    ⚡ {monthlyPipelineGrandTotal.intakeSameDayCompleted} Intake
+                                                </span>
+                                                <span className="text-indigo-300 font-medium" title="Past Received ➔ Today Install Closed ➔ Today Completed">
+                                                    🔄 {monthlyPipelineGrandTotal.backlogSameDayCompleted} Backlog
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -974,8 +995,13 @@ export default function DailyOperationalReportPage() {
                                                                     0
                                                                 )}
                                                             </td>
-                                                            <td className="border border-slate-200 px-1 py-1 text-center font-bold text-indigo-700 bg-indigo-50/30">
-                                                                {row.sameDayCompleted}
+                                                            <td className="border border-slate-200 px-1 py-1 text-center font-bold text-indigo-700 bg-indigo-50/30" title={`Intake Same-Day: ${row.intakeSameDayCompleted} | Backlog Same-Day: ${row.backlogSameDayCompleted}`}>
+                                                                <div>{row.sameDayCompleted}</div>
+                                                                {(row.intakeSameDayCompleted > 0 || row.backlogSameDayCompleted > 0) && (
+                                                                    <div className="text-[9px] font-normal text-slate-500">
+                                                                        {row.intakeSameDayCompleted}⚡/{row.backlogSameDayCompleted}🔄
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             <td className="border border-slate-200 px-1 py-1 text-center font-semibold text-indigo-900">
                                                                 {row.sameDayRate}%
@@ -1004,7 +1030,12 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-300 px-1 py-1 text-center font-black text-teal-950 bg-teal-100/70">{s.finalPatPassed}</td>
                                                             <td className="border border-slate-300 px-1 py-1 text-center font-bold text-rose-900 bg-rose-50">{s.patRejected}</td>
                                                             <td className={`border border-slate-300 px-1 py-1 text-center font-black ${s.pendingFinalPat > 0 ? 'bg-amber-200/70 text-amber-950' : 'text-slate-700'}`}>{s.pendingFinalPat}</td>
-                                                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-indigo-950 bg-indigo-100/60">{s.sameDayCompleted}</td>
+                                                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-indigo-950 bg-indigo-100/60" title={`Intake Same-Day: ${s.intakeSameDayCompleted} | Backlog Same-Day: ${s.backlogSameDayCompleted}`}>
+                                                                <div>{s.sameDayCompleted}</div>
+                                                                <div className="text-[9px] font-normal text-indigo-800">
+                                                                    {s.intakeSameDayCompleted}⚡/{s.backlogSameDayCompleted}🔄
+                                                                </div>
+                                                            </td>
                                                             <td className="border border-slate-300 px-1 py-1 text-center font-bold text-indigo-900">{s.sameDayRate}%</td>
                                                             <td className="border border-slate-300 px-1 py-1 text-center font-black text-emerald-950 bg-emerald-100/60">{s.finalPatConversionRate}%</td>
                                                         </tr>
@@ -1021,7 +1052,12 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-teal-300 bg-teal-950/80">{monthlyPipelineGrandTotal.finalPatPassed}</td>
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-rose-300 bg-rose-950/60">{monthlyPipelineGrandTotal.patRejected}</td>
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-amber-300 bg-amber-950/70">{monthlyPipelineGrandTotal.pendingFinalPat}</td>
-                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-indigo-300 bg-indigo-950/70">{monthlyPipelineGrandTotal.sameDayCompleted}</td>
+                                                            <td className="border border-slate-700 px-1 py-2 text-center font-black text-indigo-300 bg-indigo-950/70" title={`Intake Same-Day: ${monthlyPipelineGrandTotal.intakeSameDayCompleted} | Backlog Same-Day: ${monthlyPipelineGrandTotal.backlogSameDayCompleted}`}>
+                                                                <div>{monthlyPipelineGrandTotal.sameDayCompleted}</div>
+                                                                <div className="text-[9px] font-normal text-indigo-300">
+                                                                    {monthlyPipelineGrandTotal.intakeSameDayCompleted}⚡/{monthlyPipelineGrandTotal.backlogSameDayCompleted}🔄
+                                                                </div>
+                                                            </td>
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-indigo-300">{monthlyPipelineGrandTotal.sameDayRate}%</td>
                                                             <td className="border border-slate-700 px-1 py-2 text-center font-black text-emerald-400 bg-slate-800">{monthlyPipelineGrandTotal.finalPatConversionRate}%</td>
                                                         </tr>

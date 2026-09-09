@@ -28,6 +28,8 @@ export interface MonthlyPipelineEntry {
   patRejected: number;
   pendingFinalPat: number;
   sameDayCompleted: number;
+  intakeSameDayCompleted: number;
+  backlogSameDayCompleted: number;
   sameDayRate: number;
   finalPatConversionRate: number;
 }
@@ -40,6 +42,8 @@ export interface MonthlyPipelineGrandTotal {
   patRejected: number;
   pendingFinalPat: number;
   sameDayCompleted: number;
+  intakeSameDayCompleted: number;
+  backlogSameDayCompleted: number;
   sameDayRate: number;
   finalPatConversionRate: number;
 }
@@ -137,6 +141,8 @@ export interface ReportRow {
   wiredOnly: WiredOnlyEntry;
   installClosed: InstallClosedEntry;
   sameDayCompleted: number;
+  intakeSameDayCompleted: number;
+  backlogSameDayCompleted: number;
   delays: DelaysEntry;
   balance: BalanceEntry;
   shortages: ShortagesEntry;
@@ -572,6 +578,8 @@ export class ReportService {
       finalPatPassed: number;
       patRejected: number;
       sameDayCompleted: number;
+      intakeSameDayCompleted: number;
+      backlogSameDayCompleted: number;
     }
 
     const funnelMap = new Map<string, RtomFunnelStat>();
@@ -584,7 +592,9 @@ export class ReportService {
           opmcPatPassed: 0,
           finalPatPassed: 0,
           patRejected: 0,
-          sameDayCompleted: 0
+          sameDayCompleted: 0,
+          intakeSameDayCompleted: 0,
+          backlogSameDayCompleted: 0
         });
       }
       const st = funnelMap.get(rtom)!;
@@ -595,13 +605,18 @@ export class ReportService {
 
         if (o.completedDate) {
           const compKey = slDateKey(o.completedDate);
-          const isSameDay =
+          const isIntakeSameDay =
             (o.receivedDate && slDateKey(o.receivedDate) === compKey) ||
-            (o.createdAt && slDateKey(o.createdAt) === compKey) ||
-            o.statusHistory.some(h => h.statusDate && slDateKey(h.statusDate) === compKey);
+            (o.createdAt && slDateKey(o.createdAt) === compKey);
 
-          if (isSameDay) {
+          const isIcSameDay = o.statusHistory.some(h => h.statusDate && slDateKey(h.statusDate) === compKey);
+
+          if (isIntakeSameDay) {
             st.sameDayCompleted++;
+            st.intakeSameDayCompleted++;
+          } else if (isIcSameDay) {
+            st.sameDayCompleted++;
+            st.backlogSameDayCompleted++;
           }
         }
       }
@@ -630,7 +645,9 @@ export class ReportService {
         opmcPatPassed: 0,
         finalPatPassed: 0,
         patRejected: 0,
-        sameDayCompleted: 0
+        sameDayCompleted: 0,
+        intakeSameDayCompleted: 0,
+        backlogSameDayCompleted: 0
       };
 
       const pendingFinalPat = Math.max(0, st.monthInstallClosed - st.finalPatPassed);
@@ -652,6 +669,8 @@ export class ReportService {
         patRejected: st.patRejected,
         pendingFinalPat,
         sameDayCompleted: st.sameDayCompleted,
+        intakeSameDayCompleted: st.intakeSameDayCompleted,
+        backlogSameDayCompleted: st.backlogSameDayCompleted,
         sameDayRate,
         finalPatConversionRate
       };
@@ -665,6 +684,8 @@ export class ReportService {
       patRejected: pipeline.reduce((sum, r) => sum + r.patRejected, 0),
       pendingFinalPat: pipeline.reduce((sum, r) => sum + r.pendingFinalPat, 0),
       sameDayCompleted: pipeline.reduce((sum, r) => sum + r.sameDayCompleted, 0),
+      intakeSameDayCompleted: pipeline.reduce((sum, r) => sum + r.intakeSameDayCompleted, 0),
+      backlogSameDayCompleted: pipeline.reduce((sum, r) => sum + r.backlogSameDayCompleted, 0),
       sameDayRate: 0,
       finalPatConversionRate: 0
     };
@@ -842,6 +863,8 @@ export class ReportService {
       const wiredOnly: WiredOnlyEntry = { nc: 0, rl: 0, data: 0, total: 0 };
       const installClosed: InstallClosedEntry = { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 };
       let sameDayCompleted = 0;
+      let intakeSameDayCompleted = 0;
+      let backlogSameDayCompleted = 0;
       const delays: DelaysEntry = { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 };
       // Balance halves counted directly instead of derived by subtracting the day's
       // closures from a queue that already dropped them (inHandMorning is measured on the
@@ -876,6 +899,14 @@ export class ReportService {
 
         if (activity.sameDayCompleted) {
           sameDayCompleted++;
+        }
+
+        if (activity.intakeSameDayCompleted) {
+          intakeSameDayCompleted++;
+        }
+
+        if (activity.backlogSameDayCompleted) {
+          backlogSameDayCompleted++;
         }
 
         // Returns mirror the Return page: capture instant anchor, PAT-REJECTED excluded.
@@ -956,6 +987,8 @@ export class ReportService {
         wiredOnly,
         installClosed,
         sameDayCompleted,
+        intakeSameDayCompleted,
+        backlogSameDayCompleted,
         delays,
         balance,
         shortages

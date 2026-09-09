@@ -56,6 +56,10 @@ export interface SodDayActivity {
   installClosedToday: boolean;
   completedToday: boolean;
   sameDayCompleted: boolean;
+  /** Part 1: Received today -> Install Closed today -> Completed today (Intake Same-Day) */
+  intakeSameDayCompleted: boolean;
+  /** Part 2: Received in past -> Install Closed today -> Completed today (Backlog Same-Day) */
+  backlogSameDayCompleted: boolean;
   returnedToday: boolean;
   patRejected: boolean;
   /** Row state says the SOD was provisionally closed during this day. */
@@ -164,15 +168,21 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
       inWindow(order.completedDate, window) ||
       (!order.completedDate && inWindow(order.statusDate, window)));
 
-  const sameDayClosureEvidence =
-    hasEventInWindow(closureEvidenceHistory, 'INSTALL_CLOSED', window) ||
-    hasEventInWindow(closureEvidenceHistory, 'PROV_CLOSED', window) ||
-    hasEventInWindow(order.statusHistory, 'INSTALL_CLOSED', window) ||
-    hasEventInWindow(order.statusHistory, 'PROV_CLOSED', window) ||
+  const hadIntakeInWindow =
     (order.createdAt >= window.start && order.createdAt <= window.end) ||
     Boolean(order.receivedDate && order.receivedDate >= window.start && order.receivedDate <= window.end);
 
+  const hadIcInWindow =
+    hasEventInWindow(closureEvidenceHistory, 'INSTALL_CLOSED', window) ||
+    hasEventInWindow(closureEvidenceHistory, 'PROV_CLOSED', window) ||
+    hasEventInWindow(order.statusHistory, 'INSTALL_CLOSED', window) ||
+    hasEventInWindow(order.statusHistory, 'PROV_CLOSED', window);
+
+  const sameDayClosureEvidence = hadIntakeInWindow || hadIcInWindow;
+
   const sameDayCompleted = Boolean(completedToday && sameDayClosureEvidence);
+  const intakeSameDayCompleted = Boolean(completedToday && hadIntakeInWindow);
+  const backlogSameDayCompleted = Boolean(completedToday && !hadIntakeInWindow && hadIcInWindow);
 
   const returnedToday =
     order.sltsStatus === 'RETURN' &&
@@ -193,6 +203,8 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
     installClosedToday,
     completedToday,
     sameDayCompleted,
+    intakeSameDayCompleted,
+    backlogSameDayCompleted,
     returnedToday,
     patRejected,
     provClosedToday: order.status === 'PROV_CLOSED' && inWindow(order.statusDate, window),
