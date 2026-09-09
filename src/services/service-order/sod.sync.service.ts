@@ -12,7 +12,7 @@ import { SODLifecycleService, SERVICE_ORDER_STATUS_VALUES } from './sod.lifecycl
 import { SodUtils } from './sod.utils';
 import { SystemConfigService } from '@/services/core/system-config.service';
 import { SodStatus, SOD_RETURN_STATUSES, backfillReceiptDate, orderRaiseDateFromSoNum } from '@/lib/constants/sod-constants';
-import { authorityActorFor } from '@/lib/constants/sod-status-policy';
+import { authorityActorFor, isTerminalSltsStatus } from '@/lib/constants/sod-status-policy';
 import { applySodStatus, countDecision } from './sync/sod-status.writer';
 import { SyncAuditService, syncCountersOf, tickWindow } from './sync/sync-audit.service';
 import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
