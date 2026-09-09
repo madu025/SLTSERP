@@ -18,7 +18,7 @@ database/
 tests/
 playwright-report/
 test-results/
-monitoring/
+/monitoring/
 nginx/
 postgres-init/
 ai-tasks/
