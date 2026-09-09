@@ -18,7 +18,8 @@ import type { ConnectionOptions } from 'bullmq';
 
 const QUEUE_OPTIONS: RedisOptions = {
     maxRetriesPerRequest: null, // BullMQ requirement: a command may wait for the connection
-    connectTimeout: 5000,
+    connectTimeout: 2000,
+    retryStrategy: () => null, // Fail fast: do not endlessly reconnect when Redis is unreachable
 };
 
 /**
@@ -48,9 +49,9 @@ const producer = connect('sltserp-producer');
 /** Enqueue side (cron routes, services). One socket, shared by every Queue. */
 export const queueConnection = asBullMQ(producer);
 
-/** False once the producer socket has been closed for good, i.e. fallback mode. */
+/** True only if the producer socket is in 'ready' or active state and not failed/closed. */
 export function queueConnectionAlive(): boolean {
-    return producer.status !== 'end' && producer.status !== 'close';
+    return producer.status === 'ready';
 }
 
 /** A dedicated socket per worker. ioredis connects eagerly; BullMQ waits for 'ready'. */

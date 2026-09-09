@@ -26,7 +26,7 @@
 ### [job-queue.service.ts](src/services/admin/job-queue.service.ts)
 * **Class**: `JobQueueService`
   * **Methods**:
-    * `getQueueStats(): any`
+    * `getQueueStats(): Promise<JobQueueStat[]>`
 
 ### [notification-template.service.ts](src/services/admin/notification-template.service.ts)
 * **Class**: `NotificationTemplateService`

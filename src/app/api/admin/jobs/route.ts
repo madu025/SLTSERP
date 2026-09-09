@@ -1,5 +1,6 @@
 import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 import { apiHandler } from '@/lib/api-handler';
 import { JobQueueService } from '@/services/admin/job-queue.service';
