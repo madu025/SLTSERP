@@ -1,0 +1,12 @@
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  better-sqlite3: true
+  core-js: true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  puppeteer: true
+  sharp: true
+  tesseract.js: true
+  unrs-resolver: true

@@ -3,25 +3,29 @@ FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files and prisma schema
-COPY package.json package-lock.json ./
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package files, lockfile, .npmrc and prisma schema
+COPY package.json pnpm-lock.yaml .npmrc ./
 COPY prisma ./prisma/
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Stage 2: Build the application
 FROM node:22-alpine AS builder
 WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Generate Prisma Client
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 
 # Build Next.js with limited memory
 ENV NEXT_TELEMETRY_DISABLED 1
 # DOCKER_BUILD=1 → skips tsc/eslint in next.config.ts (prevents OOM on low-RAM VPS)
 ENV DOCKER_BUILD 1
-RUN NODE_OPTIONS='--max-old-space-size=3072' npm run build
+RUN NODE_OPTIONS='--max-old-space-size=3072' pnpm run build
 
 # Stage 3: Production runner
 FROM node:22-alpine AS runner
