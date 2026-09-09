@@ -2325,19 +2325,31 @@ export class SODSyncService {
         // known portal status tokens; otherwise fall back to the status token
         // embedded in the portal URL (sod=<SO>_<STATUS>_<ledgerId>_FTTH).
         const KNOWN_PORTAL_STATUSES = new Set([
-            'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC',
-            'RETURN', 'RETURN_PENDING', 'ASSIGN', 'ASSIGNED', 'INPROGRESS',
-            'PROV_CLOSED', 'CANCELLED', 'REJECTED', 'PENDING'
+            'COMPLETED', 'INSTALL_CLOSED', 'INSTALLCLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'PATOPMC',
+            'RETURN', 'RETURN_PENDING', 'RETURNPENDING', 'ASSIGN', 'ASSIGNED', 'INPROGRESS',
+            'PROV_CLOSED', 'PROVCLOSED', 'CANCELLED', 'REJECTED', 'PENDING'
         ]);
-        let statusStr = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString().toUpperCase().trim();
-        if (!KNOWN_PORTAL_STATUSES.has(statusStr)) {
+        let rawStatusStr = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString().toUpperCase().trim();
+        if (!KNOWN_PORTAL_STATUSES.has(rawStatusStr)) {
             const urlStatusMatch = (payload.url || '').match(/sod=[A-Z0-9]+_([A-Z_]+)_\d+/i);
             const urlStatus = urlStatusMatch?.[1]?.toUpperCase();
             if (urlStatus && KNOWN_PORTAL_STATUSES.has(urlStatus)) {
-                statusStr = urlStatus;
+                rawStatusStr = urlStatus;
             }
         }
-        const currentStatus = statusStr;
+
+        // Canonical normalization: resolve underscore-less tokens from SLT Portal
+        const compactStatus = rawStatusStr.replace(/[\s_-]/g, '');
+        let currentStatus = rawStatusStr;
+        if (compactStatus === 'INSTALLCLOSED') {
+            currentStatus = 'INSTALL_CLOSED';
+        } else if (compactStatus === 'PROVCLOSED') {
+            currentStatus = 'PROV_CLOSED';
+        } else if (compactStatus === 'RETURNPENDING') {
+            currentStatus = 'RETURN_PENDING';
+        } else if (compactStatus === 'PATOPMC' || compactStatus === 'PATPASSED') {
+            currentStatus = 'PAT_OPMC_PASSED';
+        }
 
         const isCompletedStatus =
             [SodStatus.COMPLETED, 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus);
@@ -2411,7 +2423,7 @@ export class SODSyncService {
             // (richer: includes rt_comment). Only fill gaps when it did not run
             // (status-token returns with no master return fields).
             if (!mapping.returnReason) {
-                const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
+                const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || rawStatusStr || 'Returned in external portal';
                 const rawComment = String(masterData['RETCMT_HIDDEN'] || masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || masterData['rtcmtall'] || masterData['rt_comment'] || '').trim();
                 const classification = SODReturnClassifierService.classify(`${rawReason} ${rawComment}`);
                 const formattedReason = String(rawReason).toUpperCase().trim();
@@ -2435,6 +2447,9 @@ export class SODSyncService {
         } else if (currentStatus === 'ASSIGN' || currentStatus === 'ASSIGNED') {
             // Mirror the portal assignment flag verbatim - pending tables display it as ASSIGNED
             dataToUpdate.sltsStatus = SodStatus.ASSIGNED;
+        } else if (currentStatus === 'PROV_CLOSED') {
+            dataToUpdate.sltsStatus = SodStatus.PROV_CLOSED;
+            dataToUpdate.status = SodStatus.PROV_CLOSED;
         }
 
         // Team linkage reuses the team resolved during OPMC resolution above
@@ -2628,9 +2643,10 @@ export class SODSyncService {
             const createdWorkflowStatus =
                 createdSltsStatus === 'RETURN' ? 'RETURN' as const
                     : createdSltsStatus === 'INSTALL_CLOSED' ? 'INSTALL_CLOSED' as const
-                        : ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(createdSltsStatus) ? 'COMPLETED' as const
-                            : createdSltsStatus === 'ASSIGNED' ? 'ASSIGNED' as const
-                                : 'PENDING' as const;
+                        : createdSltsStatus === 'PROV_CLOSED' ? 'PROV_CLOSED' as const
+                            : ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(createdSltsStatus) ? 'COMPLETED' as const
+                                : createdSltsStatus === 'ASSIGNED' ? 'ASSIGNED' as const
+                                    : 'PENDING' as const;
             syncedOrder = await (prisma.serviceOrder as unknown as { create: (args: { data: unknown }) => Promise<import('@prisma/client').ServiceOrder> }).create({
                 data: {
                     ...dataToUpdate,

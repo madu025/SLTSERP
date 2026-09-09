@@ -430,27 +430,33 @@ export class SODLifecycleService {
     /**
      * Centralized mapper for External Status (ISHAMP/Excel) to Internal SLTS Status
      */
-    static mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'ASSIGNED' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN' {
-        const conStatusUpper = (externalStatus || '').toUpperCase();
-        
-        const isPatRejection = conStatusUpper.includes('PAT') || conStatusUpper.includes('OPMC_REJECT') || conStatusUpper.includes('HO_REJECT');
+    static mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'ASSIGNED' | 'COMPLETED' | 'PROV_CLOSED' | 'INSTALL_CLOSED' | 'RETURN' {
+        const rawUpper = (externalStatus || '').toUpperCase().trim();
+        const compact = rawUpper.replace(/[\s_-]/g, '');
+
+        if (compact === 'INSTALLCLOSED') {
+            return 'INSTALL_CLOSED';
+        }
+        if (compact === 'PROVCLOSED') {
+            return 'PROV_CLOSED';
+        }
+
+        const isPatRejection = rawUpper.includes('PAT') || rawUpper.includes('OPMC_REJECT') || rawUpper.includes('HO_REJECT');
 
         // Portal assignment flag (ASSIGN/ASSIGNED) mirrors verbatim: the pending
         // tables must display ASSIGNED as ASSIGNED, not collapse it into INPROGRESS.
-        if (conStatusUpper === 'ASSIGN' || conStatusUpper === 'ASSIGNED') {
+        if (compact === 'ASSIGN' || compact === 'ASSIGNED') {
             return 'ASSIGNED';
         }
         
-        if ((SOD_EXTERNAL_COMPLETION_STATUSES as readonly string[]).includes(conStatusUpper)) {
+        if ((SOD_EXTERNAL_COMPLETION_STATUSES as readonly string[]).includes(rawUpper) || compact === 'COMPLETED') {
             return 'COMPLETED';
-        } else if (conStatusUpper === 'PROV_CLOSED') {
-            return 'PROV_CLOSED';
-        } else if (conStatusUpper === 'RETURN_PENDING') {
+        } else if (rawUpper === 'RETURN_PENDING' || compact === 'RETURNPENDING') {
             // BUSINESS RULE: every portal RETURN_PENDING (return request raised) must
             // present as RETURN in the ERP immediately. Explicit branch - never rely on
             // the includes('RETURN') fallback, which silently absorbs unknown variants.
             return 'RETURN';
-        } else if (!isPatRejection && ((SOD_RETURN_STATUSES as readonly string[]).includes(conStatusUpper) || conStatusUpper.includes('RETURN') || conStatusUpper.includes('CANCEL'))) {
+        } else if (!isPatRejection && ((SOD_RETURN_STATUSES as readonly string[]).includes(rawUpper) || rawUpper.includes('RETURN') || rawUpper.includes('CANCEL'))) {
             return 'RETURN';
         }
         return 'INPROGRESS';

@@ -2843,7 +2843,7 @@
         comments?: string;
         completedDate?: Date;
     }): any`
-    * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'ASSIGNED' | 'COMPLETED' | 'PROV_CLOSED' | 'RETURN'`
+    * `mapExternalStatusToSltsStatus(externalStatus: string): 'INPROGRESS' | 'ASSIGNED' | 'COMPLETED' | 'PROV_CLOSED' | 'INSTALL_CLOSED' | 'RETURN'`
 
 ### [sod.material.service.ts](src/services/service-order/sod.material.service.ts)
 * **Class**: `SODMaterialService`
