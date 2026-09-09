@@ -21,23 +21,27 @@ export interface MonthlyPipelineEntry {
   region: string;
   province: string;
   rtom: string;
-  mtdCompleted: number;
   monthInstallClosed: number;
-  completedFromInstallClosed: number;
-  pendingCompletion: number;
-  conversionRate: number;
+  completed: number;
+  opmcPatPassed: number;
+  finalPatPassed: number;
+  patRejected: number;
+  pendingFinalPat: number;
   sameDayCompleted: number;
   sameDayRate: number;
+  finalPatConversionRate: number;
 }
 
 export interface MonthlyPipelineGrandTotal {
-  mtdCompleted: number;
   monthInstallClosed: number;
-  completedFromInstallClosed: number;
-  pendingCompletion: number;
-  conversionRate: number;
+  completed: number;
+  opmcPatPassed: number;
+  finalPatPassed: number;
+  patRejected: number;
+  pendingFinalPat: number;
   sameDayCompleted: number;
   sameDayRate: number;
+  finalPatConversionRate: number;
 }
 
 export interface PaymentsReportOptions {
@@ -532,7 +536,7 @@ export class ReportService {
     };
   }
 
-  /** Compute Month-to-Date Completed and Monthly Invoicing Pipeline per RTOM. */
+  /** Compute Month-to-Date 4-Stage Lifecycle Funnel & Invoicing Pipeline per RTOM. */
   public static async computeMonthlyPipeline(selectedDate: Date): Promise<{
     pipeline: MonthlyPipelineEntry[];
     grandTotal: MonthlyPipelineGrandTotal;
@@ -540,49 +544,17 @@ export class ReportService {
     const startOfM = getSriLankaStartOfMonth(selectedDate);
     const endOfDayM = getSriLankaEndOfDay(selectedDate);
 
-    // 1. MTD Total Completed (completedDate between startOfMonth and endOfDayM)
-    const mtdCompletedGrouped = await prisma.serviceOrder.groupBy({
-      by: ['rtom'],
-      where: {
-        sltsStatus: 'COMPLETED',
-        completedDate: { gte: startOfM, lte: endOfDayM }
-      },
-      _count: { id: true }
-    });
-    const mtdCompletedMap = new Map(mtdCompletedGrouped.map(g => [g.rtom || 'UNKNOWN', g._count.id]));
-
-    // 2. Month Install Closed base (SODs whose physical completion happened in this month)
-    const monthInstallClosedGrouped = await prisma.serviceOrder.groupBy({
-      by: ['rtom', 'sltsStatus'],
+    // Query month-touched orders in INSTALL_CLOSED or COMPLETED
+    const monthOrders = await prisma.serviceOrder.findMany({
       where: {
         sltsStatus: { in: ['INSTALL_CLOSED', 'COMPLETED'] },
         completedDate: { gte: startOfM, lte: endOfDayM }
       },
-      _count: { id: true }
-    });
-
-    const rtomStats = new Map<string, { installClosed: number; completed: number }>();
-    for (const row of monthInstallClosedGrouped) {
-      const rtom = row.rtom || 'UNKNOWN';
-      if (!rtomStats.has(rtom)) {
-        rtomStats.set(rtom, { installClosed: 0, completed: 0 });
-      }
-      const stat = rtomStats.get(rtom)!;
-      if (row.sltsStatus === 'INSTALL_CLOSED') {
-        stat.installClosed += row._count.id;
-      } else if (row.sltsStatus === 'COMPLETED') {
-        stat.completed += row._count.id;
-      }
-    }
-
-    // 3. Compute Same-Day Completed for the month per RTOM
-    const completedOrdersForMonth = await prisma.serviceOrder.findMany({
-      where: {
-        sltsStatus: 'COMPLETED',
-        completedDate: { gte: startOfM, lte: endOfDayM }
-      },
       select: {
         rtom: true,
+        sltsStatus: true,
+        opmcPatStatus: true,
+        hoPatStatus: true,
         completedDate: true,
         receivedDate: true,
         createdAt: true,
@@ -593,19 +565,57 @@ export class ReportService {
       }
     });
 
-    const sameDayMap = new Map<string, number>();
-    for (const o of completedOrdersForMonth) {
-      if (!o.completedDate) continue;
-      const compKey = slDateKey(o.completedDate);
-      const isSameDay =
-        (o.receivedDate && slDateKey(o.receivedDate) === compKey) ||
-        (o.createdAt && slDateKey(o.createdAt) === compKey) ||
-        o.statusHistory.some(h => h.statusDate && slDateKey(h.statusDate) === compKey);
+    interface RtomFunnelStat {
+      monthInstallClosed: number;
+      completed: number;
+      opmcPatPassed: number;
+      finalPatPassed: number;
+      patRejected: number;
+      sameDayCompleted: number;
+    }
 
-      if (isSameDay) {
-        const rtom = o.rtom || 'UNKNOWN';
-        sameDayMap.set(rtom, (sameDayMap.get(rtom) || 0) + 1);
+    const funnelMap = new Map<string, RtomFunnelStat>();
+    for (const o of monthOrders) {
+      const rtom = o.rtom || 'UNKNOWN';
+      if (!funnelMap.has(rtom)) {
+        funnelMap.set(rtom, {
+          monthInstallClosed: 0,
+          completed: 0,
+          opmcPatPassed: 0,
+          finalPatPassed: 0,
+          patRejected: 0,
+          sameDayCompleted: 0
+        });
       }
+      const st = funnelMap.get(rtom)!;
+      st.monthInstallClosed++;
+
+      if (o.sltsStatus === 'COMPLETED') {
+        st.completed++;
+
+        if (o.completedDate) {
+          const compKey = slDateKey(o.completedDate);
+          const isSameDay =
+            (o.receivedDate && slDateKey(o.receivedDate) === compKey) ||
+            (o.createdAt && slDateKey(o.createdAt) === compKey) ||
+            o.statusHistory.some(h => h.statusDate && slDateKey(h.statusDate) === compKey);
+
+          if (isSameDay) {
+            st.sameDayCompleted++;
+          }
+        }
+      }
+
+      const isOpmcPass = o.opmcPatStatus === 'PAT_PASSED' || o.opmcPatStatus === 'PASSED' || o.opmcPatStatus === 'APPROVED';
+      if (isOpmcPass) st.opmcPatPassed++;
+
+      const isFinalPass = o.hoPatStatus === 'PAT_PASSED' || o.hoPatStatus === 'PASSED' || o.hoPatStatus === 'APPROVED';
+      if (isFinalPass) st.finalPatPassed++;
+
+      const isRejected =
+        o.opmcPatStatus === 'PAT_REJECTED' || o.opmcPatStatus === 'REJECTED' ||
+        o.hoPatStatus === 'PAT_REJECTED' || o.hoPatStatus === 'REJECTED';
+      if (isRejected) st.patRejected++;
     }
 
     const opmcs = await prisma.oPMC.findMany({
@@ -614,48 +624,60 @@ export class ReportService {
     });
 
     const pipeline: MonthlyPipelineEntry[] = opmcs.map(o => {
-      const mtdComp = mtdCompletedMap.get(o.rtom) || 0;
-      const stat = rtomStats.get(o.rtom) || { installClosed: 0, completed: 0 };
-      const monthIC = stat.installClosed + stat.completed;
-      const completedFromIC = stat.completed;
-      const pendingCompletion = stat.installClosed;
-      const conversionRate = monthIC > 0 ? Math.round((completedFromIC / monthIC) * 1000) / 10 : 0;
-      const sameDayComp = sameDayMap.get(o.rtom) || 0;
-      const sameDayRate = monthIC > 0 ? Math.round((sameDayComp / monthIC) * 1000) / 10 : 0;
+      const st = funnelMap.get(o.rtom) || {
+        monthInstallClosed: 0,
+        completed: 0,
+        opmcPatPassed: 0,
+        finalPatPassed: 0,
+        patRejected: 0,
+        sameDayCompleted: 0
+      };
+
+      const pendingFinalPat = Math.max(0, st.monthInstallClosed - st.finalPatPassed);
+      const finalPatConversionRate = st.monthInstallClosed > 0
+        ? Math.round((st.finalPatPassed / st.monthInstallClosed) * 1000) / 10
+        : 0;
+      const sameDayRate = st.monthInstallClosed > 0
+        ? Math.round((st.sameDayCompleted / st.monthInstallClosed) * 1000) / 10
+        : 0;
 
       return {
         region: o.region,
         province: o.province,
         rtom: o.rtom,
-        mtdCompleted: mtdComp,
-        monthInstallClosed: monthIC,
-        completedFromInstallClosed: completedFromIC,
-        pendingCompletion: pendingCompletion,
-        conversionRate,
-        sameDayCompleted: sameDayComp,
-        sameDayRate
+        monthInstallClosed: st.monthInstallClosed,
+        completed: st.completed,
+        opmcPatPassed: st.opmcPatPassed,
+        finalPatPassed: st.finalPatPassed,
+        patRejected: st.patRejected,
+        pendingFinalPat,
+        sameDayCompleted: st.sameDayCompleted,
+        sameDayRate,
+        finalPatConversionRate
       };
     });
 
-    const totalMtdComp = pipeline.reduce((sum, r) => sum + r.mtdCompleted, 0);
-    const totalIC = pipeline.reduce((sum, r) => sum + r.monthInstallClosed, 0);
-    const totalCompFromIC = pipeline.reduce((sum, r) => sum + r.completedFromInstallClosed, 0);
-    const totalPending = pipeline.reduce((sum, r) => sum + r.pendingCompletion, 0);
-    const totalRate = totalIC > 0 ? Math.round((totalCompFromIC / totalIC) * 1000) / 10 : 0;
-    const totalSameDay = pipeline.reduce((sum, r) => sum + r.sameDayCompleted, 0);
-    const totalSameDayRate = totalIC > 0 ? Math.round((totalSameDay / totalIC) * 1000) / 10 : 0;
+    const grandTotal: MonthlyPipelineGrandTotal = {
+      monthInstallClosed: pipeline.reduce((sum, r) => sum + r.monthInstallClosed, 0),
+      completed: pipeline.reduce((sum, r) => sum + r.completed, 0),
+      opmcPatPassed: pipeline.reduce((sum, r) => sum + r.opmcPatPassed, 0),
+      finalPatPassed: pipeline.reduce((sum, r) => sum + r.finalPatPassed, 0),
+      patRejected: pipeline.reduce((sum, r) => sum + r.patRejected, 0),
+      pendingFinalPat: pipeline.reduce((sum, r) => sum + r.pendingFinalPat, 0),
+      sameDayCompleted: pipeline.reduce((sum, r) => sum + r.sameDayCompleted, 0),
+      sameDayRate: 0,
+      finalPatConversionRate: 0
+    };
+    grandTotal.sameDayRate = grandTotal.monthInstallClosed > 0
+      ? Math.round((grandTotal.sameDayCompleted / grandTotal.monthInstallClosed) * 1000) / 10
+      : 0;
+    grandTotal.finalPatConversionRate = grandTotal.monthInstallClosed > 0
+      ? Math.round((grandTotal.finalPatPassed / grandTotal.monthInstallClosed) * 1000) / 10
+      : 0;
 
     return {
       pipeline,
-      grandTotal: {
-        mtdCompleted: totalMtdComp,
-        monthInstallClosed: totalIC,
-        completedFromInstallClosed: totalCompFromIC,
-        pendingCompletion: totalPending,
-        conversionRate: totalRate,
-        sameDayCompleted: totalSameDay,
-        sameDayRate: totalSameDayRate
-      }
+      grandTotal
     };
   }
 
