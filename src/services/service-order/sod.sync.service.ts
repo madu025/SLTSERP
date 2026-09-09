@@ -2760,9 +2760,18 @@ export class SODSyncService {
         }
 
         if (materialDetails.length > 0 && syncedOrder && syncedOrder.sltsStatus !== 'COMPLETED') {
-            await prisma.sODMaterialUsage.deleteMany({
-                where: { serviceOrderId: syncedOrder.id, usageType: 'PORTAL_SYNC' }
-            });
+            // Resolve items first and aggregate quantities by unique constraint key:
+            // (itemId, validatedSerial) to prevent P2002 unique constraint violations on uq_sod_material_usage_line.
+            const resolvedUsages = new Map<string, {
+                itemId: string;
+                itemCode: string;
+                quantity: number;
+                unit: string;
+                serialNumber: string | null;
+                unitPrice: number;
+                costPrice: number;
+                commentText: string;
+            }>();
 
             for (const mat of materialDetails) {
                 const code = mat.CODE || mat.TYPE;
@@ -2872,23 +2881,52 @@ export class SODSyncService {
                             ? `Auto-synced from Portal (Serial: ${serialCandidate})`
                             : `Auto-synced from Portal`;
 
-                        const [usageErr] = await safe(prisma.sODMaterialUsage.create({
-                            data: {
-                                serviceOrderId: syncedOrder.id,
+                        const aggKey = `${item.id}|${validatedSerial || ''}`;
+                        const existing = resolvedUsages.get(aggKey);
+                        if (existing) {
+                            existing.quantity += qty;
+                        } else {
+                            resolvedUsages.set(aggKey, {
                                 itemId: item.id,
+                                itemCode: item.code,
                                 quantity: qty,
                                 unit: item.unit || "Nos",
-                                usageType: 'PORTAL_SYNC',
                                 serialNumber: validatedSerial,
                                 unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
                                 costPrice: item.costPrice ? Number(item.costPrice) : 0,
-                                comment: commentText
-                            }
-                        }));
-                        if (usageErr) {
-                            console.error(`[BRIDGE-SYNC] Failed to create material usage for SO ${syncedOrder.soNum}, item ${item.code}:`, usageErr);
+                                commentText
+                            });
                         }
                     }
+                }
+            }
+
+            if (resolvedUsages.size > 0) {
+                const targetOrderId = syncedOrder.id;
+                const [syncUsageErr] = await safe(prisma.$transaction(async (tx) => {
+                    await tx.sODMaterialUsage.deleteMany({
+                        where: { serviceOrderId: targetOrderId, usageType: 'PORTAL_SYNC' }
+                    });
+
+                    for (const usage of resolvedUsages.values()) {
+                        await tx.sODMaterialUsage.create({
+                            data: {
+                                serviceOrderId: targetOrderId,
+                                itemId: usage.itemId,
+                                quantity: usage.quantity,
+                                unit: usage.unit,
+                                usageType: 'PORTAL_SYNC',
+                                serialNumber: usage.serialNumber,
+                                unitPrice: usage.unitPrice,
+                                costPrice: usage.costPrice,
+                                comment: usage.commentText
+                            }
+                        });
+                    }
+                }));
+
+                if (syncUsageErr) {
+                    console.error(`[BRIDGE-SYNC] Failed to atomic sync material usages for SO ${syncedOrder.soNum}:`, syncUsageErr);
                 }
             }
         }
