@@ -861,46 +861,46 @@ export default function DailyOperationalReportPage() {
 
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-[11px] border-collapse">
-                                        <thead className="bg-slate-950 text-white sticky top-0 z-20 shadow-md">
+                                        <thead style={{ position: 'sticky', top: 0, zIndex: 20 }}>
                                             <tr>
-                                                <th rowSpan={2} className="px-2 py-2.5 text-left w-24 border-r border-slate-700 bg-slate-950 text-white font-extrabold text-[10px] uppercase tracking-wider">Province</th>
-                                                <th rowSpan={2} className="px-2 py-2.5 text-center w-20 border-r border-slate-700 bg-slate-950 text-white font-extrabold text-[10px] uppercase tracking-wider">RTOM</th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-blue-950 text-white font-extrabold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-2 py-2.5 text-left w-24 border-r border-slate-700 font-extrabold text-[10px] uppercase tracking-wider text-white" style={{ background: '#020617' }}>Province</th>
+                                                <th rowSpan={2} className="px-2 py-2.5 text-center w-20 border-r border-slate-700 font-extrabold text-[10px] uppercase tracking-wider text-white" style={{ background: '#020617' }}>RTOM</th>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-extrabold text-[10px] leading-tight text-white" style={{ background: '#172554' }}>
                                                     In Hand<br />AM
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-emerald-950 text-white font-extrabold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-extrabold text-[10px] leading-tight text-white" style={{ background: '#022c22' }}>
                                                     Recv<br />Today
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-indigo-950 text-white font-black text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-black text-[10px] leading-tight text-white" style={{ background: '#1e1b4b' }}>
                                                     Total<br />Hand
                                                 </th>
 
                                                 {/* Completed group */}
-                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider bg-emerald-900 border-l-2 border-l-emerald-400 border-b border-emerald-700">
+                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider border-l-2 border-l-emerald-400 border-b border-emerald-700" style={{ background: '#064e3b' }}>
                                                     Completed Orders
                                                 </th>
 
                                                 {/* Install Closed group */}
-                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider bg-sky-900 border-l-2 border-l-sky-400 border-b border-sky-700">
+                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider border-l-2 border-l-sky-400 border-b border-sky-700" style={{ background: '#0c4a6e' }}>
                                                     Install Closed
                                                 </th>
 
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-amber-950 text-amber-200 font-extrabold text-[10px]">DW</th>
-                                                <th colSpan={3} className="px-1 py-1.5 text-center bg-cyan-950 text-cyan-200 font-extrabold text-[10px] border-b border-cyan-800">Poles</th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-rose-950 text-rose-200 font-extrabold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-extrabold text-[10px]" style={{ background: '#431407', color: '#fde68a' }}>DW</th>
+                                                <th colSpan={3} className="px-1 py-1.5 text-center font-extrabold text-[10px] border-b border-cyan-800" style={{ background: '#083344', color: '#a5f3fc' }}>Poles</th>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-extrabold text-[10px] leading-tight" style={{ background: '#4c0519', color: '#fecdd3' }}>
                                                     Ret<br />SOD
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-purple-950 text-purple-200 font-extrabold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-extrabold text-[10px] leading-tight" style={{ background: '#3b0764', color: '#e9d5ff' }}>
                                                     Wired<br />Only
                                                 </th>
-                                                <th rowSpan={2} className="px-2 py-2 text-center w-14 bg-slate-800 text-white font-black text-[10px] uppercase">BAL</th>
+                                                <th rowSpan={2} className="px-2 py-2 text-center w-14 font-black text-[10px] uppercase text-white" style={{ background: '#1e293b' }}>BAL</th>
                                             </tr>
                                             <tr className="text-[10px] font-black tracking-tight">
                                                 <BreakdownHeadCells tone="green" />
                                                 <BreakdownHeadCells tone="blue" />
-                                                <th className="px-0.5 py-1.5 w-7 bg-cyan-900 text-white font-black">5.6</th>
-                                                <th className="px-0.5 py-1.5 w-7 bg-cyan-900 text-white font-black">6.7</th>
-                                                <th className="px-0.5 py-1.5 w-7 bg-cyan-900 text-white font-black">8.0</th>
+                                                <th className="px-0.5 py-1.5 w-7 font-black text-white" style={{ background: '#164e63' }}>5.6</th>
+                                                <th className="px-0.5 py-1.5 w-7 font-black text-white" style={{ background: '#164e63' }}>6.7</th>
+                                                <th className="px-0.5 py-1.5 w-7 font-black text-white" style={{ background: '#164e63' }}>8.0</th>
                                             </tr>
                                         </thead>
 
@@ -1050,21 +1050,22 @@ export default function DailyOperationalReportPage() {
                                 </div>
 
                                 {/* Pipeline Detail Table */}
-                                <div className="bg-white overflow-x-auto max-h-[480px] overflow-y-auto">
+                                <div className="overflow-x-auto">
+                                  <div className="max-h-[480px] overflow-y-auto">
                                     <table className="w-full text-[11px] border-collapse">
-                                        <thead className="bg-slate-950 text-white sticky top-0 z-10 shadow-md">
+                                        <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                                             <tr>
-                                                <th className="px-2 py-2.5 text-left w-24 border-r border-slate-700 bg-slate-950 text-white text-[10px] font-extrabold uppercase tracking-wide">Province</th>
-                                                <th className="px-2 py-2.5 text-center w-20 border-r border-slate-700 bg-slate-950 text-white text-[10px] font-extrabold uppercase tracking-wide">RTOM</th>
-                                                <th className="px-2 py-2.5 text-center w-28 bg-blue-950 text-white text-[10px] font-extrabold leading-tight border-r border-blue-800">1. Month<br />Install Closed</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-sky-950 text-white text-[10px] font-extrabold leading-tight border-r border-sky-800">2. System<br />Completed</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-emerald-950 text-white text-[10px] font-extrabold leading-tight border-r border-emerald-800">3. PAT OPMC<br />Passed</th>
-                                                <th className="px-2 py-2.5 text-center w-28 bg-teal-900 text-teal-100 text-[10px] font-black leading-tight border-r border-teal-800">4. Final PAT<br />(Invoicable)</th>
-                                                <th className="px-2 py-2.5 text-center w-20 bg-rose-950 text-rose-200 text-[10px] font-extrabold leading-tight border-r border-rose-900">PAT<br />Rejected</th>
-                                                <th className="px-2 py-2.5 text-center w-28 bg-amber-950 text-amber-200 text-[10px] font-extrabold leading-tight border-r border-amber-800">Pending<br />Final PAT</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-indigo-950 text-white text-[10px] font-extrabold leading-tight border-r border-indigo-800">Same-Day<br />Done</th>
-                                                <th className="px-2 py-2.5 text-center w-20 bg-indigo-900 text-white text-[10px] font-extrabold leading-tight border-r border-indigo-700">Same-Day<br />Rate %</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-slate-800 text-white text-[10px] font-black leading-tight">Final Invoicing<br />Rate %</th>
+                                                <th className="px-2 py-2.5 text-left w-24 border-r border-slate-700 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: '#020617' }}>Province</th>
+                                                <th className="px-2 py-2.5 text-center w-20 border-r border-slate-700 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: '#020617' }}>RTOM</th>
+                                                <th className="px-2 py-2.5 text-center w-28 text-[10px] font-extrabold leading-tight border-r border-blue-800 text-white" style={{ background: '#172554' }}>1. Month<br />Install Closed</th>
+                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-extrabold leading-tight border-r border-sky-800 text-white" style={{ background: '#0c4a6e' }}>2. System<br />Completed</th>
+                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-extrabold leading-tight border-r border-emerald-800 text-white" style={{ background: '#022c22' }}>3. PAT OPMC<br />Passed</th>
+                                                <th className="px-2 py-2.5 text-center w-28 text-[10px] font-black leading-tight border-r border-teal-800" style={{ background: '#134e4a', color: '#99f6e4' }}>4. Final PAT<br />(Invoicable)</th>
+                                                <th className="px-2 py-2.5 text-center w-20 text-[10px] font-extrabold leading-tight border-r border-rose-900" style={{ background: '#4c0519', color: '#fecdd3' }}>PAT<br />Rejected</th>
+                                                <th className="px-2 py-2.5 text-center w-28 text-[10px] font-extrabold leading-tight border-r border-amber-800" style={{ background: '#431407', color: '#fde68a' }}>Pending<br />Final PAT</th>
+                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-extrabold leading-tight border-r border-indigo-800 text-white" style={{ background: '#1e1b4b' }}>Same-Day<br />Done</th>
+                                                <th className="px-2 py-2.5 text-center w-20 text-[10px] font-extrabold leading-tight border-r border-indigo-700 text-white" style={{ background: '#312e81' }}>Same-Day<br />Rate %</th>
+                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-black leading-tight text-white" style={{ background: '#1e293b' }}>Final Invoicing<br />Rate %</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white">
@@ -1187,6 +1188,7 @@ export default function DailyOperationalReportPage() {
                                             })()}
                                         </tbody>
                                     </table>
+                                  </div>
                                 </div>
                             </div>
                         )}
