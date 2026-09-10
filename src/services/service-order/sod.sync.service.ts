@@ -1597,11 +1597,14 @@ export class SODSyncService {
             };
 
             if (existing) {
-                // Auto-heal open/active SODs that had an ancient backfilled receivedDate (< 2026).
-                // To the contractor/ERP, an open job received/re-assigned in 2026 must bear the genuine intake date in 2026.
+                // Auto-heal SODs with an invalid/ancient receivedDate — use the raise date from the SO number.
+                // The portal CON_STATUS_DATE is the "last status touch" — not the original assignment date.
+                // For finished SODs, keep existing valid dates untouched.
                 const isFinished = effectiveSltsStatus === 'COMPLETED' || effectiveSltsStatus === 'INSTALL_CLOSED';
                 if (!isFinished && existing.receivedDate && existing.receivedDate.getFullYear() < 2026) {
-                    updatePayload.receivedDate = (statusDate && statusDate.getFullYear() >= 2026) ? statusDate : new Date();
+                    // Heal to the true raise date encoded in the SO number (e.g. CEN202508170082986 → 2025-08-17)
+                    const healedDate = orderRaiseDateFromSoNum(item.SO_NUM);
+                    updatePayload.receivedDate = healedDate ?? (statusDate && statusDate.getFullYear() >= 2026 ? statusDate : new Date());
                 }
                 toUpdate.push({ existing, updatePayload, initialSltsStatus: effectiveSltsStatus });
             } else {
@@ -1616,11 +1619,11 @@ export class SODSyncService {
                         contractorId: contractorId || null,
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
-                        // Open/active jobs assigned in ERP must use the genuine assignment moment (statusDate/now).
-                        // Ancient order-raise backfilling is strictly reserved for born-finished rows.
-                        receivedDate: isFinished
-                            ? backfillReceiptDate(item.SO_NUM, statusDate)
-                            : ((statusDate && statusDate.getFullYear() >= 2026) ? statusDate : new Date()),
+                        // Always use the raise date embedded in the SO_NUM as the true receivedDate anchor.
+                        // The portal CON_STATUS_DATE is the "last status touch" — not when the RTOM got the job.
+                        // backfillReceiptDate() extracts YYYYMMDD from soNum and clamps it to completionDate for
+                        // finished rows (so completed-before-raised is impossible).
+                        receivedDate: backfillReceiptDate(item.SO_NUM, isFinished ? statusDate : null) ?? statusDate ?? new Date(),
                         // Born-RETURN: return date = the ERP capture moment (when the import
                         // learned the return). Portal CON_STATUS_DATE is the received-date
                         // mirror, NOT the return date.
