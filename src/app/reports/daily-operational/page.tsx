@@ -1060,18 +1060,18 @@ export default function DailyOperationalReportPage() {
                                   <div className="max-h-[480px] overflow-y-auto">
                                     <table className="w-full text-[11px] border-collapse">
                                         <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                                            <tr>
-                                                <th className="px-2 py-2.5 text-left w-24 border-r border-slate-700 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: '#020617' }}>Province</th>
-                                                <th className="px-2 py-2.5 text-center w-20 border-r border-slate-700 text-[10px] font-extrabold uppercase tracking-wide text-white" style={{ background: '#020617' }}>RTOM</th>
-                                                <th className="px-2 py-2.5 text-center w-28 text-[10px] font-extrabold leading-tight border-r border-blue-800 text-white" style={{ background: '#172554' }}>1. Month<br />Install Closed</th>
-                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-extrabold leading-tight border-r border-sky-800 text-white" style={{ background: '#0c4a6e' }}>2. System<br />Completed</th>
-                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-extrabold leading-tight border-r border-emerald-800 text-white" style={{ background: '#022c22' }}>3. PAT OPMC<br />Passed</th>
-                                                <th className="px-2 py-2.5 text-center w-28 text-[10px] font-black leading-tight border-r border-teal-800" style={{ background: '#134e4a', color: '#99f6e4' }}>4. Final PAT<br />(Invoicable)</th>
-                                                <th className="px-2 py-2.5 text-center w-20 text-[10px] font-extrabold leading-tight border-r border-rose-900" style={{ background: '#4c0519', color: '#fecdd3' }}>PAT<br />Rejected</th>
-                                                <th className="px-2 py-2.5 text-center w-28 text-[10px] font-extrabold leading-tight border-r border-amber-800" style={{ background: '#431407', color: '#fde68a' }}>Pending<br />Final PAT</th>
-                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-extrabold leading-tight border-r border-indigo-800 text-white" style={{ background: '#1e1b4b' }}>Same-Day<br />Done</th>
-                                                <th className="px-2 py-2.5 text-center w-20 text-[10px] font-extrabold leading-tight border-r border-indigo-700 text-white" style={{ background: '#312e81' }}>Same-Day<br />Rate %</th>
-                                                <th className="px-2 py-2.5 text-center w-24 text-[10px] font-black leading-tight text-white" style={{ background: '#1e293b' }}>Final Invoicing<br />Rate %</th>
+                                            <tr className="border-b border-indigo-950">
+                                                <th className="px-2.5 py-3 text-left w-24 border-r border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-100" style={{ backgroundColor: '#090d16' }}>Province</th>
+                                                <th className="px-2.5 py-3 text-center w-20 border-r border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-100" style={{ backgroundColor: '#090d16' }}>RTOM</th>
+                                                <th className="px-2.5 py-3 text-center w-28 text-[10px] font-black leading-tight border-r border-blue-900 text-blue-200" style={{ backgroundColor: '#1e3a8a' }}>1. Month<br />Install Closed</th>
+                                                <th className="px-2.5 py-3 text-center w-24 text-[10px] font-black leading-tight border-r border-sky-900 text-sky-200" style={{ backgroundColor: '#075985' }}>2. System<br />Completed</th>
+                                                <th className="px-2.5 py-3 text-center w-24 text-[10px] font-black leading-tight border-r border-emerald-900 text-emerald-200" style={{ backgroundColor: '#065f46' }}>3. PAT OPMC<br />Passed</th>
+                                                <th className="px-2.5 py-3 text-center w-28 text-[10px] font-black leading-tight border-r border-teal-900 text-teal-200" style={{ backgroundColor: '#0f766e' }}>4. Final PAT<br />(Invoicable)</th>
+                                                <th className="px-2.5 py-3 text-center w-20 text-[10px] font-black leading-tight border-r border-rose-950 text-rose-200" style={{ backgroundColor: '#881337' }}>PAT<br />Rejected</th>
+                                                <th className="px-2.5 py-3 text-center w-28 text-[10px] font-black leading-tight border-r border-amber-950 text-amber-200" style={{ backgroundColor: '#78350f' }}>Pending<br />Final PAT</th>
+                                                <th className="px-2.5 py-3 text-center w-24 text-[10px] font-black leading-tight border-r border-indigo-900 text-indigo-200" style={{ backgroundColor: '#3730a3' }}>Same-Day<br />Done</th>
+                                                <th className="px-2.5 py-3 text-center w-20 text-[10px] font-black leading-tight border-r border-indigo-950 text-indigo-200" style={{ backgroundColor: '#1e1b4b' }}>Same-Day<br />Rate %</th>
+                                                <th className="px-2.5 py-3 text-center w-24 text-[10px] font-black leading-tight text-emerald-300" style={{ backgroundColor: '#0f172a' }}>Final Invoicing<br />Rate %</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white">
