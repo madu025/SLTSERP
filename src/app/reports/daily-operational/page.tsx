@@ -868,45 +868,45 @@ export default function DailyOperationalReportPage() {
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-[11px] border-collapse">
                                         <thead style={{ position: 'sticky', top: 0, zIndex: 20 }}>
-                                            <tr>
-                                                <th rowSpan={2} className="px-2 py-2.5 text-left w-24 border-r border-slate-700 font-extrabold text-[10px] uppercase tracking-wider text-white" style={{ background: '#020617' }}>Province</th>
-                                                <th rowSpan={2} className="px-2 py-2.5 text-center w-20 border-r border-slate-700 font-extrabold text-[10px] uppercase tracking-wider text-white" style={{ background: '#020617' }}>RTOM</th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-extrabold text-[10px] leading-tight text-white" style={{ background: '#172554' }}>
+                                            <tr style={{ backgroundColor: '#0f172a' }}>
+                                                <th rowSpan={2} className="px-2 py-2.5 text-left w-24 border-r border-slate-700 font-black text-[11px] uppercase tracking-wider text-slate-100" style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}>Province</th>
+                                                <th rowSpan={2} className="px-2 py-2.5 text-center w-20 border-r border-slate-700 font-black text-[11px] uppercase tracking-wider text-slate-100" style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}>RTOM</th>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-black text-[10px] leading-tight text-blue-200" style={{ backgroundColor: '#1e3a8a', color: '#dbeafe' }}>
                                                     In Hand<br />AM
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-extrabold text-[10px] leading-tight text-white" style={{ background: '#022c22' }}>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-black text-[10px] leading-tight text-emerald-200" style={{ backgroundColor: '#064e3b', color: '#d1fae5' }}>
                                                     Recv<br />Today
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-black text-[10px] leading-tight text-white" style={{ background: '#1e1b4b' }}>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 font-black text-[10px] leading-tight text-indigo-200" style={{ backgroundColor: '#312e81', color: '#e0e7ff' }}>
                                                     Total<br />Hand
                                                 </th>
 
                                                 {/* Completed group */}
-                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider border-l-2 border-l-emerald-400 border-b border-emerald-700" style={{ background: '#064e3b' }}>
+                                                <th colSpan={9} className="px-2 py-2 text-center text-emerald-100 text-[11px] font-black uppercase tracking-wider border-l-2 border-l-emerald-400 border-b border-emerald-700" style={{ backgroundColor: '#065f46', color: '#ecfdf5' }}>
                                                     Completed Orders
                                                 </th>
 
                                                 {/* Install Closed group */}
-                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider border-l-2 border-l-sky-400 border-b border-sky-700" style={{ background: '#0c4a6e' }}>
+                                                <th colSpan={9} className="px-2 py-2 text-center text-sky-100 text-[11px] font-black uppercase tracking-wider border-l-2 border-l-sky-400 border-b border-sky-700" style={{ backgroundColor: '#075985', color: '#f0f9ff' }}>
                                                     Install Closed
                                                 </th>
 
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-extrabold text-[10px]" style={{ background: '#431407', color: '#fde68a' }}>DW</th>
-                                                <th colSpan={3} className="px-1 py-1.5 text-center font-extrabold text-[10px] border-b border-cyan-800" style={{ background: '#083344', color: '#a5f3fc' }}>Poles</th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-extrabold text-[10px] leading-tight" style={{ background: '#4c0519', color: '#fecdd3' }}>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-black text-[10px]" style={{ backgroundColor: '#78350f', color: '#fef3c7' }}>DW</th>
+                                                <th colSpan={3} className="px-1 py-1.5 text-center font-black text-[10px] border-b border-cyan-800" style={{ backgroundColor: '#155e75', color: '#cffafe' }}>Poles</th>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-black text-[10px] leading-tight" style={{ backgroundColor: '#881337', color: '#ffe4e6' }}>
                                                     Ret<br />SOD
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-extrabold text-[10px] leading-tight" style={{ background: '#3b0764', color: '#e9d5ff' }}>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 font-black text-[10px] leading-tight" style={{ backgroundColor: '#581c87', color: '#f3e8ff' }}>
                                                     Wired<br />Only
                                                 </th>
-                                                <th rowSpan={2} className="px-2 py-2 text-center w-14 font-black text-[10px] uppercase text-white" style={{ background: '#1e293b' }}>BAL</th>
+                                                <th rowSpan={2} className="px-2 py-2 text-center w-14 font-black text-[10px] uppercase text-white" style={{ backgroundColor: '#334155', color: '#ffffff' }}>BAL</th>
                                             </tr>
-                                            <tr className="text-[10px] font-black tracking-tight">
+                                            <tr className="text-[10px] font-black tracking-tight" style={{ backgroundColor: '#0f172a' }}>
                                                 <BreakdownHeadCells tone="green" />
                                                 <BreakdownHeadCells tone="blue" />
-                                                <th className="px-0.5 py-1.5 w-7 font-black text-white" style={{ background: '#164e63' }}>5.6</th>
-                                                <th className="px-0.5 py-1.5 w-7 font-black text-white" style={{ background: '#164e63' }}>6.7</th>
-                                                <th className="px-0.5 py-1.5 w-7 font-black text-white" style={{ background: '#164e63' }}>8.0</th>
+                                                <th className="px-0.5 py-1.5 w-7 font-black" style={{ backgroundColor: '#0e7490', color: '#ffffff' }}>5.6</th>
+                                                <th className="px-0.5 py-1.5 w-7 font-black" style={{ backgroundColor: '#0e7490', color: '#ffffff' }}>6.7</th>
+                                                <th className="px-0.5 py-1.5 w-7 font-black" style={{ backgroundColor: '#0e7490', color: '#ffffff' }}>8.0</th>
                                             </tr>
                                         </thead>
 
