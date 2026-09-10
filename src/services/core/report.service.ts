@@ -693,37 +693,37 @@ export class ReportService {
 
       if (isInstallInMonth) {
         st.monthInstallClosed++;
-      }
 
-      if (o.sltsStatus === 'COMPLETED') {
-        st.completed++;
+        if (o.sltsStatus === 'COMPLETED') {
+          st.completed++;
 
-        const sameDayClass = classifySameDayCompletion(
-          o.completedDate,
-          o.createdAt,
-          o.receivedDate,
-          o.statusHistory
-        );
+          const sameDayClass = classifySameDayCompletion(
+            o.completedDate,
+            o.createdAt,
+            o.receivedDate,
+            o.statusHistory
+          );
 
-        if (sameDayClass.isIntakeSameDay) {
-          st.sameDayCompleted++;
-          st.intakeSameDayCompleted++;
-        } else if (sameDayClass.isBacklogSameDay) {
-          st.sameDayCompleted++;
-          st.backlogSameDayCompleted++;
+          if (sameDayClass.isIntakeSameDay) {
+            st.sameDayCompleted++;
+            st.intakeSameDayCompleted++;
+          } else if (sameDayClass.isBacklogSameDay) {
+            st.sameDayCompleted++;
+            st.backlogSameDayCompleted++;
+          }
         }
+
+        const isOpmcPass = o.opmcPatStatus === 'PAT_PASSED' || o.opmcPatStatus === 'PASSED' || o.opmcPatStatus === 'APPROVED';
+        if (isOpmcPass) st.opmcPatPassed++;
+
+        const isFinalPass = o.hoPatStatus === 'PAT_PASSED' || o.hoPatStatus === 'PASSED' || o.hoPatStatus === 'APPROVED';
+        if (isFinalPass) st.finalPatPassed++;
+
+        const isRejected =
+          o.opmcPatStatus === 'PAT_REJECTED' || o.opmcPatStatus === 'REJECTED' ||
+          o.hoPatStatus === 'PAT_REJECTED' || o.hoPatStatus === 'REJECTED';
+        if (isRejected) st.patRejected++;
       }
-
-      const isOpmcPass = o.opmcPatStatus === 'PAT_PASSED' || o.opmcPatStatus === 'PASSED' || o.opmcPatStatus === 'APPROVED';
-      if (isOpmcPass) st.opmcPatPassed++;
-
-      const isFinalPass = o.hoPatStatus === 'PAT_PASSED' || o.hoPatStatus === 'PASSED' || o.hoPatStatus === 'APPROVED';
-      if (isFinalPass) st.finalPatPassed++;
-
-      const isRejected =
-        o.opmcPatStatus === 'PAT_REJECTED' || o.opmcPatStatus === 'REJECTED' ||
-        o.hoPatStatus === 'PAT_REJECTED' || o.hoPatStatus === 'REJECTED';
-      if (isRejected) st.patRejected++;
     }
 
     const opmcs = await prisma.oPMC.findMany({
