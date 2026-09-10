@@ -868,22 +868,22 @@ export class ReportService {
     // Uses same logic as pending SODs table: excludes COMPLETED, INSTALL_CLOSED, RETURN, DISAPPEARED
     // and only includes PENDING, ASSIGNED, ASSIGN, INPROGRESS, PROV_CLOSED statuses.
     // receivedDate is canonical; fall back to createdAt when null.
-    // Explicit list of terminal/finished sltsStatus values to exclude from morning carry-forward
+    // Explicit list of terminal/finished/prov-closed sltsStatus values to exclude from morning carry-forward
     const terminalSltsStatuses: ServiceOrderStatus[] = [
       'COMPLETED',
       'INSTALL_CLOSED',
+      'PROV_CLOSED',
       'RETURN',
       'DISAPPEARED',
       'PAT_OPMC_PASSED',
       'PAT_CORRECTED',
     ] as ServiceOrderStatus[];
 
-    // Active in-hand statuses for morning carry-forward (ASSIGNED, INPROGRESS, PENDING, PROV_CLOSED)
+    // Active in-hand contractor field statuses for morning carry-forward (ASSIGNED, INPROGRESS, PENDING)
     const activeWorkflowStatuses: ServiceOrderStatus[] = [
       'ASSIGNED',
       'INPROGRESS',
       'PENDING',
-      'PROV_CLOSED',
     ] as ServiceOrderStatus[];
 
     const inHandMorningWhere: Prisma.ServiceOrderWhereInput = {
