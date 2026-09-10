@@ -354,6 +354,7 @@
 
 ### [daily-report-activity.ts](src/services/core/daily-report-activity.ts)
 * **Exported Functions**:
+  * `classifySameDayCompletion(completedDate: Date | string | null, createdAt: Date | string, receivedDate: Date | string | null, statusHistory: { status: string; statusDate: Date | string | null }[]): SameDayClassification`
   * `classifySodDayActivity(order: SodDayActivitySource, window: SodDayWindow): SodDayActivity`
 
 ### [daily-report-material.ts](src/services/core/daily-report-material.ts)
@@ -392,6 +393,7 @@
     * `writeDailyReportSnapshot(dateKey: string, reportData: ReportRow[]): Promise<void>`
     * `persistDailyReportSnapshot(dateKey: string): Promise<number>`
     * `persistClosedSriLankaDaySnapshot(): Promise<{ dateKey: string; rows: number }>`
+    * `refreezeDailyReportSnapshot(dateKey: string): Promise<{ dateKey: string; rows: number }>`
     * `getPaymentsReport(options: PaymentsReportOptions): any`
 
 ### [section.service.ts](src/services/core/section.service.ts)
@@ -3087,6 +3089,7 @@
 | `/api/admin/process-gates/[id]` | [route.ts](src/app/api/admin/process-gates/[id]/route.ts) | `PUT`, `DELETE` |
 | `/api/admin/qc/inspect` | [route.ts](src/app/api/admin/qc/inspect/route.ts) | `POST` |
 | `/api/admin/rate-matrix` | [route.ts](src/app/api/admin/rate-matrix/route.ts) | `GET`, `PUT` |
+| `/api/admin/reports/daily-operational/refreeze` | [route.ts](src/app/api/admin/reports/daily-operational/refreeze/route.ts) | `POST` |
 | `/api/admin/reports/dynamic` | [route.ts](src/app/api/admin/reports/dynamic/route.ts) | `POST` |
 | `/api/admin/role-options` | [route.ts](src/app/api/admin/role-options/route.ts) | `GET` |
 | `/api/admin/sections` | [route.ts](src/app/api/admin/sections/route.ts) | `GET`, `POST` |

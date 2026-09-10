@@ -1,15 +1,9 @@
 import { z } from 'zod';
-import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
 import { apiHandler } from '@/lib/api-handler';
 import { ROLE_GROUPS } from '@/config/roles';
+import { getQueueProvider } from '@/lib/queue';
 
 export const dynamic = 'force-dynamic';
-
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-
-const invoiceQueue = new Queue('invoice-generation', { connection: connection as any });
 
 const schema = z.object({
     contractorId: z.string(),
@@ -23,7 +17,7 @@ export const POST = apiHandler(
         const { contractorId, month, year } = schema.parse(body);
         const userId = req.headers.get('x-user-id') || 'system';
 
-        const job = await invoiceQueue.add('generate', {
+        const job = await getQueueProvider().addJob('invoice-generation', 'generate', {
             contractorId,
             month,
             year,

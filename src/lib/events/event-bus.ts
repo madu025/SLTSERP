@@ -48,6 +48,7 @@ export class RedisEventBus implements EventBus {
     private getSubscriber(): Redis {
         if (!this.subscriber) {
             this.subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+                lazyConnect: true,
                 maxRetriesPerRequest: null,
                 connectTimeout: 2000,
                 retryStrategy(times) {

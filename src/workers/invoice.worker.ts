@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { InvoiceService } from '@/services/invoice/invoice.service';
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null, lazyConnect: true });
 export const invoiceWorker = new Worker(
     'invoice-generation',
     async (job: Job) => {

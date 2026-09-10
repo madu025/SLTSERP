@@ -17,6 +17,7 @@ import type { ConnectionOptions } from 'bullmq';
  */
 
 const QUEUE_OPTIONS: RedisOptions = {
+    lazyConnect: true,
     maxRetriesPerRequest: null, // BullMQ requirement: a command may wait for the connection
     connectTimeout: 2000,
     retryStrategy: () => null, // Fail fast: do not endlessly reconnect when Redis is unreachable
