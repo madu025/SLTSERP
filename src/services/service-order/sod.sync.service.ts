@@ -1597,15 +1597,16 @@ export class SODSyncService {
             };
 
             if (existing) {
+                // Auto-heal open/active SODs that had an ancient backfilled receivedDate (< 2026).
+                // To the contractor/ERP, an open job received/re-assigned in 2026 must bear the genuine intake date in 2026.
+                const isFinished = effectiveSltsStatus === 'COMPLETED' || effectiveSltsStatus === 'INSTALL_CLOSED';
+                if (!isFinished && existing.receivedDate && existing.receivedDate.getFullYear() < 2026) {
+                    updatePayload.receivedDate = (statusDate && statusDate.getFullYear() >= 2026) ? statusDate : new Date();
+                }
                 toUpdate.push({ existing, updatePayload, initialSltsStatus: effectiveSltsStatus });
             } else {
                 const isFinished = effectiveSltsStatus === 'COMPLETED' || effectiveSltsStatus === 'INSTALL_CLOSED';
                 const isRecent = statusDate.getFullYear() >= 2026;
-                // A row that surfaces in a portal date range only because someone touched its
-                // status is not today's intake. The SOD number carries the order-raise date
-                // (never later than the real receipt), so when the status instant trails that
-                // date by more than a day the receipt anchor moves back to the raise date.
-                // Genuine same-day / next-day intake keeps the portal status date untouched.
                 const raisedDate = orderRaiseDateFromSoNum(item.SO_NUM);
                 const receiptWasRedated = !!raisedDate && statusDate.getTime() - raisedDate.getTime() > 86400000;
                 if (!isFinished || isRecent) {
@@ -1615,15 +1616,11 @@ export class SODSyncService {
                         contractorId: contractorId || null,
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
-                        // A record that arrives already closed carries its closure instant in
-                        // CON_STATUS_DATE, not a receipt. Stamping that as receivedDate made
-                        // month-old jobs show up as "Received Today" on the Daily Operational
-                        // Report, so born-finished rows take the order-raise date embedded in
-                        // the SOD number instead. Open rows keep the portal status date, which
-                        // is the genuine received/assigned moment.
-                        receivedDate: (isFinished || receiptWasRedated)
+                        // Open/active jobs assigned in ERP must use the genuine assignment moment (statusDate/now).
+                        // Ancient order-raise backfilling is strictly reserved for born-finished rows.
+                        receivedDate: isFinished
                             ? backfillReceiptDate(item.SO_NUM, statusDate)
-                            : statusDate,
+                            : ((statusDate && statusDate.getFullYear() >= 2026) ? statusDate : new Date()),
                         // Born-RETURN: return date = the ERP capture moment (when the import
                         // learned the return). Portal CON_STATUS_DATE is the received-date
                         // mirror, NOT the return date.
