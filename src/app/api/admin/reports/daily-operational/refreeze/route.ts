@@ -28,6 +28,6 @@ export const POST = apiHandler(async (request) => {
   };
 }, {
   rawResponse: false,
-  allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
+  roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
   menuPath: '/reports/daily-operational',
 });

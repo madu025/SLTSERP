@@ -650,7 +650,7 @@ export class ReportService {
         createdAt: true,
         statusHistory: {
           where: { status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] } },
-          select: { statusDate: true }
+          select: { status: true, statusDate: true }
         }
       }
     });
