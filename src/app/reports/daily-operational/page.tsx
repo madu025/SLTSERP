@@ -126,33 +126,37 @@ const BREAKDOWN_COLUMNS: { label: string; key: BreakdownKey; kind: 'bucket' | 's
 ];
 
 const BREAKDOWN_STYLE: Record<BreakdownTone, {
-    groupBg: string; headSub: string; headSubTotal: string;
+    groupBg: string; headSubBg: string; headSubColor: string; headSubTotalBg: string; headSubTotalColor: string;
     edge: string; bucket: string; subtotal: string; total: string;
     sumBucket: string; sumSubtotal: string; sumTotal: string;
 }> = {
     green: {
-        groupBg:    'bg-emerald-950',
-        headSub:    'bg-emerald-900 text-emerald-100 font-bold',
-        headSubTotal:'bg-emerald-800 text-white font-black',
-        edge:       'border-l-2 border-l-emerald-400',
-        bucket:     'bg-emerald-50 text-emerald-950 font-medium',
-        subtotal:   'bg-emerald-100 font-bold text-emerald-950 border-x border-emerald-200',
-        total:      'bg-emerald-200 font-black text-emerald-950 border-x border-emerald-300',
-        sumBucket:  'bg-emerald-900 text-emerald-100 font-bold border-r border-emerald-800/60',
-        sumSubtotal:'bg-emerald-700 text-white font-black border-r border-emerald-600',
-        sumTotal:   'bg-emerald-500 text-white font-black border-r border-emerald-400',
+        groupBg:          '#022c22',
+        headSubBg:        '#064e3b',
+        headSubColor:     '#ffffff',
+        headSubTotalBg:   '#047857',
+        headSubTotalColor:'#ffffff',
+        edge:             'border-l-2 border-l-emerald-400',
+        bucket:           'bg-emerald-50 text-emerald-950 font-medium',
+        subtotal:         'bg-emerald-100 font-bold text-emerald-950 border-x border-emerald-200',
+        total:            'bg-emerald-200 font-black text-emerald-950 border-x border-emerald-300',
+        sumBucket:        'bg-emerald-900 text-emerald-100 font-bold border-r border-emerald-800/60',
+        sumSubtotal:      'bg-emerald-700 text-white font-black border-r border-emerald-600',
+        sumTotal:         'bg-emerald-500 text-white font-black border-r border-emerald-400',
     },
     blue: {
-        groupBg:    'bg-sky-950',
-        headSub:    'bg-sky-900 text-sky-100 font-bold',
-        headSubTotal:'bg-sky-800 text-white font-black',
-        edge:       'border-l-2 border-l-sky-400',
-        bucket:     'bg-sky-50 text-sky-950 font-medium',
-        subtotal:   'bg-sky-100 font-bold text-sky-950 border-x border-sky-200',
-        total:      'bg-sky-200 font-black text-sky-950 border-x border-sky-300',
-        sumBucket:  'bg-sky-900 text-sky-100 font-bold border-r border-sky-800/60',
-        sumSubtotal:'bg-sky-700 text-white font-black border-r border-sky-600',
-        sumTotal:   'bg-sky-500 text-white font-black border-r border-sky-400',
+        groupBg:          '#0c4a6e',
+        headSubBg:        '#0369a1',
+        headSubColor:     '#ffffff',
+        headSubTotalBg:   '#0284c7',
+        headSubTotalColor:'#ffffff',
+        edge:             'border-l-2 border-l-sky-400',
+        bucket:           'bg-sky-50 text-sky-950 font-medium',
+        subtotal:         'bg-sky-100 font-bold text-sky-950 border-x border-sky-200',
+        total:            'bg-sky-200 font-black text-sky-950 border-x border-sky-300',
+        sumBucket:        'bg-sky-900 text-sky-100 font-bold border-r border-sky-800/60',
+        sumSubtotal:      'bg-sky-700 text-white font-black border-r border-sky-600',
+        sumTotal:         'bg-sky-500 text-white font-black border-r border-sky-400',
     },
 };
 
@@ -169,9 +173,11 @@ function BreakdownHeadCells({ tone }: { tone: BreakdownTone }) {
             {BREAKDOWN_COLUMNS.map(({ label, key, kind }, i) => (
                 <th
                     key={key}
-                    className={`px-0.5 py-1.5 text-white text-[10px] font-black uppercase tracking-wider
-                        ${kind === 'total' ? `w-10 ${s.headSubTotal}` : `w-7 ${s.headSub}`}
-                        ${i === 0 ? s.edge : ''}`}
+                    className={`px-0.5 py-1.5 text-[10px] font-black uppercase tracking-wider ${kind === 'total' ? 'w-10' : 'w-7'} ${i === 0 ? s.edge : ''}`}
+                    style={{
+                        background: kind === 'total' ? s.headSubTotalBg : s.headSubBg,
+                        color: kind === 'total' ? s.headSubTotalColor : s.headSubColor,
+                    }}
                 >
                     {label}
                 </th>
