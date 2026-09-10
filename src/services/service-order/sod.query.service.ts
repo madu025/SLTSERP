@@ -546,6 +546,14 @@ export class SODQueryService {
                         createdAt: true,
                         author: { select: { name: true } }
                     }
+                },
+                delayReasons: {
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        reason: true,
+                        createdAt: true
+                    }
                 }
             }
         });

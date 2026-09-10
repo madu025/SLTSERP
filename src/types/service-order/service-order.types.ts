@@ -94,6 +94,11 @@ export interface DetailedServiceOrder extends ServiceOrder {
         createdAt: string | Date;
     }[];
     commentsHistory?: ServiceOrderComment[];
+    delayReasons?: {
+        id: string;
+        reason: string;
+        createdAt: string | Date;
+    }[];
 }
 
 export interface AuditItem {

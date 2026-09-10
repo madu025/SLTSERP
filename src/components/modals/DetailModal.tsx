@@ -209,8 +209,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <DetailItem icon={<Info className="w-3.5 h-3.5" />} label="SO Number" value={coreOrder?.soNum} isMono />
                                 <DetailItem icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="SLTS Status" value={coreOrder?.sltsStatus} isBold />
-                                {isReturnSod && (
-                                    <DetailItem icon={<RotateCcw className="w-3.5 h-3.5" />} label="Return Reason" value={coreOrder?.returnReason || selectedOrder?.returnReason || null} isBold />
+                                {(coreOrder?.returnReason || selectedOrder?.returnReason) && (
+                                    <DetailItem icon={<RotateCcw className="w-3.5 h-3.5" />} label="Return Reason / Last Return" value={coreOrder?.returnReason || selectedOrder?.returnReason || null} isBold />
                                 )}
                                 <DetailItem icon={<User className="w-3.5 h-3.5" />} label="Customer Name" value={coreOrder?.customerName} />
                                 <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="Voice Number" value={coreOrder?.voiceNumber} />

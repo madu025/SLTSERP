@@ -180,7 +180,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
             const columnFiltersParam = columnFiltersKey !== '{}' ? `&columnFilters=${encodeURIComponent(columnFiltersKey)}` : '';
 
-            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}${columnFiltersParam}&page=${currentPage}&limit=${PAGE_LIMIT}`, {
+            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}${columnFiltersParam}&page=${currentPage}&limit=${PAGE_LIMIT}&_t=${Date.now()}`, {
                 cache: 'no-store',
                 headers: {
                     'Pragma': 'no-cache',
