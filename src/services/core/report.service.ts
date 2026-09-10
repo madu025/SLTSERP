@@ -1,11 +1,13 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { subMonths, subDays, subYears, format } from 'date-fns';
-import { getSriLankaToday, getSriLankaStartOfDay, getSriLankaEndOfDay, getSriLankaStartOfMonth } from '@/lib/timezone';
+import { getSriLankaToday, getSriLankaStartOfDay, getSriLankaEndOfDay, getSriLankaStartOfMonth, getSriLankaDayKey } from '@/lib/timezone';
 import { PaymentTypeEnum, PaymentStatusEnum, Prisma, ServiceOrderStatus } from '@prisma/client';
 import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES, categorizeSodOrder } from '@/lib/constants/sod-constants';
-import { classifySodDayActivity, type SodDayActivitySource, type SodDayWindow } from './daily-report-activity';
+import { classifySodDayActivity, classifySameDayCompletion, type SodDayActivitySource, type SodDayWindow } from './daily-report-activity';
 import { sumMaterialsForSods, type DailyMaterialTotals, type MaterialSodLike } from './daily-report-material';
+import { z } from 'zod';
+
 
 export interface AnalyticsReportOptions {
   customFrom?: string | null;
@@ -148,7 +150,74 @@ export interface ReportRow {
   shortages: ShortagesEntry;
 }
 
+const reportMetricsSchema = z.object({
+  nc: z.number(),
+  rl: z.number(),
+  data: z.number(),
+  total: z.number(),
+});
+
+const completedMetricsSchema = z.object({
+  create: z.number(),
+  recon: z.number(),
+  upgrade: z.number(),
+  fnc: z.number(),
+  or: z.number(),
+  ml: z.number(),
+  frl: z.number(),
+  data: z.number(),
+  total: z.number(),
+});
+
+const materialMetricsSchema = z.object({
+  dwSlt: z.number(),
+  dwCompany: z.number(),
+  dw: z.number(),
+  pole56: z.number(),
+  pole67: z.number(),
+  pole80: z.number(),
+});
+
+const delaysSchema = z.object({
+  ontShortage: z.number(),
+  stbShortage: z.number(),
+  nokia: z.number(),
+  system: z.number(),
+  opmc: z.number(),
+  cxDelay: z.number(),
+  sameDay: z.number(),
+  polePending: z.number(),
+});
+
+const shortagesSchema = z.object({
+  stb: z.number(),
+  ont: z.number(),
+});
+
+export const ReportRowSchema = z.object({
+  region: z.string(),
+  province: z.string(),
+  rtom: z.string(),
+  regularTeams: z.number(),
+  teamsWorked: z.number(),
+  inHandMorning: reportMetricsSchema,
+  received: reportMetricsSchema,
+  totalInHand: z.number(),
+  completed: completedMetricsSchema,
+  material: materialMetricsSchema,
+  returned: reportMetricsSchema,
+  wiredOnly: reportMetricsSchema,
+  installClosed: completedMetricsSchema,
+  sameDayCompleted: z.number().optional().default(0),
+  intakeSameDayCompleted: z.number().optional().default(0),
+  backlogSameDayCompleted: z.number().optional().default(0),
+  delays: delaysSchema,
+  balance: reportMetricsSchema,
+  shortages: shortagesSchema,
+});
+
 /** Sri Lanka (UTC+5:30) calendar-day key, e.g. '2026-09-02'. */
+
 const slDateKey = (d: Date): string =>
   new Date(d.getTime() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -509,13 +578,28 @@ export class ReportService {
           orderBy: { orderIndex: 'asc' }
         });
         if (snaps.length > 0) {
-          return {
-            reportData: snaps.map(s => s.payload as unknown as ReportRow),
-            monthlyPipeline: monthlyPipelineData.pipeline,
-            monthlyPipelineGrandTotal: monthlyPipelineData.grandTotal,
-            date: dateKey,
-            snapshot: true
-          };
+          const parsedRows: ReportRow[] = [];
+          let isValid = true;
+
+          for (const s of snaps) {
+            const parsed = ReportRowSchema.safeParse(s.payload);
+            if (!parsed.success) {
+              console.warn(`[DailyReport] Snapshot row validation failed for date ${dateKey}, recalculating live...`, parsed.error.format());
+              isValid = false;
+              break;
+            }
+            parsedRows.push(parsed.data as ReportRow);
+          }
+
+          if (isValid) {
+            return {
+              reportData: parsedRows,
+              monthlyPipeline: monthlyPipelineData.pipeline,
+              monthlyPipelineGrandTotal: monthlyPipelineData.grandTotal,
+              date: dateKey,
+              snapshot: true
+            };
+          }
         }
       } catch (err) {
         console.error('[DailyReport] snapshot read failed, computing live:', err);
@@ -603,21 +687,19 @@ export class ReportService {
       if (o.sltsStatus === 'COMPLETED') {
         st.completed++;
 
-        if (o.completedDate) {
-          const compKey = slDateKey(o.completedDate);
-          const isIntakeSameDay =
-            (o.receivedDate && slDateKey(o.receivedDate) === compKey) ||
-            (o.createdAt && slDateKey(o.createdAt) === compKey);
+        const sameDayClass = classifySameDayCompletion(
+          o.completedDate,
+          o.createdAt,
+          o.receivedDate,
+          o.statusHistory
+        );
 
-          const isIcSameDay = o.statusHistory.some(h => h.statusDate && slDateKey(h.statusDate) === compKey);
-
-          if (isIntakeSameDay) {
-            st.sameDayCompleted++;
-            st.intakeSameDayCompleted++;
-          } else if (isIcSameDay) {
-            st.sameDayCompleted++;
-            st.backlogSameDayCompleted++;
-          }
+        if (sameDayClass.isIntakeSameDay) {
+          st.sameDayCompleted++;
+          st.intakeSameDayCompleted++;
+        } else if (sameDayClass.isBacklogSameDay) {
+          st.sameDayCompleted++;
+          st.backlogSameDayCompleted++;
         }
       }
 
@@ -786,16 +868,31 @@ export class ReportService {
     // Uses same logic as pending SODs table: excludes COMPLETED, INSTALL_CLOSED, RETURN, DISAPPEARED
     // and only includes PENDING, ASSIGNED, ASSIGN, INPROGRESS, PROV_CLOSED statuses.
     // receivedDate is canonical; fall back to createdAt when null.
-    const excludedStatuses: ServiceOrderStatus[] = [...SOD_EXCLUDED_FROM_PENDING] as ServiceOrderStatus[];
-    const pendingStatuses: ServiceOrderStatus[] = [...SOD_PENDING_DEFAULT_STATUSES] as ServiceOrderStatus[];
+    // Explicit list of terminal/finished sltsStatus values to exclude from morning carry-forward
+    const terminalSltsStatuses: ServiceOrderStatus[] = [
+      'COMPLETED',
+      'INSTALL_CLOSED',
+      'RETURN',
+      'DISAPPEARED',
+      'PAT_OPMC_PASSED',
+      'PAT_CORRECTED',
+    ] as ServiceOrderStatus[];
+
+    // Active in-hand statuses for morning carry-forward (ASSIGNED, INPROGRESS, PENDING, PROV_CLOSED)
+    const activeWorkflowStatuses: ServiceOrderStatus[] = [
+      'ASSIGNED',
+      'INPROGRESS',
+      'PENDING',
+      'PROV_CLOSED',
+    ] as ServiceOrderStatus[];
 
     const inHandMorningWhere: Prisma.ServiceOrderWhereInput = {
       OR: [
         { receivedDate: { lt: startDate } },
         { AND: [{ receivedDate: null }, { createdAt: { lt: startDate } }] }
       ],
-      sltsStatus: { notIn: excludedStatuses },
-      status: { in: pendingStatuses }
+      sltsStatus: { notIn: terminalSltsStatuses },
+      status: { in: activeWorkflowStatuses }
     };
 
     const [inHandMorningOrders, stbShortageInHandRaw, ontShortageInHandRaw] = await Promise.all([
@@ -1031,6 +1128,15 @@ export class ReportService {
   static async persistClosedSriLankaDaySnapshot(): Promise<{ dateKey: string; rows: number }> {
     const dateKey = format(subDays(new Date(`${getSriLankaToday()}T00:00:00Z`), 1), 'yyyy-MM-dd');
     return { dateKey, rows: await ReportService.persistDailyReportSnapshot(dateKey) };
+  }
+
+  /** Refreezes (forces live recalculation and snapshot overwrite) for any specified date. */
+  static async refreezeDailyReportSnapshot(dateKey: string): Promise<{ dateKey: string; rows: number }> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      throw AppError.badRequest('INVALID_DATE_FORMAT');
+    }
+    const rows = await ReportService.persistDailyReportSnapshot(dateKey);
+    return { dateKey, rows };
   }
 
   /**

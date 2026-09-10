@@ -19,6 +19,7 @@
  */
 import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES } from '@/lib/constants/sod-constants';
 import type { MaterialUsageLike } from './daily-report-material';
+import { getSriLankaDayKey } from '@/lib/timezone';
 
 export interface SodDayWindow {
   start: Date;
@@ -70,6 +71,12 @@ export interface SodDayActivity {
   wiredOnlyFlagged: boolean;
 }
 
+export interface SameDayClassification {
+  isSameDay: boolean;
+  isIntakeSameDay: boolean;
+  isBacklogSameDay: boolean;
+}
+
 const toDate = (value: Date | string | null): Date | null => {
   if (!value) return null;
   const parsed = value instanceof Date ? value : new Date(value);
@@ -110,6 +117,39 @@ const isBirthEvent = (
 
 const isTerminalForPending = (sltsStatus: string | null, status: string | null): boolean =>
   sltsStatus === 'RETURN' || sltsStatus === 'DISAPPEARED' || status === 'DISAPPEARED';
+
+/** Pure utility to classify same-day completion status across daily and monthly reporting. */
+export function classifySameDayCompletion(
+  completedDate: Date | string | null,
+  createdAt: Date | string,
+  receivedDate: Date | string | null,
+  statusHistory: { status: string; statusDate: Date | string | null }[]
+): SameDayClassification {
+  const compDt = toDate(completedDate);
+  if (!compDt) {
+    return { isSameDay: false, isIntakeSameDay: false, isBacklogSameDay: false };
+  }
+  const compKey = getSriLankaDayKey(compDt);
+
+  const recDt = toDate(receivedDate);
+  const crtDt = toDate(createdAt);
+
+  const isIntakeSameDay =
+    (!!recDt && getSriLankaDayKey(recDt) === compKey) ||
+    (!!crtDt && getSriLankaDayKey(crtDt) === compKey);
+
+  const isIcSameDay = statusHistory.some(h => {
+    const st = (h.status || '').toUpperCase();
+    if (st !== 'INSTALL_CLOSED' && st !== 'PROV_CLOSED') return false;
+    const dt = toDate(h.statusDate);
+    return !!dt && getSriLankaDayKey(dt) === compKey;
+  });
+
+  const isBacklogSameDay = !isIntakeSameDay && isIcSameDay;
+  const isSameDay = isIntakeSameDay || isBacklogSameDay;
+
+  return { isSameDay, isIntakeSameDay, isBacklogSameDay };
+}
 
 /** Classify one SOD against the report day. Pure - no DB, no mutation. */
 export function classifySodDayActivity(order: SodDayActivitySource, window: SodDayWindow): SodDayActivity {
@@ -168,21 +208,16 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
       inWindow(order.completedDate, window) ||
       (!order.completedDate && inWindow(order.statusDate, window)));
 
-  const hadIntakeInWindow =
-    (order.createdAt >= window.start && order.createdAt <= window.end) ||
-    Boolean(order.receivedDate && order.receivedDate >= window.start && order.receivedDate <= window.end);
+  const sameDayClass = classifySameDayCompletion(
+    order.completedDate,
+    order.createdAt,
+    order.receivedDate,
+    order.statusHistory
+  );
 
-  const hadIcInWindow =
-    hasEventInWindow(closureEvidenceHistory, 'INSTALL_CLOSED', window) ||
-    hasEventInWindow(closureEvidenceHistory, 'PROV_CLOSED', window) ||
-    hasEventInWindow(order.statusHistory, 'INSTALL_CLOSED', window) ||
-    hasEventInWindow(order.statusHistory, 'PROV_CLOSED', window);
-
-  const sameDayClosureEvidence = hadIntakeInWindow || hadIcInWindow;
-
-  const sameDayCompleted = Boolean(completedToday && sameDayClosureEvidence);
-  const intakeSameDayCompleted = Boolean(completedToday && hadIntakeInWindow);
-  const backlogSameDayCompleted = Boolean(completedToday && !hadIntakeInWindow && hadIcInWindow);
+  const sameDayCompleted = Boolean(completedToday && sameDayClass.isSameDay);
+  const intakeSameDayCompleted = Boolean(completedToday && sameDayClass.isIntakeSameDay);
+  const backlogSameDayCompleted = Boolean(completedToday && sameDayClass.isBacklogSameDay);
 
   const returnedToday =
     order.sltsStatus === 'RETURN' &&
@@ -212,3 +247,4 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
     wiredOnlyFlagged: order.wiredOnly === true,
   };
 }
+
