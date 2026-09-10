@@ -131,28 +131,28 @@ const BREAKDOWN_STYLE: Record<BreakdownTone, {
     sumBucket: string; sumSubtotal: string; sumTotal: string;
 }> = {
     green: {
-        groupBg:    'bg-emerald-900',
-        headSub:    'bg-emerald-800',
-        headSubTotal:'bg-emerald-700',
+        groupBg:    'bg-emerald-950',
+        headSub:    'bg-emerald-900 text-emerald-100 font-bold',
+        headSubTotal:'bg-emerald-800 text-white font-black',
         edge:       'border-l-2 border-l-emerald-400',
-        bucket:     'bg-emerald-50/60 text-emerald-950',
-        subtotal:   'bg-emerald-100 font-semibold text-emerald-900',
-        total:      'bg-emerald-200/80 font-black text-emerald-950',
-        sumBucket:  'bg-emerald-500/10',
-        sumSubtotal:'bg-emerald-500/25 font-bold',
-        sumTotal:   'bg-emerald-600 text-white font-black',
+        bucket:     'bg-emerald-50 text-emerald-950 font-medium',
+        subtotal:   'bg-emerald-100 font-bold text-emerald-950 border-x border-emerald-200',
+        total:      'bg-emerald-200 font-black text-emerald-950 border-x border-emerald-300',
+        sumBucket:  'bg-emerald-900 text-emerald-100 font-bold border-r border-emerald-800/60',
+        sumSubtotal:'bg-emerald-700 text-white font-black border-r border-emerald-600',
+        sumTotal:   'bg-emerald-500 text-white font-black border-r border-emerald-400',
     },
     blue: {
-        groupBg:    'bg-sky-900',
-        headSub:    'bg-sky-800',
-        headSubTotal:'bg-sky-700',
+        groupBg:    'bg-sky-950',
+        headSub:    'bg-sky-900 text-sky-100 font-bold',
+        headSubTotal:'bg-sky-800 text-white font-black',
         edge:       'border-l-2 border-l-sky-400',
-        bucket:     'bg-sky-50/60 text-sky-950',
-        subtotal:   'bg-sky-100 font-semibold text-sky-900',
-        total:      'bg-sky-200/80 font-black text-sky-950',
-        sumBucket:  'bg-sky-500/10',
-        sumSubtotal:'bg-sky-500/25 font-bold',
-        sumTotal:   'bg-sky-600 text-white font-black',
+        bucket:     'bg-sky-50 text-sky-950 font-medium',
+        subtotal:   'bg-sky-100 font-bold text-sky-950 border-x border-sky-200',
+        total:      'bg-sky-200 font-black text-sky-950 border-x border-sky-300',
+        sumBucket:  'bg-sky-900 text-sky-100 font-bold border-r border-sky-800/60',
+        sumSubtotal:'bg-sky-700 text-white font-black border-r border-sky-600',
+        sumTotal:   'bg-sky-500 text-white font-black border-r border-sky-400',
     },
 };
 
@@ -169,7 +169,7 @@ function BreakdownHeadCells({ tone }: { tone: BreakdownTone }) {
             {BREAKDOWN_COLUMNS.map(({ label, key, kind }, i) => (
                 <th
                     key={key}
-                    className={`px-0.5 py-1 text-white text-[9px] font-bold uppercase tracking-tight
+                    className={`px-0.5 py-1.5 text-white text-[10px] font-black uppercase tracking-wider
                         ${kind === 'total' ? `w-10 ${s.headSubTotal}` : `w-7 ${s.headSub}`}
                         ${i === 0 ? s.edge : ''}`}
                 >
@@ -861,46 +861,46 @@ export default function DailyOperationalReportPage() {
 
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-[11px] border-collapse">
-                                        <thead className="bg-slate-900 text-white sticky top-0 z-20">
+                                        <thead className="bg-slate-950 text-white sticky top-0 z-20 shadow-md">
                                             <tr>
-                                                <th rowSpan={2} className="px-2 py-2.5 text-left w-24 border-r border-slate-700 font-bold text-[10px] uppercase tracking-wider">Province</th>
-                                                <th rowSpan={2} className="px-2 py-2.5 text-center w-20 border-r border-slate-700 font-bold text-[10px] uppercase tracking-wider">RTOM</th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-blue-900 text-blue-100 font-bold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-2 py-2.5 text-left w-24 border-r border-slate-700 bg-slate-950 text-white font-extrabold text-[10px] uppercase tracking-wider">Province</th>
+                                                <th rowSpan={2} className="px-2 py-2.5 text-center w-20 border-r border-slate-700 bg-slate-950 text-white font-extrabold text-[10px] uppercase tracking-wider">RTOM</th>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-blue-950 text-white font-extrabold text-[10px] leading-tight">
                                                     In Hand<br />AM
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-emerald-900 text-emerald-100 font-bold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-emerald-950 text-white font-extrabold text-[10px] leading-tight">
                                                     Recv<br />Today
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-indigo-900 text-indigo-100 font-bold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-14 border-r border-slate-700 bg-indigo-950 text-white font-black text-[10px] leading-tight">
                                                     Total<br />Hand
                                                 </th>
 
                                                 {/* Completed group */}
-                                                <th colSpan={9} className="px-2 py-1.5 text-center text-white text-[10px] font-black uppercase tracking-wider bg-emerald-900 border-l-2 border-l-emerald-400 border-b border-emerald-800">
+                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider bg-emerald-900 border-l-2 border-l-emerald-400 border-b border-emerald-700">
                                                     Completed Orders
                                                 </th>
 
                                                 {/* Install Closed group */}
-                                                <th colSpan={9} className="px-2 py-1.5 text-center text-white text-[10px] font-black uppercase tracking-wider bg-sky-900 border-l-2 border-l-sky-400 border-b border-sky-800">
+                                                <th colSpan={9} className="px-2 py-2 text-center text-white text-[11px] font-black uppercase tracking-wider bg-sky-900 border-l-2 border-l-sky-400 border-b border-sky-700">
                                                     Install Closed
                                                 </th>
 
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-amber-900 text-amber-100 font-bold text-[10px]">DW</th>
-                                                <th colSpan={3} className="px-1 py-1.5 text-center bg-cyan-900 text-cyan-100 font-bold text-[10px] border-b border-cyan-800">Poles</th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-rose-900 text-rose-100 font-bold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-amber-950 text-amber-200 font-extrabold text-[10px]">DW</th>
+                                                <th colSpan={3} className="px-1 py-1.5 text-center bg-cyan-950 text-cyan-200 font-extrabold text-[10px] border-b border-cyan-800">Poles</th>
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-rose-950 text-rose-200 font-extrabold text-[10px] leading-tight">
                                                     Ret<br />SOD
                                                 </th>
-                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-purple-900 text-purple-100 font-bold text-[10px] leading-tight">
+                                                <th rowSpan={2} className="px-1 py-2 text-center w-12 bg-purple-950 text-purple-200 font-extrabold text-[10px] leading-tight">
                                                     Wired<br />Only
                                                 </th>
-                                                <th rowSpan={2} className="px-2 py-2 text-center w-14 bg-slate-700 text-slate-100 font-black text-[10px] uppercase">BAL</th>
+                                                <th rowSpan={2} className="px-2 py-2 text-center w-14 bg-slate-800 text-white font-black text-[10px] uppercase">BAL</th>
                                             </tr>
-                                            <tr className="text-[9px] font-bold tracking-tight">
+                                            <tr className="text-[10px] font-black tracking-tight">
                                                 <BreakdownHeadCells tone="green" />
                                                 <BreakdownHeadCells tone="blue" />
-                                                <th className="px-0.5 py-1 w-7 bg-cyan-800 text-white">5.6</th>
-                                                <th className="px-0.5 py-1 w-7 bg-cyan-800 text-white">6.7</th>
-                                                <th className="px-0.5 py-1 w-7 bg-cyan-800 text-white">8.0</th>
+                                                <th className="px-0.5 py-1.5 w-7 bg-cyan-900 text-white font-black">5.6</th>
+                                                <th className="px-0.5 py-1.5 w-7 bg-cyan-900 text-white font-black">6.7</th>
+                                                <th className="px-0.5 py-1.5 w-7 bg-cyan-900 text-white font-black">8.0</th>
                                             </tr>
                                         </thead>
 
@@ -1052,19 +1052,19 @@ export default function DailyOperationalReportPage() {
                                 {/* Pipeline Detail Table */}
                                 <div className="bg-white overflow-x-auto max-h-[480px] overflow-y-auto">
                                     <table className="w-full text-[11px] border-collapse">
-                                        <thead className="bg-slate-900 text-white sticky top-0 z-10">
+                                        <thead className="bg-slate-950 text-white sticky top-0 z-10 shadow-md">
                                             <tr>
-                                                <th className="px-2 py-2.5 text-left w-24 border-r border-slate-700 text-[10px] font-bold uppercase tracking-wide">Province</th>
-                                                <th className="px-2 py-2.5 text-center w-20 border-r border-slate-700 text-[10px] font-bold uppercase tracking-wide">RTOM</th>
-                                                <th className="px-2 py-2.5 text-center w-28 bg-blue-900 text-blue-200 text-[10px] font-bold leading-tight border-r border-blue-800">1. Month<br />Install Closed</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-sky-900 text-sky-200 text-[10px] font-bold leading-tight border-r border-sky-800">2. System<br />Completed</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-emerald-900 text-emerald-200 text-[10px] font-bold leading-tight border-r border-emerald-800">3. PAT OPMC<br />Passed</th>
-                                                <th className="px-2 py-2.5 text-center w-28 bg-teal-900 text-teal-200 text-[10px] font-bold leading-tight border-r border-teal-800">4. Final PAT<br />(Invoicable)</th>
-                                                <th className="px-2 py-2.5 text-center w-20 bg-rose-950 text-rose-300 text-[10px] font-bold leading-tight border-r border-rose-900">PAT<br />Rejected</th>
-                                                <th className="px-2 py-2.5 text-center w-28 bg-amber-900 text-amber-200 text-[10px] font-bold leading-tight border-r border-amber-800">Pending<br />Final PAT</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-indigo-900 text-indigo-200 text-[10px] font-bold leading-tight border-r border-indigo-800">Same-Day<br />Done</th>
-                                                <th className="px-2 py-2.5 text-center w-20 bg-indigo-800 text-indigo-200 text-[10px] font-bold leading-tight border-r border-indigo-700">Same-Day<br />Rate %</th>
-                                                <th className="px-2 py-2.5 text-center w-24 bg-slate-800 text-white text-[10px] font-bold leading-tight">Final Invoicing<br />Rate %</th>
+                                                <th className="px-2 py-2.5 text-left w-24 border-r border-slate-700 bg-slate-950 text-white text-[10px] font-extrabold uppercase tracking-wide">Province</th>
+                                                <th className="px-2 py-2.5 text-center w-20 border-r border-slate-700 bg-slate-950 text-white text-[10px] font-extrabold uppercase tracking-wide">RTOM</th>
+                                                <th className="px-2 py-2.5 text-center w-28 bg-blue-950 text-white text-[10px] font-extrabold leading-tight border-r border-blue-800">1. Month<br />Install Closed</th>
+                                                <th className="px-2 py-2.5 text-center w-24 bg-sky-950 text-white text-[10px] font-extrabold leading-tight border-r border-sky-800">2. System<br />Completed</th>
+                                                <th className="px-2 py-2.5 text-center w-24 bg-emerald-950 text-white text-[10px] font-extrabold leading-tight border-r border-emerald-800">3. PAT OPMC<br />Passed</th>
+                                                <th className="px-2 py-2.5 text-center w-28 bg-teal-900 text-teal-100 text-[10px] font-black leading-tight border-r border-teal-800">4. Final PAT<br />(Invoicable)</th>
+                                                <th className="px-2 py-2.5 text-center w-20 bg-rose-950 text-rose-200 text-[10px] font-extrabold leading-tight border-r border-rose-900">PAT<br />Rejected</th>
+                                                <th className="px-2 py-2.5 text-center w-28 bg-amber-950 text-amber-200 text-[10px] font-extrabold leading-tight border-r border-amber-800">Pending<br />Final PAT</th>
+                                                <th className="px-2 py-2.5 text-center w-24 bg-indigo-950 text-white text-[10px] font-extrabold leading-tight border-r border-indigo-800">Same-Day<br />Done</th>
+                                                <th className="px-2 py-2.5 text-center w-20 bg-indigo-900 text-white text-[10px] font-extrabold leading-tight border-r border-indigo-700">Same-Day<br />Rate %</th>
+                                                <th className="px-2 py-2.5 text-center w-24 bg-slate-800 text-white text-[10px] font-black leading-tight">Final Invoicing<br />Rate %</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white">
