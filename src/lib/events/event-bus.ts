@@ -11,7 +11,6 @@ const RETRY_BASE_DELAY_MS = 100;
  * Prevents transient failures (e.g. momentary DB blip) from
  * permanently losing a notification.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeHandlerWithRetry(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cb: (data: any) => void,

@@ -385,8 +385,8 @@ export default function DailyOperationalReportPage() {
         return () => clearInterval(interval);
     }, [autoRefresh, isToday, fetchReport]);
 
-    const reportData = data?.reportData ?? [];
-    const monthlyPipeline = data?.monthlyPipeline ?? [];
+    const reportData = React.useMemo(() => data?.reportData ?? [], [data?.reportData]);
+    const monthlyPipeline = React.useMemo(() => data?.monthlyPipeline ?? [], [data?.monthlyPipeline]);
     const monthlyPipelineGrandTotal = data?.monthlyPipelineGrandTotal ?? null;
     const isSnapshot = data?.snapshot === true;
 

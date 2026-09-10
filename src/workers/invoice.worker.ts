@@ -7,7 +7,7 @@ export const invoiceWorker = new Worker(
     'invoice-generation',
     async (job: Job) => {
         const { contractorId, month, year, userId } = job.data;
-        console.log(`[InvoiceWorker] Processing batch generation for Contractor ${contractorId} (Month: ${month}, Year: ${year})`);
+        console.log(`[InvoiceWorker] Processing batch generation for Contractor ${contractorId} (Month: ${month}, Year: ${year}) requested by ${userId}`);
         try {
             await job.updateProgress(10);
             const result = await InvoiceService.generateMonthlyInvoice(contractorId, month, year);
@@ -22,7 +22,7 @@ export const invoiceWorker = new Worker(
             throw error;
         }
     },
-    { connection: connection as any }
+    { connection: connection as unknown as import('bullmq').ConnectionOptions }
 );
 invoiceWorker.on('completed', async (job: Job) => {
     console.log(`[InvoiceWorker] Job ${job.id} completed!`);
