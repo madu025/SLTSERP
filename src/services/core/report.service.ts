@@ -634,13 +634,13 @@ export class ReportService {
     const startOfM = getSriLankaStartOfMonth(selectedDate);
     const endOfDayM = getSriLankaEndOfDay(selectedDate);
 
-    // Query month-touched orders in INSTALL_CLOSED or COMPLETED
+    // Query month-touched orders in INSTALL_CLOSED, COMPLETED, or PROV_CLOSED
     const monthOrders = await prisma.serviceOrder.findMany({
       where: {
-        sltsStatus: { in: ['INSTALL_CLOSED', 'COMPLETED'] },
+        sltsStatus: { in: ['INSTALL_CLOSED', 'COMPLETED', 'PROV_CLOSED'] },
         OR: [
           { completedDate: { gte: startOfM, lte: endOfDayM } },
-          { statusHistory: { some: { status: 'INSTALL_CLOSED', statusDate: { gte: startOfM, lte: endOfDayM } } } }
+          { statusHistory: { some: { status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] }, statusDate: { gte: startOfM, lte: endOfDayM } } } }
         ]
       },
       select: {
@@ -686,8 +686,8 @@ export class ReportService {
       }
       const st = funnelMap.get(rtom)!;
 
-      // Extract actual physical Install Closed date from statusHistory (fallback to completedDate)
-      const installHistory = o.statusHistory.find(h => h.status === 'INSTALL_CLOSED');
+      // Extract actual physical Install Closed date from statusHistory (INSTALL_CLOSED or PROV_CLOSED, fallback to completedDate)
+      const installHistory = o.statusHistory.find(h => h.status === 'INSTALL_CLOSED' || h.status === 'PROV_CLOSED');
       const actualInstallDate = installHistory?.statusDate || o.completedDate;
       const isInstallInMonth = actualInstallDate && actualInstallDate >= startOfM && actualInstallDate <= endOfDayM;
 
