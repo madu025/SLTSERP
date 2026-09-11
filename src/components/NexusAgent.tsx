@@ -123,8 +123,7 @@ export default function NexusAgent() {
     const isPublicPath = pathname === '/login' || 
                          pathname === '/' ||
                          pathname.startsWith('/contractor') || 
-                         pathname.startsWith('/team-upload') || 
-                         pathname.startsWith('/presentation');
+                         pathname.startsWith('/team-upload');
 
 
 

@@ -28,7 +28,6 @@ const publicPaths = [
     '/api/service-orders/bridge-sync',
     '/api/service-orders/bridge-data',
     '/api/opmcs',
-    '/presentation',
     '/api/invoices/import-bom/csv',
     '/api/invoices/slt-registry',
     '/api/helpdesk/assets/search-by-serial',

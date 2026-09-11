@@ -204,14 +204,6 @@ function LoginContent() {
             <p className="slt-hero-sub">
               Streamline OSP workflows with SLT&apos;s next-generation Nexus enterprise platform.
             </p>
-            <div className="slt-hero-cta">
-              <Link href="/presentation" className="slt-cta-link">
-                Explore Platform Features
-                <svg className="slt-cta-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
           </div>
 
           {/* Quote carousel */}
