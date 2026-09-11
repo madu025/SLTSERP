@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { 
     Sparkles, 
@@ -218,7 +218,7 @@ export default function NexusAgent() {
 
 
     // Fetch alerts count & alert registry
-    const fetchAlerts = async () => {
+    const fetchAlerts = useCallback(async () => {
         try {
             const res = await fetch('/api/ai/alerts');
             if (res.ok) {
@@ -228,10 +228,10 @@ export default function NexusAgent() {
         } catch (e) {
             console.error("Failed to query alerts:", e);
         }
-    };
+    }, []);
 
     // Load Chat History from Database
-    const fetchHistory = async () => {
+    const fetchHistory = useCallback(async () => {
         try {
             const res = await fetch('/api/ai/copilot');
             if (res.ok) {
@@ -266,7 +266,7 @@ export default function NexusAgent() {
         } catch (e) {
             console.error("Failed to load chat history:", e);
         }
-    };
+    }, []);
 
     useEffect(() => {
         // Skip API calls on public/unauthenticated pages to prevent 401 errors
@@ -278,7 +278,7 @@ export default function NexusAgent() {
         // Poll alerts every 60 seconds
         const timer = setInterval(fetchAlerts, 60000);
         return () => clearInterval(timer);
-    }, []);
+    }, [isPublicPath, fetchAlerts, fetchHistory]);
 
     const handleFeedback = async (messageId: string, rating: 'UP' | 'DOWN', intent?: string, query?: string, correctedIntent?: string) => {
         if (rating === 'DOWN' && !correctedIntent) {

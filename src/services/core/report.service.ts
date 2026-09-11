@@ -1,9 +1,9 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { subMonths, subDays, subYears, format } from 'date-fns';
-import { getSriLankaToday, getSriLankaStartOfDay, getSriLankaEndOfDay, getSriLankaStartOfMonth, getSriLankaDayKey } from '@/lib/timezone';
+import { getSriLankaToday, getSriLankaStartOfDay, getSriLankaEndOfDay, getSriLankaStartOfMonth } from '@/lib/timezone';
 import { PaymentTypeEnum, PaymentStatusEnum, Prisma, ServiceOrderStatus } from '@prisma/client';
-import { SOD_EXCLUDED_FROM_PENDING, SOD_PENDING_DEFAULT_STATUSES, categorizeSodOrder } from '@/lib/constants/sod-constants';
+import { categorizeSodOrder } from '@/lib/constants/sod-constants';
 import { classifySodDayActivity, classifySameDayCompletion, type SodDayActivitySource, type SodDayWindow } from './daily-report-activity';
 import { sumMaterialsForSods, type DailyMaterialTotals, type MaterialSodLike } from './daily-report-material';
 import { z } from 'zod';

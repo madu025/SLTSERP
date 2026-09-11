@@ -73,7 +73,9 @@ function LoginContent() {
     const typedPassword = (document.getElementById('login-password') as HTMLInputElement | null)?.value ?? '';
     if (typedUsername) form.setValue('username', typedUsername);
     if (typedPassword) form.setValue('password', typedPassword);
-    setHydrated(true);
+    
+    const id = requestAnimationFrame(() => setHydrated(true));
+    return () => cancelAnimationFrame(id);
   }, [form]);
 
   // Cycle through quotes
@@ -141,7 +143,7 @@ function LoginContent() {
             || "/dashboard";
 
           console.log(`[LOGIN] Success, redirecting to: ${targetUrl}`);
-          window.location.href = targetUrl;
+          window.location.assign(targetUrl);
           return; // Success, exit
         }
 

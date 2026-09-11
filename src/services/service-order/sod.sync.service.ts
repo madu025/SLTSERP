@@ -1618,7 +1618,6 @@ export class SODSyncService {
             } else {
                 const isFinished = effectiveSltsStatus === 'COMPLETED' || effectiveSltsStatus === 'INSTALL_CLOSED';
                 const isRecent = statusDate.getFullYear() >= 2026;
-                const raisedDate = orderRaiseDateFromSoNum(item.SO_NUM);
                 if (!isFinished || isRecent) {
                     toCreate.push({
                         ...updatePayload,

@@ -2,18 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
-    Shield, 
     ShieldAlert, 
     ShieldCheck, 
     AlertTriangle, 
     CheckCircle2, 
     RefreshCw, 
-    Lock, 
     Terminal, 
-    Activity, 
-    Zap, 
-    Database, 
-    Eye 
+    Database 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SOCSecurityReport } from '@/services/admin/soc-analyst.service';

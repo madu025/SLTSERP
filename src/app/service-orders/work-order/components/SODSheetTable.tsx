@@ -99,18 +99,6 @@ function getSlaAgingBadge(receivedDate?: Date | string | null) {
     }
 }
 
-function parseSoNumberDate(soNum?: string | null): Date | null {
-    if (!soNum) return null;
-    const match = soNum.match(/20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/);
-    if (!match) return null;
-    const dateStr = match[0];
-    const year = parseInt(dateStr.slice(0, 4), 10);
-    const month = parseInt(dateStr.slice(4, 6), 10) - 1;
-    const day = parseInt(dateStr.slice(6, 8), 10);
-    const date = new Date(year, month, day);
-    return isNaN(date.getTime()) ? null : date;
-}
-
 export function SODSheetTable(props: SODSheetTableProps) {
     const {
         orders,
