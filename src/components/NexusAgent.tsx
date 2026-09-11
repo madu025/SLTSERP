@@ -19,7 +19,9 @@ import {
     ThumbsUp,
     ThumbsDown,
     Maximize2,
-    Download
+    Download,
+    GripVertical,
+    RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -94,6 +96,94 @@ export default function NexusAgent() {
     const [completedActions, setCompletedActions] = useState<Record<string, string>>({});
     const [expandedChart, setExpandedChart] = useState<NexusChart | null>(null);
     const [correctingMessageId, setCorrectingMessageId] = useState<string | null>(null);
+
+    // Draggable position state
+    const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStartRef = useRef<{ mouseX: number; mouseY: number; initialX: number; initialY: number }>({ mouseX: 0, mouseY: 0, initialX: 0, initialY: 0 });
+    const hasDraggedRef = useRef(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('nexus_agent_position');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+                    const maxX = Math.max(10, window.innerWidth - 60);
+                    const maxY = Math.max(10, window.innerHeight - 60);
+                    setPosition({
+                        x: Math.min(Math.max(10, parsed.x), maxX),
+                        y: Math.min(Math.max(10, parsed.y), maxY)
+                    });
+                }
+            }
+        } catch {
+            // ignore storage errors
+        }
+    }, []);
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+
+        dragStartRef.current = {
+            mouseX: e.clientX,
+            mouseY: e.clientY,
+            initialX: rect.left,
+            initialY: rect.top,
+        };
+        hasDraggedRef.current = false;
+        setIsDragging(true);
+
+        try {
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        } catch {}
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - dragStartRef.current.mouseX;
+        const deltaY = e.clientY - dragStartRef.current.mouseY;
+
+        if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+            hasDraggedRef.current = true;
+        }
+
+        const width = containerRef.current?.offsetWidth || 60;
+        const height = containerRef.current?.offsetHeight || 60;
+        const maxX = Math.max(10, window.innerWidth - width - 10);
+        const maxY = Math.max(10, window.innerHeight - height - 10);
+
+        const newX = Math.max(10, Math.min(dragStartRef.current.initialX + deltaX, maxX));
+        const newY = Math.max(10, Math.min(dragStartRef.current.initialY + deltaY, maxY));
+
+        setPosition({ x: newX, y: newY });
+    };
+
+    const handlePointerUp = (e: React.PointerEvent) => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        try {
+            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch {}
+
+        if (position) {
+            try {
+                localStorage.setItem('nexus_agent_position', JSON.stringify(position));
+            } catch {}
+        }
+    };
+
+    const handleResetPosition = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setPosition(null);
+        try {
+            localStorage.removeItem('nexus_agent_position');
+        } catch {}
+        toast.success("Nexus Agent position reset to default");
+    };
     
     const downloadChartCSV = (chart: NexusChart) => {
         if (!chart.data || chart.data.length === 0) return;
@@ -429,14 +519,39 @@ export default function NexusAgent() {
 
     if (isPublicPath) return null;
 
+    const containerStyle: React.CSSProperties = position
+        ? {
+            position: 'fixed',
+            left: isOpen ? `${Math.max(10, Math.min(position.x, typeof window !== 'undefined' ? window.innerWidth - 430 : 800))}px` : `${position.x}px`,
+            top: isOpen ? `${Math.max(10, Math.min(position.y, typeof window !== 'undefined' ? window.innerHeight - 600 : 600))}px` : `${position.y}px`,
+            zIndex: 50,
+            touchAction: 'none'
+          }
+        : {};
+
     return (
-        <div className="fixed bottom-6 right-6 z-50 font-sans">
+        <div 
+            ref={containerRef}
+            className={position ? "fixed z-50 font-sans select-none" : "fixed bottom-6 right-6 z-50 font-sans select-none"}
+            style={containerStyle}
+        >
             {/* FLOATING ACTION BUTTON */}
             {!isOpen && (
                 <button
-                    onClick={() => setIsOpen(true)}
-                    className="relative w-12 h-12 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 shadow-xl flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer group border border-sky-400/20"
-                    title="Ask Nexus AI Agent"
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onClick={(e) => {
+                        if (hasDraggedRef.current) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            hasDraggedRef.current = false;
+                            return;
+                        }
+                        setIsOpen(true);
+                    }}
+                    className={`relative w-12 h-12 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 shadow-xl flex items-center justify-center text-white transition-all duration-200 cursor-grab active:cursor-grabbing group border border-sky-400/20 ${isDragging ? 'scale-110 shadow-2xl ring-2 ring-sky-400' : 'hover:scale-105 active:scale-95'}`}
+                    title="Drag to move • Click to ask Nexus AI Agent"
                 >
                     <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                     {alerts.length > 0 && (
@@ -456,8 +571,16 @@ export default function NexusAgent() {
                     }}
                 >
                     {/* Header */}
-                    <div className="bg-[#0F172A] border-b border-slate-700/50 p-4 flex items-center justify-between">
+                    <div 
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        className="bg-[#0F172A] border-b border-slate-700/50 p-4 flex items-center justify-between cursor-grab active:cursor-grabbing select-none"
+                    >
                         <div className="flex items-center gap-2">
+                            <div className="text-slate-500 hover:text-slate-300">
+                                <GripVertical className="w-4 h-4" />
+                            </div>
                             <div className="w-8 h-8 rounded-full bg-sky-600/10 flex items-center justify-center text-sky-400 border border-sky-500/20">
                                 <Bot className="w-4.5 h-4.5" />
                             </div>
@@ -471,7 +594,16 @@ export default function NexusAgent() {
                         </div>
                         
                         {/* Tab Switch & Actions */}
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2.5" onPointerDown={(e) => e.stopPropagation()}>
+                            {position && (
+                                <button
+                                    onClick={handleResetPosition}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-sky-400 transition-colors cursor-pointer"
+                                    title="Reset position to bottom-right"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                            )}
                             <button
                                 onClick={() => setActiveTab(activeTab === 'chat' ? 'alerts' : 'chat')}
                                 className={`p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors relative cursor-pointer ${activeTab === 'alerts' ? 'bg-slate-800 text-white' : ''}`}
