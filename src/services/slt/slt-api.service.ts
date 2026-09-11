@@ -189,57 +189,44 @@ export class SLTApiService {
     }
 
     async fetchServiceOrders(rtom: string): Promise<SLTServiceOrderData[]> {
-        try {
-            const url = `${this.baseUrl}?x=ftthpen&z=SLTS_${rtom}`;
+        const endpoints = [
+            `https://ishamp.slt.lk/iShamp/contr/dynamic_load?x=ftthpen&z=SLTS_${rtom}`,
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load?x=ftthpen&z=SLTS_${rtom}`,
+            `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=ftthpen&z=SLTS_${rtom}`
+        ];
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json, text/plain, */*',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                },
-                // Timeout after 60 seconds
-                signal: AbortSignal.timeout(60000),
-            });
+        for (const url of endpoints) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                    },
+                    signal: AbortSignal.timeout(30000),
+                });
 
-            if (!response.ok) {
-                throw AppError.badRequest(`SLT API returned ${response.status}: ${response.statusText}`);
-            }
-
-            const data: SLTApiResponse = await response.json();
-
-            if (!data || !Array.isArray(data.data)) {
-                console.warn(`Invalid response format from SLT API for RTOM ${rtom}`);
-                return [];
-            }
-
-            // If no items, return empty
-            if (!data.data || !Array.isArray(data.data)) {
-                return [];
-            }
-
-            return data.data.map((item) => {
-                // Ensure consistency and normalize ASSIGN -> ASSIGNED
-                const status = item.CON_STATUS || 'UNKNOWN';
-                return {
-                    ...item,
-                    CON_STATUS: status === 'ASSIGN' ? 'ASSIGNED' : status,
-                    CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
-                } as SLTServiceOrderData;
-            });
-        } catch (error) {
-            if (error instanceof Error) {
-                if (error.name === 'AbortError') {
-                    console.error(`SLT API timeout for RTOM ${rtom}`);
-                    throw AppError.badRequest(`SLT Portal connection timed out (server unreachable)`);
-                } else {
-                    console.error(`SLT API error for RTOM ${rtom}:`, error.message);
-                    throw AppError.badRequest(`SLT Portal returned error: ${error.message}`);
+                if (response.ok) {
+                    const data: SLTApiResponse = await response.json();
+                    if (data && Array.isArray(data.data)) {
+                        return data.data.map((item) => {
+                            const status = item.CON_STATUS || 'UNKNOWN';
+                            return {
+                                ...item,
+                                CON_STATUS: status === 'ASSIGN' ? 'ASSIGNED' : status,
+                                CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
+                            } as SLTServiceOrderData;
+                        });
+                    }
                 }
+            } catch (err) {
+                console.warn(`[SLT-API] Endpoint failed for RTOM ${rtom} (${url}): ${(err as Error).message}`);
             }
-            throw AppError.badRequest(`SLT Portal connection failed: Unknown error`);
         }
+
+        console.warn(`[SLT-API] All pending endpoints timed out or failed for RTOM ${rtom}. Returning empty array for this tick.`);
+        return [];
     }
 
     async fetchPATResults(rtom: string): Promise<SLTPATData[]> {
