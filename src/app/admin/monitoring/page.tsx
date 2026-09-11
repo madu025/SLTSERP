@@ -31,6 +31,7 @@ import {
     Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
+import SOCAnalystWidget from '@/components/admin/SOCAnalystWidget';
 
 interface ErrorLog {
     id: string;
@@ -465,6 +466,9 @@ ${log.stackTrace || 'No stack trace recorded'}
                                 </button>
                             </div>
                         </div>
+
+                        {/* SOC Analyst AI Agent Cockpit Widget */}
+                        <SOCAnalystWidget />
 
                         {/* Audit Result Banner if run */}
                         {auditResult && (

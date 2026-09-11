@@ -96,6 +96,11 @@
     * `getConfig(): Promise<SmtpConfigValue>`
     * `updateConfig(validated: SmtpConfigValue): Promise<SmtpConfigValue>`
 
+### [soc-analyst.service.ts](src/services/admin/soc-analyst.service.ts)
+* **Class**: `SOCAnalystService`
+  * **Methods**:
+    * `generateSecurityReport(): Promise<SOCSecurityReport>`
+
 ### [sod-revenue.service.ts](src/services/admin/sod-revenue.service.ts)
 * **Class**: `SodRevenueService`
   * **Methods**:
@@ -3079,6 +3084,7 @@
 | `/api/admin/monitoring/errors` | [route.ts](src/app/api/admin/monitoring/errors/route.ts) | `GET`, `PATCH`, `DELETE` |
 | `/api/admin/monitoring/errors/[id]` | [route.ts](src/app/api/admin/monitoring/errors/[id]/route.ts) | `PATCH` |
 | `/api/admin/monitoring/health` | [route.ts](src/app/api/admin/monitoring/health/route.ts) | `GET` |
+| `/api/admin/monitoring/soc-analyst` | [route.ts](src/app/api/admin/monitoring/soc-analyst/route.ts) | `GET` |
 | `/api/admin/notification-templates/codes` | [route.ts](src/app/api/admin/notification-templates/codes/route.ts) | `GET` |
 | `/api/admin/notification-templates` | [route.ts](src/app/api/admin/notification-templates/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
 | `/api/admin/notification-templates/test-send` | [route.ts](src/app/api/admin/notification-templates/test-send/route.ts) | `POST` |
