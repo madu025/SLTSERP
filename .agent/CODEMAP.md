@@ -2693,7 +2693,7 @@
 ### [completed-sod-sync.service.ts](src/services/service-order/completed-sod-sync.service.ts)
 * **Class**: `CompletedSODSyncService`
   * **Methods**:
-    * `syncCompletedSODs(customStartDate?: string): Promise<{
+    * `syncCompletedSODs(customStartDate?: string, customEndDate?: string): Promise<{
         checked: number;
         completed: number;
         enriched: number;

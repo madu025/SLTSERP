@@ -20,14 +20,17 @@ export class CompletedSODSyncService {
      * tick bucket and not the date range - see tickWindow(). A double-fired tick inside the same
      * bucket resolves to the same key and is refused instead of re-walking and re-notifying.
      */
-    static async syncCompletedSODs(customStartDate?: string): Promise<{
+    static async syncCompletedSODs(customStartDate?: string, customEndDate?: string): Promise<{
         checked: number;
         completed: number;
         enriched: number;
         blockedByPolicy: number;
         errors: string[];
     }> {
-        const run = await SyncAuditService.startRun({ feed: 'COMPLETED', window: tickWindow() });
+        const window = customStartDate
+            ? { start: new Date(customStartDate), end: customEndDate ? new Date(customEndDate) : new Date() }
+            : tickWindow();
+        const run = await SyncAuditService.startRun({ feed: 'COMPLETED', window });
         if (run.state !== 'STARTED') {
             console.log(`[COMPLETED-SOD-SYNC] Pass refused (${run.state}, key ${run.windowKey})`);
             return { checked: 0, completed: 0, enriched: 0, blockedByPolicy: 0, errors: [] };
@@ -38,8 +41,10 @@ export class CompletedSODSyncService {
         const today = new Date();
 
         let startDate: string;
+        let endDate: string;
         if (customStartDate) {
             startDate = customStartDate;
+            endDate = customEndDate || format(endOfMonth(today), 'yyyy-MM-dd');
         } else {
             // High-frequency sync: Check the last 3 days to guarantee instant real-time
             // tally with iShamp without pulling 30 days of historical data on every tick.
@@ -48,9 +53,8 @@ export class CompletedSODSyncService {
             startDate = isMidnightOrStart
                 ? format(startOfMonth(today), 'yyyy-MM-dd')
                 : format(subDays(today, 3), 'yyyy-MM-dd');
+            endDate = customEndDate || format(endOfMonth(today), 'yyyy-MM-dd');
         }
-
-        const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
 
         const errors: string[] = [];
         const counters = emptySyncCounters();
@@ -167,6 +171,7 @@ export class CompletedSODSyncService {
                             // For the `status` field: fall back to finalSltsStatus when legacyStatus is undefined
                             // (e.g. PROV_CLOSED is valid for sltsStatus but may not be in the legacy status enum)
                             const rawStatus = (sltData.CON_STATUS || '').toUpperCase();
+                            const isPatPassedStatus = rawStatus.includes('PAT_PASSED') || rawStatus.includes('APPROVED') || rawStatus === 'PAT_OPMC_PASSED';
                             const legacyStatus = SERVICE_ORDER_STATUS_VALUES.has(rawStatus)
                                 ? rawStatus
                                 : finalSltsStatus;
@@ -258,6 +263,7 @@ export class CompletedSODSyncService {
                                                 dropWireDistance: dropWireDistance,
                                                 revenueAmount: revenueAmount ?? undefined,
                                                 contractorAmount: contractorAmount ?? undefined,
+                                                ...(isPatPassedStatus ? { opmcPatStatus: 'PAT_PASSED', sltsPatStatus: 'PAT_PASSED', opmcPatDate: completedDate } : {}),
                                                 comments: wasDisappeared ? null : `Auto-updated via Sync (${sltData.CON_STATUS})`,
                                             },
                                             select: { id: true }
@@ -290,6 +296,7 @@ export class CompletedSODSyncService {
                                                 customerName: sltData.CON_CUS_NAME,
                                                 ...(sltData.ADDRE ? { address: sltData.ADDRE } : {}),
                                                 ...(sltData.CON_TEC_CONTACT ? { techContact: sltData.CON_TEC_CONTACT } : {}),
+                                                ...(isPatPassedStatus ? { opmcPatStatus: 'PAT_PASSED', sltsPatStatus: 'PAT_PASSED', opmcPatDate: completedDate } : {}),
                                             },
                                             select: { id: true }
                                         });
@@ -374,6 +381,7 @@ export class CompletedSODSyncService {
                                     // Status fields (enum-safe: fall back to resolved sltsStatus, never raw portal strings)
                                     status: (legacyStatus || finalSltsStatus) as Prisma.ServiceOrderCreateManyInput['status'],
                                     sltsStatus: finalSltsStatus,
+                                    ...(isPatPassedStatus ? { opmcPatStatus: 'PAT_PASSED', sltsPatStatus: 'PAT_PASSED', opmcPatDate: completedDate } : {}),
 
                                     // Dates — receivedDate is the order-raise date, never the
                                     // closure instant (see receiptDate above).

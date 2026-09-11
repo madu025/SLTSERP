@@ -171,6 +171,13 @@ export class SODSyncService {
      */
     private static async upsertPatStatusBatch(records: Prisma.SLTPATStatusCreateManyInput[]): Promise<number> {
         if (records.length === 0) return 0;
+        const uniqueMap = new Map<string, Prisma.SLTPATStatusCreateManyInput>();
+        for (const r of records) {
+            if (r.soNum) uniqueMap.set(r.soNum, r);
+        }
+        const dedupedRecords = Array.from(uniqueMap.values());
+        if (dedupedRecords.length === 0) return 0;
+
         const cols = ['"soNum"', '"rtom"', '"lea"', '"voiceNumber"', '"sType"', '"orderType"',
             '"task"', '"package"', '"conName"', '"patUser"', '"status"', '"source"', '"statusDate"', '"hasDuplicate"'];
         const rowPlaceholders = (row: number) => [
@@ -181,10 +188,10 @@ export class SODSyncService {
             ...cols.filter(c => c !== '"soNum"').map(c => `${c} = EXCLUDED.${c}`),
             '"updatedAt" = now()',
         ];
-        const sql = `INSERT INTO "SLTPATStatus" (${[...cols, '"updatedAt"'].join(', ')}) VALUES ${records.map((_, i) =>
+        const sql = `INSERT INTO "SLTPATStatus" (${[...cols, '"updatedAt"'].join(', ')}) VALUES ${dedupedRecords.map((_, i) =>
             `(${rowPlaceholders(i)})`
         ).join(', ')} ON CONFLICT ("soNum") DO UPDATE SET ${updateCols.join(', ')}`;
-        const flatValues = records.flatMap(r => [
+        const flatValues = dedupedRecords.flatMap(r => [
             r.soNum, r.rtom ?? null, r.lea ?? null, r.voiceNumber ?? null,
             r.sType ?? null, r.orderType ?? null, r.task ?? null, r.package ?? null,
             r.conName ?? null, r.patUser ?? null, r.status, r.source,
@@ -243,25 +250,26 @@ export class SODSyncService {
 
             const sltDataMap = new Map(sltData.map(item => [item.SO_NUM, item]));
 
-            // Bulk sync PAT statuses via fn_bulk_pat_status_sync (single DB call replaces N+1 chunked updates)
             if (matchingOrders.length > 0) {
-                const soNums = matchingOrders.map(o => o.soNum!);
-                const statuses = matchingOrders.map(o => {
-                    const match = sltDataMap.get(o.soNum || '');
-                    return match?.CON_STATUS || 'PENDING';
-                });
-                const statusDates = matchingOrders.map(o => {
-                    const match = sltDataMap.get(o.soNum || '');
-                    return match ? sltApiService.parseStatusDate(match.CON_STATUS_DATE) : new Date();
-                });
-
-                await prisma.$executeRaw`
-                    SELECT fn_bulk_pat_status_sync(
-                        ${soNums}::text[],
-                        ${statuses}::text[],
-                        ${statusDates}::timestamptz[]
-                    )
-                `;
+                for (const order of matchingOrders) {
+                    const match = sltDataMap.get(order.soNum || '');
+                    if (match) {
+                        const rawStatus = (match.CON_STATUS || '').toUpperCase();
+                        const patStatus = rawStatus.includes('REJECT')
+                            ? 'PAT_REJECTED'
+                            : (rawStatus.includes('PASS') || rawStatus.includes('APPROV') ? 'PAT_PASSED' : 'PENDING');
+                        const statusDate = sltApiService.parseStatusDate(match.CON_STATUS_DATE) || new Date();
+                        await prisma.serviceOrder.update({
+                            where: { id: order.id },
+                            data: {
+                                opmcPatStatus: patStatus as import('@prisma/client').PatStatusEnum,
+                                opmcPatDate: statusDate,
+                                isInvoicable: patStatus === 'PAT_PASSED' && order.hoPatStatus === 'PAT_PASSED'
+                            },
+                            select: { id: true }
+                        });
+                    }
+                }
             }
 
             if (matchingOrders.length > 0) {
@@ -1611,7 +1619,6 @@ export class SODSyncService {
                 const isFinished = effectiveSltsStatus === 'COMPLETED' || effectiveSltsStatus === 'INSTALL_CLOSED';
                 const isRecent = statusDate.getFullYear() >= 2026;
                 const raisedDate = orderRaiseDateFromSoNum(item.SO_NUM);
-                const receiptWasRedated = !!raisedDate && statusDate.getTime() - raisedDate.getTime() > 86400000;
                 if (!isFinished || isRecent) {
                     toCreate.push({
                         ...updatePayload,
