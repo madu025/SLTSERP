@@ -49,6 +49,9 @@ const getSafeDatabaseUrl = (url: string, isWorker: boolean = false) => {
         if (!urlObj.searchParams.has('connect_timeout')) {
             urlObj.searchParams.set('connect_timeout', '10'); // 10s connection timeout
         }
+        if (!urlObj.searchParams.has('application_name')) {
+            urlObj.searchParams.set('application_name', isWorker ? 'SLTSERP-Worker' : 'SLTSERP-App');
+        }
         const share = connectionShare(isWorker);
         const urlLimit = parseInt(urlObj.searchParams.get('connection_limit') || '0', 10);
         // The URL may only ever lower the share, never raise it: env files were previously the

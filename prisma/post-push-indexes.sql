@@ -226,8 +226,9 @@ BEGIN
     'DB_STATUS_CHANGE',
     'ServiceOrder',
     NEW."soNum",
-    jsonb_build_object('status', OLD.status, 'sltsStatus', OLD."sltsStatus"),
+    jsonb_build_object('soNum', OLD."soNum", 'status', OLD.status, 'sltsStatus', OLD."sltsStatus"),
     jsonb_build_object(
+      'soNum', NEW."soNum",
       'status', NEW.status,
       'sltsStatus', NEW."sltsStatus",
       'query', current_query(),
