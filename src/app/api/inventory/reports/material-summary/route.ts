@@ -4,7 +4,7 @@ import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { MaterialSummaryReportService } from '@/services/inventory/material-summary-report.service';
 
-export const GET = apiHandler(async (req: Request) => {
+export const GET = apiHandler(async (req: Request, params) => {
     const { searchParams } = new URL(req.url);
 
     const yearParam  = searchParams.get('year');
@@ -15,10 +15,17 @@ export const GET = apiHandler(async (req: Request) => {
     const year  = yearParam  ? parseInt(yearParam,  10) : undefined;
     const month = monthParam ? parseInt(monthParam, 10) : undefined;
 
-    const report = await MaterialSummaryReportService.generate({ year, month, rtom, itemCode });
+    // Role-based data scoping: viewer's role + their assigned RTOM (for field staff)
+    const viewerRole  = params._userRole ?? undefined;
+    const scopedRtom  = req.headers.get('x-user-rtom') ?? undefined;
+
+    const report = await MaterialSummaryReportService.generate({
+        year, month, rtom, itemCode, viewerRole, scopedRtom,
+    });
 
     return Response.json({ success: true, data: report });
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'VIEW_MATERIAL_SUMMARY_REPORT', entity: 'InventoryReport' },
 });
+

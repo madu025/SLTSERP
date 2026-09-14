@@ -1,10 +1,26 @@
 import { prisma } from '@/lib/prisma';
 
+// Roles that can see LKR cost columns in this report
+const COST_VISIBLE_ROLES = new Set([
+  'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP',
+  'OSP_MANAGER', 'MANAGER', 'FINANCE_MANAGER',
+  'STORES_MANAGER',
+]);
+
+// Roles whose RTOM scope is limited to their own assigned RTOM
+const RTOM_SCOPED_ROLES = new Set([
+  'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER',
+]);
+
 export interface MaterialSummaryFilters {
   year?: number;
   month?: number;       // 1–12; if omitted returns all months in the year
-  rtom?: string;
+  rtom?: string;        // explicit RTOM filter (from query param)
   itemCode?: string;
+  /** Role of the requesting user — drives cost visibility + RTOM scoping */
+  viewerRole?: string;
+  /** Assigned RTOM of the requesting user (for RTOM-scoped roles) */
+  scopedRtom?: string;
 }
 
 export interface MaterialSummaryRow {
@@ -35,6 +51,11 @@ export interface MaterialSummaryReport {
   distinctRtoms: string[];
   distinctItems: { code: string; name: string }[];
   distinctMonths: { year: number; month: number; label: string }[];
+  /** UI flag: whether the viewer's role permits seeing LKR cost columns */
+  canViewCosts: boolean;
+  /** UI flag: whether this is a scoped (RTOM-limited) view */
+  isScopedView: boolean;
+  scopedRtomLabel?: string;
 }
 
 const MONTH_LABELS = [
@@ -58,9 +79,21 @@ interface Bucket {
 export class MaterialSummaryReportService {
   /**
    * Aggregates SODMaterialUsage by rtom/year/month/item using an O(N) Map pass.
-   * Joins: SODMaterialUsage → ServiceOrder (rtom, completedDate) → InventoryItem (code, name).
+   * Role-based data scoping:
+   *   - FINANCE_MANAGER / STORES_MANAGER / Executives → full cost data, all RTOMs
+   *   - OSP_MANAGER / MANAGER → full cost data, all RTOMs
+   *   - ENGINEER / AREA_COORDINATOR / QC_OFFICER → quantity only, own RTOM only
+   *   - AREA_MANAGER → quantity only, all RTOMs
    */
   static async generate(filters: MaterialSummaryFilters): Promise<MaterialSummaryReport> {
+    const { viewerRole, scopedRtom } = filters;
+    const canViewCosts = COST_VISIBLE_ROLES.has(viewerRole ?? '');
+    const isRtomScoped = RTOM_SCOPED_ROLES.has(viewerRole ?? '');
+
+    // RTOM enforcement: scoped roles can only see their own RTOM
+    const effectiveRtom = isRtomScoped
+      ? (scopedRtom ?? filters.rtom)    // ignore explicit filter override
+      : (filters.rtom ?? undefined);
     let completedFrom: Date | undefined;
     let completedTo: Date | undefined;
 
@@ -77,7 +110,7 @@ export class MaterialSummaryReportService {
     const usageLines = await prisma.sODMaterialUsage.findMany({
       where: {
         serviceOrder: {
-          ...(filters.rtom ? { rtom: filters.rtom } : {}),
+          ...(effectiveRtom ? { rtom: effectiveRtom } : {}),
           ...(completedFrom && completedTo
             ? { completedDate: { gte: completedFrom, lte: completedTo } }
             : { completedDate: { not: null } }),
@@ -154,13 +187,14 @@ export class MaterialSummaryReportService {
         itemName: b.itemName,
         unit: b.unit,
         totalQuantity: Math.round((b.totalQuantity + Number.EPSILON) * 100) / 100,
-        totalCostLkr:  Math.round((b.totalCostLkr  + Number.EPSILON) * 100) / 100,
+        // Cost columns: zero-out for non-cost roles (quantity-only view)
+        totalCostLkr: canViewCosts ? Math.round((b.totalCostLkr + Number.EPSILON) * 100) / 100 : 0,
         sodCount,
-        avgQtyPerSod:  sodCount > 0 ? Math.round((b.totalQuantity / sodCount + Number.EPSILON) * 100) / 100 : 0,
+        avgQtyPerSod: sodCount > 0 ? Math.round((b.totalQuantity / sodCount + Number.EPSILON) * 100) / 100 : 0,
         exceedsLimitCount: b.exceedsLimitCount,
       });
       grandQty  += b.totalQuantity;
-      grandCost += b.totalCostLkr;
+      grandCost += canViewCosts ? b.totalCostLkr : 0;
       grandSods += sodCount;
     }
 
@@ -186,6 +220,9 @@ export class MaterialSummaryReportService {
       distinctRtoms:  [...distinctRtomsSet].sort(),
       distinctItems:  [...distinctItemsMap.entries()].map(([code, name]) => ({ code, name })).sort((a, b) => a.code.localeCompare(b.code)),
       distinctMonths,
+      canViewCosts,
+      isScopedView: isRtomScoped,
+      scopedRtomLabel: isRtomScoped ? (scopedRtom ?? undefined) : undefined,
     };
   }
 }

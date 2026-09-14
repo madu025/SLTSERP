@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import {
     Package, FileSpreadsheet, RefreshCw, TrendingUp, AlertTriangle,
-    Search, Download, ChevronUp, ChevronDown,
+    Search, Download, ChevronUp, ChevronDown, Lock, Info,
 } from 'lucide-react';
 import type { MaterialSummaryReport, MaterialSummaryRow } from '@/services/inventory/material-summary-report.service';
 
@@ -196,8 +196,10 @@ export default function MaterialSummaryReportPage() {
                                     {/* RTOM */}
                                     <div className="space-y-1 min-w-[130px]">
                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">RTOM</label>
-                                        <Select value={rtom} onValueChange={setRtom}>
-                                            <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="All RTOMs" /></SelectTrigger>
+                                        <Select value={rtom} onValueChange={setRtom} disabled={report?.isScopedView}>
+                                            <SelectTrigger className="h-9 text-xs">
+                                                <SelectValue placeholder={report?.isScopedView ? `${report.scopedRtomLabel ?? 'Your RTOM'} (Locked)` : 'All RTOMs'} />
+                                            </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="">All RTOMs</SelectItem>
                                                 {(report?.distinctRtoms ?? []).map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
@@ -241,6 +243,27 @@ export default function MaterialSummaryReportPage() {
                                 </div>
                             </div>
 
+                            {/* ── Scoped View Banner ── */}
+                            {report?.isScopedView && (
+                                <div className="flex items-center gap-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+                                    <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                        <strong>Scoped View:</strong> Showing data for your assigned RTOM only
+                                        {report.scopedRtomLabel && ` — ${report.scopedRtomLabel}`}.
+                                        Contact OSP Manager for cross-RTOM visibility.
+                                    </p>
+                                </div>
+                            )}
+                            {report && !report.canViewCosts && (
+                                <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
+                                    <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                        <strong>Quantity-only view:</strong> Cost columns are hidden for your role.
+                                        Finance Manager access is required to view LKR cost data.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* ── Tab Toggle ── */}
                             <div className="flex gap-2">
                                 {(['table', 'chart'] as const).map(t => (
@@ -283,7 +306,7 @@ export default function MaterialSummaryReportPage() {
                                                         { key: null,                label: 'Item Name' },
                                                         { key: null,                label: 'Unit' },
                                                         { key: 'totalQuantity',     label: 'Total Qty' },
-                                                        { key: 'totalCostLkr',      label: 'Total Cost (LKR)' },
+                                                        ...(report?.canViewCosts ? [{ key: 'totalCostLkr' as SortKey, label: 'Total Cost (LKR)' }] : []),
                                                         { key: 'sodCount',          label: 'SOD Count' },
                                                         { key: 'avgQtyPerSod',      label: 'Avg Qty/SOD' },
                                                         { key: 'exceedsLimitCount', label: 'Exceeds Limit' },
@@ -298,7 +321,7 @@ export default function MaterialSummaryReportPage() {
                                             </thead>
                                             <tbody>
                                                 {filteredRows.length === 0 ? (
-                                                    <tr><td colSpan={10} className="text-center py-12 text-slate-400">No data found. Adjust filters and try again.</td></tr>
+                                                    <tr><td colSpan={report?.canViewCosts ? 10 : 8} className="text-center py-12 text-slate-400">No data found. Adjust filters and try again.</td></tr>
                                                 ) : filteredRows.map((row, i) => (
                                                     <tr key={i} className="border-b border-slate-100 dark:border-slate-800 hover:bg-violet-50/40 dark:hover:bg-violet-950/20 transition-colors">
                                                         <td className="px-3 py-2 font-bold text-slate-700 dark:text-slate-200">{row.rtom}</td>
@@ -307,7 +330,9 @@ export default function MaterialSummaryReportPage() {
                                                         <td className="px-3 py-2 text-slate-600 dark:text-slate-300 max-w-[200px] truncate" title={row.itemName}>{row.itemName}</td>
                                                         <td className="px-3 py-2 text-slate-500">{row.unit}</td>
                                                         <td className="px-3 py-2 font-bold text-right text-slate-800 dark:text-slate-100">{fmt(row.totalQuantity)}</td>
-                                                        <td className="px-3 py-2 text-right text-emerald-700 dark:text-emerald-400 font-semibold">{fmtLKR(row.totalCostLkr)}</td>
+                                                        {report?.canViewCosts && (
+                                                            <td className="px-3 py-2 text-right text-emerald-700 dark:text-emerald-400 font-semibold">{fmtLKR(row.totalCostLkr)}</td>
+                                                        )}
                                                         <td className="px-3 py-2 text-right text-slate-600">{row.sodCount.toLocaleString()}</td>
                                                         <td className="px-3 py-2 text-right text-indigo-600 dark:text-indigo-400 font-semibold">{fmt(row.avgQtyPerSod)}</td>
                                                         <td className="px-3 py-2 text-center">
@@ -321,9 +346,11 @@ export default function MaterialSummaryReportPage() {
                                             {filteredRows.length > 0 && report && (
                                                 <tfoot>
                                                     <tr className="bg-violet-50 dark:bg-violet-950/30 border-t-2 border-violet-200 dark:border-violet-800 font-black">
-                                                        <td colSpan={5} className="px-3 py-2.5 text-xs font-black text-violet-700 dark:text-violet-300 uppercase tracking-wider">Grand Total</td>
+                                                        <td colSpan={report.canViewCosts ? 5 : 5} className="px-3 py-2.5 text-xs font-black text-violet-700 dark:text-violet-300 uppercase tracking-wider">Grand Total</td>
                                                         <td className="px-3 py-2.5 text-right text-violet-800 dark:text-violet-200">{fmt(report.totals.totalQuantity)}</td>
-                                                        <td className="px-3 py-2.5 text-right text-violet-800 dark:text-violet-200">{fmtLKR(report.totals.totalCostLkr)}</td>
+                                                        {report.canViewCosts && (
+                                                            <td className="px-3 py-2.5 text-right text-violet-800 dark:text-violet-200">{fmtLKR(report.totals.totalCostLkr)}</td>
+                                                        )}
                                                         <td className="px-3 py-2.5 text-right text-violet-800 dark:text-violet-200">{report.totals.totalSodCount.toLocaleString()}</td>
                                                         <td colSpan={2} />
                                                     </tr>
