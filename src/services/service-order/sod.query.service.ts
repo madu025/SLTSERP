@@ -191,8 +191,8 @@ export class SODQueryService {
         } else if (filter === 'completed') {
             andFilters.push({
                 OR: [
-                    { sltsStatus: ServiceOrderStatus.COMPLETED },
-                    { status: { in: [ServiceOrderStatus.COMPLETED, ServiceOrderStatus.PAT_OPMC_PASSED, ServiceOrderStatus.PAT_CORRECTED] } }
+                    { sltsStatus: { in: [ServiceOrderStatus.COMPLETED, ServiceOrderStatus.INSTALL_CLOSED] } },
+                    { status: { in: [ServiceOrderStatus.COMPLETED, ServiceOrderStatus.INSTALL_CLOSED, ServiceOrderStatus.PAT_OPMC_PASSED, ServiceOrderStatus.PAT_CORRECTED] } }
                 ],
                 NOT: [
                     { status: ServiceOrderStatus.PROV_CLOSED },
