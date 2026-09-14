@@ -86,6 +86,7 @@ export default function MaterialSummaryReportPage() {
             const json = await res.json() as { success: boolean; data: MaterialSummaryReport };
             return json.data;
         },
+        staleTime: 2 * 60 * 1000,
     });
 
     const handleSort = useCallback((key: SortKey) => {
