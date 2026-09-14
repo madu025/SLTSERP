@@ -550,6 +550,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/inventory/reports/cardex',
                 icon: HistoryIcon,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', ...ROLE_GROUPS.SECTION_HEADS]
+            },
+            {
+                title: 'Material Consumption Report',
+                path: '/inventory/reports/material-summary',
+                icon: BarChart3,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER', 'FINANCE_MANAGER', 'ENGINEER']
             }
         ]
     },

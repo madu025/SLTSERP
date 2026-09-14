@@ -1626,6 +1626,11 @@
   * **Methods**:
     * `importMaterialReport(filePath: string, opmcId: UUID | null = null, createdById: string = 'system-import'): Promise<ImportResult>`
 
+### [material-summary-report.service.ts](src/services/inventory/material-summary-report.service.ts)
+* **Class**: `MaterialSummaryReportService`
+  * **Methods**:
+    * `generate(filters: MaterialSummaryFilters): Promise<MaterialSummaryReport>`
+
 ### [mrn.service.ts](src/services/inventory/mrn.service.ts)
 * **Class**: `MRNService`
   * **Methods**:
@@ -3302,6 +3307,7 @@
 | `/api/inventory/reconciliation` | [route.ts](src/app/api/inventory/reconciliation/route.ts) | `GET`, `POST` |
 | `/api/inventory/reconciliation/variance` | [route.ts](src/app/api/inventory/reconciliation/variance/route.ts) | `GET` |
 | `/api/inventory/reports/dynamic` | [route.ts](src/app/api/inventory/reports/dynamic/route.ts) | `POST` |
+| `/api/inventory/reports/material-summary` | [route.ts](src/app/api/inventory/reports/material-summary/route.ts) | `GET` |
 | `/api/inventory/requests/action` | [route.ts](src/app/api/inventory/requests/action/route.ts) | `POST` |
 | `/api/inventory/requests/pending-balances` | [route.ts](src/app/api/inventory/requests/pending-balances/route.ts) | `GET` |
 | `/api/inventory/requests` | [route.ts](src/app/api/inventory/requests/route.ts) | `GET`, `POST`, `PATCH` |
