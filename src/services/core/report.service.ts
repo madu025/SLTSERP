@@ -610,11 +610,9 @@ export class ReportService {
 
     // Same-day self-heal: today's live views refresh the provisional snapshot (idempotent).
     if (slDateKey(selectedDate) === slDateKey(new Date())) {
-      try {
-        await ReportService.writeDailyReportSnapshot(dateKey, reportData);
-      } catch (err) {
+      ReportService.writeDailyReportSnapshot(dateKey, reportData).catch(err => {
         console.error('[DailyReport] same-day snapshot persist failed:', err);
-      }
+      });
     }
 
     return {
@@ -634,16 +632,33 @@ export class ReportService {
     const startOfM = getSriLankaStartOfMonth(selectedDate);
     const endOfDayM = getSriLankaEndOfDay(selectedDate);
 
+    // Pre-flight indexed lookup for month status history
+    const monthHistories = await prisma.serviceOrderStatusHistory.findMany({
+      where: {
+        status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED', 'COMPLETED'] },
+        statusDate: { gte: startOfM, lte: endOfDayM }
+      },
+      select: { serviceOrderId: true, status: true, statusDate: true }
+    });
+
+    const monthHistoryIds = Array.from(new Set(monthHistories.map(h => h.serviceOrderId))).slice(0, 5000);
+    const monthHistoryMap = new Map<string, { status: ServiceOrderStatus; statusDate: Date }[]>();
+    for (const h of monthHistories) {
+      if (!monthHistoryMap.has(h.serviceOrderId)) monthHistoryMap.set(h.serviceOrderId, []);
+      monthHistoryMap.get(h.serviceOrderId)!.push({ status: h.status, statusDate: h.statusDate });
+    }
+
     // Query month-touched orders in INSTALL_CLOSED, COMPLETED, or PROV_CLOSED
-    const monthOrders = await prisma.serviceOrder.findMany({
+    const rawMonthOrders = await prisma.serviceOrder.findMany({
       where: {
         sltsStatus: { in: ['INSTALL_CLOSED', 'COMPLETED', 'PROV_CLOSED'] },
         OR: [
           { completedDate: { gte: startOfM, lte: endOfDayM } },
-          { statusHistory: { some: { status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] }, statusDate: { gte: startOfM, lte: endOfDayM } } } }
+          ...(monthHistoryIds.length > 0 ? [{ id: { in: monthHistoryIds } }] : [])
         ]
       },
       select: {
+        id: true,
         rtom: true,
         sltsStatus: true,
         opmcPatStatus: true,
@@ -651,12 +666,13 @@ export class ReportService {
         completedDate: true,
         receivedDate: true,
         createdAt: true,
-        statusHistory: {
-          where: { status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED', 'COMPLETED'] } },
-          select: { status: true, statusDate: true }
-        }
       }
     });
+
+    const monthOrders = rawMonthOrders.map(o => ({
+      ...o,
+      statusHistory: monthHistoryMap.get(o.id) || []
+    }));
 
     interface RtomFunnelStat {
       monthInstallClosed: number;
@@ -800,86 +816,7 @@ export class ReportService {
     const startDate = getSriLankaStartOfDay(selectedDate);
     const endDate = getSriLankaEndOfDay(selectedDate);
 
-    const opmcs = await prisma.oPMC.findMany({
-      select: {
-        id: true,
-        region: true,
-        province: true,
-        rtom: true,
-        serviceOrders: {
-          where: {
-            OR: [
-              { createdAt: { gte: startDate, lte: endDate } },
-              { completedDate: { gte: startDate, lte: endDate } },
-              { statusDate: { gte: startDate, lte: endDate } },
-              { receivedDate: { gte: startDate, lte: endDate } },
-              { updatedAt: { gte: startDate, lte: endDate } },
-              // Fetch SODs whose only today-relevant event is a statusHistory row.
-              { statusHistory: { some: { statusDate: { gte: startDate, lte: endDate } } } }
-            ]
-          },
-          select: {
-            id: true,
-            createdAt: true,
-            status: true,
-            sltsStatus: true,
-            statusDate: true,
-            receivedDate: true,
-            completedDate: true,
-            opmcPatStatus: true,
-            hoPatStatus: true,
-            sltsPatStatus: true,
-            orderType: true,
-            package: true,
-            wiredOnly: true,
-            delayReasons: true,
-            teamId: true,
-            materialSource: true,
-            stbShortage: true,
-            ontShortage: true,
-            materialUsage: {
-              select: {
-                quantity: true,
-                item: {
-                  select: {
-                    code: true
-                  }
-                }
-              }
-            },
-            erectedPoles: {
-              select: {
-                poleType: true
-              }
-            },
-            statusHistory: {
-              select: {
-                status: true,
-                statusDate: true
-              }
-            }
-          }
-        },
-        contractorTeams: {
-          select: {
-            id: true
-          }
-        }
-      },
-      orderBy: [
-        { region: 'asc' },
-        { province: 'asc' },
-        { rtom: 'asc' }
-      ]
-    });
-
-    const dayWindow: SodDayWindow = { start: startDate, end: endDate };
-
-    // Morning carry-forward: orders received before today that are still pending.
-    // Uses same logic as pending SODs table: excludes COMPLETED, INSTALL_CLOSED, RETURN, DISAPPEARED
-    // and only includes PENDING, ASSIGNED, ASSIGN, INPROGRESS, PROV_CLOSED statuses.
-    // receivedDate is canonical; fall back to createdAt when null.
-    // Explicit list of terminal/finished/prov-closed sltsStatus values to exclude from morning carry-forward
+    // Execute OPMC list, today's touched service orders, and morning carry-forward groupBys in parallel
     const terminalSltsStatuses: ServiceOrderStatus[] = [
       'COMPLETED',
       'INSTALL_CLOSED',
@@ -890,7 +827,6 @@ export class ReportService {
       'PAT_CORRECTED',
     ] as ServiceOrderStatus[];
 
-    // Active in-hand contractor field statuses for morning carry-forward (ASSIGNED, INPROGRESS, PENDING)
     const activeWorkflowStatuses: ServiceOrderStatus[] = [
       'ASSIGNED',
       'INPROGRESS',
@@ -898,15 +834,69 @@ export class ReportService {
     ] as ServiceOrderStatus[];
 
     const inHandMorningWhere: Prisma.ServiceOrderWhereInput = {
-      OR: [
-        { receivedDate: { lt: startDate } },
-        { AND: [{ receivedDate: null }, { createdAt: { lt: startDate } }] }
-      ],
+      status: { in: activeWorkflowStatuses },
       sltsStatus: { notIn: terminalSltsStatuses },
-      status: { in: activeWorkflowStatuses }
+      createdAt: { lt: startDate }
     };
 
-    const [inHandMorningOrders, stbShortageInHandRaw, ontShortageInHandRaw] = await Promise.all([
+    const serviceOrderSelect = {
+      id: true,
+      rtom: true,
+      createdAt: true,
+      status: true,
+      sltsStatus: true,
+      statusDate: true,
+      receivedDate: true,
+      completedDate: true,
+      opmcPatStatus: true,
+      hoPatStatus: true,
+      sltsPatStatus: true,
+      orderType: true,
+      package: true,
+      wiredOnly: true,
+      delayReasons: true,
+      teamId: true,
+      materialSource: true,
+      stbShortage: true,
+      ontShortage: true,
+      materialUsage: {
+        select: {
+          quantity: true,
+          item: { select: { code: true } }
+        }
+      },
+      erectedPoles: { select: { poleType: true } }
+    };
+
+    const [opmcs, rawTodayOrders, todayHistories, inHandMorningOrders, stbShortageInHandRaw, ontShortageInHandRaw] = await Promise.all([
+      prisma.oPMC.findMany({
+        select: {
+          id: true,
+          region: true,
+          province: true,
+          rtom: true,
+          contractorTeams: { select: { id: true } }
+        },
+        orderBy: [{ region: 'asc' }, { province: 'asc' }, { rtom: 'asc' }]
+      }),
+      prisma.serviceOrder.findMany({
+        where: {
+          OR: [
+            { createdAt: { gte: startDate, lte: endDate } },
+            { completedDate: { gte: startDate, lte: endDate } },
+            { statusDate: { gte: startDate, lte: endDate } },
+            { receivedDate: { gte: startDate, lte: endDate } }
+          ]
+        },
+        select: serviceOrderSelect
+      }),
+      prisma.serviceOrderStatusHistory.findMany({
+        where: {
+          status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED', 'COMPLETED'] },
+          statusDate: { gte: startDate, lte: endDate }
+        },
+        select: { serviceOrderId: true, status: true, statusDate: true }
+      }),
       prisma.serviceOrder.groupBy({
         by: ['rtom', 'orderType'],
         where: inHandMorningWhere,
@@ -924,17 +914,29 @@ export class ReportService {
       })
     ]);
 
+    const historyMap = new Map<string, { status: ServiceOrderStatus; statusDate: Date }[]>();
+    for (const h of todayHistories) {
+      if (!historyMap.has(h.serviceOrderId)) historyMap.set(h.serviceOrderId, []);
+      historyMap.get(h.serviceOrderId)!.push({ status: h.status, statusDate: h.statusDate });
+    }
+
+    const ordersByRtom = new Map<string, ServiceOrderWithRelations[]>();
+    for (const o of rawTodayOrders) {
+      const rtom = o.rtom || 'UNKNOWN';
+      if (!ordersByRtom.has(rtom)) ordersByRtom.set(rtom, []);
+      const orderWithHistory = {
+        ...o,
+        statusHistory: historyMap.get(o.id) || []
+      } as unknown as ServiceOrderWithRelations;
+      ordersByRtom.get(rtom)!.push(orderWithHistory);
+    }
+
+    const dayWindow: SodDayWindow = { start: startDate, end: endDate };
     const stbShortageMap = new Map<string, number>(stbShortageInHandRaw.map(r => [r.rtom, r._count.id]));
     const ontShortageMap = new Map<string, number>(ontShortageInHandRaw.map(r => [r.rtom, r._count.id]));
 
     const reportData: ReportRow[] = opmcs.map(opmc => {
-      // Deduplicate orders (OPMC relation join can return duplicate rows for the same order)
-      const seenIds = new Set<string>();
-      const orders = (opmc.serviceOrders as unknown as ServiceOrderWithRelations[]).filter(o => {
-        if (seenIds.has(o.id)) return false;
-        seenIds.add(o.id);
-        return true;
-      });
+      const orders = ordersByRtom.get(opmc.rtom) || [];
       const regularTeams = opmc.contractorTeams.length;
 
       // One classification per SOD drives every counter of this row, so no two columns
