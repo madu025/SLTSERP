@@ -215,8 +215,15 @@ async function importJanuaryMaterialReport() {
         // Total Drop Wire Distance for connection = F1 + G1 (or F1)
         const dropWireDistance = (f1Meters + g1Meters) > 0 ? (f1Meters + g1Meters) : 0;
 
-        const receivedDate = row[colIdx.receivedDate] ? new Date(row[colIdx.receivedDate]) : null;
-        const completedDate = row[colIdx.completedDate] ? new Date(row[colIdx.completedDate]) : null;
+        const parseExcelDate = (val: any): Date | null => {
+            if (!val) return null;
+            const d = val instanceof Date ? val : new Date(val);
+            if (isNaN(d.getTime())) return null;
+            return new Date(d.getTime() + 12 * 3600 * 1000);
+        };
+
+        const receivedDate = parseExcelDate(row[colIdx.receivedDate]);
+        const completedDate = parseExcelDate(row[colIdx.completedDate]);
 
         const { revenueAmount, contractorAmount } = computeAmountsInMemory(rtomRaw || 'AD', dropWireDistance);
 
