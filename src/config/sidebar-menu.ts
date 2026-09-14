@@ -538,6 +538,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: ShieldCheck,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']
             },
+            {
+                title: 'Pre-ERP Legacy Recon',
+                path: '/inventory/admin/pre-erp-reconciliation',
+                icon: HistoryIcon,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'FINANCE_MANAGER']
+            },
             // 5. Analytics & History
             {
                 title: 'Stock Ledger (Cardex)',
