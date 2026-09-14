@@ -254,6 +254,30 @@ export class CompletedSODSyncService {
                                         const revenueAmount = amounts[1]?.revenueAmount;
                                         const contractorAmount = amounts[1]?.contractorAmount;
 
+                                        // Auto-resolve teamId and contractorId if unassigned
+                                        let matchedTeamId: string | undefined = undefined;
+                                        let matchedContractorId: string | undefined = undefined;
+                                        let directTeamStr: string | undefined = undefined;
+
+                                        if (sltData.CON_WORO_SEIT && sltData.CON_WORO_SEIT.trim()) {
+                                            const teamStr = sltData.CON_WORO_SEIT.trim();
+                                            directTeamStr = teamStr;
+                                            const teamCode = teamStr.split('-')[0].trim().toUpperCase();
+                                            const foundTeam = await prisma.contractorTeam.findFirst({
+                                                where: {
+                                                    OR: [
+                                                        { sltCode: teamCode },
+                                                        { name: { contains: teamStr, mode: 'insensitive' } }
+                                                    ]
+                                                },
+                                                select: { id: true, contractorId: true }
+                                            });
+                                            if (foundTeam) {
+                                                matchedTeamId = foundTeam.id;
+                                                matchedContractorId = foundTeam.contractorId;
+                                            }
+                                        }
+
                                         await prisma.serviceOrder.update({
                                             where: { id: localSOD.id },
                                             data: {
@@ -263,6 +287,9 @@ export class CompletedSODSyncService {
                                                 dropWireDistance: dropWireDistance,
                                                 revenueAmount: revenueAmount ?? undefined,
                                                 contractorAmount: contractorAmount ?? undefined,
+                                                ...(matchedTeamId ? { teamId: matchedTeamId } : {}),
+                                                ...(matchedContractorId ? { contractorId: matchedContractorId } : {}),
+                                                ...(directTeamStr ? { directTeam: directTeamStr } : {}),
                                                 ...(isPatPassedStatus ? { opmcPatStatus: 'PAT_PASSED', sltsPatStatus: 'PAT_PASSED', opmcPatDate: completedDate } : {}),
                                                 comments: wasDisappeared ? null : `Auto-updated via Sync (${sltData.CON_STATUS})`,
                                             },
