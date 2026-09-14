@@ -10,10 +10,10 @@ const MATERIAL_MAPPING_CONFIG: Record<string, { code: string; usageType: string 
     'PLC-5_6-CE': { code: 'OSP-POLE-5.6LL', usageType: 'USED' },
     'PLC-6_7-CE': { code: 'OSP-POLE-6.7LL', usageType: 'USED' },
     'PLC-8': { code: 'OSP-POLE-8MH', usageType: 'USED' },
-    'F1': { code: 'OSP-HC-ACC-FAC', usageType: 'USED_F1' },
-    'G1': { code: 'OSPFTA002', usageType: 'USED_G1' },
-    'FDW WASTAGE': { code: 'OSP-HC-CBL-DW', usageType: 'WASTAGE' },
-    'DW-RT': { code: 'OSP-HC-CBL-DW', usageType: 'USED' },
+    'F1': { code: 'OSP-HC-CBL-DW', usageType: 'USED_F1' },              // Outdoor Drop Wire Cable (m)
+    'G1': { code: 'OSP-HC-CBL-DW', usageType: 'USED_G1' },              // Indoor Drop Wire Cable (m)
+    'FDW WASTAGE': { code: 'OSP-HC-CBL-DW', usageType: 'WASTAGE' },     // Drop Wire Wastage (m)
+    'DW-RT': { code: 'OSP-NC-ACC-DWRETNER', usageType: 'USED' },        // Drop Wire Retainers (Nos)
     'L-HOOK': { code: 'OSP-NC-MM-LHOOK', usageType: 'USED' },
     'C-HOOK': { code: 'OSP-NC-MM-CHOOK', usageType: 'USED' },
     'TOP BOLT': { code: 'OSP-NC-MM-NUT&B-1/2 x 61/2', usageType: 'USED' },
@@ -42,15 +42,15 @@ function resolveAreaGroup(rtomOrName?: string | null): 'CEN' | 'HK' | 'OTHER' {
 }
 
 async function importJanuaryMaterialReport() {
-    console.log('🚀 Starting January 2026 Material Report Batch Import...');
+    console.log('🚀 Starting Refined January 2026 Material Report Import...');
     console.log(`Source File: ${filePath}`);
 
     if (!fs.existsSync(filePath)) {
         throw new Error(`File not found: ${filePath}`);
     }
 
-    // 1. Pre-load reference maps sequentially to respect PostgreSQL connection limit
-    console.log('📦 Loading database reference caches sequentially...');
+    // 1. Pre-load reference maps from Database sequentially to respect connection pool limits
+    console.log('📦 Loading database reference caches...');
     const opmcs = await prisma.oPMC.findMany({ select: { id: true, name: true, rtom: true } });
     const teams = await prisma.contractorTeam.findMany({ select: { id: true, contractorId: true, name: true, sltCode: true } });
     const contractors = await prisma.contractor.findMany({ select: { id: true, name: true, registrationNumber: true } });
@@ -143,7 +143,9 @@ async function importJanuaryMaterialReport() {
         receivedDate: headers.findIndex(h => h.toUpperCase().includes('SOD RECEIVED DATE')),
         completedDate: headers.findIndex(h => h.toUpperCase().includes('SOD COMPLETE DATE')),
         package: headers.findIndex(h => h.toUpperCase().includes('FTTH_PACKAGE')),
-        dropWireDistance: headers.findIndex(h => h.toUpperCase() === 'DW-RT'),
+        f1: headers.findIndex(h => h.toUpperCase() === 'F1'),
+        g1: headers.findIndex(h => h.toUpperCase() === 'G1'),
+        dwRt: headers.findIndex(h => h.toUpperCase() === 'DW-RT'),
         directLabor: headers.findIndex(h => h.toUpperCase().includes('DIRECT LABOR')),
         contractorName: headers.findIndex(h => h.toUpperCase().includes('CONTRACTOR NAMES')),
     };
@@ -167,8 +169,8 @@ async function importJanuaryMaterialReport() {
 
     console.log(`Matched ${activeMaterialCols.length} material columns.`);
 
-    // Parse and Aggregate SOD rows by soNum to handle duplicate Excel rows cleanly
-    console.log(' Parsing and aggregating SOD rows...');
+    // Parse and Aggregate SOD rows by soNum
+    console.log(' Parsing and aggregating SOD rows with refined F1/G1 Outdoor/Indoor Drop Wire & DW-RT Retainers...');
     const sodMap = new Map<string, any>();
 
     for (let i = 2; i < rawRows.length; i++) {
@@ -178,14 +180,9 @@ async function importJanuaryMaterialReport() {
         let soNum = String(row[colIdx.soNum] || '').trim();
         if (!soNum || soNum.length < 5 || soNum.toUpperCase().includes('TOTAL')) continue;
 
-        // Skip generic "MANUAL" placeholder strings or generate unique key
         if (soNum.toUpperCase() === 'MANUAL') {
             const tpNum = String(row[colIdx.voiceNumber] || '').trim();
-            if (tpNum) {
-                soNum = `MANUAL-${tpNum}`;
-            } else {
-                soNum = `MANUAL-ROW-${i}`;
-            }
+            soNum = tpNum ? `MANUAL-${tpNum}` : `MANUAL-ROW-${i}`;
         }
 
         const rtomRaw = String(row[colIdx.rtom] || '').trim();
@@ -212,7 +209,12 @@ async function importJanuaryMaterialReport() {
             }
         }
 
-        const dropWireDistance = parseFloat(row[colIdx.dropWireDistance]) || 0;
+        // F1 = Outdoor Drop Wire (m), G1 = Indoor Drop Wire (m)
+        const f1Meters = parseFloat(row[colIdx.f1]) || 0;
+        const g1Meters = parseFloat(row[colIdx.g1]) || 0;
+        // Total Drop Wire Distance for connection = F1 + G1 (or F1)
+        const dropWireDistance = (f1Meters + g1Meters) > 0 ? (f1Meters + g1Meters) : 0;
+
         const receivedDate = row[colIdx.receivedDate] ? new Date(row[colIdx.receivedDate]) : null;
         const completedDate = row[colIdx.completedDate] ? new Date(row[colIdx.completedDate]) : null;
 
@@ -246,7 +248,6 @@ async function importJanuaryMaterialReport() {
                     existingSod.materials.push({ ...mat });
                 }
             }
-            // Update non-null properties if missing
             if (!existingSod.teamId && matchedTeamId) existingSod.teamId = matchedTeamId;
             if (!existingSod.contractorId && matchedContractorId) existingSod.contractorId = matchedContractorId;
             if (!existingSod.directTeam && (laborStr || contrStr)) existingSod.directTeam = (laborStr || contrStr);
@@ -279,7 +280,7 @@ async function importJanuaryMaterialReport() {
     const sodRows = Array.from(sodMap.values());
     console.log(`Total aggregated unique SOD rows to import: ${sodRows.length}`);
 
-    // 3. Perform Batch Import in small batches (BATCH_SIZE = 100) using sequential queries per batch to preserve connection pool limits
+    // 3. Perform Transactional Batch Import in small batches (BATCH_SIZE = 100) using chunked queries
     const BATCH_SIZE = 100;
     let totalProcessed = 0;
     let totalCreated = 0;
@@ -422,7 +423,7 @@ async function importJanuaryMaterialReport() {
     }
 
     console.log('\n==================================================');
-    console.log('🎉 JANUARY 2026 MATERIAL REPORT IMPORT COMPLETED!');
+    console.log('🎉 REFINED JANUARY 2026 MATERIAL IMPORT COMPLETED!');
     console.log('==================================================');
     console.log(`Total SODs Processed: ${totalProcessed}`);
     console.log(`Existing SODs Updated: ${totalUpdated}`);
