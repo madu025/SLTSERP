@@ -148,6 +148,7 @@ async function importJanuaryMaterialReport() {
         dwRt: headers.findIndex(h => h.toUpperCase() === 'DW-RT'),
         directLabor: headers.findIndex(h => h.toUpperCase().includes('DIRECT LABOR')),
         contractorName: headers.findIndex(h => h.toUpperCase().includes('CONTRACTOR NAMES')),
+        poleNumber: headers.findIndex(h => h.toUpperCase() === 'POLE NUMBER'),
     };
 
     // Active material columns map
@@ -227,17 +228,23 @@ async function importJanuaryMaterialReport() {
 
         const { revenueAmount, contractorAmount } = computeAmountsInMemory(rtomRaw || 'AD', dropWireDistance);
 
+        const poleNumStr = colIdx.poleNumber >= 0 ? String(row[colIdx.poleNumber] || '').trim() : '';
+        const validPoleNum = poleNumStr && poleNumStr !== 'null' && poleNumStr !== 'undefined' ? poleNumStr : null;
+
         // Parse Materials for this row
-        const rowMaterials: { itemId: string; quantity: number; unit: string; usageType: string; unitPrice: number }[] = [];
+        const rowMaterials: { itemId: string; quantity: number; unit: string; usageType: string; unitPrice: number; comment?: string | null; serialNumber?: string | null }[] = [];
         for (const m of activeMaterialCols) {
             const qty = parseFloat(row[m.colIdx]);
             if (!isNaN(qty) && qty > 0) {
+                const isPole = m.header.startsWith('PLC-');
                 rowMaterials.push({
                     itemId: m.item.id,
                     quantity: qty,
                     unit: m.item.unit,
                     usageType: m.usageType,
-                    unitPrice: m.item.unitPrice
+                    unitPrice: m.item.unitPrice,
+                    comment: isPole && validPoleNum ? `Pole No: ${validPoleNum}` : null,
+                    serialNumber: isPole && validPoleNum ? validPoleNum : null
                 });
             }
         }
@@ -410,6 +417,8 @@ async function importJanuaryMaterialReport() {
                         usageType: mat.usageType,
                         unitPrice: mat.unitPrice,
                         costPrice: mat.unitPrice,
+                        comment: mat.comment || null,
+                        serialNumber: mat.serialNumber || null,
                     });
                 }
             }
