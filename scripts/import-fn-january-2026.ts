@@ -244,7 +244,7 @@ async function importJanuaryMaterialReport() {
                     usageType: m.usageType,
                     unitPrice: m.item.unitPrice,
                     comment: isPole && validPoleNum ? `Pole No: ${validPoleNum}` : null,
-                    serialNumber: isPole && validPoleNum ? validPoleNum : null
+                    serialNumber: null
                 });
             }
         }
@@ -418,7 +418,6 @@ async function importJanuaryMaterialReport() {
                         unitPrice: mat.unitPrice,
                         costPrice: mat.unitPrice,
                         comment: mat.comment || null,
-                        serialNumber: mat.serialNumber || null,
                     });
                 }
             }
