@@ -142,7 +142,8 @@ export default function ContractorSODsPage() {
             const json = await res.json();
             return json.data || json;
         },
-        refetchInterval: 5000 // Real-time 5s live polling for instant notifications
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     // Fetch Contractor Assigned SODs with server-side filters & pagination
@@ -158,7 +159,8 @@ export default function ContractorSODsPage() {
             const json = await res.json();
             return json.data || json;
         },
-        refetchInterval: 5000 // Real-time 5s live sync for field SOD execution
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     // Fetch Live Contractor van stock to resolve Drop Wire and ONT Item IDs dynamically
@@ -172,7 +174,8 @@ export default function ContractorSODsPage() {
             const json = await res.json();
             return json.data || json;
         },
-        refetchInterval: 5000
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     // Complete SOD Mutation

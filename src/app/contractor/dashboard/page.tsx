@@ -81,7 +81,8 @@ export default function ContractorDashboardPage() {
             const json = await res.json();
             return json.data || json;
         },
-        refetchInterval: 5000,
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     const teams: ContractorTeam[] = dashboardPayload?.teams || [];

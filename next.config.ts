@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: isDockerBuild,
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', 'date-fns', 'recharts']
+    optimizePackageImports: ['lucide-react', 'date-fns', 'recharts', '@radix-ui/react-icons', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select']
   },
   async redirects() {
     return [

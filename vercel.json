@@ -3,9 +3,11 @@
   "regions": ["sin1"],
   "functions": {
     "src/app/api/**/*": {
+      "memory": 512,
       "maxDuration": 15
     },
     "src/app/api/cron/**/*": {
+      "memory": 512,
       "maxDuration": 60
     }
   },

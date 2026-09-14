@@ -102,7 +102,8 @@ export default function ContractorFinancePage() {
             const json = await res.json();
             return json.data || json;
         },
-        refetchInterval: 5000 // Real-time 5s live sync for financial claims & vouchers
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     const claims = claimsData?.claims || [];

@@ -104,7 +104,8 @@ export default function ContractorInventoryPage() {
             const json = await res.json();
             return Array.isArray(json) ? json : json.data || [];
         },
-        refetchInterval: 5000,
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     // Material Return Mutation
@@ -160,7 +161,8 @@ export default function ContractorInventoryPage() {
             const json = await res.json();
             return json.data || json;
         },
-        refetchInterval: 5000,
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     // Real stock items from API only — no hardcoded fallbacks
@@ -190,7 +192,8 @@ export default function ContractorInventoryPage() {
             const json = await res.json();
             return Array.isArray(json) ? json : json.data || [];
         },
-        refetchInterval: 5000,
+        refetchInterval: 30000,
+        refetchIntervalInBackground: false,
     });
 
     // Dual Custody Acceptance Mutation
