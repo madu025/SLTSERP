@@ -60,7 +60,7 @@ const MONTHS = [
 // ─── Page Component ────────────────────────────────────────────────────────────
 
 export default function MaterialSummaryReportPage() {
-    const [year,      setYear]      = useState<string>(String(CURRENT_YEAR));
+    const [year,      setYear]      = useState<string>('');
     const [month,     setMonth]     = useState<string>('');
     const [rtom,      setRtom]      = useState<string>('');
     const [itemCode,  setItemCode]  = useState<string>('');
