@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { ContractorQueryParams } from '@/types/contractor/contractor.types';
 import { ROLE_GROUPS } from '@/config/roles';
 import { NIL_UUID } from '@/lib/opmc-scope';
+import { isValidUuid } from '@/lib/uuid';
 
 export class ContractorQueryService {
     /**
@@ -13,6 +14,25 @@ export class ContractorQueryService {
         const { opmcIds: clientOpmcIds, page = 1, limit = 50, userId, userRole } = params;
 
         const where: Prisma.ContractorWhereInput = {};
+
+        // Resolve client-supplied opmcIds / RTOM codes to valid OPMC UUIDs
+        let resolvedOpmcIds: string[] = [];
+        if (clientOpmcIds && clientOpmcIds.length > 0) {
+            const uuidIds = clientOpmcIds.filter(isValidUuid);
+            const rtomCodes = clientOpmcIds.filter(id => !isValidUuid(id));
+
+            const orConditions: Prisma.OPMCWhereInput[] = [];
+            if (uuidIds.length > 0) orConditions.push({ id: { in: uuidIds } });
+            if (rtomCodes.length > 0) orConditions.push({ rtom: { in: rtomCodes, mode: 'insensitive' } });
+
+            if (orConditions.length > 0) {
+                const matchedOpmcs = await prisma.oPMC.findMany({
+                    where: { OR: orConditions },
+                    select: { id: true }
+                });
+                resolvedOpmcIds = matchedOpmcs.map(o => o.id);
+            }
+        }
 
         // Tri-state OPMC isolation (mirrors the sod.query.service F1 fix):
         //  - admin tier          → unrestricted (client filter honoured as-is)
@@ -32,19 +52,21 @@ export class ContractorQueryService {
                 }
             }
 
-            // Intersect any client-supplied rtomId/opmcId with the resolved
-            // scope — values outside it are ignored (deny, never escalate).
-            // Client values may be UUIDs or RTOM codes (e.g. 'R-KX').
             let scopedIds = accessible.map(o => o.id);
-            if (clientOpmcIds && clientOpmcIds.length > 0) {
-                scopedIds = clientOpmcIds
-                    .map(v => accessible.find(o => o.id === v || o.rtom.toLowerCase() === v.toLowerCase())?.id)
-                    .filter((id): id is string => !!id);
+            if (resolvedOpmcIds.length > 0) {
+                scopedIds = resolvedOpmcIds.filter(id => scopedIds.includes(id));
             }
 
-            where.opmcId = scopedIds.length > 0 ? { in: scopedIds } : NIL_UUID;
-        } else if (clientOpmcIds && clientOpmcIds.length > 0) {
-            where.opmcId = { in: clientOpmcIds };
+            const targetIds = scopedIds.length > 0 ? scopedIds : [NIL_UUID];
+            where.OR = [
+                { opmcId: { in: targetIds } },
+                { teams: { some: { opmcId: { in: targetIds } } } }
+            ];
+        } else if (resolvedOpmcIds.length > 0) {
+            where.OR = [
+                { opmcId: { in: resolvedOpmcIds } },
+                { teams: { some: { opmcId: { in: resolvedOpmcIds } } } }
+            ];
         }
 
         const skip = (page - 1) * limit;
@@ -89,6 +111,7 @@ export class ContractorQueryService {
                         select: { teams: true }
                     },
                     teams: {
+                        where: resolvedOpmcIds.length > 0 ? { opmcId: { in: resolvedOpmcIds } } : undefined,
                         include: {
                             opmc: { select: { id: true, name: true, rtom: true, region: true, province: true } },
                             members: true,
