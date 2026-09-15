@@ -66,7 +66,7 @@ export default function SessionManager() {
                 // Only intercept API 401s, not login/auth endpoint responses
                 if (requestUrl.includes('/api/') && !isAgentAuthEndpoint && !requestUrl.includes('/api/login') && !requestUrl.includes('/api/contractor-portal/auth') && !requestUrl.includes('/api/auth/refresh')) {
                     // Avoid redirect loops if already on login page or public pages
-                    const publicPages = ['/login', '/contractor/login', '/privacy'];
+                    const publicPages = ['/login', '/contractor/login', '/privacy', '/public'];
                     if (!publicPages.some(p => window.location.pathname === p || window.location.pathname.startsWith(p + '/'))) {
                         // Attempt token refresh before giving up
                         try {
