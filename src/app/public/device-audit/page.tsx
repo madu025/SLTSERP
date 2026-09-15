@@ -652,13 +652,16 @@ interface DBAsset {
         {step === "DEVICES" && (
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* 💻 LAPTOP CARD SECTION */}
-            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 pb-2">
-                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Laptop className="w-4.5 h-4.5 text-emerald-600" />
-                  Laptop Configuration
-                </h3>
+            {/* 💻 LAPTOP & 📱 MOBILE CARD SECTIONS (INDIVIDUAL USER MODE ONLY) */}
+            {auditType === "USER" && (
+              <>
+                {/* 💻 LAPTOP CARD SECTION */}
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 pb-2">
+                    <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Laptop className="w-4.5 h-4.5 text-emerald-600" />
+                      Laptop Configuration
+                    </h3>
                 
                 <Select
                   value={laptopMode}
@@ -1239,6 +1242,8 @@ interface DBAsset {
                 </div>
               )}
             </div>
+          </>
+        )}
 
             {/* 🖨️ SHARED OFFICE EQUIPMENT CARD SECTION (FOR OFFICE ADMINS & SECTION HEADS) */}
             {auditType === "ADMIN" && (
