@@ -141,12 +141,14 @@ export class StaffService {
    */
   static async findPublicStaffByEmployeeId(employeeNo: string) {
     const cleanEmpNo = employeeNo.trim();
+    const unpaddedEmpNo = cleanEmpNo.replace(/^0+/, '');
+    const searchEmpNos = Array.from(new Set([cleanEmpNo, unpaddedEmpNo].filter(Boolean)));
 
     const [staff, recentAudits] = await Promise.all([
       prisma.staff.findFirst({
         where: {
           employeeId: {
-            equals: cleanEmpNo,
+            in: searchEmpNos,
             mode: 'insensitive'
           }
         },
@@ -169,7 +171,7 @@ export class StaffService {
       prisma.iTAssetAudit.findMany({
         where: {
           employeeNo: {
-            equals: cleanEmpNo,
+            in: searchEmpNos,
             mode: 'insensitive'
           },
           isRejected: false
