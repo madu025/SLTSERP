@@ -31,7 +31,7 @@ const MOBILE_CONDITIONS = [
 export default function PublicDeviceAuditPage() {
   const [step, setStep] = useState<"CUSTODIAN" | "DEVICES" | "SUCCESS">("CUSTODIAN");
   const [fetchingStaff, setFetchingStaff] = useState(false);
-  const [staffFound, setStaffFound] = useState(false);
+  const [auditType, setAuditType] = useState<"USER" | "ADMIN">("USER");
   const [submitting, setSubmitting] = useState(false);
   const [siteOffices, setSiteOffices] = useState<{ id: string; name: string }[]>([]);
 
@@ -490,17 +490,66 @@ interface DBAsset {
           </div>
         )}
 
-        {/* 📢 Office Admin & Section Shared Equipment Notice Banner */}
+        {/* 🔘 AUDIT MODE SELECTOR TABS (Individual User vs Office Admin) */}
         {step !== "SUCCESS" && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
-            <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
-              <Printer className="h-4 w-4 text-amber-600 shrink-0" />
-              <span>Office Admins & Section In-Charge Notice (කාර්යාල නිලධාරීන් සඳහා විශේෂ උපදෙස්)</span>
-            </div>
-            <p className="leading-relaxed text-[11.5px] text-amber-900/90 dark:text-amber-200/90">
-              ඔබ <strong>Office Admin</strong> කෙනෙකු හෝ <strong>Section In-Charge</strong> කෙනෙකු නම්, ඔබේ කාර්යාලය / Section එක තුළ භාවිතයේ පවතින <strong>Photocopy Machines, Printers, Scanners, සහ Network Switches</strong> ද මෙම Audit Form එක හරහා ඇතුළත් කිරීමට කාරුණික වන්න.
-            </p>
+          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => {
+                setAuditType("USER");
+                setHasSharedEquipment(false);
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-bold text-xs transition-all ${
+                auditType === "USER"
+                  ? "bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/80 dark:border-slate-700"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>Individual User Audit (පුද්ගලික ඩෙස්ක්ටොප්/ලැප්ටොප්)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAuditType("ADMIN");
+                setHasSharedEquipment(true);
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-bold text-xs transition-all ${
+                auditType === "ADMIN"
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <Printer className="w-4 h-4" />
+              <span>Office Admin / Section Audit (කාර්යාලීය උපකරණ)</span>
+            </button>
           </div>
+        )}
+
+        {/* 📢 Notice Banner tailored per selected Audit Mode */}
+        {step !== "SUCCESS" && (
+          auditType === "USER" ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-xs space-y-1 text-emerald-900 dark:text-emerald-200">
+              <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
+                <Laptop className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>Individual User Mode: Standard Device Audit</span>
+              </div>
+              <p className="leading-relaxed text-[11px] text-emerald-800/80 dark:text-emerald-200/80">
+                ඔබට නිකුත් කර ඇති <strong>Laptop සහ Mobile Phone</strong> විස්තර පමණක් මෙහිදී සත්‍යාපනය කර ඇතුළත් කරන්න.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs space-y-1 text-amber-900 dark:text-amber-200">
+              <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
+                <Printer className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>Office Admin Mode: Section Equipment & Shared Assets</span>
+              </div>
+              <p className="leading-relaxed text-[11px] text-amber-900/90 dark:text-amber-200/90">
+                ඔබේ කාර්යාලය / Section එක තුළ භාවිතයේ පවතින <strong>Photocopy Machines, Printers, Scanners, සහ Network Switches</strong> ද මෙහිදී සෘජුව ඇතුළත් කළ හැක.
+              </p>
+            </div>
+          )
         )}
 
         {/* STEP 1: CUSTODIAN PROFILE */}
@@ -1191,98 +1240,100 @@ interface DBAsset {
             </div>
 
             {/* 🖨️ SHARED OFFICE EQUIPMENT CARD SECTION (FOR OFFICE ADMINS & SECTION HEADS) */}
-            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 pb-2">
-                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Printer className="w-4.5 h-4.5 text-amber-500" />
-                  Office Shared Equipment (Printers / Scanners / Photocopiers)
-                </h3>
+            {auditType === "ADMIN" && (
+              <div className="bg-amber-500/5 dark:bg-amber-950/20 p-5 rounded-xl border border-amber-500/30 space-y-4 animate-fade-in">
+                <div className="flex justify-between items-center border-b border-amber-500/20 pb-2">
+                  <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <Printer className="w-4.5 h-4.5 text-amber-600" />
+                    Office Shared Equipment (Printers / Scanners / Photocopiers / Switches)
+                  </h3>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setHasSharedEquipment(!hasSharedEquipment)}
-                  className={`h-8 text-xs font-semibold ${
-                    hasSharedEquipment 
-                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30"
-                      : "bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
-                  }`}
-                >
-                  {hasSharedEquipment ? "Remove Shared Equipment" : "+ Add Office Printer/Scanner"}
-                </Button>
-              </div>
-
-              {!hasSharedEquipment ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                  Office Admins & Section In-Charge officers can click <strong>&quot;+ Add Office Printer/Scanner&quot;</strong> above to record Photocopiers, Printers, or Scanners located in their section.
-                </p>
-              ) : (
-                <div className="space-y-4 pt-1 animate-fade-in">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Equipment Type</label>
-                      <Select
-                        value={sharedEquipmentType}
-                        onValueChange={(val: "PRINTER" | "SCANNER" | "PHOTOCOPIER" | "OTHER") => setSharedEquipmentType(val)}
-                      >
-                        <SelectTrigger className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
-                          <SelectItem value="PRINTER">Printer (මුද්‍රණ යන්ත්‍රය)</SelectItem>
-                          <SelectItem value="SCANNER">Scanner (ස්කෑනරය)</SelectItem>
-                          <SelectItem value="PHOTOCOPIER">Photocopier (ඡායාපිටපත් යන්ත්‍රය)</SelectItem>
-                          <SelectItem value="OTHER">Other Network Device</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Serial Number / Asset Tag</label>
-                      <Input
-                        placeholder="e.g. S/N or Asset Tag"
-                        value={sharedEquipmentSerial}
-                        onChange={(e) => setSharedEquipmentSerial(e.target.value)}
-                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Make / Brand</label>
-                      <Input
-                        placeholder="e.g. HP, Canon, Ricoh, Epson"
-                        value={sharedEquipmentBrand}
-                        onChange={(e) => setSharedEquipmentBrand(e.target.value)}
-                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Model Name</label>
-                      <Input
-                        placeholder="e.g. LaserJet Pro MFP M428fdw"
-                        value={sharedEquipmentModel}
-                        onChange={(e) => setSharedEquipmentModel(e.target.value)}
-                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Location / Condition Remarks</label>
-                    <Input
-                      placeholder="e.g. Printing Bay - Working fine / Cartridge low"
-                      value={sharedEquipmentRemarks}
-                      onChange={(e) => setSharedEquipmentRemarks(e.target.value)}
-                      className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
-                    />
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHasSharedEquipment(!hasSharedEquipment)}
+                    className={`h-8 text-xs font-semibold ${
+                      hasSharedEquipment 
+                        ? "bg-amber-500 text-white border-amber-600"
+                        : "bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
+                    }`}
+                  >
+                    {hasSharedEquipment ? "Remove Shared Equipment" : "+ Add Office Printer/Scanner"}
+                  </Button>
                 </div>
-              )}
-            </div>
+
+                {!hasSharedEquipment ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                    Office Admins can click <strong>&quot;+ Add Office Printer/Scanner&quot;</strong> above to record Photocopiers, Printers, or Scanners located in their section.
+                  </p>
+                ) : (
+                  <div className="space-y-4 pt-1 animate-fade-in">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Equipment Type</label>
+                        <Select
+                          value={sharedEquipmentType}
+                          onValueChange={(val: "PRINTER" | "SCANNER" | "PHOTOCOPIER" | "OTHER") => setSharedEquipmentType(val)}
+                        >
+                          <SelectTrigger className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
+                            <SelectItem value="PRINTER">Printer (මුද්‍රණ යන්ත්‍රය)</SelectItem>
+                            <SelectItem value="SCANNER">Scanner (ස්කෑනරය)</SelectItem>
+                            <SelectItem value="PHOTOCOPIER">Photocopier (ඡායාපිටපත් යන්ත්‍රය)</SelectItem>
+                            <SelectItem value="OTHER">Other Network Device / Switch</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Serial Number / Asset Tag</label>
+                        <Input
+                          placeholder="e.g. S/N or Asset Tag"
+                          value={sharedEquipmentSerial}
+                          onChange={(e) => setSharedEquipmentSerial(e.target.value)}
+                          className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Make / Brand</label>
+                        <Input
+                          placeholder="e.g. HP, Canon, Ricoh, Epson"
+                          value={sharedEquipmentBrand}
+                          onChange={(e) => setSharedEquipmentBrand(e.target.value)}
+                          className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Model Name</label>
+                        <Input
+                          placeholder="e.g. LaserJet Pro MFP M428fdw"
+                          value={sharedEquipmentModel}
+                          onChange={(e) => setSharedEquipmentModel(e.target.value)}
+                          className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Location / Condition Remarks</label>
+                      <Input
+                        placeholder="e.g. Printing Bay - Working fine / Cartridge low"
+                        value={sharedEquipmentRemarks}
+                        onChange={(e) => setSharedEquipmentRemarks(e.target.value)}
+                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button
