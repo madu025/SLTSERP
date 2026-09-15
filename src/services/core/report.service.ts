@@ -1236,23 +1236,39 @@ export class ReportService {
 
     const categoryUpper = (category || 'ALL').toUpperCase();
 
-    if (categoryUpper === 'COMPLETED') {
+    if (categoryUpper === 'COMPLETED' || categoryUpper === 'COM') {
       where.OR = [
         { completedDate: { gte: startDate, lte: endDate } },
-        { sltsStatus: 'COMPLETED' }
+        { statusDate: { gte: startDate, lte: endDate } },
+        { sltsStatus: { in: ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } },
+        { status: 'COMPLETED' }
       ];
-    } else if (categoryUpper === 'INSTALL_CLOSED') {
-      where.sltsStatus = { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] };
-    } else if (categoryUpper === 'RECEIVED') {
+    } else if (categoryUpper === 'INSTALL_CLOSED' || categoryUpper === 'IC') {
+      where.OR = [
+        { sltsStatus: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] } },
+        { status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] } },
+        { completionMode: { in: ['INSTALL_CLOSED', 'PROV_CLOSED', 'IC'] } },
+        {
+          statusHistory: {
+            some: {
+              status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] }
+            }
+          }
+        }
+      ];
+    } else if (categoryUpper === 'RECEIVED' || categoryUpper === 'REC') {
       where.OR = [
         { receivedDate: { gte: startDate, lte: endDate } },
         { createdAt: { gte: startDate, lte: endDate } }
       ];
-    } else if (categoryUpper === 'IN_HAND' || categoryUpper === 'BALANCE') {
+    } else if (categoryUpper === 'IN_HAND' || categoryUpper === 'BALANCE' || categoryUpper === 'WIP') {
       where.status = { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] };
-      where.sltsStatus = { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED'] };
-    } else if (categoryUpper === 'RETURNED') {
-      where.sltsStatus = 'RETURN';
+      where.sltsStatus = { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'REJECTED'] };
+    } else if (categoryUpper === 'RETURNED' || categoryUpper === 'RET') {
+      where.OR = [
+        { sltsStatus: { in: ['RETURN', 'REJECTED'] } },
+        { status: { in: ['RETURN', 'REJECTED'] } }
+      ];
     } else if (categoryUpper === 'WIRED_ONLY') {
       where.wiredOnly = true;
     } else {
@@ -1264,7 +1280,7 @@ export class ReportService {
         { receivedDate: { gte: startDate, lte: endDate } },
         {
           status: { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] },
-          sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED'] }
+          sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'REJECTED'] }
         }
       ];
     }

@@ -189,18 +189,21 @@ function BreakdownHeadCells({ tone }: { tone: BreakdownTone }) {
     );
 }
 
-function BreakdownCells({ metrics, tone, summary = false }: {
-    metrics: CompletedMetrics; tone: BreakdownTone; summary?: boolean;
+function BreakdownCells({ metrics, tone, summary = false, onOpenModal }: {
+    metrics: CompletedMetrics; tone: BreakdownTone; summary?: boolean; onOpenModal?: (cat: string) => void;
 }) {
     const s = BREAKDOWN_STYLE[tone];
+    const cat = tone === 'green' ? 'COM' : 'IC';
     return (
         <>
             {BREAKDOWN_COLUMNS.map(({ key, kind }, i) => (
                 <td
                     key={key}
-                    className={`border border-slate-200/80 px-1 py-1 text-center text-[11px]
+                    onClick={() => onOpenModal && onOpenModal(cat)}
+                    className={`border border-slate-200/80 px-1 py-1 text-center text-[11px] cursor-pointer hover:opacity-80 transition-opacity
                         ${breakdownFill(tone, kind, summary)}
                         ${i === 0 ? s.edge : ''}`}
+                    title={`Click to view ${tone === 'green' ? 'Completed' : 'Install Closed'} SODs (${key.toUpperCase()})`}
                 >
                     {metrics[key]}
                 </td>
@@ -785,8 +788,8 @@ function SummaryRow({ label, row, isGrandTotal = false, onOpenModal }: {
             >
                 {row.totalInHand}
             </td>
-            <BreakdownCells metrics={row.completed} tone="green" summary />
-            <BreakdownCells metrics={row.installClosed} tone="blue" summary />
+            <BreakdownCells metrics={row.completed} tone="green" summary onOpenModal={(cat) => onOpenModal && onOpenModal(rtomKey, cat)} />
+            <BreakdownCells metrics={row.installClosed} tone="blue" summary onOpenModal={(cat) => onOpenModal && onOpenModal(rtomKey, cat)} />
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.material.dw.toFixed(1)}</td>
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.material.pole56}</td>
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.material.pole67}</td>
@@ -1443,8 +1446,8 @@ export default function DailyOperationalReportPage() {
                                                             <td onClick={() => handleOpenOrdersModal(row.rtom, 'RECEIVED')} className="border-r border-slate-100 px-1 py-1.5 text-center bg-emerald-50/50 text-emerald-800 font-bold cursor-pointer hover:bg-emerald-100 transition-colors" title="Click to view Received SODs">{row.received.total}</td>
                                                             <td onClick={() => handleOpenOrdersModal(row.rtom, 'ALL')} className="border-r border-slate-100 px-1 py-1.5 text-center bg-indigo-50 font-black text-indigo-900 cursor-pointer hover:bg-indigo-100 transition-colors" title="Click to view Total In-Hand SODs">{row.totalInHand}</td>
 
-                                                            <BreakdownCells metrics={row.completed}    tone="green" />
-                                                            <BreakdownCells metrics={row.installClosed} tone="blue" />
+                                                            <BreakdownCells metrics={row.completed} tone="green" onOpenModal={(cat) => handleOpenOrdersModal(row.rtom, cat)} />
+                                                            <BreakdownCells metrics={row.installClosed} tone="blue" onOpenModal={(cat) => handleOpenOrdersModal(row.rtom, cat)} />
 
                                                             <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-amber-50/40 text-amber-900">{row.material.dw.toFixed(1)}</td>
                                                             <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-cyan-50/40 text-cyan-900">{row.material.pole56}</td>
