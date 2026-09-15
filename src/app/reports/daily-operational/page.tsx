@@ -430,8 +430,11 @@ function DailyOperationalOrdersModal({
                 );
                 const json = await res.json();
                 if (!isCancelled) {
-                    const payload = (json && typeof json === 'object' && 'data' in json && json.data) ? json.data : json;
-                    setOrders(payload?.orders || []);
+                    let payload: any = json;
+                    while (payload && typeof payload === 'object' && 'data' in payload && payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+                        payload = payload.data;
+                    }
+                    setOrders(payload?.orders || (Array.isArray(payload) ? payload : []));
                     setSummaryTotals(payload?.summaryTotals || null);
                 }
             } catch (err) {
