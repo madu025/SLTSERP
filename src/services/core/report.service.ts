@@ -1238,54 +1238,34 @@ export class ReportService {
 
     const categoryUpper = (category || 'ALL').toUpperCase();
 
-    if (categoryUpper === 'COMPLETED' || categoryUpper === 'COM') {
-      where.OR = [
-        { completedDate: { gte: startDate, lte: endDate } },
-        { statusDate: { gte: startDate, lte: endDate } },
-        { sltsStatus: { in: ['COMPLETED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } },
-        { status: 'COMPLETED' }
-      ];
-    } else if (categoryUpper === 'INSTALL_CLOSED' || categoryUpper === 'IC') {
-      where.OR = [
-        { sltsStatus: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] } },
-        { status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] } },
-        { completionMode: { in: ['INSTALL_CLOSED', 'PROV_CLOSED', 'IC'] } },
-        {
-          statusHistory: {
-            some: {
-              status: { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] }
-            }
-          }
-        }
-      ];
-    } else if (categoryUpper === 'RECEIVED' || categoryUpper === 'REC') {
-      where.OR = [
-        { receivedDate: { gte: startDate, lte: endDate } },
-        { createdAt: { gte: startDate, lte: endDate } }
-      ];
-    } else if (categoryUpper === 'IN_HAND' || categoryUpper === 'BALANCE' || categoryUpper === 'WIP') {
-      where.status = { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] };
-      where.sltsStatus = { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'PAT_REJECTED'] };
-    } else if (categoryUpper === 'RETURNED' || categoryUpper === 'RET') {
-      where.OR = [
-        { sltsStatus: { in: ['RETURN', 'PAT_REJECTED'] } },
-        { status: { in: ['RETURN', 'PAT_REJECTED'] } }
-      ];
-    } else if (categoryUpper === 'WIRED_ONLY') {
-      where.wiredOnly = true;
-    } else {
-      // Default ALL: touched on the day or active in-hand
-      where.OR = [
-        { createdAt: { gte: startDate, lte: endDate } },
-        { completedDate: { gte: startDate, lte: endDate } },
-        { statusDate: { gte: startDate, lte: endDate } },
-        { receivedDate: { gte: startDate, lte: endDate } },
-        {
-          status: { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] },
-          sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'PAT_REJECTED'] }
-        }
-      ];
+    // Fetch status histories for the target day window
+    const dayWindow: SodDayWindow = { start: startDate, end: endDate };
+    const histories = await prisma.serviceOrderStatusHistory.findMany({
+      where: {
+        statusDate: { gte: startDate, lte: endDate }
+      },
+      select: { serviceOrderId: true, status: true, statusDate: true }
+    });
+
+    const historyMap = new Map<string, { status: ServiceOrderStatus; statusDate: Date }[]>();
+    for (const h of histories) {
+      if (!historyMap.has(h.serviceOrderId)) historyMap.set(h.serviceOrderId, []);
+      historyMap.get(h.serviceOrderId)!.push({ status: h.status, statusDate: h.statusDate });
     }
+    const historyIds = Array.from(new Set(histories.map(h => h.serviceOrderId)));
+
+    // Candidate query strictly bounded to the target day window and active in-hand
+    where.OR = [
+      { createdAt: { gte: startDate, lte: endDate } },
+      { completedDate: { gte: startDate, lte: endDate } },
+      { statusDate: { gte: startDate, lte: endDate } },
+      { receivedDate: { gte: startDate, lte: endDate } },
+      ...(historyIds.length > 0 ? [{ id: { in: historyIds } }] : []),
+      {
+        status: { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] },
+        sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'PAT_REJECTED'] }
+      }
+    ];
 
     const orders = await prisma.serviceOrder.findMany({
       where,
@@ -1294,7 +1274,6 @@ export class ReportService {
         { receivedDate: 'desc' },
         { createdAt: 'desc' }
       ],
-      take: 500,
       select: {
         id: true,
         soNum: true,
@@ -1332,6 +1311,12 @@ export class ReportService {
         opmc: {
           select: { id: true, name: true, rtom: true }
         },
+        materialUsage: {
+          select: {
+            quantity: true,
+            item: { select: { code: true } }
+          }
+        },
         erectedPoles: {
           select: { poleType: true, poleNumber: true }
         },
@@ -1352,7 +1337,40 @@ export class ReportService {
     let totalCompleted = 0;
     let totalInstallClosed = 0;
 
-    const formattedOrders = orders.map(o => {
+    // Filter using the exact same daily report classification engine
+    const matchedOrders: typeof orders = [];
+    for (const o of orders) {
+      const orderWithHistory = {
+        ...o,
+        statusHistory: historyMap.get(o.id) || []
+      } as unknown as SodDayActivitySource;
+      const activity = classifySodDayActivity(orderWithHistory, dayWindow);
+
+      let isMatch = false;
+      if (categoryUpper === 'ALL') {
+        isMatch = Boolean(activity.receivedToday || activity.completedToday || activity.installClosedToday || activity.returnedToday || activity.pendingNow);
+      } else if (categoryUpper === 'IC' || categoryUpper === 'INSTALL_CLOSED') {
+        isMatch = Boolean(activity.installClosedToday);
+      } else if (categoryUpper === 'COM' || categoryUpper === 'COMPLETED') {
+        isMatch = Boolean(activity.completedToday);
+      } else if (categoryUpper === 'REC' || categoryUpper === 'RECEIVED') {
+        isMatch = Boolean(activity.receivedToday);
+      } else if (categoryUpper === 'RET' || categoryUpper === 'RETURNED') {
+        isMatch = Boolean(activity.returnedToday);
+      } else if (categoryUpper === 'WIP' || categoryUpper === 'IN_HAND' || categoryUpper === 'BALANCE') {
+        isMatch = Boolean(activity.pendingNow);
+      } else if (categoryUpper === 'WIRED_ONLY') {
+        isMatch = Boolean(o.wiredOnly);
+      } else {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        matchedOrders.push(o);
+      }
+    }
+
+    const formattedOrders = matchedOrders.map(o => {
       const dwMeters = o.dropWireDistance ? Number(o.dropWireDistance) : 0;
       totalDwDistance += dwMeters;
 
