@@ -429,9 +429,10 @@ function DailyOperationalOrdersModal({
                     }
                 );
                 const json = await res.json();
-                if (!isCancelled && json.success) {
-                    setOrders(json.data.orders || []);
-                    setSummaryTotals(json.data.summaryTotals || null);
+                if (!isCancelled) {
+                    const payload = (json && typeof json === 'object' && 'data' in json && json.data) ? json.data : json;
+                    setOrders(payload?.orders || []);
+                    setSummaryTotals(payload?.summaryTotals || null);
                 }
             } catch (err) {
                 console.error('Failed to load RTOM orders:', err);

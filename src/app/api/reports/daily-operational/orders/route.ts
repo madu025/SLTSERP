@@ -22,9 +22,10 @@ export const GET = apiHandler(async (request) => {
     return { success: false, error: 'Invalid query parameters', details: parsed.error.format() };
   }
 
-  return await ReportService.getDailyOperationalOrders({
+  const data = await ReportService.getDailyOperationalOrders({
     date: parsed.data.date,
     rtom: parsed.data.rtom,
     category: parsed.data.category,
   });
-}, { rawResponse: true, menuPath: '/reports/daily-operational' });
+  return { success: true, data };
+}, { menuPath: '/reports/daily-operational' });
