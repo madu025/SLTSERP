@@ -9,8 +9,11 @@ import { Button } from "@/components/ui/button";
 import {
     Download, RefreshCw, Calendar as CalendarIcon, TrendingUp,
     CheckCircle2, AlertCircle, Clock, ClipboardCopy, Zap,
-    ChevronDown, ChevronUp, Activity, BarChart3, Camera
+    ChevronDown, ChevronUp, Activity, BarChart3, Camera,
+    Eye, Search, ExternalLink, Check
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { getSriLankaToday } from '@/lib/timezone';
 import * as XLSX from 'xlsx';
 
@@ -314,30 +317,360 @@ function PipelineFunnelBar({ gt }: { gt: MonthlyPipelineGrandTotal }) {
 
 // ─── Summary Row ─────────────────────────────────────────────────────────────
 
-function SummaryRow({ label, row, isGrandTotal = false }: {
-    label: string; row: ReportRowData; isGrandTotal?: boolean;
+interface OrderDetail {
+    id: string;
+    soNum: string;
+    voiceNumber: string | null;
+    rtom: string;
+    customerName: string | null;
+    address: string | null;
+    package: string | null;
+    orderType: string | null;
+    serviceType: string | null;
+    status: string;
+    sltsStatus: string;
+    receivedDate: string | null;
+    completedDate: string | null;
+    createdAt: string;
+    wiredOnly: boolean;
+    contractor?: { id: string; name: string } | null;
+    team?: { id: string; name: string; sltCode?: string | null } | null;
+}
+
+function DailyOperationalOrdersModal({
+    isOpen,
+    onClose,
+    rtom,
+    date,
+    initialCategory = 'ALL'
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    rtom: string;
+    date: string;
+    initialCategory?: string;
+}) {
+    const [orders, setOrders] = useState<OrderDetail[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [category, setCategory] = useState(initialCategory);
+    const [search, setSearch] = useState('');
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setCategory(initialCategory);
+    }, [initialCategory]);
+
+    useEffect(() => {
+        if (!isOpen || !rtom) return;
+        let isCancelled = false;
+
+        const fetchOrders = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/reports/daily-operational/orders?date=${encodeURIComponent(date)}&rtom=${encodeURIComponent(rtom)}&category=${encodeURIComponent(category)}`);
+                const json = await res.json();
+                if (!isCancelled && json.success) {
+                    setOrders(json.data.orders || json.data || []);
+                }
+            } catch (err) {
+                console.error('Failed to load RTOM orders:', err);
+            } finally {
+                if (!isCancelled) setLoading(false);
+            }
+        };
+
+        fetchOrders();
+        return () => { isCancelled = true; };
+    }, [isOpen, rtom, date, category]);
+
+    const filteredOrders = React.useMemo(() => {
+        if (!search.trim()) return orders;
+        const q = search.toLowerCase().trim();
+        return orders.filter(o => 
+            o.soNum?.toLowerCase().includes(q) ||
+            o.voiceNumber?.toLowerCase().includes(q) ||
+            o.customerName?.toLowerCase().includes(q) ||
+            o.package?.toLowerCase().includes(q) ||
+            o.orderType?.toLowerCase().includes(q) ||
+            o.sltsStatus?.toLowerCase().includes(q) ||
+            o.team?.name?.toLowerCase().includes(q)
+        );
+    }, [orders, search]);
+
+    const handleExportModalOrders = () => {
+        if (filteredOrders.length === 0) return;
+        const exportRows = filteredOrders.map((o, index) => ({
+            '#': index + 1,
+            'RTOM': o.rtom,
+            'SOD Number': o.soNum,
+            'Voice / Service Number': o.voiceNumber || 'N/A',
+            'Customer Name': o.customerName || 'N/A',
+            'Address': o.address || 'N/A',
+            'Package': o.package || 'N/A',
+            'Order Type': o.orderType || 'N/A',
+            'Service Type': o.serviceType || 'N/A',
+            'SLTS Status': o.sltsStatus,
+            'System Status': o.status,
+            'Assigned Team': o.team?.name || 'N/A',
+            'Contractor': o.contractor?.name || 'N/A',
+            'Received Date': o.receivedDate ? new Date(o.receivedDate).toLocaleDateString() : 'N/A',
+            'Completed Date': o.completedDate ? new Date(o.completedDate).toLocaleDateString() : 'N/A',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `${rtom}_Orders`);
+        XLSX.writeFile(wb, `${rtom}_SOD_Voice_Details_${date}.xlsx`);
+    };
+
+    const copyToClipboard = (text: string, id: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const categoriesList = [
+        { id: 'ALL', label: 'All Orders' },
+        { id: 'COMPLETED', label: 'Completed' },
+        { id: 'INSTALL_CLOSED', label: 'Install Closed' },
+        { id: 'RECEIVED', label: 'Received Today' },
+        { id: 'BALANCE', label: 'In-Hand / Balance' },
+        { id: 'RETURNED', label: 'Returned' },
+    ];
+
+    if (!isOpen) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-slate-900 text-white border-slate-800">
+                <DialogHeader className="p-5 border-b border-slate-800 bg-slate-950 flex flex-row items-center justify-between">
+                    <div>
+                        <DialogTitle className="text-lg font-black text-white flex items-center gap-2">
+                            <span>RTOM Service Orders &amp; Voice Numbers</span>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                {rtom}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                {date}
+                            </span>
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-400 mt-1">
+                            Showing detailed SOD numbers, Voice numbers, packages, and statuses for cross-checking.
+                        </DialogDescription>
+                    </div>
+                </DialogHeader>
+
+                {/* Filter and Search toolbar */}
+                <div className="p-4 bg-slate-900 border-b border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {categoriesList.map(cat => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setCategory(cat.id)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                                    category === cat.id
+                                        ? 'bg-indigo-600 text-white shadow-md'
+                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                                }`}
+                            >
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1 sm:w-64">
+                            <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search SOD, Voice No, Customer..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="pl-8 h-9 text-xs bg-slate-950 border-slate-800 text-white focus:border-indigo-500"
+                            />
+                        </div>
+                        <Button
+                            onClick={handleExportModalOrders}
+                            disabled={filteredOrders.length === 0}
+                            size="sm"
+                            className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                        >
+                            <Download className="w-3.5 h-3.5" /> Export Excel
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Content Table */}
+                <div className="flex-1 overflow-y-auto p-4">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
+                            <span className="text-xs text-slate-400">Fetching order details for {rtom}...</span>
+                        </div>
+                    ) : filteredOrders.length === 0 ? (
+                        <div className="text-center py-16 text-slate-400 text-xs">
+                            No service orders match the selected filters or search query.
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950">
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead className="bg-slate-900 border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400">
+                                    <tr>
+                                        <th className="p-3 w-10 text-center">#</th>
+                                        <th className="p-3">SOD Number</th>
+                                        <th className="p-3">Voice / Service No</th>
+                                        <th className="p-3">Customer &amp; Address</th>
+                                        <th className="p-3">Package / Type</th>
+                                        <th className="p-3">SLTS Status</th>
+                                        <th className="p-3">Team / Contractor</th>
+                                        <th className="p-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/60">
+                                    {filteredOrders.map((ord, idx) => (
+                                        <tr key={ord.id} className="hover:bg-slate-900/80 transition-colors">
+                                            <td className="p-3 text-center text-slate-500 font-mono">{idx + 1}</td>
+                                            <td className="p-3 font-mono font-bold text-indigo-300">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span>{ord.soNum}</span>
+                                                    <button
+                                                        onClick={() => copyToClipboard(ord.soNum, `sod-${ord.id}`)}
+                                                        className="text-slate-500 hover:text-indigo-300 transition-colors"
+                                                        title="Copy SOD Number"
+                                                    >
+                                                        {copiedId === `sod-${ord.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td className="p-3 font-mono">
+                                                {ord.voiceNumber ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50 font-bold">
+                                                            {ord.voiceNumber}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => copyToClipboard(ord.voiceNumber || '', `voice-${ord.id}`)}
+                                                            className="text-slate-500 hover:text-emerald-300 transition-colors"
+                                                            title="Copy Voice Number"
+                                                        >
+                                                            {copiedId === `voice-${ord.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-600 font-italic">N/A</span>
+                                                )}
+                                            </td>
+                                            <td className="p-3 max-w-xs">
+                                                <div className="font-bold text-slate-200">{ord.customerName || 'N/A'}</div>
+                                                <div className="text-[11px] text-slate-400 truncate max-w-[220px]" title={ord.address || ''}>
+                                                    {ord.address || '-'}
+                                                </div>
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="font-semibold text-slate-300">{ord.package || 'N/A'}</div>
+                                                <div className="text-[10px] text-slate-500">{ord.orderType || '-'} {ord.serviceType ? `(${ord.serviceType})` : ''}</div>
+                                            </td>
+                                            <td className="p-3">
+                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                                                    ord.sltsStatus === 'COMPLETED' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
+                                                    ord.sltsStatus === 'INSTALL_CLOSED' ? 'bg-sky-950 text-sky-300 border-sky-800' :
+                                                    ord.sltsStatus === 'RETURN' ? 'bg-rose-950 text-rose-300 border-rose-800' :
+                                                    'bg-amber-950 text-amber-300 border-amber-800'
+                                                }`}>
+                                                    {ord.sltsStatus}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-slate-300">
+                                                <div>{ord.team?.name || 'Unassigned'}</div>
+                                                <div className="text-[10px] text-slate-500">{ord.contractor?.name || ''}</div>
+                                            </td>
+                                            <td className="p-3 text-right">
+                                                <Button
+                                                    onClick={() => window.open(`/helpdesk/service-orders?search=${ord.soNum}`, '_blank')}
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 px-2 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/50 text-[11px] gap-1"
+                                                >
+                                                    <span>View</span>
+                                                    <ExternalLink className="w-3 h-3" />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs text-slate-400">
+                    <div>
+                        Showing <strong className="text-white">{filteredOrders.length}</strong> of <strong className="text-white">{orders.length}</strong> service orders for {rtom}.
+                    </div>
+                    <Button onClick={onClose} variant="outline" size="sm" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700">
+                        Close
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function SummaryRow({ label, row, isGrandTotal = false, onOpenModal }: {
+    label: string; row: ReportRowData; isGrandTotal?: boolean; onOpenModal?: (rtom: string, cat: string) => void;
 }) {
     const base = isGrandTotal
         ? 'bg-slate-900 text-white'
         : 'bg-indigo-800/80 text-white';
 
+    const rtomKey = isGrandTotal ? 'ALL' : row.rtom;
+
     return (
         <tr className={`${base} font-bold`}>
             <td colSpan={2} className="border border-slate-600/50 px-3 py-2 text-right uppercase tracking-wider text-sm">
-                {label}
+                <button
+                    onClick={() => onOpenModal && onOpenModal(rtomKey, 'ALL')}
+                    className="hover:underline flex items-center justify-end gap-1.5 w-full font-bold cursor-pointer"
+                    title="Click to view SOD Numbers & Voice Numbers"
+                >
+                    <span>{label}</span>
+                    <Eye className="w-3.5 h-3.5 text-indigo-300 opacity-80" />
+                </button>
             </td>
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.inHandMorning.total}</td>
-            <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.received.total}</td>
-            <td className="border border-slate-600/50 px-1 py-1.5 text-center font-black">{row.totalInHand}</td>
+            <td 
+                onClick={() => onOpenModal && onOpenModal(rtomKey, 'RECEIVED')}
+                className="border border-slate-600/50 px-1 py-1.5 text-center cursor-pointer hover:bg-emerald-700/60 transition-colors"
+                title="Click to view Received SODs"
+            >
+                {row.received.total}
+            </td>
+            <td 
+                onClick={() => onOpenModal && onOpenModal(rtomKey, 'ALL')}
+                className="border border-slate-600/50 px-1 py-1.5 text-center font-black cursor-pointer hover:bg-indigo-700/60 transition-colors"
+                title="Click to view In-Hand SODs"
+            >
+                {row.totalInHand}
+            </td>
             <BreakdownCells metrics={row.completed} tone="green" summary />
             <BreakdownCells metrics={row.installClosed} tone="blue" summary />
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.material.dw.toFixed(1)}</td>
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.material.pole56}</td>
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.material.pole67}</td>
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.material.pole80}</td>
-            <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.returned.total}</td>
+            <td 
+                onClick={() => onOpenModal && onOpenModal(rtomKey, 'RETURNED')}
+                className="border border-slate-600/50 px-1 py-1.5 text-center cursor-pointer hover:bg-rose-800/60 transition-colors"
+                title="Click to view Returned SODs"
+            >
+                {row.returned.total}
+            </td>
             <td className="border border-slate-600/50 px-1 py-1.5 text-center">{row.wiredOnly.total}</td>
-            <td className={`border border-slate-600/50 px-2 py-1.5 text-center font-black ${isGrandTotal ? 'bg-slate-700 text-white' : 'bg-indigo-900/60'}`}>
+            <td 
+                onClick={() => onOpenModal && onOpenModal(rtomKey, 'BALANCE')}
+                className={`border border-slate-600/50 px-2 py-1.5 text-center font-black cursor-pointer hover:bg-slate-800 transition-colors ${isGrandTotal ? 'bg-slate-700 text-white' : 'bg-indigo-900/60'}`}
+                title="Click to view Balance SODs"
+            >
                 {row.balance.total}
             </td>
         </tr>
@@ -353,6 +686,17 @@ export default function DailyOperationalReportPage() {
     const [hydrated, setHydrated]       = useState(false);
     const [showBreakdown, setShowBreakdown] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(false);
+
+    // Modal state for RTOM orders drilldown
+    const [modalOpen, setModalOpen]     = useState(false);
+    const [modalRtom, setModalRtom]     = useState('');
+    const [modalCategory, setModalCategory] = useState('ALL');
+
+    const handleOpenOrdersModal = useCallback((rtom: string, category: string = 'ALL') => {
+        setModalRtom(rtom);
+        setModalCategory(category);
+        setModalOpen(true);
+    }, []);
 
     const today = getSriLankaToday();
     const isToday = selectedDate === today;
@@ -935,7 +1279,7 @@ export default function DailyOperationalReportPage() {
                                                     if (currentRegion !== row.region) {
                                                         // Emit region summary before switching
                                                         if (currentRegion && summaries[currentRegion]) {
-                                                            rows.push(<SummaryRow key={`sum-${currentRegion}`} label={`${currentRegion} TOTAL`} row={summaries[currentRegion]} />);
+                                                            rows.push(<SummaryRow key={`sum-${currentRegion}`} label={`${currentRegion} TOTAL`} row={summaries[currentRegion]} onOpenModal={handleOpenOrdersModal} />);
                                                         }
                                                         currentRegion = row.region;
                                                         // Region header band
@@ -951,11 +1295,20 @@ export default function DailyOperationalReportPage() {
                                                     rows.push(
                                                         <tr key={`${idx}-${row.rtom}`} className="border-b border-slate-100 hover:bg-blue-50/30 transition-colors group">
                                                             <td className="border-r border-slate-100 px-2 py-1.5 text-slate-500 text-[10px] uppercase tracking-wide">{row.province}</td>
-                                                            <td className="border-r border-slate-100 px-2 py-1.5 text-center font-black text-slate-900">{row.rtom}</td>
+                                                            <td className="border-r border-slate-100 px-2 py-1.5 text-center font-black text-slate-900">
+                                                                <button
+                                                                    onClick={() => handleOpenOrdersModal(row.rtom, 'ALL')}
+                                                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 font-black transition-all cursor-pointer group/btn"
+                                                                    title="Click to view SOD & Voice Numbers"
+                                                                >
+                                                                    <span>{row.rtom}</span>
+                                                                    <Eye className="w-3 h-3 text-indigo-600 opacity-60 group-hover/btn:opacity-100" />
+                                                                </button>
+                                                            </td>
 
-                                                            <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-blue-50/50 text-blue-800 font-bold">{row.inHandMorning.total}</td>
-                                                            <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-emerald-50/50 text-emerald-800 font-bold">{row.received.total}</td>
-                                                            <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-indigo-50 font-black text-indigo-900">{row.totalInHand}</td>
+                                                            <td onClick={() => handleOpenOrdersModal(row.rtom, 'IN_HAND')} className="border-r border-slate-100 px-1 py-1.5 text-center bg-blue-50/50 text-blue-800 font-bold cursor-pointer hover:bg-blue-100 transition-colors" title="Click to view Morning In-Hand SODs">{row.inHandMorning.total}</td>
+                                                            <td onClick={() => handleOpenOrdersModal(row.rtom, 'RECEIVED')} className="border-r border-slate-100 px-1 py-1.5 text-center bg-emerald-50/50 text-emerald-800 font-bold cursor-pointer hover:bg-emerald-100 transition-colors" title="Click to view Received SODs">{row.received.total}</td>
+                                                            <td onClick={() => handleOpenOrdersModal(row.rtom, 'ALL')} className="border-r border-slate-100 px-1 py-1.5 text-center bg-indigo-50 font-black text-indigo-900 cursor-pointer hover:bg-indigo-100 transition-colors" title="Click to view Total In-Hand SODs">{row.totalInHand}</td>
 
                                                             <BreakdownCells metrics={row.completed}    tone="green" />
                                                             <BreakdownCells metrics={row.installClosed} tone="blue" />
@@ -964,20 +1317,20 @@ export default function DailyOperationalReportPage() {
                                                             <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-cyan-50/40 text-cyan-900">{row.material.pole56}</td>
                                                             <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-cyan-50/40 text-cyan-900">{row.material.pole67}</td>
                                                             <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-cyan-50/40 text-cyan-900">{row.material.pole80}</td>
-                                                            <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-rose-50/40 text-rose-900">{row.returned.total}</td>
-                                                            <td className="border-r border-slate-100 px-1 py-1.5 text-center bg-purple-50/40 text-purple-900">{row.wiredOnly.total}</td>
-                                                            <td className="px-2 py-1.5 text-center bg-slate-100 font-black text-slate-900 group-hover:bg-slate-200/70 transition-colors">{row.balance.total}</td>
+                                                            <td onClick={() => handleOpenOrdersModal(row.rtom, 'RETURNED')} className="border-r border-slate-100 px-1 py-1.5 text-center bg-rose-50/40 text-rose-900 cursor-pointer hover:bg-rose-100 transition-colors" title="Click to view Returned SODs">{row.returned.total}</td>
+                                                            <td onClick={() => handleOpenOrdersModal(row.rtom, 'WIRED_ONLY')} className="border-r border-slate-100 px-1 py-1.5 text-center bg-purple-50/40 text-purple-900 cursor-pointer hover:bg-purple-100 transition-colors" title="Click to view Wired Only SODs">{row.wiredOnly.total}</td>
+                                                            <td onClick={() => handleOpenOrdersModal(row.rtom, 'BALANCE')} className="px-2 py-1.5 text-center bg-slate-100 font-black text-slate-900 group-hover:bg-slate-200/70 transition-colors cursor-pointer hover:bg-slate-300" title="Click to view Balance SODs">{row.balance.total}</td>
                                                         </tr>
                                                     );
                                                 });
 
                                                 // Last region summary
                                                 if (currentRegion && summaries[currentRegion]) {
-                                                    rows.push(<SummaryRow key={`sum-${currentRegion}`} label={`${currentRegion} TOTAL`} row={summaries[currentRegion]} />);
+                                                    rows.push(<SummaryRow key={`sum-${currentRegion}`} label={`${currentRegion} TOTAL`} row={summaries[currentRegion]} onOpenModal={handleOpenOrdersModal} />);
                                                 }
                                                 // Grand total
                                                 if (grandTotal) {
-                                                    rows.push(<SummaryRow key="grand-total" label="GRAND TOTAL" row={grandTotal} isGrandTotal />);
+                                                    rows.push(<SummaryRow key="grand-total" label="GRAND TOTAL" row={grandTotal} isGrandTotal onOpenModal={handleOpenOrdersModal} />);
                                                 }
 
                                                 return rows;
@@ -1269,6 +1622,15 @@ export default function DailyOperationalReportPage() {
                     </div>
                 </main>
             </div>
+
+            {/* RTOM Detailed Service Orders & Voice Numbers Modal */}
+            <DailyOperationalOrdersModal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                rtom={modalRtom}
+                date={selectedDate}
+                initialCategory={modalCategory}
+            />
         </RoleGuard>
     );
 }

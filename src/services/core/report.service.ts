@@ -1212,4 +1212,108 @@ export class ReportService {
       by_type,
     };
   }
+
+  /**
+   * Generates detailed Service Orders list for a specific RTOM and date
+   * to enable SOD and Voice Number cross-checking in Daily Operational report.
+   */
+  static async getDailyOperationalOrders(options: {
+    date?: string | null;
+    rtom?: string | null;
+    category?: string | null;
+  }) {
+    const { date, rtom, category } = options;
+    const selectedDate = date ? new Date(date) : new Date();
+    const startDate = getSriLankaStartOfDay(selectedDate);
+    const endDate = getSriLankaEndOfDay(selectedDate);
+
+    const where: Prisma.ServiceOrderWhereInput = {};
+
+    // Filter by RTOM if specific RTOM is requested
+    if (rtom && rtom !== 'ALL' && !rtom.includes('TOTAL')) {
+      where.rtom = { equals: rtom.trim(), mode: 'insensitive' };
+    }
+
+    const categoryUpper = (category || 'ALL').toUpperCase();
+
+    if (categoryUpper === 'COMPLETED') {
+      where.OR = [
+        { completedDate: { gte: startDate, lte: endDate } },
+        { sltsStatus: 'COMPLETED' }
+      ];
+    } else if (categoryUpper === 'INSTALL_CLOSED') {
+      where.sltsStatus = { in: ['INSTALL_CLOSED', 'PROV_CLOSED'] };
+    } else if (categoryUpper === 'RECEIVED') {
+      where.OR = [
+        { receivedDate: { gte: startDate, lte: endDate } },
+        { createdAt: { gte: startDate, lte: endDate } }
+      ];
+    } else if (categoryUpper === 'IN_HAND' || categoryUpper === 'BALANCE') {
+      where.status = { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] };
+      where.sltsStatus = { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED'] };
+    } else if (categoryUpper === 'RETURNED') {
+      where.sltsStatus = 'RETURN';
+    } else if (categoryUpper === 'WIRED_ONLY') {
+      where.wiredOnly = true;
+    } else {
+      // Default ALL: touched on the day or active in-hand
+      where.OR = [
+        { createdAt: { gte: startDate, lte: endDate } },
+        { completedDate: { gte: startDate, lte: endDate } },
+        { statusDate: { gte: startDate, lte: endDate } },
+        { receivedDate: { gte: startDate, lte: endDate } },
+        {
+          status: { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] },
+          sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED'] }
+        }
+      ];
+    }
+
+    const orders = await prisma.serviceOrder.findMany({
+      where,
+      orderBy: [
+        { completedDate: 'desc' },
+        { receivedDate: 'desc' },
+        { createdAt: 'desc' }
+      ],
+      take: 500,
+      select: {
+        id: true,
+        soNum: true,
+        voiceNumber: true,
+        rtom: true,
+        customerName: true,
+        address: true,
+        package: true,
+        orderType: true,
+        serviceType: true,
+        status: true,
+        sltsStatus: true,
+        receivedDate: true,
+        completedDate: true,
+        createdAt: true,
+        wiredOnly: true,
+        stbShortage: true,
+        ontShortage: true,
+        returnReason: true,
+        contractor: {
+          select: { id: true, name: true }
+        },
+        team: {
+          select: { id: true, name: true, sltCode: true }
+        },
+        opmc: {
+          select: { id: true, name: true, rtom: true }
+        }
+      }
+    });
+
+    return {
+      date: date || slDateKey(selectedDate),
+      rtom: rtom || 'ALL',
+      category: categoryUpper,
+      totalCount: orders.length,
+      orders
+    };
+  }
 }
