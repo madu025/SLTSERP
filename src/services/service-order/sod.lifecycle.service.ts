@@ -60,7 +60,7 @@ export class SODLifecycleService {
 
             // Logic for Restoring / Re-assigning a RETURNED or DISAPPEARED SOD
             if (['INPROGRESS', 'ASSIGNED', 'PENDING'].includes(sltsStatus) && (oldOrder.sltsStatus === 'RETURN' || oldOrder.sltsStatus === 'DISAPPEARED')) {
-                updateData.receivedDate = new Date();
+                updateData.receivedDate = receivedDate ? new Date(receivedDate) : new Date();
                 const prevReason = oldOrder.returnReason || oldOrder.status || "Previous Return";
                 const restoreComment = `[RESTORED / RE-ASSIGNED] Prev Return Reason: ${prevReason} (Status Date: ${oldOrder.statusDate?.toLocaleDateString() || 'N/A'})`;
                 updateData.comments = oldOrder.comments ? `${oldOrder.comments}\n${restoreComment}` : restoreComment;

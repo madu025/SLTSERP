@@ -400,6 +400,11 @@
     * `persistClosedSriLankaDaySnapshot(): Promise<{ dateKey: string; rows: number }>`
     * `refreezeDailyReportSnapshot(dateKey: string): Promise<{ dateKey: string; rows: number }>`
     * `getPaymentsReport(options: PaymentsReportOptions): any`
+    * `getDailyOperationalOrders(options: {
+    date?: string | null;
+    rtom?: string | null;
+    category?: string | null;
+  }): any`
 
 ### [section.service.ts](src/services/core/section.service.ts)
 * **Class**: `SectionService`
@@ -3461,6 +3466,7 @@
 | `/api/public/site-offices` | [route.ts](src/app/api/public/site-offices/route.ts) | `GET` |
 | `/api/public/staff` | [route.ts](src/app/api/public/staff/route.ts) | `GET` |
 | `/api/reports/analytics` | [route.ts](src/app/api/reports/analytics/route.ts) | `GET` |
+| `/api/reports/daily-operational/orders` | [route.ts](src/app/api/reports/daily-operational/orders/route.ts) | `GET` |
 | `/api/reports/daily-operational` | [route.ts](src/app/api/reports/daily-operational/route.ts) | `GET` |
 | `/api/reports/payments` | [route.ts](src/app/api/reports/payments/route.ts) | `GET` |
 | `/api/service-orders/bridge-data/[soNum]` | [route.ts](src/app/api/service-orders/bridge-data/[soNum]/route.ts) | `GET` |

@@ -1712,8 +1712,12 @@ export class SODSyncService {
                     (existing.receivedDate && Math.abs(existing.completedDate.getTime() - existing.receivedDate.getTime()) < 1000)
                 );
                 const existingTime = existing.statusDate ? new Date(existing.statusDate).getTime() : null;
+                const isFinishedState = initialSltsStatus === 'COMPLETED' || initialSltsStatus === 'INSTALL_CLOSED';
                 const contractorChanged = fieldPayload.contractorId !== undefined && fieldPayload.contractorId !== existing.contractorId;
-                if (!isStatusChange && !contractorChanged && !completedDateNeedsCorrection && anchor !== null && existingTime !== null && Math.abs(anchor.getTime() - existingTime) < 1000) {
+                if (contractorChanged && !isFinishedState && existing.sltsStatus === 'INPROGRESS') {
+                    fieldPayload.receivedDate = anchor || new Date();
+                }
+                if (!isStatusChange && !isRestoring && !contractorChanged && !completedDateNeedsCorrection && anchor !== null && existingTime !== null && Math.abs(anchor.getTime() - existingTime) < 1000) {
                     skippedNoChange++;
                     return;
                 }
