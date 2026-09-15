@@ -386,6 +386,23 @@ function DailyOperationalOrdersModal({
     const [search, setSearch] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
+    const categoriesList = [
+        { id: 'ALL', label: 'All Orders' },
+        { id: 'REC', label: 'Received (REC)' },
+        { id: 'COM', label: 'Completed (COM)' },
+        { id: 'IC', label: 'Install Closed (IC)' },
+        { id: 'RET', label: 'Returned (RET)' },
+        { id: 'WIP', label: 'In Progress (WIP)' },
+        { id: 'REJECT', label: 'Rejected' },
+    ];
+
+    const copyToClipboard = (text: string, id: string) => {
+        if (!text) return;
+        navigator.clipboard.writeText(text);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
     useEffect(() => {
         setCategory(initialCategory);
     }, [initialCategory]);
@@ -463,77 +480,59 @@ function DailyOperationalOrdersModal({
 
         const ws = XLSX.utils.json_to_sheet(exportRows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${rtom}_Full_Audit`);
-        XLSX.writeFile(wb, `${rtom}_SOD_Voice_CrossCheck_${date}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, `${rtom}_Orders`);
+        XLSX.writeFile(wb, `Daily_Operational_${rtom}_${date}.xlsx`);
     };
-
-    const copyToClipboard = (text: string, id: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedId(id);
-        setTimeout(() => setCopiedId(null), 2000);
-    };
-
-    const categoriesList = [
-        { id: 'ALL', label: 'All Orders' },
-        { id: 'COMPLETED', label: 'Completed' },
-        { id: 'INSTALL_CLOSED', label: 'Install Closed' },
-        { id: 'RECEIVED', label: 'Received Today' },
-        { id: 'BALANCE', label: 'In-Hand / Balance' },
-        { id: 'RETURNED', label: 'Returned' },
-        { id: 'WIRED_ONLY', label: 'Wired Only' },
-    ];
-
-    if (!isOpen) return null;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="max-w-6xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-950 text-white border-slate-800 shadow-2xl">
+            <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[96vw] h-[92vh] max-h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-950 text-white border-slate-800 shadow-2xl rounded-2xl">
                 {/* Header */}
-                <DialogHeader className="p-5 border-b border-slate-800 bg-slate-900 flex flex-row items-center justify-between">
+                <DialogHeader className="p-5 border-b border-slate-800 bg-slate-900 flex flex-row items-center justify-between shrink-0">
                     <div>
-                        <DialogTitle className="text-lg font-black text-white flex items-center gap-2.5">
+                        <DialogTitle className="text-xl font-black text-white flex items-center gap-3">
                             <span>Daily Operational Cross-Check Workstation</span>
-                            <span className="px-3 py-0.5 rounded-full text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase tracking-wide">
+                            <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 uppercase tracking-wider">
                                 RTOM: {rtom}
                             </span>
-                            <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                                 Date: {date}
                             </span>
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-400 mt-1">
-                            Comprehensive verification of SOD numbers, Voice numbers, drop wire meters, CPE serials, return reasons, and PAT statuses.
+                            In-depth cross-checking workstation displaying SOD numbers, Voice numbers, Drop Wire meters, CPE serials, Poles, Return reasons, and PAT statuses.
                         </DialogDescription>
                     </div>
                 </DialogHeader>
 
                 {/* Summary KPI Banner */}
                 {summaryTotals && (
-                    <div className="bg-slate-900/90 border-b border-slate-800 p-3 px-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-                        <div className="bg-slate-950/80 rounded-lg p-2.5 border border-slate-800">
+                    <div className="bg-slate-900/90 border-b border-slate-800 p-3.5 px-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 shrink-0">
+                        <div className="bg-slate-950/90 rounded-xl p-3 border border-slate-800 shadow-inner">
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total SODs</div>
-                            <div className="text-lg font-black text-white">{orders.length}</div>
+                            <div className="text-xl font-black text-white mt-0.5">{orders.length}</div>
                         </div>
-                        <div className="bg-emerald-950/40 rounded-lg p-2.5 border border-emerald-800/40">
+                        <div className="bg-emerald-950/50 rounded-xl p-3 border border-emerald-800/50 shadow-inner">
                             <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Completed / IC</div>
-                            <div className="text-lg font-black text-emerald-300">
+                            <div className="text-xl font-black text-emerald-300 mt-0.5">
                                 {summaryTotals.totalCompleted} <span className="text-xs font-normal text-slate-400">({summaryTotals.totalInstallClosed} IC)</span>
                             </div>
                         </div>
-                        <div className={`rounded-lg p-2.5 border ${summaryTotals.totalReturned > 0 ? 'bg-rose-950/40 border-rose-800/50' : 'bg-slate-950/80 border-slate-800'}`}>
+                        <div className={`rounded-xl p-3 border shadow-inner ${summaryTotals.totalReturned > 0 ? 'bg-rose-950/60 border-rose-800/60' : 'bg-slate-950/90 border-slate-800'}`}>
                             <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Returned SODs</div>
-                            <div className="text-lg font-black text-rose-300">{summaryTotals.totalReturned}</div>
+                            <div className="text-xl font-black text-rose-300 mt-0.5">{summaryTotals.totalReturned}</div>
                         </div>
-                        <div className="bg-cyan-950/40 rounded-lg p-2.5 border border-cyan-800/40">
+                        <div className="bg-cyan-950/50 rounded-xl p-3 border border-cyan-800/50 shadow-inner">
                             <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Drop Wire (DW)</div>
-                            <div className="text-lg font-black text-cyan-300">{summaryTotals.totalDwDistance} <span className="text-xs text-slate-400">m</span></div>
+                            <div className="text-xl font-black text-cyan-300 mt-0.5">{summaryTotals.totalDwDistance} <span className="text-xs text-slate-400">m</span></div>
                         </div>
-                        <div className="bg-indigo-950/40 rounded-lg p-2.5 border border-indigo-800/40">
+                        <div className="bg-indigo-950/50 rounded-xl p-3 border border-indigo-800/50 shadow-inner">
                             <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Poles Used</div>
                             <div className="text-xs font-bold text-indigo-200 mt-1">
                                 5.6m: {summaryTotals.totalPoles56} | 6.7m: {summaryTotals.totalPoles67} | 8m: {summaryTotals.totalPoles80}
                             </div>
                         </div>
-                        <div className="bg-amber-950/40 rounded-lg p-2.5 border border-amber-800/40">
+                        <div className="bg-amber-950/50 rounded-xl p-3 border border-amber-800/50 shadow-inner">
                             <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Shortages</div>
                             <div className="text-xs font-bold text-amber-300 mt-1">
                                 STB: {summaryTotals.totalStbShortage} | ONT: {summaryTotals.totalOntShortage}
@@ -543,13 +542,13 @@ function DailyOperationalOrdersModal({
                 )}
 
                 {/* Filter and Search toolbar */}
-                <div className="p-4 bg-slate-900/60 border-b border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="p-4 bg-slate-900/60 border-b border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                         {categoriesList.map(cat => (
                             <button
                                 key={cat.id}
                                 onClick={() => setCategory(cat.id)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
                                     category === cat.id
                                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40 ring-2 ring-indigo-400/30'
                                         : 'bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-white'
@@ -561,11 +560,11 @@ function DailyOperationalOrdersModal({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <div className="relative flex-1 sm:w-72">
+                        <div className="relative flex-1 sm:w-80">
                             <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                             <Input
                                 type="text"
-                                placeholder="Search SOD, Voice No, Customer, ONT SN, Return Reason..."
+                                placeholder="Search SOD, Voice No, Customer Name, Address, ONT SN, Return Reason..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 className="pl-8 h-9 text-xs bg-slate-950 border-slate-800 text-white focus:border-indigo-500"
@@ -575,7 +574,7 @@ function DailyOperationalOrdersModal({
                             onClick={handleExportModalOrders}
                             disabled={filteredOrders.length === 0}
                             size="sm"
-                            className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                            className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-4"
                         >
                             <Download className="w-3.5 h-3.5" /> Export XLSX
                         </Button>
@@ -583,38 +582,39 @@ function DailyOperationalOrdersModal({
                 </div>
 
                 {/* Main Detailed Workstation Table */}
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-auto p-4">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-24 gap-3">
-                            <RefreshCw className="w-9 h-9 text-indigo-400 animate-spin" />
+                        <div className="flex flex-col items-center justify-center py-28 gap-3">
+                            <RefreshCw className="w-10 h-10 text-indigo-400 animate-spin" />
                             <span className="text-xs text-slate-400 font-medium">Loading comprehensive report orders for {rtom}...</span>
                         </div>
                     ) : filteredOrders.length === 0 ? (
-                        <div className="text-center py-20 text-slate-400 text-xs">
+                        <div className="text-center py-24 text-slate-400 text-xs">
                             No service orders found matching category &quot;{category}&quot; and search query.
                         </div>
                     ) : (
-                        <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950 shadow-inner">
-                            <table className="w-full text-left text-xs border-collapse">
-                                <thead className="bg-slate-900/90 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400 sticky top-0 z-10 backdrop-blur-md">
+                        <div className="rounded-xl border border-slate-800 overflow-x-auto bg-slate-950 shadow-inner">
+                            <table className="w-full text-left text-xs border-collapse min-w-[1300px]">
+                                <thead className="bg-slate-900 border-b border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-300 sticky top-0 z-10 backdrop-blur-md">
                                     <tr>
-                                        <th className="p-3 w-8 text-center">#</th>
-                                        <th className="p-3">SOD Number &amp; LEA</th>
-                                        <th className="p-3">Voice / Service No</th>
-                                        <th className="p-3">Customer &amp; Address</th>
-                                        <th className="p-3">Package / Order Type</th>
-                                        <th className="p-3">Material &amp; CPE Serials</th>
-                                        <th className="p-3">SLTS &amp; PAT Status</th>
-                                        <th className="p-3 max-w-xs">Return / Delay Remarks</th>
-                                        <th className="p-3">Assigned Team / Contractor</th>
-                                        <th className="p-3 text-right">Action</th>
+                                        <th className="p-3 w-10 text-center border-r border-slate-800">#</th>
+                                        <th className="p-3 w-40 border-r border-slate-800">SOD Number &amp; LEA</th>
+                                        <th className="p-3 w-40 border-r border-slate-800">Voice / Service No</th>
+                                        <th className="p-3 w-52 border-r border-slate-800">Customer Name</th>
+                                        <th className="p-3 w-64 border-r border-slate-800">Customer Address</th>
+                                        <th className="p-3 w-44 border-r border-slate-800">Package &amp; Order Type</th>
+                                        <th className="p-3 w-48 border-r border-slate-800">Materials &amp; CPE Serials</th>
+                                        <th className="p-3 w-40 border-r border-slate-800">SLTS &amp; PAT Status</th>
+                                        <th className="p-3 w-64 border-r border-slate-800">Delay / Return Remarks</th>
+                                        <th className="p-3 w-48 border-r border-slate-800">Assigned Team &amp; Contractor</th>
+                                        <th className="p-3 w-28 text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60">
                                     {filteredOrders.map((ord, idx) => (
                                         <tr key={ord.id} className="hover:bg-slate-900/90 transition-colors group">
-                                            <td className="p-3 text-center text-slate-500 font-mono text-[11px]">{idx + 1}</td>
-                                            <td className="p-3 font-mono">
+                                            <td className="p-3 text-center text-slate-500 font-mono text-[11px] border-r border-slate-800/60">{idx + 1}</td>
+                                            <td className="p-3 font-mono border-r border-slate-800/60">
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="font-bold text-indigo-300 text-xs">{ord.soNum}</span>
                                                     <button
@@ -625,12 +625,14 @@ function DailyOperationalOrdersModal({
                                                         {copiedId === `sod-${ord.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
                                                     </button>
                                                 </div>
-                                                <div className="text-[10px] text-slate-500 mt-0.5">LEA: {ord.lea || ord.rtom}</div>
+                                                <div className="text-[10px] text-slate-400 mt-0.5 font-sans font-semibold">
+                                                    LEA: {ord.lea || ord.rtom} {ord.opmc?.name ? `(${ord.opmc.name})` : ''}
+                                                </div>
                                             </td>
-                                            <td className="p-3 font-mono">
+                                            <td className="p-3 font-mono border-r border-slate-800/60">
                                                 {ord.voiceNumber ? (
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-bold text-xs">
+                                                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/70 font-bold text-xs">
                                                             {ord.voiceNumber}
                                                         </span>
                                                         <button
@@ -645,26 +647,28 @@ function DailyOperationalOrdersModal({
                                                     <span className="text-slate-600 font-italic text-[11px]">N/A</span>
                                                 )}
                                             </td>
-                                            <td className="p-3 max-w-xs">
+                                            <td className="p-3 border-r border-slate-800/60">
                                                 <div className="font-bold text-slate-200 text-xs">{ord.customerName || 'N/A'}</div>
-                                                <div className="text-[11px] text-slate-400 truncate max-w-[200px]" title={ord.address || ''}>
+                                            </td>
+                                            <td className="p-3 border-r border-slate-800/60">
+                                                <div className="text-[11px] text-slate-300 leading-relaxed">
                                                     {ord.address || '-'}
                                                 </div>
                                             </td>
-                                            <td className="p-3">
-                                                <div className="font-bold text-slate-300">{ord.package || 'N/A'}</div>
-                                                <div className="text-[10px] text-slate-400 mt-0.5">
-                                                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold">{ord.orderType || '-'}</span>
-                                                    {ord.serviceType && <span className="ml-1 text-slate-500">{ord.serviceType}</span>}
+                                            <td className="p-3 border-r border-slate-800/60">
+                                                <div className="font-bold text-slate-200">{ord.package || 'N/A'}</div>
+                                                <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-1">
+                                                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-bold">{ord.orderType || '-'}</span>
+                                                    {ord.serviceType && <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">{ord.serviceType}</span>}
                                                 </div>
                                             </td>
-                                            <td className="p-3 text-[11px]">
-                                                <div className="text-cyan-300 font-semibold">
-                                                    DW: {ord.dropWireMeters > 0 ? `${ord.dropWireMeters} m` : '0 m'}
+                                            <td className="p-3 text-[11px] border-r border-slate-800/60">
+                                                <div className="text-cyan-300 font-bold">
+                                                    Drop Wire: {ord.dropWireMeters > 0 ? `${ord.dropWireMeters} m` : '0 m'}
                                                 </div>
                                                 {ord.ontSerialNumber && (
-                                                    <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                                                        ONT: <span className="text-slate-200">{ord.ontSerialNumber}</span>
+                                                    <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                                                        ONT: <span className="text-slate-200 font-bold">{ord.ontSerialNumber}</span>
                                                     </div>
                                                 )}
                                                 {ord.stbSerialsList.length > 0 && (
@@ -672,9 +676,14 @@ function DailyOperationalOrdersModal({
                                                         STB: <span className="text-slate-200">{ord.stbSerialsList.join(', ')}</span>
                                                     </div>
                                                 )}
+                                                {(ord.poles?.p56 > 0 || ord.poles?.p67 > 0 || ord.poles?.p80 > 0) && (
+                                                    <div className="text-[10px] text-indigo-300 mt-1 font-semibold">
+                                                        Poles: 5.6m({ord.poles.p56}) 6.7m({ord.poles.p67}) 8m({ord.poles.p80})
+                                                    </div>
+                                                )}
                                             </td>
-                                            <td className="p-3">
-                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                                            <td className="p-3 border-r border-slate-800/60">
+                                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${
                                                     ord.sltsStatus === 'COMPLETED' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
                                                     ord.sltsStatus === 'INSTALL_CLOSED' || ord.sltsStatus === 'PROV_CLOSED' ? 'bg-sky-950 text-sky-300 border-sky-800' :
                                                     ord.sltsStatus === 'RETURN' ? 'bg-rose-950 text-rose-300 border-rose-800' :
@@ -682,38 +691,40 @@ function DailyOperationalOrdersModal({
                                                 }`}>
                                                     {ord.sltsStatus}
                                                 </span>
-                                                <div className="text-[9px] text-slate-400 mt-1 flex items-center gap-1">
-                                                    <span>OPMC PAT: <strong className={ord.opmcPatStatus === 'PAT_PASSED' || ord.opmcPatStatus === 'PASSED' ? 'text-emerald-400' : 'text-slate-400'}>{ord.opmcPatStatus || 'PENDING'}</strong></span>
+                                                <div className="text-[9px] text-slate-400 mt-1.5 space-y-0.5">
+                                                    <div>OPMC PAT: <strong className={ord.opmcPatStatus === 'PAT_PASSED' || ord.opmcPatStatus === 'PASSED' ? 'text-emerald-400' : 'text-slate-400'}>{ord.opmcPatStatus || 'PENDING'}</strong></div>
+                                                    {ord.completedDate && <div>Done: {new Date(ord.completedDate).toLocaleDateString()}</div>}
                                                 </div>
                                             </td>
-                                            <td className="p-3 max-w-xs text-[11px]">
+                                            <td className="p-3 border-r border-slate-800/60 text-[11px]">
                                                 {ord.returnReason || ord.comments ? (
-                                                    <div className="text-rose-300 bg-rose-950/30 p-1.5 rounded border border-rose-900/40 text-[10px] line-clamp-2" title={ord.returnReason || ord.comments || ''}>
+                                                    <div className="text-rose-300 bg-rose-950/40 p-2 rounded-lg border border-rose-900/60 text-[10px] leading-relaxed whitespace-normal" title={ord.returnReason || ord.comments || ''}>
                                                         {ord.returnReason || ord.comments}
                                                     </div>
                                                 ) : (
                                                     <div className="text-slate-500 text-[10px]">-</div>
                                                 )}
                                                 {(ord.stbShortage || ord.ontShortage) && (
-                                                    <div className="flex gap-1 mt-1">
-                                                        {ord.stbShortage && <span className="px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">STB Shortage</span>}
-                                                        {ord.ontShortage && <span className="px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">ONT Shortage</span>}
+                                                    <div className="flex gap-1 mt-1.5">
+                                                        {ord.stbShortage && <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">STB Shortage</span>}
+                                                        {ord.ontShortage && <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">ONT Shortage</span>}
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="p-3 text-[11px] text-slate-300">
+                                            <td className="p-3 text-[11px] text-slate-300 border-r border-slate-800/60">
                                                 <div className="font-bold text-slate-200">{ord.team?.name || 'Unassigned'}</div>
-                                                <div className="text-[10px] text-slate-400">{ord.contractor?.name || ''}</div>
+                                                <div className="text-[10px] text-slate-400 mt-0.5">{ord.contractor?.name || ''}</div>
+                                                {ord.team?.sltCode && <div className="text-[9px] font-mono text-indigo-400 mt-0.5">Code: {ord.team.sltCode}</div>}
                                             </td>
                                             <td className="p-3 text-right">
                                                 <Button
                                                     onClick={() => window.open(`/helpdesk/service-orders?search=${ord.soNum}`, '_blank')}
                                                     size="sm"
                                                     variant="ghost"
-                                                    className="h-7 px-2.5 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/60 text-[11px] font-bold gap-1"
+                                                    className="h-8 px-3 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/70 text-xs font-black gap-1"
                                                 >
                                                     <span>View SOD</span>
-                                                    <ExternalLink className="w-3 h-3" />
+                                                    <ExternalLink className="w-3.5 h-3.5" />
                                                 </Button>
                                             </td>
                                         </tr>
@@ -725,11 +736,11 @@ function DailyOperationalOrdersModal({
                 </div>
 
                 {/* Modal Footer */}
-                <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between text-xs text-slate-400">
+                <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between text-xs text-slate-400 shrink-0">
                     <div>
-                        Showing <strong className="text-white">{filteredOrders.length}</strong> of <strong className="text-white">{orders.length}</strong> orders for RTOM <strong className="text-indigo-300">{rtom}</strong> on date {date}.
+                        Showing <strong className="text-white">{filteredOrders.length}</strong> of <strong className="text-white">{orders.length}</strong> detailed service orders for RTOM <strong className="text-indigo-300">{rtom}</strong> on date {date}.
                     </div>
-                    <Button onClick={onClose} variant="outline" size="sm" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700 font-bold px-4">
+                    <Button onClick={onClose} variant="outline" size="sm" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700 font-bold px-5">
                         Close Workstation
                     </Button>
                 </div>
