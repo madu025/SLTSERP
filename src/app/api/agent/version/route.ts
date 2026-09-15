@@ -15,9 +15,7 @@ export const GET = apiHandler(async (req, _params) => {
     }
 
     // 2. Resolve Host & Protocol for download URL (must match the request host to satisfy "same domain" constraint)
-    const host = req.headers.get('host') || 'sltserp.vercel.app';
-    const protocol = req.headers.get('x-forwarded-proto') || 'https';
-    const downloadUrl = `${protocol}://${host}/downloads/SLTSERPagent.exe`;
+    const downloadUrl = 'https://sltserp-sync.duckdns.org/files/sltserp-agent/SLTSERPagent_setup.zip';
 
     // 3. Dynamically read the file to calculate its SHA-256
     const exePath = path.join(process.cwd(), 'public', 'downloads', 'SLTSERPagent.exe');

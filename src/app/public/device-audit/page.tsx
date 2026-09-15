@@ -656,11 +656,11 @@ interface DBAsset {
 
                     <div className="flex flex-wrap gap-2 pt-1">
                       <a
-                        href="https://github.com/madu025/SLTSERPAGENT/releases/download/v1.0.0/SLTSERPagent_setup.exe"
+                        href="https://sltserp-sync.duckdns.org/files/sltserp-agent/SLTSERPagent_setup.zip"
                         download
                         className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg shadow-sm transition-all"
                       >
-                        Download Desktop Agent <ExternalLink className="w-4 h-4" />
+                        Download Desktop Agent (ZIP) <ExternalLink className="w-4 h-4" />
                       </a>
                     </div>
 

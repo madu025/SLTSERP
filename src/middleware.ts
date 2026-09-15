@@ -47,6 +47,7 @@ const publicPaths = [
     '/api/approvals/webhook',
     '/privacy',
     '/forgot-password',
+    '/public/device-audit',
 ];
 
 // Public prefixes kept INTENTIONALLY narrow (GET-only, bounded depth).
@@ -67,6 +68,7 @@ const publicPrefixes: Array<{ prefix: string; maxDepth: number }> = [
     // Public invoice view (contractor shareable link with UUID)
     { prefix: '/api/public/invoices', maxDepth: 1 },
     { prefix: '/public/invoices', maxDepth: 1 },
+    { prefix: '/public/device-audit', maxDepth: 1 },
 ];
 
 function isPublicPath(pathname: string, method: string): boolean {
