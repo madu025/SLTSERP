@@ -82,13 +82,19 @@ interface DBAsset {
   const [mobileConditions, setMobileConditions] = useState<string[]>(["perfect"]);
   const [mobileRemarks, setMobileRemarks] = useState("");
 
-  // Shared Office Equipment (Printers/Scanners/Photocopiers) State
-  const [hasSharedEquipment, setHasSharedEquipment] = useState(false);
-  const [sharedEquipmentType, setSharedEquipmentType] = useState<"PRINTER" | "SCANNER" | "PHOTOCOPIER" | "OTHER">("PRINTER");
-  const [sharedEquipmentSerial, setSharedEquipmentSerial] = useState("");
-  const [sharedEquipmentBrand, setSharedEquipmentBrand] = useState("");
-  const [sharedEquipmentModel, setSharedEquipmentModel] = useState("");
-  const [sharedEquipmentRemarks, setSharedEquipmentRemarks] = useState("");
+  // Shared Office Equipment List State (Multi-device support for Office Admins)
+  interface SharedEquipmentItem {
+    id: string;
+    type: "PRINTER" | "SCANNER" | "PHOTOCOPIER" | "NETWORK_SWITCH" | "UPS" | "OTHER";
+    serialNumber: string;
+    brand: string;
+    model: string;
+    remarks: string;
+  }
+
+  const [sharedEquipments, setSharedEquipments] = useState<SharedEquipmentItem[]>([
+    { id: "eq-1", type: "PRINTER", serialNumber: "", brand: "", model: "", remarks: "" }
+  ]);
 
   // Load site offices
   useEffect(() => {
@@ -249,170 +255,166 @@ interface DBAsset {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validations
-    if (laptopMode === "COMPANY" && laptopUseDifferent) {
-      if (!laptopSerial.trim()) {
-        toast.error("Please enter the Laptop Serial Number");
-        return;
+    // Validations based on Audit Mode
+    if (auditType === "USER") {
+      if (laptopMode === "COMPANY" && laptopUseDifferent) {
+        if (!laptopSerial.trim()) {
+          toast.error("Please enter the Laptop Serial Number");
+          return;
+        }
+        if (!laptopBrand.trim()) {
+          toast.error("Please specify the Laptop Brand");
+          return;
+        }
+        if (!laptopModel.trim()) {
+          toast.error("Please specify the Laptop Model");
+          return;
+        }
       }
-      if (!laptopBrand.trim()) {
-        toast.error("Please specify the Laptop Brand");
-        return;
-      }
-      if (!laptopModel.trim()) {
-        toast.error("Please specify the Laptop Model");
-        return;
-      }
-    }
 
-    if (mobileMode === "COMPANY" && mobileUseDifferent) {
-      if (!mobileSerial.trim()) {
-        toast.error("Please enter the Mobile Serial Number");
+      if (mobileMode === "COMPANY" && mobileUseDifferent) {
+        if (!mobileSerial.trim()) {
+          toast.error("Please enter the Mobile Serial Number");
+          return;
+        }
+        if (!mobileBrand.trim()) {
+          toast.error("Please specify the Mobile Brand");
+          return;
+        }
+        if (!mobileModel.trim()) {
+          toast.error("Please specify the Mobile Model");
+          return;
+        }
+      }
+    } else {
+      // ADMIN mode validation
+      const validEquipments = sharedEquipments.filter(e => e.serialNumber.trim() && e.brand.trim());
+      if (validEquipments.length === 0) {
+        toast.error("Please add at least one valid Office Equipment (Serial Number & Brand required)");
         return;
       }
-      if (!mobileBrand.trim()) {
-        toast.error("Please specify the Mobile Brand");
-        return;
-      }
-      if (!mobileModel.trim()) {
-        toast.error("Please specify the Mobile Model");
-        return;
-      }
-    }
-
-    if (laptopMode === "NONE" && mobileMode === "NONE" && !hasSharedEquipment) {
-      toast.error("Please configure at least one device, shared office equipment, or mark as personal");
-      return;
     }
 
     setSubmitting(true);
     try {
       const promises = [];
 
-      // 1. Submit Laptop Audit
-      if (laptopMode !== "NONE") {
-        const isPers = laptopMode === "PERSONAL";
-        const laptopCondText = laptopConditions.length > 0
-          ? laptopConditions.map(c => {
-              if (c === "perfect") return "Working Perfectly";
-              if (c === "battery") return "Battery Weak";
-              if (c === "keyboard") return "Input/Keyboard Issues";
-              if (c === "screen") return "Display Glitches";
-              if (c === "physical") return "Physical Damage";
-              if (c === "performance") return "Slow Performance";
-              return c;
-            }).join(", ")
-          : "Working Perfectly";
+      if (auditType === "USER") {
+        // 1. Submit Laptop Audit
+        if (laptopMode !== "NONE") {
+          const isPers = laptopMode === "PERSONAL";
+          const laptopCondText = laptopConditions.length > 0
+            ? laptopConditions.map(c => {
+                if (c === "perfect") return "Working Perfectly";
+                if (c === "battery") return "Battery Weak";
+                if (c === "keyboard") return "Input/Keyboard Issues";
+                if (c === "screen") return "Display Glitches";
+                if (c === "physical") return "Physical Damage";
+                if (c === "performance") return "Slow Performance";
+                return c;
+              }).join(", ")
+            : "Working Perfectly";
 
-        const finalLaptopRemarks = laptopRemarks.trim()
-          ? `[Condition: ${laptopCondText}] ${laptopRemarks.trim()}`
-          : `[Condition: ${laptopCondText}]`;
+          const finalLaptopRemarks = laptopRemarks.trim()
+            ? `[Condition: ${laptopCondText}] ${laptopRemarks.trim()}`
+            : `[Condition: ${laptopCondText}]`;
 
-        promises.push(
-          fetch("/api/helpdesk/assets/audits", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              serialNumber: isPers ? `PERSONAL-LAPTOP-${employeeNo}` : laptopSerial.trim(),
-              assetNumber: null,
-              deviceType: "LAPTOP",
-              brand: isPers ? "Personal" : laptopBrand.trim(),
-              model: isPers ? "Personal Device" : laptopModel.trim(),
-              employeeNo,
-              custodianName,
-              department,
-              siteOfficeId: siteOfficeId || null,
-              location,
-              status: "ACTIVE",
-              remarks: finalLaptopRemarks,
-              isConfirmed: laptopIsConfirmed && !isPers,
-              isPersonal: isPers
+          promises.push(
+            fetch("/api/helpdesk/assets/audits", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                serialNumber: isPers ? `PERSONAL-LAPTOP-${employeeNo}` : laptopSerial.trim(),
+                assetNumber: null,
+                deviceType: "LAPTOP",
+                brand: isPers ? "Personal" : laptopBrand.trim(),
+                model: isPers ? "Personal Device" : laptopModel.trim(),
+                employeeNo,
+                custodianName,
+                department,
+                siteOfficeId: siteOfficeId || null,
+                location,
+                status: "ACTIVE",
+                remarks: finalLaptopRemarks,
+                isConfirmed: laptopIsConfirmed && !isPers,
+                isPersonal: isPers
+              })
             })
-          })
-        );
-      }
-
-      // 2. Submit Mobile Audit
-      if (mobileMode !== "NONE") {
-        const isPers = mobileMode === "PERSONAL";
-        const mobileCondText = mobileConditions.length > 0
-          ? mobileConditions.map(c => {
-              if (c === "perfect") return "Working Perfectly";
-              if (c === "battery") return "Battery Weak";
-              if (c === "screen") return "Screen Cracks";
-              if (c === "physical") return "Physical/Button Damage";
-              if (c === "signal") return "Signal Issues";
-              if (c === "performance") return "Slow/Lagging";
-              return c;
-            }).join(", ")
-          : "Working Perfectly";
-
-        const finalMobileRemarks = mobileRemarks.trim()
-          ? `[Condition: ${mobileCondText}] ${mobileRemarks.trim()}`
-          : `[Condition: ${mobileCondText}]`;
-
-        promises.push(
-          fetch("/api/helpdesk/assets/audits", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              serialNumber: isPers ? `PERSONAL-MOBILE-${employeeNo}` : mobileSerial.trim(),
-              assetNumber: null,
-              deviceType: "MOBILE",
-              brand: isPers ? "Personal" : mobileBrand.trim(),
-              model: isPers ? "Personal Device" : mobileModel.trim(),
-              employeeNo,
-              custodianName,
-              department,
-              siteOfficeId: siteOfficeId || null,
-              location,
-              status: "ACTIVE",
-              remarks: finalMobileRemarks,
-              isConfirmed: mobileIsConfirmed && !isPers,
-              isPersonal: isPers
-            })
-          })
-        );
-      }
-
-      // 3. Submit Shared Office Equipment (Printer / Scanner / Photocopier) Audit
-      if (hasSharedEquipment) {
-        if (!sharedEquipmentSerial.trim()) {
-          toast.error("Please enter Serial Number / Tag for Shared Office Equipment");
-          setSubmitting(false);
-          return;
-        }
-        if (!sharedEquipmentBrand.trim()) {
-          toast.error("Please enter Brand for Shared Office Equipment");
-          setSubmitting(false);
-          return;
+          );
         }
 
-        const deviceType = sharedEquipmentType === "PRINTER" ? "PRINTER" : "OTHER";
-        const equipmentRemarks = `[Office Shared ${sharedEquipmentType}] ${sharedEquipmentRemarks.trim()}`.trim();
+        // 2. Submit Mobile Audit
+        if (mobileMode !== "NONE") {
+          const isPers = mobileMode === "PERSONAL";
+          const mobileCondText = mobileConditions.length > 0
+            ? mobileConditions.map(c => {
+                if (c === "perfect") return "Working Perfectly";
+                if (c === "battery") return "Battery Weak";
+                if (c === "screen") return "Screen Cracks";
+                if (c === "physical") return "Physical/Button Damage";
+                if (c === "signal") return "Signal Issues";
+                if (c === "performance") return "Slow/Lagging";
+                return c;
+              }).join(", ")
+            : "Working Perfectly";
 
-        promises.push(
-          fetch("/api/helpdesk/assets/audits", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              serialNumber: sharedEquipmentSerial.trim(),
-              assetNumber: null,
-              deviceType,
-              brand: sharedEquipmentBrand.trim(),
-              model: sharedEquipmentModel.trim() || sharedEquipmentType,
-              employeeNo,
-              custodianName: `${custodianName} (Office Admin)`,
-              department,
-              siteOfficeId: siteOfficeId || null,
-              location,
-              status: "ACTIVE",
-              remarks: equipmentRemarks,
-              isConfirmed: false,
-              isPersonal: false
+          const finalMobileRemarks = mobileRemarks.trim()
+            ? `[Condition: ${mobileCondText}] ${mobileRemarks.trim()}`
+            : `[Condition: ${mobileCondText}]`;
+
+          promises.push(
+            fetch("/api/helpdesk/assets/audits", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                serialNumber: isPers ? `PERSONAL-MOBILE-${employeeNo}` : mobileSerial.trim(),
+                assetNumber: null,
+                deviceType: "MOBILE",
+                brand: isPers ? "Personal" : mobileBrand.trim(),
+                model: isPers ? "Personal Device" : mobileModel.trim(),
+                employeeNo,
+                custodianName,
+                department,
+                siteOfficeId: siteOfficeId || null,
+                location,
+                status: "ACTIVE",
+                remarks: finalMobileRemarks,
+                isConfirmed: mobileIsConfirmed && !isPers,
+                isPersonal: isPers
+              })
             })
-          })
-        );
+          );
+        }
+      } else {
+        // 3. Submit Office Admin Shared Equipment Array
+        const validEquipments = sharedEquipments.filter(e => e.serialNumber.trim() && e.brand.trim());
+        for (const eq of validEquipments) {
+          const deviceType = (eq.type === "PRINTER" || eq.type === "SCANNER" || eq.type === "PHOTOCOPIER") ? "PRINTER" : "OTHER";
+          const equipmentRemarks = `[Office Shared ${eq.type}] ${eq.remarks.trim()}`.trim();
+
+          promises.push(
+            fetch("/api/helpdesk/assets/audits", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                serialNumber: eq.serialNumber.trim(),
+                assetNumber: null,
+                deviceType,
+                brand: eq.brand.trim(),
+                model: eq.model.trim() || eq.type,
+                employeeNo,
+                custodianName: `${custodianName} (Office Admin)`,
+                department,
+                siteOfficeId: siteOfficeId || null,
+                location,
+                status: "ACTIVE",
+                remarks: equipmentRemarks,
+                isConfirmed: false,
+                isPersonal: false
+              })
+            })
+          );
+        }
       }
 
       const responses = await Promise.all(promises);
@@ -498,7 +500,6 @@ interface DBAsset {
               type="button"
               onClick={() => {
                 setAuditType("USER");
-                setHasSharedEquipment(false);
               }}
               className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-bold text-xs transition-all ${
                 auditType === "USER"
@@ -514,7 +515,6 @@ interface DBAsset {
               type="button"
               onClick={() => {
                 setAuditType("ADMIN");
-                setHasSharedEquipment(true);
               }}
               className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-bold text-xs transition-all ${
                 auditType === "ADMIN"
@@ -1245,99 +1245,138 @@ interface DBAsset {
           </>
         )}
 
-            {/* 🖨️ SHARED OFFICE EQUIPMENT CARD SECTION (FOR OFFICE ADMINS & SECTION HEADS) */}
+            {/* 🖨️ SHARED OFFICE EQUIPMENT CARD SECTION (FOR OFFICE ADMINS & SECTION HEADS - MULTI-DEVICE SUPPORT) */}
             {auditType === "ADMIN" && (
               <div className="bg-amber-500/5 dark:bg-amber-950/20 p-5 rounded-xl border border-amber-500/30 space-y-4 animate-fade-in">
                 <div className="flex justify-between items-center border-b border-amber-500/20 pb-2">
                   <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
                     <Printer className="w-4.5 h-4.5 text-amber-600" />
-                    Office Shared Equipment (Printers / Scanners / Photocopiers / Switches)
+                    Office Shared Equipment List (Printers / Scanners / Photocopiers / Network Switches)
                   </h3>
 
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setHasSharedEquipment(!hasSharedEquipment)}
-                    className={`h-8 text-xs font-semibold ${
-                      hasSharedEquipment 
-                        ? "bg-amber-500 text-white border-amber-600"
-                        : "bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800"
-                    }`}
+                    onClick={() => {
+                      setSharedEquipments(prev => [
+                        ...prev,
+                        { id: `eq-${Date.now()}`, type: "PRINTER", serialNumber: "", brand: "", model: "", remarks: "" }
+                      ]);
+                    }}
+                    className="h-8 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm flex items-center gap-1"
                   >
-                    {hasSharedEquipment ? "Remove Shared Equipment" : "+ Add Office Printer/Scanner"}
+                    + Add Another Equipment
                   </Button>
                 </div>
 
-                {!hasSharedEquipment ? (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                    Office Admins can click <strong>&quot;+ Add Office Printer/Scanner&quot;</strong> above to record Photocopiers, Printers, or Scanners located in their section.
-                  </p>
-                ) : (
-                  <div className="space-y-4 pt-1 animate-fade-in">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Equipment Type</label>
-                        <Select
-                          value={sharedEquipmentType}
-                          onValueChange={(val: "PRINTER" | "SCANNER" | "PHOTOCOPIER" | "OTHER") => setSharedEquipmentType(val)}
-                        >
-                          <SelectTrigger className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
-                            <SelectItem value="PRINTER">Printer (මුද්‍රණ යන්ත්‍රය)</SelectItem>
-                            <SelectItem value="SCANNER">Scanner (ස්කෑනරය)</SelectItem>
-                            <SelectItem value="PHOTOCOPIER">Photocopier (ඡායාපිටපත් යන්ත්‍රය)</SelectItem>
-                            <SelectItem value="OTHER">Other Network Device / Switch</SelectItem>
-                          </SelectContent>
-                        </Select>
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                  Office Admins can add multiple printers, photocopiers, scanners, UPS units, or network switches located in their section using the <strong>&quot;+ Add Another Equipment&quot;</strong> button.
+                </p>
+
+                <div className="space-y-4 pt-1">
+                  {sharedEquipments.map((item, index) => (
+                    <div key={item.id} className="bg-white dark:bg-slate-950 p-4 rounded-lg border border-amber-200 dark:border-amber-900/50 space-y-3 relative shadow-xs">
+                      <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                          Equipment #{index + 1}
+                        </span>
+
+                        {sharedEquipments.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSharedEquipments(prev => prev.filter(e => e.id !== item.id));
+                            }}
+                            className="h-6 px-2 text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                          >
+                            Remove # {index + 1}
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Equipment Type</label>
+                          <Select
+                            value={item.type}
+                            onValueChange={(val: "PRINTER" | "SCANNER" | "PHOTOCOPIER" | "NETWORK_SWITCH" | "UPS" | "OTHER") => {
+                              setSharedEquipments(prev => prev.map(e => e.id === item.id ? { ...e, type: val } : e));
+                            }}
+                          >
+                            <SelectTrigger className="h-9.5 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800">
+                              <SelectItem value="PRINTER">Printer (මුද්‍රණ යන්ත්‍රය)</SelectItem>
+                              <SelectItem value="SCANNER">Scanner (ස්කෑනරය)</SelectItem>
+                              <SelectItem value="PHOTOCOPIER">Photocopier (ඡායාපිටපත් යන්ත්‍රය)</SelectItem>
+                              <SelectItem value="NETWORK_SWITCH">Network Switch / Router</SelectItem>
+                              <SelectItem value="UPS">UPS / Power Backup</SelectItem>
+                              <SelectItem value="OTHER">Other Network Device</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Serial Number / Asset Tag *</label>
+                          <Input
+                            placeholder="e.g. S/N or Asset Tag"
+                            value={item.serialNumber}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSharedEquipments(prev => prev.map(eq => eq.id === item.id ? { ...eq, serialNumber: val } : eq));
+                            }}
+                            className="h-9.5 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 font-mono uppercase"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Make / Brand *</label>
+                          <Input
+                            placeholder="e.g. HP, Canon, Ricoh, Cisco, Epson"
+                            value={item.brand}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSharedEquipments(prev => prev.map(eq => eq.id === item.id ? { ...eq, brand: val } : eq));
+                            }}
+                            className="h-9.5 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Model Name</label>
+                          <Input
+                            placeholder="e.g. LaserJet Pro MFP M428fdw"
+                            value={item.model}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSharedEquipments(prev => prev.map(eq => eq.id === item.id ? { ...eq, model: val } : eq));
+                            }}
+                            className="h-9.5 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Serial Number / Asset Tag</label>
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Location / Condition Remarks</label>
                         <Input
-                          placeholder="e.g. S/N or Asset Tag"
-                          value={sharedEquipmentSerial}
-                          onChange={(e) => setSharedEquipmentSerial(e.target.value)}
-                          className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
+                          placeholder="e.g. Printing Bay - Working fine / Cartridge low"
+                          value={item.remarks}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSharedEquipments(prev => prev.map(eq => eq.id === item.id ? { ...eq, remarks: val } : eq));
+                          }}
+                          className="h-9.5 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                         />
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Make / Brand</label>
-                        <Input
-                          placeholder="e.g. HP, Canon, Ricoh, Epson"
-                          value={sharedEquipmentBrand}
-                          onChange={(e) => setSharedEquipmentBrand(e.target.value)}
-                          className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Model Name</label>
-                        <Input
-                          placeholder="e.g. LaserJet Pro MFP M428fdw"
-                          value={sharedEquipmentModel}
-                          onChange={(e) => setSharedEquipmentModel(e.target.value)}
-                          className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Location / Condition Remarks</label>
-                      <Input
-                        placeholder="e.g. Printing Bay - Working fine / Cartridge low"
-                        value={sharedEquipmentRemarks}
-                        onChange={(e) => setSharedEquipmentRemarks(e.target.value)}
-                        className="h-9.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800"
-                      />
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             )}
 
