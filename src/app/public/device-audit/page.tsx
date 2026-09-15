@@ -127,6 +127,9 @@ interface DBAsset {
           const staff = json.data.staff;
           setStaffFound(true);
           setCustodianName(staff.name);
+          if (staff.department) setDepartment(staff.department);
+          if (staff.siteOfficeId) setSiteOfficeId(staff.siteOfficeId);
+          if (staff.location) setLocation(staff.location);
           
           const assets: DBAsset[] = staff.assignedITAssets || [];
           setAssignedAssets(assets);

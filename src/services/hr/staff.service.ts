@@ -136,43 +136,108 @@ export class StaffService {
   }
 
   /**
-   * Find staff details for public verification by employee number
+   * Find staff details for public verification by employee number,
+   * including assigned assets and previous audit submissions.
    */
   static async findPublicStaffByEmployeeId(employeeNo: string) {
-    const staff = await prisma.staff.findFirst({
-      where: {
-        employeeId: {
-          equals: employeeNo.trim(),
-          mode: 'insensitive'
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-        assignedITAssets: {
-          select: {
-            id: true,
-            serialNumber: true,
-            assetNumber: true,
-            deviceType: true,
-            brand: true,
-            model: true,
-            status: true
+    const cleanEmpNo = employeeNo.trim();
+
+    const [staff, recentAudits] = await Promise.all([
+      prisma.staff.findFirst({
+        where: {
+          employeeId: {
+            equals: cleanEmpNo,
+            mode: 'insensitive'
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          assignedITAssets: {
+            select: {
+              id: true,
+              serialNumber: true,
+              assetNumber: true,
+              deviceType: true,
+              brand: true,
+              model: true,
+              status: true
+            }
           }
         }
-      }
-    });
+      }),
+      prisma.iTAssetAudit.findMany({
+        where: {
+          employeeNo: {
+            equals: cleanEmpNo,
+            mode: 'insensitive'
+          },
+          isRejected: false
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
+    ]);
 
-    if (!staff) {
+    if (!staff && recentAudits.length === 0) {
       return { found: false };
     }
+
+    const staffName = staff?.name || recentAudits[0]?.custodianName || "Staff Member";
+    const staffId = staff?.id || "UNLINKED";
+
+    // Merge assigned assets from master inventory with assets from previous audits
+    const assetsMap = new Map<string, {
+      id: string;
+      serialNumber: string;
+      assetNumber?: string | null;
+      deviceType: "LAPTOP" | "MOBILE" | "DESKTOP" | "PRINTER" | "NETWORK" | "OTHER";
+      brand?: string | null;
+      model?: string | null;
+      status: string;
+    }>();
+
+    // 1. Populate from active IT Assets
+    if (staff?.assignedITAssets) {
+      for (const asset of staff.assignedITAssets) {
+        assetsMap.set(asset.deviceType, {
+          id: asset.id,
+          serialNumber: asset.serialNumber,
+          assetNumber: asset.assetNumber,
+          deviceType: asset.deviceType as any,
+          brand: asset.brand,
+          model: asset.model,
+          status: asset.status
+        });
+      }
+    }
+
+    // 2. Fallback to previous audits if master inventory asset is missing for that deviceType
+    for (const audit of recentAudits) {
+      if (!audit.isPersonal && audit.serialNumber && !assetsMap.has(audit.deviceType)) {
+        assetsMap.set(audit.deviceType, {
+          id: audit.id,
+          serialNumber: audit.serialNumber,
+          assetNumber: audit.assetNumber,
+          deviceType: audit.deviceType as any,
+          brand: audit.brand,
+          model: audit.model,
+          status: audit.status || "ACTIVE"
+        });
+      }
+    }
+
+    const latestAuditWithLocation = recentAudits.find(a => a.department || a.siteOfficeId || a.location);
 
     return {
       found: true,
       staff: {
-        id: staff.id,
-        name: staff.name,
-        assignedITAssets: staff.assignedITAssets
+        id: staffId,
+        name: staffName,
+        department: latestAuditWithLocation?.department || null,
+        siteOfficeId: latestAuditWithLocation?.siteOfficeId || null,
+        location: latestAuditWithLocation?.location || null,
+        assignedITAssets: Array.from(assetsMap.values())
       }
     };
   }
