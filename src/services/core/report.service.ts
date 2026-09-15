@@ -1263,11 +1263,11 @@ export class ReportService {
       ];
     } else if (categoryUpper === 'IN_HAND' || categoryUpper === 'BALANCE' || categoryUpper === 'WIP') {
       where.status = { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] };
-      where.sltsStatus = { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'REJECTED'] };
+      where.sltsStatus = { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'PAT_REJECTED'] };
     } else if (categoryUpper === 'RETURNED' || categoryUpper === 'RET') {
       where.OR = [
-        { sltsStatus: { in: ['RETURN', 'REJECTED'] } },
-        { status: { in: ['RETURN', 'REJECTED'] } }
+        { sltsStatus: { in: ['RETURN', 'PAT_REJECTED'] } },
+        { status: { in: ['RETURN', 'PAT_REJECTED'] } }
       ];
     } else if (categoryUpper === 'WIRED_ONLY') {
       where.wiredOnly = true;
@@ -1280,7 +1280,7 @@ export class ReportService {
         { receivedDate: { gte: startDate, lte: endDate } },
         {
           status: { in: ['ASSIGNED', 'INPROGRESS', 'PENDING'] },
-          sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'REJECTED'] }
+          sltsStatus: { notIn: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'RETURN', 'DISAPPEARED', 'PAT_REJECTED'] }
         }
       ];
     }
