@@ -31,6 +31,7 @@ const MOBILE_CONDITIONS = [
 export default function PublicDeviceAuditPage() {
   const [step, setStep] = useState<"CUSTODIAN" | "DEVICES" | "SUCCESS">("CUSTODIAN");
   const [fetchingStaff, setFetchingStaff] = useState(false);
+  const [staffFound, setStaffFound] = useState(false);
   const [auditType, setAuditType] = useState<"USER" | "ADMIN">("USER");
   const [submitting, setSubmitting] = useState(false);
   const [siteOffices, setSiteOffices] = useState<{ id: string; name: string }[]>([]);
