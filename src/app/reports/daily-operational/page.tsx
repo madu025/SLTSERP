@@ -417,7 +417,17 @@ function DailyOperationalOrdersModal({
         const fetchOrders = async () => {
             setLoading(true);
             try {
-                const res = await fetch(`/api/reports/daily-operational/orders?date=${encodeURIComponent(date)}&rtom=${encodeURIComponent(rtom)}&category=${encodeURIComponent(category)}`);
+                const targetCat = category || 'ALL';
+                const res = await fetch(
+                    `/api/reports/daily-operational/orders?date=${encodeURIComponent(date || '')}&rtom=${encodeURIComponent(rtom)}&category=${encodeURIComponent(targetCat)}&_t=${Date.now()}`,
+                    {
+                        cache: 'no-store',
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache',
+                        }
+                    }
+                );
                 const json = await res.json();
                 if (!isCancelled && json.success) {
                     setOrders(json.data.orders || []);

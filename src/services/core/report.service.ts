@@ -1229,9 +1229,11 @@ export class ReportService {
 
     const where: Prisma.ServiceOrderWhereInput = {};
 
-    // Filter by RTOM if specific RTOM is requested
+    // Filter by RTOM if specific RTOM is requested (supports R-HK and HK variants)
     if (rtom && rtom !== 'ALL' && !rtom.includes('TOTAL')) {
-      where.rtom = { equals: rtom.trim(), mode: 'insensitive' };
+      const cleanRtom = rtom.replace(/^R-/i, '').trim();
+      const rtomVariants = Array.from(new Set([rtom.trim(), cleanRtom, `R-${cleanRtom}`]));
+      where.rtom = { in: rtomVariants, mode: 'insensitive' };
     }
 
     const categoryUpper = (category || 'ALL').toUpperCase();
