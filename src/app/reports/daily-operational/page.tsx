@@ -322,6 +322,7 @@ interface OrderDetail {
     soNum: string;
     voiceNumber: string | null;
     rtom: string;
+    lea: string | null;
     customerName: string | null;
     address: string | null;
     package: string | null;
@@ -331,10 +332,38 @@ interface OrderDetail {
     sltsStatus: string;
     receivedDate: string | null;
     completedDate: string | null;
+    statusDate: string | null;
     createdAt: string;
     wiredOnly: boolean;
+    stbShortage: boolean;
+    ontShortage: boolean;
+    ontSerialNumber: string | null;
+    dropWireDistance: number | null;
+    dropWireMeters: number;
+    poles: { p56: number; p67: number; p80: number };
+    stbSerialsList: string[];
+    returnReason: string | null;
+    comments: string | null;
+    opmcPatStatus: string | null;
+    hoPatStatus: string | null;
+    sltsPatStatus: string | null;
+    completionMode: string | null;
     contractor?: { id: string; name: string } | null;
     team?: { id: string; name: string; sltCode?: string | null } | null;
+    opmc?: { id: string; name: string; rtom: string } | null;
+}
+
+interface SummaryTotals {
+    totalCompleted: number;
+    totalInstallClosed: number;
+    totalReturned: number;
+    totalWiredOnly: number;
+    totalDwDistance: number;
+    totalPoles56: number;
+    totalPoles67: number;
+    totalPoles80: number;
+    totalStbShortage: number;
+    totalOntShortage: number;
 }
 
 function DailyOperationalOrdersModal({
@@ -351,6 +380,7 @@ function DailyOperationalOrdersModal({
     initialCategory?: string;
 }) {
     const [orders, setOrders] = useState<OrderDetail[]>([]);
+    const [summaryTotals, setSummaryTotals] = useState<SummaryTotals | null>(null);
     const [loading, setLoading] = useState(false);
     const [category, setCategory] = useState(initialCategory);
     const [search, setSearch] = useState('');
@@ -370,7 +400,8 @@ function DailyOperationalOrdersModal({
                 const res = await fetch(`/api/reports/daily-operational/orders?date=${encodeURIComponent(date)}&rtom=${encodeURIComponent(rtom)}&category=${encodeURIComponent(category)}`);
                 const json = await res.json();
                 if (!isCancelled && json.success) {
-                    setOrders(json.data.orders || json.data || []);
+                    setOrders(json.data.orders || []);
+                    setSummaryTotals(json.data.summaryTotals || null);
                 }
             } catch (err) {
                 console.error('Failed to load RTOM orders:', err);
@@ -390,10 +421,13 @@ function DailyOperationalOrdersModal({
             o.soNum?.toLowerCase().includes(q) ||
             o.voiceNumber?.toLowerCase().includes(q) ||
             o.customerName?.toLowerCase().includes(q) ||
+            o.address?.toLowerCase().includes(q) ||
             o.package?.toLowerCase().includes(q) ||
             o.orderType?.toLowerCase().includes(q) ||
             o.sltsStatus?.toLowerCase().includes(q) ||
-            o.team?.name?.toLowerCase().includes(q)
+            o.ontSerialNumber?.toLowerCase().includes(q) ||
+            o.team?.name?.toLowerCase().includes(q) ||
+            o.returnReason?.toLowerCase().includes(q)
         );
     }, [orders, search]);
 
@@ -402,6 +436,7 @@ function DailyOperationalOrdersModal({
         const exportRows = filteredOrders.map((o, index) => ({
             '#': index + 1,
             'RTOM': o.rtom,
+            'LEA': o.lea || 'N/A',
             'SOD Number': o.soNum,
             'Voice / Service Number': o.voiceNumber || 'N/A',
             'Customer Name': o.customerName || 'N/A',
@@ -411,6 +446,15 @@ function DailyOperationalOrdersModal({
             'Service Type': o.serviceType || 'N/A',
             'SLTS Status': o.sltsStatus,
             'System Status': o.status,
+            'Drop Wire (Meters)': o.dropWireMeters || 0,
+            'ONT Serial Number': o.ontSerialNumber || 'N/A',
+            'STB Serials': o.stbSerialsList ? o.stbSerialsList.join(', ') : 'N/A',
+            'Poles 5.6m': o.poles?.p56 || 0,
+            'Poles 6.7m': o.poles?.p67 || 0,
+            'Poles 8.0m': o.poles?.p80 || 0,
+            'OPMC PAT Status': o.opmcPatStatus || 'PENDING',
+            'HO PAT Status': o.hoPatStatus || 'PENDING',
+            'Return / Delay Reason': o.returnReason || o.comments || 'N/A',
             'Assigned Team': o.team?.name || 'N/A',
             'Contractor': o.contractor?.name || 'N/A',
             'Received Date': o.receivedDate ? new Date(o.receivedDate).toLocaleDateString() : 'N/A',
@@ -419,8 +463,8 @@ function DailyOperationalOrdersModal({
 
         const ws = XLSX.utils.json_to_sheet(exportRows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${rtom}_Orders`);
-        XLSX.writeFile(wb, `${rtom}_SOD_Voice_Details_${date}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, `${rtom}_Full_Audit`);
+        XLSX.writeFile(wb, `${rtom}_SOD_Voice_CrossCheck_${date}.xlsx`);
     };
 
     const copyToClipboard = (text: string, id: string) => {
@@ -436,41 +480,79 @@ function DailyOperationalOrdersModal({
         { id: 'RECEIVED', label: 'Received Today' },
         { id: 'BALANCE', label: 'In-Hand / Balance' },
         { id: 'RETURNED', label: 'Returned' },
+        { id: 'WIRED_ONLY', label: 'Wired Only' },
     ];
 
     if (!isOpen) return null;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-slate-900 text-white border-slate-800">
-                <DialogHeader className="p-5 border-b border-slate-800 bg-slate-950 flex flex-row items-center justify-between">
+            <DialogContent className="max-w-6xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-950 text-white border-slate-800 shadow-2xl">
+                {/* Header */}
+                <DialogHeader className="p-5 border-b border-slate-800 bg-slate-900 flex flex-row items-center justify-between">
                     <div>
-                        <DialogTitle className="text-lg font-black text-white flex items-center gap-2">
-                            <span>RTOM Service Orders &amp; Voice Numbers</span>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                {rtom}
+                        <DialogTitle className="text-lg font-black text-white flex items-center gap-2.5">
+                            <span>Daily Operational Cross-Check Workstation</span>
+                            <span className="px-3 py-0.5 rounded-full text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase tracking-wide">
+                                RTOM: {rtom}
                             </span>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                {date}
+                            <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                Date: {date}
                             </span>
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-400 mt-1">
-                            Showing detailed SOD numbers, Voice numbers, packages, and statuses for cross-checking.
+                            Comprehensive verification of SOD numbers, Voice numbers, drop wire meters, CPE serials, return reasons, and PAT statuses.
                         </DialogDescription>
                     </div>
                 </DialogHeader>
 
+                {/* Summary KPI Banner */}
+                {summaryTotals && (
+                    <div className="bg-slate-900/90 border-b border-slate-800 p-3 px-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                        <div className="bg-slate-950/80 rounded-lg p-2.5 border border-slate-800">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total SODs</div>
+                            <div className="text-lg font-black text-white">{orders.length}</div>
+                        </div>
+                        <div className="bg-emerald-950/40 rounded-lg p-2.5 border border-emerald-800/40">
+                            <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Completed / IC</div>
+                            <div className="text-lg font-black text-emerald-300">
+                                {summaryTotals.totalCompleted} <span className="text-xs font-normal text-slate-400">({summaryTotals.totalInstallClosed} IC)</span>
+                            </div>
+                        </div>
+                        <div className={`rounded-lg p-2.5 border ${summaryTotals.totalReturned > 0 ? 'bg-rose-950/40 border-rose-800/50' : 'bg-slate-950/80 border-slate-800'}`}>
+                            <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Returned SODs</div>
+                            <div className="text-lg font-black text-rose-300">{summaryTotals.totalReturned}</div>
+                        </div>
+                        <div className="bg-cyan-950/40 rounded-lg p-2.5 border border-cyan-800/40">
+                            <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Drop Wire (DW)</div>
+                            <div className="text-lg font-black text-cyan-300">{summaryTotals.totalDwDistance} <span className="text-xs text-slate-400">m</span></div>
+                        </div>
+                        <div className="bg-indigo-950/40 rounded-lg p-2.5 border border-indigo-800/40">
+                            <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Poles Used</div>
+                            <div className="text-xs font-bold text-indigo-200 mt-1">
+                                5.6m: {summaryTotals.totalPoles56} | 6.7m: {summaryTotals.totalPoles67} | 8m: {summaryTotals.totalPoles80}
+                            </div>
+                        </div>
+                        <div className="bg-amber-950/40 rounded-lg p-2.5 border border-amber-800/40">
+                            <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Shortages</div>
+                            <div className="text-xs font-bold text-amber-300 mt-1">
+                                STB: {summaryTotals.totalStbShortage} | ONT: {summaryTotals.totalOntShortage}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Filter and Search toolbar */}
-                <div className="p-4 bg-slate-900 border-b border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="p-4 bg-slate-900/60 border-b border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-1.5">
                         {categoriesList.map(cat => (
                             <button
                                 key={cat.id}
                                 onClick={() => setCategory(cat.id)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
                                     category === cat.id
-                                        ? 'bg-indigo-600 text-white shadow-md'
-                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40 ring-2 ring-indigo-400/30'
+                                        : 'bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-white'
                                 }`}
                             >
                                 {cat.label}
@@ -479,11 +561,11 @@ function DailyOperationalOrdersModal({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <div className="relative flex-1 sm:w-64">
+                        <div className="relative flex-1 sm:w-72">
                             <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                             <Input
                                 type="text"
-                                placeholder="Search SOD, Voice No, Customer..."
+                                placeholder="Search SOD, Voice No, Customer, ONT SN, Return Reason..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 className="pl-8 h-9 text-xs bg-slate-950 border-slate-800 text-white focus:border-indigo-500"
@@ -495,44 +577,46 @@ function DailyOperationalOrdersModal({
                             size="sm"
                             className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
                         >
-                            <Download className="w-3.5 h-3.5" /> Export Excel
+                            <Download className="w-3.5 h-3.5" /> Export XLSX
                         </Button>
                     </div>
                 </div>
 
-                {/* Content Table */}
+                {/* Main Detailed Workstation Table */}
                 <div className="flex-1 overflow-y-auto p-4">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
-                            <span className="text-xs text-slate-400">Fetching order details for {rtom}...</span>
+                        <div className="flex flex-col items-center justify-center py-24 gap-3">
+                            <RefreshCw className="w-9 h-9 text-indigo-400 animate-spin" />
+                            <span className="text-xs text-slate-400 font-medium">Loading comprehensive report orders for {rtom}...</span>
                         </div>
                     ) : filteredOrders.length === 0 ? (
-                        <div className="text-center py-16 text-slate-400 text-xs">
-                            No service orders match the selected filters or search query.
+                        <div className="text-center py-20 text-slate-400 text-xs">
+                            No service orders found matching category &quot;{category}&quot; and search query.
                         </div>
                     ) : (
-                        <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950">
+                        <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950 shadow-inner">
                             <table className="w-full text-left text-xs border-collapse">
-                                <thead className="bg-slate-900 border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400">
+                                <thead className="bg-slate-900/90 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400 sticky top-0 z-10 backdrop-blur-md">
                                     <tr>
-                                        <th className="p-3 w-10 text-center">#</th>
-                                        <th className="p-3">SOD Number</th>
+                                        <th className="p-3 w-8 text-center">#</th>
+                                        <th className="p-3">SOD Number &amp; LEA</th>
                                         <th className="p-3">Voice / Service No</th>
                                         <th className="p-3">Customer &amp; Address</th>
-                                        <th className="p-3">Package / Type</th>
-                                        <th className="p-3">SLTS Status</th>
-                                        <th className="p-3">Team / Contractor</th>
-                                        <th className="p-3 text-right">Actions</th>
+                                        <th className="p-3">Package / Order Type</th>
+                                        <th className="p-3">Material &amp; CPE Serials</th>
+                                        <th className="p-3">SLTS &amp; PAT Status</th>
+                                        <th className="p-3 max-w-xs">Return / Delay Remarks</th>
+                                        <th className="p-3">Assigned Team / Contractor</th>
+                                        <th className="p-3 text-right">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60">
                                     {filteredOrders.map((ord, idx) => (
-                                        <tr key={ord.id} className="hover:bg-slate-900/80 transition-colors">
-                                            <td className="p-3 text-center text-slate-500 font-mono">{idx + 1}</td>
-                                            <td className="p-3 font-mono font-bold text-indigo-300">
+                                        <tr key={ord.id} className="hover:bg-slate-900/90 transition-colors group">
+                                            <td className="p-3 text-center text-slate-500 font-mono text-[11px]">{idx + 1}</td>
+                                            <td className="p-3 font-mono">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span>{ord.soNum}</span>
+                                                    <span className="font-bold text-indigo-300 text-xs">{ord.soNum}</span>
                                                     <button
                                                         onClick={() => copyToClipboard(ord.soNum, `sod-${ord.id}`)}
                                                         className="text-slate-500 hover:text-indigo-300 transition-colors"
@@ -541,11 +625,12 @@ function DailyOperationalOrdersModal({
                                                         {copiedId === `sod-${ord.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
                                                     </button>
                                                 </div>
+                                                <div className="text-[10px] text-slate-500 mt-0.5">LEA: {ord.lea || ord.rtom}</div>
                                             </td>
                                             <td className="p-3 font-mono">
                                                 {ord.voiceNumber ? (
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/50 font-bold">
+                                                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-bold text-xs">
                                                             {ord.voiceNumber}
                                                         </span>
                                                         <button
@@ -557,41 +642,77 @@ function DailyOperationalOrdersModal({
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-slate-600 font-italic">N/A</span>
+                                                    <span className="text-slate-600 font-italic text-[11px]">N/A</span>
                                                 )}
                                             </td>
                                             <td className="p-3 max-w-xs">
-                                                <div className="font-bold text-slate-200">{ord.customerName || 'N/A'}</div>
-                                                <div className="text-[11px] text-slate-400 truncate max-w-[220px]" title={ord.address || ''}>
+                                                <div className="font-bold text-slate-200 text-xs">{ord.customerName || 'N/A'}</div>
+                                                <div className="text-[11px] text-slate-400 truncate max-w-[200px]" title={ord.address || ''}>
                                                     {ord.address || '-'}
                                                 </div>
                                             </td>
                                             <td className="p-3">
-                                                <div className="font-semibold text-slate-300">{ord.package || 'N/A'}</div>
-                                                <div className="text-[10px] text-slate-500">{ord.orderType || '-'} {ord.serviceType ? `(${ord.serviceType})` : ''}</div>
+                                                <div className="font-bold text-slate-300">{ord.package || 'N/A'}</div>
+                                                <div className="text-[10px] text-slate-400 mt-0.5">
+                                                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold">{ord.orderType || '-'}</span>
+                                                    {ord.serviceType && <span className="ml-1 text-slate-500">{ord.serviceType}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="p-3 text-[11px]">
+                                                <div className="text-cyan-300 font-semibold">
+                                                    DW: {ord.dropWireMeters > 0 ? `${ord.dropWireMeters} m` : '0 m'}
+                                                </div>
+                                                {ord.ontSerialNumber && (
+                                                    <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                                                        ONT: <span className="text-slate-200">{ord.ontSerialNumber}</span>
+                                                    </div>
+                                                )}
+                                                {ord.stbSerialsList.length > 0 && (
+                                                    <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                                                        STB: <span className="text-slate-200">{ord.stbSerialsList.join(', ')}</span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-3">
                                                 <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
                                                     ord.sltsStatus === 'COMPLETED' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
-                                                    ord.sltsStatus === 'INSTALL_CLOSED' ? 'bg-sky-950 text-sky-300 border-sky-800' :
+                                                    ord.sltsStatus === 'INSTALL_CLOSED' || ord.sltsStatus === 'PROV_CLOSED' ? 'bg-sky-950 text-sky-300 border-sky-800' :
                                                     ord.sltsStatus === 'RETURN' ? 'bg-rose-950 text-rose-300 border-rose-800' :
                                                     'bg-amber-950 text-amber-300 border-amber-800'
                                                 }`}>
                                                     {ord.sltsStatus}
                                                 </span>
+                                                <div className="text-[9px] text-slate-400 mt-1 flex items-center gap-1">
+                                                    <span>OPMC PAT: <strong className={ord.opmcPatStatus === 'PAT_PASSED' || ord.opmcPatStatus === 'PASSED' ? 'text-emerald-400' : 'text-slate-400'}>{ord.opmcPatStatus || 'PENDING'}</strong></span>
+                                                </div>
                                             </td>
-                                            <td className="p-3 text-slate-300">
-                                                <div>{ord.team?.name || 'Unassigned'}</div>
-                                                <div className="text-[10px] text-slate-500">{ord.contractor?.name || ''}</div>
+                                            <td className="p-3 max-w-xs text-[11px]">
+                                                {ord.returnReason || ord.comments ? (
+                                                    <div className="text-rose-300 bg-rose-950/30 p-1.5 rounded border border-rose-900/40 text-[10px] line-clamp-2" title={ord.returnReason || ord.comments || ''}>
+                                                        {ord.returnReason || ord.comments}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-slate-500 text-[10px]">-</div>
+                                                )}
+                                                {(ord.stbShortage || ord.ontShortage) && (
+                                                    <div className="flex gap-1 mt-1">
+                                                        {ord.stbShortage && <span className="px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">STB Shortage</span>}
+                                                        {ord.ontShortage && <span className="px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">ONT Shortage</span>}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-[11px] text-slate-300">
+                                                <div className="font-bold text-slate-200">{ord.team?.name || 'Unassigned'}</div>
+                                                <div className="text-[10px] text-slate-400">{ord.contractor?.name || ''}</div>
                                             </td>
                                             <td className="p-3 text-right">
                                                 <Button
                                                     onClick={() => window.open(`/helpdesk/service-orders?search=${ord.soNum}`, '_blank')}
                                                     size="sm"
                                                     variant="ghost"
-                                                    className="h-7 px-2 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/50 text-[11px] gap-1"
+                                                    className="h-7 px-2.5 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/60 text-[11px] font-bold gap-1"
                                                 >
-                                                    <span>View</span>
+                                                    <span>View SOD</span>
                                                     <ExternalLink className="w-3 h-3" />
                                                 </Button>
                                             </td>
@@ -603,12 +724,13 @@ function DailyOperationalOrdersModal({
                     )}
                 </div>
 
-                <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs text-slate-400">
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between text-xs text-slate-400">
                     <div>
-                        Showing <strong className="text-white">{filteredOrders.length}</strong> of <strong className="text-white">{orders.length}</strong> service orders for {rtom}.
+                        Showing <strong className="text-white">{filteredOrders.length}</strong> of <strong className="text-white">{orders.length}</strong> orders for RTOM <strong className="text-indigo-300">{rtom}</strong> on date {date}.
                     </div>
-                    <Button onClick={onClose} variant="outline" size="sm" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700">
-                        Close
+                    <Button onClick={onClose} variant="outline" size="sm" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700 font-bold px-4">
+                        Close Workstation
                     </Button>
                 </div>
             </DialogContent>

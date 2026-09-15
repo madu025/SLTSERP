@@ -1282,6 +1282,7 @@ export class ReportService {
         soNum: true,
         voiceNumber: true,
         rtom: true,
+        lea: true,
         customerName: true,
         address: true,
         package: true,
@@ -1291,11 +1292,19 @@ export class ReportService {
         sltsStatus: true,
         receivedDate: true,
         completedDate: true,
+        statusDate: true,
         createdAt: true,
         wiredOnly: true,
         stbShortage: true,
         ontShortage: true,
+        ontSerialNumber: true,
+        dropWireDistance: true,
         returnReason: true,
+        comments: true,
+        opmcPatStatus: true,
+        hoPatStatus: true,
+        sltsPatStatus: true,
+        completionMode: true,
         contractor: {
           select: { id: true, name: true }
         },
@@ -1304,16 +1313,78 @@ export class ReportService {
         },
         opmc: {
           select: { id: true, name: true, rtom: true }
+        },
+        erectedPoles: {
+          select: { poleType: true, poleNumber: true }
+        },
+        iptvSerials: {
+          select: { serialNumber: true }
         }
       }
+    });
+
+    let totalDwDistance = 0;
+    let totalPoles56 = 0;
+    let totalPoles67 = 0;
+    let totalPoles80 = 0;
+    let totalStbShortage = 0;
+    let totalOntShortage = 0;
+    let totalReturned = 0;
+    let totalWiredOnly = 0;
+    let totalCompleted = 0;
+    let totalInstallClosed = 0;
+
+    const formattedOrders = orders.map(o => {
+      const dwMeters = o.dropWireDistance ? Number(o.dropWireDistance) : 0;
+      totalDwDistance += dwMeters;
+
+      let p56 = 0, p67 = 0, p80 = 0;
+      if (o.erectedPoles) {
+        for (const p of o.erectedPoles) {
+          const qty = 1;
+          const type = (p.poleType || '').toString();
+          if (type.includes('5.6') || type.includes('56')) p56 += qty;
+          else if (type.includes('6.7') || type.includes('67')) p67 += qty;
+          else if (type.includes('8.0') || type.includes('80') || type.includes('8')) p80 += qty;
+        }
+      }
+      totalPoles56 += p56;
+      totalPoles67 += p67;
+      totalPoles80 += p80;
+
+      if (o.stbShortage) totalStbShortage++;
+      if (o.ontShortage) totalOntShortage++;
+      if (o.sltsStatus === 'RETURN') totalReturned++;
+      if (o.wiredOnly) totalWiredOnly++;
+      if (o.sltsStatus === 'COMPLETED') totalCompleted++;
+      if (o.sltsStatus === 'INSTALL_CLOSED' || o.sltsStatus === 'PROV_CLOSED') totalInstallClosed++;
+
+      return {
+        ...o,
+        dropWireMeters: dwMeters,
+        poles: { p56, p67, p80 },
+        stbSerialsList: o.iptvSerials ? o.iptvSerials.map(s => s.serialNumber).filter(Boolean) : []
+      };
     });
 
     return {
       date: date || slDateKey(selectedDate),
       rtom: rtom || 'ALL',
       category: categoryUpper,
-      totalCount: orders.length,
-      orders
+      totalCount: formattedOrders.length,
+      summaryTotals: {
+        totalCompleted,
+        totalInstallClosed,
+        totalReturned,
+        totalWiredOnly,
+        totalDwDistance: Math.round(totalDwDistance * 10) / 10,
+        totalPoles56,
+        totalPoles67,
+        totalPoles80,
+        totalStbShortage,
+        totalOntShortage
+      },
+      orders: formattedOrders
     };
   }
 }
