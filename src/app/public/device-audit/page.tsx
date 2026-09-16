@@ -712,7 +712,7 @@ interface DBAsset {
 
                     <div className="flex flex-wrap gap-2 pt-1">
                       <a
-                        href="https://sltserp-sync.duckdns.org/files/sltserp-agent/SLTSERPagent_setup.zip"
+                        href="/api/agent/download"
                         download
                         className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg shadow-sm transition-all"
                       >

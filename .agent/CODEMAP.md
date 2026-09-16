@@ -3062,6 +3062,12 @@
   * **Methods**:
     * `getOrRefreshCookie(): Promise<string>`
 
+### [storage.service.ts](src/services/storage/storage.service.ts)
+* **Class**: `StorageService`
+  * **Methods**:
+    * `uploadFile(input: UploadFileInput): Promise<UploadFileResult>`
+    * `deleteFile(key: string, bucket?: string): Promise<boolean>`
+
 ### [traffic.service.ts](src/services/system/traffic.service.ts)
 * **Class**: `TrafficService`
   * **Methods**:
@@ -3128,6 +3134,7 @@
 | `/api/admin/users/[userId]/sections/[assignmentId]` | [route.ts](src/app/api/admin/users/[userId]/sections/[assignmentId]/route.ts) | `DELETE` |
 | `/api/admin/workers` | [route.ts](src/app/api/admin/workers/route.ts) | `GET` |
 | `/api/admin/workflow-statuses` | [route.ts](src/app/api/admin/workflow-statuses/route.ts) | `GET` |
+| `/api/agent/download` | [route.ts](src/app/api/agent/download/route.ts) | `GET` |
 | `/api/agent/version` | [route.ts](src/app/api/agent/version/route.ts) | `GET` |
 | `/api/ai/alerts` | [route.ts](src/app/api/ai/alerts/route.ts) | `GET`, `PATCH` |
 | `/api/ai/copilot` | [route.ts](src/app/api/ai/copilot/route.ts) | `GET`, `POST` |

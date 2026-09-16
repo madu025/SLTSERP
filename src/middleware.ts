@@ -42,6 +42,7 @@ const publicPaths = [
     '/api/assets/register',
     '/api/helpdesk/agent/telemetry',
     '/api/agent/version',
+    '/api/agent/download',
     '/public/invoices',
     '/api/public/invoices',
     '/api/approvals/webhook',
