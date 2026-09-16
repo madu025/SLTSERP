@@ -608,20 +608,27 @@ function DailyOperationalOrdersModal({
                         </div>
                     ) : (
                         <div className="rounded border border-slate-800 bg-slate-950 shadow-inner">
-                            <table className="w-full text-left text-xs border-collapse min-w-[1320px]">
+                            <style dangerouslySetInnerHTML={{ __html: `
+                                .dark-workstation-table th {
+                                    background-color: #0b1329 !important;
+                                    color: #ffffff !important;
+                                    border-color: #334155 !important;
+                                }
+                            `}} />
+                            <table className="dark-workstation-table report-table-dark w-full text-left text-xs border-collapse min-w-[1320px]">
                                 <thead className="bg-[#0b1329] border-b-2 border-indigo-500/60 sticky top-0 z-20 shadow-md">
-                                    <tr className="bg-[#0b1329]">
-                                        <th className="px-2 py-2 w-10 text-center border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">#</th>
-                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">SOD Number &amp; LEA</th>
-                                        <th className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Voice / Service No</th>
-                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Customer Name</th>
-                                        <th className="px-2.5 py-2 w-52 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Customer Address</th>
-                                        <th className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Package &amp; Type</th>
-                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Materials &amp; CPE</th>
-                                        <th className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">SLTS &amp; PAT Status</th>
-                                        <th className="px-2.5 py-2 w-52 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Delay / Return Remarks</th>
-                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Assigned Team</th>
-                                        <th className="px-2.5 py-2 w-20 text-right bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Action</th>
+                                    <tr className="bg-[#0b1329]" style={{ backgroundColor: '#0b1329' }}>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2 py-2 w-10 text-center border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">#</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">SOD Number &amp; LEA</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Voice / Service No</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Customer Name</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-52 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Customer Address</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Package &amp; Type</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Materials &amp; CPE</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">SLTS &amp; PAT Status</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-52 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Delay / Return Remarks</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Assigned Team</th>
+                                        <th style={{ backgroundColor: '#0b1329', color: '#ffffff' }} className="px-2.5 py-2 w-20 text-right bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60">

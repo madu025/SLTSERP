@@ -309,8 +309,14 @@ body.dark-mode table th {
 }
 
 /* Override global light header bg for tables with dark-themed headers */
-table.report-table-dark th {
-  background-color: inherit !important;
+table.report-table-dark th,
+table.dark-workstation-table th,
+.dark-workstation-table th,
+.bg-slate-950 table th,
+[data-slot="dialog-content"].bg-slate-950 table th {
+  background-color: #0b1329 !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
 }
 
 table td {
