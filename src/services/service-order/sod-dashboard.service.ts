@@ -61,7 +61,7 @@ export class ServiceOrderDashboardService {
         }
 
         const isAdmin = ROLE_GROUPS.ADMINS.includes(user.role as "SUPER_ADMIN" | "ADMIN" | "STORES_MANAGER" | "AUDITOR" | "MANAGEMENT");
-        const isManager = user.role === 'MANAGER' || user.role === 'SA_MANAGER' || user.role === 'OSP_MANAGER';
+        const isManager = user.role === 'MANAGER' || user.role === 'SA_MANAGER' || user.role === 'OSP_MANAGER' || user.role === 'HEAD_OF_SECTION';
         const canFilterGlobally = isAdmin || isManager;
 
         const allOpmcs = await prisma.oPMC.findMany({

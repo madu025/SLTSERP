@@ -59,6 +59,14 @@ export function DashboardFilters({
         QC_OFFICER: 'Quality Control & PAT Inspection Dashboard',
         SUPER_ADMIN: 'Executive Command Center',
         ADMIN: 'System Administration Cockpit',
+        CEO: 'Executive Command & Strategic Leadership',
+        HEAD_OF_OSP: 'OSP Executive Command & Operations',
+        HEAD_OF_SECTION: 'Section Operations & Performance Hub',
+        INVOICE_MANAGER: 'Billing & Invoice Processing Hub',
+        INVOICE_ASSISTANT: 'Invoice Verification & Billing Support',
+        SF_AUDIT_MANAGER: 'Service Fulfillment Audit & Compliance Hub',
+        SF_AUDIT_OFFICER: 'SF Audit & Verification Cockpit',
+        RATE_AUDITOR: 'Tariff & Rate Matrix Audit Cockpit',
     };
     const roleTitle = (user?.role && roleTitleMap[user.role]) ? roleTitleMap[user.role] : 'Executive operations cockpit';
 
