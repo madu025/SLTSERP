@@ -503,71 +503,78 @@ function DailyOperationalOrdersModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[96vw] h-[92vh] max-h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-950 text-white border-slate-800 shadow-2xl rounded-2xl">
-                {/* Header */}
-                <DialogHeader className="p-5 border-b border-slate-800 bg-slate-900 flex flex-row items-center justify-between shrink-0">
-                    <div>
-                        <DialogTitle className="text-xl font-black text-white flex items-center gap-3">
+            <DialogContent className="w-[98vw] max-w-[98vw] sm:max-w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 overflow-hidden bg-slate-950 text-slate-100 border border-slate-800 shadow-2xl rounded-xl gap-0">
+                {/* 1. Compact Header */}
+                <DialogHeader className="px-4 py-2.5 border-b border-slate-800 bg-slate-900/95 flex flex-row items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <DialogTitle className="text-sm font-black text-white flex items-center gap-2">
                             <span>Daily Operational Cross-Check Workstation</span>
-                            <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 uppercase tracking-wider">
-                                RTOM: {rtom}
-                            </span>
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                Date: {date}
-                            </span>
                         </DialogTitle>
-                        <DialogDescription className="text-xs text-slate-400 mt-1">
-                            In-depth cross-checking workstation displaying SOD numbers, Voice numbers, Drop Wire meters, CPE serials, Poles, Return reasons, and PAT statuses.
-                        </DialogDescription>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 uppercase tracking-wider">
+                            RTOM: {rtom}
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
+                            Date: {date}
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                            {filteredOrders.length} / {orders.length} SODs
+                        </span>
+                    </div>
+                    <DialogDescription className="sr-only">
+                        Daily Operational cross-check workstation displaying detailed service orders for {rtom}.
+                    </DialogDescription>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            onClick={handleExportModalOrders}
+                            disabled={filteredOrders.length === 0}
+                            size="sm"
+                            className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 shadow-xs"
+                        >
+                            <Download className="w-3.5 h-3.5" /> Export XLSX
+                        </Button>
                     </div>
                 </DialogHeader>
 
-                {/* Summary KPI Banner */}
+                {/* 2. Compact Inline KPI Stats Ribbon */}
                 {summaryTotals && (
-                    <div className="bg-slate-900/90 border-b border-slate-800 p-3.5 px-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 shrink-0">
-                        <div className="bg-slate-950/90 rounded-xl p-3 border border-slate-800 shadow-inner">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total SODs</div>
-                            <div className="text-xl font-black text-white mt-0.5">{orders.length}</div>
-                        </div>
-                        <div className="bg-emerald-950/50 rounded-xl p-3 border border-emerald-800/50 shadow-inner">
-                            <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Completed / IC</div>
-                            <div className="text-xl font-black text-emerald-300 mt-0.5">
-                                {summaryTotals.totalCompleted} <span className="text-xs font-normal text-slate-400">({summaryTotals.totalInstallClosed} IC)</span>
-                            </div>
-                        </div>
-                        <div className={`rounded-xl p-3 border shadow-inner ${summaryTotals.totalReturned > 0 ? 'bg-rose-950/60 border-rose-800/60' : 'bg-slate-950/90 border-slate-800'}`}>
-                            <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Returned SODs</div>
-                            <div className="text-xl font-black text-rose-300 mt-0.5">{summaryTotals.totalReturned}</div>
-                        </div>
-                        <div className="bg-cyan-950/50 rounded-xl p-3 border border-cyan-800/50 shadow-inner">
-                            <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Drop Wire (DW)</div>
-                            <div className="text-xl font-black text-cyan-300 mt-0.5">{summaryTotals.totalDwDistance} <span className="text-xs text-slate-400">m</span></div>
-                        </div>
-                        <div className="bg-indigo-950/50 rounded-xl p-3 border border-indigo-800/50 shadow-inner">
-                            <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Poles Used</div>
-                            <div className="text-xs font-bold text-indigo-200 mt-1">
-                                5.6m: {summaryTotals.totalPoles56} | 6.7m: {summaryTotals.totalPoles67} | 8m: {summaryTotals.totalPoles80}
-                            </div>
-                        </div>
-                        <div className="bg-amber-950/50 rounded-xl p-3 border border-amber-800/50 shadow-inner">
-                            <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Shortages</div>
-                            <div className="text-xs font-bold text-amber-300 mt-1">
-                                STB: {summaryTotals.totalStbShortage} | ONT: {summaryTotals.totalOntShortage}
-                            </div>
+                    <div className="bg-slate-900/80 border-b border-slate-800/80 px-4 py-1.5 flex items-center justify-between text-xs shrink-0 overflow-x-auto gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/80 text-slate-200 font-bold">
+                                Total: <strong className="text-white font-mono">{orders.length}</strong>
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/70 text-emerald-300 font-bold">
+                                Completed: <strong className="text-emerald-200 font-mono">{summaryTotals.totalCompleted}</strong> <span className="text-[10px] text-emerald-400/80 font-normal">({summaryTotals.totalInstallClosed} IC)</span>
+                            </span>
+                            {summaryTotals.totalReturned > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-950/90 border border-rose-800/80 text-rose-300 font-bold">
+                                    Returned: <strong className="text-rose-200 font-mono">{summaryTotals.totalReturned}</strong>
+                                </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800/70 text-cyan-300 font-bold">
+                                DW: <strong className="text-cyan-200 font-mono">{summaryTotals.totalDwDistance}m</strong>
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-800/70 text-indigo-300 font-bold">
+                                Poles: <strong className="text-indigo-200 font-mono">5.6m:{summaryTotals.totalPoles56} | 6.7m:{summaryTotals.totalPoles67} | 8m:{summaryTotals.totalPoles80}</strong>
+                            </span>
+                            {(summaryTotals.totalStbShortage > 0 || summaryTotals.totalOntShortage > 0) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-950/80 border border-amber-800/70 text-amber-300 font-bold">
+                                    Shortages: <strong className="text-amber-200 font-mono">STB {summaryTotals.totalStbShortage} | ONT {summaryTotals.totalOntShortage}</strong>
+                                </span>
+                            )}
                         </div>
                     </div>
                 )}
 
-                {/* Filter and Search toolbar */}
-                <div className="p-4 bg-slate-900/60 border-b border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
+                {/* 3. Compact Filter Tabs & Search Bar */}
+                <div className="px-4 py-1.5 bg-slate-900/60 border-b border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-1 overflow-x-auto pb-0.5 sm:pb-0">
                         {categoriesList.map(cat => (
                             <button
                                 key={cat.id}
                                 onClick={() => setCategory(cat.id)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                                className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all shrink-0 ${
                                     category === cat.id
-                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40 ring-2 ring-indigo-400/30'
+                                        ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-400'
                                         : 'bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-white'
                                 }`}
                             >
@@ -576,80 +583,70 @@ function DailyOperationalOrdersModal({
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex-1 sm:w-80">
-                            <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
-                            <Input
-                                type="text"
-                                placeholder="Search SOD, Voice No, Customer Name, Address, ONT SN, Return Reason..."
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                className="pl-8 h-9 text-xs bg-slate-950 border-slate-800 text-white focus:border-indigo-500"
-                            />
-                        </div>
-                        <Button
-                            onClick={handleExportModalOrders}
-                            disabled={filteredOrders.length === 0}
-                            size="sm"
-                            className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-4"
-                        >
-                            <Download className="w-3.5 h-3.5" /> Export XLSX
-                        </Button>
+                    <div className="relative w-full sm:w-80 shrink-0">
+                        <Search className="w-3 h-3 absolute left-2.5 top-2 text-slate-400" />
+                        <Input
+                            type="text"
+                            placeholder="Filter SOD, Voice, Name, Address, ONT..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            className="pl-7 h-7 text-xs bg-slate-950 border-slate-800 text-white focus:border-indigo-500 rounded"
+                        />
                     </div>
                 </div>
 
-                {/* Main Detailed Workstation Table */}
-                <div className="flex-1 overflow-auto p-4">
+                {/* 4. High-Contrast Dense Workstation Table */}
+                <div className="flex-1 min-h-0 overflow-auto p-2 bg-slate-950">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-28 gap-3">
-                            <RefreshCw className="w-10 h-10 text-indigo-400 animate-spin" />
+                        <div className="flex flex-col items-center justify-center py-20 gap-2">
+                            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
                             <span className="text-xs text-slate-400 font-medium">Loading comprehensive report orders for {rtom}...</span>
                         </div>
                     ) : filteredOrders.length === 0 ? (
-                        <div className="text-center py-24 text-slate-400 text-xs">
+                        <div className="text-center py-16 text-slate-400 text-xs">
                             No service orders found matching category &quot;{category}&quot; and search query.
                         </div>
                     ) : (
-                        <div className="rounded-xl border border-slate-800 overflow-x-auto bg-slate-950 shadow-inner">
-                            <table className="w-full text-left text-xs border-collapse min-w-[1300px]">
-                                <thead className="bg-slate-900 border-b border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-300 sticky top-0 z-10 backdrop-blur-md">
-                                    <tr>
-                                        <th className="p-3 w-10 text-center border-r border-slate-800">#</th>
-                                        <th className="p-3 w-40 border-r border-slate-800">SOD Number &amp; LEA</th>
-                                        <th className="p-3 w-40 border-r border-slate-800">Voice / Service No</th>
-                                        <th className="p-3 w-52 border-r border-slate-800">Customer Name</th>
-                                        <th className="p-3 w-64 border-r border-slate-800">Customer Address</th>
-                                        <th className="p-3 w-44 border-r border-slate-800">Package &amp; Order Type</th>
-                                        <th className="p-3 w-48 border-r border-slate-800">Materials &amp; CPE Serials</th>
-                                        <th className="p-3 w-40 border-r border-slate-800">SLTS &amp; PAT Status</th>
-                                        <th className="p-3 w-64 border-r border-slate-800">Delay / Return Remarks</th>
-                                        <th className="p-3 w-48 border-r border-slate-800">Assigned Team &amp; Contractor</th>
-                                        <th className="p-3 w-28 text-right">Action</th>
+                        <div className="rounded border border-slate-800 bg-slate-950 shadow-inner">
+                            <table className="w-full text-left text-xs border-collapse min-w-[1320px]">
+                                <thead className="bg-[#0b1329] border-b-2 border-indigo-500/60 sticky top-0 z-20 shadow-md">
+                                    <tr className="bg-[#0b1329]">
+                                        <th className="px-2 py-2 w-10 text-center border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">#</th>
+                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">SOD Number &amp; LEA</th>
+                                        <th className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Voice / Service No</th>
+                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Customer Name</th>
+                                        <th className="px-2.5 py-2 w-52 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Customer Address</th>
+                                        <th className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Package &amp; Type</th>
+                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Materials &amp; CPE</th>
+                                        <th className="px-2.5 py-2 w-36 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">SLTS &amp; PAT Status</th>
+                                        <th className="px-2.5 py-2 w-52 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Delay / Return Remarks</th>
+                                        <th className="px-2.5 py-2 w-44 border-r border-slate-700/80 bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Assigned Team</th>
+                                        <th className="px-2.5 py-2 w-20 text-right bg-[#0b1329] text-white font-black text-[11px] tracking-wider uppercase">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60">
                                     {filteredOrders.map((ord, idx) => (
-                                        <tr key={ord.id} className="hover:bg-slate-900/90 transition-colors group">
-                                            <td className="p-3 text-center text-slate-500 font-mono text-[11px] border-r border-slate-800/60">{idx + 1}</td>
-                                            <td className="p-3 font-mono border-r border-slate-800/60">
-                                                <div className="flex items-center gap-1.5">
+                                        <tr key={ord.id} className="hover:bg-slate-900/80 transition-colors group">
+                                            <td className="px-2 py-1.5 text-center text-slate-500 font-mono text-[11px] border-r border-slate-800/60">{idx + 1}</td>
+                                            <td className="px-2.5 py-1.5 font-mono border-r border-slate-800/60">
+                                                <div className="flex items-center gap-1">
                                                     <span className="font-bold text-indigo-300 text-xs">{ord.soNum}</span>
                                                     <button
                                                         onClick={() => copyToClipboard(ord.soNum, `sod-${ord.id}`)}
                                                         className="text-slate-500 hover:text-indigo-300 transition-colors"
                                                         title="Copy SOD Number"
                                                     >
-                                                        {copiedId === `sod-${ord.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                                                        {copiedId === `sod-${ord.id}` ? <Check className="w-3 h-3 text-emerald-400" /> : <ClipboardCopy className="w-3 h-3" />}
                                                     </button>
                                                 </div>
-                                                <div className="text-[10px] text-slate-400 mt-0.5 font-sans font-semibold">
+                                                <div className="text-[10px] text-slate-400 font-sans truncate" title={ord.lea || ord.rtom}>
                                                     LEA: {ord.lea || ord.rtom} {ord.opmc?.name ? `(${ord.opmc.name})` : ''}
                                                 </div>
                                             </td>
-                                            <td className="p-3 font-mono border-r border-slate-800/60">
+                                            <td className="px-2.5 py-1.5 font-mono border-r border-slate-800/60">
                                                 {ord.voiceNumber ? (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/70 font-bold text-xs">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-bold text-[11px]">
                                                             {ord.voiceNumber}
                                                         </span>
                                                         <button
@@ -657,50 +654,48 @@ function DailyOperationalOrdersModal({
                                                             className="text-slate-500 hover:text-emerald-300 transition-colors"
                                                             title="Copy Voice Number"
                                                         >
-                                                            {copiedId === `voice-${ord.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                                                            {copiedId === `voice-${ord.id}` ? <Check className="w-3 h-3 text-emerald-400" /> : <ClipboardCopy className="w-3 h-3" />}
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-slate-600 font-italic text-[11px]">N/A</span>
+                                                    <span className="text-slate-600 italic text-[10px]">N/A</span>
                                                 )}
                                             </td>
-                                            <td className="p-3 border-r border-slate-800/60">
-                                                <div className="font-bold text-slate-200 text-xs">{ord.customerName || 'N/A'}</div>
+                                            <td className="px-2.5 py-1.5 border-r border-slate-800/60">
+                                                <div className="font-semibold text-slate-100 text-xs truncate max-w-[170px]" title={ord.customerName || 'N/A'}>
+                                                    {ord.customerName || 'N/A'}
+                                                </div>
                                             </td>
-                                            <td className="p-3 border-r border-slate-800/60">
-                                                <div className="text-[11px] text-slate-300 leading-relaxed">
+                                            <td className="px-2.5 py-1.5 border-r border-slate-800/60">
+                                                <div className="text-[11px] text-slate-300 truncate max-w-[200px]" title={ord.address || '-'}>
                                                     {ord.address || '-'}
                                                 </div>
                                             </td>
-                                            <td className="p-3 border-r border-slate-800/60">
-                                                <div className="font-bold text-slate-200">{ord.package || 'N/A'}</div>
-                                                <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-1">
-                                                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-bold">{ord.orderType || '-'}</span>
-                                                    {ord.serviceType && <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">{ord.serviceType}</span>}
+                                            <td className="px-2.5 py-1.5 border-r border-slate-800/60">
+                                                <div className="font-semibold text-slate-200 text-xs truncate max-w-[140px]" title={ord.package || 'N/A'}>
+                                                    {ord.package || 'N/A'}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                                    <span className="px-1 py-0.2 rounded bg-slate-800 text-slate-300 font-bold text-[9px]">{ord.orderType || '-'}</span>
+                                                    {ord.serviceType && <span className="text-[9px] text-slate-400">{ord.serviceType}</span>}
                                                 </div>
                                             </td>
-                                            <td className="p-3 text-[11px] border-r border-slate-800/60">
-                                                <div className="text-cyan-300 font-bold">
-                                                    Drop Wire: {ord.dropWireMeters > 0 ? `${ord.dropWireMeters} m` : '0 m'}
+                                            <td className="px-2.5 py-1.5 text-[11px] border-r border-slate-800/60">
+                                                <div className="text-cyan-300 font-bold text-xs">
+                                                    DW: {ord.dropWireMeters > 0 ? `${ord.dropWireMeters}m` : '0m'}
                                                 </div>
-                                                {ord.ontSerialNumber && (
-                                                    <div className="text-[10px] text-slate-400 mt-1 font-mono">
-                                                        ONT: <span className="text-slate-200 font-bold">{ord.ontSerialNumber}</span>
-                                                    </div>
-                                                )}
-                                                {ord.stbSerialsList.length > 0 && (
-                                                    <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                                                        STB: <span className="text-slate-200">{ord.stbSerialsList.join(', ')}</span>
-                                                    </div>
-                                                )}
+                                                <div className="text-[10px] text-slate-300 font-mono truncate max-w-[170px]" title={`ONT: ${ord.ontSerialNumber || 'N/A'} | STB: ${ord.stbSerialsList?.join(', ') || 'None'}`}>
+                                                    {ord.ontSerialNumber && <span className="text-slate-200 font-semibold">ONT: {ord.ontSerialNumber}</span>}
+                                                    {ord.stbSerialsList?.length > 0 && <span className="text-slate-400 ml-1">STB: {ord.stbSerialsList.join(', ')}</span>}
+                                                </div>
                                                 {(ord.poles?.p56 > 0 || ord.poles?.p67 > 0 || ord.poles?.p80 > 0) && (
-                                                    <div className="text-[10px] text-indigo-300 mt-1 font-semibold">
+                                                    <div className="text-[9px] text-indigo-300 font-semibold">
                                                         Poles: 5.6m({ord.poles.p56}) 6.7m({ord.poles.p67}) 8m({ord.poles.p80})
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="p-3 border-r border-slate-800/60">
-                                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${
+                                            <td className="px-2.5 py-1.5 border-r border-slate-800/60">
+                                                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide border ${
                                                     ord.sltsStatus === 'COMPLETED' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
                                                     ord.sltsStatus === 'INSTALL_CLOSED' || ord.sltsStatus === 'PROV_CLOSED' ? 'bg-sky-950 text-sky-300 border-sky-800' :
                                                     ord.sltsStatus === 'RETURN' ? 'bg-rose-950 text-rose-300 border-rose-800' :
@@ -708,40 +703,42 @@ function DailyOperationalOrdersModal({
                                                 }`}>
                                                     {ord.sltsStatus}
                                                 </span>
-                                                <div className="text-[9px] text-slate-400 mt-1.5 space-y-0.5">
-                                                    <div>OPMC PAT: <strong className={ord.opmcPatStatus === 'PAT_PASSED' || ord.opmcPatStatus === 'PASSED' ? 'text-emerald-400' : 'text-slate-400'}>{ord.opmcPatStatus || 'PENDING'}</strong></div>
-                                                    {ord.completedDate && <div>Done: {new Date(ord.completedDate).toLocaleDateString()}</div>}
+                                                <div className="text-[9px] text-slate-400 mt-0.5">
+                                                    PAT: <strong className={ord.opmcPatStatus === 'PAT_PASSED' || ord.opmcPatStatus === 'PASSED' ? 'text-emerald-400' : 'text-slate-400'}>{ord.opmcPatStatus || 'PENDING'}</strong>
                                                 </div>
                                             </td>
-                                            <td className="p-3 border-r border-slate-800/60 text-[11px]">
+                                            <td className="px-2.5 py-1.5 border-r border-slate-800/60 text-[11px]">
                                                 {ord.returnReason || ord.comments ? (
-                                                    <div className="text-rose-300 bg-rose-950/40 p-2 rounded-lg border border-rose-900/60 text-[10px] leading-relaxed whitespace-normal" title={ord.returnReason || ord.comments || ''}>
+                                                    <div className="text-rose-300 bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-900/60 text-[10px] truncate max-w-[200px]" title={ord.returnReason || ord.comments || ''}>
                                                         {ord.returnReason || ord.comments}
                                                     </div>
                                                 ) : (
-                                                    <div className="text-slate-500 text-[10px]">-</div>
+                                                    <div className="text-slate-600 text-[10px]">-</div>
                                                 )}
                                                 {(ord.stbShortage || ord.ontShortage) && (
-                                                    <div className="flex gap-1 mt-1.5">
-                                                        {ord.stbShortage && <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">STB Shortage</span>}
-                                                        {ord.ontShortage && <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">ONT Shortage</span>}
+                                                    <div className="flex gap-1 mt-0.5">
+                                                        {ord.stbShortage && <span className="px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[8px] font-bold">STB Short</span>}
+                                                        {ord.ontShortage && <span className="px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[8px] font-bold">ONT Short</span>}
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="p-3 text-[11px] text-slate-300 border-r border-slate-800/60">
-                                                <div className="font-bold text-slate-200">{ord.team?.name || 'Unassigned'}</div>
-                                                <div className="text-[10px] text-slate-400 mt-0.5">{ord.contractor?.name || ''}</div>
-                                                {ord.team?.sltCode && <div className="text-[9px] font-mono text-indigo-400 mt-0.5">Code: {ord.team.sltCode}</div>}
+                                            <td className="px-2.5 py-1.5 text-[11px] text-slate-300 border-r border-slate-800/60">
+                                                <div className="font-semibold text-slate-200 text-xs truncate max-w-[160px]" title={ord.team?.name || 'Unassigned'}>
+                                                    {ord.team?.name || 'Unassigned'}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 truncate max-w-[160px]" title={ord.contractor?.name || ''}>
+                                                    {ord.contractor?.name || ''}
+                                                </div>
                                             </td>
-                                            <td className="p-3 text-right">
+                                            <td className="px-2.5 py-1.5 text-right">
                                                 <Button
                                                     onClick={() => window.open(`/helpdesk/service-orders?search=${ord.soNum}`, '_blank')}
                                                     size="sm"
                                                     variant="ghost"
-                                                    className="h-8 px-3 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/70 text-xs font-black gap-1"
+                                                    className="h-6 px-2 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-950/70 text-[11px] font-bold gap-1"
                                                 >
-                                                    <span>View SOD</span>
-                                                    <ExternalLink className="w-3.5 h-3.5" />
+                                                    <span>View</span>
+                                                    <ExternalLink className="w-3 h-3" />
                                                 </Button>
                                             </td>
                                         </tr>
@@ -752,13 +749,13 @@ function DailyOperationalOrdersModal({
                     )}
                 </div>
 
-                {/* Modal Footer */}
-                <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between text-xs text-slate-400 shrink-0">
-                    <div>
-                        Showing <strong className="text-white">{filteredOrders.length}</strong> of <strong className="text-white">{orders.length}</strong> detailed service orders for RTOM <strong className="text-indigo-300">{rtom}</strong> on date {date}.
+                {/* 5. Compact Modal Footer */}
+                <div className="px-4 py-2 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between text-xs text-slate-400 shrink-0">
+                    <div className="text-[11px]">
+                        Showing <strong className="text-white">{filteredOrders.length}</strong> of <strong className="text-white">{orders.length}</strong> orders for RTOM <strong className="text-indigo-300">{rtom}</strong> ({date}).
                     </div>
-                    <Button onClick={onClose} variant="outline" size="sm" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700 font-bold px-5">
-                        Close Workstation
+                    <Button onClick={onClose} variant="outline" size="sm" className="h-7 bg-slate-800 text-white border-slate-700 hover:bg-slate-700 font-bold px-4 text-xs">
+                        Close
                     </Button>
                 </div>
             </DialogContent>
