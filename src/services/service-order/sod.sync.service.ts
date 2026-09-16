@@ -1832,9 +1832,8 @@ export class SODSyncService {
         const localPendingSods = scopedToRange ? emptyPending : (preloadedPendingSods ?? await prisma.serviceOrder.findMany({
             where: {
                 opmcId,
-                // PROV_CLOSED included: a SOD stuck in PROV_CLOSED that drops off the portal
-                // (connection lost before COMPLETED) is the DISAPPEARED case per domain rule
-                sltsStatus: { in: ['INPROGRESS', 'PROV_CLOSED'] },
+                // ASSIGNED / INPROGRESS / PROV_CLOSED included: any open active order that drops off the portal
+                sltsStatus: { in: ['INPROGRESS', 'ASSIGNED', 'PROV_CLOSED'] },
                 isOfflineWorkOrder: false,
                 isManualEntry: false,
                 isLegacyImport: false
