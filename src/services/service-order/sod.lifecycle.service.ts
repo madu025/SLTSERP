@@ -56,6 +56,7 @@ export class SODLifecycleService {
             // Mirrors the sync-layer rule and satisfies the DB status invariant trigger.
             if ((SOD_SLTS_TERMINAL_STATUSES as readonly string[]).includes(sltsStatus)) {
                 updateData.status = sltsStatus as ServiceOrderStatus;
+                updateData.returnReason = null;
             }
 
             // Logic for Restoring / Re-assigning a RETURNED or DISAPPEARED SOD

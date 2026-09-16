@@ -1185,8 +1185,8 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
                                         )}
                                         {isColumnVisible('returnReason') && (
-                                        <td className="px-2 border-r border-border/15 text-[10px] truncate font-semibold text-rose-500 uppercase" title={order.returnReason || ""}>
-                                            {order.returnReason || "-"}
+                                        <td className="px-2 border-r border-border/15 text-[10px] truncate font-semibold text-rose-500 uppercase" title={['INSTALL_CLOSED', 'COMPLETED'].includes(order.sltsStatus) ? "" : (order.returnReason || "")}>
+                                            {['INSTALL_CLOSED', 'COMPLETED'].includes(order.sltsStatus) ? "-" : (order.returnReason || "-")}
                                         </td>
                                         )}
                                         {isColumnVisible('comments') && (

@@ -488,7 +488,7 @@ function DailyOperationalOrdersModal({
             'Poles 8.0m': o.poles?.p80 || 0,
             'OPMC PAT Status': o.opmcPatStatus || 'PENDING',
             'HO PAT Status': o.hoPatStatus || 'PENDING',
-            'Return / Delay Reason': o.returnReason || o.comments || 'N/A',
+            'Return / Delay Reason': (o.sltsStatus === 'INSTALL_CLOSED' || o.sltsStatus === 'COMPLETED') ? 'N/A' : (o.returnReason || o.comments || 'N/A'),
             'Assigned Team': o.team?.name || 'N/A',
             'Contractor': o.contractor?.name || 'N/A',
             'Received Date': o.receivedDate ? new Date(o.receivedDate).toLocaleDateString() : 'N/A',
@@ -715,7 +715,7 @@ function DailyOperationalOrdersModal({
                                                 </div>
                                             </td>
                                             <td className="px-2.5 py-1.5 border-r border-slate-800/60 text-[11px]">
-                                                {ord.returnReason || ord.comments ? (
+                                                {ord.sltsStatus !== 'INSTALL_CLOSED' && ord.sltsStatus !== 'COMPLETED' && (ord.returnReason || ord.comments) ? (
                                                     <div className="text-rose-300 bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-900/60 text-[10px] truncate max-w-[200px]" title={ord.returnReason || ord.comments || ''}>
                                                         {ord.returnReason || ord.comments}
                                                     </div>

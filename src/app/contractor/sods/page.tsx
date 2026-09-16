@@ -615,7 +615,7 @@ export default function ContractorSODsPage() {
                                                             <span className="text-slate-400 font-bold block">Address:</span>
                                                             <span className="text-slate-300">{sod.address || 'Address N/A'}</span>
                                                         </div>
-                                                        {sod.returnReason && (
+                                                        {sod.returnReason && !['INSTALL_CLOSED', 'COMPLETED'].includes(sod.sltsStatus || '') && (
                                                             <div className="bg-red-500/10 p-2 rounded-lg border border-red-500/20">
                                                                 <span className="text-red-400 font-bold block">Return CPE / Reason:</span>
                                                                 <span className="text-red-300">{sod.returnReason}</span>
@@ -825,7 +825,7 @@ export default function ContractorSODsPage() {
                                                                             </span>
                                                                             <span className="text-slate-300">{sod.address || 'Address N/A'}</span>
                                                                         </div>
-                                                                        {sod.returnReason && (
+                                                                        {sod.returnReason && !['INSTALL_CLOSED', 'COMPLETED'].includes(sod.sltsStatus || '') && (
                                                                             <div className="bg-red-500/10 p-2 rounded-lg border border-red-500/20">
                                                                                 <span className="text-red-400 font-bold block">Return Reason / Return CPE:</span>
                                                                                 <span className="text-red-300">{sod.returnReason}</span>

@@ -925,7 +925,8 @@ export class SODQueryService {
 
             return {
                 ...sod,
-                sltsStatus: effectiveStatus
+                sltsStatus: effectiveStatus,
+                returnReason: (isInstallClosed || isCompleted) ? null : sod.returnReason
             };
         });
 

@@ -1601,7 +1601,7 @@ export class SODSyncService {
                 contractorId: contractorId || undefined,
                 teamId: teamId || undefined,
                 directTeam: portalTeamName || undefined,
-                returnReason: initialSltsStatus === 'RETURN' ? (existing?.returnReason || (item.CON_STATUS ? `Portal Return: ${item.CON_STATUS}` : 'Returned in external portal')) : undefined
+                returnReason: initialSltsStatus === 'RETURN' ? (existing?.returnReason || (item.CON_STATUS ? `Portal Return: ${item.CON_STATUS}` : 'Returned in external portal')) : (['COMPLETED', 'INSTALL_CLOSED'].includes(effectiveSltsStatus) ? null : undefined)
             };
 
             if (existing) {
@@ -1940,7 +1940,7 @@ export class SODSyncService {
                                     completedDate: (nextSltsStatus === 'COMPLETED' || nextSltsStatus === 'INSTALL_CLOSED')
                                         ? statusDate
                                         : (nextSltsStatus === 'RETURN' ? new Date() : null),
-                                    returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : undefined,
+                                    returnReason: nextSltsStatus === 'RETURN' ? (disappearedSod.returnReason || (extStatus.status ? `Portal Returned: ${extStatus.status}` : 'Returned in external portal')) : null,
                                 },
                                 anchor: statusDate,
                                 actor: authorityActorFor(nextSltsStatus),

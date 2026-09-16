@@ -275,6 +275,10 @@ export async function applySodStatus(input: {
     if (isTerminalIncoming) {
         const completed = requestedCompleted ?? anchorDate ?? storedDate ?? new Date();
         if (asTime(storedDate) !== asTime(completed)) data.completedDate = completed;
+        // Terminal completion (INSTALL_CLOSED / COMPLETED) cannot hold a return/delay reason
+        if (next.returnReason === undefined && stored.returnReason) {
+            data.returnReason = null;
+        }
     } else if (incoming === SodStatus.RETURN) {
         // A returned connection did not complete: stale completion data would be billed.
         if (storedDate) data.completedDate = null;
