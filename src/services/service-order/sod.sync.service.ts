@@ -1671,15 +1671,21 @@ export class SODSyncService {
 
                 // When portal restores a RETURNED SOD to active status, clear return-specific fields
                 if (isRestoring && initialSltsStatus === 'INPROGRESS') {
+                    const prevReturnReason = existing.returnReason || 'Previous Return';
                     updatePayload.returnReason = null;
                     updatePayload.completedDate = null; // Return date no longer applies once reactivated
                     // Use portal's CON_STATUS_DATE (actual reactivation date), not sync run time
                     updatePayload.receivedDate = updatePayload.statusDate || new Date();
                     const restoreDate = updatePayload.statusDate ? new Date(updatePayload.statusDate as string).toLocaleDateString() : 'N/A';
-                    const restoreComment = `[SYNC-RESTORED] Portal reactivated returned SOD (Reactivated: ${restoreDate})`;
                     const currentCommentRow = await prisma.serviceOrder.findUnique({ where: { id: existing.id }, select: { comments: true } });
-                    updatePayload.comments = currentCommentRow?.comments ? `${currentCommentRow.comments}\n${restoreComment}` : restoreComment;
-                    console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (reactivated: ${restoreDate})`);
+                    const existingComments = currentCommentRow?.comments || '';
+                    
+                    // Deduplication check: ONLY append if not already marked for this restoration
+                    if (!existingComments.includes('[SYNC-RESTORED]') || !existingComments.includes(restoreDate)) {
+                        const restoreComment = `[SYNC-RESTORED] Prev Return: ${prevReturnReason} | Reactivated: ${restoreDate}`;
+                        updatePayload.comments = existingComments ? `${existingComments}\n${restoreComment}` : restoreComment;
+                    }
+                    console.log(`[SYNC] Restoring RETURNED SOD ${existing.soNum} to INPROGRESS (prev: ${prevReturnReason}, reactivated: ${restoreDate})`);
                 }
 
                 // ── Status identity belongs to the single writer ──

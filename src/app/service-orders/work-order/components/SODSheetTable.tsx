@@ -18,6 +18,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getComputedSodStatus } from "@/lib/constants/sod-constants";
+import { getPreviousReturnDetails } from "@/lib/utils/sod-reassigned-utils";
 
 // Asia/Colombo-pinned date formatting: return/completed date cells and their column
 // filters must not depend on the viewer's machine timezone.
@@ -990,14 +991,18 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                     <Zap className="w-2.5 h-2.5 text-indigo-500 animate-pulse" />
                                                 </span>
                                             )}
-                                            {(order.comments?.includes('[RESTORED') || order.comments?.includes('Prev Return')) && (
-                                                 <span 
-                                                     className="px-1 py-0.5 text-[7.5px] font-black uppercase rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0 inline-flex items-center gap-0.5 cursor-help" 
-                                                     title={`Previously Returned & Re-assigned Order (${order.comments})`}
-                                                 >
-                                                     RE-ASSIGNED
-                                                 </span>
-                                             )}
+                                            {(() => {
+                                                const prevRet = getPreviousReturnDetails(order.comments);
+                                                if (!prevRet.isReassigned) return null;
+                                                return (
+                                                    <span 
+                                                        className="px-1 py-0.5 text-[7.5px] font-black uppercase rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0 inline-flex items-center gap-0.5 cursor-help" 
+                                                        title={prevRet.tooltip}
+                                                    >
+                                                        RE-ASSIGNED
+                                                    </span>
+                                                );
+                                            })()}
                                          {/* Received Date Subtext & Dynamic KPI Aging/Turnaround Indicator */}
                                          {(() => {
                                              const effectiveDate = order.receivedDate ? new Date(order.receivedDate) : (order.statusDate ? new Date(order.statusDate) : (order.createdAt ? new Date(order.createdAt) : null));

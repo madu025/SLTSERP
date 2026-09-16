@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLeft, ChevronRight, Filter, Package, Zap, ChevronDown, ChevronUp, Cpu, RefreshCw, Bell, AlertTriangle } from "lucide-react";
+import { ClipboardList, QrCode, CheckCircle2, Layers, MapPin, Search, ChevronLeft, ChevronRight, Filter, Package, Zap, ChevronDown, ChevronUp, Cpu, RefreshCw, Bell, AlertTriangle, RotateCcw } from "lucide-react";
 import { toast } from 'sonner';
+import { getPreviousReturnDetails } from '@/lib/utils/sod-reassigned-utils';
 
 interface MaterialUsageItem {
     id: string;
@@ -621,6 +622,19 @@ export default function ContractorSODsPage() {
                                                                 <span className="text-red-300">{sod.returnReason}</span>
                                                             </div>
                                                         )}
+                                                        {(() => {
+                                                            const prevRet = getPreviousReturnDetails(sod.comments);
+                                                            if (!prevRet.isReassigned) return null;
+                                                            return (
+                                                                <div className="bg-amber-500/10 p-2 rounded-lg border border-amber-500/30 flex items-start gap-2">
+                                                                    <RotateCcw className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                                                    <div>
+                                                                        <span className="text-amber-400 font-bold text-xs block">Previously Returned:</span>
+                                                                        <span className="text-amber-200 text-xs">{prevRet.reason} {prevRet.date ? `(on ${prevRet.date})` : ''}</span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
 
@@ -831,6 +845,19 @@ export default function ContractorSODsPage() {
                                                                                 <span className="text-red-300">{sod.returnReason}</span>
                                                                             </div>
                                                                         )}
+                                                                        {(() => {
+                                                                            const prevRet = getPreviousReturnDetails(sod.comments);
+                                                                            if (!prevRet.isReassigned) return null;
+                                                                            return (
+                                                                                <div className="bg-amber-500/10 p-2 rounded-lg border border-amber-500/30 flex items-start gap-2">
+                                                                                    <RotateCcw className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                                                                    <div>
+                                                                                        <span className="text-amber-400 font-bold text-xs block">Previously Returned:</span>
+                                                                                        <span className="text-amber-200 text-xs">{prevRet.reason} {prevRet.date ? `(on ${prevRet.date})` : ''}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                 </div>
                                                             </div>

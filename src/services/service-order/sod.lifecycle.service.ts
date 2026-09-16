@@ -63,8 +63,12 @@ export class SODLifecycleService {
             if (['INPROGRESS', 'ASSIGNED', 'PENDING'].includes(sltsStatus) && (oldOrder.sltsStatus === 'RETURN' || oldOrder.sltsStatus === 'DISAPPEARED')) {
                 updateData.receivedDate = receivedDate ? new Date(receivedDate) : new Date();
                 const prevReason = oldOrder.returnReason || oldOrder.status || "Previous Return";
-                const restoreComment = `[RESTORED / RE-ASSIGNED] Prev Return Reason: ${prevReason} (Status Date: ${oldOrder.statusDate?.toLocaleDateString() || 'N/A'})`;
-                updateData.comments = oldOrder.comments ? `${oldOrder.comments}\n${restoreComment}` : restoreComment;
+                const returnDateStr = oldOrder.statusDate ? oldOrder.statusDate.toLocaleDateString() : 'N/A';
+                const restoreComment = `[RESTORED / RE-ASSIGNED] Prev Return Reason: ${prevReason} (Status Date: ${returnDateStr})`;
+                const existingComments = oldOrder.comments || '';
+                if (!existingComments.includes('[RESTORED / RE-ASSIGNED]') || !existingComments.includes(prevReason)) {
+                    updateData.comments = existingComments ? `${existingComments}\n${restoreComment}` : restoreComment;
+                }
                 updateData.returnReason = null;
             }
         }

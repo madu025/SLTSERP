@@ -10,11 +10,12 @@ import {
     Download, RefreshCw, Calendar as CalendarIcon, TrendingUp,
     CheckCircle2, AlertCircle, Clock, ClipboardCopy, Zap,
     ChevronDown, ChevronUp, Activity, BarChart3, Camera,
-    Eye, Search, ExternalLink, Check
+    Eye, Search, ExternalLink, Check, RotateCcw
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { getSriLankaToday } from '@/lib/timezone';
+import { getPreviousReturnDetails } from '@/lib/utils/sod-reassigned-utils';
 import * as XLSX from 'xlsx';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -488,6 +489,8 @@ function DailyOperationalOrdersModal({
             'Poles 8.0m': o.poles?.p80 || 0,
             'OPMC PAT Status': o.opmcPatStatus || 'PENDING',
             'HO PAT Status': o.hoPatStatus || 'PENDING',
+            'Is Re-assigned': getPreviousReturnDetails(o.comments).isReassigned ? 'YES' : 'NO',
+            'Previous Return Details': getPreviousReturnDetails(o.comments).tooltip || 'None',
             'Return / Delay Reason': (o.sltsStatus === 'INSTALL_CLOSED' || o.sltsStatus === 'COMPLETED') ? 'N/A' : (o.returnReason || o.comments || 'N/A'),
             'Assigned Team': o.team?.name || 'N/A',
             'Contractor': o.contractor?.name || 'N/A',
@@ -632,7 +635,9 @@ function DailyOperationalOrdersModal({
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60">
-                                    {filteredOrders.map((ord, idx) => (
+                                    {filteredOrders.map((ord, idx) => {
+                                        const prevReturn = getPreviousReturnDetails(ord.comments);
+                                        return (
                                         <tr key={ord.id} className="hover:bg-slate-900/80 transition-colors group">
                                             <td className="px-2 py-1.5 text-center text-slate-500 font-mono text-[11px] border-r border-slate-800/60">{idx + 1}</td>
                                             <td className="px-2.5 py-1.5 font-mono border-r border-slate-800/60">
@@ -645,6 +650,15 @@ function DailyOperationalOrdersModal({
                                                     >
                                                         {copiedId === `sod-${ord.id}` ? <Check className="w-3 h-3 text-emerald-400" /> : <ClipboardCopy className="w-3 h-3" />}
                                                     </button>
+                                                    {prevReturn.isReassigned && (
+                                                        <span
+                                                            className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[8.5px] font-black tracking-wide inline-flex items-center gap-0.5 cursor-help shrink-0 shadow-xs"
+                                                            title={prevReturn.tooltip}
+                                                        >
+                                                            <RotateCcw className="w-2 h-2 text-amber-400" />
+                                                            RE-ASSIGNED
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-[10px] text-slate-400 font-sans truncate" title={ord.lea || ord.rtom}>
                                                     LEA: {ord.lea || ord.rtom} {ord.opmc?.name ? `(${ord.opmc.name})` : ''}
@@ -719,6 +733,10 @@ function DailyOperationalOrdersModal({
                                                     <div className="text-rose-300 bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-900/60 text-[10px] truncate max-w-[200px]" title={ord.returnReason || ord.comments || ''}>
                                                         {ord.returnReason || ord.comments}
                                                     </div>
+                                                ) : prevReturn.isReassigned ? (
+                                                    <div className="text-amber-300 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-900/60 text-[10px] truncate max-w-[200px]" title={prevReturn.tooltip}>
+                                                        <span className="font-bold text-amber-400">Prev Return:</span> {prevReturn.reason}
+                                                    </div>
                                                 ) : (
                                                     <div className="text-slate-600 text-[10px]">-</div>
                                                 )}
@@ -749,7 +767,8 @@ function DailyOperationalOrdersModal({
                                                 </Button>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
