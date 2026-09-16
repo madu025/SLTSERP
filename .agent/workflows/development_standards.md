@@ -19,8 +19,9 @@ To maintain absolute clarity and performance, every new UI module MUST follow th
 - **Micro-Animations**: Add `transition-all duration-300` and `hover:-translate-y-1` to interactive cards.
 - **Deep Shadows**: Implement `shadow-2xl shadow-slate-200/50` for depth.
 - **Status Badges**: Use curated HSL color palettes for distinct operational states.
+- **Strict High-Contrast Typography (Zero Invisible Text)**: NEVER place light fonts (`text-white`, `text-slate-100/200`) on light backgrounds (`bg-white`, `bg-slate-50/100`, `#f8fafc`). Light surfaces MUST use dark text (`text-slate-900`, `text-slate-800`). Prevent global CSS rules from accidentally blanching dark headers.
 
-### B. Dynamic Imports (Code Splitting)
+### C. Dynamic Imports (Code Splitting)
 - Use `next/dynamic` to load heavy components (especially Modals, Charts, and heavy Shadcn components) only when they are needed.
 - This reduces the initial bundle size and improves First Contentful Paint (FCP).
 

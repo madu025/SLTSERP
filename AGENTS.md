@@ -228,6 +228,20 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 2. **Admin UI is registry-driven**: The template code dropdown at `/admin/settings/notification-templates` reads the registry via `/api/admin/notification-templates/codes`, so new codes appear automatically once registered.
 3. **Enforcement**: Run `npm run check:email-templates` after touching email-sending code. It fails the build check if any `EmailService.sendMail` call site lacks `renderEmailByCode` wiring.
 
+## 🎨 Mandatory UI High-Contrast & Anti-Washed-Out Text Mandate (Zero Invisible Text Tolerance)
+1. **Strict Prohibition of Light-on-Light Fonts**:
+   - NEVER use light fonts (`text-white`, `text-slate-100/200/300`, `text-gray-100/200`, `#ffffff`, `#f8fafc`) on light backgrounds (`bg-white`, `bg-slate-50/100/200`, `#f8fafc`, `#f1f5f9`).
+   - Light surfaces (table headers, cards, modals, dropdowns, badges) MUST strictly use dark, readable text (`text-slate-900`, `text-slate-800`, `text-slate-700`, `#0f172a`).
+2. **Strict Prohibition of Dark-on-Dark Fonts**:
+   - NEVER use dark fonts (`text-slate-800/900`, `text-black`, `#000000`, `#0f172a`) on dark backgrounds (`bg-slate-900/950`, `bg-black`, `#0b1329`).
+   - Dark surfaces MUST use bright, high-contrast text (`text-white`, `text-slate-100`, `text-cyan-400`, `text-emerald-400`).
+3. **Table Header & Global CSS Conflict Immunity**:
+   - Because `globals.css` defines base rules (such as `table th { background-color: #f8fafc !important; }`), always verify that table headers do not unintentionally inherit a light background while applying white text.
+   - When building dark-themed tables or modals, explicitly lock both background and text color using scoped classes or styles (e.g. `report-table-dark`, `!bg-slate-950 !text-white`) with high specificity so titles and column headers are always 100% visible and sharp.
+4. **WCAG Compliance & Preflight UI Verification**:
+   - Every title, table column header, KPI badge, and button label must meet a minimum contrast ratio of 4.5:1 (WCAG AA/AAA).
+   - Before finishing any UI task, verify that all headers, titles, and text have high contrast against their immediate container backgrounds.
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
