@@ -236,6 +236,9 @@ export class UserService {
         if (!password) {
             throw AppError.badRequest('PASSWORD_REQUIRED');
         }
+        if (password.length < 4) {
+            throw AppError.badRequest('Password must be at least 4 characters long');
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -392,6 +395,9 @@ export class UserService {
         };
 
         if (password && password.length > 0) {
+            if (password.length < 4) {
+                throw AppError.badRequest('Password must be at least 4 characters long');
+            }
             dataToUpdate.password = await bcrypt.hash(password, 10);
             dataToUpdate.mustChangePassword = true;
         }

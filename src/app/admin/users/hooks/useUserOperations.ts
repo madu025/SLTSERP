@@ -16,6 +16,14 @@ const userSchema = z.object({
     supervisorId: z.string().optional(),
     assignedStoreId: z.string().optional(),
     permissions: z.array(z.string()).optional(),
+}).superRefine((data, ctx) => {
+    if (data.password !== undefined && data.password !== null && data.password.length > 0 && data.password.length < 4) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Password must be at least 4 characters",
+            path: ["password"],
+        });
+    }
 });
 
 type UserFormValues = z.infer<typeof userSchema>;

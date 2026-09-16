@@ -30,7 +30,7 @@ export const POST = apiHandler(async (request, _params, body) => {
         const errorCode = (error as { code?: string })?.code;
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorCode === 'P2002') {
-            throw AppError.badRequest('Username, Email, or Employee ID already exists');
+            throw AppError.conflict('Username, Email, or Employee ID already exists');
         }
         if (errorMsg === 'OPMC_REQUIRED') {
             throw AppError.badRequest('OPMC selection is required for New Connection and Service Assurance roles');
@@ -42,8 +42,7 @@ export const POST = apiHandler(async (request, _params, body) => {
     }
 }, {
     roles: ROLE_GROUPS.ADMINS,
-    audit: { action: 'USER_CREATE', entity: 'User' },
-    rawResponse: true
+    audit: { action: 'USER_CREATE', entity: 'User' }
 });
 
 // UPDATE user
@@ -74,8 +73,7 @@ export const PUT = apiHandler(async (request, _params, body) => {
     }
 }, {
     roles: ROLE_GROUPS.ADMINS,
-    audit: { action: 'USER_UPDATE', entity: 'User' },
-    rawResponse: true
+    audit: { action: 'USER_UPDATE', entity: 'User' }
 });
 
 // PATCH is intentionally NOT supported on /api/users. User updates (including

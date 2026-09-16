@@ -5,8 +5,23 @@ import { requireAuth } from '@/lib/server-utils';
 import bcrypt from 'bcryptjs';
 import { SystemService } from '@/services/core/system.service';
 import { revalidatePath } from 'next/cache';
+import { Role, Prisma } from '@prisma/client';
 
-export async function createUser(data: any) {
+export interface UserActionInput {
+    username: string;
+    email: string;
+    password?: string;
+    name?: string;
+    role: Role | string;
+    employeeId?: string;
+    opmcIds?: string[];
+    supervisorId?: string;
+    assignedStoreId?: string;
+    status?: string;
+    permissions?: string[];
+}
+
+export async function createUser(data: UserActionInput) {
     const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
 
     try {
@@ -23,6 +38,11 @@ export async function createUser(data: any) {
             return { success: false, error: 'OPMC selection is required for this role' };
         }
 
+        // Validate password length
+        if (!password || password.length < 4) {
+            return { success: false, error: 'Password must be at least 4 characters long' };
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const result = await prisma.$transaction(async (tx) => {
@@ -36,7 +56,7 @@ export async function createUser(data: any) {
                         data: {
                             name: name || username,
                             employeeId,
-                            designation: role,
+                            designation: (role || 'ENGINEER') as Role,
                             opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
                         }
                     });
@@ -52,7 +72,7 @@ export async function createUser(data: any) {
                     email,
                     password: hashedPassword,
                     name,
-                    role: role || 'ENGINEER',
+                    role: (role || 'ENGINEER') as Role,
                     permissions: permissions && permissions.length > 0 ? JSON.stringify(permissions) : null,
                     systemRole: sysRole ? { connect: { id: sysRole.id } } : undefined,
                     staff: staffId ? { connect: { id: staffId } } : undefined,
@@ -66,7 +86,10 @@ export async function createUser(data: any) {
                 },
 
                 include: {
-                    accessibleOpmcs: { select: { rtom: true } }
+                    accessibleOpmcs: { select: { id: true, rtom: true, name: true } },
+                    assignedStore: { select: { id: true, name: true } },
+                    supervisor: { select: { id: true, name: true, username: true } },
+                    staff: true
                 }
             });
 
@@ -116,7 +139,8 @@ export async function createUser(data: any) {
             return user;
         });
 
-        const { password: _, ...userWithoutPassword } = result;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: _pw, ...userWithoutPassword } = result;
 
         await SystemService.logEvent({
             userId: currentUser.id,
@@ -132,15 +156,20 @@ export async function createUser(data: any) {
 
         revalidatePath('/admin/users');
         return { success: true, data: userWithoutPassword };
-    } catch (error: any) {
-        if (error.code === 'P2002') {
+    } catch (error: unknown) {
+        const prismaError = error as { code?: string };
+        if (prismaError.code === 'P2002') {
             return { success: false, error: 'Username, Email, or Employee ID already exists' };
         }
         return { success: false, error: 'Error creating user' };
     }
 }
 
-export async function updateUser(data: any) {
+export interface UpdateUserActionData extends Partial<UserActionInput> {
+    id: string;
+}
+
+export async function updateUser(data: UpdateUserActionData) {
     const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
 
     try {
@@ -155,21 +184,29 @@ export async function updateUser(data: any) {
         if (role === 'SUPER_ADMIN' && existingUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
             return { success: false, error: 'Only a Super Admin can assign the SUPER_ADMIN role' };
         }
-        if (existingUser.role === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
+        if (existingUser.role === 'SUPER_ADMIN' && role && role !== 'SUPER_ADMIN') {
             return { success: false, error: 'Cannot demote Super Admin' };
         }
 
-        const roleChanged = existingUser.role !== role;
+        const roleChanged = role ? existingUser.role !== role : false;
         const statusChanged = !!data.status && existingUser.status !== data.status;
         const passwordChanged = !!(password && password.length > 0);
 
-        const dataToUpdate: any = { username, email, name, role };
+        const dataToUpdate: Prisma.UserUpdateInput = {};
+        if (username) dataToUpdate.username = username;
+        if (email) dataToUpdate.email = email;
+        if (name) dataToUpdate.name = name;
+        if (role) dataToUpdate.role = role as Role;
+        if (data.status) dataToUpdate.status = data.status;
 
         if (permissions !== undefined) {
             dataToUpdate.permissions = permissions && permissions.length > 0 ? JSON.stringify(permissions) : null;
         }
 
         if (password && password.length > 0) {
+            if (password.length < 4) {
+                return { success: false, error: 'Password must be at least 4 characters long' };
+            }
             dataToUpdate.password = await bcrypt.hash(password, 10);
             dataToUpdate.mustChangePassword = true;
         }
@@ -186,21 +223,21 @@ export async function updateUser(data: any) {
                 const staff = await tx.staff.upsert({
                     where: { employeeId },
                     create: {
-                        name: name || username,
+                        name: name || username || 'Staff Member',
                         employeeId,
-                        designation: role,
+                        designation: (role || existingUser.role) as Role,
                         opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
                     },
                     update: {
                         name: name || undefined,
-                        designation: role,
+                        designation: role ? (role as Role) : undefined,
                         opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
                     }
                 });
                 staffId = staff.id;
             }
 
-            const sysRole = await tx.systemRole.findUnique({ where: { code: role || 'ENGINEER' } });
+            const sysRole = role ? await tx.systemRole.findUnique({ where: { code: role } }) : undefined;
 
             return await tx.user.update({
                 where: { id },
@@ -214,12 +251,19 @@ export async function updateUser(data: any) {
                         connect: opmcIds ? opmcIds.map((oid: string) => ({ id: oid })) : []
                     },
                     supervisor: supervisorId ? { connect: { id: supervisorId } } : { disconnect: true }
+                },
+                include: {
+                    accessibleOpmcs: { select: { id: true, rtom: true, name: true } },
+                    assignedStore: { select: { id: true, name: true } },
+                    supervisor: { select: { id: true, name: true, username: true } },
+                    staff: true
                 }
             });
 
         });
 
-        const { password: _, ...userWithoutPassword } = result;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: _pw, ...userWithoutPassword } = result;
 
         await SystemService.logEvent({
             userId: currentUser.id,
@@ -238,7 +282,8 @@ export async function updateUser(data: any) {
 
         revalidatePath('/admin/users');
         return { success: true, data: userWithoutPassword };
-    } catch (error: any) {
+    } catch (error: unknown) {
+        console.error('[USER_ACTION_UPDATE_ERROR]', error);
         return { success: false, error: 'Error updating user' };
     }
 }
@@ -257,7 +302,8 @@ export async function deleteUser(id: string) {
         await prisma.user.delete({ where: { id } });
         revalidatePath('/admin/users');
         return { success: true, message: 'User deleted successfully' };
-    } catch (error: any) {
+    } catch (error: unknown) {
+        console.error('[USER_ACTION_DELETE_ERROR]', error);
         return { success: false, error: 'Error deleting user' };
     }
 }

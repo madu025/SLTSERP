@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Shield, User, ChevronLeft, ChevronRight, Check, Sparkles, Building2, Store as StoreIcon, BadgeCheck } from "lucide-react";
+import { ROLE_CATEGORIES } from '@/config/roles';
 
 // Available pages for permission override
 const AVAILABLE_PAGES = [
@@ -45,6 +46,14 @@ const userSchema = z.object({
   assignedStoreId: z.string().optional(),
   status: z.string().optional(),
   permissions: z.array(z.string()).optional(),
+}).superRefine((data, ctx) => {
+  if (data.password !== undefined && data.password !== null && data.password.length > 0 && data.password.length < 4) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Password must be at least 4 characters",
+      path: ["password"],
+    });
+  }
 });
 
 export type UserFormValues = z.infer<typeof userSchema>;
@@ -147,13 +156,17 @@ export function UserFormDrawer({
       if (!res.ok) throw new Error('Failed to load role options');
       return res.json();
     },
-    staleTime: 5 * 60 * 1000
+    staleTime: 5 * 60 * 1000,
+    initialData: {
+      roles: Object.values(ROLE_CATEGORIES).flat(),
+      categories: ROLE_CATEGORIES
+    }
   });
 
   // Group enum roles by category; unmapped roles land in "Other" so new enum values never vanish from the UI
   const roleCategories = useMemo<Record<string, string[]>>(() => {
-    const roles = roleOptions?.roles || [];
-    const categories = roleOptions?.categories || {};
+    const roles = roleOptions?.roles || Object.values(ROLE_CATEGORIES).flat();
+    const categories = roleOptions?.categories || ROLE_CATEGORIES;
     const grouped: Record<string, string[]> = {};
     const mapped = new Set<string>();
     for (const [cat, catRoles] of Object.entries(categories)) {
@@ -163,7 +176,7 @@ export function UserFormDrawer({
     }
     const other = roles.filter((r) => !mapped.has(r));
     if (other.length) grouped['Other'] = other;
-    return grouped;
+    return Object.keys(grouped).length > 0 ? grouped : ROLE_CATEGORIES;
   }, [roleOptions]);
 
   // Sync form and section when drawer opens/closes
@@ -269,7 +282,7 @@ export function UserFormDrawer({
     e.preventDefault();
     e.stopPropagation();
     if (step === 1) {
-      const isValid = await form.trigger(['username', 'email', 'name']);
+      const isValid = await form.trigger(['username', 'email', 'name', 'password']);
       if (isValid) setStep(2);
     } else if (step === 2) {
       const isValid = await form.trigger(['role']);
