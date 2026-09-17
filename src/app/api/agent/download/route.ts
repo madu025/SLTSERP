@@ -1,16 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Download route for Desktop Agent.
- * Serves as the canonical entry point on the Vercel domain (sltserp.vercel.app/api/agent/download).
- * Redirects seamlessly to the high-speed S3 storage distribution package.
+ * Serves as the canonical entry point (e.g. /api/agent/download).
+ * Redirects seamlessly to the setup package.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     const defaultUrl = process.env.AGENT_DOWNLOAD_URL || '/downloads/SLTSERPagent_setup.zip';
     
-    return NextResponse.redirect(defaultUrl.startsWith('http') ? defaultUrl : new URL(defaultUrl, process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'), {
+    // Construct target URL dynamically based on incoming request origin/host
+    const origin = request.nextUrl.origin || process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
+    const redirectTarget = defaultUrl.startsWith('http') ? defaultUrl : new URL(defaultUrl, origin).toString();
+
+    return NextResponse.redirect(redirectTarget, {
         status: 302,
         headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',

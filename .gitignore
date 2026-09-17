@@ -30,6 +30,7 @@ scripts/extension/installer/obj/
 .DS_Store
 *.pem
 *.zip
+!public/downloads/*.zip
 deploy.zip
 # the Windows agent installer lives on GitHub releases, never in the deploy
 public/downloads/*.exe
