@@ -159,7 +159,8 @@ export function classifySodDayActivity(order: SodDayActivitySource, window: SodD
   // portal closure instant into receivedDate, which made month-old jobs surface as
   // "Received Today"; such rows are today's records, not today's intake.
   const receiptIsGenuine = !order.completedDate || receivedAnchor.getTime() < order.completedDate.getTime();
-  const receivedToday = receiptIsGenuine && inWindow(receivedAnchor, window);
+  const createdInWindow = !order.completedDate && inWindow(order.createdAt, window);
+  const receivedToday = receiptIsGenuine && (inWindow(receivedAnchor, window) || createdInWindow);
 
   const pendingNow =
     !(SOD_EXCLUDED_FROM_PENDING as readonly string[]).includes(order.sltsStatus || '') &&

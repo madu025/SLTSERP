@@ -1625,11 +1625,11 @@ export class SODSyncService {
                         contractorId: contractorId || null,
                         rtom: item.RTOM || rtom,
                         soNum: item.SO_NUM,
-                        // Always use the raise date embedded in the SO_NUM as the true receivedDate anchor.
-                        // The portal CON_STATUS_DATE is the "last status touch" — not when the RTOM got the job.
-                        // backfillReceiptDate() extracts YYYYMMDD from soNum and clamps it to completionDate for
-                        // finished rows (so completed-before-raised is impossible).
-                        receivedDate: backfillReceiptDate(item.SO_NUM, isFinished ? statusDate : null) ?? statusDate ?? new Date(),
+                        // For newly discovered live open SODs (not finished), the intake date is the discovery/intake moment (new Date()).
+                        // For finished rows (historical sync), backfillReceiptDate clamps to completion date.
+                        receivedDate: isFinished
+                            ? (backfillReceiptDate(item.SO_NUM, statusDate) ?? statusDate ?? new Date())
+                            : new Date(),
                         // Born-RETURN: return date = the ERP capture moment (when the import
                         // learned the return). Portal CON_STATUS_DATE is the received-date
                         // mirror, NOT the return date.
@@ -2381,7 +2381,7 @@ export class SODSyncService {
         };
 
         const rcvDate = SodUtils.safeParseDate(masterData['RECEIVED DATE'] || SodUtils.deepParse(masterData)['RECEIVED DATE']);
-        if (rcvDate) dataToUpdate.receivedDate = rcvDate;
+        if (rcvDate && !serviceOrder?.receivedDate) dataToUpdate.receivedDate = rcvDate;
 
         const stDate = SodUtils.safeParseDate(masterData['STATUS DATE'] || SodUtils.deepParse(masterData)['STATUS DATE']);
         if (stDate) dataToUpdate.statusDate = stDate;
