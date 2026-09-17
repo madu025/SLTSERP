@@ -142,14 +142,25 @@ export class StaffService {
   static async findPublicStaffByEmployeeId(employeeNo: string) {
     const cleanEmpNo = employeeNo.trim();
     const unpaddedEmpNo = cleanEmpNo.replace(/^0+/, '');
-    const searchEmpNos = Array.from(new Set([cleanEmpNo, unpaddedEmpNo].filter(Boolean)));
+    const digitsOnly = cleanEmpNo.replace(/\D/g, '');
 
-    const [staff, recentAudits, directAssets] = await Promise.all([
+    const searchEmpNos = Array.from(new Set([
+      cleanEmpNo,
+      unpaddedEmpNo,
+      digitsOnly,
+      digitsOnly ? digitsOnly.padStart(4, '0') : '',
+      digitsOnly ? digitsOnly.padStart(5, '0') : '',
+      digitsOnly ? `EPF${digitsOnly}` : '',
+      digitsOnly ? `EPF${digitsOnly.padStart(4, '0')}` : '',
+      digitsOnly ? `E${digitsOnly}` : ''
+    ].filter(Boolean)));
+
+    const [staff, user] = await Promise.all([
       prisma.staff.findFirst({
         where: {
           employeeId: {
             in: searchEmpNos,
-            mode: 'insensitive'
+            mode: 'insensitive' as const
           }
         },
         select: {
@@ -157,11 +168,30 @@ export class StaffService {
           name: true
         }
       }),
+      prisma.user.findFirst({
+        where: {
+          OR: [
+            { employeeId: { in: searchEmpNos, mode: 'insensitive' as const } },
+            { username: { in: searchEmpNos, mode: 'insensitive' as const } }
+          ]
+        },
+        select: {
+          id: true,
+          name: true,
+          staffId: true
+        }
+      })
+    ]);
+
+    const targetStaffId = staff?.id || user?.staffId || null;
+    const targetUserId = user?.id || null;
+
+    const [recentAudits, directAssets] = await Promise.all([
       prisma.iTAssetAudit.findMany({
         where: {
           employeeNo: {
             in: searchEmpNos,
-            mode: 'insensitive'
+            mode: 'insensitive' as const
           },
           isRejected: false
         },
@@ -171,7 +201,10 @@ export class StaffService {
       prisma.iTAsset.findMany({
         where: {
           OR: [
-            { lastSeenEmployeeNumber: { in: searchEmpNos, mode: 'insensitive' } }
+            { lastSeenEmployeeNumber: { in: searchEmpNos, mode: 'insensitive' as const } },
+            { employeeUsername: { in: searchEmpNos, mode: 'insensitive' as const } },
+            ...(targetStaffId ? [{ assignedStaffId: targetStaffId }] : []),
+            ...(targetUserId ? [{ assignedUserId: targetUserId }] : [])
           ]
         },
         select: {
@@ -184,27 +217,28 @@ export class StaffService {
           status: true,
           lastAuditedAt: true,
           nextAuditDueAt: true,
-          assignedStaffId: true
+          assignedStaffId: true,
+          assignedUserId: true
         }
       })
     ]);
 
-    if (!staff && recentAudits.length === 0 && directAssets.length === 0) {
+    if (!staff && !user && recentAudits.length === 0 && directAssets.length === 0) {
       return { found: false };
     }
 
-    const staffName = staff?.name || recentAudits[0]?.custodianName || "Staff Member";
-    const staffId = staff?.id || "UNLINKED";
+    const staffName = staff?.name || user?.name || recentAudits[0]?.custodianName || "Staff Member";
+    const staffId = targetStaffId || "UNLINKED";
 
     // Auto-heal unlinked ITAssets if staff is found
-    if (staff) {
+    if (targetStaffId) {
       const unlinked = directAssets.filter(a => !a.assignedStaffId);
       if (unlinked.length > 0) {
         Promise.all(
           unlinked.map(a =>
             prisma.iTAsset.update({
               where: { id: a.id },
-              data: { assignedStaffId: staff.id }
+              data: { assignedStaffId: targetStaffId }
             }).catch(err => console.error("Auto-heal asset link failed:", err))
           )
         ).catch(() => {});

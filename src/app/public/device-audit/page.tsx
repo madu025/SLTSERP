@@ -142,8 +142,8 @@ interface DBAsset {
           if (dbLaptop) {
             setLaptopMode("COMPANY");
             setLaptopSerial(dbLaptop.serialNumber);
-            setLaptopBrand(dbLaptop.brand || "");
-            setLaptopModel(dbLaptop.model || "");
+            setLaptopBrand(dbLaptop.brand && dbLaptop.brand.trim() ? dbLaptop.brand : "Company Issued");
+            setLaptopModel(dbLaptop.model && dbLaptop.model.trim() ? dbLaptop.model : "Laptop");
             setLaptopFound(true);
             setLaptopIsConfirmed(true);
             setLaptopUseDifferent(false);
@@ -162,8 +162,8 @@ interface DBAsset {
           if (dbMobile) {
             setMobileMode("COMPANY");
             setMobileSerial(dbMobile.serialNumber);
-            setMobileBrand(dbMobile.brand || "");
-            setMobileModel(dbMobile.model || "");
+            setMobileBrand(dbMobile.brand && dbMobile.brand.trim() ? dbMobile.brand : "Company Issued");
+            setMobileModel(dbMobile.model && dbMobile.model.trim() ? dbMobile.model : "Mobile Phone");
             setMobileFound(true);
             setMobileIsConfirmed(true);
             setMobileUseDifferent(false);
@@ -575,8 +575,8 @@ interface DBAsset {
                     placeholder="e.g. 604, 618"
                     value={employeeNo}
                     onChange={(e) => {
-                      const val = e.target.value;
-                      if (/^\d*$/.test(val) && val.length <= 4) {
+                      const val = e.target.value.trimStart();
+                      if (val.length <= 15) {
                         setEmployeeNo(val);
                       }
                     }}
