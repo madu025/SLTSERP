@@ -1,6 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { Role } from '@prisma/client';
+import { Role, ITDeviceType } from '@prisma/client';
 
 export interface CreateStaffInput {
   name: string;
@@ -250,7 +250,7 @@ export class StaffService {
       id: string;
       serialNumber: string;
       assetNumber?: string | null;
-      deviceType: "LAPTOP" | "MOBILE" | "DESKTOP" | "PRINTER" | "NETWORK" | "OTHER";
+      deviceType: ITDeviceType;
       brand?: string | null;
       model?: string | null;
       status: string;
@@ -263,33 +263,41 @@ export class StaffService {
 
     // 1. Populate from direct IT Assets (including agent-synced assets)
     for (const asset of directAssets) {
+      const assetObj = asset as { lastAuditedAt?: Date | null; nextAuditDueAt?: Date | null };
+      const lastAudited = assetObj.lastAuditedAt;
+      const nextDue = assetObj.nextAuditDueAt;
+
       assetsMap.set(asset.deviceType, {
         id: asset.id,
         serialNumber: asset.serialNumber,
         assetNumber: asset.assetNumber,
-        deviceType: asset.deviceType as any,
+        deviceType: asset.deviceType as ITDeviceType,
         brand: asset.brand,
         model: asset.model,
         status: asset.status,
-        lastAuditedAt: asset.lastAuditedAt ? asset.lastAuditedAt.toISOString() : null,
-        nextAuditDueAt: asset.nextAuditDueAt ? asset.nextAuditDueAt.toISOString() : null,
-        isConfirmed: !!asset.lastAuditedAt
+        lastAuditedAt: lastAudited ? lastAudited.toISOString() : null,
+        nextAuditDueAt: nextDue ? nextDue.toISOString() : null,
+        isConfirmed: !!lastAudited
       });
     }
 
     // 2. Fallback to previous audits if master inventory asset is missing for that deviceType
     for (const audit of recentAudits) {
+      const auditObj = audit as { lastAuditedAt?: Date | null; nextAuditDueAt?: Date | null };
+      const lastAudited = auditObj.lastAuditedAt;
+      const nextDue = auditObj.nextAuditDueAt;
+
       if (!audit.isPersonal && audit.serialNumber && !assetsMap.has(audit.deviceType)) {
         assetsMap.set(audit.deviceType, {
           id: audit.id,
           serialNumber: audit.serialNumber,
           assetNumber: audit.assetNumber,
-          deviceType: audit.deviceType as any,
+          deviceType: audit.deviceType as ITDeviceType,
           brand: audit.brand,
           model: audit.model,
           status: audit.status || "ACTIVE",
-          lastAuditedAt: audit.lastAuditedAt ? audit.lastAuditedAt.toISOString() : audit.createdAt.toISOString(),
-          nextAuditDueAt: audit.nextAuditDueAt ? audit.nextAuditDueAt.toISOString() : null,
+          lastAuditedAt: lastAudited ? lastAudited.toISOString() : audit.createdAt.toISOString(),
+          nextAuditDueAt: nextDue ? nextDue.toISOString() : null,
           isConfirmed: audit.isConfirmed
         });
       }
