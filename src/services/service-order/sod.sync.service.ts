@@ -1670,7 +1670,7 @@ export class SODSyncService {
                 }
 
                 // When portal restores a RETURNED SOD to active status, clear return-specific fields
-                if (isRestoring && initialSltsStatus === 'INPROGRESS') {
+                if (isRestoring && ['INPROGRESS', 'ASSIGNED', 'PENDING', 'PROV_CLOSED'].includes(initialSltsStatus)) {
                     const prevReturnReason = existing.returnReason || 'Previous Return';
                     updatePayload.returnReason = null;
                     updatePayload.completedDate = null; // Return date no longer applies once reactivated
@@ -2222,18 +2222,43 @@ export class SODSyncService {
 
         const portalStatus = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString().toUpperCase();
 
-        const hasHiddenReturnFields =
-            (masterData['RETREASON_HIDDEN'] && masterData['RETREASON_HIDDEN'].trim().length > 0) ||
-            (masterData['RETCMT_HIDDEN'] && masterData['RETCMT_HIDDEN'].trim().length > 0);
+        // Resolve normalized currentStatus early to avoid leftover portal form fields overriding active SODs
+        const KNOWN_PORTAL_STATUSES = new Set([
+            'COMPLETED', 'INSTALL_CLOSED', 'INSTALLCLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'PATOPMC',
+            'RETURN', 'RETURN_PENDING', 'RETURNPENDING', 'ASSIGN', 'ASSIGNED', 'INPROGRESS',
+            'PROV_CLOSED', 'PROVCLOSED', 'CANCELLED', 'REJECTED', 'PENDING'
+        ]);
+        let rawStatusStr = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString().toUpperCase().trim();
+        if (!KNOWN_PORTAL_STATUSES.has(rawStatusStr)) {
+            const urlStatusMatch = (payload.url || '').match(/sod=[A-Z0-9]+_([A-Z_]+)_\d+/i);
+            const urlStatus = urlStatusMatch?.[1]?.toUpperCase();
+            if (urlStatus && KNOWN_PORTAL_STATUSES.has(urlStatus)) {
+                rawStatusStr = urlStatus;
+            }
+        }
 
-        const isServiceReturn =
+        // Canonical normalization: resolve underscore-less tokens from SLT Portal
+        const compactStatus = rawStatusStr.replace(/[\s_-]/g, '');
+        let currentStatus = rawStatusStr;
+        if (compactStatus === 'INSTALLCLOSED') {
+            currentStatus = 'INSTALL_CLOSED';
+        } else if (compactStatus === 'PROVCLOSED') {
+            currentStatus = 'PROV_CLOSED';
+        } else if (compactStatus === 'RETURNPENDING') {
+            currentStatus = 'RETURN_PENDING';
+        } else if (compactStatus === 'PATOPMC' || compactStatus === 'PATPASSED') {
+            currentStatus = 'PAT_OPMC_PASSED';
+        }
+
+        const isActiveOrClosed = ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED', 'INPROGRESS', 'ASSIGNED', 'ASSIGN', 'PENDING', 'PAT_OPMC_PASSED'].includes(currentStatus);
+
+        const isServiceReturn = !isActiveOrClosed && (
             masterData['SERVICE RETURN'] === 'on' ||
             masterData['IS_RETURN'] === 'on' ||
-            masterData['CHKSODRTN_HIDDEN'] === 'on' ||
-            masterData['CHKSODRTN'] === 'on' ||
-            hasHiddenReturnFields ||
             portalStatus.includes('RETURN') ||
-            portalStatus.includes('REJECT');
+            portalStatus.includes('REJECT') ||
+            (SOD_RETURN_STATUSES as readonly string[]).includes(currentStatus)
+        );
 
         if (isServiceReturn) {
             const rawReasonCandidate = [
@@ -2361,37 +2386,6 @@ export class SODSyncService {
         const stDate = SodUtils.safeParseDate(masterData['STATUS DATE'] || SodUtils.deepParse(masterData)['STATUS DATE']);
         if (stDate) dataToUpdate.statusDate = stDate;
 
-        // Scraper label-leak guard: on sod_details pages the scraped STATUS
-        // often captures a neighbouring table row or a UI label. Only accept
-        // known portal status tokens; otherwise fall back to the status token
-        // embedded in the portal URL (sod=<SO>_<STATUS>_<ledgerId>_FTTH).
-        const KNOWN_PORTAL_STATUSES = new Set([
-            'COMPLETED', 'INSTALL_CLOSED', 'INSTALLCLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC', 'PATOPMC',
-            'RETURN', 'RETURN_PENDING', 'RETURNPENDING', 'ASSIGN', 'ASSIGNED', 'INPROGRESS',
-            'PROV_CLOSED', 'PROVCLOSED', 'CANCELLED', 'REJECTED', 'PENDING'
-        ]);
-        let rawStatusStr = (masterData['CON_STATUS'] || masterData['STATUS'] || deepData['STATUS'] || '').toString().toUpperCase().trim();
-        if (!KNOWN_PORTAL_STATUSES.has(rawStatusStr)) {
-            const urlStatusMatch = (payload.url || '').match(/sod=[A-Z0-9]+_([A-Z_]+)_\d+/i);
-            const urlStatus = urlStatusMatch?.[1]?.toUpperCase();
-            if (urlStatus && KNOWN_PORTAL_STATUSES.has(urlStatus)) {
-                rawStatusStr = urlStatus;
-            }
-        }
-
-        // Canonical normalization: resolve underscore-less tokens from SLT Portal
-        const compactStatus = rawStatusStr.replace(/[\s_-]/g, '');
-        let currentStatus = rawStatusStr;
-        if (compactStatus === 'INSTALLCLOSED') {
-            currentStatus = 'INSTALL_CLOSED';
-        } else if (compactStatus === 'PROVCLOSED') {
-            currentStatus = 'PROV_CLOSED';
-        } else if (compactStatus === 'RETURNPENDING') {
-            currentStatus = 'RETURN_PENDING';
-        } else if (compactStatus === 'PATOPMC' || compactStatus === 'PATPASSED') {
-            currentStatus = 'PAT_OPMC_PASSED';
-        }
-
         const isCompletedStatus =
             [SodStatus.COMPLETED, 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_PASSED', 'PAT_PASSED_OPMC'].includes(currentStatus);
 
@@ -2486,11 +2480,34 @@ export class SODSyncService {
             dataToUpdate.revenueAmount = null;
             dataToUpdate.contractorAmount = null;
         } else if (currentStatus === 'ASSIGN' || currentStatus === 'ASSIGNED') {
-            // Mirror the portal assignment flag verbatim - pending tables display it as ASSIGNED
             dataToUpdate.sltsStatus = SodStatus.ASSIGNED;
+            dataToUpdate.status = 'ASSIGNED';
+        } else if (currentStatus === 'INPROGRESS') {
+            dataToUpdate.sltsStatus = SodStatus.INPROGRESS;
+            dataToUpdate.status = 'INPROGRESS';
+        } else if (currentStatus === 'PENDING') {
+            dataToUpdate.sltsStatus = SodStatus.PENDING;
+            dataToUpdate.status = 'PENDING';
         } else if (currentStatus === 'PROV_CLOSED') {
             dataToUpdate.sltsStatus = SodStatus.PROV_CLOSED;
             dataToUpdate.status = SodStatus.PROV_CLOSED;
+        }
+
+        // When portal restores a RETURNED SOD to active status, clear return-specific fields
+        const isActiveStatus = ['INPROGRESS', 'ASSIGNED', 'ASSIGN', 'PENDING', 'PROV_CLOSED'].includes(currentStatus);
+        const isRestoring = (serviceOrder?.sltsStatus === 'RETURN' && isActiveStatus);
+        if (isRestoring) {
+            dataToUpdate.returnReason = null;
+            dataToUpdate.completedDate = null; // Return date no longer applies once reactivated
+            dataToUpdate.receivedDate = stDate || rcvDate || new Date();
+            const prevReturnReason = serviceOrder.returnReason || 'Previous Return';
+            const restoreDate = (stDate || new Date()).toLocaleDateString();
+            const existingComments = serviceOrder.comments || '';
+            if (!existingComments.includes('[SYNC-RESTORED]') || !existingComments.includes(restoreDate)) {
+                const restoreComment = `[SYNC-RESTORED] Prev Return: ${prevReturnReason} | Reactivated: ${restoreDate}`;
+                dataToUpdate.comments = existingComments ? `${existingComments}\n${restoreComment}` : restoreComment;
+            }
+            console.log(`[bridgeSync] Restoring RETURNED SOD ${soNum} to ${currentStatus} (prev: ${prevReturnReason}, reactivated: ${restoreDate})`);
         }
 
         // Team linkage reuses the team resolved during OPMC resolution above

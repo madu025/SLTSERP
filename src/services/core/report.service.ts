@@ -1355,7 +1355,7 @@ export class ReportService {
         isMatch = Boolean(activity.completedToday);
       } else if (categoryUpper === 'REC' || categoryUpper === 'RECEIVED') {
         isMatch = Boolean(activity.receivedToday);
-      } else if (categoryUpper === 'RET' || categoryUpper === 'RETURNED') {
+      } else if (categoryUpper === 'RET' || categoryUpper === 'RETURNED' || categoryUpper === 'RETURN') {
         isMatch = Boolean(activity.returnedToday);
       } else if (categoryUpper === 'WIP' || categoryUpper === 'IN_HAND' || categoryUpper === 'BALANCE') {
         isMatch = Boolean(activity.pendingNow);
