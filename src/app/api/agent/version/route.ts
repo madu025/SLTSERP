@@ -32,11 +32,11 @@ export const GET = apiHandler(async (req, _params) => {
         } else {
             console.warn(`[AUTO-UPDATER] Executable file not found at ${exePath}. Using compiled release hash.`);
             // Compiled release v1.0.2 SHA-256 hash
-            sha256 = 'c694ad0a204dff0d8d4efb96f4a78f742407956c669e8c45bf78fdc7f27af6c6';
+            sha256 = '83523bc153104ae715d072f9a41b27c6efe24a3049bb4b246a755efc2864fba7';
         }
     } catch (err: unknown) {
         console.error('[AUTO-UPDATER] Failed to read agent executable hash:', err);
-        sha256 = 'c694ad0a204dff0d8d4efb96f4a78f742407956c669e8c45bf78fdc7f27af6c6';
+        sha256 = '83523bc153104ae715d072f9a41b27c6efe24a3049bb4b246a755efc2864fba7';
     }
 
     return {
