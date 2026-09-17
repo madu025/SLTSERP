@@ -60,6 +60,9 @@ export class HelpdeskAuditService {
       }
     }
 
+    const now = new Date();
+    const nextDue = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 1 Month (30 Days) interval
+
     // Save submission
     const auditRecord = await prisma.iTAssetAudit.create({
       data: {
@@ -78,9 +81,28 @@ export class HelpdeskAuditService {
         isConfirmed: data.isConfirmed ?? false,
         isPersonal: isPers,
         isMatched,
-        isRejected: false
+        isRejected: false,
+        lastAuditedAt: now,
+        nextAuditDueAt: nextDue
       }
     });
+
+    // Also update ITAsset in master inventory if it exists
+    if (!isPers) {
+      await prisma.iTAsset.updateMany({
+        where: {
+          serialNumber: {
+            equals: serial,
+            mode: 'insensitive'
+          }
+        },
+        data: {
+          lastAuditedAt: now,
+          nextAuditDueAt: nextDue,
+          lastSeenEmployeeNumber: empNo
+        }
+      }).catch(err => console.error("Failed to update ITAsset audit timestamps:", err));
+    }
 
     return auditRecord;
   }

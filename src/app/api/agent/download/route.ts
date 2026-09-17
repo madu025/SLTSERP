@@ -8,9 +8,9 @@ export const dynamic = 'force-dynamic';
  * Redirects seamlessly to the high-speed S3 storage distribution package.
  */
 export async function GET() {
-    const s3DownloadUrl = process.env.AGENT_DOWNLOAD_URL || 'https://sltserp-sync.duckdns.org/files/sltserp-agent/SLTSERPagent_setup.zip';
+    const defaultUrl = process.env.AGENT_DOWNLOAD_URL || '/downloads/SLTSERPagent_setup.zip';
     
-    return NextResponse.redirect(s3DownloadUrl, {
+    return NextResponse.redirect(defaultUrl.startsWith('http') ? defaultUrl : new URL(defaultUrl, process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app'), {
         status: 302,
         headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',

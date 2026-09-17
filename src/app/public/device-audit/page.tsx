@@ -51,6 +51,9 @@ interface DBAsset {
   brand?: string | null;
   model?: string | null;
   status: string;
+  lastAuditedAt?: string | null;
+  nextAuditDueAt?: string | null;
+  isConfirmed?: boolean;
 }
 
   // Assigned Assets returned from DB (to show for confirmation)
@@ -768,6 +771,20 @@ interface DBAsset {
                             Specs: <span className="font-semibold text-slate-900 dark:text-slate-100">{laptopBrand} {laptopModel}</span>
                           </p>
                           <p className="text-sm text-slate-500 font-mono mt-0.5">S/N: {laptopSerial}</p>
+                          {(() => {
+                            const dbLap = assignedAssets.find(a => a.deviceType === "LAPTOP");
+                            if (dbLap?.nextAuditDueAt) {
+                              const dueDate = new Date(dbLap.nextAuditDueAt);
+                              const formattedDate = dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                              return (
+                                <div className="mt-2 inline-flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-[11px] font-medium px-2.5 py-1 rounded-md border border-emerald-300 dark:border-emerald-700">
+                                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                  <span>Audit Confirmed (1-Month Interval) — Next Reminder: <strong>{formattedDate}</strong></span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                       <Button
@@ -1030,6 +1047,20 @@ interface DBAsset {
                             Specs: <span className="font-semibold text-slate-900 dark:text-slate-100">{mobileBrand} {mobileModel}</span>
                           </p>
                           <p className="text-sm text-slate-500 font-mono mt-0.5">S/N: {mobileSerial}</p>
+                          {(() => {
+                            const dbMob = assignedAssets.find(a => a.deviceType === "MOBILE");
+                            if (dbMob?.nextAuditDueAt) {
+                              const dueDate = new Date(dbMob.nextAuditDueAt);
+                              const formattedDate = dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                              return (
+                                <div className="mt-2 inline-flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-[11px] font-medium px-2.5 py-1 rounded-md border border-emerald-300 dark:border-emerald-700">
+                                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                  <span>Audit Confirmed (1-Month Interval) — Next Reminder: <strong>{formattedDate}</strong></span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                       <Button

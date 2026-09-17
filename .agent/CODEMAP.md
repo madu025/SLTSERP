@@ -4347,6 +4347,8 @@
   * `lastSeenEmployeeNumber: String?`
   * `lastSeenEmployeeUsername: String?`
   * `pendingAssignmentReview: Boolean` `[@default(false)]`
+  * `lastAuditedAt: DateTime?`
+  * `nextAuditDueAt: DateTime?`
   * `handoverLogs: AssetHandoverLog[]`
   * `assignedStaff: Staff?` `[@relation("AssignedITAssets", fields: [assignedStaffId], references: [id])]`
   * `assignedUser: User?` `[@relation("AssignedITAssetsToUser", fields: [assignedUserId], references: [id])]`
@@ -4559,6 +4561,8 @@
   * `location: String?`
   * `siteOfficeId: String?` `[@db.Uuid]`
   * `isPersonal: Boolean` `[@default(false)]`
+  * `lastAuditedAt: DateTime?`
+  * `nextAuditDueAt: DateTime?`
 
 ### [CMDBRelationship](prisma/schema/helpdesk.prisma)
 * **Fields**:

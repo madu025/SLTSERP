@@ -31,6 +31,8 @@ model ITAsset {
   lastSeenEmployeeNumber   String?
   lastSeenEmployeeUsername String?
   pendingAssignmentReview  Boolean                     @default(false)
+  lastAuditedAt            DateTime?
+  nextAuditDueAt           DateTime?
   handoverLogs             AssetHandoverLog[]
   assignedStaff            Staff?                      @relation("AssignedITAssets", fields: [assignedStaffId], references: [id])
   assignedUser             User?                       @relation("AssignedITAssetsToUser", fields: [assignedUserId], references: [id])
@@ -293,6 +295,8 @@ model ITAssetAudit {
   location      String?
   siteOfficeId  String?       @db.Uuid
   isPersonal    Boolean       @default(false)
+  lastAuditedAt DateTime?
+  nextAuditDueAt DateTime?
 
   @@index([employeeNo])
   @@index([serialNumber])

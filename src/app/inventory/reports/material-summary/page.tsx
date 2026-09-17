@@ -71,7 +71,7 @@ export default function MaterialSummaryReportPage() {
 
     // Build query string
     const qp = useMemo(() => {
-        const p = new URLSearchParams({ _t: String(Date.now()) });
+        const p = new URLSearchParams();
         if (year)     p.set('year', year);
         if (month)    p.set('month', month);
         if (rtom)     p.set('rtom', rtom);
@@ -82,7 +82,10 @@ export default function MaterialSummaryReportPage() {
     const { data: report, isLoading, refetch } = useQuery<MaterialSummaryReport>({
         queryKey: ['material-summary', year, month, rtom, itemCode],
         queryFn: async () => {
-            const res = await fetch(`/api/inventory/reports/material-summary?${qp}`, { cache: 'no-store' });
+            const endpoint = qp
+                ? `/api/inventory/reports/material-summary?${qp}&_t=${Date.now()}`
+                : `/api/inventory/reports/material-summary?_t=${Date.now()}`;
+            const res = await fetch(endpoint, { cache: 'no-store' });
             const json = await res.json() as { success: boolean; data: MaterialSummaryReport };
             return json.data;
         },

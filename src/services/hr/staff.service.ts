@@ -144,7 +144,7 @@ export class StaffService {
     const unpaddedEmpNo = cleanEmpNo.replace(/^0+/, '');
     const searchEmpNos = Array.from(new Set([cleanEmpNo, unpaddedEmpNo].filter(Boolean)));
 
-    const [staff, recentAudits] = await Promise.all([
+    const [staff, recentAudits, directAssets] = await Promise.all([
       prisma.staff.findFirst({
         where: {
           employeeId: {
@@ -154,18 +154,7 @@ export class StaffService {
         },
         select: {
           id: true,
-          name: true,
-          assignedITAssets: {
-            select: {
-              id: true,
-              serialNumber: true,
-              assetNumber: true,
-              deviceType: true,
-              brand: true,
-              model: true,
-              status: true
-            }
-          }
+          name: true
         }
       }),
       prisma.iTAssetAudit.findMany({
@@ -178,18 +167,52 @@ export class StaffService {
         },
         orderBy: { createdAt: 'desc' },
         take: 10
+      }),
+      prisma.iTAsset.findMany({
+        where: {
+          OR: [
+            { lastSeenEmployeeNumber: { in: searchEmpNos, mode: 'insensitive' } }
+          ]
+        },
+        select: {
+          id: true,
+          serialNumber: true,
+          assetNumber: true,
+          deviceType: true,
+          brand: true,
+          model: true,
+          status: true,
+          lastAuditedAt: true,
+          nextAuditDueAt: true,
+          assignedStaffId: true
+        }
       })
     ]);
 
-    if (!staff && recentAudits.length === 0) {
+    if (!staff && recentAudits.length === 0 && directAssets.length === 0) {
       return { found: false };
     }
 
     const staffName = staff?.name || recentAudits[0]?.custodianName || "Staff Member";
     const staffId = staff?.id || "UNLINKED";
 
-    // Merge assigned assets from master inventory with assets from previous audits
-    const assetsMap = new Map<string, {
+    // Auto-heal unlinked ITAssets if staff is found
+    if (staff) {
+      const unlinked = directAssets.filter(a => !a.assignedStaffId);
+      if (unlinked.length > 0) {
+        Promise.all(
+          unlinked.map(a =>
+            prisma.iTAsset.update({
+              where: { id: a.id },
+              data: { assignedStaffId: staff.id }
+            }).catch(err => console.error("Auto-heal asset link failed:", err))
+          )
+        ).catch(() => {});
+      }
+    }
+
+    // Merge assigned assets from master inventory with assets from agent sync & previous audits
+    interface FormattedAsset {
       id: string;
       serialNumber: string;
       assetNumber?: string | null;
@@ -197,21 +220,27 @@ export class StaffService {
       brand?: string | null;
       model?: string | null;
       status: string;
-    }>();
+      lastAuditedAt?: string | null;
+      nextAuditDueAt?: string | null;
+      isConfirmed?: boolean;
+    }
 
-    // 1. Populate from active IT Assets
-    if (staff?.assignedITAssets) {
-      for (const asset of staff.assignedITAssets) {
-        assetsMap.set(asset.deviceType, {
-          id: asset.id,
-          serialNumber: asset.serialNumber,
-          assetNumber: asset.assetNumber,
-          deviceType: asset.deviceType as any,
-          brand: asset.brand,
-          model: asset.model,
-          status: asset.status
-        });
-      }
+    const assetsMap = new Map<string, FormattedAsset>();
+
+    // 1. Populate from direct IT Assets (including agent-synced assets)
+    for (const asset of directAssets) {
+      assetsMap.set(asset.deviceType, {
+        id: asset.id,
+        serialNumber: asset.serialNumber,
+        assetNumber: asset.assetNumber,
+        deviceType: asset.deviceType as any,
+        brand: asset.brand,
+        model: asset.model,
+        status: asset.status,
+        lastAuditedAt: asset.lastAuditedAt ? asset.lastAuditedAt.toISOString() : null,
+        nextAuditDueAt: asset.nextAuditDueAt ? asset.nextAuditDueAt.toISOString() : null,
+        isConfirmed: !!asset.lastAuditedAt
+      });
     }
 
     // 2. Fallback to previous audits if master inventory asset is missing for that deviceType
@@ -224,7 +253,10 @@ export class StaffService {
           deviceType: audit.deviceType as any,
           brand: audit.brand,
           model: audit.model,
-          status: audit.status || "ACTIVE"
+          status: audit.status || "ACTIVE",
+          lastAuditedAt: audit.lastAuditedAt ? audit.lastAuditedAt.toISOString() : audit.createdAt.toISOString(),
+          nextAuditDueAt: audit.nextAuditDueAt ? audit.nextAuditDueAt.toISOString() : null,
+          isConfirmed: audit.isConfirmed
         });
       }
     }

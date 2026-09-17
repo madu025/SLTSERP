@@ -52,7 +52,7 @@ export class AgentSyncService {
     }
 
     /**
-     * Periodically called by the desktop agent to upsert asset status and check assignment resignation status.
+     * Periodically called by the desktop agent to upsert asset status and auto-register if missing.
      */
     static async syncAsset(data: SyncAssetPayload, clientIp: string) {
         const {
@@ -67,34 +67,110 @@ export class AgentSyncService {
             model
         } = data;
 
-        // 1. Look up the ITAsset by serialNumber
-        const asset = await prisma.iTAsset.findUnique({
-            where: { serialNumber },
+        const cleanSerial = serialNumber.trim();
+        const cleanEmpNo = (employeeNumber || '').trim();
+        const unpaddedEmpNo = cleanEmpNo.replace(/^0+/, '');
+        const searchEmpNos = Array.from(new Set([cleanEmpNo, unpaddedEmpNo].filter(Boolean)));
+
+        // Look up staff & user for auto-assignment linking
+        const [foundStaff, foundUser] = await Promise.all([
+            searchEmpNos.length > 0
+                ? prisma.staff.findFirst({
+                    where: { employeeId: { in: searchEmpNos, mode: 'insensitive' as const } },
+                    select: { id: true, name: true, employeeId: true }
+                })
+                : null,
+            searchEmpNos.length > 0 || employeeUsername
+                ? prisma.user.findFirst({
+                    where: {
+                        OR: [
+                            ...(searchEmpNos.length > 0 ? [{ employeeId: { in: searchEmpNos, mode: 'insensitive' as const } }] : []),
+                            ...(employeeUsername ? [{ username: { equals: employeeUsername.trim(), mode: 'insensitive' as const } }] : [])
+                        ]
+                    },
+                    select: { id: true, name: true, employeeId: true, status: true }
+                })
+                : null
+        ]);
+
+        const invalidModels = ["unknown", "pc", "system product name", "system product", "to be filled by o.e.m.", "default string"];
+
+        // 1. Look up the ITAsset by serialNumber (exact or case-insensitive fallback)
+        let asset = await prisma.iTAsset.findFirst({
+            where: {
+                serialNumber: {
+                    equals: cleanSerial,
+                    mode: 'insensitive' as const
+                }
+            },
             select: {
                 id: true,
                 serialNumber: true,
+                assignedStaffId: true,
                 assignedUserId: true,
                 brand: true,
                 model: true
             }
         });
 
+        const newBrandValid = brand && brand.trim() !== "" && brand.toLowerCase() !== "unknown";
+        const newModelValid = model && model.trim() !== "" && !invalidModels.includes(model.toLowerCase().trim());
+
+        // 2. Auto-Register if asset does not exist in DB yet
         if (!asset) {
-            return null; // Signals a 404 (Asset not registered)
+            const created = await prisma.iTAsset.create({
+                data: {
+                    assetNumber: `SLT-AGENT-IT-${Math.floor(100000 + Math.random() * 900000)}`,
+                    serialNumber: cleanSerial,
+                    deviceType: 'LAPTOP',
+                    brand: newBrandValid ? brand.trim() : 'Unknown',
+                    model: newModelValid ? model.trim() : 'Unknown',
+                    computerName,
+                    osVersion,
+                    ipAddress,
+                    macAddress,
+                    employeeUsername,
+                    lastSeenEmployeeUsername: employeeUsername,
+                    lastSeenEmployeeNumber: employeeNumber,
+                    assignedStaffId: foundStaff?.id || null,
+                    assignedUserId: foundUser?.id || null,
+                    pendingAssignmentReview: !foundStaff,
+                    lastSyncedAt: new Date()
+                }
+            });
+
+            await prisma.assetSyncLog.create({
+                data: {
+                    assetId: created.id,
+                    reportedEmployeeNumber: employeeNumber,
+                    reportedEmployeeUsername: employeeUsername,
+                    ipAddress: clientIp,
+                    syncedAt: new Date()
+                }
+            });
+
+            return {
+                success: true,
+                message: 'Asset automatically registered and synced',
+                assetId: generateAssetId(cleanSerial),
+                employeeStatus: foundUser?.status || 'active',
+                assignedEmployeeName: foundStaff?.name || foundUser?.name || null,
+                assignedEmployeeNumber: foundStaff?.employeeId || foundUser?.employeeId || employeeNumber
+            };
         }
 
         // Keep existing brand/model if already set to a valid non-default value in database.
-        // This prevents the agent from overwriting nice manually-entered data with raw WMI codes or "Unknown".
         const currentBrandValid = asset.brand && asset.brand.trim() !== "" && asset.brand.toLowerCase() !== "unknown";
-        const newBrandValid = brand && brand.trim() !== "" && brand.toLowerCase() !== "unknown";
         const finalBrand = currentBrandValid ? asset.brand : (newBrandValid ? brand : undefined);
 
-        const invalidModels = ["unknown", "pc", "system product name", "system product", "to be filled by o.e.m."];
         const currentModelValid = asset.model && asset.model.trim() !== "" && !invalidModels.includes(asset.model.toLowerCase().trim());
-        const newModelValid = model && model.trim() !== "" && !invalidModels.includes(model.toLowerCase().trim());
         const finalModel = currentModelValid ? asset.model : (newModelValid ? model : undefined);
 
-        // 2. Update asset details
+        // Auto-heal assigned staff / user if not linked yet
+        const updatedStaffId = asset.assignedStaffId || (foundStaff?.id || null);
+        const updatedUserId = asset.assignedUserId || (foundUser?.id || null);
+
+        // 3. Update existing asset details
         await prisma.iTAsset.update({
             where: { id: asset.id },
             data: {
@@ -105,13 +181,15 @@ export class AgentSyncService {
                 employeeUsername,
                 brand: finalBrand,
                 model: finalModel,
+                assignedStaffId: updatedStaffId,
+                assignedUserId: updatedUserId,
                 lastSeenEmployeeUsername: employeeUsername,
                 lastSeenEmployeeNumber: employeeNumber,
                 lastSyncedAt: new Date()
             }
         });
 
-        // 3. Log the sync event to Audit log (asset_sync_log)
+        // 4. Log sync event
         await prisma.assetSyncLog.create({
             data: {
                 assetId: asset.id,
@@ -122,21 +200,15 @@ export class AgentSyncService {
             }
         });
 
-        // 4. Look up assigned employee (User) if present
-        let employeeStatus = 'unknown';
-        let assignedEmployeeName: string | null = null;
-        let assignedEmployeeNumber: string | null = null;
+        let employeeStatus = foundUser?.status || 'active';
+        let assignedEmployeeName: string | null = foundStaff?.name || foundUser?.name || null;
+        let assignedEmployeeNumber: string | null = foundStaff?.employeeId || foundUser?.employeeId || employeeNumber;
 
-        if (asset.assignedUserId) {
+        if (updatedUserId && !assignedEmployeeName) {
             const employee = await prisma.user.findUnique({
-                where: { id: asset.assignedUserId },
-                select: {
-                    name: true,
-                    employeeId: true,
-                    status: true
-                }
+                where: { id: updatedUserId },
+                select: { name: true, employeeId: true, status: true }
             });
-
             if (employee) {
                 employeeStatus = employee.status || 'active';
                 assignedEmployeeName = employee.name;
@@ -147,7 +219,7 @@ export class AgentSyncService {
         return {
             success: true,
             message: 'Asset record updated',
-            assetId: generateAssetId(serialNumber),
+            assetId: generateAssetId(cleanSerial),
             employeeStatus,
             assignedEmployeeName,
             assignedEmployeeNumber
@@ -155,7 +227,7 @@ export class AgentSyncService {
     }
 
     /**
-     * Registers a new asset and flags it for IT/HR manual review (does not auto-assign).
+     * Registers a new asset and links matching staff/user.
      */
     static async registerAsset(data: RegisterAssetPayload) {
         const {
@@ -170,34 +242,60 @@ export class AgentSyncService {
             model
         } = data;
 
+        const cleanSerial = serialNumber.trim();
+        const cleanEmpNo = (employeeNumber || '').trim();
+        const unpaddedEmpNo = cleanEmpNo.replace(/^0+/, '');
+        const searchEmpNos = Array.from(new Set([cleanEmpNo, unpaddedEmpNo].filter(Boolean)));
+
+        const [foundStaff, foundUser] = await Promise.all([
+            searchEmpNos.length > 0
+                ? prisma.staff.findFirst({
+                    where: { employeeId: { in: searchEmpNos, mode: 'insensitive' as const } },
+                    select: { id: true }
+                })
+                : null,
+            searchEmpNos.length > 0 || employeeUsername
+                ? prisma.user.findFirst({
+                    where: {
+                        OR: [
+                            ...(searchEmpNos.length > 0 ? [{ employeeId: { in: searchEmpNos, mode: 'insensitive' as const } }] : []),
+                            ...(employeeUsername ? [{ username: { equals: employeeUsername.trim(), mode: 'insensitive' as const } }] : [])
+                        ]
+                    },
+                    select: { id: true }
+                })
+                : null
+        ]);
+
         // Check if ITAsset already exists
-        const existingAsset = await prisma.iTAsset.findUnique({
-            where: { serialNumber },
+        const existingAsset = await prisma.iTAsset.findFirst({
+            where: { serialNumber: { equals: cleanSerial, mode: 'insensitive' as const } },
             select: { id: true, serialNumber: true }
         });
 
         if (existingAsset) {
             return {
                 success: true,
-                assetId: generateAssetId(serialNumber)
+                assetId: generateAssetId(cleanSerial)
             };
         }
 
-        // Create the ITAsset, flagged for assignment review
+        // Create the ITAsset
         await prisma.iTAsset.create({
             data: {
                 assetNumber: `SLT-AGENT-IT-${Math.floor(100000 + Math.random() * 900000)}`,
-                serialNumber,
+                serialNumber: cleanSerial,
                 deviceType: 'LAPTOP',
                 brand: brand || 'Unknown',
                 model: model || 'Unknown',
                 computerName,
                 osVersion,
-                pendingAssignmentReview: true, // Requires explicit confirmation
+                pendingAssignmentReview: !foundStaff,
                 employeeUsername,
                 lastSeenEmployeeUsername: employeeUsername,
                 lastSeenEmployeeNumber: employeeNumber,
-                assignedUserId: null,
+                assignedStaffId: foundStaff?.id || null,
+                assignedUserId: foundUser?.id || null,
                 department,
                 location
             }
@@ -205,7 +303,7 @@ export class AgentSyncService {
 
         return {
             success: true,
-            assetId: generateAssetId(serialNumber)
+            assetId: generateAssetId(cleanSerial)
         };
     }
 }
