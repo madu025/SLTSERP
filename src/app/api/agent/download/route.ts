@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
  * Redirects seamlessly to the setup package.
  */
 export async function GET(request: NextRequest) {
-    const defaultUrl = process.env.AGENT_DOWNLOAD_URL || 'https://github.com/madu025/SLTSERP/releases/download/v1.0.0/SLTSERPagent_setup.zip';
+    const defaultUrl = process.env.AGENT_DOWNLOAD_URL || 'https://sltserp-sync.duckdns.org/files/sltserp-agent/SLTSERPagent_setup.zip';
     
     // Construct target URL dynamically based on incoming request origin/host
     const origin = request.nextUrl.origin || process.env.NEXT_PUBLIC_APP_URL || 'https://sltserp.vercel.app';
