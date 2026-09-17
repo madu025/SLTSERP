@@ -215,8 +215,6 @@ export class StaffService {
           brand: true,
           model: true,
           status: true,
-          lastAuditedAt: true,
-          nextAuditDueAt: true,
           assignedStaffId: true,
           assignedUserId: true
         }
