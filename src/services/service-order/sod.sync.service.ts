@@ -2345,20 +2345,25 @@ export class SODSyncService {
         const isValidRtom = (v: unknown): v is string => typeof v === 'string' && /^R-[A-Z]{2,4}$/.test(v.trim().toUpperCase());
         const rtomVal = [mapping.rtom, serviceOrder?.rtom].find(isValidRtom)?.trim().toUpperCase();
 
-        // Priority 1: Assigned team's OPMC takes precedence to ensure regional consistency with the executing team.
-        if (!opmcId && resolvedTeam?.opmcId) {
-            opmcId = resolvedTeam.opmcId;
-        }
+        let resolvedRtom = rtomVal;
 
-        // Priority 2: Use exact match or validated RTOM code from portal scraper.
+        // Priority 1: Use exact match or validated RTOM code from iShamp portal scraper (e.g. R-KX)
         if (!opmcId && rtomVal) {
-            // Use exact match on indexed rtom column first, then fallback to prefix contains
             const opmc = await prisma.oPMC.findFirst({
                 where: { rtom: rtomVal }
             }) || await prisma.oPMC.findFirst({
                 where: { rtom: { contains: rtomVal.substring(0, 4), mode: 'insensitive' } }
             });
-            opmcId = opmc?.id;
+            if (opmc) {
+                opmcId = opmc.id;
+                resolvedRtom = opmc.rtom;
+            }
+        }
+
+        // Priority 2: Fallback to assigned team's OPMC only if portal RTOM is missing/unmatched
+        if (!opmcId && resolvedTeam?.opmcId) {
+            opmcId = resolvedTeam.opmcId;
+            resolvedRtom = resolvedTeam.opmc?.rtom || resolvedRtom;
         }
 
         // Never silently default to an arbitrary OPMC (previously the first
@@ -2377,7 +2382,7 @@ export class SODSyncService {
         const dataToUpdate: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             ...mapping,
             completionMode: isOffline ? 'OFFLINE' : (mapping.completionMode || serviceOrder?.completionMode || 'Standard'),
-            rtom: resolvedTeam?.opmc?.rtom || rtomVal || serviceOrder?.rtom || 'UNKNOWN',
+            rtom: resolvedRtom || rtomVal || serviceOrder?.rtom || 'UNKNOWN',
             opmcId,
             updatedAt: new Date(),
         };
