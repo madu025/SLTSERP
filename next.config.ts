@@ -25,6 +25,16 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: isDockerBuild,
   },
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@swc/core-win32-x64-msvc',
+      'node_modules/@esbuild/win32-x64',
+      'QA-Test-Assets/**',
+      'QGIS Project Template/**',
+      'uploads/**',
+      'backups/**'
+    ]
+  },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts', '@radix-ui/react-icons', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select']
   },
