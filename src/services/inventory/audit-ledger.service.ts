@@ -43,7 +43,7 @@ export class AuditLedgerService {
      * DB function fn_next_document_number(): `${type}-YYYY-MM-XXXX`.
      * Safe under concurrency (single-row atomic increment in PostgreSQL).
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     static async getNextDocumentNumber(type: string, tx?: TransactionClient): Promise<string> {
         const client = tx || prisma;
         const result = await client.$queryRaw<[{ number: string }]>`
@@ -55,7 +55,7 @@ export class AuditLedgerService {
     /**
      * Generate Atomic MIN (Material Issue Note) Number: MIN-YYYY-MM-XXXX
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     static async generateMINNumber(tx?: TransactionClient): Promise<string> {
         return this.getNextDocumentNumber('MIN', tx);
     }
@@ -63,7 +63,7 @@ export class AuditLedgerService {
     /**
      * Generate Atomic MRN (Material Return Note) Number: MRN-YYYY-MM-XXXX
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     static async generateMRNNumber(tx?: TransactionClient): Promise<string> {
         return this.getNextDocumentNumber('MRN', tx);
     }
@@ -71,7 +71,7 @@ export class AuditLedgerService {
     /**
      * Record an immutable transaction entry in the Inventory Ledger (supports $transaction)
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     static async recordEntry(input: CreateLedgerEntryInput, tx?: TransactionClient) {
         const client = tx || prisma;
         

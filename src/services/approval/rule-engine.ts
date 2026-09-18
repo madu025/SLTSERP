@@ -15,7 +15,7 @@ export type Operator = '==' | '!=' | '>' | '<' | '>=' | '<=' | 'IN' | 'NOT_IN';
 export interface RuleCondition {
     field: string;
     operator: Operator;
-    value: any;
+    value: unknown;
 }
 
 export class RuleEngine {
@@ -25,7 +25,7 @@ export class RuleEngine {
      * @param payload The data object to evaluate against
      * @returns Boolean indicating whether the condition is met
      */
-    static evaluate(condition: RuleCondition | RuleCondition[] | null | undefined, payload: Record<string, any>): boolean {
+    static evaluate(condition: RuleCondition | RuleCondition[] | null | undefined, payload: Record<string, unknown>): boolean {
         if (!condition) return true; // No condition means always pass
 
         // If the condition is an array of conditions (AND logic)
@@ -37,7 +37,7 @@ export class RuleEngine {
         return this.evaluateSingle(condition, payload);
     }
 
-    private static evaluateSingle(condition: RuleCondition, payload: Record<string, any>): boolean {
+    private static evaluateSingle(condition: RuleCondition, payload: Record<string, unknown>): boolean {
         if (!condition || !condition.field || !condition.operator) {
             console.warn('Invalid condition format:', condition);
             return true; // Failsafe
@@ -49,10 +49,10 @@ export class RuleEngine {
         switch (condition.operator) {
             case '==': return actualValue === expectedValue;
             case '!=': return actualValue !== expectedValue;
-            case '>': return actualValue > expectedValue;
-            case '<': return actualValue < expectedValue;
-            case '>=': return actualValue >= expectedValue;
-            case '<=': return actualValue <= expectedValue;
+            case '>': return typeof actualValue === 'number' && typeof expectedValue === 'number' && actualValue > expectedValue;
+            case '<': return typeof actualValue === 'number' && typeof expectedValue === 'number' && actualValue < expectedValue;
+            case '>=': return typeof actualValue === 'number' && typeof expectedValue === 'number' && actualValue >= expectedValue;
+            case '<=': return typeof actualValue === 'number' && typeof expectedValue === 'number' && actualValue <= expectedValue;
             case 'IN': return Array.isArray(expectedValue) && expectedValue.includes(actualValue);
             case 'NOT_IN': return Array.isArray(expectedValue) && !expectedValue.includes(actualValue);
             default:
@@ -64,7 +64,13 @@ export class RuleEngine {
     /**
      * Resolves dot-notation field paths (e.g. 'user.department.id')
      */
-    private static resolveField(obj: any, path: string): any {
-        return path.split('.').reduce((prev, curr) => (prev ? prev[curr] : undefined), obj);
+    private static resolveField(obj: Record<string, unknown> | null | undefined, path: string): unknown {
+        if (!obj) return undefined;
+        return path.split('.').reduce<unknown>((prev, curr) => {
+            if (prev && typeof prev === 'object' && curr in prev) {
+                return (prev as Record<string, unknown>)[curr];
+            }
+            return undefined;
+        }, obj);
     }
 }

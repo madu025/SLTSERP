@@ -1,7 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorPaymentService } from '@/services/admin/contractor-payment.service';
 import { AppError } from '@/lib/error';

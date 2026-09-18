@@ -22,9 +22,25 @@ export class GISLocationService {
   }
 }
 
+interface GeoJSONFeature {
+  geometry?: {
+    type?: string;
+    coordinates?: number[] | number[][];
+  };
+  properties?: {
+    layer?: string;
+    Layer?: string;
+    [key: string]: unknown;
+  };
+}
+
+interface GeoJSONData {
+  features?: GeoJSONFeature[];
+}
+
 export class GISValidatorService {
   // 1. Geospatial Anomaly Checking
-  static detectGISAnomalies(geojsonData: any): GISAnomaly[] {
+  static detectGISAnomalies(geojsonData: GeoJSONData): GISAnomaly[] {
     const anomalies: GISAnomaly[] = [];
     const features = geojsonData?.features || [];
 
@@ -38,8 +54,8 @@ export class GISValidatorService {
       const layerName = f.properties?.layer || f.properties?.Layer || '';
 
       if (geomType === 'Point' && Array.isArray(coords)) {
-        const lat = coords[1];
-        const lng = coords[0];
+        const lat = Number(coords[1]);
+        const lng = Number(coords[0]);
         
         // 1. Bounds check (Sri Lanka bounds roughly Lat: 5.9 to 9.9, Lng: 79.5 to 82.0)
         if (lat < 5.9 || lat > 9.9 || lng < 79.5 || lng > 82.0) {
@@ -56,7 +72,7 @@ export class GISValidatorService {
       }
 
       if (geomType === 'LineString' && Array.isArray(coords)) {
-        const lineCoords = coords.map((c: any) => [c[1], c[0]] as [number, number]);
+        const lineCoords = (coords as number[][]).map((c: number[]) => [c[1], c[0]] as [number, number]);
         cables.push(lineCoords);
       }
     }
@@ -108,7 +124,7 @@ export class GISValidatorService {
   }
 
   // 2. As-Built vs Planned Mismatch Auditor
-  static detectBuiltMismatch(plannedGeoJSON: any, builtGeoJSON: any) {
+  static detectBuiltMismatch(plannedGeoJSON: GeoJSONData, builtGeoJSON: GeoJSONData) {
     const plannedLen = this.getGeoJSONLength(plannedGeoJSON);
     const builtLen = this.getGeoJSONLength(builtGeoJSON);
     const deviationMeters = Math.abs(builtLen - plannedLen);
@@ -122,12 +138,12 @@ export class GISValidatorService {
     };
   }
 
-  private static getGeoJSONLength(geojson: any): number {
+  private static getGeoJSONLength(geojson: GeoJSONData): number {
     let len = 0;
     const features = geojson?.features || [];
     for (const f of features) {
       if (f.geometry?.type === 'LineString' && Array.isArray(f.geometry.coordinates)) {
-        const coords = f.geometry.coordinates;
+        const coords = f.geometry.coordinates as unknown as number[][];
         for (let i = 0; i < coords.length - 1; i++) {
           len += GISLocationService.getDistance(coords[i][1], coords[i][0], coords[i+1][1], coords[i+1][0]);
         }

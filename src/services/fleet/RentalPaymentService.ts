@@ -16,7 +16,6 @@ import { AppError } from '@/lib/error';
  */
 
 import { prisma as db } from '@/lib/prisma';
-import { SummaryStatus } from '@/types/fleet/rental-payment.types';
 import { UUID } from '@/types/common';
 
 export interface MonthlySummaryInput {

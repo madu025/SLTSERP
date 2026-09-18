@@ -137,7 +137,7 @@ export function useOrderAction(
             });
 
             if (!hasExistingForGroup) {
-                let usedQty = "";
+                const usedQty = "";
                 let f1Qty = "";
                 const lowerGroup = groupName.toLowerCase();
                 if ((lowerGroup.includes("drop wire") || lowerGroup.includes("drop cable")) && orderData.dropWireDistance) {

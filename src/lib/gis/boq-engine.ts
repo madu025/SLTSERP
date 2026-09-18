@@ -47,7 +47,7 @@ export class BOQEngine {
     *                       stock and split quantities accordingly.
     */
   generateBOQ(
-    layers: Map<GISLayerType, any>,
+    layers: Map<GISLayerType, unknown>,
     region?: string,
     regionMultiplier: number = 1.0,
     inventoryStock?: InventoryStockEntry[]

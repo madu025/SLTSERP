@@ -87,7 +87,7 @@ export const POST = apiHandler(async (req: Request) => {
         let pdfText = '';
         let pages = 1;
         try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
+             
             const mod = require('pdf-parse');
             const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
             const parser = new PDFParse({ data: new Uint8Array(pdfBuffer) });

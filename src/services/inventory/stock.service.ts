@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue, InventoryBatch } from '@prisma/client';
 import { TransactionClient, PickedBatch, UUID } from '@/types/inventory/inventory-service.types';
 import { InventoryRepository } from '@/repositories/inventory.repository';
-import { ContractorRepository } from '@/repositories/contractor.repository';
 import { AuditLedgerService } from './audit-ledger.service';
 import { StoreService } from './store.service';
 

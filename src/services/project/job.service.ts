@@ -68,7 +68,7 @@ export class JobService {
                     location: data.location || null,
                     region: data.region || null,
                     district: data.district || null,
-                    priority: data.priority as any as any || 'MEDIUM',
+                    priority: (data.priority as import('@prisma/client').TaskPriority) || 'MEDIUM',
                     assignedToId: data.assignedToId || null,
                     status: 'PENDING_SURVEY'
                 },

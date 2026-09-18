@@ -108,19 +108,6 @@ const MONTH_NAMES = [
     'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-function getPrismaInstance(): Record<string, unknown> {
-    const p = prisma as unknown as Record<string, unknown>;
-    if (!p.sLTContract && !p.SLTContract) {
-        try {
-            (globalThis as Record<string, unknown>).prisma = prisma;
-            return prisma as unknown as Record<string, unknown>;
-        } catch (e) {
-            console.error('[PRISMA-REFRESH-FAIL]', e);
-        }
-    }
-    return p;
-}
-
 function getSLTContractModel() { return prisma.sLTContract; }
 
 function getSLTContractTargetModel() {

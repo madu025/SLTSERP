@@ -22,7 +22,7 @@ export class ProjectTypeDetector {
    * Detect project type from parsed GIS layers
    */
   detect(
-    layers: Map<GISLayerType, any>
+    layers: Map<GISLayerType, unknown>
   ): ProjectTypeDetectionResult {
     const hasCables = layers.has('CABLE');
     const hasPoles = layers.has('POLE');
@@ -306,7 +306,7 @@ export class ProjectTypeDetector {
    * Check if GIS properties contain building coverage hints
    */
   private checkBuildingCoverage(
-    layers: Map<GISLayerType, any>
+    layers: Map<GISLayerType, unknown>
   ): boolean {
     // Check if there's a building layer
     if (layers.has('BUILDING')) return true;
@@ -348,7 +348,7 @@ export class ProjectTypeDetector {
    * Check for cluster patterns in GIS data
    */
   private checkClusterHints(
-    layers: Map<GISLayerType, any>
+    layers: Map<GISLayerType, unknown>
   ): boolean {
     const poleData = layers.get('POLE') as ParsedPoleData | undefined;
 
@@ -367,7 +367,7 @@ export class ProjectTypeDetector {
    * Check if building layer is dominant
    */
   private checkBuildingDominant(
-    layers: Map<GISLayerType, any>
+    layers: Map<GISLayerType, unknown>
   ): boolean {
     if (layers.has('BUILDING')) return true;
 

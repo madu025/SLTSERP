@@ -3,7 +3,6 @@ import { AppError } from '@/lib/error';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { safe } from '@/utils/safe-await.util';
 import { StoreWithDetails, TransactionClient, UUID } from '@/types/inventory/inventory-service.types';
 
 export class StoreService {
@@ -258,7 +257,7 @@ export class StoreService {
      * Notifications are now handled automatically by DB trigger trg_low_stock_auto_alert.
      * This method now only returns the current low-stock status for API/query purposes.
      */
-    static async checkLowStock(storeId: UUID, itemId: UUID): Promise<void> {
+    static async checkLowStock(_storeId: UUID, _itemId: UUID): Promise<void> {
         // DB trigger trg_low_stock_auto_alert fires automatically on InventoryStock UPDATE
         // when quantity drops to/below minLevel. No JS-side check needed.
         // This method is kept as a no-op for backward compatibility with the API route.

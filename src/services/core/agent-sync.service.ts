@@ -96,7 +96,7 @@ export class AgentSyncService {
         const invalidModels = ["unknown", "pc", "system product name", "system product", "to be filled by o.e.m.", "default string"];
 
         // 1. Look up the ITAsset by serialNumber (exact or case-insensitive fallback)
-        let asset = await prisma.iTAsset.findFirst({
+        const asset = await prisma.iTAsset.findFirst({
             where: {
                 serialNumber: {
                     equals: cleanSerial,

@@ -6,6 +6,8 @@
 
 import {
   ParsedRoadData,
+  ParsedCableData,
+  ParsedPoleData,
   GISLayerType } from '@/types/gis';
 
 export interface PermitRecord {
@@ -21,7 +23,7 @@ export interface PermitRecord {
   endLatitude: number;
   endLongitude: number;
   cost: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface PermitGenerationResult {
@@ -41,7 +43,7 @@ export class PermitGenerator {
    * Generate permit records from road layer data
    */
   generatePermits(
-    layers: Map<GISLayerType, any>,
+    layers: Map<GISLayerType, unknown>,
     region?: string
   ): PermitGenerationResult {
     const permits: PermitRecord[] = [];
@@ -54,7 +56,7 @@ export class PermitGenerator {
     }
 
     // Check for existing cable layer to get road crossing points
-    const cableData = layers.get('CABLE') as any;
+    const cableData = layers.get('CABLE') as ParsedCableData | undefined;
 
     roadData.roadSegments.forEach((road) => {
       const authority =
@@ -86,7 +88,7 @@ export class PermitGenerator {
     });
 
     // Generate additional wayleave permits if pole data exists
-    const poleData = layers.get('POLE') as any;
+    const poleData = layers.get('POLE') as ParsedPoleData | undefined;
     if (poleData && poleData.poles) {
       const wayleavePermit = this.generateWayleavePermit(
         poleData.poles.length,
@@ -165,11 +167,11 @@ export class PermitGenerator {
   /**
    * Check if a cable route crosses this road
    */
-  private hasCableCrossing(road: any, cableData?: any): boolean {
+  private hasCableCrossing(road: { coordinates?: number[][] }, cableData?: ParsedCableData): boolean {
     if (!cableData || !cableData.segments) return false;
     if (!road.coordinates || road.coordinates.length < 2) return false;
 
-    const roadBB = this.getBoundingBox(road.coordinates);
+    const roadBB = this.getBoundingBox(road.coordinates as [number, number][]);
 
     for (const segment of cableData.segments) {
       if (!segment.coordinates || segment.coordinates.length < 2) continue;
@@ -194,7 +196,7 @@ export class PermitGenerator {
    */
   private generateWayleavePermit(
     poleCount: number,
-    poles: any[]
+    poles: Array<{ latitude?: number; longitude?: number }>
   ): PermitRecord | null {
     if (poleCount === 0) return null;
 

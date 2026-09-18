@@ -1,6 +1,5 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { ProjectStageInstance } from '@prisma/client';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
 import { randomUUID } from 'crypto';
 

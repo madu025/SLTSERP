@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
 import type { TransactionClient } from '@/types/inventory/inventory-service.types';

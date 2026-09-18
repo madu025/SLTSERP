@@ -21,7 +21,7 @@ export interface GeneratedAsset {
   status: string;
   installationStatus: string;
   sourceType: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface AssetGenerationResult {
@@ -41,9 +41,9 @@ export class AssetEngine {
    * Generate all assets from parsed GIS layers
    */
   generateAssets(
-    layers: Map<GISLayerType, any>,
+    layers: Map<GISLayerType, unknown>,
     projectCode: string,
-    createdById: string
+    _createdById?: string
   ): AssetGenerationResult {
     const allAssets: GeneratedAsset[] = [];
     this.assetCounter = {};
@@ -282,20 +282,22 @@ export class AssetEngine {
   ): GeneratedAsset[] {
     const assets: GeneratedAsset[] = [];
 
-    // ParsedPointAssetData has a `features` array with point features
-    const features = (data as any).features || [];
-    features.forEach((feature: any, idx: number) => {
+    // ParsedPointAssetData has a `features` or `assets` array with point features
+    type PointFeatureItem = { geometry?: { coordinates?: number[] }; coordinates?: number[]; longitude?: number; latitude?: number; properties?: Record<string, unknown>; name?: string; code?: string; id?: string };
+    const pointData = data as unknown as { features?: PointFeatureItem[]; assets?: PointFeatureItem[] };
+    const features = pointData.features || pointData.assets || [];
+    features.forEach((feature, idx: number) => {
       const seq = this.nextSeq(assetType);
       const assetCode = `${projectCode}-${codePrefix}-${String(seq).padStart(4, '0')}`;
 
       // Extract coordinates from the point feature
-      const coords = feature.geometry?.coordinates || feature.coordinates || [0, 0];
+      const coords = feature.geometry?.coordinates || feature.coordinates || [feature.longitude || 0, feature.latitude || 0];
       const longitude = Array.isArray(coords) ? coords[0] : 0;
       const latitude = Array.isArray(coords) ? coords[1] : 0;
 
       // Extract a name/identifier from properties
       const props = feature.properties || {};
-      const name = props.name || props.code || props.id || `${assetType} ${idx + 1}`;
+      const name = (props.name as string) || (props.code as string) || (props.id as string) || feature.name || feature.code || feature.id || `${assetType} ${idx + 1}`;
 
       assets.push({
         assetType,

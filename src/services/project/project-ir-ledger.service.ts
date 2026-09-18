@@ -1,6 +1,5 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 
 type PrismaTx = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 import { StockService } from '../inventory/stock.service';

@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { UUID } from '@/types/common';
-import type { CapexOpexLedgerEntry, FinanceBudgetAllocation } from '@prisma/client';
+import type { CapexOpexLedgerEntry } from '@prisma/client';
 import {
   type CreateLedgerEntryInput,
   type LedgerListParams,

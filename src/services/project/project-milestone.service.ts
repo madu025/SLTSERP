@@ -41,7 +41,7 @@ export class ProjectMilestoneService {
                 name,
                 description: description || null,
                 targetDate: new Date(targetDate),
-                status: status as any || 'PENDING',
+                status: (status as import('@prisma/client').TaskStatus) || 'PENDING',
                 progress: 0
             }
         });

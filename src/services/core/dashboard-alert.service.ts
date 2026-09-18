@@ -1,6 +1,5 @@
 import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
-import { AppError } from '@/lib/error';
 
 interface AlertItem {
     type: string;

@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { ProjectInvoiceService } from '../project/project-invoice.service';
 export class BOMInvoiceService {
     private static parseDateFromSoNum(soNum: string): Date {
@@ -126,7 +127,7 @@ export class BOMInvoiceService {
             }
             if (stubsToCreate.length > 0) {
                 await prisma.serviceOrder.createMany({
-                    data: stubsToCreate as any,
+                    data: stubsToCreate as Prisma.ServiceOrderCreateManyInput[],
                     skipDuplicates: true
                 });
                 // Retrieve the stubbed service orders to include in calculation
@@ -271,7 +272,6 @@ export class BOMInvoiceService {
             itemType: 'SERVICE' as const
         }));
         // 7. Create Client Invoice (SLT Submit Format - ProjectInvoice)
-        const totalAmount = invoiceItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
         const regionName = serviceOrders[0]?.rtom || 'GLOBAL';
         const contractorId = serviceOrders.find(s => s.contractorId)?.contractorId;
         if (!contractorId) {

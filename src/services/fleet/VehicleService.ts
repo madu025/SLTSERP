@@ -44,14 +44,6 @@ interface DbVehicle {
   driver?: { id: UUID; first_name: string; last_name: string; phone?: string; email?: string } | null;
 }
 
-interface DbTrip {
-  actual_distance_km: number | null;
-}
-
-interface DbFuelLog {
-  quantity_liters: number;
-  total_cost: number;
-}
 
 // Client definition with exact types to prevent IDE missing property squiggles
 interface CustomPrismaClient {

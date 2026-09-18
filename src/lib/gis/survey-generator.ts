@@ -11,6 +11,7 @@ import {
   ParsedFiberJointData,
   ParsedRoadData,
   ParsedPointAssetData,
+  ParsedCableData,
   GISLayerType,
 } from '@/types/gis';
 
@@ -21,7 +22,7 @@ export interface SurveyTask {
   latitude: number;
   longitude: number;
   priority: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface SurveyGenerationResult {
@@ -39,7 +40,7 @@ export class SurveyGenerator {
    * Generate all survey tasks from GIS data
    */
   generateSurveyTasks(
-    layers: Map<GISLayerType, any>
+    layers: Map<GISLayerType, unknown>
   ): SurveyGenerationResult {
     const allTasks: SurveyTask[] = [];
 
@@ -140,7 +141,7 @@ export class SurveyGenerator {
     }
 
     // 4. Route Verification Task (one per cable segment)
-    const cableData = layers.get('CABLE') as any;
+    const cableData = layers.get('CABLE') as ParsedCableData | undefined;
     if (cableData && cableData.segments) {
       for (const seg of cableData.segments.slice(0, 5)) {
         // Limit to 5 route tasks
@@ -196,8 +197,8 @@ export class SurveyGenerator {
     for (const cfg of pointAssetConfigs) {
       const data = layers.get(cfg.key) as ParsedPointAssetData | undefined;
       if (!data) continue;
-      const assets = (data as any).assets || [];
-      assets.forEach((asset: any, idx: number) => {
+      const assets = data.assets || [];
+      assets.forEach((asset: { longitude?: number; latitude?: number; code?: string; type?: string; index?: number; properties?: Record<string, unknown> }, idx: number) => {
         const longitude = asset.longitude ?? 0;
         const latitude = asset.latitude ?? 0;
         const name = asset.code || asset.type || `${cfg.label} ${idx + 1}`;

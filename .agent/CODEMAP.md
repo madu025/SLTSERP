@@ -251,7 +251,7 @@
 ### [rule-engine.ts](src/services/approval/rule-engine.ts)
 * **Class**: `RuleEngine`
   * **Methods**:
-    * `evaluate(condition: RuleCondition | RuleCondition[] | null | undefined, payload: Record<string, any>): boolean`
+    * `evaluate(condition: RuleCondition | RuleCondition[] | null | undefined, payload: Record<string, unknown>): boolean`
 
 ### [index.ts](src/services/audit/index.ts)
 * **Class**: `AuditService`
@@ -1752,7 +1752,7 @@
     }): Promise<InventoryStore>`
     * `getStore(id: string): Promise<StoreWithDetails | null>`
     * `deleteStore(id: string): Promise<void>`
-    * `checkLowStock(storeId: UUID, itemId: UUID): Promise<void>`
+    * `checkLowStock(_storeId: UUID, _itemId: UUID): Promise<void>`
     * `getMaterialBalance(storeId: UUID, category?: string | null): any`
     * `getLowStockAlerts(storeId: UUID): any`
     * `getInventoryValue(storeId: UUID): any`

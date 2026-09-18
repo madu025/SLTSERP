@@ -39,7 +39,7 @@ export async function calculateProjectProgress(projectId: string): Promise<numbe
   ));
 
   // Auto-sync project status based on progress
-  const updateData: { progress: number; status?: string; endDate?: Date } = { progress };
+  const updateData: import('@prisma/client').Prisma.ProjectUpdateInput = { progress };
   
   if (progress >= 100) {
     updateData.status = 'COMPLETED';
@@ -52,7 +52,7 @@ export async function calculateProjectProgress(projectId: string): Promise<numbe
 
   await prisma.project.update({
     where: { id: projectId },
-    data: updateData as any
+    data: updateData
   });
 
   return progress;

@@ -137,7 +137,8 @@ export class SystemService {
         // Collect Pool Metrics (Prisma Metrics if enabled)
         try {
             if ('$metrics' in prisma) {
-                const metrics = await ((prisma as any).$metrics).json();
+                const metricsClient = prisma as unknown as { $metrics: { json: () => Promise<{ counters?: Array<{ name: string; value: number }> }> } };
+                const metrics = await metricsClient.$metrics.json();
                 const counters = metrics?.counters || [];
                 poolMetrics = {
                     active: counters.find((c: Record<string, unknown>) => c.name === 'prisma_client_queries_active')?.value || 0,
