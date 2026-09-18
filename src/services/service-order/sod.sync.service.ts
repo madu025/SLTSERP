@@ -2345,6 +2345,12 @@ export class SODSyncService {
         const isValidRtom = (v: unknown): v is string => typeof v === 'string' && /^R-[A-Z]{2,4}$/.test(v.trim().toUpperCase());
         const rtomVal = [mapping.rtom, serviceOrder?.rtom].find(isValidRtom)?.trim().toUpperCase();
 
+        // Priority 1: Assigned team's OPMC takes precedence to ensure regional consistency with the executing team.
+        if (!opmcId && resolvedTeam?.opmcId) {
+            opmcId = resolvedTeam.opmcId;
+        }
+
+        // Priority 2: Use exact match or validated RTOM code from portal scraper.
         if (!opmcId && rtomVal) {
             // Use exact match on indexed rtom column first, then fallback to prefix contains
             const opmc = await prisma.oPMC.findFirst({
@@ -2354,11 +2360,7 @@ export class SODSyncService {
             });
             opmcId = opmc?.id;
         }
-        // Region fallback: teams are OPMC-bound — derive the region from the
-        // assigned portal team when the RTOM is missing or garbage.
-        if (!opmcId && resolvedTeam?.opmcId) {
-            opmcId = resolvedTeam.opmcId;
-        }
+
         // Never silently default to an arbitrary OPMC (previously the first
         // OPMC alphabetically, which dumped unknown-region SODs into R-AD):
         // a new SOD whose region cannot be resolved rejects the push instead.
@@ -2375,7 +2377,7 @@ export class SODSyncService {
         const dataToUpdate: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             ...mapping,
             completionMode: isOffline ? 'OFFLINE' : (mapping.completionMode || serviceOrder?.completionMode || 'Standard'),
-            rtom: rtomVal || resolvedTeam?.opmc?.rtom || serviceOrder?.rtom || 'UNKNOWN',
+            rtom: resolvedTeam?.opmc?.rtom || rtomVal || serviceOrder?.rtom || 'UNKNOWN',
             opmcId,
             updatedAt: new Date(),
         };
