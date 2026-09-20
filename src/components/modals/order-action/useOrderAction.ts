@@ -4,6 +4,12 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData } from "@/types/service-order/order-action.types";
 import { formatMaterialUsage } from "./utils";
+import { 
+    SOD_STANDARD_MATRIX_CONFIG, 
+    SOD_QUICK_PRESETS, 
+    SODMatrixItemConfig,
+    SODPresetId
+} from "@/config/sod-matrix-config";
 
 interface BridgeMaterialDetail {
     ITEM?: string;
@@ -44,6 +50,9 @@ export function useOrderAction(
     const [assignmentType, setAssignmentType] = useState<'CONTRACTOR' | 'DIRECT_TEAM'>('CONTRACTOR');
     const [directTeamName, setDirectTeamName] = useState("");
     const [extendedMaterialRows, setExtendedMaterialRows] = useState<MaterialUsageRow[]>([]);
+    const [materialViewMode, setMaterialViewMode] = useState<'MATRIX' | 'TABLE'>('MATRIX');
+    const [matrixValues, setMatrixValues] = useState<Record<string, string>>({});
+    const [matrixPoleNumber, setMatrixPoleNumber] = useState<string>("");
     const [activeTab, setActiveTab] = useState<'details' | 'materials' | 'cpe' | 'finish'>('details');
     const [wiredOnly, setWiredOnly] = useState(false);
     const [stbShortage, setStbShortage] = useState(false);
@@ -164,6 +173,42 @@ export function useOrderAction(
             if (idxB !== -1) return 1;
             return 0;
         });
+
+        // Initialize 25-Column Google Sheet Matrix Values
+        const initialMatrix: Record<string, string> = {};
+        SOD_STANDARD_MATRIX_CONFIG.forEach(cfg => {
+            if (orderData.materialUsage && orderData.materialUsage.length > 0) {
+                const match = orderData.materialUsage.find(m => {
+                    const mItem = (m as { item?: { code?: string; name?: string; commonName?: string } }).item;
+                    const code = (mItem?.code || '').toUpperCase();
+                    const name = (mItem?.name || '').toUpperCase();
+                    const common = (mItem?.commonName || '').toUpperCase();
+                    const cfgAliases = cfg.aliases || [];
+                    const matchesCode = code === cfg.companyCode.toUpperCase() || code === cfg.sltCode.toUpperCase() ||
+                                        cfgAliases.some((a: string) => code === a.toUpperCase() || name.includes(a.toUpperCase()) || common.includes(a.toUpperCase()));
+                    return matchesCode && m.usageType === cfg.usageType;
+                });
+                if (match && match.quantity != null) {
+                    initialMatrix[cfg.key] = String(match.quantity);
+                }
+            }
+            // Fallback for F1 if dropWireDistance is present
+            if (!initialMatrix[cfg.key] && cfg.key === 'F1' && orderData.dropWireDistance) {
+                initialMatrix['F1'] = String(orderData.dropWireDistance);
+            }
+        });
+
+        let initialPoleNum = "";
+        if (orderData.erectedPoles && orderData.erectedPoles.length > 0) {
+            initialPoleNum = orderData.erectedPoles[0]?.poleNumber || "";
+            const poleType = orderData.erectedPoles[0]?.poleType || "";
+            const matchingCfg = SOD_STANDARD_MATRIX_CONFIG.find(c => c.category === 'POLES' && poleType.includes(c.key));
+            if (matchingCfg && !initialMatrix[matchingCfg.key]) {
+                initialMatrix[matchingCfg.key] = "1";
+            }
+        }
+        setMatrixValues(initialMatrix);
+        setMatrixPoleNumber(initialPoleNum);
 
         setExtendedMaterialRows(rows);
 
@@ -542,13 +587,200 @@ export function useOrderAction(
         toast.success(`Added ${item.name}`);
     };
 
+    const findItemForMatrixConfig = useCallback((cfg: SODMatrixItemConfig): InventoryItem | undefined => {
+        const effectiveSource = (orderData?.materialSource || materialSource) === 'SLT' ? 'SLT' : 'SLTS';
+        
+        // 1. Check exact company code or SLT code
+        let matched = items.find(i => {
+            const c = (i.code || '').toUpperCase();
+            return (c === cfg.companyCode.toUpperCase() || c === cfg.sltCode.toUpperCase()) && (i.type === effectiveSource);
+        }) || items.find(i => {
+            const c = (i.code || '').toUpperCase();
+            return c === cfg.companyCode.toUpperCase() || c === cfg.sltCode.toUpperCase();
+        });
+
+        // 2. Check aliases
+        if (!matched) {
+            const cfgAliases = cfg.aliases || [];
+            matched = items.find(i => {
+                const c = (i.code || '').toUpperCase();
+                const n = (i.name || '').toUpperCase();
+                const cn = (i.commonName || '').toUpperCase();
+                const allAliases = [...(i.scrapedAliases || []), ...(i.importAliases || []), ...(i.bomAliases || [])].map(a => a.toUpperCase());
+                const isMatch = cfgAliases.some((a: string) => {
+                    const aU = a.toUpperCase();
+                    return c === aU || n.includes(aU) || cn.includes(aU) || allAliases.includes(aU);
+                });
+                return isMatch && i.type === effectiveSource;
+            }) || items.find(i => {
+                const c = (i.code || '').toUpperCase();
+                const n = (i.name || '').toUpperCase();
+                const cn = (i.commonName || '').toUpperCase();
+                const allAliases = [...(i.scrapedAliases || []), ...(i.importAliases || []), ...(i.bomAliases || [])].map(a => a.toUpperCase());
+                return cfgAliases.some((a: string) => {
+                    const aU = a.toUpperCase();
+                    return c === aU || n.includes(aU) || cn.includes(aU) || allAliases.includes(aU);
+                });
+            });
+        }
+
+        return matched;
+    }, [items, orderData?.materialSource, materialSource]);
+
+    const updateMatrixValue = useCallback((key: string, value: string) => {
+        setMatrixValues(prev => ({ ...prev, [key]: value }));
+
+        const cfg = SOD_STANDARD_MATRIX_CONFIG.find(c => c.key === key);
+        if (!cfg) return;
+
+        // If it's a pole item and quantity > 0, make sure erectedPoles is updated
+        if (cfg.category === 'POLES') {
+            const qtyNum = parseFloat(value) || 0;
+            if (qtyNum > 0) {
+                setErectedPoles(prev => {
+                    if (prev.length === 0) {
+                        return [{ poleType: cfg.key, poleNumber: matrixPoleNumber || "" }];
+                    } else {
+                        return [{ ...prev[0], poleType: cfg.key }];
+                    }
+                });
+            }
+        }
+
+        const targetItem = findItemForMatrixConfig(cfg);
+        if (!targetItem) return;
+
+        setExtendedMaterialRows(prev => {
+            const updated = [...prev];
+            const existingIdx = updated.findIndex(r => {
+                if (r.itemId === targetItem.id) return true;
+                const rItem = items.find(i => i.id === r.itemId);
+                return rItem && targetItem && (rItem.commonName || rItem.name) === (targetItem.commonName || targetItem.name);
+            });
+
+            const fieldToUpdate: keyof MaterialUsageRow = 
+                cfg.usageType === 'USED_F1' ? 'f1Qty' :
+                cfg.usageType === 'USED_G1' ? 'g1Qty' :
+                cfg.usageType === 'WASTAGE' ? 'wastageQty' : 'usedQty';
+
+            if (existingIdx >= 0) {
+                updated[existingIdx] = {
+                    ...updated[existingIdx],
+                    itemId: targetItem.id,
+                    [fieldToUpdate]: value
+                };
+            } else if (value.trim() !== "") {
+                updated.push({
+                    itemId: targetItem.id,
+                    usedQty: fieldToUpdate === 'usedQty' ? value : "",
+                    f1Qty: fieldToUpdate === 'f1Qty' ? value : "",
+                    g1Qty: fieldToUpdate === 'g1Qty' ? value : "",
+                    wastageQty: fieldToUpdate === 'wastageQty' ? value : "",
+                    wastageReason: fieldToUpdate === 'wastageQty' ? "Site Wastage" : "",
+                    serialNumber: ""
+                });
+            }
+            return updated;
+        });
+    }, [findItemForMatrixConfig, items, matrixPoleNumber]);
+
+    const updateMatrixPoleNumber = useCallback((val: string) => {
+        const upper = val.toUpperCase();
+        setMatrixPoleNumber(upper);
+        setErectedPoles(prev => {
+            if (prev.length > 0) {
+                return [{ ...prev[0], poleNumber: upper }, ...prev.slice(1)];
+            } else if (upper.trim() !== "") {
+                const activePoleKey = (['PLC_5_6_CE', 'PLC_6_7_CE', 'PLC_8', 'PLC_CON'] as const).find(k => Number(matrixValues[k] || 0) > 0) || 'PLC-5_6-CE';
+                return [{ poleType: activePoleKey, poleNumber: upper }];
+            }
+            return prev;
+        });
+    }, [matrixValues]);
+
+    const applyMatrixPreset = useCallback((presetKey: SODPresetId) => {
+        if (presetKey === 'CLEAR') {
+            setMatrixValues({});
+            setMatrixPoleNumber("");
+            setErectedPoles([]);
+            setExtendedMaterialRows(prev => prev.map(r => ({
+                ...r,
+                usedQty: "",
+                f1Qty: "",
+                g1Qty: "",
+                wastageQty: "",
+                serialNumber: ""
+            })));
+            toast.info("Cleared Material Matrix values");
+            return;
+        }
+
+        const preset = SOD_QUICK_PRESETS.find(p => p.id === presetKey);
+        if (!preset) return;
+
+        setMatrixValues(prev => {
+            const next = { ...prev };
+            Object.entries(preset.values).forEach(([k, v]: [string, string]) => {
+                next[k] = v;
+            });
+            return next;
+        });
+
+        if (preset.values['POLE_NUMBER'] !== undefined) {
+            setMatrixPoleNumber(preset.values['POLE_NUMBER'] || "");
+        }
+
+        Object.entries(preset.values).forEach(([k, v]: [string, string]) => {
+            const cfg = SOD_STANDARD_MATRIX_CONFIG.find(c => c.key === k);
+            if (!cfg) return;
+            const targetItem = findItemForMatrixConfig(cfg);
+            if (!targetItem) return;
+
+            setExtendedMaterialRows(prev => {
+                const updated = [...prev];
+                const existingIdx = updated.findIndex(r => {
+                    if (r.itemId === targetItem.id) return true;
+                    const rItem = items.find(i => i.id === r.itemId);
+                    return rItem && targetItem && (rItem.commonName || rItem.name) === (targetItem.commonName || targetItem.name);
+                });
+
+                const fieldToUpdate: keyof MaterialUsageRow = 
+                    cfg.usageType === 'USED_F1' ? 'f1Qty' :
+                    cfg.usageType === 'USED_G1' ? 'g1Qty' :
+                    cfg.usageType === 'WASTAGE' ? 'wastageQty' : 'usedQty';
+
+                if (existingIdx >= 0) {
+                    updated[existingIdx] = {
+                        ...updated[existingIdx],
+                        itemId: targetItem.id,
+                        [fieldToUpdate]: v
+                    };
+                } else if (v.trim() !== "") {
+                    updated.push({
+                        itemId: targetItem.id,
+                        usedQty: fieldToUpdate === 'usedQty' ? v : "",
+                        f1Qty: fieldToUpdate === 'f1Qty' ? v : "",
+                        g1Qty: fieldToUpdate === 'g1Qty' ? v : "",
+                        wastageQty: fieldToUpdate === 'wastageQty' ? v : "",
+                        wastageReason: "",
+                        serialNumber: ""
+                    });
+                }
+                return updated;
+            });
+        });
+
+        toast.success(`Applied ${preset.label} Preset!`);
+    }, [findItemForMatrixConfig, items]);
+
     return {
         state: {
             date, comment, reason, customReason, ontType, ontSerialNumber, stbType, stbTypes, iptvSerials,
             phoneType, phoneSerialNumber, dpDetails, materialStatus, selectedContractorId, selectedTeamId,
             opmcPatStatus, sltsPatStatus, hoPatStatus, completionMode, assignmentType, directTeamName,
             extendedMaterialRows, activeTab, wiredOnly, stbShortage, ontShortage, delayReasons,
-            collectedCpes, erectedPoles
+            collectedCpes, erectedPoles,
+            materialViewMode, matrixValues, matrixPoleNumber
         },
         controls: {
             setDate, setComment, setReason, setCustomReason, setOntType, setOntSerialNumber, setStbType,
@@ -595,6 +827,10 @@ export function useOrderAction(
             removeErectedPoleRow: (idx: number) => setErectedPoles(erectedPoles.filter((_, i) => i !== idx)),
             handlePortalImport,
             applyPreset,
+            setMaterialViewMode,
+            updateMatrixValue,
+            updateMatrixPoleNumber,
+            applyMatrixPreset,
             confirm
         }
     };

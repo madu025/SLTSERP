@@ -2869,6 +2869,7 @@
 ### [sod.material.service.ts](src/services/service-order/sod.material.service.ts)
 * **Class**: `SODMaterialService`
   * **Methods**:
+    * `hasManualMaterial(serviceOrderId: string, tx?: TransactionClient): Promise<boolean>`
     * `processMaterialUsage(tx: TransactionClient, serviceOrderId: string, opmcId: string, contractorId: string | null, materialUsage: MaterialUsageInput[], inventoryService: {
             pickContractorBatchesFIFO: (tx: TransactionClient, contractorId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;
             pickStoreBatchesFIFO: (tx: TransactionClient, storeId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<{ batchId: string | null; quantity: number; batch?: Record<string, unknown> | null }[]>;

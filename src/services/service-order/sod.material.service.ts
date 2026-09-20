@@ -1,5 +1,5 @@
 import { AppError } from '@/lib/error';
-
+import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { ContractorRepository } from '@/repositories/contractor.repository';
@@ -8,6 +8,20 @@ import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export class SODMaterialService {
+    /**
+     * Check if a Service Order has manually entered or verified material usages (usageType != 'PORTAL_SYNC')
+     */
+    static async hasManualMaterial(serviceOrderId: string, tx?: TransactionClient): Promise<boolean> {
+        const client = tx || prisma;
+        const manualCount = await client.sODMaterialUsage.count({
+            where: {
+                serviceOrderId,
+                usageType: { not: 'PORTAL_SYNC' }
+            }
+        });
+        return manualCount > 0;
+    }
+
     /**
      * Process and deduct material usage for an SOD
      */
@@ -27,6 +41,15 @@ export class SODMaterialService {
         // raced on AN202607230049085 and double-inserted a usage line). Transaction-
         // scoped advisory lock: re-entrant here, released automatically at commit.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${serviceOrderId}::text, 0))`;
+
+        // Ground-truth defense: Never allow automated sync (BRIDGE_SYNC) to overwrite or rollback manually entered materials
+        if (userId === 'BRIDGE_SYNC') {
+            const hasManual = await this.hasManualMaterial(serviceOrderId, tx);
+            if (hasManual) {
+                console.log(`[SODMaterialService] Preserving existing manual material usage for ${serviceOrderId}: automated BRIDGE_SYNC processing bypassed.`);
+                return { create: [] };
+            }
+        }
 
         // Essential for idempotency on re-patching
         await this.rollbackMaterialUsage(tx, serviceOrderId, userId);

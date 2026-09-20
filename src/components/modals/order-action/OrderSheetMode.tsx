@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useState } from "react";
 import { format } from "date-fns";
 import { 
-    CalendarIcon, Trash2, CheckCircle2, Import
+    CalendarIcon, Trash2, CheckCircle2, Import, Grid3X3, Table2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { Contractor, InventoryItem, MaterialUsageRow, OrderActionData } from "@/
 import { OrderAssignmentSection } from "./OrderAssignmentSection";
 import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 import { toast } from "sonner";
+import { SODMaterialMatrixGrid } from "./SODMaterialMatrixGrid";
+import { SODPresetId } from "@/config/sod-matrix-config";
 
 export interface CollectedCpe {
     deviceType: string;
@@ -50,6 +52,9 @@ interface OrderSheetModeProps {
         erectedPoles: ErectedPole[];
         collectedCpes: CollectedCpe[];
         activeTab: string;
+        materialViewMode?: 'MATRIX' | 'TABLE';
+        matrixValues?: Record<string, string>;
+        matrixPoleNumber?: string;
     };
     controls: {
         setDate: (d: Date | undefined) => void;
@@ -80,6 +85,10 @@ interface OrderSheetModeProps {
         removeErectedPoleRow: (index: number) => void;
         handlePortalImport: () => void;
         applyPreset: (presetName: string) => void;
+        setMaterialViewMode?: (mode: 'MATRIX' | 'TABLE') => void;
+        updateMatrixValue?: (key: string, value: string) => void;
+        updateMatrixPoleNumber?: (poleNum: string) => void;
+        applyMatrixPreset?: (presetKey: SODPresetId) => void;
         confirm: () => void;
     };
     contractors: Contractor[];
@@ -117,12 +126,16 @@ export function OrderSheetMode({
     controls,
     contractors,
     filteredItems,
-    requiresIPTV,
+    materialSource = 'SLT',
     onClose
 }: OrderSheetModeProps) {
     const gridContainerRef = useRef<HTMLDivElement>(null);
-    const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
-    const yesterdayStr = useMemo(() => format(new Date(Date.now() - 86400000), "yyyy-MM-dd"), []);
+    const [todayStr] = useState(() => format(new Date(), "yyyy-MM-dd"));
+    const [yesterdayStr] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        return format(d, "yyyy-MM-dd");
+    });
 
     // Grid cell keydown navigation handler
     const handleGridKeyDown = (e: React.KeyboardEvent<HTMLElement>, row: number, col: number) => {
@@ -532,11 +545,43 @@ export function OrderSheetMode({
 
                 {/* SECTION 3: MATERIALS USAGE & INFRASTRUCTURE SPREADSHEET TABLE */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-lg shadow-sm overflow-hidden">
-                    <div className="bg-slate-800 text-white px-3 py-1 font-bold uppercase tracking-wider text-[10px] flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                            <span>3. Material Usage & Infrastructure Table</span>
-                        </span>
-                        <div className="flex gap-1">
+                    <div className="bg-slate-800 text-white px-3 py-1.5 font-bold uppercase tracking-wider text-[10px] flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <span>3. Material Usage & Infrastructure</span>
+                            {/* View Mode Switcher */}
+                            <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-700 ml-2">
+                                <button
+                                    type="button"
+                                    onClick={() => controls.setMaterialViewMode?.('MATRIX')}
+                                    className={cn(
+                                        "px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 transition-all",
+                                        (state.materialViewMode ?? 'MATRIX') === 'MATRIX'
+                                            ? "bg-cyan-600 text-white shadow-xs"
+                                            : "text-slate-400 hover:text-white"
+                                    )}
+                                    title="Switch to 25-Column Google Sheet Matrix View"
+                                >
+                                    <Grid3X3 className="w-2.5 h-2.5" />
+                                    <span>Google Sheet Matrix (25)</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => controls.setMaterialViewMode?.('TABLE')}
+                                    className={cn(
+                                        "px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 transition-all",
+                                        state.materialViewMode === 'TABLE'
+                                            ? "bg-cyan-600 text-white shadow-xs"
+                                            : "text-slate-400 hover:text-white"
+                                    )}
+                                    title="Switch to Custom Rows Spreadsheet View"
+                                >
+                                    <Table2 className="w-2.5 h-2.5" />
+                                    <span>Custom Rows Table</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-1 items-center">
                             <Button 
                                 type="button" 
                                 size="sm" 
@@ -547,117 +592,135 @@ export function OrderSheetMode({
                                 <Import className="w-2.5 h-2.5" />
                                 Portal
                             </Button>
-                            <Button 
-                                type="button" 
-                                size="sm" 
-                                variant="secondary" 
-                                onClick={() => controls.applyPreset('STANDARD')}
-                                className="h-5 text-[9px] font-bold px-1.5 bg-slate-700 text-white hover:bg-slate-600"
-                            >
-                                Preset: Standard
-                            </Button>
-                            <Button 
-                                type="button" 
-                                size="sm" 
-                                variant="secondary" 
-                                onClick={controls.addErectedPoleRow}
-                                className="h-5 text-[9px] font-bold px-1.5 bg-emerald-600 text-white hover:bg-emerald-500"
-                            >
-                                + Add Pole
-                            </Button>
-                            <Button 
-                                type="button" 
-                                size="sm" 
-                                variant="secondary" 
-                                onClick={controls.addExtendedRow}
-                                className="h-5 text-[9px] font-bold px-1.5 bg-blue-600 text-white hover:bg-blue-500"
-                            >
-                                + Add Material Row
-                            </Button>
+                            {state.materialViewMode === 'TABLE' && (
+                                <>
+                                    <Button 
+                                        type="button" 
+                                        size="sm" 
+                                        variant="secondary" 
+                                        onClick={() => controls.applyPreset('STANDARD')}
+                                        className="h-5 text-[9px] font-bold px-1.5 bg-slate-700 text-white hover:bg-slate-600"
+                                    >
+                                        Preset: Standard
+                                    </Button>
+                                    <Button 
+                                        type="button" 
+                                        size="sm" 
+                                        variant="secondary" 
+                                        onClick={controls.addErectedPoleRow}
+                                        className="h-5 text-[9px] font-bold px-1.5 bg-emerald-600 text-white hover:bg-emerald-500"
+                                    >
+                                        + Add Pole
+                                    </Button>
+                                    <Button 
+                                        type="button" 
+                                        size="sm" 
+                                        variant="secondary" 
+                                        onClick={controls.addExtendedRow}
+                                        className="h-5 text-[9px] font-bold px-1.5 bg-blue-600 text-white hover:bg-blue-500"
+                                    >
+                                        + Add Material Row
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </div>
 
                     <div className="p-2 space-y-2">
-                        {/* Erected Poles Grid - Inside Material Usage Section */}
-                        {state.erectedPoles && state.erectedPoles.length > 0 && (
-                            <div className="bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded border border-slate-200 dark:border-slate-800 space-y-1">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-[9px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase">
-                                        Erected Poles Record
-                                    </label>
-                                    <Button 
-                                        type="button" 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className="h-5 text-[9px] font-bold text-emerald-700 border-emerald-300 hover:bg-emerald-50 px-1.5"
-                                        onClick={controls.addErectedPoleRow}
-                                    >
-                                        + Add Pole
-                                    </Button>
-                                </div>
+                        {/* 1. MATRIX VIEW: 25-COLUMN GOOGLE SHEET STANDARD */}
+                        {(state.materialViewMode ?? 'MATRIX') === 'MATRIX' ? (
+                            <SODMaterialMatrixGrid
+                                matrixValues={state.matrixValues ?? {}}
+                                poleNumber={state.matrixPoleNumber ?? ""}
+                                onUpdateMatrixValue={(key: string, val: string) => controls.updateMatrixValue?.(key, val)}
+                                onUpdatePoleNumber={(val: string) => controls.updateMatrixPoleNumber?.(val)}
+                                onApplyPreset={(presetKey: SODPresetId) => controls.applyMatrixPreset?.(presetKey)}
+                                materialSource={materialSource}
+                                dropWireDistance={orderData?.dropWireDistance}
+                            />
+                        ) : (
+                            /* 2. TABLE VIEW: CUSTOM ROWS SPREADSHEET */
+                            <>
+                                {/* Erected Poles Grid - Inside Material Usage Section */}
+                                {state.erectedPoles && state.erectedPoles.length > 0 && (
+                                    <div className="bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded border border-slate-200 dark:border-slate-800 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[9px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase">
+                                                Erected Poles Record
+                                            </label>
+                                            <Button 
+                                                type="button" 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-5 text-[9px] font-bold text-emerald-700 border-emerald-300 hover:bg-emerald-50 px-1.5"
+                                                onClick={controls.addErectedPoleRow}
+                                            >
+                                                + Add Pole
+                                            </Button>
+                                        </div>
 
-                                <div className="space-y-1">
-                                    {state.erectedPoles.map((pole, pIdx) => {
-                                        const { sizeType, isSltProvided, isConcretePoured } = parsePoleType(pole.poleType);
-                                        return (
-                                            <div key={pIdx} className="flex flex-col sm:flex-row gap-1 items-start sm:items-center bg-white dark:bg-slate-900 p-1 rounded border border-slate-200 dark:border-slate-800 w-full">
-                                                <div className="w-full sm:w-[130px]">
-                                                    <Select
-                                                        value={sizeType}
-                                                        onValueChange={(val) => controls.updateErectedPoleRow(pIdx, 'poleType', serializePoleType(val, isSltProvided, isConcretePoured))}
-                                                    >
-                                                        <SelectTrigger className="h-6 text-[10px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
-                                                            <SelectValue placeholder="Select Pole" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="PLC-5_6-CE" className="text-xs">5.6m Concrete</SelectItem>
-                                                            <SelectItem value="PLC-6_7-CE" className="text-xs">6.7m Concrete</SelectItem>
-                                                            <SelectItem value="PLC-8" className="text-xs">8.0m Concrete</SelectItem>
-                                                            <SelectItem value="PLC-GI" className="text-xs">GI Pole</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="w-full sm:flex-1">
-                                                    <Input
-                                                        value={pole.poleNumber}
-                                                        onChange={(e) => controls.updateErectedPoleRow(pIdx, 'poleNumber', e.target.value.toUpperCase())}
-                                                        placeholder="Pole Serial"
-                                                        className="h-6 text-xs font-mono bg-white dark:bg-slate-950"
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2 pl-1 sm:pl-0">
-                                                    <label className="flex items-center gap-1 cursor-pointer select-none">
-                                                        <Checkbox
-                                                            checked={isSltProvided}
-                                                            onCheckedChange={(checked) => controls.updateErectedPoleRow(pIdx, 'poleType', serializePoleType(sizeType, !!checked, isConcretePoured))}
-                                                            className="w-3 h-3"
-                                                        />
-                                                        <span className="text-[9px] font-bold uppercase text-slate-500">SLT</span>
-                                                    </label>
-                                                    <label className="flex items-center gap-1 cursor-pointer select-none">
-                                                        <Checkbox
-                                                            checked={isConcretePoured}
-                                                            onCheckedChange={(checked) => controls.updateErectedPoleRow(pIdx, 'poleType', serializePoleType(sizeType, isSltProvided, !!checked))}
-                                                            className="w-3 h-3"
-                                                        />
-                                                        <span className="text-[9px] font-bold uppercase text-slate-500">Concrete</span>
-                                                    </label>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => controls.removeErectedPoleRow(pIdx)}
-                                                    className="h-6 w-6 text-slate-400 hover:text-red-500 rounded"
-                                                >
-                                                    <Trash2 className="w-3 h-3" />
-                                                </Button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
+                                        <div className="space-y-1">
+                                            {state.erectedPoles.map((pole, pIdx) => {
+                                                const { sizeType, isSltProvided, isConcretePoured } = parsePoleType(pole.poleType);
+                                                return (
+                                                    <div key={pIdx} className="flex flex-col sm:flex-row gap-1 items-start sm:items-center bg-white dark:bg-slate-900 p-1 rounded border border-slate-200 dark:border-slate-800 w-full">
+                                                        <div className="w-full sm:w-[130px]">
+                                                            <Select
+                                                                value={sizeType}
+                                                                onValueChange={(val) => controls.updateErectedPoleRow(pIdx, 'poleType', serializePoleType(val, isSltProvided, isConcretePoured))}
+                                                            >
+                                                                <SelectTrigger className="h-6 text-[10px] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                                                                    <SelectValue placeholder="Select Pole" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="PLC-5_6-CE" className="text-xs">5.6m Concrete</SelectItem>
+                                                                    <SelectItem value="PLC-6_7-CE" className="text-xs">6.7m Concrete</SelectItem>
+                                                                    <SelectItem value="PLC-8" className="text-xs">8.0m Concrete</SelectItem>
+                                                                    <SelectItem value="PLC-GI" className="text-xs">GI Pole</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        <div className="w-full sm:flex-1">
+                                                            <Input
+                                                                value={pole.poleNumber}
+                                                                onChange={(e) => controls.updateErectedPoleRow(pIdx, 'poleNumber', e.target.value.toUpperCase())}
+                                                                placeholder="Pole Serial"
+                                                                className="h-6 text-xs font-mono bg-white dark:bg-slate-950"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 pl-1 sm:pl-0">
+                                                            <label className="flex items-center gap-1 cursor-pointer select-none">
+                                                                <Checkbox
+                                                                    checked={isSltProvided}
+                                                                    onCheckedChange={(checked) => controls.updateErectedPoleRow(pIdx, 'poleType', serializePoleType(sizeType, !!checked, isConcretePoured))}
+                                                                    className="w-3 h-3"
+                                                                />
+                                                                <span className="text-[9px] font-bold uppercase text-slate-500">SLT</span>
+                                                            </label>
+                                                            <label className="flex items-center gap-1 cursor-pointer select-none">
+                                                                <Checkbox
+                                                                    checked={isConcretePoured}
+                                                                    onCheckedChange={(checked) => controls.updateErectedPoleRow(pIdx, 'poleType', serializePoleType(sizeType, isSltProvided, !!checked))}
+                                                                    className="w-3 h-3"
+                                                                />
+                                                                <span className="text-[9px] font-bold uppercase text-slate-500">Concrete</span>
+                                                            </label>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => controls.removeErectedPoleRow(pIdx)}
+                                                            className="h-6 w-6 text-slate-400 hover:text-red-500 rounded"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
@@ -877,6 +940,8 @@ export function OrderSheetMode({
                             </tbody>
                         </table>
                     </div>
+                    </>
+                )}
                     </div>
                 </div>
 

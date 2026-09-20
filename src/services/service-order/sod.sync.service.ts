@@ -2004,10 +2004,9 @@ export class SODSyncService {
                             },
                             select: { id: true }
                         });
-                        // Material rollback for DISAPPEARED: clear any material usage records
-                        await tx.sODMaterialUsage.deleteMany({
-                            where: { serviceOrderId: disappearedSod.id }
-                        });
+                        // Material rollback for DISAPPEARED: properly rollback usage, restore stock and reverse GL
+                        await SODMaterialService.rollbackMaterialUsage(tx, disappearedSod.id, 'PORTAL_SWEEP');
+                        await LedgerService.rollbackSodTransaction(tx, disappearedSod.id);
                     }));
                     if (disError) {
                         console.error(`[SYNC-DISAPPEARED] Failed to process disappeared SOD ${disappearedSod.soNum}:`, disError);
@@ -2556,7 +2555,14 @@ export class SODSyncService {
                     await LedgerService.rollbackSodTransaction(tx, serviceOrder.id);
                 }
 
-                if (isCompleting || (updated.sltsStatus === SodStatus.COMPLETED && materialDetails.length > 0)) {
+                const existingManualMaterials = (serviceOrder?.materialUsage || []).filter(
+                    m => m.usageType !== 'PORTAL_SYNC'
+                );
+                const hasExistingManualUsage = existingManualMaterials.length > 0;
+
+                if (hasExistingManualUsage) {
+                    console.log(`[BRIDGE-SYNC] Preserving ${existingManualMaterials.length} manual material record(s) for SO ${soNum}. Portal material overwrite skipped.`);
+                } else if (isCompleting || (updated.sltsStatus === SodStatus.COMPLETED && materialDetails.length > 0)) {
                     const usagesInput: MaterialUsageInput[] = [];
                     for (const mat of materialDetails) {
                         const code = mat.CODE || mat.TYPE;
@@ -2840,7 +2846,11 @@ export class SODSyncService {
             });
         }
 
-        if (materialDetails.length > 0 && syncedOrder && syncedOrder.sltsStatus !== 'COMPLETED') {
+        const hasExistingManualUsageInOrder = (serviceOrder?.materialUsage || []).some(
+            m => m.usageType !== 'PORTAL_SYNC'
+        );
+
+        if (!hasExistingManualUsageInOrder && materialDetails.length > 0 && syncedOrder && syncedOrder.sltsStatus !== 'COMPLETED') {
             // Resolve items first and aggregate quantities by unique constraint key:
             // (itemId, validatedSerial) to prevent P2002 unique constraint violations on uq_sod_material_usage_line.
             const resolvedUsages = new Map<string, {

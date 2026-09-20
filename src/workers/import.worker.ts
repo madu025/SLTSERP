@@ -188,12 +188,19 @@ export const sodImportWorker = new Worker(
                             data: baseData
                         });
 
-                        // Replace material usage if not skipping
+                        // Replace material usage if not skipping and no manual materials exist
                         if (!skipMaterials && materialUsageData.length > 0) {
-                            await tx.sODMaterialUsage.deleteMany({ where: { serviceOrderId: existing.id } });
-                            await tx.sODMaterialUsage.createMany({
-                                data: materialUsageData.map(m => ({ ...m, serviceOrderId: existing.id }))
+                            const hasManual = await tx.sODMaterialUsage.count({
+                                where: { serviceOrderId: existing.id, usageType: { not: 'PORTAL_SYNC' } }
                             });
+                            if (hasManual === 0) {
+                                await tx.sODMaterialUsage.deleteMany({ where: { serviceOrderId: existing.id } });
+                                await tx.sODMaterialUsage.createMany({
+                                    data: materialUsageData.map(m => ({ ...m, serviceOrderId: existing.id }))
+                                });
+                            } else {
+                                console.log(`[IMPORT-WORKER] Preserving manual materials for SO ${soNum}. Import replacement skipped.`);
+                            }
                         }
                     } else {
                         // Create new order
