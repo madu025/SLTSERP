@@ -18,7 +18,6 @@ import { OrderAssignmentSection } from "./OrderAssignmentSection";
 import { MATERIAL_CATEGORY_ORDER } from "@/config/inventory-categories";
 import { toast } from "sonner";
 import { SODMaterialMatrixGrid } from "./SODMaterialMatrixGrid";
-import { SODPresetId } from "@/config/sod-matrix-config";
 
 export interface CollectedCpe {
     deviceType: string;
@@ -88,7 +87,7 @@ interface OrderSheetModeProps {
         setMaterialViewMode?: (mode: 'MATRIX' | 'TABLE') => void;
         updateMatrixValue?: (key: string, value: string) => void;
         updateMatrixPoleNumber?: (poleNum: string) => void;
-        applyMatrixPreset?: (presetKey: SODPresetId) => void;
+        resetMatrix?: () => void;
         confirm: () => void;
     };
     contractors: Contractor[];
@@ -598,15 +597,6 @@ export function OrderSheetMode({
                                         type="button" 
                                         size="sm" 
                                         variant="secondary" 
-                                        onClick={() => controls.applyPreset('STANDARD')}
-                                        className="h-5 text-[9px] font-bold px-1.5 bg-slate-700 text-white hover:bg-slate-600"
-                                    >
-                                        Preset: Standard
-                                    </Button>
-                                    <Button 
-                                        type="button" 
-                                        size="sm" 
-                                        variant="secondary" 
                                         onClick={controls.addErectedPoleRow}
                                         className="h-5 text-[9px] font-bold px-1.5 bg-emerald-600 text-white hover:bg-emerald-500"
                                     >
@@ -634,7 +624,7 @@ export function OrderSheetMode({
                                 poleNumber={state.matrixPoleNumber ?? ""}
                                 onUpdateMatrixValue={(key: string, val: string) => controls.updateMatrixValue?.(key, val)}
                                 onUpdatePoleNumber={(val: string) => controls.updateMatrixPoleNumber?.(val)}
-                                onApplyPreset={(presetKey: SODPresetId) => controls.applyMatrixPreset?.(presetKey)}
+                                onReset={controls.resetMatrix}
                                 materialSource={materialSource}
                                 dropWireDistance={orderData?.dropWireDistance}
                             />

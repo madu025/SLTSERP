@@ -6,9 +6,6 @@ import {
     UtilityPole, 
     Wrench, 
     Boxes, 
-    Zap, 
-    PlusSquare, 
-    Layers, 
     RotateCcw, 
     CheckCircle2, 
     AlertCircle,
@@ -20,16 +17,15 @@ import { Button } from "@/components/ui/button";
 import { 
     SOD_STANDARD_MATRIX_CONFIG, 
     MATRIX_CATEGORIES, 
-    SOD_QUICK_PRESETS,
     SODMatrixItemConfig 
 } from "@/config/sod-matrix-config";
 
 interface SODMaterialMatrixGridProps {
     matrixValues: Record<string, string>;
     onUpdateMatrixValue: (key: string, val: string) => void;
-    onApplyPreset: (presetId: 'STANDARD' | 'POLE_1' | 'POLE_2' | 'CLEAR') => void;
     poleNumber: string;
     onUpdatePoleNumber: (val: string) => void;
+    onReset?: () => void;
     materialSource?: string;
     dropWireDistance?: number | null;
 }
@@ -37,9 +33,9 @@ interface SODMaterialMatrixGridProps {
 export function SODMaterialMatrixGrid({
     matrixValues,
     onUpdateMatrixValue,
-    onApplyPreset,
     poleNumber,
     onUpdatePoleNumber,
+    onReset,
     materialSource = 'SLT',
     dropWireDistance
 }: SODMaterialMatrixGridProps) {
@@ -77,44 +73,7 @@ export function SODMaterialMatrixGrid({
     const isPoleNumberMissing = isPoleRequired && !poleNumber.trim();
 
     return (
-        <div className="space-y-4">
-            {/* Quick Action Presets Bar */}
-            <div className="bg-slate-50 dark:bg-slate-900/80 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 shadow-xs">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
-                        Quick Presets:
-                    </span>
-                    {SOD_QUICK_PRESETS.map((p) => {
-                        const IconComponent = p.icon === 'Zap' ? Zap : p.icon === 'PlusSquare' ? PlusSquare : Layers;
-                        return (
-                            <Button
-                                key={p.id}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onApplyPreset(p.id)}
-                                title={p.description}
-                                className="h-7 px-2.5 text-xs font-bold bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-300 transition-all cursor-pointer shadow-xs"
-                            >
-                                <IconComponent className="w-3 h-3 mr-1 text-emerald-600 dark:text-emerald-400" />
-                                {p.label}
-                            </Button>
-                        );
-                    })}
-                </div>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onApplyPreset('CLEAR')}
-                    className="h-7 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                >
-                    <RotateCcw className="w-3 h-3 mr-1" />
-                    Reset
-                </Button>
-            </div>
-
+        <div className="space-y-3">
             {/* 4 Category Cards Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {MATRIX_CATEGORIES.map((cat) => {
@@ -285,12 +244,27 @@ export function SODMaterialMatrixGrid({
                     )}
                 </div>
 
-                {isPoleNumberMissing && (
-                    <div className="flex items-center gap-1 text-xs text-rose-400 bg-rose-950/60 border border-rose-800 px-2 py-1 rounded-md animate-pulse font-bold">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        Pole Number Required!
-                    </div>
-                )}
+                <div className="flex items-center gap-2">
+                    {isPoleNumberMissing && (
+                        <div className="flex items-center gap-1 text-xs text-rose-400 bg-rose-950/60 border border-rose-800 px-2 py-1 rounded-md animate-pulse font-bold">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            Pole Number Required!
+                        </div>
+                    )}
+                    {onReset && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onReset}
+                            className="h-6 px-2 text-[10px] font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-950/50"
+                            title="Reset all entered matrix values"
+                        >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Reset Values
+                        </Button>
+                    )}
+                </div>
             </div>
         </div>
     );

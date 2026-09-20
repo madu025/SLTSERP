@@ -6,9 +6,7 @@ import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData }
 import { formatMaterialUsage } from "./utils";
 import { 
     SOD_STANDARD_MATRIX_CONFIG, 
-    SOD_QUICK_PRESETS, 
-    SODMatrixItemConfig,
-    SODPresetId
+    SODMatrixItemConfig 
 } from "@/config/sod-matrix-config";
 
 interface BridgeMaterialDetail {
@@ -698,80 +696,20 @@ export function useOrderAction(
         });
     }, [matrixValues]);
 
-    const applyMatrixPreset = useCallback((presetKey: SODPresetId) => {
-        if (presetKey === 'CLEAR') {
-            setMatrixValues({});
-            setMatrixPoleNumber("");
-            setErectedPoles([]);
-            setExtendedMaterialRows(prev => prev.map(r => ({
-                ...r,
-                usedQty: "",
-                f1Qty: "",
-                g1Qty: "",
-                wastageQty: "",
-                serialNumber: ""
-            })));
-            toast.info("Cleared Material Matrix values");
-            return;
-        }
-
-        const preset = SOD_QUICK_PRESETS.find(p => p.id === presetKey);
-        if (!preset) return;
-
-        setMatrixValues(prev => {
-            const next = { ...prev };
-            Object.entries(preset.values).forEach(([k, v]: [string, string]) => {
-                next[k] = v;
-            });
-            return next;
-        });
-
-        if (preset.values['POLE_NUMBER'] !== undefined) {
-            setMatrixPoleNumber(preset.values['POLE_NUMBER'] || "");
-        }
-
-        Object.entries(preset.values).forEach(([k, v]: [string, string]) => {
-            const cfg = SOD_STANDARD_MATRIX_CONFIG.find(c => c.key === k);
-            if (!cfg) return;
-            const targetItem = findItemForMatrixConfig(cfg);
-            if (!targetItem) return;
-
-            setExtendedMaterialRows(prev => {
-                const updated = [...prev];
-                const existingIdx = updated.findIndex(r => {
-                    if (r.itemId === targetItem.id) return true;
-                    const rItem = items.find(i => i.id === r.itemId);
-                    return rItem && targetItem && (rItem.commonName || rItem.name) === (targetItem.commonName || targetItem.name);
-                });
-
-                const fieldToUpdate: keyof MaterialUsageRow = 
-                    cfg.usageType === 'USED_F1' ? 'f1Qty' :
-                    cfg.usageType === 'USED_G1' ? 'g1Qty' :
-                    cfg.usageType === 'WASTAGE' ? 'wastageQty' : 'usedQty';
-
-                if (existingIdx >= 0) {
-                    updated[existingIdx] = {
-                        ...updated[existingIdx],
-                        itemId: targetItem.id,
-                        [fieldToUpdate]: v
-                    };
-                } else if (v.trim() !== "") {
-                    updated.push({
-                        itemId: targetItem.id,
-                        usedQty: fieldToUpdate === 'usedQty' ? v : "",
-                        f1Qty: fieldToUpdate === 'f1Qty' ? v : "",
-                        g1Qty: fieldToUpdate === 'g1Qty' ? v : "",
-                        wastageQty: fieldToUpdate === 'wastageQty' ? v : "",
-                        wastageReason: "",
-                        serialNumber: ""
-                    });
-                }
-                return updated;
-            });
-        });
-
-        toast.success(`Applied ${preset.label} Preset!`);
-    }, [findItemForMatrixConfig, items]);
+    const resetMatrix = useCallback(() => {
+        setMatrixValues({});
+        setMatrixPoleNumber("");
+        setErectedPoles([]);
+        setExtendedMaterialRows(prev => prev.map(r => ({
+            ...r,
+            usedQty: "",
+            f1Qty: "",
+            g1Qty: "",
+            wastageQty: "",
+            serialNumber: ""
+        })));
+        toast.info("Cleared all material values");
+    }, []);
 
     return {
         state: {
@@ -830,7 +768,7 @@ export function useOrderAction(
             setMaterialViewMode,
             updateMatrixValue,
             updateMatrixPoleNumber,
-            applyMatrixPreset,
+            resetMatrix,
             confirm
         }
     };
