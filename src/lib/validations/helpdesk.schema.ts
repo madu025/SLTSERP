@@ -71,7 +71,7 @@ const emptyToNullNumber = z
 
 // IT Asset Schemas
 export const CreateAssetSchema = z.object({
-  assetNumber: z.string().min(1, "Asset number is required"),
+  assetNumber: z.string().optional().nullable(),
   serialNumber: z.string().min(1, "Serial number is required"),
   deviceType: ITDeviceTypeSchema,
   brand: z.string().min(1, "Brand is required"),

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { signJWT } from '@/lib/auth';
+import { HelpdeskService } from '@/services/helpdesk/helpdesk.service';
 import crypto from 'crypto';
 
 export interface SyncAssetPayload {
@@ -118,9 +119,10 @@ export class AgentSyncService {
 
         // 2. Auto-Register if asset does not exist in DB yet
         if (!asset) {
+            const nextAssetNumber = await HelpdeskService.generateNextAssetNumber('LAPTOP');
             const created = await prisma.iTAsset.create({
                 data: {
-                    assetNumber: `SLT-AGENT-IT-${Math.floor(100000 + Math.random() * 900000)}`,
+                    assetNumber: nextAssetNumber,
                     serialNumber: cleanSerial,
                     deviceType: 'LAPTOP',
                     brand: newBrandValid ? brand.trim() : 'Unknown',
@@ -281,9 +283,10 @@ export class AgentSyncService {
         }
 
         // Create the ITAsset
+        const nextAssetNumber = await HelpdeskService.generateNextAssetNumber('LAPTOP');
         await prisma.iTAsset.create({
             data: {
-                assetNumber: `SLT-AGENT-IT-${Math.floor(100000 + Math.random() * 900000)}`,
+                assetNumber: nextAssetNumber,
                 serialNumber: cleanSerial,
                 deviceType: 'LAPTOP',
                 brand: brand || 'Unknown',

@@ -339,10 +339,84 @@ export class HelpdeskService {
     return HelpdeskRepository.findAllAssets(params);
   }
 
+  /**
+   * Generates the next atomic sequential IT Asset Number based on device type and year.
+   * Standard format: SLTS-IT-[TYPE]-[YEAR]-[0001..9999]
+   */
+  static async generateNextAssetNumber(
+    deviceType: ITDeviceType = 'LAPTOP',
+    tx?: TxClient
+  ): Promise<string> {
+    const client = tx || prisma;
+    const year = new Date().getFullYear().toString();
+    const typeMap: Record<ITDeviceType, string> = {
+      LAPTOP: 'LAP',
+      DESKTOP: 'DSK',
+      MOBILE: 'MOB',
+      PRINTER: 'PRN',
+      NETWORK: 'NET',
+      OTHER: 'OTH'
+    };
+    const code = typeMap[deviceType] || 'OTH';
+    const counterType = `SLTS-IT-${code}`;
+
+    const counter = await client.documentCounter.upsert({
+      where: {
+        type_period: {
+          type: counterType,
+          period: year
+        }
+      },
+      update: {
+        sequence: { increment: 1 }
+      },
+      create: {
+        type: counterType,
+        period: year,
+        sequence: 1
+      }
+    });
+
+    const paddedSeq = String(counter.sequence).padStart(4, '0');
+    return `${counterType}-${year}-${paddedSeq}`;
+  }
+
+  /**
+   * Peeks the next sequence without incrementing for UI display/preview.
+   */
+  static async previewNextAssetNumber(
+    deviceType: ITDeviceType = 'LAPTOP'
+  ): Promise<string> {
+    const year = new Date().getFullYear().toString();
+    const typeMap: Record<ITDeviceType, string> = {
+      LAPTOP: 'LAP',
+      DESKTOP: 'DSK',
+      MOBILE: 'MOB',
+      PRINTER: 'PRN',
+      NETWORK: 'NET',
+      OTHER: 'OTH'
+    };
+    const code = typeMap[deviceType] || 'OTH';
+    const counterType = `SLTS-IT-${code}`;
+
+    const counter = await prisma.documentCounter.findUnique({
+      where: {
+        type_period: {
+          type: counterType,
+          period: year
+        }
+      }
+    });
+
+    const nextSeq = (counter?.sequence || 0) + 1;
+    const paddedSeq = String(nextSeq).padStart(4, '0');
+    return `${counterType}-${year}-${paddedSeq}`;
+  }
+
   static async createAsset(
     userId: string,
     data: {
-      assetNumber: string;
+      assetNumber?: string | null;
       serialNumber: string;
       deviceType: ITDeviceType;
       brand: string;
@@ -365,8 +439,14 @@ export class HelpdeskService {
     ipAddress?: string,
     userAgent?: string
   ) {
+    // Resolve assetNumber (auto-generate if omitted, empty, or 'AUTO')
+    let resolvedAssetNumber = data.assetNumber?.trim();
+    if (!resolvedAssetNumber || resolvedAssetNumber.toUpperCase() === 'AUTO') {
+      resolvedAssetNumber = await HelpdeskService.generateNextAssetNumber(data.deviceType);
+    }
+
     // Check if asset number is already taken
-    const existingAssetNo = await HelpdeskRepository.findAssetByAssetNumber(data.assetNumber);
+    const existingAssetNo = await HelpdeskRepository.findAssetByAssetNumber(resolvedAssetNumber);
     if (existingAssetNo) {
       throw AppError.badRequest('ASSET_NUMBER_TAKEN');
     }
@@ -407,7 +487,7 @@ export class HelpdeskService {
       }
 
       const created = await HelpdeskRepository.createAsset({
-        assetNumber: data.assetNumber,
+        assetNumber: resolvedAssetNumber,
         serialNumber: data.serialNumber,
         deviceType: data.deviceType,
         brand: data.brand,

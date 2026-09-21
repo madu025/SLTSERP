@@ -385,6 +385,26 @@ interface StaffProfileData {
   });
   const { register, handleSubmit, setValue, reset, formState: { errors } } = createForm;
   const createStatus = createForm.watch("status");
+  const [generatingAssetNumber, setGeneratingAssetNumber] = useState(false);
+
+  const handleAutoGenerateAssetNumber = async () => {
+    const currentDeviceType = createForm.getValues("deviceType") || "LAPTOP";
+    setGeneratingAssetNumber(true);
+    try {
+      const res = await fetch(`/api/helpdesk/assets/next-number?deviceType=${currentDeviceType}&_t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.nextAssetNumber) {
+          setValue("assetNumber", json.data.nextAssetNumber);
+          toast.success(`Generated Tag: ${json.data.nextAssetNumber}`);
+        }
+      }
+    } catch {
+      toast.error("Failed to generate asset number");
+    } finally {
+      setGeneratingAssetNumber(false);
+    }
+  };
 
   // Edit form with UpdateAssetSchema
   const editForm = useForm({
@@ -976,12 +996,23 @@ interface StaffProfileData {
                 <div className="flex-grow overflow-y-auto p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-muted-foreground uppercase">Asset Number</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Asset Number / Tag</label>
+                      <button
+                        type="button"
+                        onClick={handleAutoGenerateAssetNumber}
+                        disabled={generatingAssetNumber}
+                        className="text-[10px] text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-medium disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-2.5 h-2.5 ${generatingAssetNumber ? 'animate-spin' : ''}`} /> Auto-Generate
+                      </button>
+                    </div>
                     <Input
                       {...register("assetNumber")}
-                      placeholder="e.g. SLT-IT-009"
+                      placeholder="e.g. SLTS-IT-LAP-2026-0001 or Finance Tag"
                       className="h-8 text-xs bg-muted/20 border-border"
                     />
+                    <p className="text-[9px] text-muted-foreground">Enter Finance Tag or click Auto-Generate (blank = auto-assign)</p>
                     {errors.assetNumber && <p className="text-[10px] text-red-500">{errors.assetNumber.message}</p>}
                   </div>
                   <div className="space-y-1">
@@ -1468,8 +1499,9 @@ interface StaffProfileData {
               <div className="flex-grow overflow-y-auto p-6 space-y-4 mt-0">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Asset No</label>
-                  <Input {...editForm.register("assetNumber")} className="h-8 text-xs bg-muted/20" />
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Asset No (Finance Tag / SLTS-IT)</label>
+                  <Input {...editForm.register("assetNumber")} className="h-8 text-xs bg-muted/20" placeholder="e.g. FA-2026-0045 or SLTS-IT-..." />
+                  <p className="text-[9px] text-muted-foreground">Update with official Finance Asset Tag if applicable</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase">Serial No</label>

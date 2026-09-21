@@ -1301,8 +1301,10 @@
     deviceType?: ITDeviceType;
     assignedStaffId?: string;
   }): any`
+    * `generateNextAssetNumber(deviceType: ITDeviceType = 'LAPTOP', tx?: TxClient): Promise<string>`
+    * `previewNextAssetNumber(deviceType: ITDeviceType = 'LAPTOP'): Promise<string>`
     * `createAsset(userId: string, data: {
-      assetNumber: string;
+      assetNumber?: string | null;
       serialNumber: string;
       deviceType: ITDeviceType;
       brand: string;
@@ -3282,6 +3284,7 @@
 | `/api/helpdesk/assets/audits/gaps` | [route.ts](src/app/api/helpdesk/assets/audits/gaps/route.ts) | `GET` |
 | `/api/helpdesk/assets/audits` | [route.ts](src/app/api/helpdesk/assets/audits/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `/api/helpdesk/assets/import-excel` | [route.ts](src/app/api/helpdesk/assets/import-excel/route.ts) | `POST` |
+| `/api/helpdesk/assets/next-number` | [route.ts](src/app/api/helpdesk/assets/next-number/route.ts) | `GET` |
 | `/api/helpdesk/assets` | [route.ts](src/app/api/helpdesk/assets/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/assets/search-by-serial` | [route.ts](src/app/api/helpdesk/assets/search-by-serial/route.ts) | `GET` |
 | `/api/helpdesk/assets/stats` | [route.ts](src/app/api/helpdesk/assets/stats/route.ts) | `GET` |
