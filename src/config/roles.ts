@@ -64,6 +64,8 @@ export const ROLE_GROUPS = {
     BOM_IMPORT_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'STORES_MANAGER'],
     // Office / IT asset management (EAM)
     EAM_ASSET_MANAGERS: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
+    // ITMS & IT Helpdesk Administration
+    IT_ADMINS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'],
     // Read-only report viewers across all stores/areas (QA audit scope) —
     // intentionally excluded from all store/inventory operational groups
     SECTION_HEADS: ['HEAD_OF_SECTION'],

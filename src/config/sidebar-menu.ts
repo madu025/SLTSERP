@@ -950,55 +950,55 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'IT Admin Queue',
                 path: '/helpdesk/admin',
                 icon: ClipboardList,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'IT Asset Management',
                 path: '/helpdesk/assets',
                 icon: Laptop,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'Asset Disposals (Maker-Checker)',
                 path: '/helpdesk/disposals',
                 icon: Trash2,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'FINANCE_MANAGER', 'ENGINEER']
+                allowedRoles: [...ROLE_GROUPS.IT_ADMINS, 'FINANCE_MANAGER']
             },
             {
                 title: 'Asset Depreciation & GL',
                 path: '/helpdesk/depreciation',
                 icon: Calculator,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'FINANCE_MANAGER', 'ENGINEER']
+                allowedRoles: [...ROLE_GROUPS.IT_ADMINS, 'FINANCE_MANAGER']
             },
             {
                 title: 'Live Device Telemetry',
                 path: '/helpdesk/telemetry',
                 icon: Activity,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'SLA Breach Monitor',
                 path: '/helpdesk/sla-monitor',
                 icon: Clock,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'Physical Asset Audits',
                 path: '/helpdesk/assets/audits',
                 icon: ClipboardCheck,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'Software Licenses (SAM)',
                 path: '/helpdesk/software-licenses',
                 icon: Tag,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+                allowedRoles: ROLE_GROUPS.IT_ADMINS
             },
             {
                 title: 'ITSM Reports & Analytics',
                 path: '/helpdesk/reports',
                 icon: BarChart3,
-                allowedRoles: [...ROLE_GROUPS.OFFICE_ADMINS, 'ENGINEER']
+                allowedRoles: ROLE_GROUPS.IT_ADMINS
             }
         ]
     }

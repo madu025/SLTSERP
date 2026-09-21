@@ -5,6 +5,8 @@ import { AppError } from "@/lib/error";
 import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { UpdateTicketSchema } from "@/lib/validations/helpdesk.schema";
 
+import { ROLE_GROUPS } from "@/config/roles";
+
 export const GET = apiHandler(async (req, params) => {
   const { id } = await params;
   const userId = req.headers.get("x-user-id")!;
@@ -16,7 +18,7 @@ export const GET = apiHandler(async (req, params) => {
   }
 
   // Security: Only IT Staff or the owner can view ticket details
-  const isITStaff = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(userRole);
+  const isITStaff = ROLE_GROUPS.IT_ADMINS.includes(userRole);
   if (!isITStaff && ticket.userId !== userId) {
     throw AppError.forbidden("Forbidden");
   }
@@ -37,7 +39,7 @@ export const PUT = apiHandler(
       throw AppError.notFound("Ticket not found");
     }
 
-    const isITStaff = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(userRole);
+    const isITStaff = ROLE_GROUPS.IT_ADMINS.includes(userRole);
     
     // Security: Check authorization to update ticket
     if (!isITStaff) {

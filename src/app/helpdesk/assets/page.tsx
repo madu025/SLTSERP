@@ -265,7 +265,7 @@ export default function HelpdeskAssetManagementPage() {
     }
   };
 
-  const isITStaff = !!(user?.role && ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(user.role));
+  const isITStaff = !!(user?.role && ROLE_GROUPS.IT_ADMINS.includes(user.role));
 
   if (!mounted || !user || !isITStaff) {
     return (
@@ -276,7 +276,7 @@ export default function HelpdeskAssetManagementPage() {
   }
 
   return (
-    <RoleGuard allowedRoles={ROLE_GROUPS.OFFICE_ADMINS}>
+    <RoleGuard allowedRoles={ROLE_GROUPS.IT_ADMINS}>
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

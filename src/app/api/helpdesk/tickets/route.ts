@@ -3,6 +3,8 @@ import { HelpdeskService } from "@/services/helpdesk/helpdesk.service";
 import { CreateTicketSchema } from "@/lib/validations/helpdesk.schema";
 import { TicketStatus, TicketPriority, IssueCategory } from "@prisma/client";
 
+import { ROLE_GROUPS } from "@/config/roles";
+
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req) => {
@@ -18,8 +20,8 @@ export const GET = apiHandler(async (req) => {
   const userIdHeader = req.headers.get("x-user-id")!;
   const userRole = req.headers.get("x-user-role") || "ENGINEER";
 
-  // Security: Check if standard employee. If so, restrict results to their own tickets.
-  const isITStaff = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(userRole);
+  // Security: Check if IT staff. If standard employee, restrict results strictly to their own tickets.
+  const isITStaff = ROLE_GROUPS.IT_ADMINS.includes(userRole);
   const userId = isITStaff ? (url.searchParams.get("userId") || undefined) : userIdHeader;
 
   return await HelpdeskService.getTickets({

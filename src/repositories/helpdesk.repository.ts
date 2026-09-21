@@ -57,45 +57,56 @@ export class HelpdeskRepository {
     const db = tx || prisma;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ITAssetWhereInput = {};
+    const andConditions: Prisma.ITAssetWhereInput[] = [];
 
     if (status) {
-      where.status = status;
+      andConditions.push({ status });
     }
     if (deviceType) {
-      where.deviceType = deviceType;
+      andConditions.push({ deviceType });
     }
     if (siteOfficeId) {
-      where.siteOfficeId = siteOfficeId;
+      andConditions.push({ siteOfficeId });
     }
     if (assignedStaffId) {
-      where.assignedStaffId = assignedStaffId;
+      andConditions.push({
+        OR: [
+          { assignedStaffId },
+          { assignedUserId: assignedStaffId },
+          { assignedStaff: { employeeId: assignedStaffId } },
+          { assignedStaff: { user: { id: assignedStaffId } } }
+        ]
+      });
     }
     if (search) {
-      where.OR = [
-        { assetNumber: { contains: search, mode: 'insensitive' } },
-        { serialNumber: { contains: search, mode: 'insensitive' } },
-        { brand: { contains: search, mode: 'insensitive' } },
-        { model: { contains: search, mode: 'insensitive' } },
-        { department: { contains: search, mode: 'insensitive' } },
-        { location: { contains: search, mode: 'insensitive' } },
-        {
-          siteOffice: {
-            name: { contains: search, mode: 'insensitive' }
-          }
-        },
-        {
-          units: {
-            some: {
-              OR: [
-                { serialNumber: { contains: search, mode: 'insensitive' } },
-                { unitNumber: { contains: search, mode: 'insensitive' } }
-              ]
+      andConditions.push({
+        OR: [
+          { assetNumber: { contains: search, mode: 'insensitive' } },
+          { serialNumber: { contains: search, mode: 'insensitive' } },
+          { brand: { contains: search, mode: 'insensitive' } },
+          { model: { contains: search, mode: 'insensitive' } },
+          { department: { contains: search, mode: 'insensitive' } },
+          { location: { contains: search, mode: 'insensitive' } },
+          {
+            siteOffice: {
+              name: { contains: search, mode: 'insensitive' }
+            }
+          },
+          {
+            units: {
+              some: {
+                OR: [
+                  { serialNumber: { contains: search, mode: 'insensitive' } },
+                  { unitNumber: { contains: search, mode: 'insensitive' } }
+                ]
+              }
             }
           }
-        }
-      ];
+        ]
+      });
     }
+
+    const where: Prisma.ITAssetWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
 
     // O(log n) - DB-level pagination with status-based ordering
     // Status order: ACTIVE(1) > SPARE(2) > UNDER_REPAIR(3) > FAULTY(4) > DECOMMISSIONED(5) > DISPOSED(6) > TRANSFERRED(7)
