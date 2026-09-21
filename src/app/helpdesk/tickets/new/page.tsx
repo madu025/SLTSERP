@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateTicketSchema } from "@/lib/validations/helpdesk.schema";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Info, Image as ImageIcon, X } from "lucide-react";
+import { FileText, Info, Image as ImageIcon, X, Laptop, Printer, Wifi, KeyRound, Smartphone, Check } from "lucide-react";
 import { ITAsset } from "@/components/helpdesk/AssetList";
 import { z } from "zod";
 import Image from "next/image";
@@ -23,16 +23,17 @@ export default function CreateTicketPage() {
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<{ id: string; name: string; staffId?: string } | null>(null);
   const [assets, setAssets] = useState<ITAsset[]>([]);
+  const [selectedAssetId, setSelectedAssetId] = useState<string>("none");
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<z.input<typeof CreateTicketSchema>>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<z.input<typeof CreateTicketSchema>>({
     resolver: zodResolver(CreateTicketSchema),
     defaultValues: {
-      assetId: "",
+      assetId: null,
       category: "SOFTWARE_ISSUE" as const,
       description: "",
       priority: "MEDIUM" as const,
@@ -40,6 +41,20 @@ export default function CreateTicketPage() {
       photoUrls: [] as string[]
     }
   });
+
+  const selectedCategory = watch("category");
+  const selectedPriority = watch("priority");
+
+  const handleApplyPreset = (
+    category: z.input<typeof CreateTicketSchema>["category"],
+    desc: string,
+    priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "MEDIUM"
+  ) => {
+    setValue("category", category);
+    setValue("description", desc);
+    setValue("priority", priority);
+    toast.success("Applied quick issue template");
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -59,11 +74,15 @@ export default function CreateTicketPage() {
         if (!res.ok) throw new Error("Failed to fetch assets");
         const json = await res.json();
         if (json.success) {
-          setAssets(json.data.assets || []);
+          const userAssets = json.data.assets || [];
+          setAssets(userAssets);
+          if (userAssets.length > 0) {
+            setSelectedAssetId(userAssets[0].id);
+            setValue("assetId", userAssets[0].id);
+          }
         }
       } catch (err) {
         console.error("[TICKET-FORM] Failed to load user assets:", err);
-        // Non-fatal — user can still create a ticket without linking a device
       } finally {
         setLoadingAssets(false);
       }
@@ -72,7 +91,7 @@ export default function CreateTicketPage() {
     if (mounted && user?.id) {
       fetchUserAssets();
     }
-  }, [mounted, user]);
+  }, [mounted, user, setValue]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -120,10 +139,10 @@ export default function CreateTicketPage() {
   const onSubmit = async (data: z.input<typeof CreateTicketSchema>) => {
     setSubmitting(true);
     try {
-      // Structure fields correctly
+      const finalAssetId = selectedAssetId === "none" || !selectedAssetId ? null : selectedAssetId;
       const payload = {
         ...data,
-        assetId: data.assetId || null,
+        assetId: finalAssetId,
         anydeskId: data.anydeskId || null
       };
 
@@ -143,8 +162,8 @@ export default function CreateTicketPage() {
         router.push("/helpdesk");
       }
     } catch (err) {
-      console.error("[TICKET-FORM] Submit ticket failed:", err);
-      toast.error("Failed to create support ticket. Please check inputs.");
+      console.error(err);
+      toast.error("Failed to submit support ticket. Please verify inputs.");
     } finally {
       setSubmitting(false);
     }
@@ -178,25 +197,130 @@ export default function CreateTicketPage() {
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="bg-card border border-border/50 rounded-xl p-5 md:p-6 shadow-xl space-y-4 text-xs">
             
+            {/* Quick Issue Presets */}
+            <div className="space-y-2 p-3 rounded-lg bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30">
+              <label className="text-[10px] font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wide flex items-center gap-1">
+                <span>⚡ Quick Problem Presets (Click to Auto-fill)</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApplyPreset("SOFTWARE_ISSUE", "Laptop is running extremely slow / blue screening / freezing on startup.")}
+                  className="h-7 text-[11px] gap-1 bg-card hover:bg-indigo-50 dark:hover:bg-indigo-900/40 border-indigo-200 dark:border-indigo-800"
+                >
+                  <Laptop className="h-3.5 w-3.5 text-indigo-600" />
+                  Laptop Slow / Freezing
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApplyPreset("PRINTER_ISSUE", "Printer is offline / paper jam / toner empty / not printing.")}
+                  className="h-7 text-[11px] gap-1 bg-card hover:bg-amber-50 dark:hover:bg-amber-900/40 border-amber-200 dark:border-amber-800"
+                >
+                  <Printer className="h-3.5 w-3.5 text-amber-600" />
+                  Printer Jam / Toner
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApplyPreset("NETWORK_ISSUE", "Cannot connect to office Wi-Fi / Internet connection disconnected.")}
+                  className="h-7 text-[11px] gap-1 bg-card hover:bg-blue-50 dark:hover:bg-blue-900/40 border-blue-200 dark:border-blue-800"
+                >
+                  <Wifi className="h-3.5 w-3.5 text-blue-600" />
+                  Wi-Fi / Network Down
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApplyPreset("SOFTWARE_ISSUE", "ERP login failed / Account locked / Password reset needed.")}
+                  className="h-7 text-[11px] gap-1 bg-card hover:bg-emerald-50 dark:hover:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800"
+                >
+                  <KeyRound className="h-3.5 w-3.5 text-emerald-600" />
+                  ERP / Password Reset
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApplyPreset("HARDWARE_REPLACEMENT", "Mobile phone screen damaged / SIM card data connection not working.")}
+                  className="h-7 text-[11px] gap-1 bg-card hover:bg-teal-50 dark:hover:bg-teal-900/40 border-teal-200 dark:border-teal-800"
+                >
+                  <Smartphone className="h-3.5 w-3.5 text-teal-600" />
+                  Mobile / SIM Problem
+                </Button>
+              </div>
+            </div>
+
             {/* Select Device */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                 Linked Device Asset
               </label>
+              
+              {/* Quick Assigned Device Chips */}
+              {assets.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 py-1">
+                  <span className="text-[10px] text-muted-foreground font-semibold">Assigned to you:</span>
+                  {assets.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAssetId(a.id);
+                        setValue("assetId", a.id);
+                      }}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border flex items-center gap-1 transition-all ${
+                        selectedAssetId === a.id
+                          ? "bg-primary text-white border-primary shadow-xs"
+                          : "bg-muted/40 hover:bg-muted text-foreground border-border"
+                      }`}
+                    >
+                      {selectedAssetId === a.id && <Check className="h-3 w-3" />}
+                      <span>{a.brand} {a.model} ({a.deviceType})</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedAssetId("none");
+                      setValue("assetId", null);
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                      selectedAssetId === "none"
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-muted/40 hover:bg-muted text-muted-foreground border-border"
+                    }`}
+                  >
+                    None / Software issue
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
                 <div className="flex-grow">
-                  <Select onValueChange={(v) => setValue("assetId", v)}>
+                  <Select
+                    value={selectedAssetId}
+                    onValueChange={(v) => {
+                      setSelectedAssetId(v);
+                      setValue("assetId", v === "none" ? null : v);
+                    }}
+                  >
                     <SelectTrigger className="h-9.5 text-xs bg-muted/20 border-border/70">
                       <SelectValue placeholder={
                         loadingAssets
                           ? "Loading your assigned devices..."
                           : assets.length === 0
                           ? "No registered devices found — select if software-only issue"
-                          : "Select one of your registered devices..."
+                          : "Select registered device..."
                       } />
                     </SelectTrigger>
                     <SelectContent className="bg-card">
-                      <SelectItem value="">No Device / General software issue</SelectItem>
+                      <SelectItem value="none">No Device / General software issue</SelectItem>
                       {assets.map((asset) => (
                         <SelectItem key={asset.id} value={asset.id}>
                           {asset.brand} {asset.model} (S/N: {asset.serialNumber}) [{asset.assetNumber}]
@@ -215,7 +339,7 @@ export default function CreateTicketPage() {
               {!loadingAssets && assets.length > 0 && (
                 <p className="text-[9px] text-muted-foreground flex items-center gap-1">
                   <Info className="h-3.5 w-3.5 text-primary" />
-                  <span>Linking a registered asset helps us view repair timelines and specifications.</span>
+                  <span>Linking a registered asset helps IT view device specifications and past repair history.</span>
                 </p>
               )}
             </div>

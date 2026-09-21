@@ -929,7 +929,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         ]
     },
     {
-        title: 'IT Help Desk & Assets',
+        title: 'ITMS & IT Help Desk',
         path: '/helpdesk',
         icon: LifeBuoy,
         allowedRoles: ['ALL'],
@@ -1015,7 +1015,7 @@ export const hasAccess = (
 ) => {
     if (!isLoggedIn) {
         // Only allow public Guest items in sidebar/navigation
-        return !!itemTitle && ['IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
+        return !!itemTitle && ['IT Help Desk', 'ITMS & IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
     }
 
     // Misconfiguration guard: an empty allowedRoles list must never grant visibility

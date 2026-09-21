@@ -1322,6 +1322,12 @@
       mdmEnrolled?: boolean | null;
       physicallyInStores?: boolean | null;
     }, ipAddress?: string, userAgent?: string): any`
+    * `bulkImportAssets(userId: string, fileBuffer: Buffer, ipAddress?: string, userAgent?: string): Promise<{
+    totalRows: number;
+    importedCount: number;
+    skippedCount: number;
+    errors: string[];
+  }>`
     * `updateAsset(userId: string, id: string, data: {
       assetNumber?: string;
       serialNumber?: string;
@@ -3275,6 +3281,7 @@
 | `/api/helpdesk/agent/telemetry` | [route.ts](src/app/api/helpdesk/agent/telemetry/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/assets/audits/gaps` | [route.ts](src/app/api/helpdesk/assets/audits/gaps/route.ts) | `GET` |
 | `/api/helpdesk/assets/audits` | [route.ts](src/app/api/helpdesk/assets/audits/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
+| `/api/helpdesk/assets/import-excel` | [route.ts](src/app/api/helpdesk/assets/import-excel/route.ts) | `POST` |
 | `/api/helpdesk/assets` | [route.ts](src/app/api/helpdesk/assets/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/assets/search-by-serial` | [route.ts](src/app/api/helpdesk/assets/search-by-serial/route.ts) | `GET` |
 | `/api/helpdesk/assets/stats` | [route.ts](src/app/api/helpdesk/assets/stats/route.ts) | `GET` |

@@ -27,9 +27,15 @@ export const IssueCategorySchema = z.enum([
   "OTHER"
 ]);
 
+const emptyToNullId = z
+  .string()
+  .optional()
+  .nullable()
+  .transform((val) => (val === "" || val === undefined ? null : val));
+
 // Ticket Schemas
 export const CreateTicketSchema = z.object({
-  assetId: z.string().cuid().optional().nullable(),
+  assetId: emptyToNullId,
   category: IssueCategorySchema.default("OTHER"),
   description: z.string().optional().nullable(),
   priority: TicketPrioritySchema.default("MEDIUM"),
@@ -40,7 +46,7 @@ export const CreateTicketSchema = z.object({
 export const UpdateTicketSchema = z.object({
   status: TicketStatusSchema.optional(),
   priority: TicketPrioritySchema.optional(),
-  assignedToId: z.string().cuid().optional().nullable(),
+  assignedToId: emptyToNullId,
   anydeskId: z.string().optional().nullable(),
   anydeskSession: z.string().optional().nullable(),
   satisfactionRating: z.number().min(1).max(5).optional().nullable(),
@@ -52,13 +58,6 @@ export const CreateTicketUpdateSchema = z.object({
   statusTo: TicketStatusSchema.optional(),
   photoUrls: z.array(z.string()).default([])
 });
-
-const emptyToNullCuid = z
-  .string()
-  .optional()
-  .nullable()
-  .transform((val) => (val === "" ? null : val))
-  .pipe(z.string().cuid().optional().nullable());
 
 const emptyToNullNumber = z
   .union([z.number(), z.string()])
@@ -77,9 +76,9 @@ export const CreateAssetSchema = z.object({
   deviceType: ITDeviceTypeSchema,
   brand: z.string().min(1, "Brand is required"),
   model: z.string().min(1, "Model identifier is required"),
-  assignedStaffId: emptyToNullCuid,
+  assignedStaffId: emptyToNullId,
   department: z.string().optional().nullable(),
-  siteOfficeId: emptyToNullCuid,
+  siteOfficeId: emptyToNullId,
   location: z.string().optional().nullable(),
   status: ITAssetStatusSchema.default("ACTIVE"),
   purchaseDate: z.string().or(z.date()).optional().nullable(),
@@ -99,9 +98,9 @@ export const UpdateAssetSchema = z.object({
   deviceType: ITDeviceTypeSchema.optional(),
   brand: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
-  assignedStaffId: emptyToNullCuid,
+  assignedStaffId: emptyToNullId,
   department: z.string().optional().nullable(),
-  siteOfficeId: emptyToNullCuid,
+  siteOfficeId: emptyToNullId,
   location: z.string().optional().nullable(),
   status: ITAssetStatusSchema.optional(),
   purchaseDate: z.string().or(z.date()).optional().nullable(),
@@ -132,7 +131,7 @@ export const AssetTransactionTypeSchema = z.enum(["ISSUED_TO_USER", "RETURNED_TO
 
 export const CreateAssetHandoverSchema = z.object({
   transactionType: AssetTransactionTypeSchema,
-  targetStaffId: z.string().cuid().optional().nullable(),
+  targetStaffId: emptyToNullId,
   condition: z.string().optional().nullable(),
   remarks: z.string().optional().nullable()
 });
@@ -165,8 +164,8 @@ export const UpdateSoftwareLicenseSchema = z.object({
 });
 
 export const CreateSoftwareLicenseAssignmentSchema = z.object({
-  assignedUserId: z.string().cuid().optional().nullable(),
-  assignedAssetId: z.string().cuid().optional().nullable(),
+  assignedUserId: emptyToNullId,
+  assignedAssetId: emptyToNullId,
   assignedEmail: z.string().email().or(z.string().length(0)).optional().nullable(),
   remarks: z.string().optional().nullable()
 });

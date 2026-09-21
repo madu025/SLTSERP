@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store, FileSpreadsheet, History, MoreHorizontal } from "lucide-react";
+import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store, FileSpreadsheet, History, MoreHorizontal, Upload, Download, CheckCircle2, FileUp } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateAssetSchema, UpdateAssetSchema, CreateAssetHandoverSchema } from "@/lib/validations/helpdesk.schema";
@@ -149,6 +149,111 @@ export default function AssetList({
       setExportingExcel(false);
     }
   };
+
+  // Excel Bulk Import States
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importingExcel, setImportingExcel] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    totalRows: number;
+    importedCount: number;
+    skippedCount: number;
+    errors: string[];
+  } | null>(null);
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const sampleRows = [
+        {
+          "Asset Number": "SLTS-LAP-001",
+          "Serial Number": "CND202401",
+          "Device Type": "LAPTOP",
+          "Brand": "HP",
+          "Model": "ProBook 450 G8",
+          "Custodian Emp No": "EMP-1001",
+          "Custodian Name": "Sunil Perera",
+          "Department": "OSP Operations",
+          "Site Office": "Kurunegala",
+          "Location": "Ground Floor IT Room",
+          "Status": "ACTIVE",
+          "Purchase Cost": 185000,
+          "SIM Number": "",
+          "IMEI 2": ""
+        },
+        {
+          "Asset Number": "SLTS-PRN-001",
+          "Serial Number": "VNB3J04921",
+          "Device Type": "PRINTER",
+          "Brand": "HP",
+          "Model": "LaserJet M102a",
+          "Custodian Emp No": "",
+          "Custodian Name": "",
+          "Department": "Stores & Material",
+          "Site Office": "Central Stores",
+          "Location": "Dispatch Desk",
+          "Status": "ACTIVE",
+          "Purchase Cost": 65000,
+          "SIM Number": "",
+          "IMEI 2": ""
+        },
+        {
+          "Asset Number": "SLTS-MOB-001",
+          "Serial Number": "358902102938475",
+          "Device Type": "MOBILE",
+          "Brand": "Samsung",
+          "Model": "Galaxy A14",
+          "Custodian Emp No": "EMP-1045",
+          "Custodian Name": "Kasun Silva",
+          "Department": "Field Teams",
+          "Site Office": "Galle",
+          "Location": "Field Team 2",
+          "Status": "ACTIVE",
+          "Purchase Cost": 45000,
+          "SIM Number": "0712345678",
+          "IMEI 2": "358902102938476"
+        }
+      ];
+      const ws = XLSX.utils.json_to_sheet(sampleRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Assets Template");
+      XLSX.writeFile(wb, "IT_Assets_Import_Template.xlsx");
+      toast.success("Sample import template downloaded!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate sample template");
+    }
+  };
+
+  const handleExecuteImport = async () => {
+    if (!importFile) {
+      toast.error("Please select an Excel (.xlsx) file first.");
+      return;
+    }
+    setImportingExcel(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      const res = await fetch("/api/helpdesk/assets/import-excel", {
+        method: "POST",
+        body: formData
+      });
+      const json = await res.json();
+      if (json.success) {
+        setImportResult(json.data);
+        toast.success(`Import complete! ${json.data.importedCount} imported, ${json.data.skippedCount} skipped.`);
+        if (onRefresh) onRefresh();
+      } else {
+        toast.error(json.error || "Import failed");
+      }
+    } catch {
+      toast.error("Network error during file upload");
+    } finally {
+      setImportingExcel(false);
+    }
+  };
+
   const [submitting, setSubmitting] = useState(false);
   const [editAsset, setEditAsset] = useState<ITAsset | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -720,6 +825,129 @@ interface StaffProfileData {
               )}
               Export Excel
             </Button>
+
+            {/* Import Excel Button & Dialog */}
+            <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  className="h-8.5 gap-1.5 transition-all bg-card hover:bg-slate-100 dark:hover:bg-slate-800 text-xs border border-border/60 shrink-0 w-full sm:w-auto font-bold rounded-xl px-4 text-indigo-700 dark:text-indigo-300"
+                >
+                  <Upload className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  Import Excel
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl">
+                <DialogHeader>
+                  <DialogTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <FileUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    Bulk Import IT Assets
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+                    Upload an Excel (.xlsx) file containing Laptops, Printers, Mobiles, and Network gear.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-3">
+                  {/* Step 1: Download Sample Template */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+                    <div className="text-xs">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">Need the format?</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Download the standard template with sample rows.</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={handleDownloadTemplate}
+                      className="h-7.5 text-xs gap-1 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-semibold"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Template
+                    </Button>
+                  </div>
+
+                  {/* Step 2: Select File */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Select Excel File (.xlsx)
+                    </label>
+                    <Input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setImportFile(file);
+                        setImportResult(null);
+                      }}
+                      className="text-xs h-9 cursor-pointer file:cursor-pointer file:font-semibold file:text-xs"
+                    />
+                  </div>
+
+                  {/* Step 3: Result Summary if already executed */}
+                  {importResult && (
+                    <div className={`p-3 rounded-lg text-xs space-y-1 border ${
+                      importResult.importedCount > 0 
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200' 
+                        : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                    }`}>
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        <span>Import Completed: {importResult.importedCount} Imported, {importResult.skippedCount} Skipped</span>
+                      </div>
+                      {importResult.errors.length > 0 && (
+                        <div className="max-h-24 overflow-y-auto text-[11px] text-rose-700 dark:text-rose-300 space-y-0.5 pt-1 border-t border-slate-200/40">
+                          {importResult.errors.slice(0, 5).map((err, idx) => (
+                            <p key={idx}>• {err}</p>
+                          ))}
+                          {importResult.errors.length > 5 && (
+                            <p className="font-semibold italic">...and {importResult.errors.length - 5} more issues.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsImportModalOpen(false);
+                        setImportFile(null);
+                        setImportResult(null);
+                      }}
+                      className="h-8 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleExecuteImport}
+                      disabled={!importFile || importingExcel}
+                      className="h-8 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                    >
+                      {importingExcel ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5" />
+                          Upload & Import
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>

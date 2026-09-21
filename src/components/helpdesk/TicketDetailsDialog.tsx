@@ -464,19 +464,31 @@ export default function TicketDetailsDialog({
                 {ticket.anydeskId || "No AnyDesk ID provided"}
               </p>
             </div>
-            {isStaff && (
-              <Button
-                size="sm"
-                className="h-8 text-[11px] bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md rounded-lg px-4 transition-transform active:scale-95"
-                onClick={() => {
-                  if (ticket.anydeskId) {
-                    navigator.clipboard.writeText(ticket.anydeskId);
+            {isStaff && ticket.anydeskId && (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-[11px] border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 font-bold rounded-lg px-3 transition-transform active:scale-95"
+                  onClick={() => {
+                    navigator.clipboard.writeText(ticket.anydeskId!);
                     toast.success("AnyDesk address copied!");
-                  }
-                }}
-              >
-                Copy ID
-              </Button>
+                  }}
+                >
+                  Copy ID
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 text-[11px] bg-sky-600 hover:bg-sky-700 text-white font-bold shadow-md rounded-lg px-3.5 transition-transform active:scale-95"
+                  onClick={() => {
+                    const cleanId = ticket.anydeskId!.replace(/\s+/g, '');
+                    window.open(`anydesk:${cleanId}`, '_blank');
+                    toast.info(`Launching AnyDesk with ${cleanId}...`);
+                  }}
+                >
+                  Launch AnyDesk
+                </Button>
+              </div>
             )}
           </div>
 
@@ -499,18 +511,34 @@ export default function TicketDetailsDialog({
                     <span className="font-mono text-xl font-black text-slate-800 dark:text-slate-200 tracking-widest">{ticket.anydeskId.match(/.{1,3}/g)?.join(' ') || ticket.anydeskId}</span>
                   </div>
                   {isStaff && (
-                    <Button
-                      size="sm"
-                      className="h-8 text-[11px] bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md rounded-lg px-4 transition-transform active:scale-95"
-                      onClick={() => {
-                        if (ticket.anydeskId) {
-                          navigator.clipboard.writeText(ticket.anydeskId);
-                          toast.success("AnyDesk address copied!");
-                        }
-                      }}
-                    >
-                      Copy ID
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-[11px] border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold rounded-lg px-3 transition-transform active:scale-95"
+                        onClick={() => {
+                          if (ticket.anydeskId) {
+                            navigator.clipboard.writeText(ticket.anydeskId);
+                            toast.success("AnyDesk address copied!");
+                          }
+                        }}
+                      >
+                        Copy ID
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-8 text-[11px] bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md rounded-lg px-3.5 transition-transform active:scale-95"
+                        onClick={() => {
+                          if (ticket.anydeskId) {
+                            const cleanId = ticket.anydeskId.replace(/\s+/g, '');
+                            window.open(`anydesk:${cleanId}`, '_blank');
+                            toast.info(`Launching AnyDesk with ${cleanId}...`);
+                          }
+                        }}
+                      >
+                        Launch AnyDesk
+                      </Button>
+                    </div>
                   )}
                 </div>
 

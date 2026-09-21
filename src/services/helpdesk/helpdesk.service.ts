@@ -9,6 +9,7 @@ import { Prisma, TicketStatus, TicketPriority, IssueCategory, ITDeviceType, ITAs
 const prismaDb = prisma as unknown as { iTAssetUnit: Prisma.ITAssetUnitDelegate };
 type TxClient = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 import bcrypt from 'bcryptjs';
+import * as XLSX from 'xlsx';
 
 const REPAIR_CATEGORIES = [
   'PHYSICAL_DAMAGE',
@@ -446,6 +447,193 @@ export class HelpdeskService {
     });
 
     return asset;
+  }
+
+  static async bulkImportAssets(
+    userId: string,
+    fileBuffer: Buffer,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<{
+    totalRows: number;
+    importedCount: number;
+    skippedCount: number;
+    errors: string[];
+  }> {
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      throw AppError.badRequest('EXCEL_FILE_EMPTY');
+    }
+    const sheet = workbook.Sheets[sheetName];
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+    if (!rawRows || rawRows.length === 0) {
+      return { totalRows: 0, importedCount: 0, skippedCount: 0, errors: ['No data rows found in worksheet'] };
+    }
+
+    const errors: string[] = [];
+    let importedCount = 0;
+    let skippedCount = 0;
+
+    // Cache existing Site Offices for fast O(1) lookup
+    const siteOffices = await prisma.inventoryStore.findMany({
+      select: { id: true, name: true, location: true }
+    });
+    const siteOfficeMap = new Map<string, string>();
+    for (const so of siteOffices) {
+      siteOfficeMap.set(so.name.trim().toLowerCase(), so.id);
+      if (so.location) siteOfficeMap.set(so.location.trim().toLowerCase(), so.id);
+    }
+
+    // Process each row
+    for (let i = 0; i < rawRows.length; i++) {
+      const row = rawRows[i];
+      const rowNum = i + 2; // 1-based data row (row 1 is header)
+
+      const getVal = (...keys: string[]): string => {
+        for (const k of keys) {
+          const entry = Object.entries(row).find(([header]) =>
+            header.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === k.toLowerCase().replace(/[^a-z0-9]/g, '')
+          );
+          if (entry && entry[1] !== undefined && entry[1] !== null) {
+            return String(entry[1]).trim();
+          }
+        }
+        return '';
+      };
+
+      const assetNumber = getVal('Asset Number', 'Asset No', 'AssetNumber');
+      const serialNumber = getVal('Serial Number', 'Serial No', 'SerialNumber', 'Serial');
+      const rawDeviceType = getVal('Device Type', 'Type', 'DeviceType').toUpperCase();
+      const brand = getVal('Brand', 'Make');
+      const model = getVal('Model');
+      const custodianEmpNo = getVal('Custodian Employee ID', 'Custodian Emp No', 'Employee No', 'Emp No');
+      const custodianName = getVal('Custodian Name', 'Staff Name', 'Custodian');
+      const department = getVal('Department', 'Dept');
+      const siteOfficeName = getVal('Site Office', 'Office', 'Store', 'Location Store');
+      const location = getVal('Location', 'Room', 'Floor');
+      const rawStatus = getVal('Status').toUpperCase();
+      const purchaseCostStr = getVal('Purchase Cost', 'Cost', 'Price');
+      const simNumber = getVal('SIM Number', 'SIM', 'Sim No', 'Phone No');
+      const imei2 = getVal('IMEI 2', 'IMEI', 'IMEI1');
+
+      if (!assetNumber || !serialNumber) {
+        errors.push(`Row ${rowNum}: Asset Number and Serial Number are required.`);
+        skippedCount++;
+        continue;
+      }
+
+      // Map device type
+      let deviceType: ITDeviceType = 'OTHER';
+      if (['LAPTOP', 'DESKTOP', 'MOBILE', 'PRINTER', 'NETWORK', 'OTHER'].includes(rawDeviceType)) {
+        deviceType = rawDeviceType as ITDeviceType;
+      } else if (rawDeviceType.includes('LAPTOP')) {
+        deviceType = 'LAPTOP';
+      } else if (rawDeviceType.includes('DESK') || rawDeviceType.includes('PC')) {
+        deviceType = 'DESKTOP';
+      } else if (rawDeviceType.includes('PHONE') || rawDeviceType.includes('MOBILE')) {
+        deviceType = 'MOBILE';
+      } else if (rawDeviceType.includes('PRINT')) {
+        deviceType = 'PRINTER';
+      } else if (rawDeviceType.includes('ROUTER') || rawDeviceType.includes('SWITCH') || rawDeviceType.includes('NET')) {
+        deviceType = 'NETWORK';
+      }
+
+      // Map status
+      let status: ITAssetStatus = 'ACTIVE';
+      if (['ACTIVE', 'UNDER_REPAIR', 'DECOMMISSIONED', 'SPARE', 'FAULTY', 'DISPOSED', 'TRANSFERRED'].includes(rawStatus)) {
+        status = rawStatus as ITAssetStatus;
+      }
+
+      // Check existing asset in database
+      const existing = await prisma.iTAsset.findFirst({
+        where: {
+          OR: [{ assetNumber }, { serialNumber }]
+        },
+        select: { id: true, assetNumber: true, serialNumber: true }
+      });
+
+      if (existing) {
+        errors.push(`Row ${rowNum}: Skipped — Asset Number (${assetNumber}) or Serial (${serialNumber}) already exists.`);
+        skippedCount++;
+        continue;
+      }
+
+      // Find or create custodian staff if specified
+      let assignedStaffId: string | null = null;
+      if (custodianEmpNo) {
+        let staff = await prisma.staff.findUnique({
+          where: { employeeId: custodianEmpNo }
+        });
+        if (!staff && custodianName) {
+          staff = await prisma.staff.create({
+            data: {
+              employeeId: custodianEmpNo,
+              name: custodianName,
+              designation: 'SITE_OFFICE_STAFF'
+            }
+          });
+        }
+        if (staff) {
+          assignedStaffId = staff.id;
+        }
+      }
+
+      // Match site office
+      let siteOfficeId: string | null = null;
+      if (siteOfficeName) {
+        siteOfficeId = siteOfficeMap.get(siteOfficeName.toLowerCase()) || null;
+      }
+
+      const purchaseCost = purchaseCostStr ? parseFloat(purchaseCostStr.replace(/[^0-9.]/g, '')) || null : null;
+
+      try {
+        await prisma.iTAsset.create({
+          data: {
+            assetNumber,
+            serialNumber,
+            deviceType,
+            brand: brand || 'Standard',
+            model: model || 'Standard',
+            department: department || null,
+            location: location || null,
+            status,
+            assignedStaffId,
+            siteOfficeId,
+            purchaseCost,
+            simNumber: simNumber || null,
+            imei2: imei2 || null
+          }
+        });
+        importedCount++;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Unknown database error';
+        errors.push(`Row ${rowNum} (${assetNumber}): ${msg}`);
+        skippedCount++;
+      }
+    }
+
+    await AuditService.log({
+      userId,
+      action: 'CREATE',
+      entity: 'ITAsset',
+      entityId: userId,
+      newValue: {
+        totalRows: rawRows.length,
+        importedCount,
+        skippedCount
+      },
+      ipAddress,
+      userAgent
+    });
+
+    return {
+      totalRows: rawRows.length,
+      importedCount,
+      skippedCount,
+      errors
+    };
   }
 
   static async updateAsset(
@@ -1066,9 +1254,9 @@ export class HelpdeskService {
       link: `/helpdesk`
     });
 
-    // Notify IT Staff / Engineers (Role ENGINEER, ADMIN)
+    // Notify IT Staff / Engineers (Role ENGINEER, ADMIN, OFFICE_ADMIN)
     await NotificationService.notifyByRole({
-      roles: ROLE_GROUPS.PROJECT_MANAGERS,
+      roles: [...ROLE_GROUPS.OFFICE_ADMINS, ...ROLE_GROUPS.CORE_ADMINS, 'ENGINEER'],
       title: 'New Help Desk Ticket',
       message: `A new ${ticket.priority} priority ticket (${ticket.ticketNumber}) has been submitted: "${ticket.description.substring(0, 50)}..."`,
       type: 'HELPDESK',
