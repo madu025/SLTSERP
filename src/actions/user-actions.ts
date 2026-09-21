@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { SystemService } from '@/services/core/system.service';
 import { revalidatePath } from 'next/cache';
 import { Role, Prisma } from '@prisma/client';
+import { UserService } from '@/services/hr/user.service';
 
 export interface UserActionInput {
     username: string;
@@ -289,21 +290,46 @@ export async function updateUser(data: UpdateUserActionData) {
 }
 
 export async function deleteUser(id: string) {
-    await requireAuth(['SUPER_ADMIN']);
+    const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
 
     try {
+        if (currentUser.id === id) {
+            return { success: false, error: 'You cannot delete your own account' };
+        }
+
         const user = await prisma.user.findUnique({ where: { id } });
         if (!user) return { success: false, error: 'User not found' };
 
         if (user.role === 'SUPER_ADMIN') {
-            return { success: false, error: 'Cannot delete Super Admin' };
+            return { success: false, error: 'Cannot delete Super Admin account' };
         }
 
-        await prisma.user.delete({ where: { id } });
+        await UserService.deleteUser(id, currentUser.id);
+
+        await SystemService.logEvent({
+            userId: currentUser.id,
+            action: 'USER_DELETE',
+            entity: 'User',
+            entityId: id,
+            oldValue: { username: user.username, email: user.email, role: user.role }
+        });
+
         revalidatePath('/admin/users');
         return { success: true, message: 'User deleted successfully' };
     } catch (error: unknown) {
         console.error('[USER_ACTION_DELETE_ERROR]', error);
-        return { success: false, error: 'Error deleting user' };
+        let errorMsg = 'Error deleting user';
+        if (error instanceof Error) {
+            if (error.message === 'CANNOT_DELETE_SUPER_ADMIN') {
+                errorMsg = 'Cannot delete Super Admin account';
+            } else if (error.message === 'CANNOT_DELETE_OWN_ACCOUNT') {
+                errorMsg = 'You cannot delete your own account';
+            } else if (error.message === 'USER_NOT_FOUND') {
+                errorMsg = 'User not found';
+            } else {
+                errorMsg = error.message;
+            }
+        }
+        return { success: false, error: errorMsg };
     }
 }

@@ -507,7 +507,11 @@ export class UserService {
         return userWithoutPassword;
     }
 
-    static async deleteUser(id: string) {
+    static async deleteUser(id: string, currentUserId?: string) {
+        if (currentUserId && currentUserId === id) {
+            throw AppError.badRequest('CANNOT_DELETE_OWN_ACCOUNT');
+        }
+
         const user = await prisma.user.findUnique({ where: { id } });
         if (!user) throw AppError.notFound('USER_NOT_FOUND');
 
@@ -522,17 +526,42 @@ export class UserService {
             await tx.notificationPreference.deleteMany({ where: { userId: id } });
             await tx.pushSubscription.deleteMany({ where: { userId: id } });
 
+            // Disconnect subordinates and delegations
+            await tx.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } });
+            await tx.user.updateMany({ where: { delegatedUserId: id }, data: { delegatedUserId: null } });
+
+            // Disconnect relations on the user itself
+            await tx.user.update({
+                where: { id },
+                data: {
+                    assignedStore: { disconnect: true },
+                    accessibleOpmcs: { set: [] },
+                    supervisor: { disconnect: true },
+                    delegatedUser: { disconnect: true }
+                }
+            });
+
             // Attempt physical deletion
             await tx.user.delete({ where: { id } });
         }));
 
         if (err) {
-            // Fallback to soft delete if a foreign key constraint prevents physical deletion (Prisma Code P2003)
-            if ((err as Prisma.PrismaClientKnownRequestError)?.code === 'P2003') {
+            const prismaCode = (err as Prisma.PrismaClientKnownRequestError)?.code;
+            // Fallback to soft delete if a foreign key constraint prevents physical deletion (Prisma Code P2003 / P2014)
+            if (prismaCode === 'P2003' || prismaCode === 'P2014' || (err instanceof Error && err.message.includes('Foreign key'))) {
                 await prisma.user.update({
                     where: { id },
-                    data: { status: 'deleted' }
+                    data: {
+                        status: 'deleted',
+                        tokenVersion: { increment: 1 },
+                        assignedStoreId: null,
+                        supervisorId: null,
+                        delegatedUserId: null,
+                        accessibleOpmcs: { set: [] }
+                    }
                 });
+                await prisma.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } });
+                await prisma.user.updateMany({ where: { delegatedUserId: id }, data: { delegatedUserId: null } });
             } else {
                 throw err;
             }

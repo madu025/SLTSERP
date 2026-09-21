@@ -91,8 +91,10 @@ export const DELETE = apiHandler(async (request) => {
 
     if (!id) throw AppError.badRequest('ID required');
 
+    const currentUserId = request.headers.get('x-user-id') || undefined;
+
     try {
-        await UserService.deleteUser(id);
+        await UserService.deleteUser(id, currentUserId);
         return { message: 'User deleted successfully' };
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
@@ -101,6 +103,9 @@ export const DELETE = apiHandler(async (request) => {
         }
         if (errorMsg === 'CANNOT_DELETE_SUPER_ADMIN') {
             throw AppError.forbidden('Cannot delete Super Admin');
+        }
+        if (errorMsg === 'CANNOT_DELETE_OWN_ACCOUNT') {
+            throw AppError.badRequest('You cannot delete your own account');
         }
         throw error;
     }

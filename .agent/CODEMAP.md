@@ -1484,7 +1484,7 @@
     * `getUsers(page: number, limit: number, search?: string): any`
     * `createUser(data: CreateUserData, currentUserId: string): any`
     * `updateUser(id: string, data: UpdateUserData, currentUserId: string): any`
-    * `deleteUser(id: string): any`
+    * `deleteUser(id: string, currentUserId?: string): any`
     * `forgotPasswordVerify(username: string, employeeId: string): any`
     * `forgotPasswordVerifyAnswer(token: string, answer: string): any`
     * `forgotPasswordReset(token: string, newPassword: string): any`
