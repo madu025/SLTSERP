@@ -512,60 +512,71 @@ export class UserService {
             throw AppError.badRequest('CANNOT_DELETE_OWN_ACCOUNT');
         }
 
-        const user = await prisma.user.findUnique({ where: { id } });
+        const user = await prisma.user.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                name: true,
+                role: true,
+                status: true
+            }
+        });
         if (!user) throw AppError.notFound('USER_NOT_FOUND');
 
         if (user.role === 'SUPER_ADMIN') {
             throw AppError.forbidden('CANNOT_DELETE_SUPER_ADMIN');
         }
 
-        const [err] = await safe(prisma.$transaction(async (tx) => {
-            // Delete cascade-safe related records to avoid blockages
+        // Clean up relations and mark user as deleted in a single transaction.
+        // Note: Physical deletion (DELETE FROM "User") must NEVER be performed because
+        // AuditLog is an immutable ledger with trigger fn_audit_log_immutable that throws
+        // P0001 if foreign-key ON DELETE SET NULL attempts to mutate past audit records.
+        await prisma.$transaction(async (tx) => {
+            // 1. Delete cascade-safe related access/notification records
             await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
-            await tx.notification.deleteMany({ where: { userId: id } });
             await tx.notificationPreference.deleteMany({ where: { userId: id } });
             await tx.pushSubscription.deleteMany({ where: { userId: id } });
 
-            // Disconnect subordinates and delegations
+            // 2. Disconnect subordinates and delegations
             await tx.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } });
             await tx.user.updateMany({ where: { delegatedUserId: id }, data: { delegatedUserId: null } });
 
-            // Disconnect relations on the user itself
+            // 3. Mark user status as 'deleted', bump tokenVersion to revoke active sessions,
+            // and disconnect store and OPMC access
             await tx.user.update({
                 where: { id },
                 data: {
-                    assignedStore: { disconnect: true },
-                    accessibleOpmcs: { set: [] },
-                    supervisor: { disconnect: true },
-                    delegatedUser: { disconnect: true }
+                    status: 'deleted',
+                    tokenVersion: { increment: 1 },
+                    assignedStoreId: null,
+                    supervisorId: null,
+                    delegatedUserId: null,
+                    accessibleOpmcs: { set: [] }
                 }
             });
+        });
 
-            // Attempt physical deletion
-            await tx.user.delete({ where: { id } });
-        }));
-
-        if (err) {
-            const prismaCode = (err as Prisma.PrismaClientKnownRequestError)?.code;
-            // Fallback to soft delete if a foreign key constraint prevents physical deletion (Prisma Code P2003 / P2014)
-            if (prismaCode === 'P2003' || prismaCode === 'P2014' || (err instanceof Error && err.message.includes('Foreign key'))) {
-                await prisma.user.update({
-                    where: { id },
-                    data: {
-                        status: 'deleted',
-                        tokenVersion: { increment: 1 },
-                        assignedStoreId: null,
-                        supervisorId: null,
-                        delegatedUserId: null,
-                        accessibleOpmcs: { set: [] }
-                    }
-                });
-                await prisma.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } });
-                await prisma.user.updateMany({ where: { delegatedUserId: id }, data: { delegatedUserId: null } });
-            } else {
-                throw err;
+        // 4. Log the audit event to the AuditLog table for administrative compliance
+        await SystemService.logEvent({
+            userId: currentUserId || 'system',
+            action: 'USER_DELETE',
+            entity: 'User',
+            entityId: id,
+            oldValue: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                status: user.status
+            },
+            newValue: {
+                status: 'deleted'
             }
-        }
+        });
+
         return { success: true };
     }
 

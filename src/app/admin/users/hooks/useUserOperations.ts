@@ -57,6 +57,7 @@ export function useUserOperations() {
         onSuccess: (result) => {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ["users"] });
+                queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
                 toast.success("User deleted");
             } else {
                 toast.error(result.error || "Error deleting user");

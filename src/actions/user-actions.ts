@@ -306,15 +306,8 @@ export async function deleteUser(id: string) {
 
         await UserService.deleteUser(id, currentUser.id);
 
-        await SystemService.logEvent({
-            userId: currentUser.id,
-            action: 'USER_DELETE',
-            entity: 'User',
-            entityId: id,
-            oldValue: { username: user.username, email: user.email, role: user.role }
-        });
-
         revalidatePath('/admin/users');
+        revalidatePath('/admin/audit-logs');
         return { success: true, message: 'User deleted successfully' };
     } catch (error: unknown) {
         console.error('[USER_ACTION_DELETE_ERROR]', error);

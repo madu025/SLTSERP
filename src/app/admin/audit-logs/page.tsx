@@ -59,7 +59,13 @@ export default function AuditLogPage() {
     const { data: logs = [], isLoading } = useQuery<AuditLog[]>({
         queryKey: ["audit-logs"],
         queryFn: async () => {
-            const res = await fetch("/api/admin/audit-logs");
+            const res = await fetch(`/api/admin/audit-logs?_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: {
+                    'Pragma': 'no-cache',
+                    'Cache-Control': 'no-cache'
+                }
+            });
             if (!res.ok) return [];
             const json = await res.json();
             return Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : []);
@@ -140,9 +146,9 @@ export default function AuditLogPage() {
     // Statistics
     const stats = {
         total: logs.length,
-        updates: logs.filter(l => l.action === 'UPDATE' || l.action === 'PATCH').length,
-        creates: logs.filter(l => l.action === 'CREATE' || l.action === 'POST').length,
-        deletes: logs.filter(l => l.action === 'DELETE').length,
+        updates: logs.filter(l => l.action.includes('UPDATE') || l.action.includes('PATCH')).length,
+        creates: logs.filter(l => l.action.includes('CREATE') || l.action.includes('POST')).length,
+        deletes: logs.filter(l => l.action.includes('DELETE')).length,
     };
 
     const uniqueEntities = Array.from(new Set(logs.map(l => l.entity)));
