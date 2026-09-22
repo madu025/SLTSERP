@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { ThemeProvider } from "next-themes";
 import { Toaster as SonnerToaster } from "sonner";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -18,9 +17,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             });
         }
 
-        // Request Notification Permissions
+        // Request Notification Permissions only when authenticated and not on login pages
         if (typeof window !== 'undefined' && 'Notification' in window) {
-            if (Notification.permission === 'default') {
+            const isAuthPage = window.location.pathname === '/login' || 
+                               window.location.pathname.startsWith('/contractor/login') ||
+                               window.location.pathname === '/privacy';
+            const hasUser = !!localStorage.getItem('user') || !!localStorage.getItem('contractor_user');
+            if (!isAuthPage && hasUser && Notification.permission === 'default') {
                 Notification.requestPermission();
             }
         }

@@ -1,11 +1,11 @@
 "use client";
 
-import {  useEffect, useState  } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import NotificationBell from "@/components/NotificationBell";
 import MobileNav from "@/components/MobileNav";
+import { performClientLogout } from "@/lib/client-logout";
 import ExtensionStatus from "@/components/ExtensionStatus";
 import { Search } from 'lucide-react';
 
@@ -18,7 +18,6 @@ export default function Header() {
     const [user, setUser] = useState<User | null>(null);
     const [mounted, setMounted] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
-    const router = useRouter();
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -50,19 +49,9 @@ export default function Header() {
     }, []);
 
     const handleLogout = async () => {
-        try {
-            // 1. Call logout API to clear the httpOnly token cookie
-            await fetch('/api/logout', { method: 'POST' });
-        } catch {
-            // Ignore errors, continue with client-side cleanup
-        }
-
-        // 2. Clear all client-side storage
-        localStorage.clear();
-
-        // 3. Redirect to login (full page reload to wipe React Query cache)
         const isContractor = user?.role?.startsWith('CONTRACTOR_') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/contractor'));
-        window.location.href = isContractor ? '/contractor/login' : '/login';
+        const targetLogin = isContractor ? '/contractor/login' : '/login';
+        await performClientLogout(targetLogin);
     };
 
     if (!mounted) {

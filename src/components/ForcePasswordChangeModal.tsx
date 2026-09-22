@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { performClientLogout } from '@/lib/client-logout';
 
 /**
  * Global forced password-change modal.
@@ -115,8 +116,9 @@ export default function ForcePasswordChangeModal() {
                 setShow(false);
                 router.refresh();
             }, 1200);
-        } catch (err: any) {
-            setError(err.message || 'Failed to change password');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to change password';
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -226,14 +228,8 @@ export default function ForcePasswordChangeModal() {
                 <div className="px-6 pb-4 text-center">
                     <button
                         onClick={async () => {
-                            try {
-                                await fetch('/api/logout', { method: 'POST' });
-                            } catch {
-                                // ignore errors
-                            }
-                            localStorage.clear();
                             setShow(false);
-                            window.location.href = '/login';
+                            await performClientLogout('/login');
                         }}
                         className="text-sm text-gray-500 hover:text-gray-700 underline"
                     >

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useCallback, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { performClientLogout } from '@/lib/client-logout';
 
 const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
@@ -17,36 +18,15 @@ const AGENT_AUTH_PATHS = [
 ];
 
 export default function SessionManager() {
-    const router = useRouter();
     const pathname = usePathname();
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const fetchPatchedRef = useRef(false);
 
     const handleLogout = useCallback(async () => {
-        try {
-            const isContractor = pathname.startsWith('/contractor');
-            const targetLogin = isContractor ? '/contractor/login' : '/login';
-
-            // 1. Call Logout API to clear cookies
-            await fetch('/api/logout', { method: 'POST' });
-
-            // 2. Clear local storage
-            localStorage.removeItem('user');
-            localStorage.removeItem('token');
-            if (isContractor) {
-                localStorage.removeItem('contractor_user');
-                localStorage.removeItem('contractor_token');
-            }
-
-            // 3. Redirect to appropriate login page
-            router.push(targetLogin);
-            router.refresh();
-        } catch (error) {
-            console.error('[SESSION-MANAGER] Logout failed:', error);
-            const isContractor = pathname.startsWith('/contractor');
-            router.push(isContractor ? '/contractor/login' : '/login');
-        }
-    }, [pathname, router]);
+        const isContractor = pathname.startsWith('/contractor');
+        const targetLogin = isContractor ? '/contractor/login' : '/login';
+        await performClientLogout(targetLogin);
+    }, [pathname]);
 
     // ── Global 401 Fetch Interceptor with Token Refresh ──────────────────────
     // When the backend returns 401, first attempt to refresh the access token
@@ -89,12 +69,10 @@ export default function SessionManager() {
                         // Refresh failed — redirect to login
                         const hadSession = !!localStorage.getItem('token');
                         console.warn('[SESSION-MANAGER] 401 intercepted, refresh failed — redirecting to login');
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('token');
                         const isContractor = window.location.pathname.startsWith('/contractor');
                         const sessionParam = hadSession ? '?session=expired' : '';
                         const targetLogin = isContractor ? `/contractor/login${sessionParam}` : `/login${sessionParam}`;
-                        window.location.href = targetLogin;
+                        performClientLogout(targetLogin);
                         return new Promise(() => {});
                     }
                 }

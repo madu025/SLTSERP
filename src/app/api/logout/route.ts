@@ -2,9 +2,21 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { PushNotificationService } from '@/services/notification/push/push.service';
 
-export const POST = apiHandler(async () => {
+export const POST = apiHandler(async (request, params, body) => {
     const cookieStore = await cookies();
+    const endpoint = (body as { endpoint?: string })?.endpoint;
+    const userId = params?._userId;
+
+    if (endpoint && userId) {
+        await PushNotificationService.removeSubscription(userId, endpoint);
+    } else if (userId) {
+        await prisma.pushSubscription.deleteMany({
+            where: { userId },
+        }).catch(() => {});
+    }
 
     const cookieOptions = {
         httpOnly: true,
@@ -23,4 +35,5 @@ export const POST = apiHandler(async () => {
         success: true,
         message: 'Logged out successfully'
     });
-});
+}, { roles: ['ALL'] });
+

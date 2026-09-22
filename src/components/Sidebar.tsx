@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, LogOut, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useSidebarNotifications } from '@/hooks/useSidebarNotifications';
+import { performClientLogout } from '@/lib/client-logout';
 import { SidebarMenu } from './sidebar/SidebarMenu';
 import { NotificationDrawer } from './sidebar/NotificationDrawer';
 import { NexusLogoIcon } from '@/components/ui/NexusLogo';
@@ -96,20 +97,9 @@ function SidebarContent() {
     const roleLabel = ROLE_LABELS[userRole] || userRole?.replace(/_/g, ' ') || 'User';
 
     const handleLogout = async () => {
-        try {
-            // 1. Call logout API to clear the httpOnly token cookie
-            await fetch('/api/logout', { method: 'POST' });
-        } catch {
-            // Ignore errors, continue with client-side cleanup
-        }
-
-        // 2. Clear all client-side storage
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-
-        // 3. Redirect to appropriate login page
         const isContractor = isContractorRole(userRole);
-        window.location.href = isContractor ? '/contractor/login' : '/login';
+        const targetLogin = isContractor ? '/contractor/login' : '/login';
+        await performClientLogout(targetLogin);
     };
 
     return (

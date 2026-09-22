@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isContractorRole, isStoresRole } from "@/config/roles";
 import * as z from "zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -77,6 +78,20 @@ function LoginContent() {
     const id = requestAnimationFrame(() => setHydrated(true));
     return () => cancelAnimationFrame(id);
   }, [form]);
+
+  // Dismiss any lingering toasts and close active service worker notifications on login screen
+  useEffect(() => {
+    try {
+      toast.dismiss();
+    } catch {}
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.getNotifications().then((notifications) => {
+          notifications.forEach((n) => n.close());
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+  }, []);
 
   // Cycle through quotes
   useEffect(() => {

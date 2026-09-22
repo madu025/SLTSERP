@@ -18,7 +18,19 @@ export default function ContractorLoginPage() {
     // instead of authenticating. Field staff on slow mobile connections hit that
     // window constantly, so the submit control stays inert until the handler exists.
     const [hydrated, setHydrated] = useState(false);
-    useEffect(() => setHydrated(true), []);
+    useEffect(() => {
+        setHydrated(true);
+        try {
+            toast.dismiss();
+        } catch {}
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then((reg) => {
+                reg.getNotifications().then((notifications) => {
+                    notifications.forEach((n) => n.close());
+                }).catch(() => {});
+            }).catch(() => {});
+        }
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
