@@ -20,14 +20,27 @@ async function main() {
             completedDate: true,
             revenueAmount: true,
             contractorAmount: true,
+            sltsPatStatus: true,
+            opmcPatStatus: true,
+            hoPatStatus: true,
             materialUsage: { select: { quantity: true, unitPrice: true, costPrice: true } }
         }
     });
 
-    const invalid = rows.filter((row) => !validateSodForInvoicing(row).eligible);
+    const invalid = rows.filter((row) => {
+        const financial = validateSodForInvoicing(row).eligible;
+        const patVerified = row.sltsPatStatus === 'PAT_PASSED'
+            && row.opmcPatStatus === 'PAT_PASSED'
+            && row.hoPatStatus === 'PAT_PASSED';
+        return !financial || !patVerified;
+    });
     const reasonCounts = new Map<string, number>();
     for (const row of invalid) {
-        for (const reason of validateSodForInvoicing(row).reasons) {
+        const reasons = [...validateSodForInvoicing(row).reasons];
+        if (row.sltsPatStatus !== 'PAT_PASSED' || row.opmcPatStatus !== 'PAT_PASSED' || row.hoPatStatus !== 'PAT_PASSED') {
+            reasons.push('PAT_VERIFICATION_INCOMPLETE');
+        }
+        for (const reason of reasons) {
             reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
         }
     }
@@ -37,7 +50,14 @@ async function main() {
         invoicableBefore: rows.length,
         invalidCount: invalid.length,
         reasonCounts: Object.fromEntries(reasonCounts),
-        sample: invalid.slice(0, 10).map((row) => ({ soNum: row.soNum, rtom: row.rtom, reasons: validateSodForInvoicing(row).reasons }))
+        sample: invalid.slice(0, 10).map((row) => ({
+            soNum: row.soNum,
+            rtom: row.rtom,
+            reasons: [
+                ...validateSodForInvoicing(row).reasons,
+                ...(row.sltsPatStatus === 'PAT_PASSED' && row.opmcPatStatus === 'PAT_PASSED' && row.hoPatStatus === 'PAT_PASSED' ? [] : ['PAT_VERIFICATION_INCOMPLETE'])
+            ]
+        }))
     }, null, 2));
 
     if (!apply || invalid.length === 0) return;
