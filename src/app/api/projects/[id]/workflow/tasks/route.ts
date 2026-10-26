@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const POST = apiHandler(async (_request, _params, body) => {
     const action = body.action as string | undefined;
@@ -41,6 +42,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.internal(msg);
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_WORKFLOW_APPROVERS,
     audit: { action: 'UPDATE_TASK', entity: 'WORKFLOW' },
     rawResponse: true
 });

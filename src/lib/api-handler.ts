@@ -7,7 +7,9 @@ import { requestContext } from './request-context';
 import { logger } from './logger';
 import { getMenuAllowedRoles } from '@/config/route-permissions';
 import { validateSession } from '@/lib/session-validator';
-import { getPrefixGuardRoles, PASSWORD_CHANGE_EXEMPT_PATHS } from '@/config/route-guard-defaults';
+import { getPrefixGuardRoles, getPrefixReadGuardRoles, PASSWORD_CHANGE_EXEMPT_PATHS } from '@/config/route-guard-defaults';
+import { assertProjectAccess } from '@/lib/project-access';
+import { isValidUuid } from '@/lib/uuid';
 
 // ─── Response Envelope ────────────────────────────────────────────────────────
 
@@ -275,7 +277,7 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                         ? getMenuAllowedRoles(options.menuPath) ?? undefined
                         : isMutating
                             ? getPrefixGuardRoles(pathname)
-                            : undefined;
+                            : getPrefixReadGuardRoles(pathname);
 
                 if (declaredGuard || effectiveRoles) {
                     // Allowed logic:
@@ -325,6 +327,14 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 }
 
                 // ── 2. Financial Write Guard & Redis Idempotency Lock ────────
+                // Dynamic project routes must respect the authenticated user's
+                // OPMC scope. Flat collection routes are handled by their own
+                // service policy and are not mistaken for project IDs.
+                const projectIdSegment = pathname.split('/').filter(Boolean)[2];
+                if (projectIdSegment && isValidUuid(projectIdSegment)) {
+                    await assertProjectAccess(projectIdSegment, userId);
+                }
+
                 if (options?.financialWrite) {
                     if (!idempotencyKey) {
                         throw new AppError(

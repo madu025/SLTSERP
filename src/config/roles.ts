@@ -44,6 +44,27 @@ export const ROLE_GROUPS = {
     SERVICE_ASSURANCE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'SA_MANAGER', 'SA_ASSISTANT'],
     ALL_OPS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT', 'OSP_ENGINEER'],
 
+    // Project read access is intentionally limited to internal operational,
+    // finance, stores, procurement and invoice roles. Contractor portal roles
+    // must use contractor-scoped endpoints instead of the internal project API.
+    PROJECT_READERS: [
+        'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER',
+        'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR',
+        'QC_OFFICER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER',
+        'SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN',
+        'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 'CASHIER',
+        'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER',
+        'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'
+    ],
+
+    // Route-level admission for workflow operations. The service still checks
+    // the exact approval role/assignment before changing a workflow record.
+    PROJECT_WORKFLOW_APPROVERS: [
+        'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER',
+        'AREA_MANAGER', 'ENGINEER', 'QC_OFFICER', 'OSP_ENGINEER',
+        'CIVIL_SUPERVISOR', 'FINANCE_MANAGER', 'STORES_MANAGER'
+    ],
+
     // Presets for cross-functional operations
     FINANCE_APPROVERS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'FINANCE_MANAGER', 'STORES_MANAGER'],
     FINANCE_ALL: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'FINANCE_MANAGER', 'FINANCE_ASSISTANT'],

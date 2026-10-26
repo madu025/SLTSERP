@@ -32,7 +32,7 @@ export const GET = apiHandler(async (req, params) => {
     // Shared dropdown source for stores/finance/invoice/procurement pages —
     // any authenticated user may list; real protection is the server-side
     // resolveOpmcScope filtering applied above in ProjectService.
-    roles: ['ALL'],
+    roles: ROLE_GROUPS.PROJECT_READERS,
     rawResponse: true
 });
 

@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectBOQService } from '@/services/project/project-boq.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export const GET = apiHandler(async (request) => {
             routeFactorPct: 0,
         },
     };
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
 
 export const POST = apiHandler(async (_request, _params, body) => {
     const { itemCode, unitRate } = body || {};
@@ -44,6 +45,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
     const { rate, isNew } = await ProjectBOQService.saveBOQRate(body as any);
     return Response.json(rate, { status: isNew ? 201 : 200 });
 }, {
+    roles: ROLE_GROUPS.SF_AUDITORS,
     audit: { action: 'UPSERT_RATE', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });
@@ -64,6 +66,7 @@ export const PATCH = apiHandler(async (_request, _params, body) => {
         total: summary.total,
     };
 }, {
+    roles: ROLE_GROUPS.SF_AUDITORS,
     audit: { action: 'BULK_UPDATE_RATES', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });

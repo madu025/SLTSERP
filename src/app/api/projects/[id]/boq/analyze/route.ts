@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectBOQService } from '@/services/project/project-boq.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +9,7 @@ export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = await params;
 
     return await ProjectBOQService.analyzeBOQ(projectId);
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId } = await params;
@@ -22,6 +23,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     
     return { success: true, message: 'BOQ Sources updated successfully' };
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE_BOQ_SOURCES', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });

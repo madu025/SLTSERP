@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { QuotationService } from '@/services/finance/quotation.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export const GET = apiHandler(async (request) => {
     if (!requisitionId) throw AppError.badRequest('requisitionId is required');
 
     return await QuotationService.getQuotations(requisitionId);
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS, rawResponse: true });
 
 const createQuotationSchema = z.object({
     requisitionId: z.string().min(1),
@@ -49,6 +50,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
     audit: { action: 'CREATE', entity: 'QUOTATION' },
     rawResponse: true
 });
@@ -63,6 +65,7 @@ export const PATCH = apiHandler(async (_request, _params, body) => {
     const data = updateQuotationSchema.parse(body);
     return await QuotationService.updateQuotationStatus(data.id, data.status, data.acceptedById);
 }, {
+    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
     audit: { action: 'UPDATE', entity: 'QUOTATION' },
     rawResponse: true
 });

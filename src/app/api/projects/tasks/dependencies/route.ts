@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectTaskService } from '@/services/project/project-task.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,7 @@ export const GET = apiHandler(async (request) => {
     const taskId = searchParams.get('taskId');
 
     return await ProjectTaskService.getDependencies(taskId);
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
 
 const createDependencySchema = z.object({
     taskId: z.string().min(1),
@@ -32,6 +33,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'TASK_DEPENDENCY' },
     rawResponse: true
 });
@@ -45,6 +47,7 @@ export const DELETE = apiHandler(async (request) => {
     await ProjectTaskService.deleteDependency(id);
     return { success: true };
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'DELETE', entity: 'TASK_DEPENDENCY' },
     rawResponse: true
 });

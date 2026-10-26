@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectSurveyService } from '@/services/project/project-survey.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,14 +18,18 @@ export const GET = apiHandler(async (request, params) => {
 export const POST = apiHandler(async (_request, params, body) => {
     const title = body.title as string | undefined;
     const surveyType = body.surveyType as string | undefined;
-    const createdById = body.createdById as string | undefined;
+    const createdById = params._userId;
 
     if (!title || !surveyType || !createdById) {
-        throw AppError.badRequest('title, surveyType, and createdById are required');
+        throw AppError.badRequest('title, surveyType, and authenticated session are required');
     }
 
-    return await ProjectSurveyService.createSurveyRequest(params.id, body as any);
+    return await ProjectSurveyService.createSurveyRequest(params.id, {
+        ...body,
+        createdById,
+    } as any);
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE_SURVEY_REQUEST', entity: 'ProjectSurvey' },
     rawResponse: true
 });

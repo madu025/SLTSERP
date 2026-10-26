@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { saveGISMappingSchema, SaveGISMappingSchema } from '@/lib/validations/gis.schema';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export const GET = apiHandler<unknown, void>(
     async (_request, params) => {
         const mappings = await GISRouteService.getProjectGISMapping(params.id);
         return mappings;
-    }
+    }, { roles: ROLE_GROUPS.PROJECT_READERS }
 );
 
 /**
@@ -25,5 +26,5 @@ export const POST = apiHandler<unknown, SaveGISMappingSchema>(
             message: 'GIS material mappings saved successfully'
         };
     },
-    { schema: saveGISMappingSchema }
+    { schema: saveGISMappingSchema, roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OSP_PROJECTS])] }
 );

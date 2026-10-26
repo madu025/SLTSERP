@@ -9,7 +9,11 @@ import { ROLE_GROUPS, CONTRACTOR_ROLES } from './roles';
  * fail-closed departmental baselines without touching every route file.
  */
 
-/** Anyone who legitimately mutates project data (execution + finance + stores + field). */
+/**
+ * Departmental baseline for legacy project writes that have not yet declared
+ * a route-specific policy. Contractor portal roles are deliberately excluded:
+ * contractor actions must go through contractor-scoped endpoints.
+ */
 const PROJECT_WRITERS = [...new Set([
     ...ROLE_GROUPS.SOD_PROJECT,
     ...ROLE_GROUPS.PROJECT_MANAGERS,
@@ -17,8 +21,10 @@ const PROJECT_WRITERS = [...new Set([
     ...ROLE_GROUPS.SF_INVOICING,
     ...ROLE_GROUPS.STORES_ALL,
     ...ROLE_GROUPS.PROCUREMENT,
-    ...CONTRACTOR_ROLES,
 ])];
+
+/** Default read guard for project APIs without a route-specific policy. */
+const PROJECT_READERS = ROLE_GROUPS.PROJECT_READERS;
 
 /** GIS / survey writes — OSP + project teams + contractor field crews. */
 const GIS_WRITERS = [...new Set([
@@ -44,6 +50,10 @@ export const PREFIX_WRITE_GUARDS: ReadonlyArray<{ prefix: string; roles: string[
     { prefix: '/api/inventory/', roles: INVENTORY_WRITERS },
 ];
 
+export const PREFIX_READ_GUARDS: ReadonlyArray<{ prefix: string; roles: string[] }> = [
+    { prefix: '/api/projects/', roles: PROJECT_READERS },
+];
+
 /**
  * Resolve the default guard roles for a pathname (longest prefix match).
  * Returns undefined when no prefix applies — caller decides the fallback.
@@ -51,6 +61,17 @@ export const PREFIX_WRITE_GUARDS: ReadonlyArray<{ prefix: string; roles: string[
 export function getPrefixGuardRoles(pathname: string): string[] | undefined {
     let best: { prefix: string; roles: string[] } | null = null;
     for (const guard of PREFIX_WRITE_GUARDS) {
+        if (pathname.startsWith(guard.prefix) && (!best || guard.prefix.length > best.prefix.length)) {
+            best = guard;
+        }
+    }
+    return best?.roles;
+}
+
+/** Resolve the default guard for read-only requests by longest prefix. */
+export function getPrefixReadGuardRoles(pathname: string): string[] | undefined {
+    let best: { prefix: string; roles: string[] } | null = null;
+    for (const guard of PREFIX_READ_GUARDS) {
         if (pathname.startsWith(guard.prefix) && (!best || guard.prefix.length > best.prefix.length)) {
             best = guard;
         }

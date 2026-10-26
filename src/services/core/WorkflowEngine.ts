@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
+import { ROLE_GROUPS } from '@/config/roles';
 import { randomUUID } from 'crypto';
 
 export class WorkflowEngine {
@@ -215,12 +216,33 @@ export class WorkflowEngine {
    * Promotes or completes the current stage and activates the next sequence stage.
    */
   static async transitionStage(stageId: string, nextStatus: string, userId: string) {
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, status: true },
+    });
+    if (!actor || actor.status !== 'active') {
+      throw AppError.unauthorized('Authenticated workflow actor is not active');
+    }
+
+    const allowedStatuses = new Set(['COMPLETED', 'BLOCKED', 'ON_HOLD', 'IN_PROGRESS']);
+    if (!allowedStatuses.has(nextStatus)) {
+      throw AppError.badRequest('Invalid workflow stage status');
+    }
+
     const stage = await prisma.projectStageInstance.findUnique({
       where: { id: stageId },
+      include: { approvals: true },
     });
 
     if (!stage) {
       throw AppError.badRequest('Stage not found');
+    }
+
+    const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
+    const hasConfiguredApprovalRole = stage.approvals.some((approval) => approval.role === actor.role);
+    const isProjectOwner = ROLE_GROUPS.AREA_MANAGERS.includes(actor.role);
+    if (!isAdmin && !hasConfiguredApprovalRole && !isProjectOwner) {
+        throw AppError.forbidden('User is not authorized to transition workflow stages');
     }
 
     if (nextStatus === 'COMPLETED') {
@@ -341,13 +363,46 @@ export class WorkflowEngine {
    * Action Approval Level
    */
   static async submitApproval(approvalId: string, status: string, userId: string, comments?: string) {
+    if (status !== 'APPROVED' && status !== 'REJECTED') {
+      throw AppError.badRequest('Approval status must be APPROVED or REJECTED');
+    }
+
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, status: true },
+    });
+    if (!actor || actor.status !== 'active') {
+      throw AppError.unauthorized('Authenticated approver is not active');
+    }
+
+    const approval = await prisma.projectApprovalInstance.findUnique({
+      where: { id: approvalId },
+      include: { stage: { include: { approvals: true } } },
+    });
+    if (!approval) throw AppError.notFound('Workflow approval not found');
+    if (approval.status !== 'PENDING') {
+      throw AppError.badRequest('Workflow approval has already been actioned');
+    }
+
+    const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
+    if (!isAdmin && approval.role !== actor.role) {
+      throw AppError.forbidden('User is not eligible for this approval level');
+    }
+
+    const priorPending = approval.stage.approvals.some(
+      (item) => item.level < approval.level && item.status !== 'APPROVED'
+    );
+    if (priorPending) {
+      throw AppError.badRequest('Previous approval levels must be completed first');
+    }
+
     return prisma.projectApprovalInstance.update({
       where: { id: approvalId },
       data: {
         status,
-        approvedById: userId,
+        approvedById: actor.id,
         approvedAt: new Date(),
-        comments,
+        comments: comments || null,
       },
     });
   }

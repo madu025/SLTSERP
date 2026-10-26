@@ -26,7 +26,7 @@ export const POST = apiHandler(async (request, params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: ROLE_GROUPS.AREA_MANAGERS,
     audit: { action: 'CLOSE', entity: 'PROJECT' },
     rawResponse: true // We handle a custom Response.json inside catch for specific 400 with payload
 });

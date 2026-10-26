@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectWorkflowService } from '@/services/project/project-workflow.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export const GET = apiHandler(async (_request, params) => {
     }
 
     return workflowInstance;
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
 
 // POST /api/projects/[id]/workflow - Initialize workflow manually
 export const POST = apiHandler(async (_request, params, body) => {
@@ -34,6 +35,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'INITIALIZE_WORKFLOW', entity: 'Project' },
     rawResponse: true
 });

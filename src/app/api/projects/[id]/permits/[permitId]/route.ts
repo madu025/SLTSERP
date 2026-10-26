@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectPermitService } from '@/services/project/project-permit.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,12 +32,13 @@ export const PATCH = apiHandler(async (_request, params, body) => {
     if (body.expiryDate) updateData.expiryDate = new Date(body.expiryDate as string | number | Date);
     if (body.rejectionReason !== undefined) updateData.rejectionReason = body.rejectionReason;
     if (body.approvalDocument) updateData.approvalDocument = body.approvalDocument;
-    if (body.approvedById) updateData.approvedById = body.approvedById;
+    if (body.status === 'APPROVED') updateData.approvedById = params._userId;
     if (body.cost) updateData.cost = parseFloat(String(body.cost));
     if (body.remarks !== undefined) updateData.remarks = body.remarks;
 
     return await ProjectPermitService.updatePermit(permitId, updateData);
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'PROJECT_PERMIT' },
     rawResponse: true
 });
@@ -52,6 +54,7 @@ export const DELETE = apiHandler(async (_request, params) => {
     await ProjectPermitService.deletePermit(permitId);
     return { success: true };
 }, {
+    roles: ROLE_GROUPS.AREA_MANAGERS,
     audit: { action: 'DELETE', entity: 'PROJECT_PERMIT' },
     rawResponse: true
 });

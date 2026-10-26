@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { createGISRouteSchema, CreateGISRouteSchema } from '@/lib/validations/gis.schema';
 import { GISRoute } from '@prisma/client';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export const GET = apiHandler<unknown[], void>(
     async (_request, params) => {
         const gisRoutes = await GISRouteService.listProjectRoutes(params.id);
         return gisRoutes;
-    }
+    }, { roles: ROLE_GROUPS.PROJECT_READERS }
 );
 
 /**
@@ -24,5 +25,5 @@ export const POST = apiHandler<GISRoute, CreateGISRouteSchema>(
         const gisRoute = await GISRouteService.createGISRoute(params.id, body, userId);
         return gisRoute;
     },
-    { schema: createGISRouteSchema }
+    { schema: createGISRouteSchema, roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OSP_PROJECTS])] }
 );

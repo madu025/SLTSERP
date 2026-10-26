@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectChangeOrderService } from '@/services/project/project-change-order.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,11 +16,11 @@ export const POST = apiHandler(async (_request, params, body) => {
     const reason = body.reason as string | undefined;
     const costImpact = body.costImpact as number | undefined;
     const timeImpact = body.timeImpact as number | undefined;
-    const requestedById = body.requestedById as string | undefined;
+    const requestedById = params._userId;
     const notes = body.notes as string | undefined;
 
     if (!title || !type || !requestedById) {
-        throw AppError.badRequest('Missing required fields: title, type, requestedById');
+        throw AppError.badRequest('Missing required fields: title, type, and authenticated session');
     }
 
     try {
@@ -42,14 +43,14 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (_request, params, body) => {
     const coId = body.coId as string | undefined;
     const status = body.status as string | undefined;
-    const approvedById = body.approvedById as string | undefined;
     const rejectionReason = body.rejectionReason as string | undefined;
 
     if (!coId) {
@@ -72,7 +73,8 @@ export const PATCH = apiHandler(async (_request, _params, body) => {
 
     try {
         return await ProjectChangeOrderService.updateChangeOrder(coId, action, {
-            approvedById,
+            approvedById: status === 'APPROVED' ? params._userId : undefined,
+            implementedById: status === 'IMPLEMENTED' ? params._userId : undefined,
             rejectionReason
         });
     } catch (error: unknown) {
@@ -95,6 +97,7 @@ export const PATCH = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.AREA_MANAGERS,
     audit: { action: 'UPDATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });

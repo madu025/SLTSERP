@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectTaskService } from '@/services/project/project-task.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,11 +22,11 @@ const logProgressSchema = z.object({
     logDate: z.string().optional().nullable(),
 });
 
-export const POST = apiHandler(async (_request, _params, body) => {
+export const POST = apiHandler(async (_request, params, body) => {
     const data = logProgressSchema.parse(body);
 
     try {
-        const log = await ProjectTaskService.logProgress(data);
+        const log = await ProjectTaskService.logProgress({ ...data, loggedById: params._userId });
         return Response.json(log, { status: 201 });
     } catch (error: unknown) {
         if (error instanceof Error) {
@@ -36,6 +37,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'TASK_PROGRESS' },
     rawResponse: true
 });

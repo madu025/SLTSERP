@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectBOQService } from '@/services/project/project-boq.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export const GET = apiHandler(async (request) => {
     }
 
     return await ProjectBOQService.getBOQItems(projectId);
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
 
 // POST create BOQ item
 export const POST = apiHandler(async (_request, _params, body) => {
@@ -33,6 +34,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
 
     return await ProjectBOQService.createBOQItem(body as any);
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });
@@ -50,6 +52,7 @@ export const PATCH = apiHandler(async (_request, _params, body) => {
 
     return await ProjectBOQService.updateBOQItem(id, updateData as any);
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });
@@ -66,6 +69,7 @@ export const DELETE = apiHandler(async (request) => {
     await ProjectBOQService.deleteBOQItem(id);
     return { success: true };
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'DELETE', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });

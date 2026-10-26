@@ -3,6 +3,7 @@ import { AppError } from '@/lib/error';
 import { QFieldCloudSyncService } from '@/services/gis/qfieldcloud-sync.service';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 import { qfieldSyncSchema, QFieldSyncSchema } from '@/lib/validations/gis.schema';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export const GET = apiHandler<unknown, void>(
 
         const syncStatus = await QFieldCloudSyncService.getSyncStatus(params.id);
         return syncStatus;
-    }
+    }, { roles: ROLE_GROUPS.PROJECT_READERS }
 );
 
 /**
@@ -69,5 +70,5 @@ export const POST = apiHandler<unknown, QFieldSyncSchema>(
 
         throw AppError.badRequest('Invalid action. Use: create_project, push_layers, full_sync');
     },
-    { schema: qfieldSyncSchema }
+    { schema: qfieldSyncSchema, roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OSP_PROJECTS])] }
 );

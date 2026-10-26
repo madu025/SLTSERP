@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectBOQPRService } from '@/services/project/project-boq-pr.service';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export const POST = apiHandler(async (request, params) => {
 
     return Response.json(result, { status: 201 });
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PR' },
     rawResponse: true
 });
@@ -32,4 +34,4 @@ export const POST = apiHandler(async (request, params) => {
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
     return await ProjectBOQPRService.getPRGenerationStatus(projectId);
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });

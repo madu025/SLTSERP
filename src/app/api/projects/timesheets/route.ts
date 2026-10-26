@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectTimesheetService } from '@/services/project/project-timesheet.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
     const timesheet = await ProjectTimesheetService.createTimesheet(data);
     return Response.json(timesheet, { status: 201 });
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'TIMESHEET' },
     rawResponse: true
 });
@@ -44,10 +46,11 @@ const patchTimesheetSchema = z.object({
     verifiedById: z.string().optional().nullable(),
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (_request, params, body) => {
     const data = patchTimesheetSchema.parse(body);
-    return await ProjectTimesheetService.updateTimesheetStatus(data.id, data.status, data.verifiedById);
+    return await ProjectTimesheetService.updateTimesheetStatus(data.id, data.status, params._userId);
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'TIMESHEET' },
     rawResponse: true
 });

@@ -1,7 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectChangeOrderService } from '@/services/project/project-change-order.service';
 import { AppError } from '@/lib/error';
-import { resolveUserId } from '@/lib/uuid';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export const GET = apiHandler(async (request) => {
     return await ProjectChangeOrderService.getChangeOrders(projectId);
 }, { rawResponse: true });
 
-export const POST = apiHandler(async (_request, _params, body) => {
+export const POST = apiHandler(async (_request, params, body) => {
     const { projectId, title } = body || {};
 
     if (!projectId || !title) {
@@ -24,7 +24,10 @@ export const POST = apiHandler(async (_request, _params, body) => {
     }
 
     try {
-        const changeOrder = await ProjectChangeOrderService.createChangeOrder(body as any);
+        const changeOrder = await ProjectChangeOrderService.createChangeOrder({
+            ...body,
+            requestedById: params._userId,
+        } as any);
         return Response.json(changeOrder, { status: 201 });
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
@@ -34,15 +37,14 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (request, _params, body) => {
+export const PATCH = apiHandler(async (_request, params, body) => {
     const coId = body.coId as string | undefined;
     const status = body.status as string | undefined;
-    // approvedById is a uuid column — never trust client placeholders like 'system'
-    const approvedById = resolveUserId(body.approvedById, request.headers.get('x-user-id')) ?? undefined;
     const rejectionReason = body.rejectionReason as string | undefined;
 
     if (!coId) {
@@ -51,7 +53,8 @@ export const PATCH = apiHandler(async (request, _params, body) => {
 
     try {
         return await ProjectChangeOrderService.updateChangeOrder(coId, status as any, {
-            approvedById,
+            approvedById: status === 'APPROVED' ? params._userId : undefined,
+            implementedById: status === 'IMPLEMENTED' ? params._userId : undefined,
             rejectionReason
         } as any);
     } catch (error: unknown) {
@@ -77,6 +80,7 @@ export const PATCH = apiHandler(async (request, _params, body) => {
         }
     }
 }, {
+    roles: ROLE_GROUPS.AREA_MANAGERS,
     audit: { action: 'UPDATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });
@@ -103,6 +107,7 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'DELETE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });

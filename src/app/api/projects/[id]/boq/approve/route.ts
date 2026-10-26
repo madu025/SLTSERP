@@ -14,7 +14,7 @@ export const GET = apiHandler(async (request, params) => {
     }
 
     return await ProjectBOQApprovalService.getApprovalStatus(projectId);
-}, { rawResponse: true });
+}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
 
 export const POST = apiHandler(async (request, params, body) => {
     const { id: projectId } = params;
@@ -37,17 +37,17 @@ export const POST = apiHandler(async (request, params, body) => {
     }
 
     if (action === 'reject') {
-        return await ProjectBOQApprovalService.reject(projectId, notes ?? '');
+        return await ProjectBOQApprovalService.reject(projectId, userId, notes ?? '');
     }
 
     if (action === 'revise') {
-        const result = await ProjectBOQApprovalService.revise(projectId, notes);
+        const result = await ProjectBOQApprovalService.revise(projectId, userId, notes);
         return Response.json(result, { status: 201 });
     }
 
     throw AppError.badRequest('Invalid action. Use: submit, approve, reject, revise');
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OSP_PROJECTS])],
     audit: { action: 'APPROVE_BOQ', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });

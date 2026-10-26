@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { AutoBOQService } from '@/services/project/auto-boq.service';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export class ProjectBOQApprovalService {
     /**
@@ -99,6 +100,22 @@ export class ProjectBOQApprovalService {
         }
 
         const step = approval.currentStep;
+        const actor = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true, status: true },
+        });
+        if (!actor || actor.status !== 'active') {
+            throw AppError.unauthorized('Authenticated approver is not active');
+        }
+
+        const allowedRolesByStep: Record<string, string[]> = {
+            SUPERVISOR: [...new Set([...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'QC_OFFICER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR'])],
+            PROJECT_MANAGER: [...new Set([...ROLE_GROUPS.ADMINS, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'])],
+            FINANCE: ROLE_GROUPS.FINANCE_APPROVERS,
+        };
+        if (!allowedRolesByStep[step]?.includes(actor.role)) {
+            throw AppError.forbidden(`User role is not authorized for BOQ ${step} approval`);
+        }
         const updateData: Record<string, unknown> = {};
 
         if (step === 'SUPERVISOR') {
@@ -147,7 +164,7 @@ export class ProjectBOQApprovalService {
     /**
      * Reject BOQ
      */
-    static async reject(projectId: string, notes: string) {
+    static async reject(projectId: string, userId: string, notes: string) {
         if (!notes) {
             throw AppError.badRequest('Notes are required when rejecting BOQ');
         }
@@ -159,6 +176,8 @@ export class ProjectBOQApprovalService {
         if (!approval) {
             throw AppError.notFound('No pending BOQ approval found');
         }
+
+        await this.assertApprovalActor(approval.currentStep, userId);
 
         const updated = await prisma.bOQApproval.update({
             where: { id: approval.id },
@@ -180,7 +199,7 @@ export class ProjectBOQApprovalService {
     /**
      * Revise rejected BOQ
      */
-    static async revise(projectId: string, notes?: string) {
+    static async revise(projectId: string, userId: string, notes?: string) {
         const approval = await prisma.bOQApproval.findFirst({
             where: { projectId, status: 'REJECTED' },
         });
@@ -188,6 +207,8 @@ export class ProjectBOQApprovalService {
         if (!approval) {
             throw AppError.notFound('No rejected BOQ found to revise. Re-generate BOQ first if needed.');
         }
+
+        await this.assertApprovalActor('PROJECT_MANAGER', userId);
 
         const { boq } = await AutoBOQService.generateBOQ(projectId);
 
@@ -206,5 +227,24 @@ export class ProjectBOQApprovalService {
         });
 
         return { message: 'BOQ revised and resubmitted', approval: newApproval, boq };
+    }
+
+    private static async assertApprovalActor(step: string, userId: string) {
+        const actor = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true, status: true },
+        });
+        if (!actor || actor.status !== 'active') {
+            throw AppError.unauthorized('Authenticated approver is not active');
+        }
+
+        const allowedRolesByStep: Record<string, string[]> = {
+            SUPERVISOR: [...new Set([...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'QC_OFFICER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR'])],
+            PROJECT_MANAGER: [...new Set([...ROLE_GROUPS.ADMINS, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'])],
+            FINANCE: ROLE_GROUPS.FINANCE_APPROVERS,
+        };
+        if (!allowedRolesByStep[step]?.includes(actor.role)) {
+            throw AppError.forbidden(`User role is not authorized for BOQ ${step} action`);
+        }
     }
 }
