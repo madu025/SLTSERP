@@ -72,5 +72,6 @@ export interface GetServiceOrdersParams {
     cursor?: string;
     month?: number;
     year?: number;
+    isInvoicable?: boolean;
     accessibleOpmcs?: string[]; // Array of accessible OPMC IDs for user segregation
 }

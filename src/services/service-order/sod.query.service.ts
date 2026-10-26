@@ -160,6 +160,13 @@ export class SODQueryService {
         // Summary cards show the FULL picture for the selected RTOM + date range.
         // Table-level filters (statusFilter, columnFilters, matFilter, search)
         // only affect the paginated item list, not the summary metrics.
+        // Explicit invoice-candidate filtering must be server-side. Billing
+        // screens must not receive a broad pending/completed result set and
+        // rely on the browser to hide non-invoiceable rows.
+        if (params.isInvoicable !== undefined) {
+            andFilters.push({ isInvoicable: params.isInvoicable });
+        }
+
         const summaryWhereClause: Prisma.ServiceOrderWhereInput = {
             AND: [...andFilters]
         };
