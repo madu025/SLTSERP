@@ -1,21 +1,26 @@
 import { prisma } from '@/lib/prisma';
+import { AppError } from '@/lib/error';
 
 export class ContractorFinanceService {
     static async getFinanceDashboard(userId: string | null, contractorId: string | null) {
-        if (!contractorId && userId) {
-            const currentUser = await prisma.user.findUnique({
+        const currentUser = userId
+            ? await prisma.user.findUnique({
                 where: { id: userId },
-                select: { contractorId: true }
-            });
-            contractorId = currentUser?.contractorId || null;
-        }
+                select: { contractorId: true, role: true }
+            })
+            : null;
 
-        if (!contractorId) {
-            const activeContractor = await prisma.contractor.findFirst({
-                where: { status: 'ACTIVE' },
-                select: { id: true }
-            });
-            contractorId = activeContractor?.id || null;
+        const isContractorUser = currentUser?.role?.startsWith('CONTRACTOR_') === true;
+        if (isContractorUser) {
+            if (contractorId && contractorId !== currentUser?.contractorId) {
+                throw AppError.forbidden('Contractor finance access is limited to the signed-in contractor');
+            }
+            contractorId = currentUser?.contractorId || null;
+        } else if (!userId) {
+            // A contractor identifier supplied only by a client header is not an identity.
+            contractorId = null;
+        } else if (!contractorId) {
+            contractorId = currentUser?.contractorId || null;
         }
 
         if (!contractorId) {
@@ -29,7 +34,7 @@ export class ContractorFinanceService {
         }
 
         // Query real Invoices from Database
-        let invoices = await prisma.invoice.findMany({
+        const invoices = await prisma.invoice.findMany({
             where: { contractorId },
             include: {
                 sods: {
@@ -38,46 +43,6 @@ export class ContractorFinanceService {
             },
             orderBy: { date: 'desc' }
         });
-
-        // If no invoice exists yet, auto-create a real Invoice in PostgreSQL linked to completed SODs
-        if (invoices.length === 0) {
-            const completedSods = await prisma.serviceOrder.findMany({
-                where: {
-                    contractorId,
-                    status: { in: ['COMPLETED', 'INSTALL_CLOSED'] }
-                },
-                select: { id: true, contractorAmount: true, revenueAmount: true }
-            });
-
-            if (completedSods.length > 0) {
-                const calculatedTotal = completedSods.reduce((sum, s) => sum + (s.contractorAmount ? Number(s.contractorAmount) : 15000), 0);
-                const claimNo = `CLM-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-
-
-                const newInvoice = await prisma.invoice.create({
-                    data: {
-                        invoiceNumber: claimNo,
-                        contractorId,
-                        totalAmount: calculatedTotal,
-                        amountA: calculatedTotal * 0.8,
-                        amountB: calculatedTotal * 0.2,
-                        amount: calculatedTotal,
-                        status: 'AUDITED',
-                        statusA: 'APPROVED',
-                        statusB: 'HOLD',
-                        date: new Date(),
-                        sods: {
-                            connect: completedSods.map(s => ({ id: s.id }))
-                        }
-                    },
-                    include: {
-                        sods: { select: { id: true, contractorAmount: true, revenueAmount: true } }
-                    }
-                });
-
-                invoices = [newInvoice];
-            }
-        }
 
         let totalClaimedLkr = 0;
         let totalPaidLkr = 0;

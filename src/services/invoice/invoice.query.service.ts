@@ -6,16 +6,20 @@ export class InvoiceQueryService {
      * Get Service Orders eligible for invoicing for a specific period
      */
     static async getEligibleSods(contractorId: string, month: number, year: number): Promise<SODWithOPMC[]> {
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
+        const startDate = new Date(Date.UTC(year, month - 1, 1));
+        const endDate = new Date(Date.UTC(year, month, 1));
 
         return await prisma.serviceOrder.findMany({
             where: {
                 contractorId,
-                sltsStatus: 'COMPLETED',
-                sltsPatStatus: 'PAT_PASSED',
-                completedDate: { gte: startDate, lte: endDate },
-                invoiced: false
+                OR: [
+                    { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
+                    { sltsStatus: 'COMPLETED' }
+                ],
+                completedDate: { gte: startDate, lt: endDate },
+                isInvoicable: true,
+                invoiced: false,
+                invoiceId: null
             },
             include: {
                 opmc: true,

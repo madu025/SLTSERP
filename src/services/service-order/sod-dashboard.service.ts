@@ -1,8 +1,11 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
 import { AppError } from '@/lib/error';
+import { SOD_FINANCIAL_COMPLETION_STATUSES } from '@/lib/constants/sod-constants';
 
 interface RawStat {
     sltsStatus: string;
@@ -52,7 +55,25 @@ export class ServiceOrderDashboardService {
             const user = await prisma.user.findUnique({
                 where: { id: userId },
             include: {
-                accessibleOpmcs: true
+                accessibleOpmcs: true,
+                systemRole: {
+                    select: {
+                        isActive: true,
+                        permissions: true,
+                        rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } }
+                    }
+                },
+                sectionAssignments: {
+                    select: {
+                        role: {
+                            select: {
+                                isActive: true,
+                                permissions: true,
+                                rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } }
+                            }
+                        }
+                    }
+                }
             }
         });
 
@@ -60,9 +81,14 @@ export class ServiceOrderDashboardService {
             throw AppError.notFound('User not found');
         }
 
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(user.role as "SUPER_ADMIN" | "ADMIN" | "STORES_MANAGER" | "AUDITOR" | "MANAGEMENT");
-        const isManager = user.role === 'MANAGER' || user.role === 'SA_MANAGER' || user.role === 'OSP_MANAGER' || user.role === 'HEAD_OF_SECTION';
-        const canFilterGlobally = isAdmin || isManager;
+        // Scope and global access are derived from DB-backed capabilities, not
+        // from legacy role-name lists. This keeps dashboard visibility aligned
+        // with the same RBAC source used by API route guards.
+        const effectivePermissions = deriveEffectivePermissions(user);
+        const accessibleOpmcScope = await resolveOpmcScope(userId);
+        const canFilterGlobally = accessibleOpmcScope === undefined;
+        const canViewContractorPerformance =
+            canFilterGlobally || effectivePermissions.includes(RBAC_PERMISSIONS.SOD_READ);
 
         const allOpmcs = await prisma.oPMC.findMany({
             select: { id: true, rtom: true, region: true },
@@ -79,7 +105,7 @@ export class ServiceOrderDashboardService {
 
         let accessibleOpmcIds: string[] = [];
         if (!canFilterGlobally) {
-            accessibleOpmcIds = user.accessibleOpmcs.map((o: { id: string; rtom: string }) => o.id);
+            accessibleOpmcIds = accessibleOpmcScope ?? [];
         }
 
         let filteredOpmcIds: string[] | null = null;
@@ -139,6 +165,13 @@ export class ServiceOrderDashboardService {
             ...yearWhere
         };
 
+        const financialCompletionWhere: Prisma.ServiceOrderWhereInput = {
+            OR: [
+                { sltsStatus: { in: [...SOD_FINANCIAL_COMPLETION_STATUSES] } },
+                { status: { in: [...SOD_FINANCIAL_COMPLETION_STATUSES] } }
+            ]
+        };
+
         // Current month: received in current month
         const monthlyWhere: Prisma.ServiceOrderWhereInput = {
             ...whereClause,
@@ -154,7 +187,7 @@ export class ServiceOrderDashboardService {
         // Year-to-date summary (canonical date per status — no OR double-counting)
         const [ytdTotal, ytdCompleted, ytdReturned] = await Promise.all([
             prisma.serviceOrder.count({ where: { ...whereClause, receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
-            prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+            prisma.serviceOrder.count({ where: { ...whereClause, ...financialCompletionWhere, completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
             prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
         ]);
 
@@ -168,7 +201,7 @@ export class ServiceOrderDashboardService {
         // YTD revenue per RTOM (for RTOM table revenue column)
         const ytdRtomRevenueRaw = await prisma.serviceOrder.groupBy({
             by: ['opmcId'],
-            where: { ...whereClause, sltsStatus: { in: ['COMPLETED', 'PROV_CLOSED', 'INSTALL_CLOSED'] }, completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+            where: { ...whereClause, ...financialCompletionWhere, completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
             _sum: { revenueAmount: true }
         });
         const ytdRtomRevenueMap = new Map(ytdRtomRevenueRaw.map(g => [g.opmcId, Number(g._sum?.revenueAmount || 0)]));
@@ -211,7 +244,7 @@ export class ServiceOrderDashboardService {
         ] = await Promise.all([
             Promise.all([
                 prisma.serviceOrder.count({ where: { ...monthlyWhere } }),
-                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, ...financialCompletionWhere, completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
             ]).then(([total, completed, pending, returned]) => [
@@ -221,7 +254,7 @@ export class ServiceOrderDashboardService {
                 { sltsStatus: 'RETURN', _count: { _all: returned } },
             ]),
             Promise.resolve([]),
-            (isAdmin || isManager) ? prisma.serviceOrder.groupBy({
+            canViewContractorPerformance ? prisma.serviceOrder.groupBy({
                 by: ['contractorId', 'sltsStatus'],
                 where: { ...baseWhere, contractorId: { not: null } },
                 _count: { _all: true }
@@ -269,7 +302,7 @@ export class ServiceOrderDashboardService {
             totalVendorsCount
         ] = await Promise.all([
             prisma.serviceOrder.aggregate({
-                where: { ...ytdCompletedWhere, sltsStatus: 'COMPLETED' },
+                where: { ...ytdCompletedWhere, ...financialCompletionWhere },
                 _sum: {
                     revenueAmount: true,
                     contractorAmount: true
@@ -283,7 +316,7 @@ export class ServiceOrderDashboardService {
             // by rtomArea; models without any OPMC relation return zeros.
             prisma.invoice.aggregate({ where: { ...invoiceScopeWhere }, _sum: { totalAmount: true } }).catch(() => ({ _sum: { totalAmount: 0 } })),
             prisma.invoice.aggregate({ where: { ...invoiceScopeWhere, status: 'PENDING' }, _count: { _all: true }, _sum: { totalAmount: true } }).catch(() => ({ _count: { _all: 0 }, _sum: { totalAmount: 0 } })),
-            prisma.serviceOrder.aggregate({ where: { ...whereClause, sltsStatus: 'COMPLETED', isInvoicable: true, invoiceId: null }, _sum: { revenueAmount: true } }).catch(() => ({ _sum: { revenueAmount: 0 } })),
+            prisma.serviceOrder.aggregate({ where: { ...whereClause, ...financialCompletionWhere, isInvoicable: true, invoiceId: null }, _sum: { revenueAmount: true } }).catch(() => ({ _sum: { revenueAmount: 0 } })),
             canFilterGlobally
                 ? (prisma.vMVehicle?.count({ where: { status: 'AVAILABLE' } }).catch(() => 0) ?? Promise.resolve(0))
                 : Promise.resolve(0),
@@ -351,7 +384,7 @@ export class ServiceOrderDashboardService {
             pat: {
                 passed: sltPatResults.filter(s => s.status === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 rejected: sltPatResults.filter(s => s.status === 'PAT_REJECTED' || s.status === 'REJECTED' || s.status === 'PAT_OPMC_REJECTED' || s.status === 'OPMC_REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
-                pending: await prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', hoPatStatus: 'PENDING' } }),
+                pending: await prisma.serviceOrder.count({ where: { ...whereClause, ...financialCompletionWhere, hoPatStatus: 'PENDING' } }),
             },
             contractors: [] as ContractorStat[],
             rtoms: [] as RtomStat[],
@@ -366,7 +399,7 @@ export class ServiceOrderDashboardService {
 
         const statusBreakdownRaw = await prisma.serviceOrder.groupBy({
             by: ['status'],
-            where: { ...whereClause, sltsStatus: 'COMPLETED', completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
+            where: { ...whereClause, ...financialCompletionWhere, completedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
             _count: { _all: true }
         });
 

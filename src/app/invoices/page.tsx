@@ -15,7 +15,7 @@ import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, S
 import { cn } from "@/lib/utils";
 import { downloadExcelInvoice } from '@/lib/excel-invoice';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface Invoice {
     id: string;
@@ -749,8 +749,8 @@ export default function InvoicesPage() {
 
     return (
         <RoleGuard 
-            allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS} 
-            permissionId="invoices"
+            allowedRoles={[]}
+            permissionId={RBAC_PERMISSIONS.SOD_INVOICE}
         >
             <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
@@ -766,11 +766,9 @@ export default function InvoicesPage() {
                                 <p className="text-xs text-slate-500">Generate and manage 90/10 split invoices.</p>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                {userRole !== 'AREA_COORDINATOR' && userRole !== 'QC_OFFICER' && (
-                                    <Button onClick={() => setCreateDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
-                                        <Plus className="w-4 h-4 mr-1.5" /> Generate Monthly Invoice
-                                    </Button>
-                                )}
+                                <Button onClick={() => setCreateDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                    <Plus className="w-4 h-4 mr-1.5" /> Generate Monthly Invoice
+                                </Button>
                             </div>
                         </div>
 

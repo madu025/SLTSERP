@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { SODInvoicingService } from '@/services/service-order/sod.invoicing.service';
 import { AppError } from '@/lib/error';
 
 export class PublicInvoiceService {
@@ -40,13 +39,8 @@ export class PublicInvoiceService {
         });
 
         if (!invoice) {
-            invoice = await prisma.invoice.findFirst({
-                where: {
-                    OR: [
-                        { id },
-                        { invoiceNumber: { contains: id, mode: 'insensitive' } }
-                    ]
-                },
+            invoice = await prisma.invoice.findUnique({
+                where: { invoiceNumber: id },
                 include: {
                     contractor: {
                         select: {
@@ -73,41 +67,7 @@ export class PublicInvoiceService {
                             }
                         }
                     }
-                },
-                orderBy: { date: 'desc' }
-            });
-        }
-
-        if (!invoice) {
-            invoice = await prisma.invoice.findFirst({
-                include: {
-                    contractor: {
-                        select: {
-                            id: true,
-                            name: true,
-                            registrationNumber: true,
-                            address: true,
-                            contactNumber: true,
-                            bankName: true,
-                            bankBranch: true,
-                            bankAccountNumber: true,
-                            brNumber: true
-                        }
-                    },
-                    project: { select: { id: true, name: true, projectCode: true } },
-                    penalties: true,
-                    sods: {
-                        include: {
-                            erectedPoles: true,
-                            materialUsage: {
-                                include: {
-                                    item: { select: { id: true, code: true, name: true, unit: true } }
-                                }
-                            }
-                        }
-                    }
-                },
-                orderBy: { date: 'desc' }
+                }
             });
         }
 
@@ -241,27 +201,20 @@ export class PublicInvoiceService {
         // 3. Compute Itemized Work Items for Invoice Page 1 Table
         const itemMapGroup = new Map<string, { description: string; rtom: string; qty: number; unitRate: number; amount: number }>();
 
-        // Helper to ensure RTOM always has R- prefix
+        // Helper to ensure RTOM always has R- prefix without inventing a region.
         const formatRtomWithPrefix = (rtomStr?: string | null) => {
-            if (!rtomStr) return 'R-GP';
+            if (!rtomStr) return 'UNASSIGNED';
             const trimmed = rtomStr.trim().toUpperCase();
             return trimmed.startsWith('R-') ? trimmed : `R-${trimmed}`;
         };
 
         for (const sod of invoice.sods) {
             const formattedRtom = formatRtomWithPrefix(sod.rtom);
-            const dwUsage = sod.materialUsage.find((m: Record<string, unknown>) => {
-                const item = m.item as Record<string, unknown> | undefined;
-                const itemCode = (String(item?.code) || '').toUpperCase();
-                const itemName = (String(item?.name) || '').toUpperCase();
-                const usageType = String(m.usageType || '').toUpperCase();
-                const isRetainer = itemName.includes('RETAINER') || itemCode.includes('RETNER') || itemName.includes('CLAMP');
-                return !isRetainer && (usageType === 'PORTAL_SYNC' || usageType === 'USED_F1' || itemCode === 'OSP-HC-CBL-DW' || itemName.includes('DROP CABLE') || itemName.includes('DROP WIRE'));
-            });
-            const actualDwLength = dwUsage ? parseFloat(dwUsage.quantity.toString()) : 150;
-            const calc = await SODInvoicingService.calculateAmounts(sod.rtom, actualDwLength, { serviceType: sod.serviceType });
-            const workDesc = calc.workDescription || `${sod.serviceType || 'FTTH'} - DW length- (${actualDwLength}m)`;
-            const rate = calc.contractorAmount || 7800;
+            if (sod.contractorAmount === null) {
+                throw AppError.badRequest(`SOD_CONTRACTOR_AMOUNT_MISSING: ${sod.soNum}`);
+            }
+            const rate = Number(sod.contractorAmount);
+            const workDesc = `${sod.serviceType || 'SERVICE'}${sod.dropWireDistance ? ` - ${Number(sod.dropWireDistance)}m` : ''}`;
             const key = `${workDesc}_${formattedRtom}_${rate}`;
 
             const existing = itemMapGroup.get(key);
@@ -315,31 +268,22 @@ export class PublicInvoiceService {
 
         const totalGrossAmount = parseFloat(invoice.totalAmount.toString());
 
-        // Calculate dynamic Claim A, B, and C amounts based on DB Config
-        let calcAmountA = parseFloat(invoice.amountA.toString());
-        let calcAmountB = parseFloat(invoice.amountB.toString());
-        let calcAmountC = 0;
-
-        if (splitConfig.splitMode === 'SINGLE_FULL') {
-            calcAmountA = totalGrossAmount;
-            calcAmountB = 0;
-            calcAmountC = 0;
-        } else {
-            calcAmountA = Math.round((totalGrossAmount * splitConfig.claimAPercent) / 100);
-            calcAmountB = Math.round((totalGrossAmount * splitConfig.claimBPercent) / 100);
-            calcAmountC = Math.round((totalGrossAmount * splitConfig.claimCPercent) / 100);
-        }
+        // Invoice generation persists the approved split. The public view must
+        // render that snapshot instead of recalculating it from today's config.
+        const calcAmountA = parseFloat(invoice.amountA.toString());
+        const calcAmountB = parseFloat(invoice.amountB.toString());
+        const calcAmountC = 0;
 
         // 5. Structure Final Public Payload
         return {
             id: invoice.id,
             invoiceNumber: invoice.invoiceNumber,
             date: invoice.createdAt || invoice.date,
-            agreementNumber: invoice.agreementNumber || 'L/0733/2025',
-            projectNumber: invoice.projectNumber || 260103,
-            bomNumber: invoice.bomNumber || `BOM-${invoice.invoiceNumber}`,
-            rtomArea: invoice.rtomArea || 'METRO',
-            connectionTitle: invoice.connectionTitle || 'FTTH NEW CONNECTIONS',
+            agreementNumber: invoice.agreementNumber,
+            projectNumber: invoice.projectNumber,
+            bomNumber: invoice.bomNumber,
+            rtomArea: invoice.rtomArea,
+            connectionTitle: invoice.connectionTitle,
             totalAmount: totalGrossAmount,
             amountA: calcAmountA,
             amountB: calcAmountB,

@@ -10,7 +10,7 @@ import { AppError, ErrorCode } from '@/lib/error';
 
 export class InvoiceService {
 
-    static async proposePenalty(invoiceId: string, amount: number, reason: string, description: string | undefined, serviceOrderId: string | undefined, userId: string, userRole: string) {
+    static async proposePenalty(invoiceId: string, amount: number, reason: string, description: string | undefined, serviceOrderId: string | undefined, userId: string) {
         const { primaryClient } = await import('@/lib/prisma');
         const { NotificationService } = await import('@/services/notification');
 
@@ -20,9 +20,9 @@ export class InvoiceService {
         });
         const proposerName = user ? `${user.name || 'User'} (${user.role})` : 'System User';
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const isApproverRole = userRole === 'AREA_MANAGER' || ROLE_GROUPS.ADMINS.includes(userRole as any);
-        const status = isApproverRole ? 'APPROVED' : 'PENDING';
+        // Approval is a separate capability/action. Never infer approval from a
+        // display role string at the proposal endpoint.
+        const status = 'PENDING';
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const penalty = await primaryClient.$transaction(async (tx: any) => {
@@ -37,10 +37,6 @@ export class InvoiceService {
                     proposedBy: proposerName
                 }
             });
-
-            if (status === 'APPROVED') {
-                await InvoiceGeneratorService.recalculateInvoiceSplits(invoiceId, tx);
-            }
 
             return record;
         });
@@ -118,12 +114,9 @@ export class InvoiceService {
         return updatedPenalty;
     }
 
-    static async deletePenalty(invoiceId: string, penaltyId: string, userRole: string | null) {
+    static async deletePenalty(invoiceId: string, penaltyId: string) {
         const { primaryClient } = await import('@/lib/prisma');
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const isApproverRole = userRole === 'AREA_MANAGER' || ROLE_GROUPS.ADMINS.includes(userRole as any);
-
         const penalty = await primaryClient.penalty.findUnique({
             where: { id: penaltyId }
         });
@@ -132,8 +125,8 @@ export class InvoiceService {
             throw AppError.notFound('Penalty not found');
         }
 
-        if (!isApproverRole && penalty.status !== 'PENDING') {
-            throw AppError.forbidden('Permission Denied. Only Area Managers can delete approved/rejected penalties.');
+        if (penalty.status !== 'PENDING') {
+            throw AppError.forbidden('Only pending penalties can be deleted; approved penalties require a reversal workflow.');
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

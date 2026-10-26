@@ -23,12 +23,14 @@ const bootstrapGrants: Record<string, readonly string[]> = {
     'finance.read': [...new Set([...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.SF_AUDITING])],
     'finance.write': ROLE_GROUPS.FINANCE,
     'finance.approve': ROLE_GROUPS.FINANCE_APPROVERS,
+    'finance.audit': ROLE_GROUPS.SF_AUDITORS,
     'inventory.read': [...new Set([...ROLE_GROUPS.STORES, ...ROLE_GROUPS.OPS, 'MANAGER'])],
     'inventory.write': ROLE_GROUPS.STORES_ALL,
     'inventory.approve': ROLE_GROUPS.STORES_MANAGERS,
     'procurement.read': ROLE_GROUPS.PROCUREMENT,
     'procurement.write': ROLE_GROUPS.PROCUREMENT,
     'contractor.read': ROLE_GROUPS.CONTRACTOR_READERS,
+    'contractor.write': ROLE_GROUPS.CONTRACTORS,
     'admin.rbac': ROLE_GROUPS.CORE_ADMINS,
 };
 

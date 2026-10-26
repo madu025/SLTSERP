@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 
 
@@ -15,7 +15,7 @@ export const GET = apiHandler(async (req) => {
 
     return await PaymentVoucherService.getPaymentVouchers({ status, projectId, type });
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ],
     rawResponse: true
 });
 
@@ -50,7 +50,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     return await PaymentVoucherService.createPaymentVoucher(payload);
 }, {
     schema: createPVSchema,
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE],
     audit: { action: 'CREATE', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });

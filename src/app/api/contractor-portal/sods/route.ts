@@ -2,7 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +12,7 @@ export const GET = apiHandler(async (req: Request) => {
     const contractorId = context.contractorId;
 
     if (!contractorId) {
-        if (context.role && (ROLE_GROUPS.ADMINS as readonly string[]).includes(context.role)) {
-             return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
-        }
-        throw AppError.forbidden('User does not have an assigned Contractor profile.');
+        return { sods: [], total: 0, page: 1, limit: 50, totalPages: 0 };
     }
 
     const { searchParams } = new URL(req.url);
@@ -34,7 +31,7 @@ export const GET = apiHandler(async (req: Request) => {
         limit
     });
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
+    permissions: [RBAC_PERMISSIONS.CONTRACTOR_READ],
 });
 
 /**
@@ -51,5 +48,5 @@ export const PATCH = apiHandler(async (req: Request) => {
 
     return await ServiceOrderService.updateServiceOrder(id, updateData, userId);
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
+    permissions: [RBAC_PERMISSIONS.CONTRACTOR_WRITE],
 });

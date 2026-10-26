@@ -2,8 +2,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ContractorQueryParams } from '@/types/contractor/contractor.types';
-import { ROLE_GROUPS } from '@/config/roles';
-import { NIL_UUID } from '@/lib/opmc-scope';
+import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
 import { isValidUuid } from '@/lib/uuid';
 
 export class ContractorQueryService {
@@ -11,7 +10,7 @@ export class ContractorQueryService {
      * Get all contractors (Lightweight for List View)
      */
     static async getAllContractors(params: ContractorQueryParams) {
-        const { opmcIds: clientOpmcIds, page = 1, limit = 50, userId, userRole } = params;
+        const { opmcIds: clientOpmcIds, page = 1, limit = 50, userId } = params;
 
         const where: Prisma.ContractorWhereInput = {};
 
@@ -38,21 +37,11 @@ export class ContractorQueryService {
         //  - admin tier          → unrestricted (client filter honoured as-is)
         //  - non-admin + scope   → restricted to accessibleOpmcs
         //  - non-admin + empty   → DENY ALL (previously `[]` returned ALL rows)
-        const isAdmin = !!userRole && ROLE_GROUPS.ADMINS.includes(userRole);
+        const accessibleOpmcIds = await resolveOpmcScope(userId);
+        const isAdmin = accessibleOpmcIds === undefined;
 
         if (!isAdmin) {
-            let accessible: { id: string; rtom: string }[] = [];
-            if (userId) {
-                const user = await prisma.user.findUnique({
-                    where: { id: userId },
-                    include: { accessibleOpmcs: { select: { id: true, rtom: true } } }
-                });
-                if (user) {
-                    accessible = user.accessibleOpmcs;
-                }
-            }
-
-            let scopedIds = accessible.map(o => o.id);
+            let scopedIds = accessibleOpmcIds ?? [];
             if (resolvedOpmcIds.length > 0) {
                 scopedIds = resolvedOpmcIds.filter(id => scopedIds.includes(id));
             }

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { SodRevenueService } from '../admin/sod-revenue.service';
+import { AppError } from '@/lib/error';
 
 export class SODInvoicingService {
     /**
@@ -121,29 +122,10 @@ export class SODInvoicingService {
             if (matchingRule) {
                 contractorAmount = Number(matchingRule.rateAmount);
             } else {
-                const fallbackRule = await ruleModel.findFirst({
-                    where: {
-                        workType,
-                        minDistance: { lte: distance },
-                        maxDistance: { gte: distance },
-                        isActive: true
-                    }
-                });
-
-                if (fallbackRule) {
-                    contractorAmount = Number(fallbackRule.rateAmount);
-                } else {
-                    // Base rate for 0-50m
-                    const baseRate = areaGroup === 'OTHER' ? 6650 : 6750;
-                    // Additional wire fee beyond 50m: LKR 35/m up to 180m cap
-                    const cappedDist = SODInvoicingService.capDropWireDistance(distance);
-                    const excessDistance = Math.max(0, cappedDist - 50);
-                    const excessWireFee = excessDistance * 35; // LKR 35 per excess meter
-                    contractorAmount = baseRate + excessWireFee;
-                }
+                throw AppError.badRequest(`CONTRACTOR_RATE_MISSING: No active ${workType} rate for ${areaGroup} at ${distance}m`);
             }
         } else {
-            contractorAmount = areaGroup === 'OTHER' ? 6650 : 6750;
+            throw AppError.badRequest(`CONTRACTOR_RATE_TABLE_UNAVAILABLE: No active rate table for ${workType}`);
         }
 
         // 3. Add Dynamic Pole Installation Rates if poles exist
@@ -162,7 +144,7 @@ export class SODInvoicingService {
             if (poleRule) {
                 contractorAmount += options.poleCount * Number(poleRule.rateAmount);
             } else {
-                contractorAmount += options.poleCount * 700;
+                throw AppError.badRequest(`POLE_RATE_MISSING: No active ${poleType}/${poleMethod} rate for ${areaGroup}`);
             }
         }
 

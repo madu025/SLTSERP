@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Receipt, CheckCircle2, ShieldCheck, RefreshCw, AlertCircle, ArrowRight, FileText, Building2 } from 'lucide-react';
 import Link from 'next/link';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface InvoicableSOD {
     id: string;
@@ -22,6 +23,7 @@ interface InvoicableSOD {
     isInvoicable: boolean;
     invoiced: boolean;
     dropWireLength?: number;
+    contractorAmount?: number | string | null;
     materialUsage?: Array<{ quantity: number; item?: { name: string; code: string } }>;
 }
 
@@ -44,6 +46,7 @@ interface RawServiceOrderResponse {
     isInvoicable?: boolean;
     invoiced?: boolean;
     dropWireLength?: number;
+    contractorAmount?: number | string | null;
 }
 
 function InvoicableServiceOrdersContent() {
@@ -54,12 +57,16 @@ function InvoicableServiceOrdersContent() {
     const [generating, setGenerating] = useState<boolean>(false);
     const [verifying, setVerifying] = useState<boolean>(false);
     const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string; link?: string } | null>(null);
+    const [billingPeriod] = useState(() => {
+        const now = new Date();
+        return { month: now.getMonth() + 1, year: now.getFullYear() };
+    });
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [sodRes, contractorRes] = await Promise.all([
-                fetch(`/api/service-orders?filter=completed&limit=200&_t=${Date.now()}`, {
+                fetch(`/api/service-orders?filter=completed&month=${billingPeriod.month}&year=${billingPeriod.year}&limit=200&_t=${Date.now()}`, {
                     cache: 'no-store',
                     headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
                 }),
@@ -92,7 +99,8 @@ function InvoicableServiceOrdersContent() {
                         contractorName: matchedC?.name || s.contractor?.name || 'Assigned Contractor',
                         isInvoicable: s.isInvoicable ?? false,
                         invoiced: s.invoiced ?? false,
-                        dropWireLength: s.dropWireLength || 150
+                        dropWireLength: s.dropWireLength,
+                        contractorAmount: s.contractorAmount
                     };
                 });
 
@@ -101,8 +109,9 @@ function InvoicableServiceOrdersContent() {
 
                 const contractorMap = new Map<string, { id: string; name: string; count: number }>();
                 for (const sod of uninvoiced) {
-                    const cId = sod.contractorId || 'c-default';
-                    const cName = sod.contractorName || 'Default Contractor';
+                    if (!sod.contractorId) continue;
+                    const cId = sod.contractorId;
+                    const cName = sod.contractorName || 'Assigned Contractor';
                     const existing = contractorMap.get(cId);
                     if (existing) {
                         existing.count += 1;
@@ -125,7 +134,7 @@ function InvoicableServiceOrdersContent() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [billingPeriod.month, billingPeriod.year]);
 
     useEffect(() => {
         fetchData();
@@ -164,15 +173,17 @@ function InvoicableServiceOrdersContent() {
     };
 
     const handleGenerateInvoice = async () => {
-        const contractorSods = sods.filter(s => (selectedContractorId === 'ALL' || s.contractorId === selectedContractorId || selectedContractorId === 'c-default') && s.isInvoicable);
+        if (selectedContractorId === 'ALL') {
+            setNotice({ type: 'error', message: 'Select one contractor before generating a monthly invoice.' });
+            return;
+        }
+        const contractorSods = sods.filter(s => s.contractorId === selectedContractorId && s.isInvoicable);
         if (contractorSods.length === 0) {
             setNotice({ type: 'error', message: 'No verified invoicable SODs found for billing batch.' });
             return;
         }
 
-        const targetContractorId = (selectedContractorId === 'c-default' || selectedContractorId === 'ALL')
-            ? (contractorSods[0].contractorId || contractors[0]?.id)
-            : selectedContractorId;
+        const targetContractorId = selectedContractorId;
 
         if (!targetContractorId) {
             setNotice({ type: 'error', message: 'Contractor assignment required for invoice generation.' });
@@ -188,7 +199,9 @@ function InvoicableServiceOrdersContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contractorId: targetContractorId,
-                    sodIds: contractorSods.map(s => s.id)
+                    sodIds: contractorSods.map(s => s.id),
+                    month: billingPeriod.month,
+                    year: billingPeriod.year
                 })
             });
 
@@ -214,7 +227,7 @@ function InvoicableServiceOrdersContent() {
     const filteredSods = sods.filter(s => selectedContractorId === 'ALL' || !selectedContractorId || s.contractorId === selectedContractorId || selectedContractorId === 'c-default');
 
     return (
-        <RoleGuard allowedRoles={[]} permissionId="sod.invoice">
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.SOD_INVOICE}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -298,7 +311,7 @@ function InvoicableServiceOrdersContent() {
 
                                             <Button
                                                 onClick={handleGenerateInvoice}
-                                                disabled={generating || filteredSods.length === 0}
+                                                disabled={generating || selectedContractorId === 'ALL' || filteredSods.length === 0}
                                                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 text-xs px-5 shadow"
                                             >
                                                 <Receipt className="w-4 h-4" />
@@ -332,6 +345,7 @@ function InvoicableServiceOrdersContent() {
                                                     <th className="p-3">Service Type</th>
                                                     <th className="p-3">Contractor</th>
                                                     <th className="p-3">Drop Cable</th>
+                                                    <th className="p-3 text-right">Contractor Cost</th>
                                                     <th className="p-3">Audit / Engineer Status</th>
                                                     <th className="p-3">Action</th>
                                                 </tr>
@@ -339,13 +353,13 @@ function InvoicableServiceOrdersContent() {
                                             <tbody className="divide-y divide-slate-200">
                                                 {loading ? (
                                                     <tr>
-                                                        <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
+                                                        <td colSpan={8} className="p-8 text-center text-slate-500 font-medium">
                                                             Loading invoicable service orders...
                                                         </td>
                                                     </tr>
                                                 ) : filteredSods.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
+                                                        <td colSpan={8} className="p-8 text-center text-slate-500 font-medium">
                                                             No uninvoiced SODs found. Perform Engineer verification to add SODs to this billing queue.
                                                         </td>
                                                     </tr>
@@ -356,7 +370,10 @@ function InvoicableServiceOrdersContent() {
                                                             <td className="p-3 font-bold text-blue-700">{sod.rtom}</td>
                                                             <td className="p-3 font-medium text-slate-700">{sod.serviceType}</td>
                                                             <td className="p-3 font-medium text-slate-800">{sod.contractorName}</td>
-                                                            <td className="p-3 font-mono">{sod.dropWireLength} m</td>
+                                                            <td className="p-3 font-mono">{sod.dropWireLength ? `${sod.dropWireLength} m` : 'Not recorded'}</td>
+                                                            <td className="p-3 text-right font-mono font-semibold text-slate-900">
+                                                                {sod.contractorAmount === null || sod.contractorAmount === undefined ? 'Missing' : `LKR ${Number(sod.contractorAmount).toLocaleString()}`}
+                                                            </td>
                                                             <td className="p-3">
                                                                 {sod.isInvoicable ? (
                                                                     <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-[10px] gap-1">

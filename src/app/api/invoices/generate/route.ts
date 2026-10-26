@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,13 +10,18 @@ const generateSchema = z.object({
     contractorId: z.string().min(1, 'contractorId is required'),
     month: z.union([z.string(), z.number()]).optional(),
     year: z.union([z.string(), z.number()]).optional(),
-    sodIds: z.array(z.string()).optional()
+    sodIds: z.array(z.string()).optional(),
+    description: z.string().optional(),
+    retentionPercent: z.number().min(0).max(100).default(0),
+    whtPercent: z.number().min(0).max(100).default(0),
+    advanceDeduction: z.number().min(0).default(0)
 });
 
 export const POST = apiHandler(async (req: Request) => {
     const json = await req.json();
     const data = generateSchema.parse(json);
-    const userId = req.headers.get('x-user-id') || 'system-billing-officer';
+    const userId = req.headers.get('x-user-id');
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     const result = await InvoiceGeneratorService.generateContractorMonthlyInvoice(data, userId);
 

@@ -160,8 +160,6 @@ export class SodRevenueService {
 
         if (defaultRate) return Number(defaultRate.revenuePerSOD);
 
-        // No config found — log warning and return fallback
-        console.warn('[SOD-REVENUE] No revenue config found for rtomId=%s date=%s, using fallback 10500', rtomId, completedDate.toISOString());
-        return 10500;
+        throw AppError.badRequest(`SOD_REVENUE_CONFIG_MISSING: No active revenue configuration for ${rtomId} on ${completedDate.toISOString().slice(0, 10)}`);
     }
 }

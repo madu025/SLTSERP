@@ -31,6 +31,11 @@ interface FinanceStats {
     totalInvoiced: number;
     invoiceCount: number;
     averageInvoiceAmount: number;
+    dataQuality?: {
+        invalidFinancialSnapshotCount: number;
+        invalidInvoicableSnapshotCount: number;
+        wipRule: string;
+    };
     updatedAt: string;
 }
 
@@ -110,6 +115,15 @@ export default function FinanceSection({ rtom = 'ALL' }: { rtom?: string }) {
 
     return (
         <div className="space-y-6">
+            {(data.dataQuality?.invalidFinancialSnapshotCount ?? 0) > 0 && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                    <p className="font-bold">Finance data validation warning</p>
+                    <p className="mt-1">
+                        {data.dataQuality?.invalidFinancialSnapshotCount.toLocaleString()} completed SODs have missing revenue or contractor cost snapshots.
+                        They are excluded from WIP totals until corrected.
+                    </p>
+                </div>
+            )}
             {/* Row 1 — headline metrics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20 shadow-sm transition-all hover:shadow-md">

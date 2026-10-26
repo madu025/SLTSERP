@@ -264,15 +264,7 @@ export class ContractorInventoryService {
         }
 
         if (!contractorId) {
-            const activeContractor = await prisma.contractor.findFirst({
-                where: { status: 'ACTIVE' },
-                select: { id: true }
-            });
-            contractorId = activeContractor?.id || null;
-        }
-
-        if (!contractorId) {
-            return { dropWireMeters: 450, ontCount: 12, facCount: 35, pendingAcceptances: 1, teams: [], balanceSheet: [] };
+            throw AppError.badRequest('CONTRACTOR_ASSIGNMENT_REQUIRED');
         }
 
         // Fetch Contractor Stocks (for UI list) and KPI summary (from DB function) in parallel
@@ -291,7 +283,10 @@ export class ContractorInventoryService {
             }>>`SELECT * FROM fn_contractor_stock_summary(${contractorId}::uuid)`
         ]);
 
-        const summary = stockSummary[0] || { total_items: 0, total_quantity: 0, drop_wire_meters: 0, ont_count: 0, fac_count: 0, total_value: 0 };
+        const summary = stockSummary[0];
+        if (!summary) {
+            throw AppError.internal('CONTRACTOR_STOCK_SUMMARY_UNAVAILABLE');
+        }
         const dropWireMeters = Number(summary.drop_wire_meters) || 0;
         const ontCount = Number(summary.ont_count) || 0;
         const facCount = Number(summary.fac_count) || 0;
@@ -325,9 +320,9 @@ export class ContractorInventoryService {
 
         return {
             filterPeriod: `${month || 'Current'} ${year || ''}`.trim(),
-            dropWireMeters: dropWireMeters || 305,
-            ontCount: ontCount || 7,
-            facCount: facCount || 35,
+            dropWireMeters,
+            ontCount,
+            facCount,
             pendingAcceptances,
             teams: teamBalanceData.teams,
             selectedTeamId: teamBalanceData.selectedTeamId,

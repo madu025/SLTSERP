@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice/invoice.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 const paramsSchema = z.object({
@@ -18,6 +18,6 @@ export const POST = apiHandler(
         };
     },
     {
-        roles: ROLE_GROUPS.SF_AUDITORS
+        permissions: [RBAC_PERMISSIONS.FINANCE_AUDIT]
     }
 );

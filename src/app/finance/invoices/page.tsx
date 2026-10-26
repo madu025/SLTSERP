@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Loader2, FileCheck, Search, ShieldAlert } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(amount);
@@ -24,12 +25,20 @@ interface InvoiceRecord {
 }
 
 export default function InvoiceApprovalPage() {
-    const userRole = typeof window !== 'undefined' ? localStorage.getItem('role') : null;
-    
     const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [actionId, setActionId] = useState<string | null>(null);
+    const [canApprove, setCanApprove] = useState(false);
+
+    useEffect(() => {
+        try {
+            const storedUser = JSON.parse(localStorage.getItem('user') || '{}') as { permissions?: unknown };
+            setCanApprove(Array.isArray(storedUser.permissions) && storedUser.permissions.includes(RBAC_PERMISSIONS.FINANCE_APPROVE));
+        } catch {
+            setCanApprove(false);
+        }
+    }, []);
 
     const fetchInvoices = () => {
         setIsLoading(true);
@@ -52,12 +61,7 @@ export default function InvoiceApprovalPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
 
-    const handleApprove = async (id: string, amount: number) => {
-        if (amount > 1000000 && userRole !== 'SUPER_ADMIN') {
-            toast.error('Invoices over 1,000,000 LKR require SUPER_ADMIN approval.');
-            return;
-        }
-
+    const handleApprove = async (id: string) => {
         setActionId(id);
         try {
             const res = await fetch(`/api/finance/invoices/${id}/approve`, {
@@ -91,7 +95,7 @@ export default function InvoiceApprovalPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'FINANCE_MANAGER']}>
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.FINANCE_READ}>
             <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -149,15 +153,15 @@ export default function InvoiceApprovalPage() {
                                                         <td className="px-6 py-4 text-right font-semibold text-slate-900">{formatCurrency(invoice.totalAmount)}</td>
                                                         <td className="px-6 py-4 text-center">{getStatusBadge(invoice.approvalStatus)}</td>
                                                         <td className="px-6 py-4 text-right">
-                                                            {invoice.approvalStatus === 'DRAFT' && (
+                                                            {canApprove && invoice.approvalStatus === 'DRAFT' && (
                                                                 <Button 
                                                                     size="sm" 
-                                                                    onClick={() => handleApprove(invoice.id, invoice.totalAmount)}
-                                                                    disabled={actionId === invoice.id || (invoice.totalAmount > 1000000 && userRole !== 'SUPER_ADMIN')}
-                                                                    className={invoice.totalAmount > 1000000 && userRole !== 'SUPER_ADMIN' ? 'bg-slate-300' : 'bg-indigo-600 hover:bg-indigo-700'}
+                                                                    onClick={() => handleApprove(invoice.id)}
+                                                                    disabled={actionId === invoice.id}
+                                                                    className="bg-indigo-600 hover:bg-indigo-700"
                                                                 >
                                                                     {actionId === invoice.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck className="h-4 w-4 mr-2" />}
-                                                                    {invoice.totalAmount > 1000000 && userRole !== 'SUPER_ADMIN' ? 'Requires Super Admin' : 'Approve'}
+                                                                    Approve
                                                                 </Button>
                                                             )}
                                                             {invoice.approvalStatus === 'APPROVED' && (

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { NIL_UUID } from '@/lib/opmc-scope';
+import { SOD_FINANCIAL_COMPLETION_STATUSES } from '@/lib/constants/sod-constants';
 
 export class DashboardService {
     static async getFinanceMetrics(rtom: string = 'ALL', accessibleOpmcs?: string[]) {
@@ -26,13 +27,28 @@ export class DashboardService {
             whereClause.rtom = rtom;
         }
 
+        // Financial dashboards use the same completion rule as WIP and invoice
+        // services. A SOD may carry the portal completion in sltsStatus or the
+        // ERP completion in status, so checking only one column under-counts
+        // completed work and makes the dashboard disagree with finance.
+        const financialCompletionWhere: Prisma.ServiceOrderWhereInput = {
+            OR: [
+                { sltsStatus: { in: [...SOD_FINANCIAL_COMPLETION_STATUSES] } },
+                { status: { in: [...SOD_FINANCIAL_COMPLETION_STATUSES] } }
+            ]
+        };
+
         // 1. Unbilled WIP Revenue (Service Orders Completed but not invoiced)
         const wipSods = await prisma.serviceOrder.aggregate({
             where: {
-                ...whereClause,
-                sltsStatus: 'COMPLETED',
+                AND: [
+                    whereClause,
+                    financialCompletionWhere,
+                    { revenueAmount: { not: null } },
+                    { contractorAmount: { not: null } }
+                ],
                 invoiced: false,
-                revenueAmount: { not: null }
+                invoiceId: null
             },
             _sum: {
                 revenueAmount: true,
@@ -83,8 +99,7 @@ export class DashboardService {
 
         const completedSods = await prisma.serviceOrder.findMany({
             where: {
-                ...whereClause,
-                sltsStatus: 'COMPLETED',
+                AND: [whereClause, financialCompletionWhere],
                 completedDate: { gte: trendStart },
                 revenueAmount: { not: null }
             },
@@ -157,6 +172,27 @@ export class DashboardService {
         const invoiceCount = invoiceTotals._count._all;
         const averageInvoiceAmount = Number(invoiceTotals._avg.amount || 0);
 
+        const invalidFinancialSnapshotCount = await prisma.serviceOrder.count({
+            where: {
+                AND: [
+                    whereClause,
+                    financialCompletionWhere,
+                    { OR: [{ revenueAmount: null }, { contractorAmount: null }] }
+                ]
+            }
+        });
+
+        const invalidInvoicableSnapshotCount = await prisma.serviceOrder.count({
+            where: {
+                AND: [
+                    whereClause,
+                    financialCompletionWhere,
+                    { isInvoicable: true },
+                    { OR: [{ revenueAmount: null }, { contractorAmount: null }] }
+                ]
+            }
+        });
+
         return {
             unbilledRevenue,
             unbilledContractorPayout,
@@ -170,6 +206,11 @@ export class DashboardService {
             totalInvoiced,
             invoiceCount,
             averageInvoiceAmount,
+            dataQuality: {
+                invalidFinancialSnapshotCount,
+                invalidInvoicableSnapshotCount,
+                wipRule: 'completed-status + revenueAmount + contractorAmount + not invoiced'
+            },
             updatedAt: new Date().toISOString()
         };
     }
@@ -211,9 +252,35 @@ export class DashboardService {
             }
         });
 
+        const projectOpmcConditions: Prisma.OPMCWhereInput[] = [];
+        if (rtom !== 'ALL') projectOpmcConditions.push({ rtom });
+        if (accessibleOpmcs !== undefined) {
+            projectOpmcConditions.push({ id: { in: accessibleOpmcs.length > 0 ? accessibleOpmcs : [NIL_UUID] } });
+        }
+        const projectWhere: Prisma.ProjectWhereInput = projectOpmcConditions.length > 0
+            ? { opmc: projectOpmcConditions.length === 1 ? projectOpmcConditions[0] : { AND: projectOpmcConditions } }
+            : {};
+
         const pendingGRNs = await prisma.projectGoodsReceipt.count({
+            where: { status: 'PENDING', project: projectWhere }
+        });
+
+        const negativeStockCount = await prisma.inventoryStock.count({
             where: {
-                status: 'PENDING',
+                store: storeWhere,
+                quantity: { lt: 0 }
+            }
+        });
+
+        const materialUsageMissingCostCount = await prisma.sODMaterialUsage.count({
+            where: {
+                OR: [{ costPrice: null }, { costPrice: { lte: 0 } }],
+                serviceOrder: {
+                    ...(rtom !== 'ALL' ? { rtom } : {}),
+                    ...(accessibleOpmcs !== undefined
+                        ? { opmcId: { in: accessibleOpmcs.length > 0 ? accessibleOpmcs : [NIL_UUID] } }
+                        : {})
+                }
             }
         });
 
@@ -221,6 +288,7 @@ export class DashboardService {
             lowStockItems,
             pendingMRNs,
             pendingGRNs,
+            dataQuality: { negativeStockCount, materialUsageMissingCostCount },
             updatedAt: new Date().toISOString()
         };
     }

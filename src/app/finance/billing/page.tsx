@@ -1,5 +1,5 @@
 'use client';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 import {  useState, useEffect  } from 'react';
 import RoleGuard from '@/components/RoleGuard';
@@ -16,10 +16,22 @@ import { useRouter } from 'next/navigation';
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(amount);
 
+interface ContractorOption {
+    id: string;
+    name: string;
+}
+
+interface UnbilledSod {
+    id: string;
+    soNum: string;
+    completedDate: string;
+    contractorAmount: number | string | null;
+}
+
 export default function ContractorBillingPage() {
-    const [contractors, setContractors] = useState<any[]>([]);
+    const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [selectedContractor, setSelectedContractor] = useState<string>('');
-    const [unbilledSods, setUnbilledSods] = useState<any[]>([]);
+    const [unbilledSods, setUnbilledSods] = useState<UnbilledSod[]>([]);
     const [grossAmount, setGrossAmount] = useState(0);
     const [retentionPercent, setRetentionPercent] = useState(5);
     const [whtPercent, setWhtPercent] = useState(5);
@@ -45,7 +57,7 @@ export default function ContractorBillingPage() {
         }
 
         setIsLoading(true);
-        fetch(`/api/finance/unbilled-sods?contractorId=${selectedContractor}`)
+        fetch(`/api/finance/unbilled-sods?contractorId=${selectedContractor}&month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`)
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
@@ -72,6 +84,8 @@ export default function ContractorBillingPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contractorId: selectedContractor,
+                    month: new Date().getMonth() + 1,
+                    year: new Date().getFullYear(),
                     retentionPercent,
                     whtPercent,
                     advanceDeduction
@@ -94,7 +108,7 @@ export default function ContractorBillingPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS}>
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.FINANCE_WRITE}>
             <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -188,7 +202,7 @@ export default function ContractorBillingPage() {
                                                                 <tr key={sod.id} className="hover:bg-slate-50/50 transition-colors">
                                                                     <td className="px-4 py-3 font-medium text-slate-900">{sod.soNum}</td>
                                                                     <td className="px-4 py-3 text-slate-500">{new Date(sod.completedDate).toLocaleDateString()}</td>
-                                                                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(sod.contractorAmount || 0)}</td>
+                                                                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(Number(sod.contractorAmount || 0))}</td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>

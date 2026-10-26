@@ -1,6 +1,5 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { ProjectInvoiceService } from '../project/project-invoice.service';
 export class BOMInvoiceService {
     private static parseDateFromSoNum(soNum: string): Date {
@@ -44,7 +43,7 @@ export class BOMInvoiceService {
             throw AppError.badRequest('NO_SERVICE_ORDERS_FOUND_IN_SHEET');
         }
         // 3. Query matching ServiceOrder records from the database
-        let serviceOrders = await prisma.serviceOrder.findMany({
+        const serviceOrders = await prisma.serviceOrder.findMany({
             where: {
                 soNum: {
                     in: uniqueSoNums
@@ -56,95 +55,13 @@ export class BOMInvoiceService {
         });
         const matchedSoNums = new Set(serviceOrders.map(so => so.soNum.toLowerCase()));
         const unmatchedSoNums = uniqueSoNums.filter(soNum => !matchedSoNums.has(soNum.toLowerCase()));
-        // Dynamically create/stub ServiceOrders that do not exist in the database (backlog backlog support)
         if (unmatchedSoNums.length > 0) {
-            const opmcs = await prisma.oPMC.findMany({ select: { id: true, name: true, rtom: true }, orderBy: { rtom: 'asc' } });
-            const contractors = await prisma.contractor.findMany();
-            const defaultOpmc = opmcs[0];
-            const defaultContractor = contractors.find(c => c.name.toUpperCase() === 'SLTS') || contractors[0];
-            if (!defaultOpmc) {
-                throw AppError.badRequest('NO_OPMCS_FOUND_IN_DATABASE');
-            }
-            if (!defaultContractor) {
-                throw AppError.badRequest('NO_CONTRACTORS_FOUND_IN_DATABASE');
-            }
-            const stubsToCreate = [];
-            for (const soNum of unmatchedSoNums) {
-                // Find the first row matching this soNum
-                const row = cleanRows.find(r => {
-                    const rowSoNum = String(
-                        r['SOD'] ||
-                        r['SO NUMBER'] ||
-                        r['SO_NUM'] ||
-                        r['SERVICE ORDER'] ||
-                        r['SONUM'] ||
-                        ''
-                    ).trim();
-                    return rowSoNum.toLowerCase() === soNum.toLowerCase();
-                });
-                if (!row) continue;
-                // Parse properties
-                const voiceNumber = row['CIRCUIT'] || row['VOICE NUMBER'] || row['VOICENUMBER'] || row['TELEPHONE'] || null;
-                const rtom = row['RTOM'] || row['RTOM_AREA'] || row['RTOMAREA'] || 'GLOBAL';
-                // Find OPMC
-                let opmcId = defaultOpmc.id;
-                const rtomUpper = rtom.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                const matchedOpmc = opmcs.find(o => o.name.toUpperCase().replace(/[^A-Z0-9]/g, '').includes(rtomUpper));
-                if (matchedOpmc) {
-                    opmcId = matchedOpmc.id;
-                }
-                // Find Contractor
-                let contractorId = defaultContractor.id;
-                const contractorName = row['CONTRACTOR'] || row['CONTRACTOR_NAME'] || '';
-                if (contractorName) {
-                    const matchedContractor = contractors.find(c => c.name.toUpperCase() === contractorName.toUpperCase());
-                    if (matchedContractor) {
-                        contractorId = matchedContractor.id;
-                    }
-                }
-                // Drop wire distance
-                const dwVal = parseFloat(row['FTTH-DW (M)'] || row['FTTH-DW'] || row['DROP WIRE DISTANCE'] || row['DROP_WIRE'] || '0');
-                const dropWireDistance = isNaN(dwVal) ? 0 : dwVal;
-                const parsedDate = BOMInvoiceService.parseDateFromSoNum(soNum);
-                stubsToCreate.push({
-                    soNum,
-                    voiceNumber,
-                    rtom,
-                    status: 'COMPLETED',
-                    sltsStatus: 'COMPLETED',
-                    sltsPatStatus: 'PAT_PASSED',
-                    hoPatStatus: 'APPROVED',
-                    isInvoicable: true,
-                    dropWireDistance,
-                    opmcId,
-                    contractorId,
-                    isLegacyImport: true,
-                    receivedDate: parsedDate,
-                    completedDate: parsedDate,
-                    statusDate: parsedDate,
-                    comments: 'Auto-stubbed from BOM sheet backlog sync'
-                });
-            }
-            if (stubsToCreate.length > 0) {
-                await prisma.serviceOrder.createMany({
-                    data: stubsToCreate as Prisma.ServiceOrderCreateManyInput[],
-                    skipDuplicates: true
-                });
-                // Retrieve the stubbed service orders to include in calculation
-                const newServiceOrders = await prisma.serviceOrder.findMany({
-                    where: {
-                        soNum: {
-                            in: unmatchedSoNums
-                        }
-                    },
-                    include: {
-                        opmc: true
-                    }
-                });
-                serviceOrders = [...serviceOrders, ...newServiceOrders];
-            }
+            throw AppError.badRequest(
+                `BOM_SOD_NOT_FOUND: ${unmatchedSoNums.slice(0, 20).join(', ')}`,
+                { unmatchedSoNums }
+            );
         }
-        // 3.5. Extract and populate material usages for all matched and stubbed service orders
+        // 3.5. Extract and populate material usages for matched service orders.
         const allItems = await prisma.inventoryItem.findMany();
         const metadataKeys = new Set([
             'SOD', 'SO NUMBER', 'SO_NUM', 'SERVICE ORDER', 'SONUM',
@@ -192,7 +109,15 @@ export class BOMInvoiceService {
             if (looseMatch) return looseMatch;
             return null;
         };
-        const materialUsagesToCreate = [];
+        const materialUsagesToCreate: Array<{
+            serviceOrderId: string;
+            itemId: string;
+            quantity: number;
+            unit: string;
+            usageType: string;
+            costPrice: number;
+        }> = [];
+        const unresolvedMaterialHeaders = new Set<string>();
         for (const so of serviceOrders) {
             const row = cleanRows.find(r => {
                 const rowSoNum = String(
@@ -212,15 +137,28 @@ export class BOMInvoiceService {
                 if (isNaN(qty) || qty <= 0) continue;
                 const item = resolveItemFromHeader(key);
                 if (item) {
+                    const costPrice = Number(item.costPrice);
+                    if (!Number.isFinite(costPrice) || costPrice <= 0) {
+                        throw AppError.badRequest(`BOM_ITEM_COST_MISSING: ${item.code}`);
+                    }
                     materialUsagesToCreate.push({
                         serviceOrderId: so.id,
                         itemId: item.id,
                         quantity: qty,
                         unit: item.unit || 'Nos',
-                        usageType: 'BOM_CLAIM'
+                        usageType: 'BOM_CLAIM',
+                        costPrice
                     });
+                } else {
+                    unresolvedMaterialHeaders.add(key);
                 }
             }
+        }
+        if (unresolvedMaterialHeaders.size > 0) {
+            throw AppError.badRequest(
+                `BOM_MATERIAL_NOT_MAPPED: ${Array.from(unresolvedMaterialHeaders).slice(0, 20).join(', ')}`,
+                { unresolvedMaterialHeaders: Array.from(unresolvedMaterialHeaders) }
+            );
         }
         if (materialUsagesToCreate.length > 0) {
             await prisma.sODMaterialUsage.deleteMany({
@@ -234,7 +172,7 @@ export class BOMInvoiceService {
                 skipDuplicates: true
             });
         }
-        const warnings: string[] = []; // No warnings needed now, as unmatched items are stubbed dynamically.
+        const warnings: string[] = [];
         // 4. Fetch active OPMC revenue configs for flat billing rate calculation
         const revenueConfigs = await prisma.sODRevenueConfig.findMany({
             where: { isActive: true }
@@ -245,7 +183,10 @@ export class BOMInvoiceService {
                 if (match) return match.revenuePerSOD;
             }
             const fallback = revenueConfigs.find(c => c.rtomId === null);
-            return fallback ? fallback.revenuePerSOD : 5500; // default flat rate fallback
+            if (!fallback) {
+                throw AppError.badRequest(`SOD_REVENUE_CONFIG_MISSING: ${opmcId || 'GLOBAL'}`);
+            }
+            return fallback.revenuePerSOD;
         };
         // 5. Group matched ServiceOrders by OPMC to generate aggregated invoice items
         const opmcGroups: Record<string, { opmcName: string; opmcId: string | null; count: number; rate: number }> = {};

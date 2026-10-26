@@ -14,6 +14,10 @@ interface InventoryStats {
     lowStockItems: LowStockItem[];
     pendingMRNs: number;
     pendingGRNs: number;
+    dataQuality?: {
+        negativeStockCount: number;
+        materialUsageMissingCostCount: number;
+    };
     updatedAt: string;
 }
 
@@ -51,6 +55,22 @@ export default function InventorySection({ rtom = 'ALL' }: { rtom?: string }) {
 
     return (
         <div className="space-y-4">
+            {(data.dataQuality?.negativeStockCount ?? 0) > 0 && (
+                <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-950">
+                    <p className="font-bold">Inventory data validation warning</p>
+                    <p className="mt-1">
+                        {data.dataQuality?.negativeStockCount.toLocaleString()} stock balance(s) are negative and need reconciliation.
+                    </p>
+                </div>
+            )}
+            {(data.dataQuality?.materialUsageMissingCostCount ?? 0) > 0 && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                    <p className="font-bold">Material cost validation warning</p>
+                    <p className="mt-1">
+                        {data.dataQuality?.materialUsageMissingCostCount.toLocaleString()} material usage row(s) have no positive cost price and are excluded from reliable COGS totals.
+                    </p>
+                </div>
+            )}
             {/* Direct Link Banner to Stores Command Center */}
             <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-md">
                 <div className="flex items-center gap-3">

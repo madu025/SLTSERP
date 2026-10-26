@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/finance/invoice.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +13,6 @@ export const GET = apiHandler(async (req) => {
 
     return await InvoiceService.getInvoices({ page, limit, search, approvalStatus });
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ],
     rawResponse: true
 });

@@ -1,6 +1,9 @@
 import { ContractorQueryService } from './contractor.query.service';
 import { ContractorRegistrationService } from './contractor.registration.service';
 import { ContractorLifecycleService } from './contractor.lifecycle.service';
+import { prisma } from '@/lib/prisma';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { 
     ContractorUpdateData, 
     ContractorQueryParams, 
@@ -29,20 +32,47 @@ export class ContractorService {
     static async resolveContractorContext(userId: string | null | undefined, providedContractorId: string | null | undefined): Promise<{ contractorId: string | null, role: string | null }> {
         if (!userId) return { contractorId: providedContractorId || null, role: null };
 
-        const { prisma } = await import('@/lib/prisma');
         const currentUser = await prisma.user.findUnique({
             where: { id: userId },
-            select: { contractorId: true, role: true }
+            select: {
+                contractorId: true,
+                role: true,
+                permissions: true,
+                systemRole: {
+                    select: {
+                        isActive: true,
+                        permissions: true,
+                        rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } }
+                    }
+                },
+                sectionAssignments: {
+                    select: {
+                        role: {
+                            select: {
+                                isActive: true,
+                                permissions: true,
+                                rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } }
+                            }
+                        }
+                    }
+                }
+            }
         });
         
         // SEC-2: Prevent IDOR (Insecure Direct Object Reference)
         // Only internal SLT staff/admins can impersonate/query another contractor via headers.
         // Contractors themselves are strictly locked to their own assigned contractorId.
         // QA audit: 'FIELD_ENGINEER' was a phantom role (not in the Role enum) — removed.
-        const isAdmin = currentUser?.role && ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER', 'STORES_MANAGER'].includes(currentUser.role);
+        const permissions = currentUser ? deriveEffectivePermissions(currentUser) : [];
+        const selectablePermissions: string[] = [
+            RBAC_PERMISSIONS.ADMIN_RBAC,
+            RBAC_PERMISSIONS.FINANCE_WRITE,
+            RBAC_PERMISSIONS.CONTRACTOR_WRITE,
+        ];
+        const canSelectAnyContractor = permissions.some((permission) => selectablePermissions.includes(permission));
 
         return {
-            contractorId: isAdmin && providedContractorId ? providedContractorId : (currentUser?.contractorId || null),
+            contractorId: canSelectAnyContractor && providedContractorId ? providedContractorId : (currentUser?.contractorId || null),
             role: currentUser?.role || null
         };
     }

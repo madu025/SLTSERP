@@ -1,10 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { safeJsonParse } from '@/utils/safeJsonParse';
-import { SODInvoicingService } from '../service-order/sod.invoicing.service';
-import { LedgerService, JournalPostingLineInput } from './ledger.service';
-import { ACCOUNTS } from './account-codes';
 import { UUID } from '@/types/common';
+import { AppError } from '@/lib/error';
 
 export interface MonthlyWipBuildupItem {
     month: string;
@@ -133,7 +131,8 @@ export class SODWipRevenueService {
                 { sltsStatus: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED'] } },
                 { status: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'] } }
             ],
-            invoiced: { not: true }
+            invoiced: { not: true },
+            invoiceId: null
         };
 
         // Tri-state OPMC scope: undefined = admin/global; [] = deny all.
@@ -175,7 +174,7 @@ export class SODWipRevenueService {
                 materialUsage: {
                     select: {
                         quantity: true,
-                        unitPrice: true
+                        costPrice: true
                     }
                 }
             },
@@ -228,14 +227,14 @@ export class SODWipRevenueService {
             const rawDist = Number(order.dropWireDistance || 0);
             const rtomCode = order.opmc?.rtom || 'OTHER';
 
-            let accruedRevenue = Number(order.revenueAmount || 0);
-            let contractorCost = Number(order.contractorAmount || 0);
+            const accruedRevenue = Number(order.revenueAmount);
+            const contractorCost = Number(order.contractorAmount);
 
-            // If amounts not computed, calculate dynamically from rate matrix based on distance (m)
-            if (accruedRevenue === 0 || contractorCost === 0) {
-                const rates = await SODInvoicingService.calculateAmounts(rtomCode, rawDist);
-                if (accruedRevenue === 0) accruedRevenue = rates.revenueAmount;
-                if (contractorCost === 0) contractorCost = rates.contractorAmount;
+            // WIP is a historical accounting report. Never recalculate a
+            // completed SOD with today's rate matrix; completion must have
+            // persisted both financial snapshots already.
+            if (order.revenueAmount === null || order.contractorAmount === null) {
+                throw AppError.badRequest(`SOD_FINANCIAL_SNAPSHOT_MISSING: ${order.soNum}`);
             }
 
             // Calculate Material COGS for this SOD from inventory material usage records
@@ -243,7 +242,7 @@ export class SODWipRevenueService {
             if (order.materialUsage && Array.isArray(order.materialUsage)) {
                 for (const mu of order.materialUsage) {
                     const qty = parseFloat(String(mu.quantity || '0'));
-                    const price = parseFloat(String(mu.unitPrice || '0'));
+                    const price = parseFloat(String(mu.costPrice || '0'));
                     materialCost += qty * price;
                 }
             }
@@ -394,62 +393,4 @@ export class SODWipRevenueService {
         return { metrics, items };
     }
 
-    /**
-     * Post Period-End WIP Revenue Accrual & Material COGS Journal Entry to General Ledger
-     */
-    static async postWipAccrualJournal(createdById?: string) {
-        const { metrics } = await this.getWipSummary();
-
-        if (metrics.totalWipValue <= 0) {
-            return { posted: false, message: 'No unbilled WIP revenue available to accrue' };
-        }
-
-        return await prisma.$transaction(async (tx) => {
-            const periodStr = new Date().toISOString().slice(0, 7);
-            const refId = `WIP-ACCRUAL-${periodStr}`;
-
-            const lines: JournalPostingLineInput[] = [
-                {
-                    accountCode: ACCOUNTS.AR_CLIENT,
-                    debit: metrics.totalWipValue,
-                    credit: 0,
-                    description: `Accrued Unbilled WIP Revenue Asset for ${metrics.unbilledSodCount} SODs`
-                },
-                {
-                    accountCode: ACCOUNTS.REVENUE,
-                    debit: 0,
-                    credit: metrics.totalWipValue,
-                    description: `Accrued Project Revenue for ${periodStr}`
-                }
-            ];
-
-            // If Material COGS exists, post DR COGS / CR Raw Material Inventory
-            if (metrics.totalMaterialCogs > 0) {
-                lines.push(
-                    {
-                        accountCode: ACCOUNTS.COGS,
-                        debit: metrics.totalMaterialCogs,
-                        credit: 0,
-                        description: `Material COGS Expense for ${metrics.unbilledSodCount} SODs`
-                    },
-                    {
-                        accountCode: ACCOUNTS.INVENTORY,
-                        debit: 0,
-                        credit: metrics.totalMaterialCogs,
-                        description: `Inventory Consumption for ${metrics.unbilledSodCount} SODs`
-                    }
-                );
-            }
-
-            const journal = await LedgerService.postTransaction(tx, {
-                referenceId: refId,
-                referenceType: 'WIP_REVENUE_ACCRUAL',
-                description: `Monthly Work-In-Progress (WIP) Revenue & Inventory COGS Accrual for ${periodStr}`,
-                createdById,
-                lines
-            });
-
-            return { posted: true, journalId: journal.id, accruedValue: metrics.totalWipValue, materialCogs: metrics.totalMaterialCogs };
-        });
-    }
 }

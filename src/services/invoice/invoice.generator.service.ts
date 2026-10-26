@@ -2,6 +2,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { InvoiceCalculatorService } from './invoice.calculator.service';
 import { LedgerService } from '../finance/ledger.service';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export class InvoiceGeneratorService {
     /**
@@ -12,31 +13,77 @@ export class InvoiceGeneratorService {
         month?: string | number;
         year?: string | number;
         sodIds?: string[];
-    }, userId: string = 'system-billing-officer') {
+        description?: string;
+        retentionPercent?: number;
+        whtPercent?: number;
+        advanceDeduction?: number;
+    }, userId: string) {
+        if (!userId) throw AppError.unauthorized('Authenticated billing user is required');
+
         const now = new Date();
         const currentYear = data.year ? Number(data.year) : now.getFullYear();
         const currentMonth = data.month ? Number(data.month) : now.getMonth() + 1;
 
+        if (!Number.isInteger(currentYear) || currentYear < 2000 || currentYear > 2200) {
+            throw AppError.badRequest('Invalid invoice year');
+        }
+        if (!Number.isInteger(currentMonth) || currentMonth < 1 || currentMonth > 12) {
+            throw AppError.badRequest('Invalid invoice month');
+        }
+        const retentionPercent = Number(data.retentionPercent ?? 0);
+        const whtPercent = Number(data.whtPercent ?? 0);
+        const advanceDeduction = Number(data.advanceDeduction ?? 0);
+        if (!Number.isFinite(retentionPercent) || retentionPercent < 0 || retentionPercent > 100) {
+            throw AppError.badRequest('Invalid retention percentage');
+        }
+        if (!Number.isFinite(whtPercent) || whtPercent < 0 || whtPercent > 100) {
+            throw AppError.badRequest('Invalid WHT percentage');
+        }
+        if (!Number.isFinite(advanceDeduction) || advanceDeduction < 0) {
+            throw AppError.badRequest('Invalid advance deduction');
+        }
+
+        const contractor = await prisma.contractor.findUnique({
+            where: { id: data.contractorId },
+            include: { opmc: true }
+        });
+
+        if (!contractor) throw AppError.notFound('Contractor not found');
+
+        const accessibleOpmcs = await resolveOpmcScope(userId);
+        if (accessibleOpmcs !== undefined && (!contractor.opmcId || !accessibleOpmcs.includes(contractor.opmcId))) {
+            throw AppError.forbidden('Contractor is outside your OPMC access');
+        }
+
+        const periodStart = new Date(Date.UTC(currentYear, currentMonth - 1, 1));
+        const periodEnd = new Date(Date.UTC(currentYear, currentMonth, 1));
+
         let sodWhere: Record<string, unknown> = {
             contractorId: data.contractorId,
+            completedDate: { gte: periodStart, lt: periodEnd },
             OR: [
                 { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
                 { sltsStatus: 'COMPLETED' }
             ],
             isInvoicable: true,
-            invoiced: false
+            invoiced: false,
+            invoiceId: null,
+            ...(accessibleOpmcs !== undefined ? { opmcId: { in: accessibleOpmcs } } : {})
         };
 
         if (data.sodIds && data.sodIds.length > 0) {
             sodWhere = {
                 id: { in: data.sodIds },
                 contractorId: data.contractorId,
+                completedDate: { gte: periodStart, lt: periodEnd },
                 OR: [
                     { status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } },
                     { sltsStatus: 'COMPLETED' }
                 ],
                 isInvoicable: true,
-                invoiced: false
+                invoiced: false,
+                invoiceId: null,
+                ...(accessibleOpmcs !== undefined ? { opmcId: { in: accessibleOpmcs } } : {})
             };
         }
 
@@ -51,13 +98,8 @@ export class InvoiceGeneratorService {
             throw AppError.badRequest('No verified invoicable SODs found for this contractor. Ensure SODs are completed and marked Invoicable by an Engineer first.');
         }
 
-        const contractor = await prisma.contractor.findUnique({
-            where: { id: data.contractorId },
-            include: { opmc: true }
-        });
-
-        if (!contractor) {
-            throw AppError.notFound('Contractor not found');
+        if (data.sodIds && data.sodIds.length !== sods.length) {
+            throw AppError.badRequest('One or more selected SODs are outside the invoice period, scope, or already invoiced');
         }
 
         const regionName = contractor.opmc?.rtom || 'METRO';
@@ -71,18 +113,16 @@ export class InvoiceGeneratorService {
         );
 
         let totalGrossAmount = 0;
-        // Import SODInvoicingService dynamically to prevent circular dependencies if they exist
-        const { SODInvoicingService } = await import('../service-order/sod.invoicing.service');
-        
         for (const sod of sods) {
-            const dwUsage = sod.materialUsage.find((m) => {
-                const itemCode = (m.item?.code || '').toUpperCase();
-                const itemName = (m.item?.name || '').toUpperCase();
-                return itemCode === 'OSP-HC-CBL-DW' || itemName.includes('DROP CABLE') || itemName.includes('DROP WIRE');
-            });
-            const dwLength = dwUsage ? parseFloat(dwUsage.quantity.toString()) : 150;
-            const calc = await SODInvoicingService.calculateAmounts(sod.rtom, dwLength, { serviceType: sod.serviceType });
-            totalGrossAmount += calc.contractorAmount;
+            if (sod.contractorAmount === null) {
+                throw AppError.badRequest(`SOD_CONTRACTOR_AMOUNT_MISSING: ${sod.soNum}`);
+            }
+            totalGrossAmount += Number(sod.contractorAmount);
+        }
+        const retentionAmount = totalGrossAmount * retentionPercent / 100;
+        const whtAmount = totalGrossAmount * whtPercent / 100;
+        if (retentionAmount + whtAmount + advanceDeduction > totalGrossAmount) {
+            throw AppError.badRequest('Invoice deductions cannot exceed the verified contractor amount');
         }
 
         const sodIdsList = sods.map(s => s.id);
@@ -92,10 +132,15 @@ export class InvoiceGeneratorService {
             year: currentYear,
             month: currentMonth,
             totalAmount: totalGrossAmount,
+            retentionAmount,
+            whtAmount,
+            whtPercent,
+            advanceDeduction,
             regionName,
             sodIds: sodIdsList,
             rtomArea: regionName,
-            description: `Contractor Monthly Invoice for ${contractor.name} - ${regionName} (${currentMonth}/${currentYear})`
+            description: data.description || `Contractor Monthly Invoice for ${contractor.name} - ${regionName} (${currentMonth}/${currentYear})`,
+            idempotencyKey: `CONTRACTOR_MONTHLY_INVOICE_${contractor.id}_${currentYear}_${currentMonth}`
         });
 
         const { AuditService } = await import('../audit');
@@ -170,6 +215,10 @@ export class InvoiceGeneratorService {
         year: number;
         month: number;
         totalAmount: number;
+        retentionAmount?: number;
+        whtAmount?: number;
+        whtPercent?: number;
+        advanceDeduction?: number;
         regionName: string;
         sodIds: string[];
         penaltyTotal?: number;
@@ -179,7 +228,7 @@ export class InvoiceGeneratorService {
         description?: string;
         idempotencyKey?: string;
     }) {
-        const { totalAmount, penaltyTotal = 0, penaltiesList = [], idempotencyKey, ...other } = data;
+        const { totalAmount, penaltyTotal = 0, penaltiesList = [], idempotencyKey, retentionAmount = 0, whtAmount = 0, whtPercent = 0, advanceDeduction = 0, ...other } = data;
         const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount, penaltyTotal);
 
         return await prisma.$transaction(async (tx) => {
@@ -187,6 +236,17 @@ export class InvoiceGeneratorService {
                 const existingLog = await tx.idempotencyLog.findUnique({ where: { idempotencyKey } });
                 if (existingLog) throw AppError.badRequest('Duplicate request');
                 await tx.idempotencyLog.create({ data: { idempotencyKey, actionType: 'GENERATE_INVOICE', status: 'SUCCESS' } });
+            }
+            // Serialize the claim of each SOD so two billing requests cannot
+            // both read the same unbilled rows and create competing invoices.
+            for (const sodId of [...other.sodIds].sort()) {
+                await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${sodId}::text, 0))`;
+            }
+            const claimableCount = await tx.serviceOrder.count({
+                where: { id: { in: other.sodIds }, invoiced: false, invoiceId: null }
+            });
+            if (claimableCount !== other.sodIds.length) {
+                throw AppError.conflict('One or more SODs were already claimed by another invoice request');
             }
             let bomNumber = other.bomNumber;
             let projectId = null;
@@ -222,42 +282,6 @@ export class InvoiceGeneratorService {
                 }
             }
 
-            if (!projectId) {
-                let project = await tx.project.findFirst({
-                    where: { contractorId: other.contractorId },
-                    orderBy: { createdAt: 'desc' }
-                });
-                
-                if (!project) {
-                    project = await tx.project.findFirst({
-                        where: {
-                            OR: [
-                                { name: { contains: 'BOM' } },
-                                { name: { contains: 'Invoicing' } },
-                                { projectCode: { contains: 'SERV' } }
-                            ]
-                        }
-                    });
-                }
-
-                if (!project) {
-                    project = await tx.project.findFirst({
-                        orderBy: { createdAt: 'desc' }
-                    });
-                }
-
-                if (project) {
-                    projectId = project.id;
-                    connectionTitle = `${project.name} - connections`;
-                    const digits = project.projectCode.match(/\d+/);
-                    if (digits) {
-                        projectNumber = parseInt(digits[0], 10);
-                    } else {
-                        projectNumber = 260103;
-                    }
-                }
-            }
-
             let rtomArea = other.rtomArea;
             if (!rtomArea) {
                 const firstSod = await tx.serviceOrder.findFirst({
@@ -276,6 +300,10 @@ export class InvoiceGeneratorService {
                     month: other.month,
                     totalAmount: totalAmount,
                     amount: totalAmount,
+                    retentionAmount,
+                    whtAmount,
+                    whtPercent,
+                    advanceDeduction,
                     amountA,
                     statusA: 'PENDING_SF_AUDIT',
                     amountB,
@@ -286,6 +314,7 @@ export class InvoiceGeneratorService {
                     rtomArea,
                     connectionTitle,
                     projectNumber,
+                    idempotencyKey,
                     sods: { connect: other.sodIds.map(id => ({ id })) },
                     penalties: {
                         create: penaltiesList.map(p => ({

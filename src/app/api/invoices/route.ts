@@ -1,8 +1,8 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice/invoice.service';
 import { createInvoiceSchema, updateInvoiceSchema, CreateInvoiceDTO, UpdateInvoiceDTO } from '@/lib/validations/invoice.schema';
 import { AppError, ErrorCode } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export const GET = apiHandler(async (request: Request) => {
     const projectId = searchParams.get('projectId') || undefined;
 
     return await InvoiceService.getInvoices({ status, contractorId, projectId });
-});
+}, { permissions: [RBAC_PERMISSIONS.SOD_INVOICE] });
 
 /**
  * POST: Create a new invoice
@@ -27,7 +27,7 @@ export const POST = apiHandler(
     },
     {
         schema: createInvoiceSchema,
-        roles: ROLE_GROUPS.PROJECT_MANAGERS
+        permissions: [RBAC_PERMISSIONS.SOD_INVOICE]
     }
 );
 
@@ -40,7 +40,7 @@ export const PATCH = apiHandler(
     },
     {
         schema: updateInvoiceSchema,
-        roles: ROLE_GROUPS.PROJECT_MANAGERS
+        permissions: [RBAC_PERMISSIONS.SOD_INVOICE]
     }
 );
 
@@ -57,6 +57,6 @@ export const DELETE = apiHandler(
         return await InvoiceService.deleteInvoice(id);
     },
     {
-        roles: ROLE_GROUPS.PROJECT_MANAGERS
+        permissions: [RBAC_PERMISSIONS.SOD_INVOICE]
     }
 );

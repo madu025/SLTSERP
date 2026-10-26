@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
-import type { Role } from '@prisma/client';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 /** Nil UUID literal — safe deny-all sentinel for @db.Uuid columns. */
 export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
@@ -8,7 +8,7 @@ export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 /**
  * Tri-state OPMC scope resolution (single source of truth for regional isolation):
  *
- *  - `undefined`  → admin tier (ROLE_GROUPS.ADMINS) — global access, no filter.
+ *  - `undefined`  → a user with the database-backed global RBAC capability — global access, no filter.
  *  - `[]`         → non-admin with no OPMC assignments — DENY ALL.
  *  - `[ids...]`   → non-admin restricted to exactly these OPMC IDs.
  *
@@ -20,10 +20,32 @@ export async function resolveOpmcScope(userId: string | null | undefined): Promi
 
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { role: true, accessibleOpmcs: { select: { id: true } } }
+        select: {
+            permissions: true,
+            accessibleOpmcs: { select: { id: true } },
+            systemRole: {
+                select: {
+                    isActive: true,
+                    permissions: true,
+                    rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } }
+                }
+            },
+            sectionAssignments: {
+                select: {
+                    role: {
+                        select: {
+                            isActive: true,
+                            permissions: true,
+                            rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } }
+                        }
+                    }
+                }
+            }
+        }
     });
 
     if (!user) return [];
-    if (ROLE_GROUPS.ADMINS.includes(user.role as Role)) return undefined;
+    const permissions = deriveEffectivePermissions(user);
+    if (permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) return undefined;
     return user.accessibleOpmcs.map(o => o.id);
 }

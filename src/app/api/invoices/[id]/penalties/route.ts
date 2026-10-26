@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { InvoiceService } from '@/services/invoice/invoice.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 const createPenaltySchema = z.object({
     amount: z.union([z.string(), z.number()]).transform(val => parseFloat(String(val))),
     reason: z.string().optional(),
@@ -20,7 +21,6 @@ export const POST = apiHandler(async (req, params, body) => {
         throw AppError.badRequest('Valid penalty amount is required');
     }
     const userId = req.headers.get('x-user-id');
-    const userRole = req.headers.get('x-user-role') || 'UNKNOWN';
     if (!userId) {
         throw AppError.unauthorized('Authentication required');
     }
@@ -31,23 +31,19 @@ export const POST = apiHandler(async (req, params, body) => {
         data.description,
         data.serviceOrderId,
         userId,
-        userRole
     );
     return Response.json({ success: true, penalty });
 }, {
+    permissions: [RBAC_PERMISSIONS.SOD_INVOICE],
     audit: { action: 'PROPOSE_PENALTY', entity: 'Penalty' }
 });
 export const PATCH = apiHandler(async (req, params, body) => {
     const { id } = params;
     const data = updatePenaltySchema.parse(body);
-    const userRole = req.headers.get('x-user-role');
-    const isApproverRole = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
-    if (!isApproverRole) {
-        throw AppError.forbidden('Permission Denied. Only Area Managers or Admins can approve/reject penalties.');
-    }
     const penalty = await InvoiceService.updatePenaltyStatus(id, data.penaltyId, data.status);
     return Response.json({ success: true, penalty });
 }, {
+    permissions: [RBAC_PERMISSIONS.SOD_INVOICE],
     audit: { action: 'UPDATE_PENALTY_STATUS', entity: 'Penalty' }
 });
 export const DELETE = apiHandler(async (req, params) => {
@@ -57,9 +53,9 @@ export const DELETE = apiHandler(async (req, params) => {
     if (!penaltyId) {
         throw AppError.badRequest('Penalty ID is required');
     }
-    const userRole = req.headers.get('x-user-role');
-    await InvoiceService.deletePenalty(id, penaltyId, userRole);
+    await InvoiceService.deletePenalty(id, penaltyId);
     return Response.json({ success: true });
 }, {
+    permissions: [RBAC_PERMISSIONS.SOD_INVOICE],
     audit: { action: 'DELETE_PENALTY', entity: 'Penalty' }
 });

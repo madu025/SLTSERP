@@ -16,12 +16,14 @@ export const RBAC_PERMISSIONS = {
     FINANCE_READ: 'finance.read',
     FINANCE_WRITE: 'finance.write',
     FINANCE_APPROVE: 'finance.approve',
+    FINANCE_AUDIT: 'finance.audit',
     INVENTORY_READ: 'inventory.read',
     INVENTORY_WRITE: 'inventory.write',
     INVENTORY_APPROVE: 'inventory.approve',
     PROCUREMENT_READ: 'procurement.read',
     PROCUREMENT_WRITE: 'procurement.write',
     CONTRACTOR_READ: 'contractor.read',
+    CONTRACTOR_WRITE: 'contractor.write',
     ADMIN_RBAC: 'admin.rbac',
 } as const;
 
@@ -38,12 +40,14 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.FINANCE_READ, module: 'FINANCE', action: 'READ', scope: 'OPMC', description: 'Read finance data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FINANCE_WRITE, module: 'FINANCE', action: 'WRITE', scope: 'OPMC', description: 'Modify finance data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FINANCE_APPROVE, module: 'FINANCE', action: 'APPROVE', scope: 'OPMC', description: 'Approve finance workflows within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.FINANCE_AUDIT, module: 'FINANCE', action: 'AUDIT', scope: 'OPMC', description: 'Perform finance and contractor invoice audit actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.INVENTORY_READ, module: 'INVENTORY', action: 'READ', scope: 'OPMC', description: 'Read inventory data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.INVENTORY_WRITE, module: 'INVENTORY', action: 'WRITE', scope: 'OPMC', description: 'Modify inventory data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.INVENTORY_APPROVE, module: 'INVENTORY', action: 'APPROVE', scope: 'OPMC', description: 'Approve inventory workflows within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_READ, module: 'PROCUREMENT', action: 'READ', scope: 'OPMC', description: 'Read procurement data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_WRITE, module: 'PROCUREMENT', action: 'WRITE', scope: 'OPMC', description: 'Modify procurement data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.CONTRACTOR_READ, module: 'CONTRACTOR', action: 'READ', scope: 'OPMC', description: 'Read contractor data within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.CONTRACTOR_WRITE, module: 'CONTRACTOR', action: 'WRITE', scope: 'OPMC', description: 'Submit contractor portal work, stock, and return actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.ADMIN_RBAC, module: 'ADMIN', action: 'RBAC', scope: 'GLOBAL', description: 'Manage users, roles, permission grants, and scope assignments' },
 ] as const;
 

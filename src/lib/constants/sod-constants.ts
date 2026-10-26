@@ -103,6 +103,19 @@ export const SOD_QUERY_COMPLETION_STATUSES = [
     SodStatus.PAT_CORRECTED,
 ] as const;
 
+/**
+ * Statuses that qualify for financial recognition. The ServiceOrder model has
+ * both portal (`sltsStatus`) and ERP workflow (`status`) fields; callers that
+ * query both fields should use this set in their OR predicate.
+ */
+export const SOD_FINANCIAL_COMPLETION_STATUSES = [
+    SodStatus.COMPLETED,
+    SodStatus.INSTALL_CLOSED,
+    SodStatus.PROV_CLOSED,
+    SodStatus.PAT_OPMC_PASSED,
+    SodStatus.PAT_CORRECTED,
+] as const;
+
 /** sltsStatus values excluded from the pending table */
 export const SOD_EXCLUDED_FROM_PENDING = [
     SodStatus.COMPLETED,

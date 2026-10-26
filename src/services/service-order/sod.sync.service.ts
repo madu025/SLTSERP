@@ -2589,6 +2589,7 @@ export class SODSyncService {
                     console.log(`[BRIDGE-SYNC] Preserving ${existingManualMaterials.length} manual material record(s) for SO ${soNum}. Portal material overwrite skipped.`);
                 } else if (isCompleting || (updated.sltsStatus === SodStatus.COMPLETED && materialDetails.length > 0)) {
                     const usagesInput: MaterialUsageInput[] = [];
+                    const unmappedMaterials: string[] = [];
                     for (const mat of materialDetails) {
                         const code = mat.CODE || mat.TYPE;
                         const name = mat.NAME;
@@ -2691,33 +2692,57 @@ export class SODSyncService {
                                     serialNumber: matSerial || undefined,
                                     comment: `Auto-synced from Portal`
                                 });
+                            } else {
+                                unmappedMaterials.push(code || name || 'UNKNOWN_MATERIAL');
                             }
+                        } else if (qty > 0) {
+                            unmappedMaterials.push(code || name || 'UNKNOWN_MATERIAL');
                         }
                     }
 
+                    if (unmappedMaterials.length > 0) {
+                        throw AppError.badRequest(
+                            `UNMAPPED_SOD_MATERIAL: ${[...new Set(unmappedMaterials)].join(', ')}`
+                        );
+                    }
+
                     if (usagesInput.length > 0) {
-                        try {
-                            const { InventoryService } = await import('../inventory');
-                            await SODMaterialService.processMaterialUsage(
+                        const { InventoryService } = await import('../inventory');
+                        const isMaterialRefresh = updated.sltsStatus === SodStatus.COMPLETED && !isCompleting;
+                        if (isMaterialRefresh) {
+                            await LedgerService.rollbackSodTransaction(
                                 tx,
                                 updated.id,
-                                updated.opmcId,
-                                updated.contractorId,
-                                usagesInput,
-                                InventoryService,
-                                payload.currentUser || 'BRIDGE_SYNC'
+                                `Reversal for Portal Material Refresh on SOD: ${updated.id}`,
+                                ['SOD_CONSUMPTION']
                             );
-
-                            const updatedWithUsages = await tx.serviceOrder.findUnique({
-                                where: { id: updated.id },
-                                include: { materialUsage: true }
-                            });
-                            const usages = updatedWithUsages?.materialUsage || [];
-                            const totalSodMaterialCost = usages.reduce((sum, u) => sum.add(new Prisma.Decimal(u.costPrice || 0).mul(new Prisma.Decimal(u.quantity))), new Prisma.Decimal(0));
-                            await LedgerService.logSodConsumption(tx, updated.id, totalSodMaterialCost.toNumber());
-                        } catch (matErr) {
-                            console.warn('[BRIDGE-SYNC] Material processing skipped due to error:', matErr instanceof Error ? matErr.message : matErr);
                         }
+
+                        await SODMaterialService.processMaterialUsage(
+                            tx,
+                            updated.id,
+                            updated.opmcId,
+                            updated.contractorId,
+                            usagesInput,
+                            InventoryService,
+                            payload.currentUser || 'BRIDGE_SYNC'
+                        );
+
+                        const updatedWithUsages = await tx.serviceOrder.findUnique({
+                            where: { id: updated.id },
+                            include: { materialUsage: true }
+                        });
+                        const usages = updatedWithUsages?.materialUsage || [];
+                        const totalSodMaterialCost = usages.reduce((sum, u) => sum.add(new Prisma.Decimal(u.costPrice || 0).mul(new Prisma.Decimal(u.quantity))), new Prisma.Decimal(0));
+                        await LedgerService.logSodConsumption(
+                            tx,
+                            updated.id,
+                            totalSodMaterialCost.toNumber(),
+                            undefined,
+                            isMaterialRefresh
+                                ? { idempotencyKey: `SOD_CONSUMPTION_${updated.id}_REVISION_${updated.updatedAt.getTime()}` }
+                                : undefined
+                        );
                     }
 
                     if (updated.revenueAmount) {

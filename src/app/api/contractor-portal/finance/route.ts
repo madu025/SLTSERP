@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorFinanceService } from '@/services/contractor-portal/finance.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,5 +11,5 @@ export const GET = apiHandler(async (req: Request) => {
     const data = await ContractorFinanceService.getFinanceDashboard(userId, contractorId);
     return data;
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
+    permissions: [RBAC_PERMISSIONS.CONTRACTOR_READ],
 });

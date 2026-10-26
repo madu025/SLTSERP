@@ -81,8 +81,12 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string, f
                 },
                 body: JSON.stringify(data)
             });
-            if (!res.ok) throw new Error("Status update failed");
-            return res.json();
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) {
+                const message = payload?.error?.message || payload?.error || payload?.message || "Status update failed";
+                throw new Error(message);
+            }
+            return payload;
         },
         onMutate: async (newData) => {
             await queryClient.cancelQueries({ queryKey: ["service-orders"] });
@@ -104,7 +108,7 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string, f
             if (context?.previousData) {
                 queryClient.setQueriesData({ queryKey: ["service-orders"] }, context.previousData);
             }
-            toast.error("Failed to update status");
+            toast.error(err instanceof Error ? err.message : "Failed to update status");
         },
         onSuccess: (updatedItem) => {
             if (updatedItem && (updatedItem as ServiceOrder).id) {

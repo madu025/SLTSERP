@@ -1,5 +1,5 @@
 'use client';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 import {  useEffect, useState  } from 'react';
 import Sidebar from '@/components/Sidebar';
@@ -12,7 +12,6 @@ import {
     CheckCircle2,
     DollarSign,
     RefreshCw,
-    Send,
     PackageCheck,
     PieChart,
     Building2,
@@ -25,11 +24,9 @@ import { WipSummaryMetrics, WipSodItem } from '@/services/finance/sod-wip-revenu
 
 export default function WipRevenueDashboardPage() {
     const [loading, setLoading] = useState(true);
-    const [accruing, setAccruing] = useState(false);
     const [metrics, setMetrics] = useState<WipSummaryMetrics | null>(null);
     const [items, setItems] = useState<WipSodItem[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
-    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     const fetchData = async () => {
         setLoading(true);
@@ -54,28 +51,6 @@ export default function WipRevenueDashboardPage() {
         fetchData();
     }, []);
 
-    const handleAccrueJournal = async () => {
-        setAccruing(true);
-        setSuccessMessage(null);
-        try {
-            const res = await fetch('/api/finance/wip-revenue', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const data = await res.json();
-            if (data.posted) {
-                setSuccessMessage(`Accrual Journal & Inventory COGS Posted Successfully! Total LKR ${data.accruedValue?.toLocaleString()} (COGS: LKR ${data.materialCogs?.toLocaleString() || '0'})`);
-                fetchData();
-            } else {
-                setSuccessMessage(data.message || 'No unbilled revenue to accrue.');
-            }
-        } catch (err) {
-            console.error('Failed to post WIP Accrual Journal:', err);
-        } finally {
-            setAccruing(false);
-        }
-    };
-
     const filteredItems = items.filter(item => {
         if (filterStatus === 'COMPLETED') return item.sltsStatus === 'COMPLETED';
         if (filterStatus === 'INSTALL_CLOSED') return item.sltsStatus === 'INSTALL_CLOSED';
@@ -84,7 +59,7 @@ export default function WipRevenueDashboardPage() {
     });
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.PROJECT_MANAGERS}>
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.FINANCE_READ}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -111,23 +86,12 @@ export default function WipRevenueDashboardPage() {
                                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                                     Refresh Data
                                 </button>
-                                <button
-                                    onClick={handleAccrueJournal}
-                                    disabled={accruing || !metrics || metrics.totalWipValue === 0}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition shadow-sm flex items-center gap-2"
-                                >
-                                    <Send className="w-4 h-4" />
-                                    {accruing ? 'Accruing...' : 'Post Period WIP & COGS Accrual'}
-                                </button>
                             </div>
                         </div>
 
-                        {successMessage && (
-                            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-3">
-                                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                                <span className="text-sm font-medium">{successMessage}</span>
-                            </div>
-                        )}
+                        <div className="p-4 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-sm font-medium">
+                            WIP revenue and material COGS are posted automatically when a valid SOD is completed. This page is a read-only finance reconciliation view.
+                        </div>
 
                         {/* Top KPI Cards (Status Breakdown + Total Revenue) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

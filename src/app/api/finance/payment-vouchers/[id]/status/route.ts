@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 
 const updateStatusSchema = z.object({
@@ -24,7 +24,7 @@ export const PATCH = apiHandler(async (req, params, body) => {
     });
 }, {
     schema: updateStatusSchema,
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'UPDATE_STATUS', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });

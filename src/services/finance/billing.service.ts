@@ -1,7 +1,8 @@
-import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
+import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 export class BillingService {
     /**
      * Generates a Draft Invoice for a specific contractor for unbilled COMPLETED Service Orders.
@@ -14,84 +15,43 @@ export class BillingService {
         retentionPercent?: number; // e.g. 5 for 5%
         whtPercent?: number;       // e.g. 5 for 5%
         advanceDeduction?: number;
-    }) {
-        const { contractorId, projectId, description, retentionPercent = 0, whtPercent = 0, advanceDeduction = 0 } = data;
-        // Idempotency / Concurrency Guard
-        const idempotencyKey = `INV_GEN_${contractorId}_${new Date().toISOString().slice(0, 7)}`;
-        return await prisma.$transaction(async (tx: TransactionClient) => {
-            // Check for duplicate running transactions for the same month
-            const existingInv = await tx.invoice.findUnique({ where: { idempotencyKey } });
-            if (existingInv) throw AppError.badRequest('Invoice generation already in progress or completed for this month.');
-            // 1. Fetch unbilled, completed SODs
-            const unbilledSods = await tx.serviceOrder.findMany({
-                where: {
-                    contractorId,
-                    sltsStatus: 'COMPLETED',
-                    invoiceId: null,
-                    invoiced: false,
-                    ...(projectId ? { projectId } : {})
-                }
-            });
-            if (unbilledSods.length === 0) {
-                throw AppError.badRequest('No unbilled completed SODs found for this contractor.');
-            }
-            // 2. Aggregate Payouts
-            let totalContractorAmount = new Prisma.Decimal(0);
-            for (const sod of unbilledSods) {
-                totalContractorAmount = totalContractorAmount.add(new Prisma.Decimal(sod.contractorAmount || 0));
-            }
-            // 3. Calculate Splits
-            const amountNum = totalContractorAmount.toNumber();
-            const retentionAmount = (amountNum * retentionPercent) / 100;
-            const whtAmount = (amountNum * whtPercent) / 100;
-            const netAmountToPay = amountNum - retentionAmount - whtAmount - advanceDeduction;
-            // 4. Generate Invoice Number
-            const count = await tx.invoice.count();
-            const invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
-            // 5. Create DRAFT Invoice
-            const invoice = await tx.invoice.create({
-                data: {
-                    invoiceNumber,
-                    contractorId,
-                    projectId,
-                    year: new Date().getFullYear(),
-                    month: new Date().getMonth() + 1,
-                    amount: amountNum,
-                    totalAmount: netAmountToPay,
-                    status: 'PENDING',
-                    approvalStatus: 'DRAFT',
-                    description,
-                    retentionAmount,
-                    whtAmount,
-                    whtPercent,
-                    advanceDeduction,
-                    idempotencyKey,
-                    sods: {
-                        connect: unbilledSods.map(s => ({ id: s.id }))
-                    }
-                }
-            });
-            // 6. Update SOD status
-            await tx.serviceOrder.updateMany({
-                where: { id: { in: unbilledSods.map(s => s.id) } },
-                data: {
-                    invoiced: true,
-                    // invoiceId will be linked by the `sods: { connect: ... }` above
-                }
-            });
-            return invoice;
-        });
+        month?: string | number;
+        year?: string | number;
+    }, userId: string) {
+        if (!userId) throw AppError.unauthorized('Authenticated billing user is required');
+        if (data.projectId) {
+            throw AppError.badRequest('Project-specific billing is not supported by the verified monthly SOD flow');
+        }
+        return InvoiceGeneratorService.generateContractorMonthlyInvoice(data, userId);
     }
-    static async getUnbilledSods(contractorId: string) {
+    static async getUnbilledSods(contractorId: string, userId: string, month?: string | number, year?: string | number) {
         if (!contractorId) {
             throw AppError.badRequest('contractorId is required');
         }
+        if (!userId) throw AppError.unauthorized('Authentication required');
+        const now = new Date();
+        const currentYear = year ? Number(year) : now.getFullYear();
+        const currentMonth = month ? Number(month) : now.getMonth() + 1;
+        if (!Number.isInteger(currentYear) || !Number.isInteger(currentMonth) || currentMonth < 1 || currentMonth > 12) {
+            throw AppError.badRequest('Invalid invoice period');
+        }
+        const accessibleOpmcs = await resolveOpmcScope(userId);
+        const contractor = await prisma.contractor.findUnique({ where: { id: contractorId }, select: { opmcId: true } });
+        if (!contractor) throw AppError.notFound('Contractor not found');
+        if (accessibleOpmcs !== undefined && (!contractor.opmcId || !accessibleOpmcs.includes(contractor.opmcId))) {
+            throw AppError.forbidden('Contractor is outside your OPMC access');
+        }
+        const periodStart = new Date(Date.UTC(currentYear, currentMonth - 1, 1));
+        const periodEnd = new Date(Date.UTC(currentYear, currentMonth, 1));
         const sods = await prisma.serviceOrder.findMany({
             where: {
                 contractorId,
-                sltsStatus: 'COMPLETED',
+                completedDate: { gte: periodStart, lt: periodEnd },
+                OR: [{ status: { in: ['COMPLETED', 'INSTALL_CLOSED'] } }, { sltsStatus: 'COMPLETED' }],
+                isInvoicable: true,
                 invoiceId: null,
                 invoiced: false,
+                ...(accessibleOpmcs !== undefined ? { opmcId: { in: accessibleOpmcs } } : {}),
             },
             select: {
                 id: true,
@@ -106,7 +66,9 @@ export class BillingService {
         const totalAmount = sods.reduce((sum, sod) => sum + (sod.contractorAmount ? new Prisma.Decimal(sod.contractorAmount).toNumber() : 0), 0);
         return {
             sods,
-            totalAmount
+            totalAmount,
+            month: currentMonth,
+            year: currentYear
         };
     }
 }

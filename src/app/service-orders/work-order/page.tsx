@@ -313,38 +313,31 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         toast.info(`Applying ${action} to ${ids.length} orders...`);
         try {
             const userId = localStorage.getItem("erp_user_id") || "";
+            const patchOrder = async (id: string, body: Record<string, unknown>) => {
+                const response = await fetch("/api/service-orders", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json", "x-user-id": userId },
+                    body: JSON.stringify({ id, ...body })
+                });
+                const payload = await response.json().catch(() => null);
+                if (!response.ok) {
+                    throw new Error(payload?.error?.message || payload?.error || payload?.message || "Request failed");
+                }
+            };
             if (action === 'ASSIGN') {
                 // Bulk assign: set sltsStatus to ASSIGNED
-                await Promise.all(ids.map(id =>
-                    fetch("/api/service-orders", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json", "x-user-id": userId },
-                        body: JSON.stringify({ id, sltsStatus: "INPROGRESS" })
-                    })
-                ));
+                await Promise.all(ids.map(id => patchOrder(id, { sltsStatus: "INPROGRESS" })));
                 toast.success(`${ids.length} orders marked as In Progress`);
             } else if (action === 'COMPLETE') {
-                await Promise.all(ids.map(id =>
-                    fetch("/api/service-orders", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json", "x-user-id": userId },
-                        body: JSON.stringify({ id, sltsStatus: "COMPLETED", completedDate: new Date().toISOString() })
-                    })
-                ));
+                await Promise.all(ids.map(id => patchOrder(id, { sltsStatus: "COMPLETED", completedDate: new Date().toISOString() })));
                 toast.success(`${ids.length} orders marked as Completed`);
             } else if (action === 'DELETE') {
-                await Promise.all(ids.map(id =>
-                    fetch("/api/service-orders", {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json", "x-user-id": userId },
-                        body: JSON.stringify({ id, sltsStatus: "RETURN", returnReason: "Bulk removal" })
-                    })
-                ));
+                await Promise.all(ids.map(id => patchOrder(id, { sltsStatus: "RETURN", returnReason: "Bulk removal" })));
                 toast.success(`${ids.length} orders marked as Return`);
             }
             queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-        } catch {
-            toast.error(`Bulk ${action} failed`);
+        } catch (error) {
+            toast.error(`Bulk ${action} failed: ${error instanceof Error ? error.message : 'Request failed'}`);
         }
     };
 

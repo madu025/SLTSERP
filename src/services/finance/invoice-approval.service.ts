@@ -4,14 +4,16 @@ import { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export class InvoiceApprovalService {
     /**
-     * Approves an invoice, enforcing Maker-Checker rules based on amount.
+     * Approves an invoice after apiHandler has enforced the DB-backed
+     * finance.approve capability. Role names are intentionally not checked
+     * here; organization-specific roles must be able to use the same policy.
      *
      * No GL posting happens here. Revenue / cost for an invoice is recognized
      * authoritatively earlier in the lifecycle (SOD completion accrual and
      * invoice generation), so posting again at approval would double-recognize
      * AR / revenue. Approval is purely a maker-checker status gate.
      */
-    static async approveInvoice(invoiceId: string, approverId: string, approverRole: string) {
+    static async approveInvoice(invoiceId: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const invoice = await tx.invoice.findUnique({
                 where: { id: invoiceId },
@@ -20,16 +22,6 @@ export class InvoiceApprovalService {
 
             if (!invoice) throw AppError.notFound('Invoice not found');
             if (invoice.approvalStatus === 'APPROVED') throw AppError.badRequest('Invoice is already approved');
-
-            // Maker-Checker Logic
-            // If amount > 1M LKR, requires SUPER_ADMIN. Otherwise FINANCE_MANAGER can approve.
-            if (Number(invoice.totalAmount) > 1000000 && approverRole !== 'SUPER_ADMIN') {
-                throw AppError.forbidden('Invoices over 1,000,000 LKR require SUPER_ADMIN approval.');
-            }
-
-            if (approverRole !== 'SUPER_ADMIN' && approverRole !== 'FINANCE_MANAGER') {
-                throw AppError.forbidden('Insufficient permissions to approve invoices.');
-            }
 
             // Update status only (GL already posted at generation/accrual).
             const updatedInvoice = await tx.invoice.update({

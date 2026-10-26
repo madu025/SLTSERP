@@ -1,5 +1,5 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 import { ContractorInventoryService } from '@/services/inventory/contractor-inventory.service';
 
@@ -17,5 +17,5 @@ export const GET = apiHandler(async (req: Request) => {
     const data = await ContractorInventoryService.getContractorStockDashboard(contractorId, userId, teamId, month, year);
     return data;
 }, {
-    roles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.CONTRACTORS],
+    permissions: [RBAC_PERMISSIONS.CONTRACTOR_READ],
 });

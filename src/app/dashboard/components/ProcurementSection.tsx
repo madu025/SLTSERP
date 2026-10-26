@@ -68,24 +68,7 @@ export default function ProcurementSection({ rtom = 'ALL' }: { rtom?: string }) 
         queryFn: async () => {
             const res = await fetch(`/api/dashboard/procurement?rtom=${rtom}&_t=${Date.now()}`);
             if (!res.ok) {
-                // Fallback to direct inventory & requests if endpoint fallback is needed
-                const [inventoryRes, reqRes] = await Promise.all([
-                    fetch(`/api/dashboard/inventory?rtom=${rtom}`).then(r => r.ok ? r.json() : { lowStockItems: [], pendingGRNs: 0 }),
-                    fetch(`/api/inventory/requests?workflowStage=PROCUREMENT_PROCESSING,PROCUREMENT`).then(r => r.ok ? r.json() : [])
-                ]);
-
-                const pendingPRNs = Array.isArray(reqRes) ? reqRes.filter((r: { procurementStatus?: string }) => !r.procurementStatus || r.procurementStatus === 'PENDING').length : 0;
-                const openPOs = Array.isArray(reqRes) ? reqRes.filter((r: { procurementStatus?: string }) => ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'].includes(r.procurementStatus || '')).length : 0;
-
-                return {
-                    pendingPRNs,
-                    openPOs,
-                    completedPOs: 0,
-                    pendingGRNs: inventoryRes.pendingGRNs || 0,
-                    lowStockItems: inventoryRes.lowStockItems || [],
-                    recentPendingRequests: Array.isArray(reqRes) ? reqRes.slice(0, 5) : [],
-                    recentActivePOs: []
-                };
+                throw new Error(`Procurement telemetry request failed (${res.status})`);
             }
             return res.json();
         },

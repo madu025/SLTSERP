@@ -6,6 +6,7 @@ import { ContractorRepository } from '@/repositories/contractor.repository';
 import { MaterialRepository } from '@/repositories/material.repository';
 import { MaterialUsageInput } from '@/types/service-order/sod-sync.types';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export class SODMaterialService {
     /**
@@ -93,11 +94,19 @@ export class SODMaterialService {
             }
 
             if (isDecrementingUsage) {
-                // Allow shortage during bridge sync to avoid crashing the pipeline (Auto-Reconciliation)
-                const allowShortage = true; 
+                // Completion is a custody and accounting event. Never create a usage
+                // record for material that was not actually picked from a batch. A
+                // shortage must fail the transaction so the SOD, stock and GL cannot
+                // move into three different states.
+                const allowShortage = false;
                 const pickedBatches = contractorId 
                     ? await inventoryService.pickContractorBatchesFIFO(tx, contractorId, m.itemId, qty, allowShortage)
                     : await inventoryService.pickStoreBatchesFIFO(tx, storeId!, m.itemId, qty, allowShortage);
+
+                const pickedQuantity = pickedBatches
+                    .filter((picked) => picked.batchId !== null)
+                    .reduce((sum, picked) => sum + picked.quantity, 0);
+                const pickedForCost = pickedBatches.find((picked) => picked.batchId)?.batch as { costPrice?: number } | undefined;
 
                 for (const picked of pickedBatches) {
                     const isShortage = picked.batchId === null;
@@ -121,9 +130,23 @@ export class SODMaterialService {
 
                 // Update Summary Stock (Global Stock for OPMC/Contractor)
                 if (contractorId) {
-                    await ContractorRepository.upsertStock(contractorId, m.itemId, -qty, tx);
+                    await ContractorRepository.upsertStock(contractorId, m.itemId, -pickedQuantity, tx);
                 } else {
-                    await InventoryRepository.upsertStock(storeId!, m.itemId, -qty, tx);
+                    const stockBefore = await InventoryRepository.findStock(storeId!, m.itemId, tx);
+                    const stockAfter = await InventoryRepository.upsertStock(storeId!, m.itemId, -pickedQuantity, tx);
+                    await AuditLedgerService.recordEntry({
+                        storeId: storeId!,
+                        itemId: m.itemId,
+                        transactionType: 'SOD_INSTALLATION',
+                        referenceType: 'SOD',
+                        referenceId: serviceOrderId,
+                        quantityBefore: Number(stockBefore?.quantity || 0),
+                        quantityChange: -pickedQuantity,
+                        quantityAfter: Number(stockAfter.quantity),
+                        unitPrice: Number(pickedForCost?.costPrice || 0),
+                        performedById: userId,
+                        idempotencyKey: `SOD_MATERIAL_CONSUMPTION_${serviceOrderId}_${m.itemId}_${Date.now()}`,
+                    }, tx);
                 }
 
                 // Update serial number status if the item is serialized
@@ -212,7 +235,22 @@ export class SODMaterialService {
             if (contractorId) {
                 await ContractorRepository.upsertStock(contractorId, m.itemId, qty, tx);
             } else if (storeId) {
-                await InventoryRepository.upsertStock(storeId, m.itemId, qty, tx);
+                const stockBefore = await InventoryRepository.findStock(storeId, m.itemId, tx);
+                const stockAfter = await InventoryRepository.upsertStock(storeId, m.itemId, qty, tx);
+                await AuditLedgerService.recordEntry({
+                    storeId,
+                    itemId: m.itemId,
+                    transactionType: 'STORE_TRANSFER_IN',
+                    referenceType: 'SOD',
+                    referenceId: serviceOrderId,
+                    batchId: m.batchId,
+                    quantityBefore: Number(stockBefore?.quantity || 0),
+                    quantityChange: qty,
+                    quantityAfter: Number(stockAfter.quantity),
+                    unitPrice: Number(m.costPrice || 0),
+                    performedById: userId,
+                    idempotencyKey: `SOD_MATERIAL_REVERSAL_${m.id}`,
+                }, tx);
             }
 
             // Restore serial number status

@@ -12,7 +12,7 @@ import { SODImportService } from './sod.import.service';
 import { GetServiceOrdersParams, ServiceOrderUpdateData } from '@/types/service-order/sod-sync.types';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { prisma } from '@/lib/prisma';
-import { ROLE_GROUPS } from '@/config/roles';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { isValidUuid } from '@/lib/uuid';
 import type { SyncActor } from '@/lib/constants/sod-status-policy';
 import { applySodStatus } from './sync/sod-status.writer';
@@ -96,18 +96,14 @@ export class ServiceOrderService {
 
         // 0. REGIONAL OWNERSHIP CHECK (fail-closed)
         // Non-admin users may only modify SODs inside their accessible OPMCs.
-        // Admin tier (ROLE_GROUPS.ADMINS) is unrestricted. System integrations
+        // The database-backed admin.rbac capability is unrestricted. System integrations
         // (audit markers like 'SYNC_SERVICE' with no DB user record) bypass.
         // Non-UUID system markers must skip the lookup entirely — User.id is
         // @db.Uuid, so passing a marker string makes Prisma throw instead of
         // returning null (breaks sync workers / automation endpoints).
         if (userId && isValidUuid(userId)) {
-            const actingUser = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { role: true, accessibleOpmcs: { select: { id: true } } }
-            });
-            if (actingUser && !ROLE_GROUPS.ADMINS.includes(actingUser.role)) {
-                const accessibleIds = actingUser.accessibleOpmcs.map(o => o.id);
+            const accessibleIds = await resolveOpmcScope(userId);
+            if (accessibleIds !== undefined) {
                 if (!oldOrder.opmcId || !accessibleIds.includes(oldOrder.opmcId)) {
                     throw AppError.forbidden('Service order is outside your OPMC access');
                 }
@@ -153,7 +149,19 @@ export class ServiceOrderService {
         const isCompleting = intentSltsStatus === 'COMPLETED' || (oldOrder.sltsStatus !== 'COMPLETED' && data.sltsStatus === 'COMPLETED');
         if (isCompleting) {
             const distance = (updateData.dropWireDistance as number) ?? oldOrder.dropWireDistance ?? 0;
-            const { revenueAmount, contractorAmount } = await SODInvoicingService.calculateAmounts(oldOrder.opmcId, distance);
+            const poleCount = Array.isArray(data.erectedPoles)
+                ? data.erectedPoles.length
+                : await prisma.sODErectedPole.count({ where: { serviceOrderId: id } });
+            const { revenueAmount, contractorAmount } = await SODInvoicingService.calculateAmounts(
+                oldOrder.opmcId,
+                distance,
+                {
+                    materialSource: data.materialSource ?? oldOrder.materialSource,
+                    poleCount,
+                    serviceType: oldOrder.serviceType,
+                    completedDate: asDateValue(intentCompletedDate) ?? new Date(),
+                }
+            );
             updateData.revenueAmount = revenueAmount;
             updateData.contractorAmount = contractorAmount;
         }
@@ -204,7 +212,12 @@ export class ServiceOrderService {
                 
                 // Rollback old GL consumption if the order was already completed
                 if (oldOrder.sltsStatus === 'COMPLETED') {
-                    await LedgerService.rollbackSodTransaction(tx, id, `Reversal for Material Adjustment on SOD: ${id}`);
+                    await LedgerService.rollbackSodTransaction(
+                        tx,
+                        id,
+                        `Reversal for Material Adjustment on SOD: ${id}`,
+                        ['SOD_CONSUMPTION']
+                    );
                 }
 
                 const materialUpdate = await SODMaterialService.processMaterialUsage(
@@ -319,7 +332,15 @@ export class ServiceOrderService {
                 const totalSodMaterialCost = new Prisma.Decimal(costResult[0].total);
                 
                 // DR COGS, CR Inventory
-                await LedgerService.logSodConsumption(tx, id, totalSodMaterialCost.toNumber());
+                await LedgerService.logSodConsumption(
+                    tx,
+                    id,
+                    totalSodMaterialCost.toNumber(),
+                    undefined,
+                    isCompletedAdjustment
+                        ? { idempotencyKey: `SOD_CONSUMPTION_${id}_REVISION_${updatedOrder.updatedAt.getTime()}` }
+                        : undefined
+                );
                 
                 // Only post revenue once on transition to Completed
                 if (isCompletingNow && updatedOrder.revenueAmount) {
