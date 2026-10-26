@@ -9,6 +9,9 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Copy package files, lockfile, .npmrc and prisma schema
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY prisma ./prisma/
+# Prisma's postinstall hook runs during dependency installation and needs the
+# project-level config to resolve the split schema directory.
+COPY prisma.config.ts ./prisma.config.ts
 RUN pnpm install --frozen-lockfile
 
 # Stage 2: Build the application
