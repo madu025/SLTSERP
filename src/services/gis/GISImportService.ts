@@ -20,6 +20,7 @@ import { permitGenerator } from '@/lib/gis/permit-generator';
 import { gisAnalyticsEngine } from '@/lib/gis/gis-analytics-engine';
 import { getWorkflowForProjectType } from '@/lib/gis/workflow-definitions';
 import { logger } from '@/lib/logger';
+import { redis } from '@/lib/redis';
 import { safe, safeSync } from '@/utils/safe-await.util';
 
 import type {
@@ -138,11 +139,151 @@ function getDefaultApprovals(): DefaultApprovalLevel[] {
 // ============================================================================
 
 // Global session store using globalThis to survive Turbopack HMR
-const _global = globalThis as typeof globalThis & { __gisSessions?: Map<string, import('@/services/gis/GISImportService').GISUploadSession> };
+const _global = globalThis as typeof globalThis & {
+  __gisSessions?: Map<string, import('@/services/gis/GISImportService').GISUploadSession>;
+  __gisProcessingLocks?: Set<string>;
+};
 if (!_global.__gisSessions) _global.__gisSessions = new Map();
+if (!_global.__gisProcessingLocks) _global.__gisProcessingLocks = new Set();
+const GIS_SESSION_KEY_PREFIX = 'gis:import-session:';
+const GIS_SESSION_TTL_SECONDS = 2 * 60 * 60;
 
 export class GISImportService {
   private static get sessions() { return _global.__gisSessions!; }
+
+  /**
+   * Redis is the cross-instance session store in production. Local development
+   * can continue without Redis, but production must fail clearly instead of
+   * accepting an upload that a later serverless instance cannot find.
+   */
+  private static async sessionStoreAvailable(): Promise<boolean> {
+    if (redis.status === 'ready') return true;
+    if (!process.env.REDIS_URL) return false;
+
+    return await new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (available: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        redis.off('ready', onReady);
+        redis.off('error', onError);
+        resolve(available && redis.status === 'ready');
+      };
+      const onReady = () => finish(true);
+      const onError = () => finish(false);
+      const timer = setTimeout(() => finish(false), 2500);
+
+      redis.once('ready', onReady);
+      redis.once('error', onError);
+
+      if (redis.status === 'wait' || redis.status === 'end' || redis.status === 'close') {
+        void redis.connect().catch(() => finish(false));
+      } else if (redis.status !== 'connecting') {
+        finish(false);
+      }
+    });
+  }
+
+  private static sessionKey(importId: string): string {
+    return `${GIS_SESSION_KEY_PREFIX}${importId}`;
+  }
+
+  private static restoreSession(payload: string): GISUploadSession {
+    const session = JSON.parse(payload) as GISUploadSession & {
+      createdAt: string;
+      updatedAt: string;
+    };
+    return {
+      ...session,
+      createdAt: new Date(session.createdAt),
+      updatedAt: new Date(session.updatedAt),
+    };
+  }
+
+  private static async persistSession(session: GISUploadSession, strict = true): Promise<void> {
+    const redisAvailable = await this.sessionStoreAvailable();
+    if (!redisAvailable && process.env.NODE_ENV === 'production' && strict) {
+      throw AppError.serviceUnavailable(
+        'GIS import persistence is unavailable. Configure a reachable REDIS_URL before uploading GIS files.'
+      );
+    }
+
+    if (redisAvailable) {
+      try {
+        await redis.set(
+          this.sessionKey(session.id),
+          JSON.stringify(session),
+          'EX',
+          GIS_SESSION_TTL_SECONDS
+        );
+      } catch (error) {
+        if (strict && process.env.NODE_ENV === 'production') {
+          throw AppError.serviceUnavailable(
+            `GIS import persistence failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+        logger.warn('[GIS] Redis session persistence failed; using local session fallback', {
+          importId: session.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    this.sessions.set(session.id, session);
+  }
+
+  static async acquireProcessingLock(importId: string): Promise<string | null> {
+    const token = randomUUID();
+    const redisAvailable = await this.sessionStoreAvailable();
+    if (redisAvailable) {
+      try {
+        const result = await redis.set(
+          `${this.sessionKey(importId)}:processing-lock`,
+          token,
+          'EX',
+          60 * 60,
+          'NX'
+        );
+        return result === 'OK' ? token : null;
+      } catch (error) {
+        if (process.env.NODE_ENV === 'production') {
+          throw AppError.serviceUnavailable(
+            `GIS processing lock is unavailable: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw AppError.serviceUnavailable(
+        'GIS processing lock is unavailable. Configure a reachable REDIS_URL.'
+      );
+    }
+    if (_global.__gisProcessingLocks!.has(importId)) return null;
+    _global.__gisProcessingLocks!.add(importId);
+    return token;
+  }
+
+  static async releaseProcessingLock(importId: string, token: string): Promise<void> {
+    const key = `${this.sessionKey(importId)}:processing-lock`;
+    if (redis.status === 'ready') {
+      try {
+        await redis.eval(
+          "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+          1,
+          key,
+          token
+        );
+      } catch (error) {
+        logger.warn('[GIS] Failed to release processing lock', {
+          importId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    _global.__gisProcessingLocks!.delete(importId);
+  }
 
   /**
    * Helper to detect if a file or feature properties represent an existing/installed asset
@@ -236,6 +377,16 @@ export class GISImportService {
       };
     });
 
+    const unsupportedFiles = files.filter(
+      (file) => file.detectedFormat !== 'GEOJSON' && file.detectedFormat !== 'QGIS'
+    );
+    if (unsupportedFiles.length > 0) {
+      const fileNames = unsupportedFiles.map((file) => file.fileName).join(', ');
+      throw AppError.badRequest(
+        `Unsupported GIS file format(s): ${fileNames}. Convert these files to GeoJSON before uploading. QGIS project files (.qgz/.qgs) are optional metadata only.`
+      );
+    }
+
     // Detect layer types for each file
     const layersDetected: GISLayerResult[] = files.map((f) => ({
       layerName: f.fileName,
@@ -269,7 +420,7 @@ export class GISImportService {
       updatedAt: new Date(),
     };
 
-    this.sessions.set(importId, session);
+    await this.persistSession(session);
 
     return {
       importId,
@@ -285,7 +436,7 @@ export class GISImportService {
   static async processImport(
     importId: string
   ): Promise<GISProcessResponse> {
-    const session = this.sessions.get(importId);
+    const session = await this.getSession(importId);
     if (!session) {
       throw AppError.notFound(`Import session ${importId} not found`);
     }
@@ -302,6 +453,7 @@ export class GISImportService {
       // ====================================================================
       const parsedLayers: ParsedLayerMap = {};
       const layerResults: GISLayerResult[] = [];
+      const parseFailures: Array<{ fileName: string; message: string }> = [];
 
       for (const file of session.files) {
         // QGIS projects are optional sidecar metadata. A .qgz file is a ZIP
@@ -355,6 +507,10 @@ export class GISImportService {
             entity: 'UNKNOWN',
             entityId: file.fileName,
             details: `Failed to parse ${file.fileName}: ${error.message}`,
+          });
+          parseFailures.push({
+            fileName: file.fileName,
+            message: error.message || 'Parse failed',
           });
           continue;
         }
@@ -559,6 +715,17 @@ export class GISImportService {
           entityId: file.fileName,
           details: `Parsed ${file.fileName} as ${layerType} (${featureCount} features)`,
         });
+      }
+
+      // Never create a partially imported project. A mixed upload is only
+      // successful when every uploaded data layer can be parsed.
+      if (parseFailures.length > 0) {
+        const failureSummary = parseFailures
+          .map(({ fileName, message }) => `${fileName}: ${message}`)
+          .join('; ');
+        throw AppError.badRequest(
+          `GIS import rejected because one or more uploaded data files could not be parsed. ${failureSummary} No partial import was created. Convert unsupported files to GeoJSON and upload them again.`
+        );
       }
 
       // A QGIS project alone cannot create an ERP GIS route because it only
@@ -847,6 +1014,7 @@ export class GISImportService {
 
       session.status = 'COMPLETED';
       session.updatedAt = new Date();
+      await this.persistSession(session, false);
 
       const elapsed = Date.now() - startTime;
       logger.info(
@@ -869,6 +1037,7 @@ export class GISImportService {
       const error = processErr instanceof Error ? processErr : new Error(String(processErr));
       session.status = 'FAILED';
       session.updatedAt = new Date();
+      await this.persistSession(session, false);
 
       auditLog.push({
         timestamp: new Date().toISOString(),
@@ -1107,7 +1276,7 @@ export class GISImportService {
           description: session.isCompletedProject
             ? `Historical completed route imported from GIS.`
             : `Auto-generated GIS route from ${layerResults.length} imported layers`,
-          sourceFormat: 'GEOJSON',
+          sourceFormat: session.qgisProjectPresent ? 'QGIS + GEOJSON' : 'GEOJSON',
           routeLength: parsedLayers.cable.totalLength,
           status: session.isCompletedProject ? 'APPROVED' : 'IMPORTED',
           versionType: session.versionType || (session.isCompletedProject ? 'AS_BUILT' : 'PLANNED'),
@@ -1850,14 +2019,51 @@ export class GISImportService {
   /**
    * Get session status
    */
-  static getSession(importId: string): GISUploadSession | undefined {
+  static async getSession(importId: string): Promise<GISUploadSession | undefined> {
+    const redisAvailable = await this.sessionStoreAvailable();
+    if (redisAvailable) {
+      try {
+        const payload = await redis.get(this.sessionKey(importId));
+        if (payload) {
+          const session = this.restoreSession(payload);
+          this.sessions.set(importId, session);
+          return session;
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === 'production') {
+          throw AppError.internal(
+            `GIS import persistence lookup failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+    }
+
     return this.sessions.get(importId);
   }
 
   /**
    * List all sessions
    */
-  static listSessions(): GISUploadSession[] {
+  static async listSessions(): Promise<GISUploadSession[]> {
+    const redisAvailable = await this.sessionStoreAvailable();
+    if (redisAvailable) {
+      try {
+        const keys = await redis.keys(`${GIS_SESSION_KEY_PREFIX}*`);
+        const payloads = keys.length > 0 ? await redis.mget(...keys) : [];
+        const sessions = payloads
+          .filter((payload): payload is string => Boolean(payload))
+          .map((payload) => this.restoreSession(payload));
+        for (const session of sessions) this.sessions.set(session.id, session);
+        return sessions;
+      } catch (error) {
+        if (process.env.NODE_ENV === 'production') {
+          throw AppError.internal(
+            `GIS import session listing failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+    }
+
     return Array.from(this.sessions.values());
   }
 }

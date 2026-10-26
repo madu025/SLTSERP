@@ -61,6 +61,10 @@ export class AppError extends Error {
         return new AppError(message, ErrorCode.INTERNAL_ERROR, 500);
     }
 
+    static serviceUnavailable(message: string) {
+        return new AppError(message, ErrorCode.INTERNAL_ERROR, 503);
+    }
+
     static insufficientStock(itemId: string, missing: number) {
         return new AppError(`Insufficient stock for item ${itemId}`, ErrorCode.INSUFFICIENT_STOCK, 400, { itemId, missing });
     }

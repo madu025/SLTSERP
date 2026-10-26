@@ -10,6 +10,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
 import { safe } from '@/utils/safe-await.util';
+import { AppError } from '@/lib/error';
 export const POST = apiHandler(async (request) => {
   logger.info('[GIS-PROCESS] Received GIS processing request');
   const [jsonErr, body] = await safe<Record<string, unknown>>(request.json());
@@ -24,7 +25,7 @@ export const POST = apiHandler(async (request) => {
       );
     }
     // Check if session exists
-    const session = GISImportService.getSession(importId);
+    const session = await GISImportService.getSession(importId);
     if (!session) {
       return NextResponse.json(
         { error: `Import session ${importId} not found.` },
@@ -43,25 +44,37 @@ export const POST = apiHandler(async (request) => {
         { status: 409 }
       );
     }
-    // Execute the full processing pipeline
-    logger.info(`[GIS-PROCESS] Starting processing for session ${importId}`);
-    const [processErr, result] = await safe(GISImportService.processImport(importId));
-    if (processErr || !result) {
-      logger.error('[GIS-PROCESS] Processing failed', {
-        error: processErr?.message,
-        stack: processErr?.stack,
-      });
+    const lockToken = await GISImportService.acquireProcessingLock(importId);
+    if (!lockToken) {
       return NextResponse.json(
-        {
-          error: 'GIS processing failed',
-          message: processErr?.message || 'Internal server error',
-        },
-        { status: 500 }
+        { error: `Import session ${importId} is already being processed.` },
+        { status: 409 }
       );
     }
-    logger.info(
-      `[GIS-PROCESS] Completed processing for ${importId}. ` +
-      `Project: ${result.result.projectCode}`
-    );
-    return NextResponse.json(result, { status: 200 });
-}, { rawResponse: true });
+    // Execute the full processing pipeline
+    logger.info(`[GIS-PROCESS] Starting processing for session ${importId}`);
+    try {
+      const [processErr, result] = await safe(GISImportService.processImport(importId));
+      if (processErr || !result) {
+        logger.error('[GIS-PROCESS] Processing failed', {
+          error: processErr?.message,
+          stack: processErr?.stack,
+        });
+        const status = processErr instanceof AppError ? processErr.statusCode : 500;
+        return NextResponse.json(
+          {
+            error: 'GIS processing failed',
+            message: processErr?.message || 'Internal server error',
+          },
+          { status }
+        );
+      }
+      logger.info(
+        `[GIS-PROCESS] Completed processing for ${importId}. ` +
+        `Project: ${result.result.projectCode}`
+      );
+      return NextResponse.json(result, { status: 200 });
+    } finally {
+      await GISImportService.releaseProcessingLock(importId, lockToken);
+    }
+}, { rawResponse: true });

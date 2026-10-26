@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { GISImportService } from '@/services/gis/GISImportService';
 import { logger } from '@/lib/logger';
+import { AppError } from '@/lib/error';
 import type { GISUploadRequest, GISLayerType } from '@/types/gis';
 import { safe, safeSync } from '@/utils/safe-await.util';
 export const POST = apiHandler(async (request) => {
@@ -98,16 +99,17 @@ export const POST = apiHandler(async (request) => {
         error: uploadErr?.message,
         stack: uploadErr?.stack,
       });
+      const status = uploadErr instanceof AppError ? uploadErr.statusCode : 500;
       return NextResponse.json(
         {
           error: 'GIS upload failed',
           message: uploadErr?.message || 'Internal server error',
         },
-        { status: 500 }
+        { status }
       );
     }
     logger.info(
       `[GIS-UPLOAD] Session created: ${result.importId} with ${body.files.length} file(s)`
     );
     return NextResponse.json(result, { status: 201 });
-}, { rawResponse: true });
+}, { rawResponse: true });

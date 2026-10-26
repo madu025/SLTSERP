@@ -16,7 +16,7 @@ export const GET = apiHandler(async (request) => {
     const projectId = searchParams.get('projectId');
     // Return specific import session
     if (importId) {
-      const session = GISImportService.getSession(importId);
+      const session = await GISImportService.getSession(importId);
       if (!session) {
         return NextResponse.json(
           { error: `Import session ${importId} not found.` },
@@ -32,6 +32,8 @@ export const GET = apiHandler(async (request) => {
         createdById: session.createdById,
         status: session.status,
         fileCount: session.files.length,
+        qgisProjectPresent: session.qgisProjectPresent ?? false,
+        qgisProjectFiles: session.qgisProjectFiles ?? [],
         fileNames: session.files.map((f) => ({
           fileName: f.fileName,
           layerType: f.layerType,
@@ -61,11 +63,12 @@ export const GET = apiHandler(async (request) => {
       return NextResponse.json(data);
     }
     // List all active sessions
-    const sessions = GISImportService.listSessions().map((s) => ({
+    const sessions = (await GISImportService.listSessions()).map((s) => ({
       id: s.id,
       projectName: s.projectName,
       status: s.status,
       fileCount: s.files.length,
+      qgisProjectPresent: s.qgisProjectPresent ?? false,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
     }));
@@ -73,4 +76,4 @@ export const GET = apiHandler(async (request) => {
       sessions,
       total: sessions.length,
     });
-}, { rawResponse: true });
+}, { rawResponse: true });
