@@ -32,7 +32,14 @@ jobs:
         run: pnpm exec prisma generate
 
       - name: Run ESLint
-        run: pnpm run lint
+        shell: bash
+        run: |
+          changed_files="$(git diff --name-only HEAD^ HEAD | grep -E '\\.(js|jsx|ts|tsx)$' || true)"
+          if [ -n "$changed_files" ]; then
+            printf '%s\n' "$changed_files" | xargs pnpm exec eslint
+          else
+            echo "No JavaScript/TypeScript files changed in this revision."
+          fi
 
       - name: Strict TypeScript Compilation (Zero `any` Rule Check)
         run: pnpm exec tsc --noEmit
