@@ -146,13 +146,27 @@ export function useSidebarNotifications(
         fetchMenuCounts();
 
         let eventSource: EventSource | null = null;
-        let reconnectTimeout: NodeJS.Timeout;
+        let reconnectTimeout: NodeJS.Timeout | undefined;
         let sseDebounceTimeout: NodeJS.Timeout;
+        let disposed = false;
+        let reconnectAttempt = 0;
 
         const connectSSE = () => {
-            eventSource = new EventSource(`/api/notifications/stream?userId=${userId}`);
+            if (disposed) return;
+            if (eventSource && eventSource.readyState !== EventSource.CLOSED) return;
 
-            eventSource.onmessage = (event) => {
+            // The middleware authenticates the EventSource request and injects
+            // x-user-id server-side. Do not put a user ID in the URL: query
+            // parameters are client-controlled and could select another user's
+            // notification stream.
+            eventSource = new EventSource('/api/notifications/stream');
+            const currentSource = eventSource;
+
+            currentSource.onopen = () => {
+                reconnectAttempt = 0;
+            };
+
+            currentSource.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     
@@ -180,9 +194,12 @@ export function useSidebarNotifications(
                 }
             };
 
-            eventSource.onerror = () => {
-                if (eventSource) eventSource.close();
-                reconnectTimeout = setTimeout(connectSSE, 5000);
+            currentSource.onerror = () => {
+                if (disposed || currentSource !== eventSource) return;
+                currentSource.close();
+                eventSource = null;
+                const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempt++));
+                reconnectTimeout = setTimeout(connectSSE, delay);
             };
         };
 
@@ -195,9 +212,10 @@ export function useSidebarNotifications(
         window.addEventListener('slts-notification', handleNewNotification);
 
         return () => {
+            disposed = true;
             window.removeEventListener('slts-notification', handleNewNotification);
             if (eventSource) eventSource.close();
-            clearTimeout(reconnectTimeout);
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
             clearTimeout(sseDebounceTimeout);
         };
     }, [mounted, userId, fetchMenuCounts, fetchNotifications]);

@@ -438,7 +438,7 @@ export default function CapexOpexDashboardPage() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <ResponsiveContainer width="100%" height={280} minWidth={0}>
+                                    <ResponsiveContainer width="100%" height={280} minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                         {activeChart === 'bar' ? (
                                             <BarChart data={barData} margin={{ top: 5, right: 10, left: 10, bottom: 60 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />

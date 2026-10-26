@@ -178,7 +178,7 @@ export default function HelpdeskReportsPage() {
                     {ticketsByDept.length === 0 ? (
                       <span className="text-muted-foreground italic">No data logged.</span>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                         <PieChart>
                           <Pie
                             data={ticketsByDept}
@@ -210,7 +210,7 @@ export default function HelpdeskReportsPage() {
                     {failureFrequency.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-muted-foreground italic">No hardware failures logged.</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                         <BarChart data={failureFrequency}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                           <XAxis dataKey="model" tick={{ fontSize: 9 }} />
@@ -236,7 +236,7 @@ export default function HelpdeskReportsPage() {
                     {engineerWorkload.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-muted-foreground italic">No active support agents assigned.</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                         <BarChart data={engineerWorkload} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                           <XAxis type="number" tick={{ fontSize: 9 }} allowDecimals={false} />
@@ -258,7 +258,7 @@ export default function HelpdeskReportsPage() {
                     {commonIssues.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-muted-foreground italic">No category metrics available.</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                         <BarChart data={commonIssues}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                           <XAxis dataKey="category" tick={{ fontSize: 8 }} />

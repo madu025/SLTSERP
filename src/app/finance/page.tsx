@@ -203,7 +203,7 @@ export default function FinanceDashboardPage() {
                                         <p className="text-[10px] text-muted-foreground/60">Paid vouchers will appear here</p>
                                     </div>
                                 ) : (
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                     <AreaChart data={data.monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">

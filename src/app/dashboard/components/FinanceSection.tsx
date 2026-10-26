@@ -224,8 +224,8 @@ export default function FinanceSection({ rtom = 'ALL' }: { rtom?: string }) {
                                 <p className="text-xs font-semibold text-muted-foreground">No revenue data</p>
                             </div>
                         ) : (
-                        <div className="h-40">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="relative w-full min-w-0 h-40 min-h-0">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                 <BarChart data={trend}>
                                     <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                                     <YAxis hide />

@@ -182,7 +182,7 @@ export default function ManagerReportsPage() {
                                 <p className="text-sm text-slate-500">Actual completion vs Monthly Targets</p>
                             </div>
                             <div className="h-[350px] w-full min-w-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                     <ComposedChart data={monthlyTrend}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748B' }} dy={10} />
@@ -212,7 +212,7 @@ export default function ManagerReportsPage() {
                                 <p className="text-sm text-slate-500">Top performing RTOM areas</p>
                             </div>
                             <div className="h-[350px] w-full min-w-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                     <BarChart layout="vertical" data={rtomPerformance} barSize={20}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
                                         <XAxis type="number" hide />
@@ -235,7 +235,7 @@ export default function ManagerReportsPage() {
                             <Button variant="ghost" className="text-blue-600 text-sm">View Full Report</Button>
                         </div>
                         <div className="h-[300px] w-full min-w-0">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                 <BarChart data={contractorPerformance} barSize={40}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} />

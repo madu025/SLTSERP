@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { InvoiceCalculatorService } from './invoice.calculator.service';
 import { LedgerService } from '../finance/ledger.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { validateSodForInvoicing } from '../service-order/sod-financial-validation';
 
 export class InvoiceGeneratorService {
     /**
@@ -111,6 +112,19 @@ export class InvoiceGeneratorService {
             currentYear,
             currentMonth
         );
+
+        const invalidSods = sods
+            .map((sod) => ({
+                soNum: sod.soNum,
+                ...validateSodForInvoicing(sod)
+            }))
+            .filter((result) => !result.eligible);
+        if (invalidSods.length > 0) {
+            throw AppError.validation(
+                'Invoice generation blocked: one or more SODs do not have a complete financial/material snapshot.',
+                { invalidSods }
+            );
+        }
 
         let totalGrossAmount = 0;
         for (const sod of sods) {

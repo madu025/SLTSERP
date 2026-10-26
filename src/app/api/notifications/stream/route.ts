@@ -9,13 +9,14 @@ import { AppError } from '@/lib/error';
  * This route pushes new notifications and cleanly closes before serverless timeout
  * Route: /api/notifications/stream
  */
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
     const responseStream = new TransformStream();
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    const url = new URL(req.url);
-    const userId = req.headers.get('x-user-id') || url.searchParams.get('userId');
+    // The authenticated identity is injected by middleware/apiHandler. Never
+    // trust a query-string userId for a notification stream.
+    const userId = params._userId;
 
     if (!userId) {
         throw AppError.unauthorized('Missing user authentication');
@@ -78,6 +79,7 @@ export const GET = apiHandler(async (req) => {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache, no-transform',
             'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
         },
     });
 }, { rawResponse: true });

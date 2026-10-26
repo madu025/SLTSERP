@@ -45,6 +45,8 @@ export interface ServiceOrder {
     materialUsage?: Array<{
         itemId: string;
         quantity: number;
+        unitPrice?: number | null;
+        costPrice?: number | null;
         usageType: string;
         serialNumber?: string | null;
         item?: { name: string; code: string; unit: string };

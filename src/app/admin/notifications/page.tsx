@@ -113,7 +113,7 @@ export default function NotificationAnalyticsPage() {
                                     <div className="bg-[#0D1B2A] border border-white/5 rounded-xl p-6">
                                         <h3 className="text-sm font-semibold text-white/80 mb-6">Notifications by Type</h3>
                                         <div className="h-64 w-full min-w-0">
-                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                                 <BarChart data={typeData}>
                                                     <XAxis dataKey="name" stroke="rgba(255,255,255,0.2)" fontSize={12} />
                                                     <YAxis stroke="rgba(255,255,255,0.2)" fontSize={12} />
@@ -128,7 +128,7 @@ export default function NotificationAnalyticsPage() {
                                     <div className="bg-[#0D1B2A] border border-white/5 rounded-xl p-6">
                                         <h3 className="text-sm font-semibold text-white/80 mb-6">Distribution by Priority</h3>
                                         <div className="h-64 w-full min-w-0">
-                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                                 <PieChart>
                                                     <Pie
                                                         data={priorityData}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { DetailedServiceOrder } from "@/types/service-order";
 import { Loader2 } from "lucide-react";
@@ -11,7 +11,10 @@ const DetailModal = dynamic(() => import("@/components/modals/DetailModal"), { s
 export default function ServiceOrderDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const soNum = params?.soNum as string;
+    const requestedReturnTo = searchParams.get('returnTo');
+    const returnTo = requestedReturnTo?.startsWith('/') ? requestedReturnTo : '/service-orders/work-order/pat';
 
     const [order, setOrder] = useState<DetailedServiceOrder | null>(null);
     const [loading, setLoading] = useState(true);
@@ -56,7 +59,7 @@ export default function ServiceOrderDetailPage() {
             <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-4">
                 <p className="text-lg font-bold text-slate-800">Order {soNum} not found</p>
                 <button 
-                    onClick={() => router.push('/service-orders/work-order/pat')}
+                    onClick={() => router.push(returnTo)}
                     className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition"
                 >
                     Back to PAT Orders
@@ -69,7 +72,7 @@ export default function ServiceOrderDetailPage() {
         <div className="min-h-screen bg-slate-50 p-8 flex items-center justify-center">
             <DetailModal 
                 isOpen={true} 
-                onClose={() => router.push('/service-orders/work-order/pat')} 
+                onClose={() => router.push(returnTo)}
                 selectedOrder={order} 
             />
         </div>

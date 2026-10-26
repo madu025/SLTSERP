@@ -376,6 +376,7 @@ export class SODQueryService {
                             itemId: true,
                             quantity: true,
                             unitPrice: true,
+                            costPrice: true,
                             usageType: true,
                             serialNumber: true,
                             comment: true,

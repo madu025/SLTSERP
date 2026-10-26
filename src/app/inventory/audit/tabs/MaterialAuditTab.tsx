@@ -176,7 +176,7 @@ export default function MaterialAuditTab() {
             {/* Chart */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm w-full min-w-0">
                 <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wider mb-4">Financial Value Comparison: Received vs Consumed (LKR)</h3>
-                <ResponsiveContainer width="100%" height={260} minWidth={0}>
+                <ResponsiveContainer width="100%" height={260} minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                     <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} angle={-35} textAnchor="end" interval={0} />

@@ -39,7 +39,7 @@ function ChartCard({ title, subtitle, accent, className, children }: {
     children: ReactNode;
 }) {
     return (
-        <div className={`glass-panel p-6 rounded-3xl border border-border/50 shadow-sm flex flex-col hover:border-primary/20 hover:shadow-lg transition-all duration-300 ${className || ''}`}>
+        <div className={`glass-panel min-w-0 min-h-0 p-6 rounded-3xl border border-border/50 shadow-sm flex flex-col hover:border-primary/20 hover:shadow-lg transition-all duration-300 ${className || ''}`}>
             <div className="mb-5 flex items-center justify-between">
                 <div>
                     <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm md:text-base">
@@ -73,13 +73,13 @@ export function ChartSection({ isLoading, monthlyPieData, patData, statusBreakdo
         >
             {/* Monthly Status donut */}
             <ChartCard title="Monthly Status" subtitle="Distribution" accent="bg-primary">
-                <div className="h-64 sm:h-72 w-full min-w-0">
+                <div className="relative h-64 sm:h-72 w-full min-w-0 min-h-0">
                     {isLoading ? (
                         <div className="h-full flex items-center justify-center"><Skeleton className="w-40 h-40 rounded-full" /></div>
                     ) : monthlyPieData.length === 0 ? (
                         <NoDataPlaceholder height="h-64 sm:h-72" />
                     ) : (
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                             <PieChart>
                                 <Pie data={monthlyPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                                     {monthlyPieData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
@@ -94,13 +94,13 @@ export function ChartSection({ isLoading, monthlyPieData, patData, statusBreakdo
 
             {/* PAT Distribution donut */}
             <ChartCard title="PAT Distribution" subtitle="Test results" accent="bg-indigo-500">
-                <div className="h-56 w-full min-w-0">
+                <div className="relative h-56 w-full min-w-0 min-h-0">
                     {isLoading ? (
                         <div className="h-full flex items-center justify-center"><Skeleton className="w-36 h-36 rounded-full" /></div>
                     ) : patData.length === 0 ? (
                         <NoDataPlaceholder />
                     ) : (
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                             <PieChart>
                                 <Pie data={patData} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={5} dataKey="value">
                                     {patData.map((_, index) => <Cell key={index} fill={PAT_COLORS[index % PAT_COLORS.length]} />)}

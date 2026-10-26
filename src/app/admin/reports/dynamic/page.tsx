@@ -536,7 +536,7 @@ export default function DynamicReportPage() {
                                                     {/* Chart Visual Renders */}
                                                     <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm flex items-center justify-center min-h-[350px]">
                                                         {chartType === 'BAR' && (
-                                                            <ResponsiveContainer width="100%" height={350} minWidth={0}>
+                                                            <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                                                 <BarChart data={reportResult.rows}>
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                                                     <RechartsXAxis dataKey={xAxisKey} tickLine={false} axisLine={false} style={{ fontSize: '10px' }} stroke="#64748b" />
@@ -547,7 +547,7 @@ export default function DynamicReportPage() {
                                                             </ResponsiveContainer>
                                                         )}
                                                         {chartType === 'LINE' && (
-                                                            <ResponsiveContainer width="100%" height={350} minWidth={0}>
+                                                            <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                                                 <LineChart data={reportResult.rows}>
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                                                     <RechartsXAxis dataKey={xAxisKey} tickLine={false} axisLine={false} style={{ fontSize: '10px' }} stroke="#64748b" />
@@ -558,7 +558,7 @@ export default function DynamicReportPage() {
                                                             </ResponsiveContainer>
                                                         )}
                                                         {chartType === 'AREA' && (
-                                                            <ResponsiveContainer width="100%" height={350} minWidth={0}>
+                                                            <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                                                 <AreaChart data={reportResult.rows}>
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                                                     <RechartsXAxis dataKey={xAxisKey} tickLine={false} axisLine={false} style={{ fontSize: '10px' }} stroke="#64748b" />

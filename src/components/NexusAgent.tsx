@@ -709,7 +709,7 @@ export default function NexusAgent() {
                                                         </button>
                                                         <h5 className="text-[10px] font-bold text-slate-300 mb-2 text-center pr-6">{msg.chart.title}</h5>
                                                         <div className="w-full h-[180px]">
-                                                            <ResponsiveContainer width="100%" height="100%">
+                                                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                                                 {msg.chart.type === 'bar' ? (
                                                                     <BarChart data={msg.chart.data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                                                                         <XAxis dataKey={msg.chart.xAxisKey} tick={{fontSize: 9, fill: '#94a3b8'}} />
@@ -963,7 +963,7 @@ export default function NexusAgent() {
                     </DialogHeader>
                     {expandedChart && (
                         <div className="w-full h-[400px] md:h-[500px] mt-4">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                 {expandedChart.type === 'bar' ? (
                                     <BarChart data={expandedChart.data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                                         <XAxis dataKey={expandedChart.xAxisKey} tick={{fill: '#94a3b8'}} angle={-45} textAnchor="end" height={80} />

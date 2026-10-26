@@ -24,6 +24,7 @@ interface InvoicableSOD {
     invoiced: boolean;
     dropWireLength?: number;
     contractorAmount?: number | string | null;
+    revenueAmount?: number | string | null;
     materialUsage?: Array<{ quantity: number; item?: { name: string; code: string } }>;
 }
 
@@ -47,6 +48,7 @@ interface RawServiceOrderResponse {
     invoiced?: boolean;
     dropWireLength?: number;
     contractorAmount?: number | string | null;
+    revenueAmount?: number | string | null;
 }
 
 function InvoicableServiceOrdersContent() {
@@ -100,7 +102,8 @@ function InvoicableServiceOrdersContent() {
                         isInvoicable: s.isInvoicable ?? false,
                         invoiced: s.invoiced ?? false,
                         dropWireLength: s.dropWireLength,
-                        contractorAmount: s.contractorAmount
+                        contractorAmount: s.contractorAmount,
+                        revenueAmount: s.revenueAmount
                     };
                 });
 
@@ -159,13 +162,26 @@ function InvoicableServiceOrdersContent() {
 
             const json = await res.json();
             if (res.ok && json.success) {
-                setNotice({ type: 'success', message: `Successfully verified ${json.count} SODs by Engineer / SF Audit!` });
+                const rejectedCount = Array.isArray(json.rejected) ? json.rejected.length : 0;
+                setNotice({
+                    type: rejectedCount > 0 ? 'error' : 'success',
+                    message: rejectedCount > 0
+                        ? `Verified ${json.count} SOD(s). ${rejectedCount} SOD(s) were blocked because financial or material cost data is incomplete.`
+                        : `Successfully verified ${json.count} SODs by Engineer / SF Audit!`
+                });
                 fetchData();
             } else {
-                throw new Error(json.error || 'Failed to verify SODs');
+                const details = Array.isArray(json.error?.details?.rejected)
+                    ? json.error.details.rejected
+                        .slice(0, 3)
+                        .map((item: { soNum?: string; reasons?: string[] }) => `${item.soNum || 'SOD'}: ${(item.reasons || []).join(', ')}`)
+                        .join(' | ')
+                    : '';
+                throw new Error(`${json.error?.message || 'Failed to verify SODs'}${details ? ` ${details}` : ''}`);
             }
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Failed to verify SODs';
+            const payload = (err as { message?: string })?.message;
+            const msg = payload || (err instanceof Error ? err.message : 'Failed to verify SODs');
             setNotice({ type: 'error', message: msg });
         } finally {
             setVerifying(false);
@@ -387,7 +403,7 @@ function InvoicableServiceOrdersContent() {
                                                             </td>
                                                             <td className="p-3">
                                                                 <Button size="sm" variant="ghost" className="h-7 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 font-semibold" asChild>
-                                                                    <Link href={`/service-orders?search=${sod.soNum}`}>
+                                                                    <Link href={`/service-orders/work-order/${encodeURIComponent(sod.soNum)}?returnTo=${encodeURIComponent('/service-orders/invoicable')}`}>
                                                                         View SOD Details
                                                                     </Link>
                                                                 </Button>

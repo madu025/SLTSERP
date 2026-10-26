@@ -13,6 +13,7 @@ import { GetServiceOrdersParams, ServiceOrderUpdateData } from '@/types/service-
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { prisma } from '@/lib/prisma';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { validateSodForInvoicing } from './sod-financial-validation';
 import { isValidUuid } from '@/lib/uuid';
 import type { SyncActor } from '@/lib/constants/sod-status-policy';
 import { applySodStatus } from './sync/sod-status.writer';
@@ -663,6 +664,18 @@ export class ServiceOrderService {
                     { sltsStatus: 'COMPLETED' },
                     { status: { in: ['COMPLETED', 'INSTALL_CLOSED', 'PROV_CLOSED'] } }
                 ]
+            },
+            select: {
+                id: true,
+                soNum: true,
+                rtom: true,
+                contractorId: true,
+                completedDate: true,
+                revenueAmount: true,
+                contractorAmount: true,
+                materialUsage: {
+                    select: { quantity: true, unitPrice: true, costPrice: true }
+                }
             }
         });
 
@@ -670,10 +683,25 @@ export class ServiceOrderService {
             throw AppError.badRequest('No completed SODs found matching the provided IDs');
         }
 
+        const rejected = sods
+            .map((sod) => ({
+                soNum: sod.soNum,
+                ...validateSodForInvoicing(sod)
+            }))
+            .filter((result) => !result.eligible);
+        const eligibleSods = sods.filter((sod) => validateSodForInvoicing(sod).eligible);
+
+        if (eligibleSods.length === 0) {
+            throw AppError.validation(
+                'No selected SODs passed financial verification. Correct the missing contractor, revenue, contractor cost or material cost data first.',
+                { rejected }
+            );
+        }
+
         const verifiedIds: string[] = [];
 
         await prisma.$transaction(async (tx) => {
-            for (const sod of sods) {
+            for (const sod of eligibleSods) {
                 await tx.serviceOrder.update({
                     where: { id: sod.id },
                     data: {
@@ -705,7 +733,8 @@ export class ServiceOrderService {
 
         return {
             count: verifiedIds.length,
-            verifiedIds
+            verifiedIds,
+            rejected
         };
     }
 }

@@ -36,7 +36,7 @@ function ChartCard({ title, subtitle, accent, className, children }: {
     children: ReactNode;
 }) {
     return (
-        <div className={`glass-panel p-6 rounded-3xl border border-border/50 shadow-sm flex flex-col hover:border-primary/20 hover:shadow-lg transition-all duration-300 ${className || ''}`}>
+        <div className={`glass-panel min-w-0 min-h-0 p-6 rounded-3xl border border-border/50 shadow-sm flex flex-col hover:border-primary/20 hover:shadow-lg transition-all duration-300 ${className || ''}`}>
             <div className="mb-5 flex items-center justify-between">
                 <div>
                     <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm md:text-base">
@@ -78,13 +78,13 @@ export function PerformanceSection({ isLoading, contractors, aging }: Performanc
                 accent="bg-amber-500"
                 className="lg:col-span-2"
             >
-                <div className="h-64 sm:h-72 w-full min-w-0">
+                <div className="relative h-64 sm:h-72 w-full min-w-0 min-h-0">
                     {isLoading ? (
                         <div className="h-full flex items-center justify-center"><Skeleton className="w-full h-full rounded-xl" /></div>
                     ) : !hasAging ? (
                         <NoDataPlaceholder height="h-64 sm:h-72" />
                     ) : (
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                             <BarChart data={aging || []} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border, #e2e8f0)" opacity={0.3} />
                                 <XAxis

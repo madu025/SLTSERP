@@ -204,7 +204,7 @@ export default function AreaManagerReportsPage() {
                                 Performance by {groupBy === 'COORDINATOR' ? 'Area Coordinator' : groupBy}
                             </h3>
                             <div className="h-[350px] w-full min-w-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                     <BarChart data={performanceData} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                         <XAxis type="number" />
@@ -223,7 +223,7 @@ export default function AreaManagerReportsPage() {
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <h3 className="text-lg font-bold text-slate-800 mb-4">Completion Trend</h3>
                             <div className="h-[350px] w-full min-w-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 1, height: 1 }}>
                                     <LineChart data={trendData}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="month" />
