@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertTriangle, Plus, RefreshCw, Cloud, UploadCloud, Activity, Settings, Download } from 'lucide-react';
+import { Plus, RefreshCw, Cloud, UploadCloud, Activity, Settings, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -38,6 +38,11 @@ interface SurveyRequest {
   findings?: unknown[];
   photos?: unknown[];
   estimatedBOQ: number | null;
+  _count?: {
+    checkins?: number;
+    photos?: number;
+    findings?: number;
+  };
 }
 
 interface SyncLog {
@@ -96,14 +101,22 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
   const [manualProjectId, setManualProjectId] = useState('');
   const [linking, setLinking] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
-  const [autoCreating, setAutoCreating] = useState(false);
-  const [autoCreateFailed, setAutoCreateFailed] = useState(false);
 
   const fetchSurveys = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${project.id}/surveys`);
-      const data = await res.json();
-      setSurveys(data);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setSurveys([]);
+        console.error('Failed to fetch surveys:', data);
+        return;
+      }
+      const records = Array.isArray(data)
+        ? data
+        : data && Array.isArray(data.data)
+          ? data.data
+          : [];
+      setSurveys(records as SurveyRequest[]);
     } catch (err) {
       console.error('Failed to fetch surveys:', err);
     }
@@ -134,41 +147,6 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
     fetchSurveys(); 
     fetchSyncStatus();
   }, [fetchSurveys, fetchSyncStatus]);
-
-  // Auto-create QFieldCloud project if disconnected and not already creating/failed
-  useEffect(() => {
-    if (!syncLoading && !project.gisMapping?.qfieldProjectId && !autoCreating && !autoCreateFailed) {
-      const autoCreate = async () => {
-        setAutoCreating(true);
-        try {
-          const res = await fetch(`/api/projects/${project.id}/qfield-sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-user-id': 'system' },
-            body: JSON.stringify({ action: 'create_project' })
-          });
-          const data = await res.json();
-          if (res.ok) {
-            toast.success(data.message || 'QFieldCloud project initialized automatically!');
-            if (refreshProject) {
-              refreshProject();
-            } else {
-              fetchSyncStatus();
-            }
-          } else {
-            setAutoCreateFailed(true);
-            toast.error(data.error || 'Failed to auto-initialize QFieldCloud workspace');
-          }
-        } catch (err) {
-          setAutoCreateFailed(true);
-          console.error('Auto-creation error:', err);
-          toast.error('Failed to auto-create QFieldCloud project');
-        } finally {
-          setAutoCreating(false);
-        }
-      };
-      autoCreate();
-    }
-  }, [project.gisMapping?.qfieldProjectId, syncLoading, autoCreating, autoCreateFailed, project.id, fetchSyncStatus, refreshProject]);
 
   const handleCreateQFieldProject = async () => {
     setSyncing(true);
@@ -298,11 +276,16 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
         assignedToId: newSurvey.assignedToId === 'none' ? null : newSurvey.assignedToId || null,
         assignedTeamId: newSurvey.assignedTeamId === 'none' ? null : newSurvey.assignedTeamId || null
       };
-      await fetch(`/api/projects/${project.id}/surveys`, { 
+      const res = await fetch(`/api/projects/${project.id}/surveys`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify(payload) 
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        toast.error(errorData?.error?.message || errorData?.error || 'Failed to create survey request');
+        return;
+      }
       setDialogOpen(false);
       setNewSurvey({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '', assignedToId: '', assignedTeamId: '' });
       fetchSurveys();
@@ -369,56 +352,23 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
         <CardContent className="pt-4 space-y-4">
           {!project.gisMapping?.qfieldProjectId ? (
             <div className="p-6 flex flex-col items-center justify-center text-center bg-white rounded-lg border border-dashed border-indigo-200">
-              {autoCreating ? (
-                <div className="space-y-3 py-4 max-w-md">
-                  <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto text-indigo-600 animate-pulse">
-                    <Cloud className="w-6 h-6 animate-bounce" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800">Auto-configuring QFieldCloud Project...</h4>
-                  <p className="text-xs text-slate-500">
-                    We are automatically creating a dedicated survey workspace and uploading the 12 fiber layout layers (poles, cables, closures) to your self-hosted QFieldCloud server.
-                  </p>
-                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-600 h-full animate-pulse rounded-full" style={{ width: '60%' }} />
-                  </div>
+              <div className="space-y-3 py-4 max-w-md">
+                <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center mx-auto text-amber-500">
+                  <Cloud className="w-5 h-5" />
                 </div>
-              ) : autoCreateFailed ? (
-                <div className="space-y-3 py-2 max-w-md">
-                  <div className="w-10 h-10 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500">
-                    <AlertTriangle className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800">QFieldCloud Workspace Initialization Failed</h4>
-                  <p className="text-xs text-slate-500">
-                    The system could not automatically set up the project on the QFieldCloud server. Please ensure the server is online and configure it manually below.
-                  </p>
-                  <div className="flex gap-2 justify-center pt-2">
-                    <Button size="sm" onClick={() => { setAutoCreateFailed(false); }} className="bg-indigo-600 hover:bg-indigo-700">
-                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry Auto-Create
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setShowManualForm(!showManualForm)} className="bg-white">
-                      <Settings className="w-3.5 h-3.5 mr-1.5" /> Manual Setup
-                    </Button>
-                  </div>
+                <h4 className="text-sm font-bold text-slate-800">Disconnected from QFieldCloud</h4>
+                <p className="text-xs text-slate-500">
+                  This project is not linked to any survey mapping workspace. Click below to initialize or paste a project ID.
+                </p>
+                <div className="flex gap-2 justify-center pt-2">
+                  <Button size="sm" onClick={handleCreateQFieldProject} className="bg-indigo-600 hover:bg-indigo-700">
+                    Create QFieldCloud Project
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowManualForm(!showManualForm)} className="bg-white">
+                    Link Manually
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-3 py-4 max-w-md">
-                  <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center mx-auto text-amber-500">
-                    <Cloud className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800">Disconnected from QFieldCloud</h4>
-                  <p className="text-xs text-slate-500">
-                    This project is not linked to any survey mapping workspace. Click below to initialize or paste a project ID.
-                  </p>
-                  <div className="flex gap-2 justify-center pt-2">
-                    <Button size="sm" onClick={handleCreateQFieldProject} className="bg-indigo-600 hover:bg-indigo-700">
-                      Create QFieldCloud Project
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setShowManualForm(!showManualForm)} className="bg-white">
-                      Link Manually
-                    </Button>
-                  </div>
-                </div>
-              )}
+              </div>
 
               {showManualForm && (
                 <div className="mt-4 pt-4 border-t border-slate-100 w-full max-w-lg text-left space-y-2">
@@ -577,8 +527,8 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
                   <TableCell className="font-medium">{survey.title}</TableCell>
                   <TableCell><Badge variant="outline">{survey.surveyType}</Badge></TableCell>
                   <TableCell>{getStatusBadge(survey.status)}</TableCell>
-                  <TableCell><Badge variant="outline">{survey.findings?.length || 0} issues</Badge></TableCell>
-                  <TableCell><Badge variant="outline">{survey.photos?.length || 0}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{survey._count?.findings ?? survey.findings?.length ?? 0} issues</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{survey._count?.photos ?? survey.photos?.length ?? 0}</Badge></TableCell>
                   <TableCell>{survey.estimatedBOQ ? `LKR ${(survey.estimatedBOQ).toLocaleString()}` : '-'}</TableCell>
                   <TableCell><Button variant="outline" size="sm">View</Button></TableCell>
                 </TableRow>
