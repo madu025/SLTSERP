@@ -65,6 +65,18 @@ interface SyncStatus {
   syncHistory?: SyncLog[];
 }
 
+function getApiMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== 'object') return fallback;
+  const record = payload as Record<string, unknown>;
+  if (typeof record.message === 'string') return record.message;
+  if (typeof record.error === 'string') return record.error;
+  if (record.error && typeof record.error === 'object') {
+    const error = record.error as Record<string, unknown>;
+    if (typeof error.message === 'string') return error.message;
+  }
+  return fallback;
+}
+
 export default function ProjectSurvey({ project, refreshProject }: ProjectSurveyProps) {
   const router = useRouter();
   const [surveys, setSurveys] = useState<SurveyRequest[]>([]);
@@ -158,14 +170,14 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(data.message || 'QFieldCloud project created successfully!');
+        toast.success(getApiMessage(data, 'QFieldCloud project created successfully!'));
         if (refreshProject) {
           refreshProject();
         } else {
           fetchSyncStatus();
         }
       } else {
-        toast.error(data.error || 'Failed to create QFieldCloud project');
+        toast.error(getApiMessage(data, 'Failed to create QFieldCloud project'));
       }
     } catch (err) {
       console.error('Create error:', err);
@@ -203,7 +215,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
         }
       } else {
         const err = await res.json();
-        toast.error(err.error || 'Failed to link project ID');
+        toast.error(getApiMessage(err, 'Failed to link project ID'));
       }
     } catch (err) {
       console.error('Link error:', err);
@@ -231,7 +243,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
         toast.success(`Sync complete! Synced points: ${data.result?.syncedPoints || 0}`);
         fetchSyncStatus();
       } else {
-        toast.error(data.error || 'Sync failed');
+        toast.error(getApiMessage(data, 'Sync failed'));
       }
     } catch (err) {
       console.error('Sync error:', err);
@@ -259,7 +271,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
         toast.success('Layer schema pushed to QFieldCloud successfully!');
         fetchSyncStatus();
       } else {
-        toast.error(data.error || 'Failed to push layers');
+        toast.error(getApiMessage(data, 'Failed to push layers'));
       }
     } catch (err) {
       console.error('Push error:', err);
