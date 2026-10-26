@@ -30,14 +30,12 @@ interface CreateInvoiceInput {
 }
 
 interface UpdateInvoiceInput {
-    status?: string;
+    status?: 'ISSUED' | 'CANCELLED';
     cancelledReason?: string | null;
-    paidAmount?: number;
     title?: string;
     description?: string | null;
     dueDate?: string | Date | null;
     notes?: string | null;
-    approvedById?: string | null;
 }
 
 export class ProjectInvoiceService {
@@ -92,6 +90,12 @@ export class ProjectInvoiceService {
             throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
+        if (!items.length) throw AppError.badRequest('INVOICE_ITEMS_REQUIRED');
+        if ((taxAmount !== undefined && (!Number.isFinite(taxAmount) || taxAmount < 0))
+            || (discountAmount !== undefined && (!Number.isFinite(discountAmount) || discountAmount < 0))) {
+            throw AppError.badRequest('INVALID_INVOICE_ADJUSTMENT');
+        }
+
         // Auto-generate invoice number
         const lastInv = await prisma.projectInvoice.findFirst({
             orderBy: { invoiceNumber: 'desc' },
@@ -110,12 +114,17 @@ export class ProjectInvoiceService {
         // Calculate totals from items
         let subtotal = 0;
         const itemsData = items.map((item) => {
-            const totalPrice = (item.unitPrice || 0) * (item.quantity || 1);
+            const quantity = item.quantity ?? 1;
+            const unitPrice = item.unitPrice ?? 0;
+            if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
+                throw AppError.badRequest('INVALID_INVOICE_ITEM_AMOUNT');
+            }
+            const totalPrice = unitPrice * quantity;
             subtotal += totalPrice;
             return {
                 description: item.description,
-                quantity: item.quantity || 1,
-                unitPrice: item.unitPrice || 0,
+                quantity,
+                unitPrice,
                 totalPrice,
                 boqItemId: item.boqItemId || null,
                 taskId: item.taskId || null,
@@ -127,6 +136,9 @@ export class ProjectInvoiceService {
         const tax = taxAmount || 0;
         const discount = discountAmount || 0;
         const totalAmount = subtotal + tax - discount;
+        if (!Number.isFinite(totalAmount) || totalAmount <= 0 || discount > subtotal + tax) {
+            throw AppError.badRequest('INVALID_INVOICE_TOTAL');
+        }
 
         const invoice = await prisma.$transaction(async (tx) => {
             const newInvoice = await tx.projectInvoice.create({
@@ -163,7 +175,8 @@ export class ProjectInvoiceService {
     /**
      * Update invoice details or status in a transaction
      */
-    static async updateInvoice(id: string, updateFields: UpdateInvoiceInput) {
+    static async updateInvoice(id: string, updateFields: UpdateInvoiceInput, actorUserId: string) {
+        if (!actorUserId) throw AppError.unauthorized('Authentication required');
         const invoice = await prisma.$transaction(async (tx) => {
             const existing = await tx.projectInvoice.findUnique({ where: { id } });
             if (!existing) {
@@ -171,38 +184,46 @@ export class ProjectInvoiceService {
             }
 
             const updateData: Record<string, unknown> = {};
-            if (updateFields.status) updateData.status = updateFields.status;
-            if (updateFields.cancelledReason) updateData.cancelledReason = updateFields.cancelledReason;
+            const hasDetailUpdates = updateFields.title !== undefined || updateFields.description !== undefined
+                || updateFields.dueDate !== undefined || updateFields.notes !== undefined;
+            if (updateFields.status && hasDetailUpdates) {
+                throw AppError.badRequest('STATUS_AND_DETAILS_MUST_BE_UPDATED_SEPARATELY');
+            }
+            if (hasDetailUpdates && existing.status !== 'DRAFT') {
+                throw AppError.badRequest('ONLY_DRAFT_INVOICES_CAN_BE_EDITED');
+            }
 
-            // Handle status transitions
-            if (updateFields.status === 'ISSUED' && existing.status !== 'ISSUED') {
-                updateData.approvedById = updateFields.approvedById || null;
+            if (updateFields.status === 'ISSUED') {
+                if (existing.status !== 'DRAFT') throw AppError.badRequest('ONLY_DRAFT_INVOICES_CAN_BE_ISSUED');
+                if (existing.createdById && existing.createdById === actorUserId) {
+                    throw AppError.badRequest('MAKER_CANNOT_ISSUE_OWN_INVOICE');
+                }
+                updateData.status = 'ISSUED';
+                updateData.approvedById = actorUserId;
                 updateData.approvedAt = new Date();
-                
-                // Log invoice finalization in General Ledger
                 const { LedgerService } = await import('../finance/ledger.service');
                 await LedgerService.logInvoiceIssuance(tx, id, Number(existing.totalAmount), existing.type, existing.invoiceNumber);
             } else if (updateFields.status === 'CANCELLED') {
+                if (!['DRAFT', 'ISSUED'].includes(existing.status)) {
+                    throw AppError.badRequest('ONLY_DRAFT_OR_ISSUED_INVOICES_CAN_BE_CANCELLED');
+                }
+                if (Number(existing.paidAmount) > 0) throw AppError.badRequest('PAID_INVOICE_CANNOT_BE_CANCELLED');
+                updateData.status = 'CANCELLED';
                 updateData.cancelledReason = updateFields.cancelledReason || 'Cancelled';
-            }
-
-            // Handle payment updates
-            if (updateFields.paidAmount !== undefined) {
-                const newPaidAmount = Number(existing.paidAmount || 0) + updateFields.paidAmount;
-                const newBalance = Number(existing.totalAmount) - newPaidAmount;
-                updateData.paidAmount = newPaidAmount;
-                updateData.balanceAmount = Math.max(0, newBalance);
-                if (newBalance <= 0 && existing.status !== 'CANCELLED') {
-                    updateData.status = 'FULLY_PAID';
-                } else if (newPaidAmount > 0 && existing.status === 'ISSUED') {
-                    updateData.status = 'PARTIALLY_PAID';
+                if (existing.status === 'ISSUED') {
+                    const issuance = await tx.journalEntry.findFirst({
+                        where: { referenceId: id, referenceType: 'INVOICE_ISSUANCE', status: 'POSTED' },
+                        orderBy: { createdAt: 'desc' },
+                    });
+                    if (!issuance) throw AppError.badRequest('INVOICE_ISSUANCE_LEDGER_ENTRY_NOT_FOUND');
+                    const { LedgerService } = await import('../finance/ledger.service');
+                    await LedgerService.reverseTransaction(tx, issuance.id, updateData.cancelledReason as string, actorUserId);
                 }
             }
 
-            // Apply other updates
-            if (updateFields.title) updateData.title = updateFields.title;
+            if (updateFields.title !== undefined) updateData.title = updateFields.title;
             if (updateFields.description !== undefined) updateData.description = updateFields.description;
-            if (updateFields.dueDate) updateData.dueDate = new Date(updateFields.dueDate);
+            if (updateFields.dueDate !== undefined) updateData.dueDate = updateFields.dueDate ? new Date(updateFields.dueDate) : null;
             if (updateFields.notes !== undefined) updateData.notes = updateFields.notes;
 
             return tx.projectInvoice.update({

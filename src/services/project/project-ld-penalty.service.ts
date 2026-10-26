@@ -24,95 +24,79 @@ interface UpdatePenaltyOptions {
 }
 
 export class ProjectLDPenaltyService {
-    /**
-     * Get list of LD/Penalties for a project
-     */
     static async getPenalties(projectId: string) {
-        const penalties = await prisma.projectLDPenalty.findMany({
-            where: { projectId },
-            orderBy: { createdAt: 'desc' },
-        });
-        return penalties;
+        return prisma.projectLDPenalty.findMany({ where: { projectId }, orderBy: { createdAt: 'desc' } });
     }
 
-    /**
-     * Create a new LD/Penalty
-     */
     static async createPenalty(data: CreatePenaltyInput) {
-        const {
-            projectId, title, description, type, category, amount,
-            percentage, referenceTable, referenceId, referenceDesc,
-            appliedDate, leviedById, remarks,
-        } = data;
+        if (!Number.isFinite(data.amount) || data.amount <= 0) throw AppError.badRequest('INVALID_PENALTY_AMOUNT');
+        if (data.percentage !== undefined && data.percentage !== null
+            && (!Number.isFinite(data.percentage) || data.percentage < 0 || data.percentage > 100)) {
+            throw AppError.badRequest('INVALID_PENALTY_PERCENTAGE');
+        }
+        if (!data.leviedById) throw AppError.badRequest('LEVIED_BY_ID_REQUIRED');
 
-        const penalty = await prisma.projectLDPenalty.create({
+        const project = await prisma.project.findUnique({ where: { id: data.projectId }, select: { id: true } });
+        if (!project) throw AppError.badRequest('PROJECT_NOT_FOUND');
+
+        return prisma.projectLDPenalty.create({
             data: {
-                projectId,
-                title,
-                description: description || null,
-                type: type || 'LD',
-                category: category || 'DELAY',
-                amount,
-                percentage: percentage || null,
-                referenceTable: referenceTable || null,
-                referenceId: referenceId || null,
-                referenceDesc: referenceDesc || null,
+                projectId: data.projectId,
+                title: data.title,
+                description: data.description || null,
+                type: data.type || 'LD',
+                category: data.category || 'DELAY',
+                amount: data.amount,
+                percentage: data.percentage ?? null,
+                referenceTable: data.referenceTable || null,
+                referenceId: data.referenceId || null,
+                referenceDesc: data.referenceDesc || null,
                 waivedAmount: 0,
-                netAmount: amount,
-                appliedDate: appliedDate ? new Date(appliedDate) : new Date(),
-                leviedById: leviedById || null,
-                remarks: remarks || null,
+                netAmount: data.amount,
+                appliedDate: data.appliedDate ? new Date(data.appliedDate) : new Date(),
+                leviedById: data.leviedById,
+                remarks: data.remarks || null,
                 status: 'PROPOSED',
             },
         });
-
-        return penalty;
     }
 
-    /**
-     * Update LD/Penalty status and parameters
-     */
     static async updatePenalty(id: string, status: string, options: UpdatePenaltyOptions) {
         const existing = await prisma.projectLDPenalty.findUnique({ where: { id } });
-        if (!existing) {
-            throw AppError.badRequest('LD_PENALTY_NOT_FOUND');
+        if (!existing) throw AppError.badRequest('LD_PENALTY_NOT_FOUND');
+        if (existing.status !== 'PROPOSED') throw AppError.badRequest('ONLY_PROPOSED_PENALTIES_CAN_BE_ACTIONED');
+        if (!['APPROVED', 'WAIVED', 'REJECTED'].includes(status)) throw AppError.badRequest('INVALID_LD_PENALTY_STATUS');
+        if (!options.approvedById) throw AppError.badRequest('APPROVED_BY_ID_REQUIRED');
+        if (existing.leviedById && existing.leviedById === options.approvedById) {
+            throw AppError.badRequest('MAKER_CANNOT_APPROVE_OWN_PENALTY');
         }
 
-        const updateData: Record<string, unknown> = { status };
-
-        if (status === 'APPROVED' || status === 'WAIVED') {
-            updateData.approvedById = options.approvedById || null;
-            updateData.approvedAt = new Date();
+        const amount = Number(existing.amount);
+        const waivedAmount = status === 'WAIVED' ? (options.waivedAmount ?? amount) : 0;
+        if (!Number.isFinite(waivedAmount) || waivedAmount < 0 || waivedAmount > amount) {
+            throw AppError.badRequest('INVALID_WAIVED_AMOUNT');
+        }
+        if (status !== 'WAIVED' && options.waivedAmount !== undefined) {
+            throw AppError.badRequest('WAIVER_ALLOWED_ONLY_FOR_WAIVED_PENALTIES');
         }
 
-        if (options.waivedAmount !== undefined) {
-            updateData.waivedAmount = options.waivedAmount;
-            updateData.netAmount = Number(existing.amount) - options.waivedAmount;
-        }
-
-        if (options.remarks) updateData.remarks = options.remarks;
-
-        const penalty = await prisma.projectLDPenalty.update({
+        return prisma.projectLDPenalty.update({
             where: { id },
-            data: updateData,
+            data: {
+                status,
+                approvedById: options.approvedById,
+                approvedAt: new Date(),
+                waivedAmount,
+                netAmount: amount - waivedAmount,
+                ...(options.remarks !== undefined ? { remarks: options.remarks } : {}),
+            },
         });
-
-        return penalty;
     }
 
-    /**
-     * Delete a penalty (PROPOSED status only)
-     */
     static async deletePenalty(id: string) {
         const existing = await prisma.projectLDPenalty.findUnique({ where: { id } });
-        if (!existing) {
-            throw AppError.badRequest('LD_PENALTY_NOT_FOUND');
-        }
-
-        if (existing.status !== 'PROPOSED') {
-            throw AppError.badRequest('PROPOSED_ONLY_DELETION');
-        }
-
+        if (!existing) throw AppError.badRequest('LD_PENALTY_NOT_FOUND');
+        if (existing.status !== 'PROPOSED') throw AppError.badRequest('PROPOSED_ONLY_DELETION');
         await prisma.projectLDPenalty.delete({ where: { id } });
         return { success: true };
     }

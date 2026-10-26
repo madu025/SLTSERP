@@ -1,7 +1,57 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 
-type VarianceStatus = 'UNDER' | 'ON_TRACK' | 'OVER' | 'CRITICAL';
+type VarianceStatus = 'UNDER' | 'ON_TRACK' | 'OVER' | 'CRITICAL' | 'UNKNOWN';
+
+export interface ProjectCostSummaryInput {
+  budget: number;
+  expenseCost: number;
+  laborCost: number;
+  hasApprovedMaterialIssues: boolean;
+}
+
+/**
+ * StockIssueItem deliberately does not carry an immutable unit-cost snapshot.
+ * InventoryItem prices are mutable, so applying the current price to a past
+ * issue would manufacture a financial value. Keep the project total unknown
+ * until the stock issue flow records an auditable cost basis.
+ */
+export function calculateProjectCostSummary({
+  budget,
+  expenseCost,
+  laborCost,
+  hasApprovedMaterialIssues,
+}: ProjectCostSummaryInput) {
+  const knownActualCost = expenseCost + laborCost;
+
+  if (hasApprovedMaterialIssues) {
+    return {
+      knownActualCost,
+      materialCost: null,
+      materialCostStatus: 'UNKNOWN' as const,
+      actualCost: null,
+      actualCostStatus: 'MATERIAL_COST_UNKNOWN' as const,
+      variance: null,
+      variancePct: null,
+      varianceStatus: 'UNKNOWN' as const,
+    };
+  }
+
+  const actualCost = knownActualCost;
+  const variance = budget - actualCost;
+  const variancePct = budget > 0 ? (variance / budget) * 100 : 0;
+
+  return {
+    knownActualCost,
+    materialCost: 0,
+    materialCostStatus: 'KNOWN' as const,
+    actualCost,
+    actualCostStatus: 'COMPLETE' as const,
+    variance,
+    variancePct,
+    varianceStatus: BudgetTrackingService.getVarianceStatus(variancePct),
+  };
+}
 
 export class BudgetTrackingService {
   /**
@@ -22,21 +72,15 @@ export class BudgetTrackingService {
 
   /**
    * Recalculate actualCost from all sources:
-   * - Approved StockIssues
+   * - Approved StockIssues, only when an immutable material-cost basis exists
    * - Approved ProjectExpenses
    * - DailyProgress labor costs
    */
   static async syncActualCost(projectId: string) {
-    const [materialIssueItems, expenseCost, laborCost] = await Promise.all([
-      // Material cost: sum of items in approved stock issues
-      prisma.stockIssueItem.aggregate({
-        where: {
-          issue: {
-            projectId,
-            status: 'APPROVED',
-          },
-        },
-        _sum: { quantity: true },
+    const [approvedMaterialIssue, expenseCost, laborCost, project] = await Promise.all([
+      prisma.stockIssue.findFirst({
+        where: { projectId, status: 'APPROVED' },
+        select: { id: true },
       }),
       // Expense cost: sum of all project expenses
       prisma.projectExpense.aggregate({
@@ -48,38 +92,34 @@ export class BudgetTrackingService {
         where: { projectId },
         _sum: { laborCost: true },
       }),
+      prisma.project.findUnique({
+        where: { id: projectId },
+        select: { budget: true },
+      }),
     ]);
 
-    const totalActual =
-      Number(materialIssueItems._sum.quantity ?? 0) + // qty as proxy; real cost needs unit price join
-      Number(expenseCost._sum.amount ?? 0) +
-      Number(laborCost._sum.laborCost ?? 0);
+    if (!project) throw AppError.badRequest('Project not found');
 
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { budget: true },
+    const summary = calculateProjectCostSummary({
+      budget: Number(project.budget ?? 0),
+      expenseCost: Number(expenseCost._sum.amount ?? 0),
+      laborCost: Number(laborCost._sum.laborCost ?? 0),
+      hasApprovedMaterialIssues: Boolean(approvedMaterialIssue),
     });
 
-    const budget = Number(project?.budget ?? 0);
-    const variance = budget - totalActual;
-    const variancePct = budget > 0 ? (variance / budget) * 100 : 0;
-    const varianceStatus = BudgetTrackingService.getVarianceStatus(variancePct);
+    // Fail closed: do not overwrite a project total with a partial total when
+    // approved materials have no immutable monetary value on the issue record.
+    if (summary.actualCost === null) return summary;
 
     await prisma.project.update({
       where: { id: projectId },
       data: {
-        actualCost: totalActual,
-        variance,
+        actualCost: summary.actualCost,
+        variance: summary.variance,
       },
     });
 
-    return {
-      actualCost: totalActual,
-      budget,
-      variance,
-      variancePct,
-      varianceStatus,
-    };
+    return summary;
   }
 
   /**
@@ -114,45 +154,43 @@ export class BudgetTrackingService {
 
     if (!project) throw AppError.badRequest('Project not found');
 
-    const materialCost = materialIssues.reduce((s) => s + 0, 0); // No direct cost on StockIssue
     const expenseCost = expenses.reduce((s, e) => s + Number(e.amount), 0);
     const laborCost = dailyProgress.reduce((s, d) => s + Number(d.laborCost), 0);
-    const actualCost = materialCost + expenseCost + laborCost;
-
     const budget = Number(project.budget ?? 0);
-    const variance = budget - actualCost;
-    const variancePct = budget > 0 ? (variance / budget) * 100 : 0;
-    const varianceStatus = BudgetTrackingService.getVarianceStatus(variancePct);
+    const costSummary = calculateProjectCostSummary({
+      budget,
+      expenseCost,
+      laborCost,
+      hasApprovedMaterialIssues: materialIssues.length > 0,
+    });
     const boqEstimate = Number(boqTotal._sum.amount ?? 0);
 
-    // Cost breakdown by month (for trend chart)
-    const monthlyTrend: Record<string, number> = {};
-    for (const issue of materialIssues) {
-      const month = issue.createdAt.toISOString().substring(0, 7);
-      monthlyTrend[month] = (monthlyTrend[month] || 0); // cost not available directly
-    }
+    // Known costs only; do not present this as a full actual-cost trend when
+    // material cost is unknown.
+    const knownMonthlyTrend: Record<string, number> = {};
     for (const exp of expenses) {
       const month = exp.date.toISOString().substring(0, 7);
-      monthlyTrend[month] = (monthlyTrend[month] || 0) + Number(exp.amount);
+      knownMonthlyTrend[month] = (knownMonthlyTrend[month] || 0) + Number(exp.amount);
     }
     for (const dp of dailyProgress) {
       const month = dp.reportDate.toISOString().substring(0, 7);
-      monthlyTrend[month] = (monthlyTrend[month] || 0) + Number(dp.laborCost);
+      knownMonthlyTrend[month] = (knownMonthlyTrend[month] || 0) + Number(dp.laborCost);
     }
+
+    const knownMonthlyTrendEntries = Object.entries(knownMonthlyTrend)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, cost]) => ({ month, cost }));
 
     return {
       budget,
       boqEstimate,
-      actualCost,
-      materialCost,
+      ...costSummary,
       expenseCost,
       laborCost,
-      variance,
-      variancePct: Math.abs(variancePct),
-      varianceStatus,
-      monthlyTrend: Object.entries(monthlyTrend)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([month, cost]) => ({ month, cost })),
+      variancePct: costSummary.variancePct === null ? null : Math.abs(costSummary.variancePct),
+      monthlyTrend: costSummary.actualCost === null ? [] : knownMonthlyTrendEntries,
+      knownMonthlyTrend: knownMonthlyTrendEntries,
+      monthlyTrendStatus: costSummary.actualCost === null ? 'MATERIAL_COST_UNKNOWN' : 'COMPLETE',
       progressPct: dailyProgress.at(-1)?.progressPct ?? project.actualCost,
     };
   }
@@ -160,7 +198,7 @@ export class BudgetTrackingService {
   /**
    * Get variance status label based on % over/under budget
    */
-  private static getVarianceStatus(variancePct: number): VarianceStatus {
+  static getVarianceStatus(variancePct: number): VarianceStatus {
     if (variancePct >= 5) return 'UNDER';
     if (variancePct >= -5) return 'ON_TRACK';
     if (variancePct >= -20) return 'OVER';

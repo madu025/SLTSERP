@@ -13,6 +13,7 @@ export const GET = apiHandler(async (req) => {
 
     return await RetentionService.getRetentions({ status, projectId });
 }, {
+    roles: ROLE_GROUPS.FINANCE,
     rawResponse: true
 });
 

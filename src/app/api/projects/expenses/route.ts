@@ -1,23 +1,38 @@
-import { apiHandler } from '@/lib/api-handler';
-import { ProjectExpenseService } from '@/services/project/project-expense.service';
+import { apiHandler, castBody } from '@/lib/api-handler';
+import { CreateExpenseInput, ProjectExpenseService } from '@/services/project/project-expense.service';
 import { AppError } from '@/lib/error';
+import { ROLE_GROUPS } from '@/config/roles';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (_request, _params, body) => {
+const expenseSchema = z.object({
+    projectId: z.string().uuid(),
+    type: z.string().trim().min(1),
+    description: z.string().optional(),
+    amount: z.union([z.number(), z.string().trim().min(1)]),
+    date: z.string().optional(),
+    invoiceRef: z.string().optional().nullable(),
+    remarks: z.string().optional().nullable(),
+});
+
+export const POST = apiHandler(async (_request, params, body) => {
+    if (!params._userId) throw AppError.unauthorized('Authenticated user required to create an expense');
     const { projectId, type, amount } = body || {};
 
     if (!projectId || !type || !amount) {
         throw AppError.badRequest('Project ID, Type and Amount are required');
     }
 
-    return await ProjectExpenseService.createExpense(body as any);
+    return await ProjectExpenseService.createExpense(castBody<CreateExpenseInput>(body));
 }, {
+    schema: expenseSchema,
+    roles: ROLE_GROUPS.FINANCE,
     audit: { action: 'CREATE', entity: 'PROJECT_EXPENSE' },
     rawResponse: true
 });
 
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -25,9 +40,12 @@ export const DELETE = apiHandler(async (request) => {
         throw AppError.badRequest('Expense ID required');
     }
 
+    if (!params._userId) {
+        throw AppError.unauthorized('Authenticated user required to void an expense');
+    }
+
     try {
-        await ProjectExpenseService.deleteExpense(id);
-        return { success: true };
+        return await ProjectExpenseService.voidExpense(id, params._userId);
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg === 'EXPENSE_NOT_FOUND') {
@@ -36,6 +54,7 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'DELETE', entity: 'PROJECT_EXPENSE' },
     rawResponse: true
 });

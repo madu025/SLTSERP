@@ -27,6 +27,7 @@ export const GET = apiHandler(async (_req, params) => {
     if (!voucher) throw AppError.notFound('Payment voucher not found');
     return voucher;
 }, {
+    roles: ROLE_GROUPS.FINANCE,
     rawResponse: true
 });
 

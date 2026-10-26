@@ -1,6 +1,6 @@
 'use client';
 
-import {  useState, useEffect, useCallback  } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +16,7 @@ import {
     ReceiptText, Wallet, Gavel, Lock, Plus, Eye, CheckCircle, XCircle,
     Loader2, Banknote, ArrowUpDown,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Project {
     id: string;
@@ -162,6 +163,24 @@ interface ProjectFinanceProps {
     refreshProject: () => void;
 }
 
+async function getResponseError(response: Response, fallback: string) {
+    try {
+        const body: unknown = await response.json();
+        if (body && typeof body === 'object') {
+            const message = (body as { error?: unknown; message?: unknown }).error
+                ?? (body as { message?: unknown }).message;
+            if (typeof message === 'string' && message.trim()) return message;
+        }
+    } catch {
+        // Fall back to a clear operation-specific message for non-JSON errors.
+    }
+    return fallback;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export default function ProjectFinance({ project, refreshProject }: ProjectFinanceProps) {
     const [activeTab, setActiveTab] = useState('invoices');
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -197,30 +216,42 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     const fetchInvoices = useCallback(async () => {
         try {
             const res = await fetch(`/api/projects/invoices?projectId=${project.id}`);
-            if (res.ok) setInvoices(await res.json());
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load invoices.'));
+            setInvoices(await res.json());
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to load invoices.'));
+        }
         finally { setLoading(false); }
     }, [project.id]);
 
     const fetchPaymentVouchers = useCallback(async () => {
         try {
             const res = await fetch(`/api/projects/payment-vouchers?projectId=${project.id}`);
-            if (res.ok) setPaymentVouchers(await res.json());
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load payment vouchers.'));
+            setPaymentVouchers(await res.json());
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to load payment vouchers.'));
+        }
     }, [project.id]);
 
     const fetchLdPenalties = useCallback(async () => {
         try {
             const res = await fetch(`/api/projects/ld-penalties?projectId=${project.id}`);
-            if (res.ok) setLdPenalties(await res.json());
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load LD and penalties.'));
+            setLdPenalties(await res.json());
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to load LD and penalties.'));
+        }
     }, [project.id]);
 
     const fetchRetentions = useCallback(async () => {
         try {
             const res = await fetch(`/api/projects/retentions?projectId=${project.id}`);
-            if (res.ok) setRetentions(await res.json());
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load retentions.'));
+            setRetentions(await res.json());
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to load retentions.'));
+        }
     }, [project.id]);
 
     useEffect(() => {
@@ -233,6 +264,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     }, [project?.id, fetchInvoices, fetchPaymentVouchers, fetchLdPenalties, fetchRetentions]);
 
     const handleCreateInvoice = async () => {
+        if (!window.confirm('Create this invoice? Review the dates, line items, and totals before continuing.')) return;
         setSubmitting(true);
         try {
             const res = await fetch('/api/projects/invoices', {
@@ -240,25 +272,28 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: project.id, ...invForm }),
             });
-            if (res.ok) {
-                setShowInvDialog(false);
-                setInvForm({
-                    title: '',
-                    type: 'CLIENT',
-                    invoiceDate: new Date().toISOString().split('T')[0],
-                    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    items: [{ description: '', quantity: 1, unitPrice: 0, itemType: 'SERVICE' }],
-                    taxAmount: 0,
-                    discountAmount: 0
-                });
-                fetchInvoices();
-                refreshProject();
-            }
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to create the invoice.'));
+            setShowInvDialog(false);
+            setInvForm({
+                title: '',
+                type: 'CLIENT',
+                invoiceDate: new Date().toISOString().split('T')[0],
+                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                items: [{ description: '', quantity: 1, unitPrice: 0, itemType: 'SERVICE' }],
+                taxAmount: 0,
+                discountAmount: 0
+            });
+            toast.success('Invoice created.');
+            await fetchInvoices();
+            refreshProject();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to create the invoice.'));
+        }
         finally { setSubmitting(false); }
     };
 
     const handleCreatePV = async () => {
+        if (!window.confirm('Create this payment voucher? Verify the payee, amount, and linked invoice before continuing.')) return;
         setSubmitting(true);
         try {
             const res = await fetch('/api/projects/payment-vouchers', {
@@ -266,17 +301,20 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: project.id, ...pvForm }),
             });
-            if (res.ok) {
-                setShowPVDialog(false);
-                setPvForm({});
-                fetchPaymentVouchers();
-                refreshProject();
-            }
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to create the payment voucher.'));
+            setShowPVDialog(false);
+            setPvForm({});
+            toast.success('Payment voucher created.');
+            await fetchPaymentVouchers();
+            refreshProject();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to create the payment voucher.'));
+        }
         finally { setSubmitting(false); }
     };
 
     const handleCreateLD = async () => {
+        if (!window.confirm('Create this LD or penalty entry? This creates a financial record.')) return;
         setSubmitting(true);
         try {
             const res = await fetch('/api/projects/ld-penalties', {
@@ -284,16 +322,19 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: project.id, ...ldForm }),
             });
-            if (res.ok) {
-                setShowLDDialog(false);
-                setLdForm({});
-                fetchLdPenalties();
-            }
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to create the LD or penalty entry.'));
+            setShowLDDialog(false);
+            setLdForm({});
+            toast.success('LD or penalty entry created.');
+            await fetchLdPenalties();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to create the LD or penalty entry.'));
+        }
         finally { setSubmitting(false); }
     };
 
     const handleCreateRetention = async () => {
+        if (!window.confirm('Create this retention entry? Verify the amount and release conditions before continuing.')) return;
         setSubmitting(true);
         try {
             const res = await fetch('/api/projects/retentions', {
@@ -301,17 +342,20 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId: project.id, ...retForm }),
             });
-            if (res.ok) {
-                setShowRetDialog(false);
-                setRetForm({});
-                fetchRetentions();
-            }
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to create the retention entry.'));
+            setShowRetDialog(false);
+            setRetForm({});
+            toast.success('Retention entry created.');
+            await fetchRetentions();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to create the retention entry.'));
+        }
         finally { setSubmitting(false); }
     };
 
     const handleReleaseRetention = async () => {
         if (!selectedRetention) return;
+        if (!window.confirm(`Release LKR ${(releaseForm.releaseAmount || 0).toLocaleString()} from this retention?`)) return;
         setSubmitting(true);
         try {
             const res = await fetch('/api/projects/retentions', {
@@ -323,13 +367,15 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                     ...releaseForm,
                 }),
             });
-            if (res.ok) {
-                setShowReleaseDialog(false);
-                setSelectedRetention(null);
-                setReleaseForm({});
-                fetchRetentions();
-            }
-        } catch (e) { console.error(e); }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to release retention.'));
+            setShowReleaseDialog(false);
+            setSelectedRetention(null);
+            setReleaseForm({});
+            toast.success('Retention released.');
+            await fetchRetentions();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to release retention.'));
+        }
         finally { setSubmitting(false); }
     };
 
@@ -337,37 +383,59 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
         endpoint: string,
         id: string,
         status: string,
-        extra: { paidAmount?: number; rejectionReason?: string } = {}
+        confirmation: string,
+        successMessage: string,
+        extra: { rejectionReason?: string } = {}
     ) => {
-        await fetch(endpoint, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, status, approvedById: 'system', ...extra }),
+        if (!window.confirm(confirmation)) return;
+        setSubmitting(true);
+        try {
+            const res = await fetch(endpoint, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status, ...extra }),
+            });
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to update the financial record.'));
+            toast.success(successMessage);
+            await Promise.all([fetchInvoices(), fetchPaymentVouchers(), fetchLdPenalties()]);
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to update the financial record.'));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const openPaymentWorkflow = (invoice: Invoice) => {
+        setPvForm({
+            title: `Payment for invoice ${invoice.invoiceNumber}`,
+            amount: invoice.balanceAmount,
+            invoiceId: invoice.id,
+            paymentDate: new Date().toISOString().split('T')[0],
         });
-        fetchInvoices();
-        fetchPaymentVouchers();
-        fetchLdPenalties();
+        setActiveTab('payments');
+        setShowPVDialog(true);
+        toast.info('Complete the payment voucher to record payment against this invoice.');
     };
 
     const statusBadge = (status: string, colorMap?: Record<string, string>) => {
         const colors: Record<string, string> = colorMap || {
-            DRAFT: 'bg-slate-100 text-slate-600',
-            PENDING: 'bg-yellow-100 text-yellow-700',
-            PROPOSED: 'bg-orange-100 text-orange-700',
-            APPROVED: 'bg-green-100 text-green-700',
-            REJECTED: 'bg-red-100 text-red-700',
-            CANCELLED: 'bg-slate-100 text-slate-500',
-            ISSUED: 'bg-blue-100 text-blue-700',
-            PAID: 'bg-emerald-100 text-emerald-700',
-            PARTIALLY_PAID: 'bg-amber-100 text-amber-700',
-            FULLY_PAID: 'bg-green-100 text-green-700',
-            OVERDUE: 'bg-red-100 text-red-700',
-            COLLECTED: 'bg-emerald-100 text-emerald-700',
-            WAIVED: 'bg-purple-100 text-purple-700',
-            HELD: 'bg-slate-100 text-slate-600',
-            PARTIALLY_RELEASED: 'bg-amber-100 text-amber-700',
-            FULLY_RELEASED: 'bg-green-100 text-green-700',
-            PENDING_APPROVAL: 'bg-yellow-100 text-yellow-700',
+            DRAFT: 'bg-slate-100 text-slate-800',
+            PENDING: 'bg-yellow-100 text-yellow-800',
+            PROPOSED: 'bg-orange-100 text-orange-800',
+            APPROVED: 'bg-green-100 text-green-800',
+            REJECTED: 'bg-red-100 text-red-800',
+            CANCELLED: 'bg-slate-100 text-slate-700',
+            ISSUED: 'bg-blue-100 text-blue-800',
+            PAID: 'bg-emerald-100 text-emerald-800',
+            PARTIALLY_PAID: 'bg-amber-100 text-amber-800',
+            FULLY_PAID: 'bg-green-100 text-green-800',
+            OVERDUE: 'bg-red-100 text-red-800',
+            COLLECTED: 'bg-emerald-100 text-emerald-800',
+            WAIVED: 'bg-purple-100 text-purple-800',
+            HELD: 'bg-slate-100 text-slate-800',
+            PARTIALLY_RELEASED: 'bg-amber-100 text-amber-800',
+            FULLY_RELEASED: 'bg-green-100 text-green-800',
+            PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800',
         };
         return <Badge className={colors[status] || 'bg-slate-100'}>{status.replace(/_/g, ' ')}</Badge>;
     };
@@ -397,8 +465,8 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 <TabsContent value="invoices" className="space-y-4 mt-4">
                     <div className="flex justify-between items-center">
                         <div>
-                            <h3 className="text-lg font-semibold">Client Invoices</h3>
-                            <p className="text-sm text-slate-500">
+                            <h3 className="text-lg font-semibold text-slate-900">Client Invoices</h3>
+                            <p className="text-sm text-slate-600">
                                 Total: LKR {totalFor(invoices, 'totalAmount').toLocaleString()} |
                                 Paid: LKR {totalFor(invoices, 'paidAmount').toLocaleString()} |
                                 Balance: LKR {totalFor(invoices, 'balanceAmount').toLocaleString()}
@@ -472,7 +540,9 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                                 </Select>
                                                 <Button variant="ghost" size="sm" onClick={() =>
                                                     setInvForm({ ...invForm, items: invForm.items.filter((_item: InvoiceItem, j: number) => j !== i) })
-                                                }><XCircle className="w-4 h-4 text-red-500" /></Button>
+                                                } aria-label={`Remove invoice item ${i + 1}`}>
+                                                    <XCircle className="w-4 h-4 text-red-700" />
+                                                </Button>
                                             </div>
                                         ))}
                                         <Button variant="outline" size="sm" className="mt-2" onClick={() =>
@@ -508,7 +578,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                     {loading ? (
                         <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
                     ) : invoices.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400">
+                        <div className="text-center py-12 text-slate-600">
                             <ReceiptText className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No invoices yet. Create one to bill the client.</p>
                         </div>
@@ -519,14 +589,14 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-sm text-blue-600">{inv.invoiceNumber}</span>
+                                                <span className="font-semibold text-sm text-blue-800">{inv.invoiceNumber}</span>
                                                 {statusBadge(inv.status)}
                                                 {new Date(inv.dueDate) < new Date() && inv.status === 'ISSUED' && (
                                                     <Badge className="bg-red-100 text-red-700">OVERDUE</Badge>
                                                 )}
                                             </div>
-                                            <h4 className="font-medium mt-1">{inv.title}</h4>
-                                            <div className="flex gap-4 mt-2 text-sm text-slate-500">
+                                            <h4 className="font-medium mt-1 text-slate-900">{inv.title}</h4>
+                                            <div className="flex gap-4 mt-2 text-sm text-slate-600">
                                                 <span>Items: {inv.items?.length || 0}</span>
                                                 <span>Total: LKR {inv.totalAmount?.toLocaleString()}</span>
                                                 <span>Paid: LKR {inv.paidAmount?.toLocaleString()}</span>
@@ -534,23 +604,31 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                                 <span>Due: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A'}</span>
                                             </div>
                                             {inv.referenceNumber && (
-                                                <p className="text-xs text-slate-400 mt-1">Ref: {inv.referenceNumber}</p>
+                                                <p className="text-xs text-slate-600 mt-1">Ref: {inv.referenceNumber}</p>
                                             )}
                                         </div>
                                         <div className="flex gap-2">
                                             {inv.status === 'DRAFT' && (
-                                                <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, 'ISSUED')}>
+                                                <Button size="sm" variant="outline" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                    '/api/projects/invoices',
+                                                    inv.id,
+                                                    'ISSUED',
+                                                    `Issue invoice ${inv.invoiceNumber}? This makes it available for payment processing.`,
+                                                    'Invoice issued.'
+                                                )}>
                                                     <CheckCircle className="w-4 h-4 mr-1" /> Issue
                                                 </Button>
                                             )}
                                             {(inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') && (
-                                                <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, '', { paidAmount: inv.balanceAmount })}>
-                                                    <Banknote className="w-4 h-4 mr-1" /> Mark Paid
+                                                <Button size="sm" variant="outline" onClick={() => openPaymentWorkflow(inv)}>
+                                                    <Banknote className="w-4 h-4 mr-1" /> Record Payment
                                                 </Button>
                                             )}
                                             <Dialog>
                                                 <DialogTrigger asChild>
-                                                    <Button size="sm" variant="ghost"><Eye className="w-4 h-4" /></Button>
+                                                    <Button size="sm" variant="ghost" aria-label={`View invoice ${inv.invoiceNumber}`}>
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
                                                 </DialogTrigger>
                                                 <DialogContent className="max-w-lg">
                                                     <DialogHeader><DialogTitle>{inv.invoiceNumber} - {inv.title}</DialogTitle></DialogHeader>
@@ -588,8 +666,8 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 <TabsContent value="payments" className="space-y-4 mt-4">
                     <div className="flex justify-between items-center">
                         <div>
-                            <h3 className="text-lg font-semibold">Payment Vouchers</h3>
-                            <p className="text-sm text-slate-500">
+                            <h3 className="text-lg font-semibold text-slate-900">Payment Vouchers</h3>
+                            <p className="text-sm text-slate-600">
                                 Total: LKR {totalFor(paymentVouchers, 'amount').toLocaleString()} |
                                 Net: LKR {totalFor(paymentVouchers, 'netAmount').toLocaleString()}
                             </p>
@@ -688,7 +766,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                     </div>
 
                     {paymentVouchers.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400">
+                        <div className="text-center py-12 text-slate-600">
                             <Wallet className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No payment vouchers yet.</p>
                         </div>
@@ -699,12 +777,12 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-sm text-purple-600">{pv.pvNumber}</span>
+                                                <span className="font-semibold text-sm text-purple-800">{pv.pvNumber}</span>
                                                 {statusBadge(pv.status)}
                                             </div>
-                                            <h4 className="font-medium mt-1">{pv.title}</h4>
-                                            <p className="text-sm text-slate-500">Payee: {pv.payeeName}</p>
-                                            <div className="flex gap-4 mt-2 text-sm text-slate-500">
+                                            <h4 className="font-medium mt-1 text-slate-900">{pv.title}</h4>
+                                            <p className="text-sm text-slate-600">Payee: {pv.payeeName}</p>
+                                            <div className="flex gap-4 mt-2 text-sm text-slate-600">
                                                 <span>Amount: LKR {pv.amount?.toLocaleString()}</span>
                                                 <span>Net: LKR {pv.netAmount?.toLocaleString()}</span>
                                                 <span>Type: {pv.type}</span>
@@ -714,22 +792,47 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                         </div>
                                         <div className="flex gap-2">
                                             {pv.status === 'DRAFT' && (
-                                                <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/payment-vouchers', pv.id, 'PENDING_APPROVAL')}>
+                                                <Button size="sm" variant="outline" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                    '/api/projects/payment-vouchers',
+                                                    pv.id,
+                                                    'PENDING_APPROVAL',
+                                                    `Submit payment voucher ${pv.pvNumber} for approval?`,
+                                                    'Payment voucher submitted for approval.'
+                                                )}>
                                                     <ArrowUpDown className="w-4 h-4 mr-1" /> Submit
                                                 </Button>
                                             )}
                                             {pv.status === 'PENDING_APPROVAL' && (
                                                 <>
-                                                    <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleStatusUpdate('/api/projects/payment-vouchers', pv.id, 'APPROVED')}>
+                                                    <Button size="sm" variant="outline" className="text-green-800" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                        '/api/projects/payment-vouchers',
+                                                        pv.id,
+                                                        'APPROVED',
+                                                        `Approve payment voucher ${pv.pvNumber}?`,
+                                                        'Payment voucher approved.'
+                                                    )}>
                                                         <CheckCircle className="w-4 h-4 mr-1" /> Approve
                                                     </Button>
-                                                    <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleStatusUpdate('/api/projects/payment-vouchers', pv.id, 'REJECTED', { rejectionReason: 'Rejected' })}>
+                                                    <Button size="sm" variant="outline" className="text-red-800" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                        '/api/projects/payment-vouchers',
+                                                        pv.id,
+                                                        'REJECTED',
+                                                        `Reject payment voucher ${pv.pvNumber}?`,
+                                                        'Payment voucher rejected.',
+                                                        { rejectionReason: 'Rejected' }
+                                                    )}>
                                                         <XCircle className="w-4 h-4 mr-1" /> Reject
                                                     </Button>
                                                 </>
                                             )}
                                             {pv.status === 'APPROVED' && (
-                                                <Button size="sm" variant="outline" className="text-emerald-600" onClick={() => handleStatusUpdate('/api/projects/payment-vouchers', pv.id, 'PAID')}>
+                                                <Button size="sm" variant="outline" className="text-emerald-800" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                    '/api/projects/payment-vouchers',
+                                                    pv.id,
+                                                    'PAID',
+                                                    `Mark payment voucher ${pv.pvNumber} as paid? This finalizes the voucher payment.`,
+                                                    'Payment voucher marked as paid.'
+                                                )}>
                                                     <Banknote className="w-4 h-4 mr-1" /> Mark Paid
                                                 </Button>
                                             )}
@@ -745,8 +848,8 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 <TabsContent value="ld-penalties" className="space-y-4 mt-4">
                     <div className="flex justify-between items-center">
                         <div>
-                            <h3 className="text-lg font-semibold">LD & Penalties</h3>
-                            <p className="text-sm text-slate-500">
+                            <h3 className="text-lg font-semibold text-slate-900">LD & Penalties</h3>
+                            <p className="text-sm text-slate-600">
                                 Total: LKR {totalFor(ldPenalties, 'amount').toLocaleString()} |
                                 Net: LKR {totalFor(ldPenalties, 'netAmount').toLocaleString()}
                             </p>
@@ -812,7 +915,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                     </div>
 
                     {ldPenalties.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400">
+                        <div className="text-center py-12 text-slate-600">
                             <Gavel className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No LD or penalties recorded.</p>
                         </div>
@@ -823,15 +926,15 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <Badge className={ld.type === 'LD' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}>
+                                                <Badge className={ld.type === 'LD' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'}>
                                                     {ld.type}
                                                 </Badge>
                                                 {statusBadge(ld.status)}
-                                                <span className="text-xs text-slate-400">{ld.category}</span>
+                                                <span className="text-xs text-slate-600">{ld.category}</span>
                                             </div>
-                                            <h4 className="font-medium mt-1">{ld.title}</h4>
-                                            <p className="text-sm text-slate-500 mt-1">{ld.description}</p>
-                                            <div className="flex gap-4 mt-2 text-sm text-slate-500">
+                                            <h4 className="font-medium mt-1 text-slate-900">{ld.title}</h4>
+                                            <p className="text-sm text-slate-600 mt-1">{ld.description}</p>
+                                            <div className="flex gap-4 mt-2 text-sm text-slate-600">
                                                 <span>Amount: LKR {ld.amount?.toLocaleString()}</span>
                                                 {ld.waivedAmount > 0 && <span>Waived: LKR {ld.waivedAmount?.toLocaleString()}</span>}
                                                 <span>Net: LKR {ld.netAmount?.toLocaleString()}</span>
@@ -842,16 +945,34 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                         <div className="flex gap-2">
                                             {ld.status === 'PROPOSED' && (
                                                 <>
-                                                    <Button size="sm" variant="outline" className="text-green-600" onClick={() => handleStatusUpdate('/api/projects/ld-penalties', ld.id, 'APPROVED')}>
+                                                    <Button size="sm" variant="outline" className="text-green-800" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                        '/api/projects/ld-penalties',
+                                                        ld.id,
+                                                        'APPROVED',
+                                                        `Approve LD or penalty "${ld.title}"?`,
+                                                        'LD or penalty approved.'
+                                                    )}>
                                                         <CheckCircle className="w-4 h-4 mr-1" /> Approve
                                                     </Button>
-                                                    <Button size="sm" variant="outline" className="text-purple-600" onClick={() => handleStatusUpdate('/api/projects/ld-penalties', ld.id, 'WAIVED')}>
+                                                    <Button size="sm" variant="outline" className="text-purple-800" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                        '/api/projects/ld-penalties',
+                                                        ld.id,
+                                                        'WAIVED',
+                                                        `Waive LD or penalty "${ld.title}"?`,
+                                                        'LD or penalty waived.'
+                                                    )}>
                                                         <XCircle className="w-4 h-4 mr-1" /> Waive
                                                     </Button>
                                                 </>
                                             )}
                                             {ld.status === 'APPROVED' && (
-                                                <Button size="sm" variant="outline" className="text-emerald-600" onClick={() => handleStatusUpdate('/api/projects/ld-penalties', ld.id, 'COLLECTED')}>
+                                                <Button size="sm" variant="outline" className="text-emerald-800" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                    '/api/projects/ld-penalties',
+                                                    ld.id,
+                                                    'COLLECTED',
+                                                    `Record collection of LD or penalty "${ld.title}"?`,
+                                                    'LD or penalty marked as collected.'
+                                                )}>
                                                     <Banknote className="w-4 h-4 mr-1" /> Collect
                                                 </Button>
                                             )}
@@ -867,8 +988,8 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                 <TabsContent value="retentions" className="space-y-4 mt-4">
                     <div className="flex justify-between items-center">
                         <div>
-                            <h3 className="text-lg font-semibold">Retention Money</h3>
-                            <p className="text-sm text-slate-500">
+                            <h3 className="text-lg font-semibold text-slate-900">Retention Money</h3>
+                            <p className="text-sm text-slate-600">
                                 Held: LKR {totalFor(retentions, 'retentionAmount').toLocaleString()} |
                                 Released: LKR {totalFor(retentions, 'releasedAmount').toLocaleString()} |
                                 Balance: LKR {totalFor(retentions, 'balanceAmount').toLocaleString()}
@@ -924,7 +1045,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                     </div>
 
                     {retentions.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400">
+                        <div className="text-center py-12 text-slate-600">
                             <Lock className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No retention entries yet.</p>
                         </div>
@@ -936,23 +1057,23 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 {statusBadge(ret.status)}
-                                                <span className="text-xs text-slate-400">{ret.retentionPercent}%</span>
+                                                <span className="text-xs text-slate-600">{ret.retentionPercent}%</span>
                                             </div>
-                                            <h4 className="font-medium mt-1">{ret.title}</h4>
-                                            <div className="flex gap-4 mt-2 text-sm text-slate-500">
+                                            <h4 className="font-medium mt-1 text-slate-900">{ret.title}</h4>
+                                            <div className="flex gap-4 mt-2 text-sm text-slate-600">
                                                 <span>Held: LKR {ret.retentionAmount?.toLocaleString()}</span>
                                                 <span>Released: LKR {ret.releasedAmount?.toLocaleString()}</span>
                                                 <span>Balance: LKR {ret.balanceAmount?.toLocaleString()}</span>
                                             </div>
                                             {ret.releaseCondition && (
-                                                <p className="text-xs text-slate-400 mt-1">Condition: {ret.releaseCondition.replace(/_/g, ' ')}</p>
+                                                <p className="text-xs text-slate-600 mt-1">Condition: {ret.releaseCondition.replace(/_/g, ' ')}</p>
                                             )}
                                             {ret.releases && ret.releases.length > 0 && (
                                                 <details className="mt-2">
-                                                    <summary className="text-xs text-blue-500 cursor-pointer">View Release History ({ret.releases.length})</summary>
+                                                    <summary className="text-xs text-blue-800 cursor-pointer">View Release History ({ret.releases.length})</summary>
                                                     <div className="mt-2 space-y-1">
                                                         {ret.releases.map((rel: RetentionRelease) => (
-                                                            <div key={rel.id} className="flex justify-between text-xs text-slate-500 bg-slate-50 p-2 rounded">
+                                                            <div key={rel.id} className="flex justify-between text-xs text-slate-700 bg-slate-50 p-2 rounded">
                                                                 <span>LKR {rel.releaseAmount?.toLocaleString()}</span>
                                                                 <span>{new Date(rel.releaseDate).toLocaleDateString()}</span>
                                                                 {rel.remarks && <span>{rel.remarks}</span>}
@@ -964,7 +1085,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                         </div>
                                         <div className="flex gap-2">
                                             {ret.status !== 'FULLY_RELEASED' && (
-                                                <Button size="sm" variant="outline" onClick={() => {
+                                                <Button size="sm" variant="outline" disabled={submitting} onClick={() => {
                                                     setSelectedRetention(ret);
                                                     setReleaseForm({});
                                                     setShowReleaseDialog(true);
@@ -984,7 +1105,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                         <DialogContent>
                             <DialogHeader><DialogTitle>Release Retention</DialogTitle></DialogHeader>
                             <div className="space-y-4">
-                                <p className="text-sm text-slate-500">
+                                <p className="text-sm text-slate-600">
                                     Retention: <strong>LKR {selectedRetention?.balanceAmount?.toLocaleString()}</strong> remaining
                                 </p>
                                 <div>

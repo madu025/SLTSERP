@@ -1,100 +1,121 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
 import { AppError } from '@/lib/error';
-import { resolveUserId } from '@/lib/uuid';
+import { ROLE_GROUPS } from '@/config/roles';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
+
+const createInvoiceSchema = z.object({
+    projectId: z.string().uuid(),
+    title: z.string().trim().min(1),
+    description: z.string().optional().nullable(),
+    type: z.enum(['CLIENT', 'CONTRACTOR', 'INTERNAL']).optional(),
+    invoiceDate: z.string().optional(),
+    dueDate: z.string().optional().nullable(),
+    referenceNumber: z.string().optional().nullable(),
+    periodFrom: z.string().optional().nullable(),
+    periodTo: z.string().optional().nullable(),
+    currency: z.string().trim().min(3).max(3).optional(),
+    notes: z.string().optional().nullable(),
+    taxAmount: z.number().finite().min(0).optional(),
+    discountAmount: z.number().finite().min(0).optional(),
+    items: z.array(z.object({
+        description: z.string().trim().min(1),
+        quantity: z.number().finite().positive().optional(),
+        unitPrice: z.number().finite().min(0).optional(),
+        boqItemId: z.string().uuid().optional().nullable(),
+        taskId: z.string().uuid().optional().nullable(),
+        itemType: z.string().trim().min(1).optional(),
+        notes: z.string().optional().nullable(),
+    })).min(1),
+}).superRefine((data, ctx) => {
+    const subtotal = data.items.reduce((sum, item) => sum + (item.quantity ?? 1) * (item.unitPrice ?? 0), 0);
+    const total = subtotal + (data.taxAmount ?? 0) - (data.discountAmount ?? 0);
+    if (total <= 0 || data.discountAmount !== undefined && data.discountAmount > subtotal + (data.taxAmount ?? 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['items'], message: 'Invoice total must be positive after discounts' });
+    }
+});
+
+const updateInvoiceSchema = z.object({
+    id: z.string().uuid(),
+    status: z.enum(['ISSUED', 'CANCELLED']).optional(),
+    cancelledReason: z.string().trim().min(1).optional(),
+    title: z.string().trim().min(1).optional(),
+    description: z.string().optional().nullable(),
+    dueDate: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+}).refine((data) => data.status || data.title || data.description !== undefined || data.dueDate !== undefined || data.notes !== undefined, {
+    message: 'At least one permitted invoice update is required',
+});
+
+function requireFinanceApprover(userId: string | null, role: string | null) {
+    if (!userId || !role || !ROLE_GROUPS.FINANCE_APPROVERS.includes(role)) {
+        throw AppError.forbidden('A finance approver is required for this invoice action');
+    }
+}
 
 export const GET = apiHandler(async (request) => {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
     const allClient = searchParams.get('allClient') === 'true';
 
-    if (allClient) {
-        return await ProjectInvoiceService.getAllClientInvoices();
-    }
+    if (allClient) return ProjectInvoiceService.getAllClientInvoices();
+    if (!projectId) throw AppError.badRequest('projectId is required');
+    return ProjectInvoiceService.getInvoices(projectId);
+}, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
 
-    if (!projectId) {
-        throw AppError.badRequest('projectId is required');
-    }
-
-    return await ProjectInvoiceService.getInvoices(projectId);
-}, { rawResponse: true });
-
-export const POST = apiHandler(async (_request, _params, body) => {
-    const projectId = body.projectId as string | undefined;
-    const title = body.title as string | undefined;
-    const items = body.items as unknown[] | undefined;
-
-    if (!projectId || !title || !items?.length) {
-        throw AppError.badRequest('projectId, title, and items are required');
-    }
-
+export const POST = apiHandler(async (_request, params, body: z.infer<typeof createInvoiceSchema>) => {
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
     try {
-        const invoice = await ProjectInvoiceService.createInvoice(body as any);
+        const invoice = await ProjectInvoiceService.createInvoice({ ...body, createdById: params._userId });
         return Response.json(invoice, { status: 201 });
     } catch (error: unknown) {
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'PROJECT_NOT_FOUND') {
+        if (error instanceof Error && error.message === 'PROJECT_NOT_FOUND') {
             throw AppError.notFound('Project not found');
         }
         throw error;
     }
 }, {
+    schema: createInvoiceSchema,
+    roles: ROLE_GROUPS.FINANCE,
     audit: { action: 'CREATE', entity: 'INVOICE' },
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (request, _params, body) => {
-    const id = body.id as string | undefined;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _id, ...updateFields } = body;
-
-    if (!id) {
-        throw AppError.badRequest('id is required');
-    }
-
-    // approvedById is a uuid column — never trust client placeholders like 'system'
-    if ('approvedById' in updateFields) {
-        updateFields.approvedById = resolveUserId(updateFields.approvedById, request.headers.get('x-user-id'));
-    }
-
+export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof updateInvoiceSchema>) => {
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
+    if (body.status) requireFinanceApprover(params._userId, params._userRole);
+    const { id, ...updateFields } = body;
     try {
-        return await ProjectInvoiceService.updateInvoice(id, updateFields as any);
+        return await ProjectInvoiceService.updateInvoice(id, updateFields, params._userId);
     } catch (error: unknown) {
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'INVOICE_NOT_FOUND') {
+        if (error instanceof Error && error.message === 'INVOICE_NOT_FOUND') {
             throw AppError.notFound('Invoice not found');
         }
         throw error;
     }
 }, {
+    schema: updateInvoiceSchema,
+    roles: ROLE_GROUPS.FINANCE,
     audit: { action: 'UPDATE', entity: 'INVOICE' },
     rawResponse: true
 });
 
 export const DELETE = apiHandler(async (request) => {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-        throw AppError.badRequest('id is required');
-    }
-
+    const id = new URL(request.url).searchParams.get('id');
+    if (!id) throw AppError.badRequest('id is required');
     try {
         await ProjectInvoiceService.deleteInvoice(id);
         return { message: 'Invoice deleted successfully' };
     } catch (error: unknown) {
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'INVOICE_NOT_FOUND') {
-            throw AppError.notFound('Invoice not found');
-        }
-        if (errorMsg === 'DRAFT_ONLY_DELETION') {
-            throw AppError.badRequest('Only DRAFT invoices can be deleted');
-        }
+        if (error instanceof Error && error.message === 'INVOICE_NOT_FOUND') throw AppError.notFound('Invoice not found');
+        if (error instanceof Error && error.message === 'DRAFT_ONLY_DELETION') throw AppError.badRequest('Only DRAFT invoices can be deleted');
         throw error;
     }
 }, {
+    roles: ROLE_GROUPS.FINANCE_APPROVERS,
     audit: { action: 'DELETE', entity: 'INVOICE' },
     rawResponse: true
 });

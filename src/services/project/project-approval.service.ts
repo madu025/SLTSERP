@@ -111,7 +111,8 @@ export class ProjectApprovalService {
         return newRequest;
     }
 
-    static async processApprovalStep(stepId: string, action: string, actionedById: string, comment?: string | null) {
+    static async processApprovalStep(stepId: string, action: string, actorUserId: string, comment?: string | null) {
+        if (!actorUserId) throw AppError.unauthorized('Authenticated approver is required');
         const step = await prisma.projectApprovalStep.findUnique({
             where: { id: stepId },
             include: { request: true }
@@ -119,6 +120,39 @@ export class ProjectApprovalService {
 
         if (!step) {
             throw AppError.notFound('Approval step not found');
+        }
+
+        if (step.status !== 'PENDING') {
+            throw AppError.badRequest('APPROVAL_STEP_ALREADY_ACTIONED');
+        }
+
+        const actor = await prisma.user.findUnique({
+            where: { id: actorUserId },
+            select: { id: true, role: true, status: true },
+        });
+        if (!actor || actor.status !== 'active') {
+            throw AppError.unauthorized('Authenticated approver is not active');
+        }
+
+        if (step.assignedUserId && step.assignedUserId !== actor.id) {
+            throw AppError.forbidden('This approval step is assigned to another user');
+        }
+
+        const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
+        if (!step.assignedUserId && !isAdmin && step.roleRequired !== actor.role) {
+            throw AppError.forbidden('Authenticated user is not eligible for this approval step');
+        }
+
+        const previousSteps = await prisma.projectApprovalStep.findMany({
+            where: {
+                requestId: step.requestId,
+                stepNumber: { lt: step.stepNumber },
+                status: { not: 'APPROVED' },
+            },
+            select: { id: true },
+        });
+        if (previousSteps.length > 0) {
+            throw AppError.badRequest('PREVIOUS_APPROVAL_STEP_NOT_COMPLETED');
         }
 
         const projectId = step.request.projectId;
@@ -129,7 +163,7 @@ export class ProjectApprovalService {
                 where: { id: stepId },
                 data: {
                     status: action,
-                    actionedById,
+                    actionedById: actor.id,
                     actionedAt: new Date(),
                     comment: comment || null
                 }

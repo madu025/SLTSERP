@@ -107,22 +107,33 @@ export class PaymentVoucherService {
    * Create new Payment Voucher with automatically generated PV number (PV-YEAR-XXXX)
    */
   static async createPaymentVoucher(data: CreatePVInput) {
+    if (!Number.isFinite(data.amount) || data.amount <= 0) {
+      throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_AMOUNT');
+    }
+    if ((data.taxWithheld !== undefined && (!Number.isFinite(data.taxWithheld) || data.taxWithheld < 0))
+      || (data.retentionAmount !== undefined && (!Number.isFinite(data.retentionAmount) || data.retentionAmount < 0))) {
+      throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_DEDUCTION');
+    }
+
     if (data.invoiceId) {
       const invoice = await prisma.projectInvoice.findUnique({
         where: { id: data.invoiceId }
       });
-      if (invoice) {
-        const existingPVs = await prisma.paymentVoucher.findMany({
-          where: {
-            invoiceId: data.invoiceId,
-            status: { notIn: ['CANCELLED', 'REJECTED'] }
-          },
-          select: { amount: true }
-        });
-        const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
-        if (currentPaidSum + data.amount > Number(invoice.totalAmount)) {
-          throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
-        }
+      if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
+      if (invoice.projectId !== data.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
+      if (!['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) {
+        throw AppError.badRequest('VOUCHERS_REQUIRE_AN_ISSUED_INVOICE');
+      }
+      const existingPVs = await prisma.paymentVoucher.findMany({
+        where: {
+          invoiceId: data.invoiceId,
+          status: { notIn: ['CANCELLED', 'REJECTED'] }
+        },
+        select: { amount: true }
+      });
+      const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
+      if (currentPaidSum + data.amount > Number(invoice.totalAmount)) {
+        throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
       }
     }
 
@@ -158,6 +169,9 @@ export class PaymentVoucherService {
     }
 
     const calculatedNetAmount = data.amount - autoTaxWithheld - (data.retentionAmount || 0);
+    if (!Number.isFinite(calculatedNetAmount) || calculatedNetAmount <= 0) {
+      throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_NET_AMOUNT');
+    }
 
     let finalDescription = data.description || null;
     if (data.contractorInvoiceId) {
@@ -183,12 +197,12 @@ export class PaymentVoucherService {
         chequeNumber: data.chequeNumber || null,
         referenceNumber: data.referenceNumber || null,
         taxWithheld: autoTaxWithheld,
-        netAmount: data.netAmount !== undefined ? data.netAmount : calculatedNetAmount,
+        netAmount: calculatedNetAmount,
         retentionAmount: data.retentionAmount || 0,
         retentionReleaseId: data.retentionReleaseId || null,
         notes: data.notes || null,
         status: 'DRAFT',
-        createdById: data.createdById || 'system'
+        createdById: data.createdById || null
       },
       include: { invoice: true }
     });
@@ -215,6 +229,14 @@ export class PaymentVoucherService {
     const taxWithheld = data.taxWithheld !== undefined ? data.taxWithheld : existing.taxWithheld;
     const retentionAmount = data.retentionAmount !== undefined ? data.retentionAmount : existing.retentionAmount;
     const calculatedNetAmount = Number(amount) - Number(taxWithheld) - Number(retentionAmount);
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_AMOUNT');
+    }
+    if (!Number.isFinite(Number(taxWithheld)) || Number(taxWithheld) < 0
+      || !Number.isFinite(Number(retentionAmount)) || Number(retentionAmount) < 0
+      || !Number.isFinite(calculatedNetAmount) || calculatedNetAmount <= 0) {
+      throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_DEDUCTION');
+    }
 
     let finalDescription = data.description !== undefined ? data.description : existing.description;
     if (data.contractorInvoiceId !== undefined) {
@@ -233,19 +255,22 @@ export class PaymentVoucherService {
       const invoice = await prisma.projectInvoice.findUnique({
         where: { id: targetInvoiceId }
       });
-      if (invoice) {
-        const existingPVs = await prisma.paymentVoucher.findMany({
-          where: {
-            invoiceId: targetInvoiceId,
-            id: { not: id },
-            status: { notIn: ['CANCELLED', 'REJECTED'] }
-          },
-          select: { amount: true }
-        });
-        const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
-        if (currentPaidSum + Number(amount) > Number(invoice.totalAmount)) {
-          throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
-        }
+      if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
+      if (invoice.projectId !== existing.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
+      if (!['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) {
+        throw AppError.badRequest('VOUCHERS_REQUIRE_AN_ISSUED_INVOICE');
+      }
+      const existingPVs = await prisma.paymentVoucher.findMany({
+        where: {
+          invoiceId: targetInvoiceId,
+          id: { not: id },
+          status: { notIn: ['CANCELLED', 'REJECTED'] }
+        },
+        select: { amount: true }
+      });
+      const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
+      if (currentPaidSum + Number(amount) > Number(invoice.totalAmount)) {
+        throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
       }
     }
 
@@ -267,7 +292,7 @@ export class PaymentVoucherService {
         chequeNumber: data.chequeNumber,
         referenceNumber: data.referenceNumber,
         taxWithheld,
-        netAmount: data.netAmount !== undefined ? data.netAmount : calculatedNetAmount,
+        netAmount: calculatedNetAmount,
         retentionAmount,
         retentionReleaseId: data.retentionReleaseId,
         notes: data.notes
@@ -304,11 +329,23 @@ export class PaymentVoucherService {
     if (status === 'PENDING_APPROVAL' && currentStatus !== 'DRAFT') {
       throw AppError.badRequest('ONLY_DRAFT_VOUCHERS_CAN_BE_SUBMITTED_FOR_APPROVAL');
     }
+    if (status === 'PENDING_APPROVAL' && existing.createdById && existing.createdById !== userId) {
+      throw AppError.badRequest('ONLY_VOUCHER_MAKER_CAN_SUBMIT_FOR_APPROVAL');
+    }
     if (status === 'APPROVED' && currentStatus !== 'PENDING_APPROVAL') {
       throw AppError.badRequest('ONLY_PENDING_APPROVAL_VOUCHERS_CAN_BE_APPROVED');
     }
     if (status === 'PAID' && currentStatus !== 'APPROVED') {
       throw AppError.badRequest('ONLY_APPROVED_VOUCHERS_CAN_BE_PAID');
+    }
+    if (status === 'REJECTED' && currentStatus !== 'PENDING_APPROVAL') {
+      throw AppError.badRequest('ONLY_PENDING_APPROVAL_VOUCHERS_CAN_BE_REJECTED');
+    }
+    if (status === 'CANCELLED' && !['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(currentStatus)) {
+      throw AppError.badRequest('VOUCHER_CANNOT_BE_CANCELLED_FROM_CURRENT_STATUS');
+    }
+    if (['APPROVED', 'PAID'].includes(status) && existing.createdById && existing.createdById === userId) {
+      throw AppError.badRequest('MAKER_CANNOT_APPROVE_OR_PAY_OWN_VOUCHER');
     }
 
     return prisma.$transaction(async (tx) => {
@@ -327,10 +364,16 @@ export class PaymentVoucherService {
         updateData.cancelledReason = options?.cancelledReason || 'No reason provided';
       }
 
-      const updatedVoucher = await tx.paymentVoucher.update({
-        where: { id },
-        data: updateData
+      // Make the state transition compare-and-set. This prevents two
+      // concurrent requests from both paying/approving the same voucher.
+      const transition = await tx.paymentVoucher.updateMany({
+        where: { id, status: currentStatus },
+        data: updateData,
       });
+      if (transition.count !== 1) {
+        throw AppError.conflict('VOUCHER_STATUS_CHANGED_RETRY');
+      }
+      const updatedVoucher = await tx.paymentVoucher.findUniqueOrThrow({ where: { id } });
 
       // Update invoice paid amount if transitions to PAID
       if (status === 'PAID') {
@@ -362,77 +405,14 @@ export class PaymentVoucherService {
           const invoice = await tx.projectInvoice.findUnique({
             where: { id: existing.invoiceId }
           });
-          if (invoice) {
-            const newPaidAmount = Number(invoice.paidAmount || 0) + Number(existing.amount);
-            const newBalance = Number(invoice.totalAmount) - newPaidAmount;
-            await tx.projectInvoice.update({
-              where: { id: existing.invoiceId },
-              data: {
-                paidAmount: newPaidAmount,
-                balanceAmount: Math.max(0, newBalance),
-                status: newBalance <= 0 ? 'FULLY_PAID' : 'PARTIALLY_PAID',
-              },
-            });
+          if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
+          if (invoice.projectId !== existing.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
+          if (!['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) {
+            throw AppError.badRequest('PAYMENT_REQUIRES_AN_ISSUED_INVOICE');
           }
-        }
-      }
-
-      return updatedVoucher;
-    });
-  }
-
-  /**
-   * Update PV status and handle transaction cascades (Project API style)
-   */
-  static async updateVoucherStatus(id: string, status: string, options: UpdateVoucherStatusOptions) {
-    const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
-    if (!existing) {
-      throw AppError.badRequest('PAYMENT_VOUCHER_NOT_FOUND');
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const updateData: Record<string, unknown> = { status };
-
-      switch (status) {
-        case 'APPROVED':
-          if (!options.approvedById) {
-            throw AppError.badRequest('APPROVED_BY_ID_REQUIRED');
+          if (Number(existing.amount) > Number(invoice.balanceAmount)) {
+            throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_BALANCE');
           }
-          updateData.approvedById = options.approvedById;
-          updateData.approvedAt = new Date();
-          break;
-        case 'PAID':
-          updateData.paidById = options.paidById || null;
-          updateData.paidAt = options.paidAt ? new Date(options.paidAt) : new Date();
-          updateData.paymentDate = options.paidAt ? new Date(options.paidAt) : new Date();
-          if (options.paymentMethod) updateData.paymentMethod = options.paymentMethod;
-          if (options.bankName) updateData.bankName = options.bankName;
-          if (options.bankBranch) updateData.bankBranch = options.bankBranch;
-          if (options.accountNumber) updateData.accountNumber = options.accountNumber;
-          if (options.chequeNumber) updateData.chequeNumber = options.chequeNumber;
-          break;
-        case 'REJECTED':
-          updateData.rejectionReason = options.rejectionReason || 'Rejected';
-          break;
-        case 'CANCELLED':
-          updateData.cancelledReason = options.cancelledReason || 'Cancelled';
-          break;
-        default:
-          break;
-      }
-
-      const updatedVoucher = await tx.paymentVoucher.update({
-        where: { id },
-        data: updateData,
-        include: { invoice: true },
-      });
-
-      // If status is PAID and linked to an invoice, update invoice paidAmount
-      if (status === 'PAID' && existing.invoiceId) {
-        const invoice = await tx.projectInvoice.findUnique({
-          where: { id: existing.invoiceId }
-        });
-        if (invoice) {
           const newPaidAmount = Number(invoice.paidAmount || 0) + Number(existing.amount);
           const newBalance = Number(invoice.totalAmount) - newPaidAmount;
           await tx.projectInvoice.update({
@@ -447,6 +427,30 @@ export class PaymentVoucherService {
       }
 
       return updatedVoucher;
+    });
+  }
+
+  /**
+   * Update PV status and handle transaction cascades (Project API style)
+   */
+  static async updateVoucherStatus(id: string, status: string, options: UpdateVoucherStatusOptions, actorUserId?: string) {
+    const actorId = actorUserId || options.approvedById || options.paidById;
+    if (!actorId) throw AppError.badRequest('AUTHENTICATED_ACTOR_REQUIRED');
+
+    // Keep this compatibility entry point fail-closed as well. Some older
+    // callers still use it instead of updatePaymentVoucherStatus directly.
+    const validStatuses = ['PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED'];
+    if (!validStatuses.includes(status)) throw AppError.badRequest('INVALID_STATUS');
+    const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
+    if (!existing) throw AppError.badRequest('VOUCHER_NOT_FOUND');
+    const currentStatus = existing.status;
+    if (status === 'PAID' && currentStatus !== 'APPROVED') {
+      throw AppError.badRequest('ONLY_APPROVED_VOUCHERS_CAN_BE_PAID');
+    }
+
+    return this.updatePaymentVoucherStatus(id, status, actorId, {
+      rejectionReason: options.rejectionReason || undefined,
+      cancelledReason: options.cancelledReason || undefined,
     });
   }
 

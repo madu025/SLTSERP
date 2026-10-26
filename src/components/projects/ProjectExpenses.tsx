@@ -1,4 +1,4 @@
-import {  useEffect, useState  } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,16 +11,62 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { Plus, Trash2, Receipt } from 'lucide-react';
 
 import { toast } from 'sonner';
+
+async function getResponseError(response: Response, fallback: string) {
+    try {
+        const body: unknown = await response.json();
+        if (body && typeof body === 'object') {
+            const message = (body as { error?: unknown; message?: unknown }).error
+                ?? (body as { message?: unknown }).message;
+            if (typeof message === 'string' && message.trim()) return message;
+        }
+    } catch {
+        // Fall back to a clear operation-specific message for non-JSON errors.
+    }
+    return fallback;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error && error.message ? error.message : fallback;
+}
+interface ProjectExpense {
+    id: string;
+    type: string;
+    description: string;
+    amount: number;
+    date: string;
+    invoiceRef?: string;
+    remarks?: string;
+}
+
+interface ProjectWithExpenses {
+    id: string;
+    expenses?: ProjectExpense[];
+}
+
 interface ProjectExpensesProps {
-    project: any;
+    project: ProjectWithExpenses;
     refreshProject: () => void;
 }
 
 export default function ProjectExpenses({ project, refreshProject }: ProjectExpensesProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [expenses, setExpenses] = useState<any[]>([]);
+    const [expenses, setExpenses] = useState<ProjectExpense[]>([]);
     const [fetchLoading, setFetchLoading] = useState(true);
+
+    const fetchExpenses = useCallback(async () => {
+        try {
+            setFetchLoading(true);
+            const res = await fetch(`/api/projects/${project.id}/expenses`);
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load project expenses.'));
+            const data: unknown = await res.json();
+            setExpenses(Array.isArray(data) ? data as ProjectExpense[] : []);
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to load project expenses.'));
+        }
+        finally { setFetchLoading(false); }
+    }, [project.id]);
 
     // Fetch expenses independently if not available on project object
     useEffect(() => {
@@ -30,19 +76,7 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
         } else {
             fetchExpenses();
         }
-    }, [project.id, project.expenses]);
-
-    const fetchExpenses = async () => {
-        try {
-            setFetchLoading(true);
-            const res = await fetch(`/api/projects/${project.id}/expenses`);
-            if (res.ok) {
-                const data = await res.json();
-                setExpenses(Array.isArray(data) ? data : []);
-            }
-        } catch (err) { console.error(err); }
-        finally { setFetchLoading(false); }
-    };
+    }, [fetchExpenses, project.expenses]);
 
     const [formData, setFormData] = useState({
         type: 'MISC',
@@ -77,11 +111,12 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
         if (!confirm('Are you sure you want to delete this expense record?')) return;
         try {
             const res = await fetch(`/api/projects/expenses?id=${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                refreshProject();
-                fetchExpenses();
-            }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to delete the expense.'));
+            toast.success('Expense record deleted.');
+            refreshProject();
+            await fetchExpenses();
         } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to delete the expense.'));
 }
     };
 
@@ -90,6 +125,7 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
             toast.error('Please fill all required fields');
             return;
         }
+        if (!window.confirm(`Add this ${formatCurrency(Number(formData.amount))} expense record?`)) return;
 
         setLoading(true);
         try {
@@ -99,20 +135,19 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                 body: JSON.stringify({ projectId: project.id, ...formData })
             });
 
-            if (res.ok) {
-                setIsDialogOpen(false);
-                refreshProject();
-                fetchExpenses();
-            } else {
-                toast.error('Failed to add expense');
-            }
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to add the expense.'));
+            setIsDialogOpen(false);
+            toast.success('Expense record added.');
+            refreshProject();
+            await fetchExpenses();
         } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to add the expense.'));
 } finally {
             setLoading(false);
         }
     };
 
-    const totalExpenses = expenses.reduce((sum: number, item: any) => sum + item.amount, 0);
+    const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
 
     return (
         <div className="space-y-6">
@@ -123,7 +158,7 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                 </div>
                 <div className="flex gap-2">
                     <div className="bg-red-50 px-4 py-2 rounded-lg text-right border border-red-100">
-                        <p className="text-xs text-red-600 uppercase font-semibold">Total Expenses</p>
+                        <p className="text-xs text-red-700 uppercase font-semibold">Total Expenses</p>
                         <p className="text-lg font-bold text-red-700">{formatCurrency(totalExpenses)}</p>
                     </div>
                     <Button onClick={handleAddNew} className="self-center gap-2">
@@ -138,17 +173,17 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Type</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Description</th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Reference</th>
-                                <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Amount</th>
-                                <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Action</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Type</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Description</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Reference</th>
+                                <th className="px-6 py-3 text-right text-xs font-semibold text-slate-700 uppercase">Amount</th>
+                                <th className="px-6 py-3 text-center text-xs font-semibold text-slate-700 uppercase">Action</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
                             {expenses.length > 0 ? (
-                                expenses.map((expense: any) => (
+                                expenses.map((expense) => (
                                     <tr key={expense.id} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 text-sm text-slate-600">
                                             {new Date(expense.date).toLocaleDateString()}
@@ -173,7 +208,8 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => handleDelete(expense.id)}
-                                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                className="text-red-700 hover:text-red-900 hover:bg-red-50"
+                                                aria-label={`Delete expense: ${expense.description}`}
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>

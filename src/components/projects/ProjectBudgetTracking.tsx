@@ -14,13 +14,15 @@ import { toast } from 'sonner';
 interface BudgetDashboard {
   budget: number;
   boqEstimate: number;
-  actualCost: number;
-  materialCost: number;
+  actualCost: number | null;
+  materialCost: number | null;
   expenseCost: number;
   laborCost: number;
-  variance: number;
-  variancePct: number;
-  varianceStatus: 'UNDER' | 'ON_TRACK' | 'OVER' | 'CRITICAL';
+  variance: number | null;
+  variancePct: number | null;
+  varianceStatus: 'UNDER' | 'ON_TRACK' | 'OVER' | 'CRITICAL' | 'UNKNOWN';
+  actualCostStatus?: 'COMPLETE' | 'MATERIAL_COST_UNKNOWN';
+  materialCostStatus?: 'KNOWN' | 'UNKNOWN';
   monthlyTrend: { month: string; cost: number }[];
   progressPct: number;
 }
@@ -34,9 +36,11 @@ const STATUS_CONFIG = {
   ON_TRACK: { label: 'On Track',      color: 'bg-blue-500/10 text-blue-700 border-blue-500/20',    icon: TrendingUp,   bar: 'bg-blue-500' },
   OVER:     { label: 'Over Budget',   color: 'bg-amber-500/10 text-amber-700 border-amber-500/20', icon: TrendingDown, bar: 'bg-amber-500' },
   CRITICAL: { label: 'Critical',      color: 'bg-red-500/10 text-red-700 border-red-500/20',       icon: AlertTriangle,bar: 'bg-red-500' },
+  UNKNOWN:  { label: 'Pending cost basis', color: 'bg-slate-100 text-slate-800 border-slate-300',   icon: AlertTriangle,bar: 'bg-slate-400' },
 };
 
-function fmt(n: number) {
+function fmt(n: number | null | undefined) {
+  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   return new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(n);
 }
 
@@ -99,7 +103,10 @@ export default function ProjectBudgetTracking({ project }: ProjectBudgetTracking
 
   const status = STATUS_CONFIG[data.varianceStatus];
   const StatusIcon = status.icon;
-  const spentPct = data.budget > 0 ? Math.min(100, (data.actualCost / data.budget) * 100) : 0;
+  const spentPct = data.actualCost !== null && data.budget > 0
+    ? Math.min(100, (data.actualCost / data.budget) * 100)
+    : 0;
+  const costBasisPending = data.actualCostStatus === 'MATERIAL_COST_UNKNOWN';
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -146,7 +153,9 @@ export default function ProjectBudgetTracking({ project }: ProjectBudgetTracking
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <p className="text-lg font-bold text-foreground">{fmt(data.actualCost)}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{spentPct.toFixed(1)}% of budget</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {costBasisPending ? 'Waiting for auditable material cost' : `${spentPct.toFixed(1)}% of budget`}
+            </p>
           </CardContent>
         </Card>
 
@@ -157,15 +166,17 @@ export default function ProjectBudgetTracking({ project }: ProjectBudgetTracking
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <div className="flex items-center gap-1.5">
-              <p className={`text-lg font-bold ${data.variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {fmt(Math.abs(data.variance))}
+              <p className={`text-lg font-bold ${data.variance === null ? 'text-slate-700' : data.variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {data.variance === null ? 'Pending' : fmt(Math.abs(data.variance))}
               </p>
               <Badge className={`text-[9px] px-1.5 py-0 border ${status.color}`}>
                 <StatusIcon className="w-2.5 h-2.5 mr-0.5" />
                 {status.label}
               </Badge>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{data.variancePct.toFixed(1)}% {data.variance >= 0 ? 'under' : 'over'}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {data.variancePct === null ? 'Material cost basis is not recorded yet' : `${data.variancePct.toFixed(1)}% ${data.variance! >= 0 ? 'under' : 'over'}`}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -179,12 +190,12 @@ export default function ProjectBudgetTracking({ project }: ProjectBudgetTracking
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Spent ({spentPct.toFixed(1)}%)</span>
-              <span>{fmt(data.actualCost)} / {fmt(data.budget)}</span>
+              <span>{costBasisPending ? 'Pending material cost / ' : `${fmt(data.actualCost)} / `}{fmt(data.budget)}</span>
             </div>
             <div className="w-full bg-muted rounded-full h-2.5">
               <div
                 className={`h-2.5 rounded-full transition-all ${status.bar}`}
-                style={{ width: `${spentPct}%` }}
+                style={{ width: `${costBasisPending ? 0 : spentPct}%` }}
               />
             </div>
           </div>
@@ -258,7 +269,9 @@ export default function ProjectBudgetTracking({ project }: ProjectBudgetTracking
       {data.monthlyTrend.length === 0 && (
         <div className="text-center py-6 text-xs text-muted-foreground">
           <DollarSign className="w-6 h-6 mx-auto mb-1 opacity-40" />
-          No monthly data yet. Log expenses or daily progress to track costs.
+          {costBasisPending
+            ? 'Monthly total is hidden until issued materials have an auditable cost basis.'
+            : 'No monthly data yet. Log expenses or daily progress to track costs.'}
         </div>
       )}
     </div>
