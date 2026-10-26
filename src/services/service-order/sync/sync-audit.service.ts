@@ -85,6 +85,29 @@ export const syncCountersOf = (r: Partial<SyncCounters> & { decisions?: Record<s
 
 export class SyncAuditService {
     /**
+     * Close crash artifacts that belong to windows no caller will ever retry again.
+     *
+     * startRun() reclaims a stale row only when that exact deterministic window is attempted again.
+     * Older windows therefore accumulated forever after a process died, making the invariant report
+     * a false operational alarm even though the current feed could continue. Marking them closed
+     * with an explicit error preserves the audit trail and keeps them out of the clean-success view.
+     */
+    static async reclaimStaleRuns(): Promise<number> {
+        const cutoff = new Date(Date.now() - STALE_RUN_MS);
+        const result = await primaryClient.syncRun.updateMany({
+            where: { finishedAt: null, startedAt: { lt: cutoff } },
+            data: {
+                finishedAt: new Date(),
+                errors: ['STALE_RUN_RECLAIMED: previous process ended before the pass completed'],
+            },
+        });
+        if (result.count > 0) {
+            console.warn(`[SYNC-AUDIT] Reclaimed ${result.count} stale unfinished SyncRun row(s).`);
+        }
+        return result.count;
+    }
+
+    /**
      * Claim a window. Returns IN_FLIGHT / REPLAY when another execution already owns the key, in
      * which case the caller must skip the pass. A stale unfinished row (crashed process) is
      * reclaimed so the feed cannot deadlock.

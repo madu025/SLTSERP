@@ -524,12 +524,21 @@ export class CompletedSODSyncService {
 
         console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (10-minute intervals)');
 
+        const run = async () => {
+            try {
+                await SyncAuditService.reclaimStaleRuns();
+            } catch (err: unknown) {
+                console.warn('[COMPLETED-SOD-SYNC] Stale SyncRun reclaim failed:', err instanceof Error ? err.message : String(err));
+            }
+            await this.syncCompletedSODs();
+        };
+
         // Run immediately
-        this.syncCompletedSODs();
+        void run();
 
         // Then every 10 minutes
         this.intervalId = setInterval(() => {
-            this.syncCompletedSODs();
+            void run();
         }, 10 * 60 * 1000);
     }
 

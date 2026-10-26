@@ -1030,6 +1030,11 @@ export class SODSyncService {
      *   and resumes next time from a Postgres cursor.
      */
     static async runCronTick(): Promise<Record<string, unknown>> {
+        try {
+            await SyncAuditService.reclaimStaleRuns();
+        } catch (err: unknown) {
+            console.warn('[TICK] Stale SyncRun reclaim failed; continuing with the tick:', err instanceof Error ? err.message : String(err));
+        }
         const inline = this.shouldRunInlineTick();
         // A Vercel request can still be the scheduler for a persistent Coolify worker when a
         // remote Redis is configured. The old VERCEL-only branch always ran inline, which meant
