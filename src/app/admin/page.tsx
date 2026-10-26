@@ -11,6 +11,12 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+interface WebVersionInfo {
+    displayVersion: string;
+    build: string;
+    environment: string;
+}
+
 const modules = [
     {
         title: 'User Guide & Documentation',
@@ -138,6 +144,17 @@ export default function AdminPanel() {
         refetchOnWindowFocus: false
     });
 
+    const { data: webVersion } = useQuery<WebVersionInfo>({
+        queryKey: ['admin-web-version'],
+        queryFn: async () => {
+            const res = await fetch('/api/admin/version', { cache: 'no-store' });
+            if (!res.ok) throw new Error('Failed to fetch web version');
+            return res.json();
+        },
+        staleTime: 0,
+        refetchOnWindowFocus: true,
+    });
+
     const statCards = [
         { label: 'System Users', value: stats.users, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
         { label: 'Staff Members', value: stats.staff, icon: Network, color: 'text-indigo-600', bg: 'bg-indigo-50' },
@@ -160,6 +177,15 @@ export default function AdminPanel() {
                                 Administration Panel
                             </h1>
                             <p className="text-xs text-slate-500 mt-0.5">Manage users, organization, stores, and system configuration</p>
+                        </div>
+                        <div className="hidden sm:block rounded-lg border border-slate-200 bg-white px-3 py-2 text-right shadow-none">
+                            <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Web Version</p>
+                            <p className="font-mono text-xs font-bold text-slate-800">
+                                {webVersion?.displayVersion || 'Loading…'}
+                            </p>
+                            {webVersion && (
+                                <p className="text-[9px] text-slate-500">{webVersion.environment} · build {webVersion.build}</p>
+                            )}
                         </div>
                     </div>
 
