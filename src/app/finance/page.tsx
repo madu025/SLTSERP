@@ -6,6 +6,8 @@ import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import RoleGuard from '@/components/RoleGuard';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { 
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     AreaChart, Area
@@ -36,7 +38,7 @@ interface DashboardData {
     }[];
 }
 
-export default function FinanceDashboardPage() {
+function FinanceDashboardContent() {
     const { data, isLoading, error, refetch } = useQuery<DashboardData>({
         queryKey: ["finance-dashboard-metrics"],
         queryFn: async () => {
@@ -309,5 +311,13 @@ export default function FinanceDashboardPage() {
                 </div>
             </main>
         </div>
+    );
+}
+
+export default function FinanceDashboardPage() {
+    return (
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.FINANCE_READ}>
+            <FinanceDashboardContent />
+        </RoleGuard>
     );
 }

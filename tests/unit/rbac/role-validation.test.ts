@@ -21,12 +21,12 @@ test('unknown organization label is not accepted as an authorization role', () =
     assert.equal(isDatabaseRole('FINANCE_MANAGER'), true);
 });
 
-test('SOD module group excludes OSP-only project roles', () => {
+test('SOD module group includes OSP project roles for read access', () => {
     assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('AREA_MANAGER'), true);
     assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('SA_MANAGER'), true);
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('OSP_ENGINEER'), false);
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('CIVIL_SUPERVISOR'), false);
-    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('CABLE_SPLICER'), false);
+    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('OSP_ENGINEER'), true);
+    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('CIVIL_SUPERVISOR'), true);
+    assert.equal(ROLE_GROUPS.SOD_MODULE_USERS.includes('CABLE_SPLICER'), true);
 });
 
 test('frontend SOD routes follow the same module boundary', () => {
@@ -38,6 +38,7 @@ test('frontend SOD routes follow the same module boundary', () => {
 
     for (const path of sodPaths) {
         assert.equal(hasRouteAccess(path, 'OSP_ENGINEER'), false, `${path} must reject OSP_ENGINEER`);
+        assert.equal(hasRouteAccess(path, 'OSP_ENGINEER', [RBAC_PERMISSIONS.SOD_READ]), true, `${path} must allow DB-granted OSP_ENGINEER`);
         assert.equal(hasRouteAccess(path, 'AREA_MANAGER', [RBAC_PERMISSIONS.SOD_READ]), true, `${path} must allow DB-granted AREA_MANAGER`);
     }
 

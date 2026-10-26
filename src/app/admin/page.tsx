@@ -63,14 +63,14 @@ const modules = [
     {
         title: 'User Permissions',
         description: 'Configure role-based access and permission rules',
-        href: '/admin/user-permissions',
+        href: '/admin/roles',
         icon: Shield,
         color: 'text-rose-600', bgColor: 'bg-rose-50', borderColor: 'border-rose-100'
     },
     {
         title: 'Global Roles Defaults',
         description: 'Configure default permissions and sections for user roles',
-        href: '/admin/global-roles',
+        href: '/admin/sections',
         icon: Settings,
         color: 'text-cyan-600', bgColor: 'bg-cyan-50', borderColor: 'border-cyan-100'
     },

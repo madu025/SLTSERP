@@ -1,9 +1,9 @@
-import { ROLE_GROUPS } from '@/config/roles';
 export const dynamic = 'force-dynamic';
 
 import { apiHandler } from '@/lib/api-handler';
 import { FinanceDashboardService } from '@/services/finance/dashboard.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 // GET /api/admin/finance/dashboard - Fetch aggregated metrics and charts data
 export const GET = apiHandler(async (req, params) => {
@@ -14,5 +14,5 @@ export const GET = apiHandler(async (req, params) => {
     const data = await FinanceDashboardService.getDashboardMetrics(rtom, accessibleOpmcs);
     return data;
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ]
 });
