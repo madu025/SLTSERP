@@ -55,6 +55,44 @@ export function queueConnectionAlive(): boolean {
     return producer.status === 'ready';
 }
 
+/**
+ * Bring the lazy producer connection up before a request tries to create a BullMQ Queue.
+ *
+ * Serverless requests import this module on demand, so the producer is normally in ioredis's
+ * `wait` state on the first call. Checking `queueConnectionAlive()` synchronously at that point
+ * makes every otherwise-valid enqueue look like a lost job and returns a synthetic id. A bounded
+ * readiness probe keeps the request fail-fast while allowing a configured remote Redis to accept
+ * the job.
+ */
+export async function ensureQueueConnection(timeoutMs = 2500): Promise<boolean> {
+    if (producer.status === 'ready') return true;
+
+    return await new Promise<boolean>((resolve) => {
+        let settled = false;
+        const timer = setTimeout(() => finish(false), timeoutMs);
+
+        const finish = (ready: boolean) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            producer.off('ready', onReady);
+            producer.off('error', onError);
+            resolve(ready && producer.status === 'ready');
+        };
+        const onReady = () => finish(true);
+        const onError = () => finish(false);
+
+        producer.once('ready', onReady);
+        producer.once('error', onError);
+
+        if (producer.status === 'wait' || producer.status === 'end' || producer.status === 'close') {
+            void producer.connect().catch(() => finish(false));
+        } else if (producer.status !== 'connecting') {
+            finish(false);
+        }
+    });
+}
+
 /** A dedicated socket per worker. ioredis connects eagerly; BullMQ waits for 'ready'. */
 export function createQueueConnection(label: string): ConnectionOptions {
     return asBullMQ(connect(label));

@@ -4,7 +4,8 @@ on:
   pull_request:
     branches: [ main, staging ]
   push:
-    branches: [ staging ]
+    branches: [ main, staging ]
+  workflow_dispatch:
 
 jobs:
   qa-gate:
@@ -35,6 +36,9 @@ jobs:
 
       - name: Strict TypeScript Compilation (Zero `any` Rule Check)
         run: pnpm exec tsc --noEmit
+
+      - name: Production build
+        run: pnpm run build
 
       - name: Unit tests (SOD status authority policy and domain tables)
         run: pnpm run test:unit

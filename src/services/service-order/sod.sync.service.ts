@@ -1030,19 +1030,39 @@ export class SODSyncService {
      *   and resumes next time from a Postgres cursor.
      */
     static async runCronTick(): Promise<Record<string, unknown>> {
-        if (!this.shouldRunInlineTick()) {
+        const inline = this.shouldRunInlineTick();
+        // A Vercel request can still be the scheduler for a persistent Coolify worker when a
+        // remote Redis is configured. The old VERCEL-only branch always ran inline, which meant
+        // the long COMPLETED pass (deliberately worker-only) was deferred forever. Prefer the
+        // queue in that topology, but keep the serverless inline fallback when Redis is absent or
+        // unreachable so RTOM work does not regress.
+        if (!inline || this.shouldPreferQueueOnServerless()) {
             const enqueued = await enqueueCronJob(sodSyncQueue, 'cron-tick', { type: 'PERIODIC_PENDING_SYNC' });
-            return { mode: 'queued', accepted: enqueued.accepted, jobId: enqueued.id };
+            if (!inline || enqueued.accepted) {
+                return { mode: 'queued', accepted: enqueued.accepted, jobId: enqueued.id };
+            }
+            console.warn('[TICK] Remote Redis queue unavailable; falling back to inline serverless execution.');
         }
         return { mode: 'inline', ...(await this.runInlineTick()) };
     }
 
-    /** VERCEL=1 is the authoritative signal - that is exactly when the worker is skipped. */
+    /** VERCEL=1 is the default inline signal, unless a remote Redis-backed worker is configured. */
     private static shouldRunInlineTick(): boolean {
         const forced = process.env.CRON_INLINE_MODE;
         if (forced === 'true') return true;
         if (forced === 'false') return false;
         return process.env.VERCEL === '1';
+    }
+
+    /**
+     * Use the persistent worker from a serverless scheduler when Redis is explicitly remote.
+     * Localhost is treated as absent so a developer machine still uses the inline path instead of
+     * paying the queue connection timeout on every cron request.
+     */
+    private static shouldPreferQueueOnServerless(): boolean {
+        if (process.env.VERCEL !== '1' || process.env.CRON_INLINE_MODE === 'true') return false;
+        const redisUrl = process.env.REDIS_URL?.trim() || '';
+        return Boolean(redisUrl && !/^rediss?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(redisUrl));
     }
 
     /** Default 40s of a 60s function window - the rest is cold start, task tail and margin. */

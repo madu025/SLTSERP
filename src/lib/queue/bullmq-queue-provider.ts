@@ -1,13 +1,13 @@
 import { Queue } from 'bullmq';
-import { queueConnection, queueConnectionAlive } from '../redis-queue';
+import { ensureQueueConnection, queueConnection } from '../redis-queue';
 import { QueueProvider, JobInfo, QueueMetrics } from './queue-provider.interface';
 
 export class BullMQQueueProvider implements QueueProvider {
     private queues = new Map<string, Queue>();
 
-    private getQueue(name: string): Queue | null {
+    private async getQueue(name: string): Promise<Queue | null> {
         // Fallback immediately if the queue connection is closed/closing or unavailable
-        if (!queueConnectionAlive()) {
+        if (!await ensureQueueConnection()) {
             return null;
         }
         let q = this.queues.get(name);
@@ -36,7 +36,7 @@ export class BullMQQueueProvider implements QueueProvider {
 
     async addJob(queueName: string, jobName: string, data: unknown, opts?: Record<string, unknown>): Promise<{ id: string }> {
         try {
-            const queue = this.getQueue(queueName);
+            const queue = await this.getQueue(queueName);
             if (queue) {
                 const job = await queue.add(jobName, data, opts);
                 return { id: String(job.id || `job-${Date.now()}`) };
@@ -49,7 +49,7 @@ export class BullMQQueueProvider implements QueueProvider {
 
     async getJob(queueName: string, jobId: string): Promise<JobInfo | null> {
         try {
-            const queue = this.getQueue(queueName);
+            const queue = await this.getQueue(queueName);
             if (queue) {
                 const job = await queue.getJob(jobId);
                 if (!job) return null;
@@ -76,7 +76,7 @@ export class BullMQQueueProvider implements QueueProvider {
 
     async getQueueMetrics(queueName: string): Promise<QueueMetrics> {
         try {
-            const queue = this.getQueue(queueName);
+            const queue = await this.getQueue(queueName);
             if (queue) {
                 const [active, waiting, completed, failed, delayed] = await Promise.all([
                     queue.getActiveCount().catch(() => 0),
@@ -95,7 +95,7 @@ export class BullMQQueueProvider implements QueueProvider {
 
     async getFailedJobs(queueName: string, start?: number, limit?: number): Promise<JobInfo[]> {
         try {
-            const queue = this.getQueue(queueName);
+            const queue = await this.getQueue(queueName);
             if (queue) {
                 const jobs = await queue.getFailed(start, limit);
                 return jobs.map(j => ({
@@ -118,7 +118,7 @@ export class BullMQQueueProvider implements QueueProvider {
 
     async getCompletedJobs(queueName: string, start?: number, limit?: number): Promise<Record<string, unknown>[]> {
         try {
-            const queue = this.getQueue(queueName);
+            const queue = await this.getQueue(queueName);
             if (queue) {
                 const jobs = await queue.getCompleted(start, limit);
                 return jobs.map(j => ({
@@ -136,7 +136,7 @@ export class BullMQQueueProvider implements QueueProvider {
 
     async getRepeatableJobs(queueName: string): Promise<Record<string, unknown>[]> {
         try {
-            const queue = this.getQueue(queueName);
+            const queue = await this.getQueue(queueName);
             if (queue) {
                 return await queue.getRepeatableJobs();
             }
@@ -148,7 +148,7 @@ export class BullMQQueueProvider implements QueueProvider {
 
     async removeRepeatableJobs(queueName: string): Promise<number> {
         try {
-            const queue = this.getQueue(queueName);
+            const queue = await this.getQueue(queueName);
             if (queue) {
                 const repeatables = await queue.getRepeatableJobs();
                 for (const repeatable of repeatables) {
