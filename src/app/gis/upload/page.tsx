@@ -26,10 +26,10 @@ const FEATURE_PILLS = [
 
 const FORMATS = [
   { name: 'GeoJSON', ext: '.geojson .json' },
-  { name: 'KML/KMZ', ext: '.kml .kmz' },
-  { name: 'Shapefile', ext: '.shp' },
-  { name: 'GeoPackage', ext: '.gpkg' },
-  { name: 'QGIS', ext: '.qgz .qgs' },
+  { name: 'QGIS project (optional)', ext: '.qgz .qgs' },
+  { name: 'KML/KMZ (convert first)', ext: '.kml .kmz' },
+  { name: 'Shapefile (convert first)', ext: '.shp' },
+  { name: 'GeoPackage (convert first)', ext: '.gpkg' },
 ];
 
 const LAYER_HINTS = [
@@ -139,6 +139,9 @@ export default function GISUploadPage() {
                       ))}
                     </div>
                     <p className="text-[10px] text-slate-400">
+                      QGIS is optional. Upload the GeoJSON data layers with or without a QGIS project file. Convert KML/KMZ, SHP, or GeoPackage to GeoJSON before processing.
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-2">
                       Example:{' '}
                       <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">
                         KL-SVK-0567_Cables.geojson

@@ -65,6 +65,9 @@ export interface GISUploadSession {
   useRegionMultiplier?: boolean;
   isCompletedProject?: boolean;
   lea?: string;
+  /** True when a QGIS project file was supplied as optional metadata. */
+  qgisProjectPresent?: boolean;
+  qgisProjectFiles?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -258,6 +261,10 @@ export class GISImportService {
       useRegionMultiplier: request.useRegionMultiplier ?? false,
       isCompletedProject: request.isCompletedProject ?? false,
       lea: request.lea,
+      qgisProjectPresent: files.some((file) => gisParser.isQGISProjectFile(file.fileName)),
+      qgisProjectFiles: files
+        .filter((file) => gisParser.isQGISProjectFile(file.fileName))
+        .map((file) => file.fileName),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -297,6 +304,31 @@ export class GISImportService {
       const layerResults: GISLayerResult[] = [];
 
       for (const file of session.files) {
+        // QGIS projects are optional sidecar metadata. A .qgz file is a ZIP
+        // archive and a .qgs file is XML; neither should be decoded as
+        // GeoJSON. The actual data layers must be uploaded separately.
+        if (gisParser.isQGISProjectFile(file.fileName)) {
+          layerResults.push({
+            layerName: file.fileName,
+            layerType: 'UNKNOWN',
+            featureCount: 0,
+            status: 'PARSED',
+            errors: [],
+            warnings: [
+              'QGIS project metadata detected. Data layers are imported from the uploaded GIS layer files; QGIS is optional.',
+            ],
+          });
+
+          auditLog.push({
+            timestamp: new Date().toISOString(),
+            action: 'QGIS_PROJECT_REGISTERED',
+            entity: 'QGIS_PROJECT',
+            entityId: file.fileName,
+            details: 'Registered QGIS project as optional metadata; skipped it as a data layer.',
+          });
+          continue;
+        }
+
         const [parseErr, parsed] = safeSync(() => {
           const rawContent = Buffer.from(file.content, 'base64').toString('utf-8');
           return gisParser.autoParseLayer(
@@ -527,6 +559,17 @@ export class GISImportService {
           entityId: file.fileName,
           details: `Parsed ${file.fileName} as ${layerType} (${featureCount} features)`,
         });
+      }
+
+      // A QGIS project alone cannot create an ERP GIS route because it only
+      // describes layer styling and source paths. This protects against a
+      // successful-looking empty import when the data files were omitted.
+      if (Object.keys(parsedLayers).length === 0) {
+        throw AppError.badRequest(
+          session.qgisProjectPresent
+            ? 'QGIS project detected, but no readable GIS data layers were uploaded. Upload GeoJSON data layers (QGIS is optional).'
+            : 'No readable GIS data layers were uploaded. Upload at least one supported GeoJSON layer.'
+        );
       }
 
       session.status = 'PARSED';

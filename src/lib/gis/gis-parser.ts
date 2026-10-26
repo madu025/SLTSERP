@@ -667,9 +667,22 @@ export class GISParser {
         return 'KMZ';
       case 'gpkg':
         return 'GEOPACKAGE';
+      case 'csv':
+        return 'CSV';
+      case 'dxf':
+        return 'DXF';
       default:
-        return 'GEOJSON';
+        return 'UNKNOWN';
     }
+  }
+
+  /**
+   * QGIS project files are optional metadata/visualisation files. They are
+   * not themselves an OSP data layer and must not be passed to the GeoJSON
+   * parser (a .qgz file is a ZIP archive).
+   */
+  isQGISProjectFile(fileName: string): boolean {
+    return /\.(qgz|qgs)$/i.test(fileName);
   }
 }
 

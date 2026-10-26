@@ -1,4 +1,13 @@
-export type GISFileFormat = 'GEOJSON' | 'QGIS' | 'SHP' | 'KML' | 'KMZ' | 'GEOPACKAGE';
+export type GISFileFormat =
+  | 'GEOJSON'
+  | 'QGIS'
+  | 'SHP'
+  | 'KML'
+  | 'KMZ'
+  | 'GEOPACKAGE'
+  | 'CSV'
+  | 'DXF'
+  | 'UNKNOWN';
 
 /** GIS Layer names as per Telecom OSP standards - supports all 12 SLT template layers */
 export type GISLayerType =

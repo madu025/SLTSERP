@@ -337,9 +337,9 @@ export function GISUpload() {
     setLea('');
   };
 
-  const isValidGeoJSON = (fileName: string) => {
+  const isSupportedGISFile = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
-    return ['geojson', 'json', 'kml', 'kmz', 'shp', 'gpkg'].includes(ext || '');
+    return ['geojson', 'json', 'qgz', 'qgs', 'kml', 'kmz', 'shp', 'gpkg'].includes(ext || '');
   };
 
   return (
@@ -465,7 +465,7 @@ export function GISUpload() {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".geojson,.json,.kml,.kmz,.shp,.gpkg"
+          accept=".geojson,.json,.qgz,.qgs,.kml,.kmz,.shp,.gpkg"
           onChange={handleFileSelect}
           className="hidden"
           disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
@@ -490,7 +490,7 @@ export function GISUpload() {
             <span className="font-medium text-blue-600">Click to upload</span> or drag and drop
           </p>
           <p className="text-xs text-gray-500">
-            GeoJSON, KML, KMZ, SHP, GeoPackage (Max 50MB per file)
+            GeoJSON data layers, optional QGIS project (.qgz/.qgs), KML, KMZ, SHP, GeoPackage (Max 50MB per file)
           </p>
           <p className="text-xs text-gray-400">
             Supports all 12 SLT template layers: Cables, Poles, FDP, Fiber Joints, Roads/EOP, Ducts, Handholes, Manholes, ODF, Risers, FTC, Test Points, Buildings
@@ -513,7 +513,7 @@ export function GISUpload() {
                 <div className="flex items-center space-x-2 min-w-0 flex-1">
                   <span
                     className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      isValidGeoJSON(f.file.name) ? 'bg-green-500' : 'bg-yellow-500'
+                      isSupportedGISFile(f.file.name) ? 'bg-green-500' : 'bg-yellow-500'
                     }`}
                   />
                   <span className="text-gray-700 truncate max-w-xs" title={f.file.name}>
