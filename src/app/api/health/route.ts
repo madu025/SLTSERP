@@ -207,9 +207,16 @@ export const GET = apiHandler(async () => {
     // an individual low-volume feed does NOT set this - it is visible in sync.staleFeeds only.
     const syncDown = sync.state === 'healthy' && !sync.value.workerAlive;
 
+    // Redis and BullMQ are optional on the Vercel web tier: Vercel runs the
+    // inline API/cron path while the persistent worker tier lives on Coolify.
+    // Keep reporting their individual probe states, but do not label the
+    // serverless web tier degraded solely because it cannot reach the private
+    // worker Redis instance. On self-hosted deployments, both probes remain
+    // required because BullMQ workers are part of that runtime.
+    const workerTierRequired = process.env.VERCEL !== '1';
     const status: HealthReport['status'] = database.state !== 'healthy'
         ? 'error'
-        : (cache.state !== 'healthy' || queue.state !== 'healthy' || syncDown)
+        : ((workerTierRequired && (cache.state !== 'healthy' || queue.state !== 'healthy')) || syncDown)
             ? 'degraded'
             : 'ok';
 
