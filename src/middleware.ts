@@ -23,6 +23,7 @@ const publicPaths = [
     '/team-upload',
     '/api/team-members/public',
     '/api/health',
+    '/api/health/live',
     '/api/cron',
     '/api/service-orders/extension-push',
     '/api/service-orders/bridge-sync',

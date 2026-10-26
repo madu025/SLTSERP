@@ -21,6 +21,36 @@ function scheduleRedisRecovery(): void {
     console.warn(`[WORKERS] Redis recovery check scheduled in ${REDIS_RECOVERY_INTERVAL_MS / 1000}s.`);
 }
 
+async function waitForRedis(): Promise<void> {
+    const { redis } = await import('../lib/redis');
+    const deadline = Date.now() + 5000;
+    let lastError: unknown;
+
+    while (Date.now() < deadline) {
+        try {
+            if (redis.status === 'ready') {
+                const pong = await Promise.race([
+                    redis.ping(),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('Redis ping timeout')), 1000)
+                    ),
+                ]);
+                if (pong === 'PONG') return;
+            } else if (['wait', 'end', 'close'].includes(redis.status)) {
+                await redis.connect();
+            }
+        } catch (error) {
+            lastError = error;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    throw lastError instanceof Error
+        ? lastError
+        : new Error(`Redis did not become ready (status: ${(await import('../lib/redis')).redis.status})`);
+}
+
 export async function initializeBackgroundWorkers() {
     if (backgroundWorkersStarted) return;
 
@@ -37,25 +67,14 @@ export async function initializeBackgroundWorkers() {
     // flight, so a bare ping() reported a healthy Redis as unreachable and the entire worker
     // pool was skipped. Wait for 'ready' first, then confirm with a ping.
     try {
-        const { redis } = await import('../lib/redis');
-        await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Redis connect timeout')), 5000);
-            const probe = () => {
-                redis.ping().then(() => { clearTimeout(timer); resolve(); }, (err: unknown) => { clearTimeout(timer); reject(err); });
-            };
-            if (redis.status === 'ready') {
-                probe();
-            } else {
-                // retryStrategy gives up after a couple of attempts, which leaves the singleton
-                // permanently 'end'; nudge it so a Redis that came up later is still usable.
-                if (redis.status === 'end' || redis.status === 'close') {
-                    void redis.connect().catch(() => undefined);
-                }
-                redis.once('ready', probe);
-            }
-        });
-    } catch {
-        console.warn('[WORKERS] ⚠️ Redis is not reachable, background workers skipped. Check REDIS_URL.');
+        // Poll the shared client instead of attaching a new `ready` listener on every
+        // recovery attempt. Coolify may start the web container before Redis is ready;
+        // listener-based retries accumulated across attempts and could miss the ready event.
+        await waitForRedis();
+    } catch (error) {
+        console.warn(
+            `[WORKERS] ⚠️ Redis is not reachable, background workers skipped. ${error instanceof Error ? error.message : String(error)}`
+        );
         // The completed portal census is long-running and normally belongs to BullMQ. A dedicated
         // persistent Coolify worker can still run that one feed safely without Redis when explicitly
         // opted in; SyncRun's (feed, windowKey) uniqueness prevents overlap with a Vercel tick or a
