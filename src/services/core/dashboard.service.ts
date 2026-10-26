@@ -274,7 +274,12 @@ export class DashboardService {
 
         const materialUsageMissingCostCount = await prisma.sODMaterialUsage.count({
             where: {
-                OR: [{ costPrice: null }, { costPrice: { lte: 0 } }],
+                // Match invoice validation and valuation: a positive unitPrice
+                // is a valid fallback when costPrice is unset/zero.
+                AND: [
+                    { OR: [{ costPrice: null }, { costPrice: { lte: 0 } }] },
+                    { OR: [{ unitPrice: null }, { unitPrice: { lte: 0 } }] }
+                ],
                 serviceOrder: {
                     ...(rtom !== 'ALL' ? { rtom } : {}),
                     ...(accessibleOpmcs !== undefined

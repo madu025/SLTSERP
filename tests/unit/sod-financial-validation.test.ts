@@ -27,3 +27,11 @@ test('a recorded material usage row must have a positive cost', () => {
     assert.equal(result.eligible, false);
     assert.ok(result.reasons.includes('MATERIAL_COST_MISSING_OR_INVALID'));
 });
+
+test('a positive unit price is accepted when cost price is the default zero', () => {
+    const result = validateSodForInvoicing({
+        ...baseSod,
+        materialUsage: [{ quantity: 2, unitPrice: 125, costPrice: 0 }],
+    });
+    assert.deepEqual(result, { eligible: true, reasons: [] });
+});

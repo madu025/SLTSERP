@@ -165,6 +165,10 @@ export class ServiceOrderService {
             );
             updateData.revenueAmount = revenueAmount;
             updateData.contractorAmount = contractorAmount;
+            // Completion creates/refreshes financial snapshots. It is not the
+            // engineer's invoice verification step, so require verification
+            // again after a completion transition.
+            updateData.isInvoicable = false;
         }
 
         // 4. System specific manual updates (Snapshots) - Fetch before transaction
@@ -225,6 +229,8 @@ export class ServiceOrderService {
                     tx, id, oldOrder.opmcId, contractorId, data.materialUsage!, InventoryService, userId
                 );
                 updateData.materialUsage = materialUpdate;
+                // Material changes invalidate the prior invoice snapshot.
+                updateData.isInvoicable = false;
             }
 
             // Save collected CPEs

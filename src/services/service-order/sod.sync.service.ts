@@ -264,7 +264,7 @@ export class SODSyncService {
                             data: {
                                 opmcPatStatus: patStatus as import('@prisma/client').PatStatusEnum,
                                 opmcPatDate: statusDate,
-                                isInvoicable: patStatus === 'PAT_PASSED' && order.hoPatStatus === 'PAT_PASSED'
+                                ...(patStatus !== 'PAT_PASSED' ? { isInvoicable: false } : {})
                             },
                             select: { id: true }
                         });
@@ -388,30 +388,15 @@ export class SODSyncService {
                 // Optimization: Batch UPDATE instead of individual updates (232K → ~100 queries)
                 if (ordersToUpdate.length > 0) {
                     const idsToUpdate = ordersToUpdate.map(o => o.id);
-                    const invoicableIds = ordersToUpdate.filter(o => o.sltsPatStatus === 'PAT_PASSED').map(o => o.id);
-                    const nonInvoicableIds = ordersToUpdate.filter(o => o.sltsPatStatus !== 'PAT_PASSED').map(o => o.id);
 
-                    // Bulk update common fields
+                    // A PAT sync updates evidence only. It must not silently
+                    // grant invoice capability; that requires the explicit
+                    // engineer/SF-audit verification endpoint. Revoke any
+                    // stale flag while HO evidence is being refreshed.
                     await prisma.serviceOrder.updateMany({
                         where: { id: { in: idsToUpdate } },
-                        data: { hoPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED' }
+                        data: { hoPatStatus: 'PAT_PASSED', opmcPatStatus: 'PAT_PASSED', isInvoicable: false }
                     });
-
-                    // Bulk update isInvoicable = true
-                    if (invoicableIds.length > 0) {
-                        await prisma.serviceOrder.updateMany({
-                            where: { id: { in: invoicableIds } },
-                            data: { isInvoicable: true }
-                        });
-                    }
-
-                    // Bulk update isInvoicable = false
-                    if (nonInvoicableIds.length > 0) {
-                        await prisma.serviceOrder.updateMany({
-                            where: { id: { in: nonInvoicableIds } },
-                            data: { isInvoicable: false }
-                        });
-                    }
 
                     // Update hoPatDate per order (varying dates)
                     for (const order of ordersToUpdate) {

@@ -43,7 +43,13 @@ export function validateSodForInvoicing(input: SodFinancialValidationInput): Sod
 
     for (const material of input.materialUsage ?? []) {
         const quantity = asFiniteNumber(material.quantity);
-        const unitCost = asFiniteNumber(material.costPrice ?? material.unitPrice);
+        // Inventory valuation uses costPrice first and falls back to unitPrice
+        // when costPrice is unset/zero. Keep the invoice gate consistent with
+        // that rule; `costPrice ?? unitPrice` incorrectly treats a default 0
+        // costPrice as authoritative and rejects a valid positive unitPrice.
+        const costPrice = asFiniteNumber(material.costPrice);
+        const unitPrice = asFiniteNumber(material.unitPrice);
+        const unitCost = costPrice !== null && costPrice > 0 ? costPrice : unitPrice;
         if (quantity === null || quantity <= 0 || unitCost === null || unitCost <= 0) {
             reasons.push('MATERIAL_COST_MISSING_OR_INVALID');
             break;

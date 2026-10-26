@@ -381,7 +381,8 @@ async function importSingleMonthReport(monthName: string, fileName: string) {
                                 contractorAmount: sod.contractorAmount,
                                 status: ServiceOrderStatus.INSTALL_CLOSED,
                                 sltsStatus: ServiceOrderStatus.INSTALL_CLOSED,
-                                isInvoicable: true,
+                                // Imports do not constitute engineer invoice verification.
+                                isInvoicable: false,
                                 sltsPatStatus: PatStatusEnum.PAT_PASSED,
                                 opmcPatStatus: PatStatusEnum.PAT_PASSED,
                                 ...(sod.teamId ? { teamId: sod.teamId } : {}),
@@ -414,7 +415,8 @@ async function importSingleMonthReport(monthName: string, fileName: string) {
                                 contractorAmount: sod.contractorAmount,
                                 status: ServiceOrderStatus.INSTALL_CLOSED,
                                 sltsStatus: ServiceOrderStatus.INSTALL_CLOSED,
-                                isInvoicable: true,
+                                // Imports do not constitute engineer invoice verification.
+                                isInvoicable: false,
                                 sltsPatStatus: PatStatusEnum.PAT_PASSED,
                                 opmcPatStatus: PatStatusEnum.PAT_PASSED,
                                 teamId: sod.teamId || undefined,

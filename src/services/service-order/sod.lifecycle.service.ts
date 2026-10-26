@@ -74,7 +74,12 @@ export class SODLifecycleService {
         }
 
         if (completedDate) updateData.completedDate = new Date(completedDate);
-        if (contractorId !== undefined) updateData.contractorId = contractorId || null;
+        if (contractorId !== undefined) {
+            updateData.contractorId = contractorId || null;
+            // Changing the billing party invalidates the prior invoice
+            // snapshot and requires a fresh engineer verification.
+            updateData.isInvoicable = false;
+        }
         if (comments !== undefined) updateData.comments = comments;
         if (otherData.wiredOnly !== undefined) updateData.wiredOnly = otherData.wiredOnly;
 
@@ -143,16 +148,21 @@ export class SODLifecycleService {
         }
 
 
-        // Invoicable logic delegated to SODInvoicingService
+        // PAT approval alone is not invoice verification. A human engineer/SF
+        // audit must call verify-invoicable after the financial/material
+        // snapshot passes. Preserve an existing verified flag while all PAT
+        // gates remain passed, but revoke it immediately if any PAT gate fails.
         const finalSltsPat = otherData.sltsPatStatus !== undefined ? otherData.sltsPatStatus : oldOrder.sltsPatStatus;
         const finalOpmcPat = otherData.opmcPatStatus !== undefined ? otherData.opmcPatStatus : oldOrder.opmcPatStatus;
         const finalHoPat = otherData.hoPatStatus !== undefined ? otherData.hoPatStatus : oldOrder.hoPatStatus;
 
-        updateData.isInvoicable = SODInvoicingService.determineInvoicableStatus(
+        const allPatPassed = SODInvoicingService.determineInvoicableStatus(
             finalSltsPat as string | null | undefined,
             finalOpmcPat as string | null | undefined,
             finalHoPat as string | null | undefined
         );
+
+        if (!allPatPassed) updateData.isInvoicable = false;
 
         return updateData;
     }

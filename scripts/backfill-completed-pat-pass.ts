@@ -21,7 +21,9 @@ async function main() {
         data: {
             opmcPatStatus: 'PAT_PASSED',
             sltsPatStatus: 'PAT_PASSED',
-            isInvoicable: true
+            // PAT backfill is evidence synchronization only. Invoice
+            // capability still requires explicit financial verification.
+            isInvoicable: false
         }
     });
 
