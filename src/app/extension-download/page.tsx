@@ -16,7 +16,7 @@ interface BrowserInfo {
     supported: boolean;
 }
 
-const EXTENSION_VERSION = '4.5.5';
+const EXTENSION_VERSION = '4.5.7';
 const CHROME_STORE_URL = 'https://chromewebstore.google.com/detail/hcobjlogcddbinjoaepkgealflledmco?utm_source=item-share-cb';
 
 /** Published install links. A button renders only once its URL is filled in, so an
