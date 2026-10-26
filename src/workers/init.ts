@@ -37,6 +37,16 @@ export async function initializeBackgroundWorkers() {
         });
     } catch {
         console.warn('[WORKERS] ⚠️ Redis is not reachable, background workers skipped. Check REDIS_URL.');
+        // The completed portal census is long-running and normally belongs to BullMQ. A dedicated
+        // persistent Coolify worker can still run that one feed safely without Redis when explicitly
+        // opted in; SyncRun's (feed, windowKey) uniqueness prevents overlap with a Vercel tick or a
+        // later queue-backed run. Keep this disabled by default so a developer machine never starts
+        // an unexpected background portal crawl.
+        if (process.env.COMPLETED_SYNC_FALLBACK === 'true') {
+            const { CompletedSODSyncService } = await import('../services/service-order/completed-sod-sync.service');
+            CompletedSODSyncService.startPeriodicSync();
+            console.warn('[WORKERS] COMPLETED_SYNC_FALLBACK=true - started the persistent completed-SOD fallback.');
+        }
         return;
     }
 
