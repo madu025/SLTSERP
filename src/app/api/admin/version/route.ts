@@ -5,7 +5,7 @@ import { getWebVersion } from '@/lib/app-version';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async () => {
-    return Response.json({ success: true, ...getWebVersion() });
+    return getWebVersion();
 }, {
     roles: ROLE_GROUPS.ADMINS,
 });

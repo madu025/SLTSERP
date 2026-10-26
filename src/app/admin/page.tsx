@@ -149,7 +149,8 @@ export default function AdminPanel() {
         queryFn: async () => {
             const res = await fetch('/api/admin/version', { cache: 'no-store' });
             if (!res.ok) throw new Error('Failed to fetch web version');
-            return res.json();
+            const payload = await res.json() as { data?: WebVersionInfo } & WebVersionInfo;
+            return payload.data ?? payload;
         },
         staleTime: 0,
         refetchOnWindowFocus: true,
