@@ -144,7 +144,7 @@ export default function AdminPanel() {
         refetchOnWindowFocus: false
     });
 
-    const { data: webVersion } = useQuery<WebVersionInfo>({
+    const { data: webVersion, isError: isWebVersionError } = useQuery<WebVersionInfo>({
         queryKey: ['admin-web-version'],
         queryFn: async () => {
             const res = await fetch('/api/admin/version', { cache: 'no-store' });
@@ -178,10 +178,10 @@ export default function AdminPanel() {
                             </h1>
                             <p className="text-xs text-slate-500 mt-0.5">Manage users, organization, stores, and system configuration</p>
                         </div>
-                        <div className="hidden sm:block rounded-lg border border-slate-200 bg-white px-3 py-2 text-right shadow-none">
+                        <div className="flex shrink-0 rounded-lg border border-slate-200 bg-white px-2 sm:px-3 py-2 text-right shadow-none">
                             <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Web Version</p>
                             <p className="font-mono text-xs font-bold text-slate-800">
-                                {webVersion?.displayVersion || 'Loading…'}
+                                {webVersion?.displayVersion || (isWebVersionError ? 'Unavailable' : 'Loading…')}
                             </p>
                             {webVersion && (
                                 <p className="text-[9px] text-slate-500">{webVersion.environment} · build {webVersion.build}</p>
