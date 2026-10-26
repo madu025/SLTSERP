@@ -61,5 +61,9 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
+# Coolify/Docker can restart a stuck container when the app or sync liveness probe fails.
+# The route has a bounded probe budget and returns 503 for database/total-sync outages.
+HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]

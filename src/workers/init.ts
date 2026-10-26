@@ -4,7 +4,26 @@
  * This file initializes all background processes when the server starts.
  * It is called by Next.js instrumentation.ts.
  */
+
+const REDIS_RECOVERY_INTERVAL_MS = 60_000;
+let redisRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+let backgroundWorkersStarted = false;
+let completedFallbackStarted = false;
+
+function scheduleRedisRecovery(): void {
+    if (redisRecoveryTimer || backgroundWorkersStarted) return;
+
+    redisRecoveryTimer = setTimeout(() => {
+        redisRecoveryTimer = null;
+        void initializeBackgroundWorkers();
+    }, REDIS_RECOVERY_INTERVAL_MS);
+    redisRecoveryTimer.unref?.();
+    console.warn(`[WORKERS] Redis recovery check scheduled in ${REDIS_RECOVERY_INTERVAL_MS / 1000}s.`);
+}
+
 export async function initializeBackgroundWorkers() {
+    if (backgroundWorkersStarted) return;
+
     console.log('==================================================');
     console.log('[WORKERS] 🔄 BACKGROUND WORKER INIT STARTING... ');
     console.log('==================================================');
@@ -45,9 +64,25 @@ export async function initializeBackgroundWorkers() {
         if (process.env.COMPLETED_SYNC_FALLBACK === 'true') {
             const { CompletedSODSyncService } = await import('../services/service-order/completed-sod-sync.service');
             CompletedSODSyncService.startPeriodicSync();
+            completedFallbackStarted = true;
             console.warn('[WORKERS] COMPLETED_SYNC_FALLBACK=true - started the persistent completed-SOD fallback.');
         }
+        scheduleRedisRecovery();
         return;
+    }
+
+    if (redisRecoveryTimer) {
+        clearTimeout(redisRecoveryTimer);
+        redisRecoveryTimer = null;
+    }
+
+    // Redis recovered after boot: hand scheduling back to BullMQ and stop the Redis-free
+    // completed-feed fallback so both paths cannot crawl the portal at the same time.
+    if (completedFallbackStarted) {
+        const { CompletedSODSyncService } = await import('../services/service-order/completed-sod-sync.service');
+        CompletedSODSyncService.stopPeriodicSync();
+        completedFallbackStarted = false;
+        console.log('[WORKERS] Redis recovered; stopped the Redis-free completed-SOD fallback.');
     }
 
     const { sodSyncQueue, systemQueue } = await import('../lib/queue');
@@ -60,9 +95,12 @@ export async function initializeBackgroundWorkers() {
         await import('./stats-update.worker');
         await import('./system.worker');
         await import('./notification.worker');
+        backgroundWorkersStarted = true;
         console.log('[WORKERS] ✅ All BullMQ Workers (Import, Sync, Stats, System, Notifications) initialized');
     } catch (err) {
         console.error('[WORKERS] ❌ Worker initialization failed:', err);
+        scheduleRedisRecovery();
+        return;
     }
 
     // 🕊️ ONE CLOCK ONLY - no internal scheduler is registered here any more.

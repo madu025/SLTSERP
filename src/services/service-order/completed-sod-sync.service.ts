@@ -523,14 +523,29 @@ export class CompletedSODSyncService {
         }
 
         console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (10-minute intervals)');
+        let running = false;
 
         const run = async () => {
+            if (running) {
+                console.warn('[COMPLETED-SOD-SYNC] Previous pass is still running; skipping this interval.');
+                return;
+            }
+            running = true;
             try {
                 await SyncAuditService.reclaimStaleRuns();
             } catch (err: unknown) {
                 console.warn('[COMPLETED-SOD-SYNC] Stale SyncRun reclaim failed:', err instanceof Error ? err.message : String(err));
             }
-            await this.syncCompletedSODs();
+            try {
+                await this.syncCompletedSODs();
+            } catch (err: unknown) {
+                // Keep the timer alive after a transient portal/database failure. The next
+                // interval retries the pass, while the health endpoint can still signal a
+                // persistent outage to the container supervisor.
+                console.error('[COMPLETED-SOD-SYNC] Periodic pass failed; next interval will retry:', err instanceof Error ? err.message : String(err));
+            } finally {
+                running = false;
+            }
         };
 
         // Run immediately
