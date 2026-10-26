@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server';
 import { apiHandler } from '@/lib/api-handler';
 import { InvoiceGeneratorService } from '@/services/invoice/invoice.generator.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +33,6 @@ export const POST = apiHandler(async (req: Request) => {
         }
     };
 }, {
-    roles: ROLE_GROUPS.INVOICE_GENERATORS,
+    permissions: [RBAC_PERMISSIONS.SOD_INVOICE],
     audit: { action: 'GENERATE_CONTRACTOR_INVOICE', entity: 'Invoice' }
 });

@@ -1,4 +1,6 @@
 
+import { isValidRole } from './valid-roles';
+
 /**
  * UI grouping of user roles for Administration dropdowns (user create/edit,
  * category pages). Served by GET /api/admin/role-options alongside the live
@@ -43,6 +45,9 @@ export const ROLE_GROUPS = {
     NEW_CONNECTION: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
     SERVICE_ASSURANCE: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'SA_MANAGER', 'SA_ASSISTANT'],
     ALL_OPS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT', 'OSP_ENGINEER'],
+    // Legacy/bootstrap-only translation group. Runtime SOD authorization uses
+    // the DB capability `sod.read`; do not use this for new routes.
+    SOD_MODULE_USERS: ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT', 'FAULT_COORDINATOR', 'REPAIR_TECHNICIAN'],
 
     // Project read access is intentionally limited to internal operational,
     // finance, stores, procurement and invoice roles. Contractor portal roles
@@ -116,6 +121,19 @@ export const ROLE_GROUPS = {
         'MANAGER', 'QC_OFFICER'
     ],
 };
+
+// Keep every authorization group tied to the database Role enum. This is a
+// runtime safety net in addition to scripts/rbac-sync.js, so a stale config
+// cannot silently introduce a role that no user can actually hold.
+const invalidConfiguredRoles = Object.entries(ROLE_GROUPS).flatMap(([group, roles]) =>
+    roles.filter((role) => !isValidRole(role)).map((role) => `${group}:${role}`)
+);
+
+if (invalidConfiguredRoles.length > 0) {
+    throw new Error(
+        `[RBAC] Role configuration contains values outside prisma Role enum: ${invalidConfiguredRoles.join(', ')}`
+    );
+}
 
 export type RoleGroup = keyof typeof ROLE_GROUPS;
 

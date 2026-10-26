@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectService } from '@/services/project/project.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export const GET = apiHandler(async (req, params) => {
     // Shared dropdown source for stores/finance/invoice/procurement pages —
     // any authenticated user may list; real protection is the server-side
     // resolveOpmcScope filtering applied above in ProjectService.
-    roles: ROLE_GROUPS.PROJECT_READERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_READ],
     rawResponse: true
 });
 
@@ -58,7 +59,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         projectTypeId: projectTypeId ?? undefined
     });
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'CREATE', entity: 'PROJECT' },
     rawResponse: true
 });
@@ -75,7 +76,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 
     return await ProjectService.updateProject(id, updateData as Record<string, unknown>);
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'UPDATE', entity: 'PROJECT' },
     rawResponse: true
 });

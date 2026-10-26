@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { bulkImportSchema } from '@/lib/validations/service-order.schema';
@@ -24,6 +24,6 @@ export const POST = apiHandler(async (_req, params, body) => {
     };
 }, { 
     schema: bulkImportSchema,
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.SOD_WRITE],
     audit: { action: 'BULK_IMPORT', entity: 'ServiceOrder' }
 });

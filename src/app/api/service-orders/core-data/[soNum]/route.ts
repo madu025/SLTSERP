@@ -1,7 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { prisma } from '@/lib/prisma';
 
@@ -33,4 +33,4 @@ export const GET = apiHandler(async (_request, params) => {
     }
 
     return { success: true, data: serviceOrder };
-}, { roles: ROLE_GROUPS.ALL_OPS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.SOD_READ], rawResponse: true });

@@ -41,14 +41,43 @@ model SystemRole {
   @@index([sectionId])
 }
 
+enum PermissionScope {
+  GLOBAL
+  ORGANIZATION
+  OPMC
+  AREA
+  SELF
+}
+
+/// Canonical application capabilities. Role membership is not authorization;
+/// SystemRole -> RolePermission -> PermissionDefinition is.
+model PermissionDefinition {
+  id          String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  code        String           @unique
+  module      String
+  action      String
+  scope       PermissionScope  @default(GLOBAL)
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roleGrants  RolePermission[]
+
+  @@index([module, action])
+  @@index([isActive])
+}
+
 model RolePermission {
-  id         String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  roleId     String     @db.Uuid
-  permission String
-  role       SystemRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id                   String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  roleId               String              @db.Uuid
+  permission           String              // legacy/cached code; kept during migration
+  permissionDefinitionId String?           @db.Uuid
+  role                 SystemRole          @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionDefinition PermissionDefinition? @relation(fields: [permissionDefinitionId], references: [id], onDelete: SetNull)
 
   @@unique([roleId, permission])
   @@index([roleId])
+  @@index([permissionDefinitionId])
 }
 
 model UserSectionAssignment {

@@ -1,12 +1,10 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
-import { SODInvoicingService } from '@/services/service-order/sod.invoicing.service';
 import { SODLifecycleService } from '@/services/service-order/sod.lifecycle.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +31,7 @@ export const GET = apiHandler(async (req, params) => {
         totalPages: result.totalPages,
         items: result.orders
     };
-}, { roles: ROLE_GROUPS.ALL_OPS });
+}, { permissions: [RBAC_PERMISSIONS.SOD_READ] });
 
 // PATCH Schema: Toggle Offline Status on any ISHAMP Work Order (CREATE, CREATE-UPGRD, SAME_NO)
 const patchSchema = z.object({
@@ -74,7 +72,7 @@ export const PATCH = apiHandler(async (req, params) => {
             : `Work Order ${updated.soNum} unflagged from Offline mode.`,
         data: updated
     };
-}, { roles: ROLE_GROUPS.INVOICE_GENERATORS });
+}, { permissions: [RBAC_PERMISSIONS.SOD_WRITE] });
 
 // POST Schema: Register New Offline Work Order manually
 const postSchema = z.object({
@@ -118,4 +116,4 @@ export const POST = apiHandler(async (req, params) => {
         message: 'Offline Work Order registered successfully!',
         data: order
     };
-}, { roles: ROLE_GROUPS.INVOICE_GENERATORS });
+}, { permissions: [RBAC_PERMISSIONS.SOD_WRITE] });

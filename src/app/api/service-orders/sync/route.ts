@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope, NIL_UUID } from '@/lib/opmc-scope';
 import { prisma } from '@/lib/prisma';
 import { isValidUuid } from '@/lib/uuid';
@@ -55,7 +55,7 @@ export const POST = apiHandler<unknown, z.infer<typeof syncSODSchema>>(async (_r
     }
 }, {
     schema: syncSODSchema,
-    roles: ROLE_GROUPS.INVOICE_GENERATORS,
+    permissions: [RBAC_PERMISSIONS.SOD_WRITE],
     audit: { action: 'SYNC_SERVICE_ORDERS', entity: 'ServiceOrder' },
     rawResponse: true
 });

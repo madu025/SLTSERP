@@ -6,8 +6,9 @@ import { sign, verify, JwtPayload } from 'jsonwebtoken';
 import { Role, Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { safe, safeSync } from '@/utils/safe-await.util';
-import { safeJsonParse } from '@/utils/safeJsonParse';
 import { requireEnv } from '@/lib/env';
+import { assertDatabaseRole } from '@/lib/role-validation';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 
 /** Fail-closed: JWT signing must never run on a hardcoded default secret */
 function getJwtSecret(): string {
@@ -69,9 +70,12 @@ export class UserService {
             },
             include: {
                 accessibleOpmcs: { select: { id: true, name: true } },
+                systemRole: {
+                    include: { rolePermissions: { include: { permissionDefinition: true } } }
+                },
                 sectionAssignments: {
                     include: {
-                        role: true
+                        role: { include: { rolePermissions: { include: { permissionDefinition: true } } } }
                     }
                 }
             }
@@ -91,18 +95,7 @@ export class UserService {
         // 1. Explicit user.permissions column (admin override)
         // 2. SystemRole permissions from sectionAssignments (unified role system)
         // 3. Empty (helpdesk-only access — no fallback to legacy defaults)
-        let permissions: string[] = [];
-        if (user.permissions) {
-            const parsed = safeJsonParse<string[]>(user.permissions, []);
-            permissions = Array.isArray(parsed) ? parsed : [];
-        } else if (user.sectionAssignments && user.sectionAssignments.length > 0) {
-            // Derive from SystemRole permissions (applies to ALL users with section assignments)
-            const perms: string[] = user.sectionAssignments.flatMap((a) => {
-                const parsed = safeJsonParse<string[]>(a.role?.permissions || '[]', []);
-                return Array.isArray(parsed) ? parsed : [];
-            });
-            permissions = [...new Set(perms)];
-        }
+        const permissions = deriveEffectivePermissions(user);
         // No fallback — if no permissions derived, user gets helpdesk-only access
 
         // Generate JWT Tokens (access + refresh pair)
@@ -217,6 +210,11 @@ export class UserService {
      */
     static async createUser(data: CreateUserData, currentUserId: string) {
         const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
+
+        // Do not allow organization-specific labels or malformed values to
+        // enter User.role. Human-readable organization role names belong to
+        // SystemRole.name; authorization uses the DB Role enum capability.
+        assertDatabaseRole(role);
 
         // Privilege escalation guard: only an existing SUPER_ADMIN may grant the
         // SUPER_ADMIN role (the /api/users guard also allows CEO/HEAD_OF_OSP).
@@ -354,6 +352,10 @@ export class UserService {
      */
     static async updateUser(id: string, data: UpdateUserData, currentUserId: string) {
         const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
+
+        // Validate before any privilege comparison or persistence so role
+        // changes cannot bypass the database role domain.
+        assertDatabaseRole(role);
 
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
         if (!existingUser) throw AppError.notFound('USER_NOT_FOUND');

@@ -10,6 +10,8 @@ import { validateSession } from '@/lib/session-validator';
 import { getPrefixGuardRoles, getPrefixReadGuardRoles, PASSWORD_CHANGE_EXEMPT_PATHS } from '@/config/route-guard-defaults';
 import { assertProjectAccess } from '@/lib/project-access';
 import { isValidUuid } from '@/lib/uuid';
+import { isCanonicalPermission } from '@/config/rbac-permissions';
+import { resolveRouteCapability } from '@/lib/route-capabilities';
 
 // ─── Response Envelope ────────────────────────────────────────────────────────
 
@@ -69,6 +71,12 @@ export interface ApiHandlerMeta {
 export interface ApiHandlerOptions<B> {
     schema?: ZodSchema<B>;
     roles?: string[];
+    /**
+     * Database-backed capability guard. Migrated routes should use this
+     * instead of hard-coded role lists.
+     */
+    permissions?: string[];
+    permissionMode?: 'any' | 'all';
     /**
      * Dynamic RBAC: resolve allowed roles at runtime from the SIDEBAR_MENU
      * entry at this path (single source of truth). Prefer this over `roles`
@@ -231,6 +239,7 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 // version matches the DB — role/status changes invalidate all
                 // existing tokens immediately. The DB role replaces the JWT
                 // claim so privilege changes take effect without re-login delay.
+                let sessionPermissions: string[] = [];
                 if (userId) {
                     const rawVersion = req.headers.get('x-token-version');
                     const parsedVersion = rawVersion === null || rawVersion === '' ? NaN : Number(rawVersion);
@@ -243,6 +252,7 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                         );
                     }
                     if (session.role) userRole = session.role;
+                    sessionPermissions = session.permissions ?? [];
 
                     // ── 0b. Forced password-change lockdown (fail-closed) ────
                     // Accounts flagged with mustChangePassword may only reach the
@@ -265,13 +275,20 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 const pathname = new URL(req.url).pathname;
                 // declaredGuard is true if `roles` is explicitly set (even if empty)
                 // or if `menuPath` is set — prevents `roles: []` from bypassing RBAC.
-                const declaredGuard = Array.isArray(options?.roles) || !!options?.menuPath;
+                const hasExplicitPermissionGuard = Array.isArray(options?.permissions) && options.permissions.length > 0;
+                const autoCapability = hasExplicitPermissionGuard ? undefined : resolveRouteCapability(pathname, req.method);
+                const hasCanonicalSession = sessionPermissions.some((permission) => isCanonicalPermission(permission));
+                const hasAutoPermissionGuard = !!autoCapability && hasCanonicalSession;
+                const hasPermissionGuard = hasExplicitPermissionGuard || hasAutoPermissionGuard;
+                const declaredGuard = Array.isArray(options?.roles) || !!options?.menuPath || hasPermissionGuard;
                 const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 
                 // Explicit `roles` win (even if empty = deny all); otherwise resolve
                 // dynamically from the sidebar menu config via `menuPath`; undeclared
                 // mutating routes fall back to prefix-based departmental defaults (fail-closed).
-                const effectiveRoles = Array.isArray(options?.roles) && options.roles.length > 0
+                const effectiveRoles = hasPermissionGuard
+                    ? undefined
+                    : Array.isArray(options?.roles) && options.roles.length > 0
                     ? options.roles
                     : options?.menuPath
                         ? getMenuAllowedRoles(options.menuPath) ?? undefined
@@ -285,18 +302,38 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                     // - `effectiveRoles = undefined` with `declaredGuard` = fail-closed (misconfigured)
                     // - `effectiveRoles = ['ALL']` = any authenticated user
                     // - Otherwise check role membership
-                    let allowed: boolean;
+                    let allowed = true;
+                    if (hasPermissionGuard) {
+                        const required = options?.permissions ?? (autoCapability ? [autoCapability] : []);
+                        const mode = options?.permissionMode ?? 'any';
+                        allowed = mode === 'all'
+                            ? required.every((permission) => sessionPermissions.includes(permission))
+                            : required.some((permission) => sessionPermissions.includes(permission));
+                    }
+
+                    const hasExplicitRoleGuard = Array.isArray(options?.roles) || !!options?.menuPath;
+                    // Explicit permission declarations may be combined with a
+                    // role guard intentionally. Auto module capabilities are
+                    // authoritative after DB migration, so legacy role arrays
+                    // are skipped for those requests.
+                    const needsRoleGuard = hasExplicitPermissionGuard
+                        ? hasExplicitRoleGuard
+                        : hasAutoPermissionGuard
+                            ? false
+                            : hasExplicitRoleGuard || !hasPermissionGuard;
+                    let roleAllowed = true;
                     if (Array.isArray(options?.roles) && options.roles.length === 0) {
                         // Explicit empty roles array = deny all
-                        allowed = false;
-                    } else if (!effectiveRoles) {
+                        roleAllowed = false;
+                    } else if (needsRoleGuard && !effectiveRoles) {
                         // declaredGuard true but no effectiveRoles = misconfiguration, fail-closed
-                        allowed = false;
-                    } else if (effectiveRoles.includes('ALL')) {
-                        allowed = !!userRole; // 'ALL' = any authenticated user, never anonymous
-                    } else {
-                        allowed = !!userRole && effectiveRoles.includes(userRole);
+                        roleAllowed = false;
+                    } else if (needsRoleGuard && effectiveRoles?.includes('ALL')) {
+                        roleAllowed = !!userRole; // 'ALL' = any authenticated user, never anonymous
+                    } else if (needsRoleGuard && effectiveRoles) {
+                        roleAllowed = !!userRole && effectiveRoles.includes(userRole);
                     }
+                    allowed = allowed && roleAllowed;
                     if (!allowed) {
                         // Denial traceability: record who tried to hit what with which role
                         if (userId) {

@@ -1,8 +1,8 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/service-order/sod.service';
-import { ROLE_GROUPS } from '@/config/roles';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { prisma } from '@/lib/prisma';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,4 +38,4 @@ export const GET = apiHandler(async (request, params) => {
         endDate,
         accessibleRtoms
     });
-}, { roles: ROLE_GROUPS.ALL_OPS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.SOD_READ], rawResponse: true });

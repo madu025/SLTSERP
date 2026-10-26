@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyRefreshToken, signAccessToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 
 /**
  * POST /api/auth/refresh
@@ -51,7 +52,8 @@ export async function POST(request: NextRequest) {
                 id: true, username: true, role: true, contractorId: true,
                 tokenVersion: true, permissions: true, status: true,
                 mustChangePassword: true,
-                sectionAssignments: { include: { role: true } },
+                systemRole: { include: { rolePermissions: { include: { permissionDefinition: true } } } },
+                sectionAssignments: { include: { role: { include: { rolePermissions: { include: { permissionDefinition: true } } } } } },
             },
         });
 
@@ -74,15 +76,8 @@ export async function POST(request: NextRequest) {
             return response;
         }
 
-        // Derive permissions
-        let permissions: string[] = [];
-        if (user.permissions) {
-            try { permissions = JSON.parse(user.permissions); } catch { /* ignore */ }
-        } else if (user.sectionAssignments.length > 0) {
-            permissions = [...new Set(user.sectionAssignments.flatMap(a => {
-                try { return JSON.parse(a.role?.permissions || '[]'); } catch { return []; }
-            }))];
-        }
+        // Use the same DB permission resolver as login and API requests.
+        const permissions = deriveEffectivePermissions(user);
 
         // Sign new access token
         const newAccessToken = await signAccessToken({

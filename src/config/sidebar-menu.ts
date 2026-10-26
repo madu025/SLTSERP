@@ -54,6 +54,7 @@ import {
 
 
 import { ROLE_GROUPS } from "@/config/roles";
+import { RBAC_PERMISSIONS } from "@/config/rbac-permissions";
 
 export interface MenuItem {
     title: string;
@@ -102,73 +103,72 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
-        allowedRoles: [
-            'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
-            'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 
-            'FINANCE_MANAGER', 'FINANCE_ASSISTANT',
-            'STORES_MANAGER', 'STORES_ASSISTANT',
-            'INVOICE_MANAGER', 'INVOICE_ASSISTANT', 'AR_OFFICER',
-            'SF_AUDIT_MANAGER', 'SF_AUDIT_OFFICER', 'RATE_AUDITOR',
-            'PROCUREMENT_OFFICER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF',
-            'SA_MANAGER', 'SA_ASSISTANT', 'HEAD_OF_SECTION'
-        ],
-        permissionId: 'dashboard'
+        allowedRoles: [],
+        permissionId: RBAC_PERMISSIONS.DASHBOARD_READ
     },
     {
         title: 'Service Orders',
         path: '/service-orders/work-order',
         icon: FileText,
         // Service Orders are main work for New Connection & Ops
-        allowedRoles: ROLE_GROUPS.ALL_OPS,
-        permissionId: 'service-orders',
+        allowedRoles: [],
+        permissionId: RBAC_PERMISSIONS.SOD_READ,
         submenu: [
             {
                 title: 'Pending SOD',
                 path: '/service-orders/work-order',
                 icon: FileText,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Install Closed SOD',
                 path: '/service-orders/work-order/install-closed',
                 icon: CheckCircle2,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Return SOD',
                 path: '/service-orders/work-order/return',
                 icon: FileText,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Disappeared SODs',
                 path: '/service-orders/work-order/disappeared',
                 icon: EyeOff,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Completed SOD',
                 path: '/service-orders/work-order/completed',
                 icon: FileCheck2,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Invoicable SODs',
                 path: '/service-orders/invoicable',
                 icon: Receipt,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_INVOICE
             },
             {
                 title: 'PAT Status Monitor',
                 path: '/service-orders/work-order/pat',
                 icon: ClipboardCheck,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_READ
             },
             {
                 title: 'Offline Work Orders',
                 path: '/service-orders/work-order/offline-work-orders',
                 icon: Tag,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.SOD_READ
             }
         ]
     },
@@ -199,56 +199,64 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: FolderKanban,
         // QA audit: removed SOD_PROJECT (ASSISTANT_ENGINEER, AREA_COORDINATOR, QC_OFFICER have no submenu access)
         // Parent roles = union of all submenu allowedRoles
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS, 'AREA_MANAGER'],
-        permissionId: 'projects',
+        allowedRoles: [],
+        permissionId: RBAC_PERMISSIONS.PROJECT_READ,
         submenu: [
             {
                 title: 'All Projects',
                 path: '/projects',
                 icon: List,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'PM Dashboard',
                 path: '/projects/dashboards/pm',
                 icon: BarChart2,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'Finance Dashboard',
                 path: '/projects/dashboards/financials',
                 icon: LineChart,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER']
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.FINANCE_READ
             },
             {
                 title: 'QA/QC Dashboard',
                 path: '/projects/dashboards/qaqc',
                 icon: ClipboardList,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'Logistics Dashboard',
                 path: '/projects/dashboards/logistics',
                 icon: Truck,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'IR Material Audit',
                 path: '/projects/dashboards/ir-audit',
                 icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.INVENTORY_READ
             },
             {
                 title: 'National GIS Map',
                 path: '/gis/map',
                 icon: Route,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.PROJECT_READ
             },
             {
                 title: 'GIS File Import',
                 path: '/gis/upload',
                 icon: Upload,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.PROJECT_WRITE
             },
         ]
     },
@@ -1018,8 +1026,10 @@ export const hasAccess = (
         return !!itemTitle && ['IT Help Desk', 'ITMS & IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
     }
 
-    // Misconfiguration guard: an empty allowedRoles list must never grant visibility
-    if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) return false;
+    // Empty allowedRoles is intentional for DB-driven capability entries. It
+    // denies access unless the user's effective DB permissions contain the
+    // item's permissionId.
+    if (!Array.isArray(allowedRoles)) return false;
 
     // Super Admin & Admin always have full visibility. hasRouteAccess grants the
     // same bypass so menu visibility and actual page access never diverge.
@@ -1032,16 +1042,15 @@ export const hasAccess = (
 
     // Strict isolation for Procurement Officer: ONLY allow items where role is explicitly listed
     if (userRole === 'PROCUREMENT_OFFICER') {
+        if (userPermissions && permissionId && userPermissions.includes(permissionId)) return true;
         return allowedRoles.includes(userRole);
     }
 
-    // Check if user role is explicitly allowed
-    if (allowedRoles.includes('ALL') || allowedRoles.includes(userRole)) return true;
+    // Canonical DB permission path. New modules should not add role lists.
+    if (userPermissions && permissionId && userPermissions.includes(permissionId)) return true;
 
-    // If dynamic permissions explicitly match, allow
-    if (userPermissions && permissionId && userPermissions.includes(permissionId)) {
-        return true;
-    }
+    // Legacy role-list compatibility for modules not yet migrated.
+    if (allowedRoles.includes('ALL') || allowedRoles.includes(userRole)) return true;
 
     return false;
 };

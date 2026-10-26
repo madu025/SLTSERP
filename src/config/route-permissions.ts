@@ -3,7 +3,8 @@
  * DYNAMICALLY extracts path -> allowedRoles from the SIDEBAR_MENU config.
  * No separate hardcoded mapping -- the sidebar IS the single source of truth.
  *
- * Paths not present in the sidebar menu are accessible to any authenticated user.
+ * Paths not present in the sidebar menu remain legacy-authenticated paths until
+ * their module is migrated to a canonical capability.
  */
 
 import { SIDEBAR_MENU, MenuItem } from './sidebar-menu';
@@ -75,9 +76,8 @@ export function getMenuAllowedRoles(path: string): string[] | null {
  *
  * @param pathname - The page path to check
  * @param userRole - The user's primary role
- * @param userPermissions - Optional permissions from DB (admin-configured).
- *   If the user has a permission matching the route's permissionId, access
- *   is granted even if the role is not in the hardcoded allowedRoles.
+ * @param userPermissions - Effective canonical/legacy permissions from DB.
+ *   Canonical permission IDs are authoritative for migrated menu entries.
  */
 export function hasRouteAccess(pathname: string, userRole: string, userPermissions?: string[]): boolean {
     // Super Admin & Admin always have access to everything. Mirrors the
@@ -95,9 +95,13 @@ export function hasRouteAccess(pathname: string, userRole: string, userPermissio
     // No permission rule found -> allow any authenticated user
     if (!rule) return true;
 
-    // Misconfiguration guard: an empty allowedRoles list denies everyone
-    // (consistent with apiHandler fail-closed policy)
-    if (rule.allowedRoles.length === 0) return false;
+    const menuPermission = getMenuPermissionForPath(normalized);
+
+    // Empty allowedRoles is intentional for DB-driven capability entries.
+    // It denies access unless the canonical permission is present.
+    if (rule.allowedRoles.length === 0) {
+        return !!menuPermission && !!userPermissions?.includes(menuPermission);
+    }
 
     // 'ALL' wildcard = every authenticated role
     if (rule.allowedRoles.includes('ALL')) return true;
@@ -109,7 +113,6 @@ export function hasRouteAccess(pathname: string, userRole: string, userPermissio
     // Find the permissionId for this route by matching the most specific
     // menu item's permissionId. If the user has that permission, grant access.
     if (userPermissions && userPermissions.length > 0) {
-        const menuPermission = getMenuPermissionForPath(normalized);
         if (menuPermission && userPermissions.includes(menuPermission)) return true;
     }
 
@@ -121,23 +124,21 @@ export function hasRouteAccess(pathname: string, userRole: string, userPermissio
  * menu item that matches. Returns undefined if no permissionId is found.
  */
 function getMenuPermissionForPath(pathname: string): string | undefined {
-    // Use the same longest-prefix match as hasRouteAccess
-    const rule = sortedPrefixes.find(
-        (p) => pathname === p.prefix || pathname.startsWith(p.prefix + '/')
-    );
-    if (!rule) return undefined;
-
-    // Walk the menu tree to find the permissionId for this specific path
-    const findPermissionId = (items: import('./sidebar-menu').MenuItem[], targetPath: string): string | undefined => {
+    const findPermissionId = (
+        items: import('./sidebar-menu').MenuItem[],
+        targetPath: string,
+        inheritedPermission?: string
+    ): string | undefined => {
         for (const item of items) {
-            if (item.path === targetPath && item.permissionId) return item.permissionId;
+            const permission = item.permissionId || inheritedPermission;
+            if (item.path === targetPath) return permission;
             if (item.submenu) {
-                const found = findPermissionId(item.submenu, targetPath);
+                const found = findPermissionId(item.submenu, targetPath, permission);
                 if (found) return found;
             }
         }
         return undefined;
     };
 
-    return findPermissionId(SIDEBAR_MENU, rule.prefix);
+    return findPermissionId(SIDEBAR_MENU, pathname);
 }

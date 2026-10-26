@@ -1,6 +1,9 @@
+import { RBAC_PERMISSION_CODES } from './rbac-permissions';
+
 /**
  * DEPRECATED: This is now only a template for creating new SystemRole records.
- * Runtime permissions are derived from SystemRole.permissions via sectionAssignments.
+ * Runtime permissions are derived from PermissionDefinition/RolePermission
+ * via SystemRole and sectionAssignments.
  * See: scripts/migrate-global-roles.ts for the migration that populated SystemRole from this.
  * 
  * Legacy default permissions per Postgres enum role — used only when creating
@@ -38,7 +41,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
  * API-side validation of SystemRole.permissions payloads (keep in sync with
  * PAGE_PERMISSIONS in the admin role UI).
  */
-export const VALID_PERMISSION_KEYS: readonly string[] = [
+const LEGACY_PAGE_PERMISSION_KEYS = [
     'dashboard',
     'service-orders',
     'contractors',
@@ -47,6 +50,10 @@ export const VALID_PERMISSION_KEYS: readonly string[] = [
     'inventory',
     'procurement',
     'administration'
+];
+
+export const VALID_PERMISSION_KEYS: readonly string[] = [
+    ...new Set([...LEGACY_PAGE_PERMISSION_KEYS, ...RBAC_PERMISSION_CODES])
 ];
 
 export const SECTION_MAPPING: Record<string, string[]> = {

@@ -3,8 +3,8 @@ import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSc
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { ROLE_GROUPS } from '@/config/roles';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import type { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,7 @@ export const GET = apiHandler(async (request) => {
     if (columnFiltersParam) {
         try {
             columnFilters = JSON.parse(columnFiltersParam);
-        } catch (e) {
+        } catch {
             console.warn('[service-orders] Invalid columnFilters JSON:', columnFiltersParam);
         }
     }
@@ -47,7 +47,7 @@ export const GET = apiHandler(async (request) => {
     const userId = request.headers.get('x-user-id') || 'SYSTEM';
     const result = await ServiceOrderService.getServiceOrders(userId, params);
     return result;
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.SOD_READ], rawResponse: true });
 
 // POST - Create manual service order
 export const POST = apiHandler(
@@ -134,7 +134,7 @@ export const POST = apiHandler(
 
         return { success: true, data: created };
     },
-    { schema: serviceOrderCreateSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }
+    { schema: serviceOrderCreateSchema, permissions: [RBAC_PERMISSIONS.SOD_WRITE], rawResponse: true }
 );
 
 // PUT - Update service order
@@ -149,7 +149,7 @@ export const PUT = apiHandler(
         const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
-    { schema: serviceOrderUpdateSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }
+    { schema: serviceOrderUpdateSchema, permissions: [RBAC_PERMISSIONS.SOD_WRITE], rawResponse: true }
 );
 
 // PATCH - Update SLTS Status query or Contractor assignment
@@ -164,5 +164,5 @@ export const PATCH = apiHandler(
         const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return serviceOrder;
     },
-    { schema: serviceOrderPatchSchema, roles: ROLE_GROUPS.INVOICE_GENERATORS, rawResponse: true }
+    { schema: serviceOrderPatchSchema, permissions: [RBAC_PERMISSIONS.SOD_WRITE], rawResponse: true }
 );

@@ -220,6 +220,14 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 2. **Immutable Audit Ledger**: All custody transfers and stock movements must write an immutable ledger entry into `InventoryLedger` with SHA-256 checksum tracking (`id + storeId + itemId + quantityAfter + createdAt`).
 3. **Preflight Identification**: Before building any new feature, identify whether the process requires auditable signatures, issue note references, or role isolation, and enforce them at the schema and API layer automatically.
 
+## 🔐 Mandatory Authorization Architecture Rules
+
+1. **DB capabilities are authoritative**: Runtime authorization MUST use the canonical `PermissionDefinition` + `RolePermission` model documented in [docs/authorization-architecture.md](docs/authorization-architecture.md). `User.role` and `ROLE_GROUPS` are legacy/bootstrap compatibility only.
+2. **No new hard-coded role lists**: New API routes, pages, sidebar entries, services, and approval flows MUST use a canonical permission code from `src/config/rbac-permissions.ts`. Use `apiHandler({ permissions: [...] })` and `RoleGuard` with `permissionId`.
+3. **Separate capability from data scope**: A module permission never grants global data access. Every operational read/write MUST enforce the server-side OPMC/area scope (`resolveOpmcScope`, `assertProjectAccess`, or the relevant service boundary).
+4. **Manual grants are explicit**: `User.permissions` is an audited override and replaces inherited grants when non-null. Do not silently merge or infer tenant/organization access from display role names.
+5. **When adding a capability**: update the catalog, Prisma schema/seed if needed, admin permission UI, backend guard, frontend guard, tests, and the architecture document together. Run the RBAC, type, unit, and production build checks before handoff.
+
 ## 📧 Email Template Auto-Wiring Mandate
 1. **Automatic Template Wiring**: Whenever you add or modify any code that sends an email (`EmailService.sendMail(...)`), you MUST automatically wire it to the DB notification template system WITHOUT being reminded by the user:
    - Register a template code in `src/config/notification-templates.ts` (`TEMPLATE_CODES`) with label, description, category, placeholders, and defaultEntityType.
