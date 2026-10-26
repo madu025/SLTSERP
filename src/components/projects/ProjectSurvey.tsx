@@ -77,6 +77,15 @@ function getApiMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
+function getApiArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === 'object') {
+    const data = (payload as Record<string, unknown>).data;
+    if (Array.isArray(data)) return data as T[];
+  }
+  return [];
+}
+
 export default function ProjectSurvey({ project, refreshProject }: ProjectSurveyProps) {
   const router = useRouter();
   const [surveys, setSurveys] = useState<SurveyRequest[]>([]);
@@ -96,8 +105,12 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
             fetch('/api/staff'),
             fetch('/api/contractors/teams')
           ]);
-          if (staffRes.ok) setStaffList(await staffRes.json());
-          if (teamsRes.ok) setTeamList(await teamsRes.json());
+          const [staffData, teamsData] = await Promise.all([
+            staffRes.json().catch(() => null),
+            teamsRes.json().catch(() => null),
+          ]);
+          if (staffRes.ok) setStaffList(getApiArray(staffData));
+          if (teamsRes.ok) setTeamList(getApiArray(teamsData));
         } catch (err) {
           console.error('Failed to fetch assignment lists:', err);
         }
