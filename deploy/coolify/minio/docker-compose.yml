@@ -1,37 +1,37 @@
 services:
   minio:
-    image: minio/minio:latest
+    image: bitnamilegacy/minio:2025.7.23-debian-12-r5
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set a strong MinIO root user in Coolify}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set a strong MinIO root password in Coolify}
-      SERVICE_URL_MINIO_9000: /
+      - MINIO_ROOT_USER
+      - MINIO_ROOT_PASSWORD
+      - SERVICE_URL_MINIO_9000=/
     volumes:
-      - minio_data:/data
+      - minio_data:/bitnami/minio/data
     expose:
       - "9000"
       - "9001"
 
-  minio-init:
-    image: minio/mc:latest
+  minio-provision:
+    image: bitnamilegacy/minio:2025.7.23-debian-12-r5
     restart: "no"
     depends_on:
       - minio
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set a strong MinIO root user in Coolify}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set a strong MinIO root password in Coolify}
-      S3_BUCKET: ${S3_BUCKET:-sltserp-documents}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set a dedicated MinIO app access key in Coolify}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set a dedicated MinIO app secret in Coolify}
-    entrypoint: >-
-      /bin/sh -c '
-      until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 2; done;
-      mc mb --ignore-existing "local/$${S3_BUCKET}";
-      mc anonymous set none "local/$${S3_BUCKET}";
-      mc admin user add local "$${S3_ACCESS_KEY}" "$${S3_SECRET_KEY}" || true;
-      mc admin policy attach local readwrite --user "$${S3_ACCESS_KEY}" || true;
-      '
+      - MINIO_ROOT_USER
+      - MINIO_ROOT_PASSWORD
+      - S3_BUCKET
+      - S3_ACCESS_KEY
+      - S3_SECRET_KEY
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      set -eu;
+      until /opt/bitnami/minio-client/bin/mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 2; done;
+      /opt/bitnami/minio-client/bin/mc mb --ignore-existing "local/$${S3_BUCKET}";
+      /opt/bitnami/minio-client/bin/mc anonymous set none "local/$${S3_BUCKET}";
+      if ! /opt/bitnami/minio-client/bin/mc admin user info local "$${S3_ACCESS_KEY}" >/dev/null 2>&1; then /opt/bitnami/minio-client/bin/mc admin user add local "$${S3_ACCESS_KEY}" "$${S3_SECRET_KEY}"; fi;
+      /opt/bitnami/minio-client/bin/mc admin policy attach local readwrite --user "$${S3_ACCESS_KEY}";
+      /opt/bitnami/minio-client/bin/mc admin user info local "$${S3_ACCESS_KEY}";
 
 volumes:
   minio_data:
