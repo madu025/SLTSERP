@@ -10,6 +10,17 @@ import { format } from 'date-fns';
 import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, Link2, Clock } from 'lucide-react';
 
 import { toast } from 'sonner';
+
+function getApiErrorMessage(payload: unknown, fallback: string): string {
+    if (!payload || typeof payload !== 'object') return fallback;
+    const error = (payload as { error?: unknown }).error;
+    if (typeof error === 'string') return error;
+    if (error && typeof error === 'object' && 'message' in error) {
+        const message = (error as { message?: unknown }).message;
+        if (typeof message === 'string') return message;
+    }
+    return fallback;
+}
 interface Project {
     id: string;
     projectCode: string;
@@ -289,9 +300,11 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 refreshProject();
             } else {
                 const error = await res.json();
-                toast.error(error.error || 'Failed to save task');
+                toast.error(getApiErrorMessage(error, 'Failed to save task'));
             }
         } catch (error) {
+            console.error('Failed to save task:', error);
+            toast.error('Failed to save task');
 }
     };
 
@@ -319,9 +332,11 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 refreshProject();
             } else {
                 const error = await res.json();
-                toast.error(error.error || 'Failed to log progress');
+                toast.error(getApiErrorMessage(error, 'Failed to log progress'));
             }
         } catch (error) {
+            console.error('Failed to log progress:', error);
+            toast.error('Failed to log progress');
 }
     };
 
@@ -347,9 +362,11 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 fetchAllTasks();
             } else {
                 const error = await res.json();
-                toast.error(error.error || 'Failed to add dependency');
+                toast.error(getApiErrorMessage(error, 'Failed to add dependency'));
             }
         } catch (error) {
+            console.error('Failed to add dependency:', error);
+            toast.error('Failed to add dependency');
 }
     };
 
@@ -379,9 +396,11 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 setIsTimesheetDialogOpen(false);
             } else {
                 const error = await res.json();
-                toast.error(error.error || 'Failed to save timesheet');
+                toast.error(getApiErrorMessage(error, 'Failed to save timesheet'));
             }
         } catch (error) {
+            console.error('Failed to save timesheet:', error);
+            toast.error('Failed to save timesheet');
 }
     };
 

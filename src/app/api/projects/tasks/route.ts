@@ -24,10 +24,9 @@ export const GET = apiHandler(async (req) => {
 export const POST = apiHandler(async (req, _params, body) => {
     const projectId = body.projectId as string | undefined;
     const name = body.name as string | undefined;
-    const wbsCode = body.wbsCode as string | undefined;
 
-    if (!projectId || !name || !wbsCode) {
-        throw AppError.badRequest('projectId, name, and wbsCode are required');
+    if (!projectId || !name?.trim()) {
+        throw AppError.badRequest('projectId and name are required');
     }
 
     return await ProjectTaskService.createTask(body as any);

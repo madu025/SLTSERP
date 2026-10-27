@@ -116,39 +116,59 @@ export class ProjectTaskService {
     static async createTask(data: CreateTaskInput) {
         const { projectId, parentId, wbsCode, name, description, type, plannedStartDate, plannedEndDate, plannedDuration, priority, estimatedCost, order, assigneeType, assigneeId } = data;
 
-        // Auto-generate WBS code if not provided for child tasks
-        let finalWbsCode = wbsCode || '';
-        if (parentId && !wbsCode) {
-            const parent = await prisma.projectTask.findUnique({ where: { id: parentId } });
-            if (parent) {
-                const siblingCount = await prisma.projectTask.count({ where: { parentId } });
-                finalWbsCode = `${parent.wbsCode}.${siblingCount + 1}`;
-            }
-        }
+        const optionalString = (value?: string | null) => {
+            const normalized = value?.trim();
+            return normalized || null;
+        };
 
-        const task = await prisma.projectTask.create({
-            data: {
-                projectId,
-                parentId: parentId || null,
-                wbsCode: finalWbsCode,
-                name,
-                description,
-                type: type || 'TASK',
-                priority: priority || 'MEDIUM',
-                plannedStartDate: plannedStartDate ? new Date(plannedStartDate) : null,
-                plannedEndDate: plannedEndDate ? new Date(plannedEndDate) : null,
-                plannedDuration: plannedDuration ? parseInt(String(plannedDuration), 10) : null,
-                estimatedCost: estimatedCost ? parseFloat(String(estimatedCost)) : null,
-                order: order || 0,
-                assigneeType,
-                assigneeId,
-                status: 'PENDING',
-                actualProgress: 0
-            },
-            include: {
-                children: { select: { id: true, name: true, status: true } },
-                _count: { select: { children: true } }
+        const task = await prisma.$transaction(async (tx) => {
+            const parent = parentId
+                ? await tx.projectTask.findUnique({ where: { id: parentId } })
+                : null;
+
+            if (parentId && !parent) {
+                throw AppError.notFound('Parent task was not found');
             }
+            if (parent && parent.projectId !== projectId) {
+                throw AppError.badRequest('Parent task must belong to the same project');
+            }
+
+            // The WBS field is optional in the UI. Generate a stable code for
+            // both root and child tasks when the user leaves it blank.
+            let finalWbsCode = optionalString(wbsCode);
+            if (!finalWbsCode) {
+                const siblingCount = await tx.projectTask.count({
+                    where: parentId ? { parentId } : { projectId, parentId: null }
+                });
+                finalWbsCode = parent
+                    ? `${parent.wbsCode || siblingCount + 1}.${siblingCount + 1}`
+                    : `${siblingCount + 1}`;
+            }
+
+            return tx.projectTask.create({
+                data: {
+                    projectId,
+                    parentId: parentId || null,
+                    wbsCode: finalWbsCode,
+                    name: name.trim(),
+                    description: optionalString(description),
+                    type: optionalString(type) || 'TASK',
+                    priority: optionalString(priority) || 'MEDIUM',
+                    plannedStartDate: plannedStartDate ? new Date(plannedStartDate) : null,
+                    plannedEndDate: plannedEndDate ? new Date(plannedEndDate) : null,
+                    plannedDuration: plannedDuration !== null && plannedDuration !== undefined && String(plannedDuration).trim() !== '' ? parseInt(String(plannedDuration), 10) : null,
+                    estimatedCost: estimatedCost !== null && estimatedCost !== undefined && String(estimatedCost).trim() !== '' ? parseFloat(String(estimatedCost)) : null,
+                    order: order ?? 0,
+                    assigneeType: optionalString(assigneeType),
+                    assigneeId: optionalString(assigneeId),
+                    status: 'PENDING',
+                    actualProgress: 0
+                },
+                include: {
+                    children: { select: { id: true, name: true, status: true } },
+                    _count: { select: { children: true } }
+                }
+            });
         });
 
         return task;
