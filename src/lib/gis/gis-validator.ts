@@ -10,6 +10,7 @@ import {
   ParsedFDPData,
   ParsedFiberJointData,
   ParsedRoadData,
+  ParsedPointAssetData,
   GISLayerResult,
   GISLayerType,
 } from '@/types/gis';
@@ -105,6 +106,32 @@ export class GISValidator {
       });
       errors.push(...result.errors.map(e => `Road: ${e}`));
       warnings.push(...result.warnings.map(w => `Road: ${w}`));
+    }
+
+    // Generic point layers (including handholes) must be validated too.  They
+    // used to be parsed and persisted without any coordinate validation.
+    const pointLayerLabels: Array<{ type: GISLayerType; label: string }> = [
+      { type: 'DUCT', label: 'Duct' },
+      { type: 'HANDHOLE', label: 'Handhole' },
+      { type: 'MANHOLE', label: 'Manhole' },
+      { type: 'ODF', label: 'ODF' },
+      { type: 'RISER', label: 'Riser' },
+      { type: 'FTC', label: 'FTC' },
+      { type: 'TEST_POINT', label: 'TestPoint' },
+      { type: 'BUILDING', label: 'Building' },
+    ];
+    for (const { type, label } of pointLayerLabels) {
+      if (!layers.has(type)) continue;
+      const data = layers.get(type) as ParsedPointAssetData;
+      const result = this.validatePointAssetLayer(data);
+      layerResults.push({
+        layerName: data.layerName || type.toLowerCase(),
+        layerType: type,
+        featureCount: data.featureCount || 0,
+        ...result,
+      });
+      errors.push(...result.errors.map(e => `${label}: ${e}`));
+      warnings.push(...result.warnings.map(w => `${label}: ${w}`));
     }
 
     return {
@@ -278,6 +305,39 @@ export class GISValidator {
       }
       if (road.length <= 0) {
         warnings.push(`Road segment ${road.index}: Zero length`);
+      }
+    });
+
+    return {
+      status: errors.length > 0 ? 'FAILED' : 'VALIDATED',
+      errors,
+      warnings,
+    };
+  }
+
+  /** Validate generic point-asset layers such as handholes and buildings. */
+  validatePointAssetLayer(data: ParsedPointAssetData): LayerValidation {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    if (data.featureCount === 0) {
+      warnings.push('No point features found in layer');
+    }
+
+    data.assets.forEach((asset) => {
+      if (!Number.isFinite(asset.latitude) || !Number.isFinite(asset.longitude)) {
+        errors.push(`Asset ${asset.index}: Missing GPS coordinates`);
+        return;
+      }
+      if (
+        asset.latitude < -90 ||
+        asset.latitude > 90 ||
+        asset.longitude < -180 ||
+        asset.longitude > 180
+      ) {
+        errors.push(
+          `Asset ${asset.index}: Invalid GPS coordinates (${asset.latitude}, ${asset.longitude})`
+        );
       }
     });
 

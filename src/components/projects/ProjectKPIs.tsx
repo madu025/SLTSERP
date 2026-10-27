@@ -92,11 +92,15 @@ export default function ProjectKPIs({ project }: ProjectKPIsProps) {
                     <div className={`absolute top-0 right-0 left-0 h-1 ${metrics.cpi >= 1.0 ? 'bg-green-500' : 'bg-red-500'}`} />
                     <CardHeader className="pb-2">
                         <CardDescription className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cost Efficiency (CPI)</CardDescription>
-                        <CardTitle className="text-2xl font-black text-slate-900 mt-1">{metrics.cpi}</CardTitle>
+                        <CardTitle className="text-2xl font-black text-slate-900 mt-1">{metrics.cpi > 0 ? metrics.cpi : 'N/A'}</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0 flex justify-between items-center">
                         <span className="text-[10px] font-medium text-slate-500">Target &gt;= 1.0</span>
-                        <Badge className={status.costStatus === 'UNDER_BUDGET' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                        <Badge className={
+                            status.costStatus === 'UNDER_BUDGET' ? 'bg-green-100 text-green-700' :
+                                status.costStatus === 'ACTUAL_COST_PENDING' ? 'bg-slate-100 text-slate-700' :
+                                    'bg-red-100 text-red-700'
+                        }>
                             {status.costStatus.replace(/_/g, ' ')}
                         </Badge>
                     </CardContent>

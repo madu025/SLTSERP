@@ -98,6 +98,12 @@ interface ParsedLayerMap {
   building?: ParsedPointAssetData;
 }
 
+function getCanonicalBoqTotal(boq: BOQSummary): number {
+  return Math.round(
+    boq.items.reduce((sum, item) => sum + Math.round(item.amount * 100) / 100, 0) * 100
+  ) / 100;
+}
+
 // ============================================================================
 // Helper Functions — Default Checklist & Approval Templates
 // ============================================================================
@@ -864,6 +870,16 @@ export class GISImportService {
         details: `Validation: ${validationResult.isValid ? 'PASSED' : 'FAILED'} (${validationResult.errors.length} errors, ${validationResult.warnings.length} warnings)`,
       });
 
+      // Never persist an invalid GIS package.  The previous flow only logged
+      // validation errors and continued into project/asset creation, which
+      // could leave a partially trusted as-built record in the database.
+      if (!validationResult.isValid) {
+        throw AppError.validation(
+          `GIS validation failed with ${validationResult.errors.length} error(s).`,
+          { importId, errors: validationResult.errors, warnings: validationResult.warnings }
+        );
+      }
+
       session.status = 'VALIDATED';
       session.updatedAt = new Date();
 
@@ -971,13 +987,17 @@ export class GISImportService {
         regionMultiplier,
         inventoryStock
       );
+      // Use the rounded line-item sum as the canonical total.  Floating-point
+      // accumulation in the engine can otherwise make the project budget,
+      // generated BOQ and ProjectBOQItem totals disagree by small amounts.
+      const canonicalBoqTotal = getCanonicalBoqTotal(boq);
 
       auditLog.push({
         timestamp: new Date().toISOString(),
         action: 'BOQ_GENERATED',
         entity: 'GISGeneratedBOQ',
         entityId: importId,
-        details: `BOQ generated: ${boq.items.length} items, total LKR ${boq.totalEstimatedCost.toLocaleString()} (region multiplier: ${regionMultiplier}x, ${session.useRegionMultiplier ? 'enabled' : 'disabled'})`,
+        details: `BOQ generated: ${boq.items.length} items, total LKR ${canonicalBoqTotal.toLocaleString()} (region multiplier: ${regionMultiplier}x, ${session.useRegionMultiplier ? 'enabled' : 'disabled'})`,
       });
 
       // ====================================================================
@@ -1070,6 +1090,7 @@ export class GISImportService {
   ): Promise<GISImportResult> {
     let project: import('@prisma/client').Project | null = null;
     let isUpgrade = false;
+    const canonicalBoqTotal = getCanonicalBoqTotal(boq);
 
     if (session.projectId) {
       isUpgrade = true;
@@ -1108,13 +1129,17 @@ export class GISImportService {
             : `Auto-created from GIS import. Type: ${projectType} (${confidence}% confidence). ${layerResults.length} layers imported.`,
           type: projectType,
           status: session.isCompletedProject ? 'COMPLETED' : 'PLANNING',
+          progress: session.isCompletedProject ? 100 : 0,
           location: session.region
             ? `${session.region}${session.district ? ` / ${session.district}` : ''}${session.lea ? ` / ${session.lea}` : ''}`
             : null,
           opmcId,
-          budget: boq.totalEstimatedCost,
-          actualCost: session.isCompletedProject ? boq.totalEstimatedCost : 0,
-          variance: session.isCompletedProject ? 0 : boq.totalEstimatedCost,
+          budget: canonicalBoqTotal,
+          // GIS/QField files provide design/as-built quantities, not proof of
+          // payment.  Keep actual cost at zero until expenses/invoices are
+          // recorded instead of reporting the BOQ estimate as money spent.
+          actualCost: 0,
+          variance: canonicalBoqTotal,
           startDate: new Date(),
           estimatedDuration: 180,
         },
@@ -1212,6 +1237,29 @@ export class GISImportService {
               joint_number: joint.properties?.Joint_Number || `JT-${joint.index}`,
               type: joint.jointType,
               ...joint.properties,
+            },
+          });
+        });
+      }
+
+      // Preserve road/EOP geometry in the route payload as well.  It is
+      // already used for validation and permit analytics; retaining it here
+      // keeps the completed/as-built export from silently losing crossings.
+      if (parsedLayers.road) {
+        parsedLayers.road.roadSegments.forEach((road) => {
+          features.push({
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: road.coordinates,
+            },
+            properties: {
+              layer: 'ROAD_EOP',
+              road_name: road.roadName,
+              road_type: road.roadType,
+              authority: road.authority,
+              length: road.length,
+              ...road.properties,
             },
           });
         });
@@ -1519,6 +1567,47 @@ export class GISImportService {
     // 4. CREATE SURVEY REQUESTS
     // ======================================================================
     let surveyTasksCreated = 0;
+    let completedSurveyRecorded = false;
+    if (session.isCompletedProject) {
+      const completedAt = new Date();
+      await prisma.surveyRequest.upsert({
+        where: { requestNumber: `SRV-${projectCode}` },
+        create: {
+          projectId: project.id,
+          requestNumber: `SRV-${projectCode}`,
+          title: `Completed Survey - ${projectName}`,
+          description: `Completed survey dataset imported from GIS/QField package ${session.id}.`,
+          surveyType: 'ROUTE_SURVEY',
+          priority: 'HIGH',
+          status: 'COMPLETED',
+          completedDate: completedAt,
+          estimatedBOQ: canonicalBoqTotal,
+          finalBOQ: canonicalBoqTotal,
+          remarks: session.notes || 'Imported completed survey dataset.',
+          createdById: session.createdById,
+          approvedById: session.createdById,
+          approvedAt: completedAt,
+        },
+        update: {
+          projectId: project.id,
+          status: 'COMPLETED',
+          completedDate: completedAt,
+          estimatedBOQ: canonicalBoqTotal,
+          finalBOQ: canonicalBoqTotal,
+          remarks: session.notes || 'Imported completed survey dataset.',
+          approvedById: session.createdById,
+          approvedAt: completedAt,
+        },
+      });
+      completedSurveyRecorded = true;
+      auditLog.push({
+        timestamp: completedAt.toISOString(),
+        action: 'COMPLETED_SURVEY_RECORDED',
+        entity: 'SurveyRequest',
+        entityId: `SRV-${projectCode}`,
+        details: `Recorded completed survey import ${session.id} for ${projectCode}.`,
+      });
+    }
     if (!session.isCompletedProject && !isUpgrade) {
       const surveyResult = surveyGenerator.generateSurveyTasks(layersMap);
 
@@ -1651,7 +1740,7 @@ export class GISImportService {
           routeId: gisRouteId,
           projectId: project.id,
           status: 'DRAFT',
-          totalEstimated: boq.totalEstimatedCost,
+          totalEstimated: canonicalBoqTotal,
           createdById: session.createdById,
         },
       });
@@ -1677,7 +1766,10 @@ export class GISImportService {
       // Sync BOQ items to ProjectBOQItem for dashboard BOQ tab visibility.
       // Now uses the boq engine's pre-computed source/materialId/itemCode directly
       // instead of duplicating inventory logic.
-      if (!session.isCompletedProject) {
+      // Completed/as-built imports still need canonical ProjectBOQItem rows.
+      // Overview, Finance, Procurement and Budget Tracking read this table;
+      // leaving it empty makes a valid imported BOQ appear as LKR 0.
+      {
         if (isUpgrade) {
           await prisma.projectBOQItem.deleteMany({ where: { projectId: project.id, remarks: { startsWith: 'GIS Import' } } });
         }
@@ -1714,6 +1806,16 @@ export class GISImportService {
           }),
         });
 
+        // Historical completed imports must not get future/pending milestones.
+        if (session.isCompletedProject) {
+          auditLog.push({
+            timestamp: new Date().toISOString(),
+            action: 'MILESTONES_SKIPPED_COMPLETED_IMPORT',
+            entity: 'ProjectMilestone',
+            entityId: project.id,
+            details: 'Completed/as-built import uses completed survey evidence instead of future milestones',
+          });
+        } else {
         // Create milestones from BOQ categories for dashboard milestone tab
         const milestoneNames = [...new Set(boq.items.map((i) => i.category))];
         await prisma.projectMilestone.createMany({
@@ -1733,6 +1835,7 @@ export class GISImportService {
           entityId: project.id,
           details: `${milestoneNames.length} milestones created from BOQ categories`,
         });
+        }
       }
 
       auditLog.push({
@@ -1740,7 +1843,7 @@ export class GISImportService {
         action: 'BOQ_PERSISTED',
         entity: 'GISGeneratedBOQ',
         entityId: generatedBOQ.id,
-        details: `BOQ persisted with ${boq.items.length} items, total LKR ${boq.totalEstimatedCost.toLocaleString()} (synced to ProjectBOQItem)`,
+        details: `BOQ persisted with ${boq.items.length} items, total LKR ${canonicalBoqTotal.toLocaleString()} (synced to ProjectBOQItem)`,
       });
     }
 
@@ -1981,6 +2084,24 @@ export class GISImportService {
     // ======================================================================
     // 8. CREATE AUDIT LOG ENTRIES
     // ======================================================================
+    // Keep the GIS-specific audit trail in sync with the import audit returned
+    // to the caller.  The project GIS Audit screen reads GISAuditLog, while the
+    // old flow only wrote workflow audit rows, so successful imports appeared
+    // to have no audit history.
+    if (auditLog.length > 0) {
+      await prisma.gISAuditLog.createMany({
+        data: auditLog.map((entry) => ({
+          projectId: project!.id,
+          entityType: entry.entity,
+          entityId: entry.entityId,
+          action: entry.action,
+          performedById: session.createdById,
+          fieldChanges: { details: { oldValue: null, newValue: entry.details } },
+          source: 'GIS_IMPORT',
+        })),
+      });
+    }
+
     for (const entry of auditLog) {
       await prisma.workflowAuditLog.create({
         data: {
@@ -2008,6 +2129,7 @@ export class GISImportService {
       boq,
       assetsCreated: assetResult.count,
       surveyTasksCreated,
+      completedSurveyRecorded,
       permitsCreated,
       workflowInstantiated,
       stagesCreated,

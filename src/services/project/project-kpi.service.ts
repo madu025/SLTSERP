@@ -33,7 +33,10 @@ export class ProjectKPIService {
 
         const budgetNum = budget ? Number(budget) : 0;
         const SPI = PV > 0 ? EV / PV : (budgetNum > 0 ? EV / (budgetNum * 0.1) : 1);
-        const CPI = AC > 0 ? EV / AC : (EV > 0 ? 999 : 1);
+        // A missing actual-cost ledger is not evidence of infinite cost
+        // efficiency.  Keep CPI neutral and expose a pending status so the UI
+        // does not report a misleading 999 / UNDER_BUDGET result.
+        const CPI = AC > 0 ? EV / AC : 0;
 
         const budgetUtilization = budgetNum > 0 ? (actualCost / budgetNum) * 100 : 0;
 
@@ -89,7 +92,9 @@ export class ProjectKPIService {
                 endDate: endDate?.toISOString() || null
             },
             status: {
-                costStatus: budgetNum > 0 ? (CPI >= 1.0 ? 'UNDER_BUDGET' : 'OVER_BUDGET') : 'NOT_SET',
+                costStatus: budgetNum > 0
+                    ? (AC > 0 ? (CPI >= 1.0 ? 'UNDER_BUDGET' : 'OVER_BUDGET') : 'ACTUAL_COST_PENDING')
+                    : 'NOT_SET',
                 scheduleStatus: SPI >= 1.0 ? 'AHEAD_OF_SCHEDULE' : 'BEHIND_SCHEDULE'
             }
         };

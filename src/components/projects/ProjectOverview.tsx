@@ -155,7 +155,7 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
                             <div className="flex justify-between items-center py-2 border-b border-slate-100">
                                 <span className="text-sm text-slate-600">BOQ Total</span>
                                 <span className="text-sm font-medium">
-                                    {formatCurrency(project.boqItems?.reduce((s: number, i: any) => s + i.amount, 0) || 0)}
+                                    {formatCurrency(project.boqItems?.reduce((s: number, i: any) => s + Number(i.amount || 0), 0) || 0)}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b border-slate-100">

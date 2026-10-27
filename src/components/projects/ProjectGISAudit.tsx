@@ -15,11 +15,10 @@ interface AuditLog {
   entityId: string;
   action: string;
   source: string;
-  changedAt: string;
-  changedById?: string;
+  performedAt: string;
+  performedById?: string;
+  fieldChanges?: { details?: { oldValue?: unknown; newValue?: unknown } };
   changesSummary?: string;
-  before?: Record<string, unknown>;
-  after?: Record<string, unknown>;
 }
 
 interface AuditResult {
@@ -38,6 +37,7 @@ const ACTION_COLOR: Record<string, string> = {
   UPDATE: 'bg-blue-500/10 text-blue-700 border-blue-500/20',
   DELETE: 'bg-red-500/10 text-red-700 border-red-500/20',
   ROLLBACK: 'bg-purple-500/10 text-purple-700 border-purple-500/20',
+  IMPORT_COMPLETED: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
 };
 
 const SOURCE_COLOR: Record<string, string> = {
@@ -45,11 +45,12 @@ const SOURCE_COLOR: Record<string, string> = {
   MOBILE: 'bg-indigo-500/10 text-indigo-700 border-indigo-500/20',
   API: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
   SYSTEM: 'bg-muted text-muted-foreground border-border',
+  GIS_IMPORT: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20',
 };
 
-const ENTITY_TYPES = ['ROUTE', 'POINT', 'LAYER', 'PROJECT', 'VERSION'];
-const ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'ROLLBACK'];
-const SOURCES = ['WEB', 'MOBILE', 'API', 'SYSTEM'];
+const ENTITY_TYPES = ['ROUTE', 'POINT', 'LAYER', 'PROJECT', 'VERSION', 'GISImport'];
+const ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'ROLLBACK', 'IMPORT_COMPLETED'];
+const SOURCES = ['WEB', 'MOBILE', 'API', 'SYSTEM', 'GIS_IMPORT'];
 
 export default function ProjectGISAudit({ project }: ProjectGISAuditProps) {
   const [result, setResult] = useState<AuditResult | null>(null);
@@ -77,7 +78,14 @@ export default function ProjectGISAudit({ project }: ProjectGISAuditProps) {
         headers: { 'x-user-id': 'current-user' },
       });
       if (!res.ok) throw new Error();
-      setResult(await res.json());
+      const payload = await res.json();
+      setResult({
+        ...payload,
+        logs: (payload.logs ?? []).map((log: AuditLog) => ({
+          ...log,
+          changesSummary: String(log.fieldChanges?.details?.newValue ?? '—'),
+        })),
+      });
     } catch {
       toast.error('Failed to load audit logs');
     } finally {
@@ -187,7 +195,7 @@ export default function ProjectGISAudit({ project }: ProjectGISAuditProps) {
               {result.logs.map((log) => (
                 <TableRow key={log.id} className="border-border text-xs hover:bg-muted/40">
                   <TableCell className="pl-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                    {new Date(log.changedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    {new Date(log.performedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </TableCell>
                   <TableCell>
                     <div className="font-medium text-foreground">{log.entityType}</div>

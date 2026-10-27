@@ -11,6 +11,7 @@ export interface GISImportResult {
   boq: BOQSummary;
   assetsCreated: number;
   surveyTasksCreated: number;
+  completedSurveyRecorded: boolean;
   permitsCreated: number;
   workflowInstantiated: boolean;
   stagesCreated: number;
@@ -64,4 +65,4 @@ export interface GISAuditEntry {
   entityId: string;
   details: string;
   userId?: string;
-}
+}

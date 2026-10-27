@@ -40,6 +40,13 @@ export class AsBuiltService {
       orderBy: [{ layerId: 'asc' }, { createdAt: 'asc' }],
     });
 
+    // Completed GIS imports are stored in GISRoute and its child tables when
+    // no live QField session is used.  Keep the as-built export useful for
+    // that supported historical-import path instead of returning empty data.
+    if (allPoints.length === 0) {
+      return await this.generateGISRouteExport(projectId);
+    }
+
     const puntosByLayer: Record<string, typeof allPoints> = {};
     for (const pt of allPoints) {
       if (!puntosByLayer[pt.layerId]) puntosByLayer[pt.layerId] = [];
@@ -98,6 +105,158 @@ export class AsBuiltService {
       generatedAt: new Date().toISOString(),
       summary,
       geoJsonLayers,
+    };
+  }
+
+  /** Export a completed/as-built GIS route when no SurveyPoint rows exist. */
+  private static async generateGISRouteExport(projectId: string): Promise<AsBuiltExport> {
+    const [project, route] = await Promise.all([
+      prisma.project.findUnique({
+        where: { id: projectId },
+        select: { name: true, projectCode: true, routeLength: true },
+      }),
+      prisma.gISRoute.findFirst({
+        where: { projectId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          poles: true,
+          closures: true,
+          chambers: true,
+          cableSegments: true,
+        },
+      }),
+    ]);
+
+    if (!project) throw AppError.badRequest('Project not found');
+
+    const emptyCollection = (): GeoJSON.FeatureCollection => ({
+      type: 'FeatureCollection',
+      features: [],
+    });
+    const layers: Record<string, GeoJSON.FeatureCollection> = Object.fromEntries(
+      SURVEY_LAYERS.map((layer) => [layer.id, emptyCollection()])
+    );
+
+    if (!route) {
+      return {
+        projectName: project.name,
+        projectCode: project.projectCode,
+        generatedAt: new Date().toISOString(),
+        summary: {
+          totalPoints: 0,
+          routeLengthMeters: Number(project.routeLength || 0),
+          poles: { existing: 0, new: 0 },
+          closures: 0,
+          chambers: 0,
+          fdpCount: 0,
+          cableSections: 0,
+        },
+        geoJsonLayers: layers,
+      };
+    }
+
+    const routeData = route.geojsonData as { type?: string; features?: unknown[] } | null;
+    if (routeData?.type === 'FeatureCollection' && Array.isArray(routeData.features)) {
+      const routeFeatures = routeData.features as GeoJSON.Feature[];
+      layers.fiber_route = routeData as unknown as GeoJSON.FeatureCollection;
+      layers.survey_road_crossing.features = routeFeatures.filter((feature) =>
+        (feature.properties as Record<string, unknown> | null)?.layer === 'ROAD_EOP'
+      );
+    }
+
+    const pointFeature = (
+      id: string,
+      longitude: unknown,
+      latitude: unknown,
+      properties: Record<string, unknown>
+    ): GeoJSON.Feature => ({
+      type: 'Feature',
+      id,
+      geometry: {
+        type: 'Point',
+        coordinates: [Number(longitude), Number(latitude)],
+      },
+      properties,
+    });
+
+    const existingPoles = route.poles.filter((pole) =>
+      String((pole.properties as Record<string, unknown> | null)?.Exist_New || '').toLowerCase() === 'existing'
+    );
+    const newPoles = route.poles.filter((pole) => !existingPoles.includes(pole));
+    layers.survey_existing_pole.features = existingPoles.map((pole) => pointFeature(
+      pole.id,
+      pole.longitude,
+      pole.latitude,
+      { poleNumber: pole.poleNumber, poleType: pole.poleType, status: pole.status, ...(pole.properties as Record<string, unknown> || {}) }
+    ));
+    layers.survey_new_pole.features = newPoles.map((pole) => pointFeature(
+      pole.id,
+      pole.longitude,
+      pole.latitude,
+      { poleNumber: pole.poleNumber, poleType: pole.poleType, status: pole.status, ...(pole.properties as Record<string, unknown> || {}) }
+    ));
+    layers.survey_joint_closure.features = route.closures.filter((closure) =>
+      String(closure.closureType || '').toUpperCase() !== 'TERMINAL'
+    ).map((closure) => pointFeature(
+      closure.id,
+      closure.longitude,
+      closure.latitude,
+      { closureNumber: closure.closureNumber, closureType: closure.closureType, capacity: closure.capacity, status: closure.status, ...(closure.properties as Record<string, unknown> || {}) }
+    ));
+    layers.survey_fdp.features = route.closures.filter((closure) =>
+      String(closure.closureType || '').toUpperCase() === 'TERMINAL'
+    ).map((closure) => pointFeature(
+      closure.id,
+      closure.longitude,
+      closure.latitude,
+      { closureNumber: closure.closureNumber, closureType: closure.closureType, capacity: closure.capacity, status: closure.status, ...(closure.properties as Record<string, unknown> || {}) }
+    ));
+    layers.survey_chamber.features = route.chambers.map((chamber) => pointFeature(
+      chamber.id,
+      chamber.longitude,
+      chamber.latitude,
+      { chamberNumber: chamber.chamberNumber, chamberType: chamber.chamberType, status: chamber.status }
+    ));
+    const cableFeatures = (routeData?.features || []).filter((feature) => {
+      const candidate = feature as GeoJSON.Feature;
+      return candidate.geometry?.type === 'LineString' &&
+        (candidate.properties as Record<string, unknown> | null)?.layer === 'CABLE';
+    }) as GeoJSON.Feature<GeoJSON.LineString>[];
+    layers.survey_cable_start.features = cableFeatures.flatMap((feature, index) => {
+      const coordinates = feature.geometry.coordinates;
+      const start = coordinates[0];
+      return start ? [{
+        type: 'Feature',
+        id: `${String(feature.id || index)}-start`,
+        geometry: { type: 'Point', coordinates: start },
+        properties: { endpoint: 'A', source: 'GIS_ROUTE' },
+      }] : [];
+    });
+    layers.survey_cable_end.features = cableFeatures.flatMap((feature, index) => {
+      const coordinates = feature.geometry.coordinates;
+      const end = coordinates[coordinates.length - 1];
+      return end ? [{
+        type: 'Feature',
+        id: `${String(feature.id || index)}-end`,
+        geometry: { type: 'Point', coordinates: end },
+        properties: { endpoint: 'B', source: 'GIS_ROUTE' },
+      }] : [];
+    });
+
+    return {
+      projectName: project.name,
+      projectCode: project.projectCode,
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalPoints: route.poles.length + route.closures.length + route.chambers.length,
+        routeLengthMeters: Number(route.routeLength || project.routeLength || 0),
+        poles: { existing: existingPoles.length, new: newPoles.length },
+        closures: route.closures.length,
+        chambers: route.chambers.length,
+        fdpCount: route.closures.filter((closure) => String(closure.closureType || '').toUpperCase() === 'TERMINAL').length,
+        cableSections: route.cableSegments.length,
+      },
+      geoJsonLayers: layers,
     };
   }
 
@@ -185,27 +344,70 @@ export class AsBuiltService {
    * Generate as-built comparison: surveyed vs approved vs installed
    */
   static async getAsBuiltComparison(projectId: string) {
-    const byStatus = await prisma.surveyPoint.groupBy({
-      by: ['verificationStatus'],
+    const points = await prisma.surveyPoint.findMany({
       where: { projectId },
-      _count: { id: true },
+      select: { layerId: true, verificationStatus: true },
     });
 
-    const surveyVsApproved = {
-      PENDING: byStatus.find((s) => s.verificationStatus === 'PENDING_VERIFICATION')?._count.id || 0,
-      VERIFIED: byStatus.find((s) => s.verificationStatus === 'VERIFIED')?._count.id || 0,
-      APPROVED: byStatus.find((s) => s.verificationStatus === 'APPROVED')?._count.id || 0,
-      REJECTED: byStatus.find((s) => s.verificationStatus === 'REJECTED')?._count.id || 0,
-      FLAGGED: byStatus.find((s) => s.verificationStatus === 'FLAGGED')?._count.id || 0,
-      total: byStatus.reduce((sum, s) => sum + s._count.id, 0),
-    };
+    if (points.length > 0) {
+      const layers = SURVEY_LAYERS.map((layer) => {
+        const layerPoints = points.filter((point) => point.layerId === layer.id);
+        return {
+          layerId: layer.id,
+          layerName: layer.label,
+          surveyed: layerPoints.length,
+          approved: layerPoints.filter((point) => ['APPROVED', 'VERIFIED'].includes(point.verificationStatus)).length,
+          installed: layerPoints.filter((point) => ['APPROVED', 'VERIFIED'].includes(point.verificationStatus)).length,
+        };
+      });
+      return {
+        layers,
+        totalSurveyed: points.length,
+        totalApproved: layers.reduce((sum, layer) => sum + layer.approved, 0),
+        totalInstalled: layers.reduce((sum, layer) => sum + layer.installed, 0),
+      };
+    }
 
+    const route = await prisma.gISRoute.findFirst({
+      where: { projectId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        geojsonData: true,
+        poles: true,
+        closures: true,
+        chambers: true,
+        cableSegments: true,
+      },
+    });
+    const layers = SURVEY_LAYERS.map((layer) => {
+      const assets = layer.id === 'survey_existing_pole'
+        ? (route?.poles || []).filter((pole) => String((pole.properties as Record<string, unknown> | null)?.Exist_New || '').toLowerCase() === 'existing')
+        : layer.id === 'survey_new_pole'
+          ? (route?.poles || []).filter((pole) => String((pole.properties as Record<string, unknown> | null)?.Exist_New || '').toLowerCase() !== 'existing')
+          : layer.id === 'survey_joint_closure'
+            ? (route?.closures || []).filter((closure) => String(closure.closureType || '').toUpperCase() !== 'TERMINAL')
+            : layer.id === 'survey_fdp'
+              ? (route?.closures || []).filter((closure) => String(closure.closureType || '').toUpperCase() === 'TERMINAL')
+              : layer.id === 'survey_chamber'
+                ? route?.chambers || []
+                : layer.id === 'survey_road_crossing'
+                  ? (((route?.geojsonData as { features?: GeoJSON.Feature[] } | null)?.features || []).filter((feature) =>
+                    (feature.properties as Record<string, unknown> | null)?.layer === 'ROAD_EOP'
+                  ))
+                : layer.id === 'survey_cable_start' || layer.id === 'survey_cable_end'
+                  ? route?.cableSegments || []
+                  : [];
+      const count = assets.length;
+      const installed = assets.filter((asset) =>
+        ['APPROVED', 'VERIFIED', 'INSTALLED'].includes(String((asset as { status?: string }).status))
+      ).length;
+      return { layerId: layer.id, layerName: layer.label, surveyed: count, approved: installed, installed };
+    });
     return {
-      surveyed: surveyVsApproved.total,
-      approvalStatus: surveyVsApproved,
-      approvalRate: surveyVsApproved.total > 0
-        ? Math.round((surveyVsApproved.APPROVED / surveyVsApproved.total) * 100)
-        : 0,
+      layers,
+      totalSurveyed: layers.reduce((sum, layer) => sum + layer.surveyed, 0),
+      totalApproved: layers.reduce((sum, layer) => sum + layer.approved, 0),
+      totalInstalled: layers.reduce((sum, layer) => sum + layer.installed, 0),
     };
   }
 }

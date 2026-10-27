@@ -298,7 +298,7 @@ toast.error('Failed to close project');
                     </div>
                     <div>
                         <p className="text-xs font-semibold text-slate-500 uppercase">Project Status</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-0.5">
+                        <div className="text-2xl font-bold text-slate-900 mt-0.5">
                             <Badge className={
                                 project.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                                     project.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
@@ -306,7 +306,7 @@ toast.error('Failed to close project');
                             }>
                                 {project.status?.replace(/_/g, ' ') || 'N/A'}
                             </Badge>
-                        </p>
+                        </div>
                     </div>
                 </div>
             </div>
