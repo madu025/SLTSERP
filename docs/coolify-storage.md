@@ -12,9 +12,10 @@ silently falls back to Supabase or container-local disk.
    durable across replacement.
 3. Use a private bucket named `sltserp-documents` and create a dedicated app
    access key. Do not use the root credentials in the browser.
-4. Give MinIO an HTTPS domain such as `storage.example.com` when the app runs
-   on Vercel. If the app also runs in Coolify, it may use the private service
-   endpoint instead.
+4. Coolify generates an HTTPS URL for the `minio` service on port `9000` from
+   `SERVICE_URL_MINIO_9000`. Use that generated URL as `S3_ENDPOINT` when the
+   app runs on Vercel. If the app also runs in Coolify, it may use the private
+   service endpoint instead.
 5. Configure these server-side environment variables on the app service:
 
 ```env

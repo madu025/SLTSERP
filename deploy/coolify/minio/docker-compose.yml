@@ -6,6 +6,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set a strong MinIO root user in Coolify}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set a strong MinIO root password in Coolify}
+      SERVICE_URL_MINIO_9000: /
     volumes:
       - minio_data:/data
     expose:
