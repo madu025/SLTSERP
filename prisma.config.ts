@@ -10,6 +10,6 @@ export default defineConfig({
     schema: 'prisma/schema',
     migrations: {
         path: 'prisma/migrations',
-        seed: 'node prisma/seed.js'
+        seed: 'node prisma/seed.js && node --import tsx prisma/seed-workflows.ts'
     }
 });

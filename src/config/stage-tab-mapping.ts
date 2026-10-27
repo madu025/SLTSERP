@@ -20,7 +20,12 @@ export interface TabDefinition {
 export const ALWAYS_VISIBLE_TABS: TabDefinition[] = [
     { value: 'overview', label: 'Overview', description: 'Project summary and key metrics' },
     { value: 'workflow-pipeline', label: 'Workflow Pipeline', description: 'Stage gate control and workflow tracking' },
+    { value: 'tasks', label: 'Tasks', description: 'Parent and child task planning and tracking' },
 ];
+
+function uniqueTabs(tabs: TabDefinition[]): TabDefinition[] {
+    return tabs.filter((tab, index, allTabs) => allTabs.findIndex(candidate => candidate.value === tab.value) === index);
+}
 
 /**
  * Stage-to-tab mapping. Each stage name maps to the tabs that are relevant
@@ -364,7 +369,7 @@ export function getTabsForStage(stageName: string | null | undefined): TabDefini
 
     if (mapped) {
         // Always include overview and workflow-pipeline
-        return [...ALWAYS_VISIBLE_TABS, ...mapped];
+        return uniqueTabs([...ALWAYS_VISIBLE_TABS, ...mapped]);
     }
 
     // Fallback: return default tabs
@@ -375,11 +380,10 @@ export function getTabsForStage(stageName: string | null | undefined): TabDefini
  * Get the default set of tabs when no stage-specific mapping exists
  */
 export function getDefaultTabs(): TabDefinition[] {
-    return [
+    return uniqueTabs([
         ...ALWAYS_VISIBLE_TABS,
         { value: 'gis', label: 'GIS Route', description: 'GIS route planning and mapping' },
-        { value: 'tasks', label: 'Tasks', description: 'Project task list and tracking' },
         { value: 'documents', label: 'Documents', description: 'Project files and documentation' },
         { value: 'guide', label: 'Guide', description: 'Project module guide' }
-    ];
+    ]);
 }

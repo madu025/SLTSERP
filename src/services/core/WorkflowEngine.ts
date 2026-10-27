@@ -2,16 +2,33 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
 import { ROLE_GROUPS } from '@/config/roles';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+
+// The application Prisma client is extended for read routing, while transaction callbacks
+// expose Prisma's base transaction client.  Both have the same model operations at runtime;
+// using the base contract here keeps the initializer usable inside an atomic transaction.
+type WorkflowDatabase = Prisma.TransactionClient;
 
 export class WorkflowEngine {
   /**
    * Clones a Workflow Template configuration into a concrete Project Instance.
    * Ensures that the project has an independent workflow snapshot.
    */
-  static async initializeProjectWorkflow(projectId: string, projectTypeId: string) {
+  static async initializeProjectWorkflow(
+    projectId: string,
+    projectTypeId: string,
+    db: WorkflowDatabase = prisma as unknown as WorkflowDatabase,
+  ) {
+    // Project creation and GET-based lazy initialization can race.  Treat an existing
+    // instance as success so retries do not create a second workflow or fail noisily.
+    const existing = await db.projectWorkflowInstance.findUnique({
+      where: { projectId },
+    });
+    if (existing) return existing;
+
     // 1. Fetch the active workflow template for this project type
-    const template = await prisma.workflowTemplate.findFirst({
+    const template = await db.workflowTemplate.findFirst({
       where: { projectTypeId, isActive: true },
       include: {
         stages: {
@@ -31,11 +48,22 @@ export class WorkflowEngine {
     }
 
     // 2. Create the ProjectWorkflowInstance wrapper
-    const projectWorkflow = await prisma.projectWorkflowInstance.create({
-      data: {
-        projectId,
-      },
-    });
+    let projectWorkflow;
+    try {
+      projectWorkflow = await db.projectWorkflowInstance.create({
+        data: {
+          projectId,
+        },
+      });
+    } catch (error) {
+      // Another request may have initialized the unique project workflow between the
+      // existence check and create.  Reuse it; all other failures must propagate.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const concurrent = await db.projectWorkflowInstance.findUnique({ where: { projectId } });
+        if (concurrent) return concurrent;
+      }
+      throw error;
+    }
 
     // 3. Clone each stage template and its sub-items in batches using pre-generated IDs
     const stagesData = template.stages.map(stageTemp => {
@@ -63,7 +91,7 @@ export class WorkflowEngine {
     });
 
     if (stagesData.length > 0) {
-      await prisma.projectStageInstance.createMany({
+      await db.projectStageInstance.createMany({
         data: stagesData.map(s => s.dbData),
       });
     }
@@ -113,18 +141,18 @@ export class WorkflowEngine {
 
     // Execute bulk insertions concurrently
     await Promise.all([
-      tasksData.length > 0 ? prisma.projectTaskInstance.createMany({ data: tasksData }) : Promise.resolve(),
-      checklistsData.length > 0 ? prisma.projectChecklistInstance.createMany({ data: checklistsData }) : Promise.resolve(),
-      approvalsData.length > 0 ? prisma.projectApprovalInstance.createMany({ data: approvalsData }) : Promise.resolve(),
+      tasksData.length > 0 ? db.projectTaskInstance.createMany({ data: tasksData }) : Promise.resolve(),
+      checklistsData.length > 0 ? db.projectChecklistInstance.createMany({ data: checklistsData }) : Promise.resolve(),
+      approvalsData.length > 0 ? db.projectApprovalInstance.createMany({ data: approvalsData }) : Promise.resolve(),
     ]);
 
     // Set current stage to the first stage sequence
-    const firstStage = await prisma.projectStageInstance.findFirst({
+    const firstStage = await db.projectStageInstance.findFirst({
       where: { projectWorkflowInstanceId: projectWorkflow.id, sequence: 1 },
     });
 
     if (firstStage) {
-      await prisma.projectWorkflowInstance.update({
+      await db.projectWorkflowInstance.update({
         where: { id: projectWorkflow.id },
         data: { currentStageId: firstStage.id },
       });

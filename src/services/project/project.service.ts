@@ -247,37 +247,53 @@ export class ProjectService {
             throw AppError.badRequest('PROJECT_CODE_EXISTS');
         }
 
-        const project = await prisma.project.create({
-            data: {
-                projectCode,
-                name,
-                type: type || 'FTTH',
-                contractorId: contractorId || null,
-                opmcId: opmcId || null,
-                projectTypeId: projectTypeId || null,
-                status: 'PLANNING'
-            },
-            include: {
-                opmc: true,
-                areaManager: true,
-                contractor: true,
-                projectType: {
-                    select: { id: true, name: true, description: true }
+        // Resolve an explicitly selected type, or use the first type that has an active
+        // template.  A project without a usable workflow is not a valid project record.
+        return await prisma.$transaction(async (tx) => {
+            const selectedProjectType = await tx.projectType.findFirst({
+                where: projectTypeId
+                    ? { id: projectTypeId, workflowTemplates: { some: { isActive: true } } }
+                    : { workflowTemplates: { some: { isActive: true } } },
+                orderBy: { name: 'asc' },
+            });
+
+            if (!selectedProjectType) {
+                throw AppError.badRequest(
+                    projectTypeId
+                        ? 'PROJECT_WORKFLOW_TEMPLATE_NOT_FOUND'
+                        : 'PROJECT_WORKFLOW_CATALOG_UNAVAILABLE',
+                );
+            }
+
+            const project = await tx.project.create({
+                data: {
+                    projectCode,
+                    name,
+                    type: type || 'FTTH',
+                    contractorId: contractorId || null,
+                    opmcId: opmcId || null,
+                    projectTypeId: selectedProjectType.id,
+                    status: 'PLANNING'
+                },
+                include: {
+                    opmc: true,
+                    areaManager: true,
+                    contractor: true,
+                    projectType: {
+                        select: { id: true, name: true, description: true }
+                    }
                 }
-            }
+            });
+
+            // The same transaction covers project + workflow snapshot.  If initialization
+            // fails, neither record is committed and the API returns an actionable error.
+            await WorkflowEngine.initializeProjectWorkflow(
+                project.id,
+                selectedProjectType.id,
+                tx as unknown as Prisma.TransactionClient,
+            );
+            return project;
         });
-
-        // Auto-generate ProjectWorkflowInstance if projectTypeId is provided
-        if (project.projectTypeId) {
-            try {
-                await WorkflowEngine.initializeProjectWorkflow(project.id, project.projectTypeId);
-            } catch (wfError) {
-                console.warn('Workflow auto-initialization skipped:', wfError);
-                // Don't fail the project creation if workflow init fails
-            }
-        }
-
-        return project;
     }
 
     /**

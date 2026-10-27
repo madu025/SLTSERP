@@ -64,6 +64,23 @@ else
   fi
 fi
 
+# Workflow templates are application data, not Prisma schema objects.  Seed them after migrations
+# so a fresh deployment has selectable project types before the web process accepts project writes.
+# The seed is idempotent and intentionally separate from prisma/seed.js (which also creates
+# bootstrap users and other fixtures).  Operators that run migrations/seeding in a release job can
+# set either skip flag and own this step explicitly.
+if [ "${SKIP_DB_SYNC:-false}" = "true" ] || [ "${SKIP_WORKFLOW_SEED:-false}" = "true" ]; then
+  echo "Workflow template seed skipped (SKIP_DB_SYNC or SKIP_WORKFLOW_SEED is true)."
+elif [ -x ./node_modules/.bin/tsx ]; then
+  if ! ./node_modules/.bin/tsx prisma/seed-workflows.ts; then
+    echo "FATAL: workflow template seed failed - refusing to serve projects without a workflow catalog." >&2
+    exit 1
+  fi
+else
+  echo "FATAL: tsx is missing; cannot verify the workflow catalog." >&2
+  exit 1
+fi
+
 # Start the application
 echo "Starting application..."
 exec "$@"

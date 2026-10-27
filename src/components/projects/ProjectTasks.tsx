@@ -451,9 +451,13 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
                                 onClick={() => { setSelectedTask(task); setProgressForm({ progress: task.actualProgress.toString(), description: '', gpsLatitude: '', gpsLongitude: '', photoUrl: '' }); setIsProgressDialogOpen(true); }}>
                                 <Clock className="w-3.5 h-3.5 text-blue-500" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Add child task" aria-label={`Add child task under ${task.name}`}
+                                onClick={() => handleAddTask(task.id)}>
+                                <Plus className="w-3.5 h-3.5 text-emerald-600" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
                                 onClick={() => { setSelectedTask(task); setDependencyForm({ dependsOnTaskId: '', type: 'FINISH_TO_START', lagDays: '0' }); setIsDependencyDialogOpen(true); }}>
@@ -596,7 +600,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 </div>
                 <div className="flex gap-2">
                     <Button onClick={() => handleAddTask()} className="gap-2">
-                        <Plus className="w-4 h-4" /> Add Task
+                        <Plus className="w-4 h-4" /> Add Parent Task
                     </Button>
                     <Button variant="outline" onClick={() => { setTimesheetForm({ ...timesheetForm, taskId: '' }); setIsTimesheetDialogOpen(true); }} className="gap-2">
                         <Clock className="w-4 h-4" /> Log Hours
@@ -626,7 +630,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                     <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-500">Loading...</td></tr>
                                 ) : taskTree.length === 0 ? (
                                     <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-500">
-                                        No tasks created yet. Click &quot;Add Task&quot; to create your WBS structure.
+                                        No tasks created yet. Start with a parent task, then use the plus button on its row to add child tasks.
                                     </td></tr>
                                 ) : (
                                     taskTree.map((task: Task) => renderTaskRow(task))
@@ -689,6 +693,24 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                     <SelectItem value="MILESTONE">Milestone</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                            <Label>Parent Task (optional)</Label>
+                            <Select
+                                value={taskForm.parentId || 'ROOT'}
+                                onValueChange={(val) => setTaskForm({ ...taskForm, parentId: val === 'ROOT' ? '' : val })}
+                            >
+                                <SelectTrigger><SelectValue placeholder="No parent (top-level task)" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ROOT">No parent (top-level task)</SelectItem>
+                                    {allTasks.filter(task => task.id !== editingTask?.id).map(task => (
+                                        <SelectItem key={task.id} value={task.id}>
+                                            {task.wbsCode} - {task.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-slate-600">Choose a parent to place this task under it in the WBS tree.</p>
                         </div>
                         <div className="col-span-2 space-y-2">
                             <Label>Description</Label>

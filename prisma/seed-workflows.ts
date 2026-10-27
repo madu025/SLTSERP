@@ -40,7 +40,11 @@ async function main() {
   // --- SSD Standard Workflow (7 stages) ---
   await prisma.workflowTemplate.upsert({
     where: { name: 'SSD Standard Workflow' },
-    update: {},
+    update: {
+      description: 'Standard workflow for FTTH/SSD service delivery projects',
+      projectTypeId: ssdType.id,
+      isActive: true,
+    },
     create: {
       name: 'SSD Standard Workflow',
       description: 'Standard workflow for FTTH/SSD service delivery projects',
@@ -140,7 +144,11 @@ async function main() {
   // --- Cluster Development Workflow (10 stages) ---
   await prisma.workflowTemplate.upsert({
     where: { name: 'Cluster Development Workflow' },
-    update: {},
+    update: {
+      description: 'Complete workflow for greenfield/brownfield cluster fiber development',
+      projectTypeId: clusterType.id,
+      isActive: true,
+    },
     create: {
       name: 'Cluster Development Workflow',
       description: 'Complete workflow for greenfield/brownfield cluster fiber development',
@@ -300,7 +308,11 @@ async function main() {
   // --- Building Fiber Workflow (8 stages) ---
   await prisma.workflowTemplate.upsert({
     where: { name: 'Building Fiber Workflow' },
-    update: {},
+    update: {
+      description: 'Workflow for multi-dwelling building fiber rollout',
+      projectTypeId: buildingFiberType.id,
+      isActive: true,
+    },
     create: {
       name: 'Building Fiber Workflow',
       description: 'Workflow for multi-dwelling building fiber rollout',
@@ -321,7 +333,26 @@ async function main() {
   });
   console.log('✓ Building Fiber Workflow created');
 
-  console.log('\n✅ Seeding complete!');
+  // Fail loudly if a deployment has a project type without a usable workflow.
+  // This keeps a partial/failed seed from presenting an empty workflow selector.
+  const requiredTemplates = [
+    'SSD Standard Workflow',
+    'Cluster Development Workflow',
+    'Building Fiber Workflow',
+  ];
+  const seededTemplates = await prisma.workflowTemplate.findMany({
+    where: { name: { in: requiredTemplates }, isActive: true },
+    select: { name: true, projectTypeId: true, stages: { select: { id: true } } },
+  });
+  const missingTemplates = requiredTemplates.filter((name) => {
+    const template = seededTemplates.find((candidate) => candidate.name === name);
+    return !template || !template.projectTypeId || template.stages.length === 0;
+  });
+  if (missingTemplates.length > 0) {
+    throw new Error(`Workflow seed verification failed: ${missingTemplates.join(', ')}`);
+  }
+
+  console.log(`\n✅ Seeding complete! Verified ${seededTemplates.length} active workflow templates.`);
 }
 
 main()

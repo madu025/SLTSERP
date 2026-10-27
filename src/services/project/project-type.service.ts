@@ -4,6 +4,10 @@ import { AppError } from '@/lib/error';
 export class ProjectTypeService {
     static async getProjectTypes() {
         return await prisma.projectType.findMany({
+            // The project creation selector must never offer a type that cannot
+            // initialize a workflow. Admins can still create new types, but they
+            // become selectable only after an active template is configured.
+            where: { workflowTemplates: { some: { isActive: true } } },
             include: {
                 _count: {
                     select: { projects: true, workflowTemplates: true }

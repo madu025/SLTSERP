@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   CheckCircle2, 
@@ -77,16 +76,23 @@ interface ProjectWorkflow {
 interface Project {
   id: string;
   name: string;
+  projectType?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface ProjectWorkflowTrackerProps {
   project: Project;
+  onOpenProjectSettings?: () => void;
 }
 
-export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrackerProps) {
+export default function ProjectWorkflowTracker({ project, onOpenProjectSettings }: ProjectWorkflowTrackerProps) {
   const [workflow, setWorkflow] = useState<ProjectWorkflow | null>(null);
   const [activeStage, setActiveStage] = useState<Stage | null>(null);
   const [loading, setLoading] = useState(true);
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
@@ -110,13 +116,52 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
       });
       if (res.ok) {
         const data = await res.json();
+        setWorkflowError(null);
         setWorkflow(data);
         const current = data.stages.find((s: Stage) => s.status === 'IN_PROGRESS') || data.stages[0];
         setActiveStage(current || null);
+      } else {
+        setWorkflow(null);
+        setActiveStage(null);
+        setWorkflowError(res.status === 404
+          ? 'This project has no workflow yet. Initialize its project type workflow to unlock stage controls.'
+          : 'The workflow could not be loaded. Check your access or try again.');
       }
-    } catch (error) {
+    } catch {
+      setWorkflow(null);
+      setActiveStage(null);
+      setWorkflowError('The workflow could not be loaded. Check your connection and try again.');
 } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInitializeWorkflow = async () => {
+    if (!project.projectType?.id) {
+      setWorkflowError('Choose a project type first. The project type provides the stages and task gates.');
+      onOpenProjectSettings?.();
+      return;
+    }
+
+    try {
+      setInitializing(true);
+      const res = await fetch(`/api/projects/${project.id}/workflow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectTypeId: project.projectType.id }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null;
+        setWorkflowError(body?.error || 'Workflow initialization failed. Check your project permissions and try again.');
+        return;
+      }
+
+      await fetchWorkflow();
+    } catch {
+      setWorkflowError('Workflow initialization failed. Check your connection and try again.');
+    } finally {
+      setInitializing(false);
     }
   };
 
@@ -136,7 +181,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
       if (res.ok) {
         await fetchWorkflow();
       }
-    } catch (error) {
+    } catch {
 } finally {
       setSubmitting(false);
     }
@@ -163,7 +208,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
         setValidationErrors(errLines);
         setIsErrorDialogOpen(true);
       }
-    } catch (error) {
+    } catch {
 } finally {
       setSubmitting(false);
     }
@@ -190,7 +235,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
         }),
       });
       fetchWorkflow();
-    } catch (error) {
+    } catch {
 }
   };
 
@@ -208,7 +253,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
         }),
       });
       fetchWorkflow();
-    } catch (error) {
+    } catch {
 }
   };
 
@@ -229,7 +274,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
       if (res.ok) {
         fetchWorkflow();
       }
-    } catch (error) {
+    } catch {
 } finally {
       setSubmitting(false);
     }
@@ -248,10 +293,23 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
     return (
       <Card className="border-dashed border-2">
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <Workflow className="w-12 h-12 text-slate-300 mb-3" />
-          <h4 className="font-semibold text-slate-700">No Workflow Blueprint Initialized</h4>
-          <p className="text-xs text-slate-500 max-w-sm mt-1">
-            Initialize a workflow mapping template to drive stage control, checklist checks, and automatic task gates.
+          <Workflow className="w-12 h-12 text-blue-600 mb-3" />
+          <h4 className="font-semibold text-slate-900">Workflow setup is required</h4>
+          <p className="text-xs text-slate-700 max-w-md mt-1">
+            {workflowError || 'Initialize the project type workflow to unlock stage control, checklists, and workflow task gates.'}
+          </p>
+          {project.projectType?.id ? (
+            <Button className="mt-4 gap-2 bg-blue-600 text-white hover:bg-blue-700" onClick={handleInitializeWorkflow} disabled={initializing}>
+              {initializing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Workflow className="w-4 h-4" />}
+              {initializing ? 'Initializing workflow...' : `Initialize ${project.projectType.name.replace(/_/g, ' ')} workflow`}
+            </Button>
+          ) : (
+            <Button variant="outline" className="mt-4 border-blue-600 text-blue-700 hover:bg-blue-50" onClick={onOpenProjectSettings}>
+              Choose project type in Edit
+            </Button>
+          )}
+          <p className="text-[11px] text-slate-600 max-w-md mt-3">
+            Parent and child task management is available from the Tasks tab while the workflow is being prepared.
           </p>
         </CardContent>
       </Card>

@@ -362,7 +362,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     <div key={tab.value}>
                                         <div className="bg-card rounded-lg border border-border overflow-hidden shadow-xs">
                                             <TabErrorBoundary tabLabel={tab.label}>
-                                                <Component project={project} projectId={project.id} refreshProject={REFRESH_TABS.has(tab.value) ? fetchProjectDetails : undefined} />
+                                                <Component
+                                                    project={project}
+                                                    projectId={project.id}
+                                                    refreshProject={REFRESH_TABS.has(tab.value) ? fetchProjectDetails : undefined}
+                                                    onOpenProjectSettings={tab.value === 'workflow-pipeline' ? handleOpenEdit : undefined}
+                                                />
                                             </TabErrorBoundary>
                                         </div>
                                     </div>
