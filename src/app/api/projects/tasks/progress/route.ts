@@ -16,8 +16,12 @@ export const GET = apiHandler(async (request) => {
 
 const logProgressSchema = z.object({
     taskId: z.string().min(1),
-    progress: z.number().min(0).max(100),
+    progress: z.coerce.number().min(0).max(100),
+    description: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
+    photoUrls: z.array(z.string()).optional(),
+    gpsLatitude: z.coerce.number().optional().nullable(),
+    gpsLongitude: z.coerce.number().optional().nullable(),
     loggedById: z.string().optional().nullable(),
     logDate: z.string().optional().nullable(),
 });
@@ -26,7 +30,11 @@ export const POST = apiHandler(async (_request, params, body) => {
     const data = logProgressSchema.parse(body);
 
     try {
-        const log = await ProjectTaskService.logProgress({ ...data, loggedById: params._userId });
+        const log = await ProjectTaskService.logProgress({
+            ...data,
+            description: data.description ?? data.notes,
+            loggedById: params._userId,
+        });
         return Response.json(log, { status: 201 });
     } catch (error: unknown) {
         if (error instanceof Error) {

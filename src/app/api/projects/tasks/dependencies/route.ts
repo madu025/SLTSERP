@@ -16,8 +16,13 @@ export const GET = apiHandler(async (request) => {
 const createDependencySchema = z.object({
     taskId: z.string().min(1),
     dependsOnTaskId: z.string().min(1),
+    type: z.string().optional(),
     dependencyType: z.string().optional(),
-});
+    lagDays: z.coerce.number().int().optional(),
+}).transform(({ type, dependencyType, ...data }) => ({
+    ...data,
+    type: type ?? dependencyType,
+}));
 
 export const POST = apiHandler(async (_request, _params, body) => {
     const data = createDependencySchema.parse(body);
