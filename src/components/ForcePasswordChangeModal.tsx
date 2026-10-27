@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { performClientLogout } from '@/lib/client-logout';
 
 /**
@@ -18,9 +18,18 @@ export default function ForcePasswordChangeModal() {
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         const checkMustChangePassword = () => {
+            // A stale localStorage user must never block the public login page.
+            // The server remains authoritative after authentication.
+            const isPublicAuthPage = pathname === '/login' || pathname.startsWith('/contractor/login');
+            if (isPublicAuthPage) {
+                setShow(false);
+                return;
+            }
+
             try {
                 const storedUser = localStorage.getItem('user');
                 if (storedUser) {
@@ -66,7 +75,7 @@ export default function ForcePasswordChangeModal() {
             window.removeEventListener('popstate', handlePopState);
             clearInterval(interval);
         };
-    }, [show]);
+    }, [pathname, show]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

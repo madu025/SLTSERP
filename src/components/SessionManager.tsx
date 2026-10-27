@@ -56,8 +56,10 @@ export default function SessionManager() {
                                 if (refreshData.token) {
                                     // Update localStorage with new token
                                     localStorage.setItem('token', refreshData.token);
-                                    const isProd = window.location.protocol === 'https:';
-                                    document.cookie = `token=${refreshData.token}; Max-Age=900; Path=/; SameSite=Lax${isProd ? '; Secure' : ''}`;
+                                    // The refresh endpoint owns the HttpOnly token cookie.
+                                    // Do not create a second client-readable cookie with the
+                                    // same name: duplicate token cookies can make middleware
+                                    // select a stale value and bounce the user back to login.
                                     // Retry the original request
                                     return originalFetch(...args);
                                 }

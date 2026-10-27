@@ -405,7 +405,16 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+          <section className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+            <h1 className="text-xl font-semibold text-slate-900">SLTS Nexus</h1>
+            <p className="mt-2 text-sm text-slate-700">Loading sign-in…</p>
+          </section>
+        </main>
+      }
+    >
       <LoginContent />
     </Suspense>
   );
