@@ -28,6 +28,12 @@ export interface S3OperationResult {
     error?: string;
 }
 
+export interface GetObjectResult {
+    body: Buffer;
+    contentType?: string;
+    contentLength?: number;
+}
+
 /**
  * Pure Node.js S3 Client with AWS Signature Version 4.
  * Zero external dependencies (eliminates @aws-sdk bundle weight and npm lockfile conflicts).
@@ -142,6 +148,76 @@ export class NativeS3Client {
         return {
             success: true,
             url: publicUrl,
+        };
+    }
+
+    /** Download an object from S3 / MinIO using the same path-style signer. */
+    async getObject(options: { bucket?: string; key: string }): Promise<GetObjectResult> {
+        const bucket = options.bucket || this.config.bucket;
+        const cleanKey = options.key.replace(/^\/+/, '');
+        const endpointUrl = new URL(this.config.endpoint);
+        const host = endpointUrl.host;
+        const port = endpointUrl.port;
+        const protocol = endpointUrl.protocol;
+
+        let pathname = `/${bucket}/${cleanKey}`;
+        let requestHost = host;
+
+        if (!this.config.forcePathStyle) {
+            requestHost = `${bucket}.${host}`;
+            pathname = `/${cleanKey}`;
+        }
+
+        const now = new Date();
+        const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+        const dateStamp = amzDate.substring(0, 8);
+        const contentHash = this.sha256Hex('');
+        const canonicalUri = pathname.split('/').map(segment => encodeURIComponent(segment)).join('/');
+        const headersToSign: Record<string, string> = {
+            host: requestHost + (port && !host.includes(':') ? `:${port}` : ''),
+            'x-amz-content-sha256': contentHash,
+            'x-amz-date': amzDate,
+        };
+        const sortedHeaderKeys = Object.keys(headersToSign).sort();
+        const canonicalHeaders = sortedHeaderKeys.map(k => `${k}:${headersToSign[k]}\n`).join('');
+        const signedHeaders = sortedHeaderKeys.join(';');
+        const canonicalRequest = [
+            'GET',
+            canonicalUri,
+            '',
+            canonicalHeaders,
+            signedHeaders,
+            contentHash,
+        ].join('\n');
+        const algorithm = 'AWS4-HMAC-SHA256';
+        const credentialScope = `${dateStamp}/${this.config.region}/s3/aws4_request`;
+        const stringToSign = [
+            algorithm,
+            amzDate,
+            credentialScope,
+            this.sha256Hex(canonicalRequest),
+        ].join('\n');
+        const signingKey = this.getSignatureKey(this.config.secretKey, dateStamp, this.config.region, 's3');
+        const signature = crypto.createHmac('sha256', signingKey).update(stringToSign, 'utf8').digest('hex');
+        const authorizationHeader = `${algorithm} Credential=${this.config.accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+        const response = await fetch(`${protocol}//${requestHost}${canonicalUri}`, {
+            method: 'GET',
+            headers: {
+                ...headersToSign,
+                Authorization: authorizationHeader,
+            },
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`S3 GetObject failed [${response.status} ${response.statusText}]: ${errorText.substring(0, 200)}`);
+        }
+
+        return {
+            body: Buffer.from(await response.arrayBuffer()),
+            contentType: response.headers.get('content-type') || undefined,
+            contentLength: Number(response.headers.get('content-length')) || undefined,
         };
     }
 

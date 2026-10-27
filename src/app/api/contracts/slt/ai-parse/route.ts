@@ -1,6 +1,7 @@
 import { extractContractDataFromPdfText } from '@/services/slt/slt-contract-pdf-parser';
 import { apiHandler } from '@/lib/api-handler';
 import { ROLE_GROUPS } from '@/config/roles';
+import { StorageService } from '@/services/storage/storage.service';
 import fs from 'fs';
 import path from 'path';
 
@@ -33,6 +34,11 @@ async function readPdfBuffer(req: Request): Promise<Buffer | null> {
 
             if (body.documentUrl) {
                 let cleanPath = body.documentUrl;
+                if (cleanPath.startsWith('/api/storage/')) {
+                    const storageKey = cleanPath.replace('/api/storage/', '').split('/').map(decodeURIComponent).join('/');
+                    const stored = await StorageService.downloadFile(storageKey);
+                    return stored.body;
+                }
                 if (cleanPath.startsWith('/api/files/contractors/')) {
                     const filename = cleanPath.replace('/api/files/contractors/', '');
                     cleanPath = path.join(process.cwd(), 'uploads', 'contractors', filename);

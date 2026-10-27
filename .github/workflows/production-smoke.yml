@@ -1,0 +1,71 @@
+name: Production Smoke Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Deployed application URL, for example https://sltserp.vercel.app'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      base_url:
+        description: 'Deployed application URL'
+        required: true
+        type: string
+    secrets:
+      PRODUCTION_SMOKE_USERNAME:
+        required: true
+      PRODUCTION_SMOKE_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Read-only production smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SMOKE_BASE_URL: ${{ inputs.base_url }}
+      SMOKE_TEST_USERNAME: ${{ secrets.PRODUCTION_SMOKE_USERNAME }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_PASSWORD }}
+      SMOKE_REQUIRE_AUTH: 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run production smoke gate
+        run: pnpm run test:production-smoke
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-smoke-report
+          path: |
+            playwright-production-report/
+            test-results/
+          if-no-files-found: ignore

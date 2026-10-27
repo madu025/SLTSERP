@@ -22,6 +22,7 @@ import { getWorkflowForProjectType } from '@/lib/gis/workflow-definitions';
 import { logger } from '@/lib/logger';
 import { redis } from '@/lib/redis';
 import { safe, safeSync } from '@/utils/safe-await.util';
+import { StorageService } from '@/services/storage/storage.service';
 
 import type {
   GISUploadRequest,
@@ -76,7 +77,10 @@ export interface GISUploadSession {
 export interface UploadFileEntry {
   fileName: string;
   layerType: GISLayerType;
-  content: string; // Base64 encoded file content
+  /** Legacy Redis-session content; new uploads use Coolify object storage. */
+  content?: string;
+  storageKey?: string;
+  storage?: 's3' | 'local';
   size: number;
   detectedFormat: string;
 }
@@ -369,19 +373,30 @@ export class GISImportService {
   ): Promise<GISUploadResponse> {
     const importId = `GIS-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-    const files: UploadFileEntry[] = request.files.map((f) => {
+    const files: UploadFileEntry[] = await Promise.all(request.files.map(async (f) => {
       const format = gisParser.detectFileFormat(f.fileName);
       const layerType =
         f.layerType || gisParser.detectLayerType(f.fileName);
+      const fileBuffer = Buffer.from(f.fileData, 'base64');
+      const stored = await StorageService.uploadFile({
+        fileBuffer,
+        fileName: f.fileName,
+        mimeType: format === 'GEOJSON' ? 'application/geo+json' : 'application/octet-stream',
+        folder: 'gis-imports',
+      });
 
       return {
         fileName: f.fileName,
         layerType,
-        content: f.fileData,
-        size: f.fileData.length,
+        // Keep content only for an explicitly enabled local development
+        // fallback. Production sessions must be backed by Coolify storage.
+        ...(stored.storage === 'local' ? { content: f.fileData } : {}),
+        storageKey: stored.key,
+        storage: stored.storage,
+        size: fileBuffer.length,
         detectedFormat: format,
       };
-    });
+    }));
 
     const unsupportedFiles = files.filter(
       (file) => file.detectedFormat !== 'GEOJSON' && file.detectedFormat !== 'QGIS'
@@ -487,8 +502,31 @@ export class GISImportService {
           continue;
         }
 
+        const [contentErr, fileBuffer] = await safe((async () => {
+          if (file.storageKey && file.storage === 's3') {
+            const stored = await StorageService.downloadFile(file.storageKey);
+            return stored.body;
+          }
+          if (file.content) return Buffer.from(file.content, 'base64');
+          throw new Error('GIS upload content is missing from object storage');
+        })());
+
+        if (contentErr || !fileBuffer) {
+          const error = contentErr instanceof Error ? contentErr : new Error(String(contentErr));
+          layerResults.push({
+            layerName: file.fileName,
+            layerType: 'UNKNOWN',
+            featureCount: 0,
+            status: 'FAILED',
+            errors: [error.message || 'Stored file could not be read'],
+            warnings: [],
+          });
+          parseFailures.push({ fileName: file.fileName, message: error.message || 'Stored file could not be read' });
+          continue;
+        }
+
         const [parseErr, parsed] = safeSync(() => {
-          const rawContent = Buffer.from(file.content, 'base64').toString('utf-8');
+          const rawContent = fileBuffer.toString('utf-8');
           return gisParser.autoParseLayer(
             file.fileName,
             rawContent,

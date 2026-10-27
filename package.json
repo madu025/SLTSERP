@@ -36,6 +36,7 @@
     "test": "playwright test",
     "test:agentic": "npx ts-node scripts/agent-test-runner.ts",
     "test:e2e": "npx playwright test",
+    "test:production-smoke": "npx playwright test --config=playwright.production.config.ts",
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:debug": "npx playwright test --debug",
     "test:types": "node scripts/rbac-sync.js && tsc --noEmit",
