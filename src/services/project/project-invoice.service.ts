@@ -26,16 +26,18 @@ interface CreateInvoiceInput {
     taxAmount?: number;
     discountAmount?: number;
     createdById?: string | null;
+    contractorId?: string | null;
     items: InvoiceItemInput[];
 }
 
 interface UpdateInvoiceInput {
-    status?: 'ISSUED' | 'CANCELLED';
+    status?: 'ISSUED' | 'CANCELLED' | 'FOLLOW_UP' | 'COMPLETED';
     cancelledReason?: string | null;
     title?: string;
     description?: string | null;
     dueDate?: string | Date | null;
     notes?: string | null;
+    followUpNotes?: string | null;
 }
 
 export class ProjectInvoiceService {
@@ -81,7 +83,7 @@ export class ProjectInvoiceService {
         const {
             projectId, title, description, type, invoiceDate, dueDate,
             referenceNumber, periodFrom, periodTo, currency, notes, items,
-            taxAmount, discountAmount, createdById,
+            taxAmount, discountAmount, createdById, contractorId,
         } = data;
 
         // Verify project exists
@@ -90,7 +92,37 @@ export class ProjectInvoiceService {
             throw AppError.badRequest('PROJECT_NOT_FOUND');
         }
 
+        const invoiceType = type || 'CLIENT';
+        if (invoiceType === 'CONTRACTOR') {
+            if (!contractorId) throw AppError.badRequest('CONTRACTOR_INVOICE_REQUIRES_CONTRACTOR');
+            const assignment = await prisma.projectContractorAssignment.findUnique({
+                where: { projectId_contractorId: { projectId, contractorId } },
+            });
+            if (!assignment || assignment.status !== 'ACTIVE') {
+                throw AppError.badRequest('CONTRACTOR_MUST_BE_ASSIGNED_TO_PROJECT');
+            }
+        } else if (contractorId) {
+            throw AppError.badRequest('ONLY_CONTRACTOR_INVOICES_CAN_HAVE_CONTRACTOR');
+        }
+
         if (!items.length) throw AppError.badRequest('INVOICE_ITEMS_REQUIRED');
+
+        const taskIds = [...new Set(items.map((item) => item.taskId).filter((id): id is string => Boolean(id)))];
+        if (taskIds.length > 0) {
+            const tasks = await prisma.projectTask.findMany({ where: { id: { in: taskIds }, projectId }, select: { id: true, contractorId: true } });
+            if (tasks.length !== taskIds.length) throw AppError.badRequest('INVOICE_TASK_PROJECT_MISMATCH');
+            if (invoiceType === 'CONTRACTOR' && tasks.some((task) => task.contractorId !== contractorId)) {
+                throw AppError.badRequest('INVOICE_TASK_CONTRACTOR_MISMATCH');
+            }
+        }
+        const boqIds = [...new Set(items.map((item) => item.boqItemId).filter((id): id is string => Boolean(id)))];
+        if (boqIds.length > 0) {
+            const boqItems = await prisma.projectBOQItem.findMany({ where: { id: { in: boqIds }, projectId }, select: { id: true, contractorId: true } });
+            if (boqItems.length !== boqIds.length) throw AppError.badRequest('INVOICE_BOQ_PROJECT_MISMATCH');
+            if (invoiceType === 'CONTRACTOR' && boqItems.some((item) => item.contractorId !== contractorId)) {
+                throw AppError.badRequest('INVOICE_BOQ_CONTRACTOR_MISMATCH');
+            }
+        }
         if ((taxAmount !== undefined && (!Number.isFinite(taxAmount) || taxAmount < 0))
             || (discountAmount !== undefined && (!Number.isFinite(discountAmount) || discountAmount < 0))) {
             throw AppError.badRequest('INVALID_INVOICE_ADJUSTMENT');
@@ -145,6 +177,7 @@ export class ProjectInvoiceService {
                 data: {
                     invoiceNumber: nextNumber,
                     projectId,
+                    contractorId: contractorId || null,
                     title,
                     description: description || null,
                     type: type || 'CLIENT',
@@ -185,7 +218,7 @@ export class ProjectInvoiceService {
 
             const updateData: Record<string, unknown> = {};
             const hasDetailUpdates = updateFields.title !== undefined || updateFields.description !== undefined
-                || updateFields.dueDate !== undefined || updateFields.notes !== undefined;
+                || updateFields.dueDate !== undefined || updateFields.notes !== undefined || updateFields.followUpNotes !== undefined;
             if (updateFields.status && hasDetailUpdates) {
                 throw AppError.badRequest('STATUS_AND_DETAILS_MUST_BE_UPDATED_SEPARATELY');
             }
@@ -207,7 +240,6 @@ export class ProjectInvoiceService {
                 if (!['DRAFT', 'ISSUED'].includes(existing.status)) {
                     throw AppError.badRequest('ONLY_DRAFT_OR_ISSUED_INVOICES_CAN_BE_CANCELLED');
                 }
-                if (Number(existing.paidAmount) > 0) throw AppError.badRequest('PAID_INVOICE_CANNOT_BE_CANCELLED');
                 updateData.status = 'CANCELLED';
                 updateData.cancelledReason = updateFields.cancelledReason || 'Cancelled';
                 if (existing.status === 'ISSUED') {
@@ -219,12 +251,25 @@ export class ProjectInvoiceService {
                     const { LedgerService } = await import('../finance/ledger.service');
                     await LedgerService.reverseTransaction(tx, issuance.id, updateData.cancelledReason as string, actorUserId);
                 }
+            } else if (updateFields.status === 'FOLLOW_UP') {
+                if (!['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'].includes(existing.status)) {
+                    throw AppError.badRequest('INVOICE_NOT_READY_FOR_FOLLOW_UP');
+                }
+                updateData.status = 'FOLLOW_UP';
+                updateData.followUpAt = new Date();
+            } else if (updateFields.status === 'COMPLETED') {
+                if (!['FOLLOW_UP', 'FULLY_PAID', 'PAID'].includes(existing.status) || Number(existing.balanceAmount) > 0) {
+                    throw AppError.badRequest('INVOICE_MUST_BE_FULLY_PAID_BEFORE_COMPLETION');
+                }
+                updateData.status = 'COMPLETED';
+                updateData.completedAt = new Date();
             }
 
             if (updateFields.title !== undefined) updateData.title = updateFields.title;
             if (updateFields.description !== undefined) updateData.description = updateFields.description;
             if (updateFields.dueDate !== undefined) updateData.dueDate = updateFields.dueDate ? new Date(updateFields.dueDate) : null;
             if (updateFields.notes !== undefined) updateData.notes = updateFields.notes;
+            if (updateFields.followUpNotes !== undefined) updateData.followUpNotes = updateFields.followUpNotes;
 
             return tx.projectInvoice.update({
                 where: { id },

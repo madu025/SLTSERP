@@ -305,30 +305,150 @@ async function main() {
   });
   console.log('✓ Cluster Development Workflow created');
 
-  // --- Building Fiber Workflow (8 stages) ---
+  // --- Building Fiber / Project Delivery Workflow ---
+  // This is the canonical end-to-end lifecycle used by the Project Module:
+  // survey -> CAD -> BOQ -> approval -> child work packages -> implementation
+  // -> in-house PAT -> SLT PAT -> as-built -> invoicing -> closure.
+  const buildingFiberStages = [
+    {
+      name: 'Survey Plan & Field Survey',
+      description: 'Create the survey plan, complete field/mobile survey, and record survey evidence',
+      sequence: 1,
+      reqApproval: true,
+      reqChecklist: true,
+      reqPhotos: true,
+      checklistTemplates: {
+        create: [
+          { label: 'Survey plan and scope recorded', isMandatory: true },
+          { label: 'Field survey evidence uploaded', isMandatory: true, reqPhoto: true },
+        ],
+      },
+      approvalTemplates: { create: [{ level: 1, role: 'ENGINEER' }, { level: 2, role: 'AREA_MANAGER' }] },
+    },
+    {
+      name: 'CAD Drawing Upload',
+      description: 'Upload, version, review, and approve the CAD drawing package',
+      sequence: 2,
+      reqApproval: true,
+      reqDocuments: true,
+      approvalTemplates: { create: [{ level: 1, role: 'ENGINEER' }, { level: 2, role: 'AREA_MANAGER' }] },
+    },
+    {
+      name: 'BOQ Preparation',
+      description: 'Generate and validate the BOQ from the approved survey/CAD design',
+      sequence: 3,
+      reqChecklist: true,
+      checklistTemplates: {
+        create: [
+          { label: 'BOQ items generated or entered', isMandatory: true },
+          { label: 'Quantities and rates reviewed', isMandatory: true },
+        ],
+      },
+    },
+    {
+      name: 'BOQ Approval',
+      description: 'Technical, project, and finance BOQ approval or rejection',
+      sequence: 4,
+      reqChecklist: true,
+      checklistTemplates: { create: [{ label: 'BOQ approval decision recorded', isMandatory: true }] },
+    },
+    {
+      name: 'Child Task & Contractor Allocation',
+      description: 'Split the approved scope into child tasks and allocate one or more contractors',
+      sequence: 5,
+      reqChecklist: true,
+      checklistTemplates: {
+        create: [
+          { label: 'Approved BOQ scope split into child tasks', isMandatory: true },
+          { label: 'Each executable child task has a contractor', isMandatory: true },
+        ],
+      },
+    },
+    {
+      name: 'Permit & Access',
+      description: 'Obtain building access, wayleave, and related permits before implementation',
+      sequence: 6,
+      reqApproval: true,
+      reqDocuments: true,
+      approvalTemplates: { create: [{ level: 1, role: 'AREA_MANAGER' }] },
+    },
+    {
+      name: 'Implementation',
+      description: 'Execute contractor-assigned child tasks and record field progress/evidence',
+      sequence: 7,
+      reqChecklist: true,
+      reqPhotos: true,
+      checklistTemplates: {
+        create: [
+          { label: 'Implementation child tasks completed', isMandatory: true },
+          { label: 'Field completion evidence uploaded', isMandatory: true, reqPhoto: true },
+        ],
+      },
+    },
+    {
+      name: 'In-house PAT',
+      description: 'Complete the internal/pre-acceptance test and resolve failed points',
+      sequence: 8,
+      reqApproval: true,
+      reqChecklist: true,
+      checklistTemplates: { create: [{ label: 'In-house PAT session passed', isMandatory: true }] },
+      approvalTemplates: { create: [{ level: 1, role: 'QC_OFFICER' }] },
+    },
+    {
+      name: 'SLT PAT',
+      description: 'Complete SLT acceptance testing and record the final acceptance result',
+      sequence: 9,
+      reqApproval: true,
+      reqChecklist: true,
+      checklistTemplates: { create: [{ label: 'SLT PAT session passed', isMandatory: true }] },
+      approvalTemplates: { create: [{ level: 1, role: 'AREA_MANAGER' }, { level: 2, role: 'OSP_MANAGER' }] },
+    },
+    {
+      name: 'As-Built (GIS + CAD or CAD Only)',
+      description: 'Submit approved GIS plus CAD as-built, or CAD-only as-built where GIS is unavailable',
+      sequence: 10,
+      reqApproval: true,
+      reqDocuments: true,
+      approvalTemplates: { create: [{ level: 1, role: 'ENGINEER' }, { level: 2, role: 'AREA_MANAGER' }] },
+    },
+    {
+      name: 'Invoice Submission',
+      description: 'Submit contractor-specific invoices linked to completed tasks and BOQ items',
+      sequence: 11,
+      reqDocuments: true,
+    },
+    {
+      name: 'Invoice Follow-up',
+      description: 'Track invoice review, payment progress, and contractor follow-up actions',
+      sequence: 12,
+      reqChecklist: true,
+      checklistTemplates: { create: [{ label: 'Invoice follow-up action recorded', isMandatory: true }] },
+    },
+    {
+      name: 'Invoice Completed & Closure',
+      description: 'Confirm all contractor invoices are completed and close the project',
+      sequence: 13,
+      reqApproval: true,
+      reqDocuments: true,
+      approvalTemplates: { create: [{ level: 1, role: 'AREA_MANAGER' }, { level: 2, role: 'OSP_MANAGER' }] },
+    },
+  ];
+
   await prisma.workflowTemplate.upsert({
     where: { name: 'Building Fiber Workflow' },
     update: {
       description: 'Workflow for multi-dwelling building fiber rollout',
       projectTypeId: buildingFiberType.id,
       isActive: true,
+      // Keep the template aligned for deployments that already have the project type.
+      // Project workflow instances are snapshots, so existing projects remain stable.
+      stages: { deleteMany: {}, create: buildingFiberStages },
     },
     create: {
       name: 'Building Fiber Workflow',
       description: 'Workflow for multi-dwelling building fiber rollout',
       projectTypeId: buildingFiberType.id,
-      stages: {
-        create: [
-          { name: 'Building Survey', description: 'Building assessment and feasibility', sequence: 1, reqPhotos: true, reqChecklist: true },
-          { name: 'Permit & Access', description: 'Building owner permit and access agreement', sequence: 2, reqApproval: true, reqDocuments: true },
-          { name: 'Material Issuance', description: 'Issue materials for building work', sequence: 3, reqMaterials: true, reqChecklist: true },
-          { name: 'Riser & Horizontal Cabling', description: 'Install riser and horizontal cabling', sequence: 4, reqPhotos: true, reqChecklist: true },
-          { name: 'Splicing & Termination', description: 'Fiber splicing and termination at ODF', sequence: 5, reqPhotos: true, reqChecklist: true },
-          { name: 'Testing', description: 'Fiber testing and OTDR', sequence: 6, reqOTDR: true },
-          { name: 'QA/QC', description: 'Quality inspection', sequence: 7, reqApproval: true, reqChecklist: true },
-          { name: 'Handover', description: 'Building handover with as-built docs', sequence: 8, reqApproval: true, reqDocuments: true },
-        ],
-      },
+      stages: { create: buildingFiberStages },
     },
   });
   console.log('✓ Building Fiber Workflow created');

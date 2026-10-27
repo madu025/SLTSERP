@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const POST = apiHandler(async (_request, params, body) => {
     const approvalId = body.approvalId as string | undefined;
@@ -15,14 +15,14 @@ export const POST = apiHandler(async (_request, params, body) => {
     }
 
     try {
-        const updated = await WorkflowEngine.submitApproval(approvalId, status, userId, comments);
+        const updated = await WorkflowEngine.submitApproval(approvalId, status, userId, comments, params.id);
         return { success: true, approval: updated };
     } catch (error: unknown) {
         const err = error as { message?: string };
         throw AppError.internal(err?.message || 'Failed to submit approval');
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_WORKFLOW_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'SUBMIT_APPROVAL', entity: 'WORKFLOW' },
     rawResponse: true
 });

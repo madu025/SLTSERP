@@ -50,6 +50,7 @@ interface Invoice {
     subtotal?: number;
     taxAmount?: number;
     discountAmount?: number;
+    contractorId?: string | null;
 }
 
 interface PaymentVoucher {
@@ -118,6 +119,7 @@ interface InvoiceForm {
     items: InvoiceItem[];
     taxAmount: number;
     discountAmount: number;
+    contractorId?: string;
 }
 
 interface PVForm {
@@ -187,6 +189,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     const [paymentVouchers, setPaymentVouchers] = useState<PaymentVoucher[]>([]);
     const [ldPenalties, setLdPenalties] = useState<LDPenalty[]>([]);
     const [retentions, setRetentions] = useState<Retention[]>([]);
+    const [contractorAssignments, setContractorAssignments] = useState<{ contractorId: string; role: string; contractor: { id: string; name: string } }[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Dialog states
@@ -254,14 +257,24 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
         }
     }, [project.id]);
 
+    const fetchContractorAssignments = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/projects/contractor-assignments?projectId=${project.id}`);
+            if (res.ok) setContractorAssignments(await res.json());
+        } catch {
+            toast.error('Unable to load contractor work packages.');
+        }
+    }, [project.id]);
+
     useEffect(() => {
         if (project?.id) {
             fetchInvoices();
             fetchPaymentVouchers();
             fetchLdPenalties();
             fetchRetentions();
+            fetchContractorAssignments();
         }
-    }, [project?.id, fetchInvoices, fetchPaymentVouchers, fetchLdPenalties, fetchRetentions]);
+    }, [project?.id, fetchInvoices, fetchPaymentVouchers, fetchLdPenalties, fetchRetentions, fetchContractorAssignments]);
 
     const handleCreateInvoice = async () => {
         if (!window.confirm('Create this invoice? Review the dates, line items, and totals before continuing.')) return;
@@ -496,6 +509,18 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             </Select>
                                         </div>
                                     </div>
+                                    {invForm.type === 'CONTRACTOR' && (
+                                        <div>
+                                            <Label>Contractor Work Package</Label>
+                                            <Select value={invForm.contractorId || ''} onValueChange={v => setInvForm({ ...invForm, contractorId: v })}>
+                                                <SelectTrigger><SelectValue placeholder="Select assigned contractor" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {contractorAssignments.map((assignment) => <SelectItem key={assignment.contractorId} value={assignment.contractorId}>{assignment.contractor.name} · {assignment.role.replace(/_/g, ' ')}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            {contractorAssignments.length === 0 && <p className="text-xs text-red-700 mt-1">Assign a contractor work package before creating a contractor invoice.</p>}
+                                        </div>
+                                    )}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <Label>Invoice Date</Label>
@@ -623,6 +648,12 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                                 <Button size="sm" variant="outline" onClick={() => openPaymentWorkflow(inv)}>
                                                     <Banknote className="w-4 h-4 mr-1" /> Record Payment
                                                 </Button>
+                                            )}
+                                            {(inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') && (
+                                                <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, 'FOLLOW_UP', `Move ${inv.invoiceNumber} to follow-up?`, 'Invoice moved to follow-up.')}>Follow-up</Button>
+                                            )}
+                                            {(inv.status === 'FOLLOW_UP' || inv.status === 'FULLY_PAID' || inv.status === 'PAID') && inv.balanceAmount <= 0 && (
+                                                <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, 'COMPLETED', `Mark ${inv.invoiceNumber} completed?`, 'Invoice completed.')}>Complete</Button>
                                             )}
                                             <Dialog>
                                                 <DialogTrigger asChild>

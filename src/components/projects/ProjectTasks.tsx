@@ -61,6 +61,8 @@ interface Task {
     parentId?: string | null;
     assigneeType?: string;
     assigneeId?: string;
+    contractorId?: string | null;
+    contractorAssignmentId?: string | null;
     dependencies?: TaskDependency[];
     children?: Task[];
     order?: number;
@@ -90,7 +92,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     const [taskForm, setTaskForm] = useState({
         name: '', wbsCode: '', description: '', type: 'TASK', priority: 'MEDIUM',
         plannedStartDate: '', plannedEndDate: '', plannedDuration: '',
-        estimatedCost: '', parentId: '', assigneeType: '', assigneeId: ''
+        estimatedCost: '', parentId: '', assigneeType: '', assigneeId: '', contractorAssignmentId: ''
     });
 
     const [progressForm, setProgressForm] = useState({
@@ -108,6 +110,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     // Assignee dropdown options
     const [assigneeOptions, setAssigneeOptions] = useState<{ value: string; label: string }[]>([]);
     const [loadingAssignees, setLoadingAssignees] = useState(false);
+    const [contractorAssignments, setContractorAssignments] = useState<{ id: string; contractorId: string; contractor: { name: string } }[]>([]);
 
     // Fetch assignee options when assigneeType changes
     useEffect(() => {
@@ -122,7 +125,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 if (taskForm.assigneeType === 'STAFF') {
                     url = '/api/staff';
                 } else if (taskForm.assigneeType === 'CONTRACTOR') {
-                    url = '/api/contractors';
+                    url = `/api/projects/contractor-assignments?projectId=${project.id}`;
                 } else if (taskForm.assigneeType === 'TEAM') {
                     url = '/api/contractors/teams';
                 }
@@ -136,9 +139,11 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                             label: `${s.name} (${s.designation} - ${s.employeeId})`
                         })));
                     } else if (taskForm.assigneeType === 'CONTRACTOR') {
-                        setAssigneeOptions(data.map((c: { id: string; name: string }) => ({
-                            value: c.id,
-                            label: c.name
+                        const assignments = Array.isArray(data) ? data : [];
+                        setContractorAssignments(assignments);
+                        setAssigneeOptions(assignments.map((assignment: { contractorId: string; contractor: { name: string } }) => ({
+                            value: assignment.contractorId,
+                            label: `${assignment.contractor.name} (active project assignment)`
                         })));
                     } else if (taskForm.assigneeType === 'TEAM') {
                         setAssigneeOptions(data.map((t: { id: string; name: string; contractor?: { name: string } }) => ({
@@ -154,7 +159,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
             }
         };
         fetchAssignees();
-    }, [taskForm.assigneeType]);
+    }, [taskForm.assigneeType, project.id]);
 
     const fetchTasks = useCallback(async () => {
         try {
@@ -238,7 +243,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         setTaskForm({
             name: '', wbsCode: '', description: '', type: 'TASK', priority: 'MEDIUM',
             plannedStartDate: '', plannedEndDate: '', plannedDuration: '',
-            estimatedCost: '', parentId: parentId || '', assigneeType: '', assigneeId: ''
+            estimatedCost: '', parentId: parentId || '', assigneeType: '', assigneeId: '', contractorAssignmentId: ''
         });
         setIsTaskDialogOpen(true);
     };
@@ -257,7 +262,8 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
             estimatedCost: task.estimatedCost?.toString() || '',
             parentId: task.parentId || '',
             assigneeType: task.assigneeType || '',
-            assigneeId: task.assigneeId || ''
+            assigneeId: task.contractorId || task.assigneeId || '',
+            contractorAssignmentId: task.contractorAssignmentId || ''
         });
         setIsTaskDialogOpen(true);
     };
@@ -265,7 +271,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     const handleDeleteTask = async (id: string) => {
         if (!confirm('Are you sure you want to delete this task?')) return;
         try {
-            const res = await fetch(`/api/projects/tasks?id=${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/projects/tasks?id=${id}&projectId=${project.id}`, { method: 'DELETE' });
             if (res.ok) {
                 fetchTasks();
                 fetchAllTasks();
@@ -284,7 +290,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         try {
             const method = editingTask ? 'PATCH' : 'POST';
             const body = editingTask
-                ? { id: editingTask.id, ...taskForm }
+                ? { id: editingTask.id, projectId: project.id, ...taskForm }
                 : { projectId: project.id, ...taskForm };
 
             const res = await fetch('/api/projects/tasks', {
@@ -316,6 +322,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    projectId: project.id,
                     taskId: selectedTask.id,
                     progress: progressForm.progress,
                     description: progressForm.description,
@@ -765,7 +772,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                         </div>
                         <div className="col-span-1 space-y-2">
                             <Label>Assignee Type</Label>
-                            <Select value={taskForm.assigneeType} onValueChange={(val) => setTaskForm({ ...taskForm, assigneeType: val, assigneeId: '' })}>
+                            <Select value={taskForm.assigneeType} onValueChange={(val) => setTaskForm({ ...taskForm, assigneeType: val, assigneeId: '', contractorAssignmentId: '' })}>
                                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="STAFF">Staff</SelectItem>
@@ -777,11 +784,17 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                         {taskForm.assigneeType && (
                             <div className="col-span-1 space-y-2">
                                 <Label>
-                                    {taskForm.assigneeType === 'STAFF' ? 'Assign Staff' : taskForm.assigneeType === 'CONTRACTOR' ? 'Assign Contractor' : 'Assign Team'}
+                                    {taskForm.assigneeType === 'STAFF' ? 'Assign Staff' : taskForm.assigneeType === 'CONTRACTOR' ? 'Assign Contractor Work Package' : 'Assign Team'}
                                 </Label>
                                 <Select 
                                     value={taskForm.assigneeId} 
-                                    onValueChange={(val) => setTaskForm({ ...taskForm, assigneeId: val })}
+                                    onValueChange={(val) => setTaskForm({
+                                        ...taskForm,
+                                        assigneeId: val,
+                                        contractorAssignmentId: taskForm.assigneeType === 'CONTRACTOR'
+                                            ? contractorAssignments.find((assignment) => assignment.contractorId === val)?.id || ''
+                                            : '',
+                                    })}
                                     disabled={loadingAssignees}
                                 >
                                     <SelectTrigger>

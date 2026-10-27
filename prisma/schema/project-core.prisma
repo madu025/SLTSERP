@@ -45,6 +45,8 @@ model Project {
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
   projectTypeId         String?                       @db.Uuid
+  parentId              String?                       @db.Uuid
+  planningSource        String                        @default("GIS")
   gisMapping            Json?
   routeType             String?
   routeFrom             String?
@@ -71,6 +73,9 @@ model Project {
   contractor            Contractor?                   @relation(fields: [contractorId], references: [id])
   opmc                  OPMC?                         @relation(fields: [opmcId], references: [id])
   projectType           ProjectType?                  @relation(fields: [projectTypeId], references: [id])
+  parent                Project?                      @relation("ProjectHierarchy", fields: [parentId], references: [id])
+  children              Project[]                     @relation("ProjectHierarchy")
+  contractorAssignments ProjectContractorAssignment[]
   approvalRequests      ProjectApprovalRequest[]
   assets                ProjectAsset[]
   boqItems              ProjectBOQItem[]
@@ -107,6 +112,31 @@ model Project {
   @@index([projectTypeId])
   @@index([areaManagerId])
   @@index([jobId])
+  @@index([parentId])
+  @@index([planningSource])
+}
+
+model ProjectContractorAssignment {
+  id                 String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId          String     @db.Uuid
+  contractorId       String     @db.Uuid
+  role               String     @default("IMPLEMENTATION")
+  status             String     @default("ACTIVE")
+  allocationPercent  Decimal?   @db.Decimal(8, 4)
+  contractValue      Decimal?   @db.Decimal(14, 2)
+  assignedAt         DateTime   @default(now())
+  releasedAt         DateTime?
+  notes              String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor         Contractor @relation("ProjectContractorAssignments", fields: [contractorId], references: [id])
+  tasks              ProjectTask[]
+
+  @@unique([projectId, contractorId])
+  @@index([projectId])
+  @@index([contractorId])
+  @@index([status])
 }
 
 model ProjectBOQItem {
@@ -123,16 +153,22 @@ model ProjectBOQItem {
   actualQuantity Decimal        @default(0) @db.Decimal(14, 2)
   actualCost     Decimal        @default(0) @db.Decimal(14, 2)
   materialId     String?        @db.Uuid
+  taskId         String?        @db.Uuid
+  contractorId   String?        @db.Uuid
   remarks        String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   material       InventoryItem? @relation("BOQMaterials", fields: [materialId], references: [id])
+  task           ProjectTask?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  contractor     Contractor?    @relation(fields: [contractorId], references: [id])
   project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([category])
   @@index([source])
   @@index([materialId])
+  @@index([taskId])
+  @@index([contractorId])
 }
 
 model ProjectMilestone {
@@ -199,6 +235,8 @@ model ProjectTask {
   isCritical       Boolean           @default(false)
   assigneeType     String?
   assigneeId       String?           @db.Uuid
+  contractorId     String?           @db.Uuid
+  contractorAssignmentId String?      @db.Uuid
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   parent           ProjectTask?      @relation("TaskHierarchy", fields: [parentId], references: [id])
@@ -208,12 +246,17 @@ model ProjectTask {
   dependencies     TaskDependency[]  @relation("TaskDependents")
   progressLogs     TaskProgressLog[]
   timesheets       Timesheet[]
+  boqItems         ProjectBOQItem[]
+  contractor       Contractor?       @relation("ProjectTaskContractor", fields: [contractorId], references: [id])
+  contractorAssignment ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([parentId])
   @@index([status])
   @@index([wbsCode])
   @@index([assigneeId])
+  @@index([contractorId])
+  @@index([contractorAssignmentId])
 }
 
 model TaskDependency {

@@ -169,9 +169,15 @@ export class WorkflowEngine {
     const stage = await prisma.projectStageInstance.findUnique({
       where: { id: stageId },
       include: {
-        tasks: true,
-        checklists: true,
-        approvals: true,
+      tasks: true,
+      checklists: true,
+      approvals: true,
+      projectWorkflowInstance: {
+        select: {
+          projectId: true,
+          project: { select: { planningSource: true } },
+        },
+      },
       },
     });
 
@@ -234,16 +240,91 @@ export class WorkflowEngine {
       }
     }
 
-    return {
-      success: errors.length === 0,
-      errors,
-    };
+    // Domain gates for the delivery workflow. These are based on persisted
+    // records so UI checklist completion alone cannot bypass missing evidence.
+    const projectId = stage.projectWorkflowInstance.projectId;
+    const stageName = stage.name.trim().toLowerCase();
+    if (stageName.includes('cad drawing')) {
+      const drawingCount = await prisma.projectDocument.count({ where: { projectId, category: { in: ['CAD_DRAWING', 'DRAWING', 'DESIGN'] }, status: 'APPROVED' } });
+      if (drawingCount === 0) errors.push('An approved CAD/drawing document is required before continuing.');
+    }
+    if (stageName.includes('boq preparation')) {
+      const boqCount = await prisma.projectBOQItem.count({ where: { projectId } });
+      if (boqCount === 0) errors.push('At least one BOQ item is required before BOQ preparation can complete.');
+    }
+    if (stageName.includes('boq approval')) {
+      const approvedBoq = await prisma.bOQApproval.count({ where: { projectId, status: 'APPROVED' } });
+      if (approvedBoq === 0) errors.push('The BOQ must be approved before implementation can start.');
+    }
+    if (stageName.includes('child task') && stageName.includes('contractor')) {
+      const childTasks = await prisma.projectTask.findMany({
+        where: { projectId, parentId: { not: null } },
+        select: { id: true, name: true, contractorId: true },
+      });
+      if (childTasks.length === 0) {
+        errors.push('At least one child task must be created from the approved BOQ scope.');
+      } else {
+        const unassigned = childTasks.filter((task) => !task.contractorId);
+        if (unassigned.length > 0) {
+          errors.push(`Every executable child task must have a contractor: ${unassigned.map((task) => task.name).join(', ')}`);
+        }
+      }
+    }
+    if (stageName === 'implementation') {
+      const openChildTasks = await prisma.projectTask.count({
+        where: { projectId, parentId: { not: null }, status: { not: 'COMPLETED' } },
+      });
+      if (openChildTasks > 0) errors.push(`${openChildTasks} contractor child task(s) are not completed.`);
+    }
+    if (stageName.includes('in-house pat')) {
+      const passedInHousePat = await prisma.pATSession.count({
+        where: { projectId, patType: 'PRE_PAT', status: 'COMPLETED' },
+      });
+      if (passedInHousePat === 0) errors.push('A completed in-house PAT session is required.');
+    }
+    if (stageName === 'slt pat') {
+      const passedSltPat = await prisma.pATSession.count({
+        where: { projectId, patType: 'SLT_PAT', status: 'COMPLETED' },
+      });
+      if (passedSltPat === 0) errors.push('A completed SLT PAT session is required.');
+    }
+    if (stageName.includes('as-built')) {
+      const asBuiltCount = await prisma.projectDocument.count({ where: { projectId, category: { in: ['AS_BUILT', 'CAD_AS_BUILT', 'QGIS_AS_BUILT'] }, status: 'APPROVED' } });
+      const source = stage.projectWorkflowInstance.project.planningSource?.toUpperCase();
+      if (asBuiltCount === 0) {
+        errors.push(source === 'CAD'
+          ? 'An approved CAD as-built document is required for this CAD-only project.'
+          : 'An approved GIS or CAD as-built document is required.');
+      }
+    }
+    if (stageName.includes('invoice submission') || stageName.includes('invoice & follow-up')) {
+      const invoiceCount = await prisma.projectInvoice.count({
+        where: {
+          projectId,
+          type: 'CONTRACTOR',
+          status: { in: ['ISSUED', 'FOLLOW_UP', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID', 'COMPLETED'] },
+        },
+      });
+      if (invoiceCount === 0) errors.push('At least one submitted contractor invoice is required.');
+    }
+    if (stageName === 'invoice follow-up') {
+      const followUpCount = await prisma.projectInvoice.count({
+        where: { projectId, type: 'CONTRACTOR', status: { in: ['FOLLOW_UP', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID', 'COMPLETED'] } },
+      });
+      if (followUpCount === 0) errors.push('At least one contractor invoice must have a follow-up or payment status.');
+    }
+    if (stageName.includes('invoice completed')) {
+      const openInvoices = await prisma.projectInvoice.count({ where: { projectId, type: 'CONTRACTOR', status: { notIn: ['COMPLETED', 'FULLY_PAID', 'PAID'] } } });
+      if (openInvoices > 0) errors.push('All contractor invoices must be fully paid or completed before project closure.');
+    }
+
+    return { success: errors.length === 0, errors };
   }
 
   /**
    * Promotes or completes the current stage and activates the next sequence stage.
    */
-  static async transitionStage(stageId: string, nextStatus: string, userId: string) {
+  static async transitionStage(stageId: string, nextStatus: string, userId: string, projectId?: string) {
     const actor = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, role: true, status: true },
@@ -259,11 +340,14 @@ export class WorkflowEngine {
 
     const stage = await prisma.projectStageInstance.findUnique({
       where: { id: stageId },
-      include: { approvals: true },
+      include: { approvals: true, projectWorkflowInstance: { select: { projectId: true } } },
     });
 
     if (!stage) {
       throw AppError.badRequest('Stage not found');
+    }
+    if (projectId && stage.projectWorkflowInstance.projectId !== projectId) {
+      throw AppError.forbidden('Workflow stage does not belong to this project');
     }
 
     const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
@@ -362,17 +446,29 @@ export class WorkflowEngine {
   /**
    * Action Checklist items
    */
-  static async updateChecklistItem(checklistId: string, isCompleted: boolean, photoUrl?: string) {
+  static async updateChecklistItem(checklistId: string, isCompleted: boolean, photoUrl?: string | null, projectId?: string) {
+    const checklist = await prisma.projectChecklistInstance.findUnique({
+      where: { id: checklistId },
+      include: { stage: { include: { projectWorkflowInstance: { select: { projectId: true } } } } },
+    });
+    if (!checklist) throw AppError.notFound('Workflow checklist not found');
+    if (projectId && checklist.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow checklist does not belong to this project');
     return prisma.projectChecklistInstance.update({
       where: { id: checklistId },
-      data: { isCompleted, photoUrl },
+      data: { isCompleted, photoUrl: photoUrl ?? null },
     });
   }
 
   /**
    * Action Task status
    */
-  static async updateTaskStatus(taskId: string, status: string, progress: number = 0) {
+  static async updateTaskStatus(taskId: string, status: string, progress: number = 0, projectId?: string) {
+    const task = await prisma.projectTaskInstance.findUnique({
+      where: { id: taskId },
+      include: { stage: { include: { projectWorkflowInstance: { select: { projectId: true } } } } },
+    });
+    if (!task) throw AppError.notFound('Workflow task not found');
+    if (projectId && task.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow task does not belong to this project');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = { status, progress };
     if (status === 'IN_PROGRESS') {
@@ -390,7 +486,7 @@ export class WorkflowEngine {
   /**
    * Action Approval Level
    */
-  static async submitApproval(approvalId: string, status: string, userId: string, comments?: string) {
+  static async submitApproval(approvalId: string, status: string, userId: string, comments?: string, projectId?: string) {
     if (status !== 'APPROVED' && status !== 'REJECTED') {
       throw AppError.badRequest('Approval status must be APPROVED or REJECTED');
     }
@@ -405,9 +501,10 @@ export class WorkflowEngine {
 
     const approval = await prisma.projectApprovalInstance.findUnique({
       where: { id: approvalId },
-      include: { stage: { include: { approvals: true } } },
+      include: { stage: { include: { approvals: true, projectWorkflowInstance: { select: { projectId: true } } } } },
     });
     if (!approval) throw AppError.notFound('Workflow approval not found');
+    if (projectId && approval.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow approval does not belong to this project');
     if (approval.status !== 'PENDING') {
       throw AppError.badRequest('Workflow approval has already been actioned');
     }

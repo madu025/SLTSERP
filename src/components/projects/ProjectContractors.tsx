@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Star, HardHat, Phone, Mail, Award } from 'lucide-react';
+import { Star, HardHat, Phone, Mail, Award, Plus, Users } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { toast } from 'sonner';
@@ -33,6 +33,16 @@ interface ProjectContractorsProps {
     project: Project;
 }
 
+interface ContractorAssignment {
+    id: string;
+    contractorId: string;
+    role: string;
+    status: string;
+    allocationPercent?: number | null;
+    contractValue?: number | null;
+    contractor: Contractor;
+}
+
 export default function ProjectContractors({ project }: ProjectContractorsProps) {
     const [contractor, setContractor] = useState<Contractor | null>(null);
     const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
@@ -40,10 +50,78 @@ export default function ProjectContractors({ project }: ProjectContractorsProps)
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [rating, setRating] = useState('5');
     const [comments, setComments] = useState('');
+    const [assignments, setAssignments] = useState<ContractorAssignment[]>([]);
+    const [availableContractors, setAvailableContractors] = useState<Contractor[]>([]);
+    const [selectedContractorId, setSelectedContractorId] = useState('');
+    const [assignmentRole, setAssignmentRole] = useState('IMPLEMENTATION');
+    const [assigning, setAssigning] = useState(false);
+    const [replacingAssignmentId, setReplacingAssignmentId] = useState<string | null>(null);
+    const [replacementContractorId, setReplacementContractorId] = useState('');
 
     useEffect(() => {
         fetchContractorInfo();
+        fetchAssignments();
     }, [project.id]);
+
+    const fetchAssignments = async () => {
+        try {
+            const [assignmentRes, contractorRes] = await Promise.all([
+                fetch(`/api/projects/contractor-assignments?projectId=${project.id}`),
+                fetch('/api/contractors'),
+            ]);
+            if (assignmentRes.ok) setAssignments(await assignmentRes.json());
+            if (contractorRes.ok) {
+                const data = await contractorRes.json();
+                const list = data?.contractors || data?.data?.contractors || data?.data || data;
+                if (Array.isArray(list)) setAvailableContractors(list);
+            }
+        } catch {
+            toast.error('Unable to load project contractor assignments');
+        }
+    };
+
+    const assignContractor = async () => {
+        if (!selectedContractorId) return;
+        setAssigning(true);
+        try {
+            const res = await fetch('/api/projects/contractor-assignments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: project.id, contractorId: selectedContractorId, role: assignmentRole }),
+            });
+            if (!res.ok) throw new Error('Assignment failed');
+            setSelectedContractorId('');
+            await fetchAssignments();
+            toast.success('Contractor assigned to the project');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Assignment failed');
+        } finally {
+            setAssigning(false);
+        }
+    };
+
+    const replaceContractor = async (assignmentId: string) => {
+        if (!replacementContractorId) return;
+        setReplacingAssignmentId(assignmentId);
+        try {
+            const res = await fetch('/api/projects/contractor-assignments', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: assignmentId, action: 'REPLACE', replacementContractorId }),
+            });
+            if (!res.ok) {
+                const payload = await res.json().catch(() => null);
+                throw new Error(payload?.error || 'Contractor replacement failed');
+            }
+            setReplacementContractorId('');
+            await fetchAssignments();
+            toast.success('Open child tasks moved to the replacement contractor');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Contractor replacement failed');
+        } finally {
+            setReplacingAssignmentId(null);
+        }
+    };
 
     const fetchContractorInfo = async () => {
         try {
@@ -110,20 +188,73 @@ export default function ProjectContractors({ project }: ProjectContractorsProps)
 
     if (loading) return <div className="text-center py-12 text-slate-500">Loading contractor profile...</div>;
 
+    const assignmentPanel = (
+        <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2"><Users className="w-4 h-4 text-emerald-600" /> Contractor Work Packages</CardTitle>
+                <CardDescription className="text-xs text-slate-600">Assign more than one contractor to this project before allocating tasks or contractor invoices.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                    <Select value={selectedContractorId} onValueChange={setSelectedContractorId}>
+                        <SelectTrigger className="w-64"><SelectValue placeholder="Select active contractor" /></SelectTrigger>
+                        <SelectContent>
+                            {availableContractors.filter((item) => !assignments.some((assignment) => assignment.contractorId === item.id)).map((item) => (
+                                <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={assignmentRole} onValueChange={setAssignmentRole}>
+                        <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="SURVEY">Survey</SelectItem>
+                            <SelectItem value="DESIGN">Design / BOQ</SelectItem>
+                            <SelectItem value="IMPLEMENTATION">Implementation</SelectItem>
+                            <SelectItem value="PAT">PAT / QA</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button onClick={assignContractor} disabled={!selectedContractorId || assigning} className="gap-1"><Plus className="w-4 h-4" /> Assign</Button>
+                </div>
+                {assignments.length === 0 ? <p className="text-xs text-slate-600">No contractor work package assigned yet.</p> : (
+                    <div className="grid gap-2 md:grid-cols-2">
+                        {assignments.map((assignment) => (
+                            <div key={assignment.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div><p className="text-sm font-semibold text-slate-900">{assignment.contractor.name}</p><p className="text-xs text-slate-700">{assignment.role.replace(/_/g, ' ')}</p></div>
+                                    <Badge className={assignment.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}>{assignment.status}</Badge>
+                                </div>
+                                {assignment.status === 'ACTIVE' && availableContractors.length > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <Select value={replacementContractorId} onValueChange={setReplacementContractorId}>
+                                            <SelectTrigger className="h-8 flex-1 text-xs bg-white"><SelectValue placeholder="Replace open-task contractor" /></SelectTrigger>
+                                            <SelectContent>
+                                                {availableContractors.filter((item) => item.id !== assignment.contractorId).map((item) => (
+                                                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!replacementContractorId || replacingAssignmentId === assignment.id} onClick={() => replaceContractor(assignment.id)}>
+                                            {replacingAssignmentId === assignment.id ? 'Changing...' : 'Change'}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+
     if (!contractor) {
         return (
-            <Card className="border-dashed border-2">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                    <HardHat className="w-12 h-12 text-slate-300 mb-3" />
-                    <h4 className="font-semibold text-slate-700">No Contractor Assigned</h4>
-                    <p className="text-xs text-slate-500 max-w-sm mt-1">Assign an external contractor in the project settings overview page to enable performance rating evaluations.</p>
-                </CardContent>
-            </Card>
+            <div className="space-y-6">{assignmentPanel}<Card className="border-dashed border-2"><CardContent className="flex flex-col items-center justify-center py-12 text-center"><HardHat className="w-12 h-12 text-slate-300 mb-3" /><h4 className="font-semibold text-slate-700">No Primary Contractor Profile</h4><p className="text-xs text-slate-600 max-w-sm mt-1">Use the work package assignment above for task allocation. A primary contractor profile is optional.</p></CardContent></Card></div>
         );
     }
 
     return (
         <div className="space-y-6">
+            {assignmentPanel}
             <div className="flex justify-between items-center">
                 <div>
                     <h3 className="text-lg font-semibold text-slate-900">Contractor Profile & Evaluation</h3>

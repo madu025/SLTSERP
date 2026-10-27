@@ -107,6 +107,12 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
         { value: 'documents', label: 'Documents', description: 'Survey reports and drawings' },
         { value: 'risks', label: 'Risks', description: 'Risk assessment' },
     ],
+    'survey plan & field survey': [
+        { value: 'survey', label: 'Survey Plan', description: 'Survey planning and field/mobile survey' },
+        { value: 'survey-approval', label: 'Survey Approval', description: 'Survey evidence and approval' },
+        { value: 'documents', label: 'Survey Documents', description: 'Survey reports and supporting files' },
+        { value: 'risks', label: 'Risks', description: 'Survey risk assessment' },
+    ],
     'feasibility study': [
         { value: 'survey', label: 'Survey', description: 'Feasibility survey' },
         { value: 'survey-approval', label: 'Survey Approval', description: 'Map-based QField data approval workflow' },
@@ -124,10 +130,79 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
     ],
     'building survey': [
         { value: 'survey', label: 'Survey', description: 'Building assessment survey' },
-        { value: 'survey-approval', label: 'Survey Approval', description: 'Map-based QField data approval workflow' },
-        { value: 'gis', label: 'GIS Route', description: 'Building GIS route mapping' },
         { value: 'documents', label: 'Documents', description: 'Building survey documents' },
         { value: 'risks', label: 'Risks', description: 'Building risk assessment' },
+    ],
+    'cad drawing & design': [
+        { value: 'documents', label: 'CAD Drawings', description: 'Drawing upload, revision and approval' },
+        { value: 'approvals', label: 'Drawing Approval', description: 'Technical drawing approval or rejection' },
+        { value: 'tasks', label: 'Design Tasks', description: 'Design review and correction tasks' },
+    ],
+    'boq preparation': [
+        { value: 'boq', label: 'BOQ & Material', description: 'BOQ linked to task and contractor scope' },
+        { value: 'tasks', label: 'BOQ Tasks', description: 'Child task and quantity planning' },
+        { value: 'contractor', label: 'Contractor Scope', description: 'Contractor-wise work package allocation' },
+    ],
+    'boq approval': [
+        { value: 'boq', label: 'BOQ & Material', description: 'Technical and commercial BOQ approval' },
+        { value: 'approvals', label: 'BOQ Approval', description: 'Approval or rejection with audit trail' },
+    ],
+    'child task & contractor allocation': [
+        { value: 'tasks', label: 'Child Tasks', description: 'Split approved scope into executable child tasks' },
+        { value: 'contractor', label: 'Contractors', description: 'Assign one or more contractors by work package' },
+        { value: 'boq', label: 'BOQ & Material', description: 'Link BOQ quantities to tasks and contractors' },
+        { value: 'documents', label: 'Documents', description: 'Scope and allocation records' },
+    ],
+    'implementation': [
+        { value: 'tasks', label: 'Tasks', description: 'Contractor-wise implementation tasks' },
+        { value: 'contractor', label: 'Contractors', description: 'Contractor scope and performance' },
+        { value: 'documents', label: 'Documents', description: 'Implementation evidence' },
+        { value: 'risks', label: 'Risks', description: 'Implementation risk tracking' },
+    ],
+    'pat': [
+        { value: 'pat', label: 'PAT', description: 'Pre-acceptance testing and corrections' },
+        { value: 'qa', label: 'QA/QC', description: 'Quality review and acceptance' },
+        { value: 'documents', label: 'Documents', description: 'PAT reports and evidence' },
+    ],
+    'in-house pat': [
+        { value: 'pat', label: 'In-house PAT', description: 'Internal pre-acceptance testing and corrections' },
+        { value: 'qa', label: 'QA/QC', description: 'Internal quality review' },
+        { value: 'documents', label: 'PAT Documents', description: 'Internal PAT reports and evidence' },
+    ],
+    'slt pat': [
+        { value: 'pat', label: 'SLT PAT', description: 'SLT acceptance testing and final result' },
+        { value: 'qa', label: 'QA/QC', description: 'SLT quality acceptance review' },
+        { value: 'documents', label: 'PAT Documents', description: 'SLT PAT reports and evidence' },
+    ],
+    'qgis or cad as-built': [
+        { value: 'as-built', label: 'As-Built', description: 'QGIS or CAD as-built submission' },
+        { value: 'documents', label: 'Documents', description: 'As-built files and revisions' },
+        { value: 'approvals', label: 'As-Built Approval', description: 'As-built technical approval' },
+    ],
+    'as-built (gis + cad or cad only)': [
+        { value: 'as-built', label: 'As-Built', description: 'GIS plus CAD, or CAD-only as-built submission' },
+        { value: 'documents', label: 'As-Built Documents', description: 'As-built files and revisions' },
+        { value: 'approvals', label: 'As-Built Approval', description: 'As-built technical approval' },
+    ],
+    'invoice submission': [
+        { value: 'finance', label: 'Invoices', description: 'Contractor-specific invoice submission' },
+        { value: 'documents', label: 'Invoice Documents', description: 'Invoice support documents' },
+        { value: 'tasks', label: 'Task Completion', description: 'Verify invoices against completed tasks' },
+    ],
+    'invoice follow-up': [
+        { value: 'finance', label: 'Invoice Follow-up', description: 'Track review and payment follow-up' },
+        { value: 'contractor', label: 'Contractors', description: 'Contractor-wise payment status' },
+        { value: 'documents', label: 'Invoice Documents', description: 'Follow-up records and correspondence' },
+    ],
+    'invoice & follow-up': [
+        { value: 'finance', label: 'Invoices', description: 'Contractor-wise invoice submission' },
+        { value: 'approvals', label: 'Invoice Approval', description: 'Invoice review and approval' },
+        { value: 'documents', label: 'Documents', description: 'Invoice support documents' },
+    ],
+    'invoice completed & closure': [
+        { value: 'finance', label: 'Invoice Completion', description: 'Payment follow-up and completion' },
+        { value: 'closure', label: 'Closure', description: 'Project financial and technical closeout' },
+        { value: 'documents', label: 'Documents', description: 'Final closure documents' },
     ],
 
     // ===== Permit Stages =====
@@ -358,7 +433,7 @@ const STAGE_NAME_ALIASES: Record<string, string> = {
  * Get the tabs that should be visible for a given stage name.
  * Falls back to a default set if no mapping exists.
  */
-export function getTabsForStage(stageName: string | null | undefined): TabDefinition[] {
+export function getTabsForStage(stageName: string | null | undefined, planningSource?: string | null): TabDefinition[] {
     if (!stageName) {
         return getDefaultTabs();
     }
@@ -368,8 +443,12 @@ export function getTabsForStage(stageName: string | null | undefined): TabDefini
     const mapped = STAGE_TAB_MAPPING[aliasedKey];
 
     if (mapped) {
+        const source = planningSource?.toUpperCase();
+        const sourceAware = source === 'CAD' && ['survey & feasibility', 'survey plan & field survey'].includes(aliasedKey)
+            ? mapped.filter((tab) => !['gis', 'survey-approval'].includes(tab.value))
+            : mapped;
         // Always include overview and workflow-pipeline
-        return uniqueTabs([...ALWAYS_VISIBLE_TABS, ...mapped]);
+        return uniqueTabs([...ALWAYS_VISIBLE_TABS, ...sourceAware]);
     }
 
     // Fallback: return default tabs

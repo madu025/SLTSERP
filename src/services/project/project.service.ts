@@ -21,6 +21,8 @@ interface CreateProjectInput {
     contractorId?: string | null;
     opmcId?: string | null;
     projectTypeId?: string | null;
+    parentId?: string | null;
+    planningSource?: string;
 }
 
 interface UpdateProjectInput {
@@ -39,6 +41,8 @@ interface UpdateProjectInput {
     areaManagerId?: string | null;
     contractorId?: string | null;
     opmcId?: string | null;
+    parentId?: string | null;
+    planningSource?: string;
 }
 
 export class ProjectService {
@@ -107,6 +111,11 @@ export class ProjectService {
                             contactNumber: true
                         }
                     },
+                    parent: { select: { id: true, projectCode: true, name: true } },
+                    contractorAssignments: {
+                        where: { status: 'ACTIVE' },
+                        include: { contractor: { select: { id: true, name: true } } },
+                    },
                     projectType: {
                         select: {
                             id: true,
@@ -172,6 +181,12 @@ export class ProjectService {
                         email: true
                     }
                 },
+                parent: { select: { id: true, projectCode: true, name: true } },
+                children: { select: { id: true, projectCode: true, name: true, status: true, progress: true } },
+                contractorAssignments: {
+                    include: { contractor: { select: { id: true, name: true, contactNumber: true, email: true } } },
+                    orderBy: { assignedAt: 'asc' },
+                },
                 projectType: {
                     select: {
                         id: true,
@@ -236,7 +251,7 @@ export class ProjectService {
      * Create new project
      */
     static async createProject(data: CreateProjectInput) {
-        const { projectCode, name, type, contractorId, opmcId, projectTypeId } = data;
+        const { projectCode, name, type, contractorId, opmcId, projectTypeId, parentId, planningSource } = data;
 
         // Check if project code already exists
         const existing = await prisma.project.findUnique({
@@ -250,6 +265,10 @@ export class ProjectService {
         // Resolve an explicitly selected type, or use the first type that has an active
         // template.  A project without a usable workflow is not a valid project record.
         return await prisma.$transaction(async (tx) => {
+            if (parentId) {
+                const parent = await tx.project.findUnique({ where: { id: parentId }, select: { id: true } });
+                if (!parent) throw AppError.badRequest('PARENT_PROJECT_NOT_FOUND');
+            }
             const selectedProjectType = await tx.projectType.findFirst({
                 where: projectTypeId
                     ? { id: projectTypeId, workflowTemplates: { some: { isActive: true } } }
@@ -271,6 +290,8 @@ export class ProjectService {
                     name,
                     type: type || 'FTTH',
                     contractorId: contractorId || null,
+                    parentId: parentId || null,
+                    planningSource: planningSource || 'GIS',
                     opmcId: opmcId || null,
                     projectTypeId: selectedProjectType.id,
                     status: 'PLANNING'
@@ -281,9 +302,19 @@ export class ProjectService {
                     contractor: true,
                     projectType: {
                         select: { id: true, name: true, description: true }
+                    },
+                    parent: { select: { id: true, projectCode: true, name: true } },
+                    contractorAssignments: {
+                        include: { contractor: { select: { id: true, name: true } } },
                     }
                 }
             });
+
+            if (contractorId) {
+                await tx.projectContractorAssignment.create({
+                    data: { projectId: project.id, contractorId, role: 'PRIMARY' },
+                });
+            }
 
             // The same transaction covers project + workflow snapshot.  If initialization
             // fails, neither record is committed and the API returns an actionable error.
@@ -321,6 +352,27 @@ export class ProjectService {
         if (updateData.opmcId !== undefined) finalUpdateData.opmcId = updateData.opmcId || null;
         if (updateData.contractorId !== undefined) finalUpdateData.contractorId = updateData.contractorId || null;
         if (updateData.areaManagerId !== undefined) finalUpdateData.areaManagerId = updateData.areaManagerId || null;
+        if (updateData.parentId !== undefined) {
+            const nextParentId = updateData.parentId || null;
+            if (nextParentId === id) throw AppError.badRequest('PROJECT_CANNOT_PARENT_ITSELF');
+            if (nextParentId) {
+                const visited = new Set<string>();
+                let cursor: string | null = nextParentId;
+                while (cursor) {
+                    if (cursor === id) throw AppError.badRequest('PROJECT_PARENT_CYCLE');
+                    if (visited.has(cursor)) break;
+                    visited.add(cursor);
+                    const parent: { parentId: string | null } | null = await prisma.project.findUnique({
+                        where: { id: cursor },
+                        select: { parentId: true },
+                    });
+                    if (!parent) throw AppError.badRequest('PARENT_PROJECT_NOT_FOUND');
+                    cursor = parent.parentId;
+                }
+            }
+            finalUpdateData.parentId = nextParentId;
+        }
+        if (updateData.planningSource !== undefined) finalUpdateData.planningSource = updateData.planningSource || 'GIS';
 
         if (updateData.startDate !== undefined) {
             finalUpdateData.startDate = updateData.startDate ? new Date(updateData.startDate) : null;

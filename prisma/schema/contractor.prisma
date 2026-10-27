@@ -66,6 +66,10 @@ model Contractor {
   serials           InventoryItemSerial[]
   invoices          Invoice[]
   projects          Project[]
+  projectAssignments ProjectContractorAssignment[] @relation("ProjectContractorAssignments")
+  projectTasks      ProjectTask[]                  @relation("ProjectTaskContractor")
+  projectInvoices   ProjectInvoice[]               @relation("ProjectContractorInvoices")
+  projectBOQItems   ProjectBOQItem[]
   serviceOrders     ServiceOrder[]
   stockIssues       StockIssue[]                     @relation("ContractorIssues")
   teamMembers       TeamMember[]

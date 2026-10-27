@@ -121,6 +121,11 @@ export class PaymentVoucherService {
       });
       if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
       if (invoice.projectId !== data.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
+      if (invoice.type === 'CONTRACTOR') {
+        if (data.type !== 'CONTRACTOR' || data.payeeId !== invoice.contractorId) {
+          throw AppError.badRequest('CONTRACTOR_PAYMENT_PAYEE_MISMATCH');
+        }
+      }
       if (!['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) {
         throw AppError.badRequest('VOUCHERS_REQUIRE_AN_ISSUED_INVOICE');
       }
@@ -257,6 +262,13 @@ export class PaymentVoucherService {
       });
       if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
       if (invoice.projectId !== existing.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
+      if (invoice.type === 'CONTRACTOR') {
+        const nextPayeeId = data.payeeId !== undefined ? data.payeeId : existing.payeeId;
+        const nextType = data.type !== undefined ? data.type : existing.type;
+        if (nextType !== 'CONTRACTOR' || nextPayeeId !== invoice.contractorId) {
+          throw AppError.badRequest('CONTRACTOR_PAYMENT_PAYEE_MISMATCH');
+        }
+      }
       if (!['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) {
         throw AppError.badRequest('VOUCHERS_REQUIRE_AN_ISSUED_INVOICE');
       }

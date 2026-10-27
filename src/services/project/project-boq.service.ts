@@ -10,6 +10,8 @@ interface CreateBOQItemInput {
     unitRate: string | number;
     category?: string | null;
     materialId?: string | null;
+    taskId?: string | null;
+    contractorId?: string | null;
     remarks?: string | null;
 }
 
@@ -23,6 +25,8 @@ interface UpdateBOQItemInput {
     remarks?: string | null;
     description?: string;
     unit?: string;
+    taskId?: string | null;
+    contractorId?: string | null;
 }
 
 interface SaveBOQRateInput {
@@ -57,7 +61,9 @@ export class ProjectBOQService {
                         name: true,
                         unit: true
                     }
-                }
+                },
+                task: { select: { id: true, wbsCode: true, name: true, contractorId: true } },
+                contractor: { select: { id: true, name: true } }
             },
             orderBy: { itemCode: 'asc' }
         });
@@ -77,12 +83,27 @@ export class ProjectBOQService {
             unitRate,
             category,
             materialId,
-            remarks
+            remarks,
+            taskId,
+            contractorId
         } = data;
 
         const quantityVal = parseFloat(String(quantity));
         const unitRateVal = parseFloat(String(unitRate));
+        if (!Number.isFinite(quantityVal) || quantityVal <= 0 || !Number.isFinite(unitRateVal) || unitRateVal < 0) {
+            throw AppError.badRequest('INVALID_BOQ_QUANTITY_OR_RATE');
+        }
         const amount = quantityVal * unitRateVal;
+
+        if (taskId) {
+            const task = await prisma.projectTask.findUnique({ where: { id: taskId }, select: { projectId: true, contractorId: true } });
+            if (!task || task.projectId !== projectId) throw AppError.badRequest('BOQ_TASK_PROJECT_MISMATCH');
+            if (contractorId && task.contractorId && task.contractorId !== contractorId) throw AppError.badRequest('BOQ_TASK_CONTRACTOR_MISMATCH');
+        }
+        if (contractorId) {
+            const assignment = await prisma.projectContractorAssignment.findUnique({ where: { projectId_contractorId: { projectId, contractorId } } });
+            if (!assignment || assignment.status !== 'ACTIVE') throw AppError.badRequest('CONTRACTOR_MUST_BE_ASSIGNED_TO_PROJECT');
+        }
 
         const boqItem = await prisma.projectBOQItem.create({
             data: {
@@ -95,6 +116,8 @@ export class ProjectBOQService {
                 amount,
                 category: category || null,
                 materialId: materialId || null,
+                taskId: taskId || null,
+                contractorId: contractorId || null,
                 remarks: remarks || null
             },
             include: {
@@ -110,29 +133,45 @@ export class ProjectBOQService {
      */
     static async updateBOQItem(id: string, updateData: UpdateBOQItemInput) {
         const data: Record<string, unknown> = {};
+        const existing = await prisma.projectBOQItem.findUnique({ where: { id }, select: { projectId: true, quantity: true, contractorId: true } });
+        if (!existing) throw AppError.notFound('BOQ item not found');
+
+        const targetTaskId = updateData.taskId !== undefined ? updateData.taskId : undefined;
+        const targetContractorId = updateData.contractorId !== undefined ? updateData.contractorId : existing.contractorId;
+        if (targetTaskId) {
+            const task = await prisma.projectTask.findUnique({ where: { id: targetTaskId }, select: { projectId: true, contractorId: true } });
+            if (!task || task.projectId !== existing.projectId) throw AppError.badRequest('BOQ_TASK_PROJECT_MISMATCH');
+            if (targetContractorId && task.contractorId !== targetContractorId) throw AppError.badRequest('BOQ_TASK_CONTRACTOR_MISMATCH');
+        }
+        if (targetContractorId) {
+            const assignment = await prisma.projectContractorAssignment.findUnique({ where: { projectId_contractorId: { projectId: existing.projectId, contractorId: targetContractorId } } });
+            if (!assignment || assignment.status !== 'ACTIVE') throw AppError.badRequest('CONTRACTOR_MUST_BE_ASSIGNED_TO_PROJECT');
+        }
 
         if (updateData.category !== undefined) data.category = updateData.category;
         if (updateData.materialId !== undefined) data.materialId = updateData.materialId;
         if (updateData.remarks !== undefined) data.remarks = updateData.remarks;
+        if (updateData.taskId !== undefined) data.taskId = updateData.taskId || null;
+        if (updateData.contractorId !== undefined) data.contractorId = updateData.contractorId || null;
         if (updateData.description !== undefined) data.description = updateData.description;
         if (updateData.unit !== undefined) data.unit = updateData.unit;
 
         if (updateData.quantity !== undefined) {
             const quantityVal = parseFloat(String(updateData.quantity));
+            if (!Number.isFinite(quantityVal) || quantityVal <= 0) throw AppError.badRequest('INVALID_BOQ_QUANTITY');
             data.quantity = quantityVal;
             if (updateData.unitRate !== undefined) {
                 const rateVal = parseFloat(String(updateData.unitRate));
+                if (!Number.isFinite(rateVal) || rateVal < 0) throw AppError.badRequest('INVALID_BOQ_RATE');
                 data.unitRate = rateVal;
                 data.amount = quantityVal * rateVal;
             }
         } else if (updateData.unitRate !== undefined) {
             // Recalculate using existing quantity
-            const existing = await prisma.projectBOQItem.findUnique({ where: { id } });
-            if (existing) {
-                const rateVal = parseFloat(String(updateData.unitRate));
-                data.unitRate = rateVal;
-                data.amount = Number(existing.quantity || 0) * rateVal;
-            }
+            const rateVal = parseFloat(String(updateData.unitRate));
+            if (!Number.isFinite(rateVal) || rateVal < 0) throw AppError.badRequest('INVALID_BOQ_RATE');
+            data.unitRate = rateVal;
+            data.amount = Number(existing.quantity || 0) * rateVal;
         }
 
         if (updateData.actualQuantity !== undefined) {

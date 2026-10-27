@@ -16,6 +16,7 @@ export const GET = apiHandler(async (request) => {
 
 const logProgressSchema = z.object({
     taskId: z.string().min(1),
+    projectId: z.string().uuid(),
     progress: z.coerce.number().min(0).max(100),
     description: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
@@ -31,7 +32,7 @@ export const POST = apiHandler(async (_request, params, body) => {
 
     try {
         const log = await ProjectTaskService.logProgress({
-            ...data,
+        ...data,
             description: data.description ?? data.notes,
             loggedById: params._userId,
         });

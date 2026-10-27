@@ -45,6 +45,8 @@ export const POST = apiHandler(async (req, _params, body) => {
     const contractorId = body.contractorId as string | null | undefined;
     const opmcId = body.opmcId as string | null | undefined;
     const projectTypeId = body.projectTypeId as string | null | undefined;
+    const parentId = body.parentId as string | null | undefined;
+    const planningSource = body.planningSource as string | undefined;
 
     if (!projectCode || !name) {
         throw AppError.badRequest('Project code and name are required');
@@ -56,7 +58,9 @@ export const POST = apiHandler(async (req, _params, body) => {
         type: type ?? undefined,
         contractorId: contractorId ?? undefined,
         opmcId: opmcId ?? undefined,
-        projectTypeId: projectTypeId ?? undefined
+        projectTypeId: projectTypeId ?? undefined,
+        parentId: parentId ?? undefined,
+        planningSource: planningSource ?? undefined
     });
 }, {
     permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],

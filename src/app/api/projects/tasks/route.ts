@@ -40,13 +40,14 @@ export const POST = apiHandler(async (req, _params, body) => {
 export const PATCH = apiHandler(async (req, _params, body) => {
     const id = body.id as string | undefined;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _id, ...updateData } = body;
+    const { id: _id, projectId: _projectId, ...updateData } = body;
 
     if (!id) {
         throw AppError.badRequest('Task ID is required');
     }
 
-    return await ProjectTaskService.updateTask(id, updateData as any);
+    if (!body.projectId) throw AppError.badRequest('projectId is required for task updates');
+    return await ProjectTaskService.updateTask(id, updateData as any, body.projectId as string);
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'UPDATE', entity: 'PROJECT_TASK' },
@@ -57,12 +58,14 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 export const DELETE = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const projectId = searchParams.get('projectId');
 
     if (!id) {
         throw AppError.badRequest('Task ID is required');
     }
 
-    await ProjectTaskService.deleteTask(id);
+    if (!projectId) throw AppError.badRequest('projectId is required for task deletion');
+    await ProjectTaskService.deleteTask(id, projectId);
     return { success: true };
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,

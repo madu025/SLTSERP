@@ -18,9 +18,12 @@ interface CreateTaskInput {
     order?: number;
     assigneeType?: string;
     assigneeId?: string;
+    contractorId?: string | null;
+    contractorAssignmentId?: string | null;
 }
 
 interface UpdateTaskInput {
+    parentId?: string | null;
     wbsCode?: string;
     name?: string;
     description?: string;
@@ -35,6 +38,8 @@ interface UpdateTaskInput {
     order?: number;
     assigneeType?: string;
     assigneeId?: string;
+    contractorId?: string | null;
+    contractorAssignmentId?: string | null;
     status?: string;
     actualProgress?: number;
 }
@@ -54,6 +59,44 @@ interface LogProgressInput {
     gpsLatitude?: string | number | null;
     gpsLongitude?: string | number | null;
     loggedById?: string | null;
+}
+
+async function getActiveProjectContractorAssignment(
+    projectId: string,
+    contractorId: string,
+    db: typeof prisma | TransactionClient = prisma,
+) {
+    const assignment = await db.projectContractorAssignment.findUnique({
+        where: { projectId_contractorId: { projectId, contractorId } },
+        select: { id: true, contractorId: true, status: true },
+    });
+    if (!assignment || assignment.status !== 'ACTIVE') {
+        throw AppError.badRequest('CONTRACTOR_MUST_BE_ASSIGNED_TO_PROJECT');
+    }
+    return assignment;
+}
+
+async function getAssignmentForTask(
+    projectId: string,
+    contractorAssignmentId: string,
+    db: typeof prisma | TransactionClient = prisma,
+) {
+    const assignment = await db.projectContractorAssignment.findUnique({
+        where: { id: contractorAssignmentId },
+        select: { id: true, projectId: true, contractorId: true, status: true },
+    });
+    if (!assignment || assignment.projectId !== projectId || assignment.status !== 'ACTIVE') {
+        throw AppError.badRequest('CONTRACTOR_ASSIGNMENT_NOT_FOUND');
+    }
+    return assignment;
+}
+
+async function assertApprovedBoq(projectId: string, db: typeof prisma | TransactionClient = prisma) {
+    const approval = await db.bOQApproval.findFirst({
+        where: { projectId, status: 'APPROVED' },
+        select: { id: true },
+    });
+    if (!approval) throw AppError.badRequest('BOQ_APPROVAL_REQUIRED_FOR_CHILD_TASKS');
 }
 
 async function updateParentProgress(parentId: string, tx: TransactionClient) {
@@ -98,6 +141,8 @@ export class ProjectTaskService {
             where,
             include: {
                 children: { select: { id: true, name: true, status: true, actualProgress: true } },
+                contractor: { select: { id: true, name: true } },
+                contractorAssignment: { select: { id: true, status: true, contractorId: true } },
                 dependencies: {
                     include: { dependsOn: { select: { id: true, name: true, status: true, wbsCode: true } } }
                 },
@@ -114,7 +159,7 @@ export class ProjectTaskService {
      * Create a task
      */
     static async createTask(data: CreateTaskInput) {
-        const { projectId, parentId, wbsCode, name, description, type, plannedStartDate, plannedEndDate, plannedDuration, priority, estimatedCost, order, assigneeType, assigneeId } = data;
+        const { projectId, parentId, wbsCode, name, description, type, plannedStartDate, plannedEndDate, plannedDuration, priority, estimatedCost, order, assigneeType, assigneeId, contractorId, contractorAssignmentId } = data;
 
         const optionalString = (value?: string | null) => {
             const normalized = value?.trim();
@@ -131,6 +176,22 @@ export class ProjectTaskService {
             }
             if (parent && parent.projectId !== projectId) {
                 throw AppError.badRequest('Parent task must belong to the same project');
+            }
+            if (parentId) await assertApprovedBoq(projectId, tx);
+
+            let resolvedContractorId = contractorId || null;
+            let resolvedContractorAssignmentId = contractorAssignmentId || null;
+            if (contractorAssignmentId) {
+                const assignment = await getAssignmentForTask(projectId, contractorAssignmentId, tx);
+                resolvedContractorId = assignment.contractorId;
+            }
+            if (assigneeType === 'CONTRACTOR' && assigneeId) {
+                const assignment = await getActiveProjectContractorAssignment(projectId, assigneeId, tx);
+                resolvedContractorId = assigneeId;
+                resolvedContractorAssignmentId = assignment.id;
+            } else if (resolvedContractorId) {
+                const assignment = await getActiveProjectContractorAssignment(projectId, resolvedContractorId, tx);
+                resolvedContractorAssignmentId = assignment.id;
             }
 
             // The WBS field is optional in the UI. Generate a stable code for
@@ -161,6 +222,8 @@ export class ProjectTaskService {
                     order: order ?? 0,
                     assigneeType: optionalString(assigneeType),
                     assigneeId: optionalString(assigneeId),
+                    contractorId: resolvedContractorId,
+                    contractorAssignmentId: resolvedContractorAssignmentId,
                     status: 'PENDING',
                     actualProgress: 0
                 },
@@ -177,8 +240,23 @@ export class ProjectTaskService {
     /**
      * Update a task
      */
-    static async updateTask(id: string, updateData: UpdateTaskInput) {
+    static async updateTask(id: string, updateData: UpdateTaskInput, projectId?: string) {
         const data: Record<string, unknown> = { ...updateData };
+
+        const currentTask = await prisma.projectTask.findUnique({ where: { id }, select: { projectId: true, parentId: true } });
+        if (!currentTask) throw AppError.notFound('Task not found');
+        if (projectId && currentTask.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
+
+        const taskProjectId = currentTask.projectId;
+        if (updateData.parentId !== undefined && updateData.parentId !== null) {
+            if (updateData.parentId === id) throw AppError.badRequest('SELF_PARENT_TASK');
+            const parent = await prisma.projectTask.findUnique({ where: { id: updateData.parentId }, select: { projectId: true } });
+            if (!parent || parent.projectId !== taskProjectId) throw AppError.badRequest('PARENT_TASK_PROJECT_MISMATCH');
+            await assertApprovedBoq(taskProjectId);
+        }
+        if (currentTask.parentId && (updateData.contractorId !== undefined || updateData.contractorAssignmentId !== undefined || updateData.assigneeType === 'CONTRACTOR')) {
+            await assertApprovedBoq(taskProjectId);
+        }
 
         if (updateData.plannedStartDate) data.plannedStartDate = new Date(updateData.plannedStartDate);
         if (updateData.plannedEndDate) data.plannedEndDate = new Date(updateData.plannedEndDate);
@@ -186,6 +264,24 @@ export class ProjectTaskService {
         if (updateData.actualEndDate) data.actualEndDate = new Date(updateData.actualEndDate);
 
         if (updateData.estimatedCost) data.estimatedCost = parseFloat(String(updateData.estimatedCost));
+
+        if (updateData.assigneeType === 'CONTRACTOR' && updateData.assigneeId) {
+            const assignment = await getActiveProjectContractorAssignment(taskProjectId, updateData.assigneeId);
+            data.contractorId = updateData.assigneeId;
+            data.contractorAssignmentId = assignment.id;
+        } else if (updateData.contractorAssignmentId) {
+            const assignment = await getAssignmentForTask(taskProjectId, updateData.contractorAssignmentId);
+            data.contractorId = assignment.contractorId;
+        } else if (updateData.contractorId) {
+            const assignment = await getActiveProjectContractorAssignment(taskProjectId, updateData.contractorId);
+            data.contractorAssignmentId = assignment.id;
+        } else if (updateData.contractorId === null || updateData.contractorAssignmentId === null) {
+            data.contractorId = null;
+            data.contractorAssignmentId = null;
+        } else if (updateData.assigneeType && updateData.assigneeType !== 'CONTRACTOR') {
+            data.contractorId = null;
+            data.contractorAssignmentId = null;
+        }
 
         const task = await prisma.projectTask.update({
             where: { id },
@@ -204,7 +300,10 @@ export class ProjectTaskService {
     /**
      * Delete a task
      */
-    static async deleteTask(id: string) {
+    static async deleteTask(id: string, projectId?: string) {
+        const task = await prisma.projectTask.findUnique({ where: { id }, select: { projectId: true } });
+        if (!task) throw AppError.notFound('Task not found');
+        if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
         // Check if task has children
         const childCount = await prisma.projectTask.count({ where: { parentId: id } });
         if (childCount > 0) {
@@ -243,12 +342,37 @@ export class ProjectTaskService {
             throw AppError.badRequest('SELF_DEPENDENCY');
         }
 
+        const [task, prerequisite] = await Promise.all([
+            prisma.projectTask.findUnique({ where: { id: taskId }, select: { id: true, projectId: true } }),
+            prisma.projectTask.findUnique({ where: { id: dependsOnTaskId }, select: { id: true, projectId: true } }),
+        ]);
+        if (!task || !prerequisite) throw AppError.notFound('DEPENDENCY_TASK_NOT_FOUND');
+        if (task.projectId !== prerequisite.projectId) throw AppError.badRequest('CROSS_PROJECT_DEPENDENCY');
+
         // Check for circular dependency
         const existing = await prisma.taskDependency.findUnique({
             where: { taskId_dependsOnTaskId: { taskId, dependsOnTaskId } }
         });
         if (existing) {
             throw AppError.badRequest('DEPENDENCY_EXISTS');
+        }
+
+        const visited = new Set<string>();
+        let frontier = [dependsOnTaskId];
+        while (frontier.length > 0) {
+            const edges = await prisma.taskDependency.findMany({
+                where: { taskId: { in: frontier } },
+                select: { dependsOnTaskId: true },
+            });
+            const next: string[] = [];
+            for (const edge of edges) {
+                if (edge.dependsOnTaskId === taskId) throw AppError.badRequest('CIRCULAR_DEPENDENCY');
+                if (!visited.has(edge.dependsOnTaskId)) {
+                    visited.add(edge.dependsOnTaskId);
+                    next.push(edge.dependsOnTaskId);
+                }
+            }
+            frontier = next;
         }
 
         const dependency = await prisma.taskDependency.create({
@@ -289,8 +413,12 @@ export class ProjectTaskService {
     /**
      * Log progress update for a task
      */
-    static async logProgress(data: LogProgressInput) {
-        const { taskId, progress, description, photoUrls, gpsLatitude, gpsLongitude, loggedById } = data;
+    static async logProgress(data: LogProgressInput & { projectId?: string }) {
+        const { taskId, progress, description, photoUrls, gpsLatitude, gpsLongitude, loggedById, projectId } = data;
+
+        const task = await prisma.projectTask.findUnique({ where: { id: taskId }, select: { projectId: true } });
+        if (!task) throw AppError.notFound('Task not found');
+        if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
 
         const progressVal = parseInt(String(progress), 10);
         if (isNaN(progressVal) || progressVal < 0 || progressVal > 100) {

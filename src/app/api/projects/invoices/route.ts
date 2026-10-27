@@ -12,6 +12,7 @@ const createInvoiceSchema = z.object({
     title: z.string().trim().min(1),
     description: z.string().optional().nullable(),
     type: z.enum(['CLIENT', 'CONTRACTOR', 'INTERNAL']).optional(),
+    contractorId: z.string().uuid().optional().nullable(),
     invoiceDate: z.string().optional(),
     dueDate: z.string().optional().nullable(),
     referenceNumber: z.string().optional().nullable(),
@@ -40,13 +41,14 @@ const createInvoiceSchema = z.object({
 
 const updateInvoiceSchema = z.object({
     id: z.string().uuid(),
-    status: z.enum(['ISSUED', 'CANCELLED']).optional(),
+    status: z.enum(['ISSUED', 'CANCELLED', 'FOLLOW_UP', 'COMPLETED']).optional(),
     cancelledReason: z.string().trim().min(1).optional(),
     title: z.string().trim().min(1).optional(),
     description: z.string().optional().nullable(),
     dueDate: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
-}).refine((data) => data.status || data.title || data.description !== undefined || data.dueDate !== undefined || data.notes !== undefined, {
+    followUpNotes: z.string().optional().nullable(),
+}).refine((data) => data.status || data.title || data.description !== undefined || data.dueDate !== undefined || data.notes !== undefined || data.followUpNotes !== undefined, {
     message: 'At least one permitted invoice update is required',
 });
 

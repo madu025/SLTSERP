@@ -49,6 +49,8 @@ interface Project {
     contractor?: { id: string; name: string };
     projectType?: { id: string; name: string; description: string };
     gisMapping?: { qfieldProjectId?: string } | null;
+    planningSource?: string;
+    parent?: { id: string; projectCode: string; name: string } | null;
     _count: { boqItems: number; milestones: number; expenses: number };
 }
  
@@ -97,7 +99,7 @@ export default function ProjectsPage() {
     const [opmcs, setOpmcs] = useState<OPMCOption[]>([]);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [newProject, setNewProject] = useState({
-        projectCode: '', name: '', projectTypeId: ''
+        projectCode: '', name: '', projectTypeId: '', planningSource: 'GIS', parentId: ''
     });
     const [newTypeDialogOpen, setNewTypeDialogOpen] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
@@ -196,7 +198,7 @@ export default function ProjectsPage() {
             if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
             toast.success('Project created');
             setCreateDialogOpen(false);
-            setNewProject({ projectCode: '', name: '', projectTypeId: '' });
+            setNewProject({ projectCode: '', name: '', projectTypeId: '', planningSource: 'GIS', parentId: '' });
             fetchProjects();
         } catch { toast.error('Failed to create project'); }
     };
@@ -465,6 +467,27 @@ export default function ProjectsPage() {
                                  <SelectContent>{(projectTypes || []).map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                              </Select>
                              {selectedProjectType && <p className="text-[10px] text-muted-foreground mt-0.5">Workflow: {selectedProjectType.description}</p>}
+                         </div>
+                         <div className="space-y-1.5">
+                             <Label className="text-xs">Planning Source</Label>
+                             <Select value={newProject.planningSource} onValueChange={(v) => setNewProject({ ...newProject, planningSource: v })}>
+                                 <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue /></SelectTrigger>
+                                 <SelectContent>
+                                     <SelectItem value="GIS">GIS + CAD</SelectItem>
+                                     <SelectItem value="CAD">CAD only</SelectItem>
+                                 </SelectContent>
+                             </Select>
+                             <p className="text-[10px] text-muted-foreground">GIS is optional; CAD-only projects use the CAD as-built path.</p>
+                         </div>
+                         <div className="space-y-1.5">
+                             <Label className="text-xs">Parent Project (optional)</Label>
+                             <Select value={newProject.parentId || 'NONE'} onValueChange={(v) => setNewProject({ ...newProject, parentId: v === 'NONE' ? '' : v })}>
+                                 <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Main project" /></SelectTrigger>
+                                 <SelectContent>
+                                     <SelectItem value="NONE">No parent (main project)</SelectItem>
+                                     {projects.map((item) => <SelectItem key={item.id} value={item.id}>{item.projectCode} - {item.name}</SelectItem>)}
+                                 </SelectContent>
+                             </Select>
                          </div>
                          <div className="col-span-2 space-y-1.5">
                              <Label className="text-xs">Project Name *</Label>

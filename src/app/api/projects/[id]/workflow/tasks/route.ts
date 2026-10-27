@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
-export const POST = apiHandler(async (_request, _params, body) => {
+export const POST = apiHandler(async (_request, params, body) => {
     const action = body.action as string | undefined;
 
     try {
@@ -15,18 +15,18 @@ export const POST = apiHandler(async (_request, _params, body) => {
             if (!taskId || !status) {
                 throw AppError.badRequest('taskId and status are required');
             }
-            const updated = await WorkflowEngine.updateTaskStatus(taskId, status, progress);
+            const updated = await WorkflowEngine.updateTaskStatus(taskId, status, progress, params.id);
             return { success: true, task: updated };
         }
 
         if (action === 'update_checklist') {
             const checklistId = body.checklistId as string | undefined;
             const isCompleted = body.isCompleted as boolean | undefined;
-            const photoUrl = body.photoUrl as string | undefined;
+            const photoUrl = body.photoUrl === null ? null : body.photoUrl as string | undefined;
             if (!checklistId) {
                 throw AppError.badRequest('checklistId is required');
             }
-            const updated = await WorkflowEngine.updateChecklistItem(checklistId, isCompleted ?? false, photoUrl);
+            const updated = await WorkflowEngine.updateChecklistItem(checklistId, isCompleted ?? false, photoUrl, params.id);
             return { success: true, checklist: updated };
         }
 
@@ -42,7 +42,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw AppError.internal(msg);
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_WORKFLOW_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'UPDATE_TASK', entity: 'WORKFLOW' },
     rawResponse: true
 });

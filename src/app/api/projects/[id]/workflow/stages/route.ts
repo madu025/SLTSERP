@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const POST = apiHandler(async (_request, params, body) => {
     const stageId = body.stageId as string | undefined;
@@ -14,14 +14,14 @@ export const POST = apiHandler(async (_request, params, body) => {
     }
 
     try {
-        await WorkflowEngine.transitionStage(stageId, status, userId);
+        await WorkflowEngine.transitionStage(stageId, status, userId, params.id);
         return { success: true };
     } catch (error: unknown) {
         const err = error as { message?: string };
         throw AppError.internal(err?.message || 'Failed to transition stage');
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_WORKFLOW_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'TRANSITION_STAGE', entity: 'WORKFLOW' },
     rawResponse: true
 });

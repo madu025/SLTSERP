@@ -1,4 +1,4 @@
-import {  useMemo, useState  } from 'react';
+import {  useEffect, useMemo, useState  } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit2, Trash2, Package, ShoppingCart, Wand2, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, ShoppingCart, Wand2, Loader2, CheckCircle2, XCircle, Send } from 'lucide-react';
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 import { toast } from 'sonner';
@@ -30,6 +30,8 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
     const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
     const [autoBoqLoading, setAutoBoqLoading] = useState(false);
+    const [boqApproval, setBoqApproval] = useState<{ status: string; currentStep?: string; rejectionReason?: string; message?: string } | null>(null);
+    const [approvalActionLoading, setApprovalActionLoading] = useState(false);
 
 
     const [formData, setFormData] = useState({
@@ -60,6 +62,46 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
         if (sourceFilter === 'ALL') return boqItems;
         return boqItems.filter((i: import('@prisma/client').ProjectBOQItem) => i.source === sourceFilter);
     }, [boqItems, sourceFilter]);
+
+    const fetchBOQApproval = async () => {
+        try {
+            const res = await fetch(`/api/projects/${project.id}/boq/approve`);
+            if (res.ok) {
+                const data = await res.json();
+                setBoqApproval(data.approval || null);
+            }
+        } catch {
+            // The BOQ table remains usable if approval status is temporarily unavailable.
+        }
+    };
+
+    useEffect(() => { fetchBOQApproval(); }, [project.id, boqItems.length]);
+
+    const runBOQApprovalAction = async (action: 'submit' | 'approve' | 'reject' | 'revise') => {
+        if (action !== 'submit' && !window.confirm(`Confirm BOQ ${action}?`)) return;
+        const notes = action === 'reject' ? window.prompt('Enter the rejection reason') : undefined;
+        if (action === 'reject' && !notes?.trim()) {
+            toast.error('A rejection reason is required');
+            return;
+        }
+        setApprovalActionLoading(true);
+        try {
+            const res = await fetch(`/api/projects/${project.id}/boq/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, notes: notes || undefined }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.error || `BOQ ${action} failed`);
+            toast.success(data?.message || `BOQ ${action} completed`);
+            await fetchBOQApproval();
+            refreshProject();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : `BOQ ${action} failed`);
+        } finally {
+            setApprovalActionLoading(false);
+        }
+    };
 
     const handleEdit = (item: import('@prisma/client').ProjectBOQItem) => {
         setEditingItem(item);
@@ -187,6 +229,32 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
 
     return (
         <div className="space-y-6">
+            <Card className="border border-slate-200 shadow-sm">
+                <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-700">BOQ Approval Gate</p>
+                        <p className="text-sm text-slate-600 mt-1">
+                            Status: <span className="font-semibold text-slate-900">{boqApproval?.status || 'NOT_GENERATED'}</span>
+                            {boqApproval?.currentStep ? ` · Current step: ${boqApproval.currentStep.replace(/_/g, ' ')}` : ''}
+                        </p>
+                        {boqApproval?.rejectionReason && <p className="text-xs text-red-700 mt-1">Reason: {boqApproval.rejectionReason}</p>}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {(!boqApproval || boqApproval.status === 'NOT_GENERATED' || boqApproval.status === 'REJECTED') && boqItems.length > 0 && (
+                            <Button size="sm" onClick={() => runBOQApprovalAction(boqApproval?.status === 'REJECTED' ? 'revise' : 'submit')} disabled={approvalActionLoading} className="gap-1">
+                                <Send className="w-3.5 h-3.5" />{boqApproval?.status === 'REJECTED' ? 'Revise & Resubmit' : 'Submit for Approval'}
+                            </Button>
+                        )}
+                        {boqApproval?.status === 'PENDING' && (
+                            <>
+                                <Button size="sm" onClick={() => runBOQApprovalAction('approve')} disabled={approvalActionLoading} className="gap-1 bg-emerald-600 hover:bg-emerald-700"><CheckCircle2 className="w-3.5 h-3.5" />Approve Step</Button>
+                                <Button size="sm" variant="outline" onClick={() => runBOQApprovalAction('reject')} disabled={approvalActionLoading} className="gap-1 text-red-700 border-red-200"><XCircle className="w-3.5 h-3.5" />Reject</Button>
+                            </>
+                        )}
+                        {boqApproval?.status === 'APPROVED' && <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200">BOQ Approved — Child tasks enabled</Badge>}
+                    </div>
+                </CardContent>
+            </Card>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h3 className="text-lg font-semibold text-slate-900">Bill of Quantities (BOQ)</h3>

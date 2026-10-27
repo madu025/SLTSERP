@@ -346,6 +346,7 @@ model ProjectInvoice {
   id               String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   invoiceNumber    String               @unique
   projectId        String               @db.Uuid
+  contractorId     String?              @db.Uuid
   title            String
   description      String?
   status           String               @default("DRAFT")
@@ -366,6 +367,9 @@ model ProjectInvoice {
   balanceAmount    Decimal              @default(0) @db.Decimal(14, 2)
   currency         String               @default("LKR")
   notes            String?
+  followUpAt       DateTime?
+  followUpNotes    String?
+  completedAt      DateTime?
   referenceNumber  String?
   periodFrom       DateTime?
   periodTo         DateTime?
@@ -377,6 +381,7 @@ model ProjectInvoice {
   updatedAt        DateTime             @updatedAt
   payments         PaymentVoucher[]     @relation("InvoicePayments")
   project          Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor       Contractor?          @relation("ProjectContractorInvoices", fields: [contractorId], references: [id])
   items            ProjectInvoiceItem[]
   retentions       ProjectRetention[]
   sods             ServiceOrder[]       @relation("ProjectInvoiceSODs")
@@ -389,6 +394,8 @@ model ProjectInvoice {
   @@index([invoiceDate])
   @@index([createdById])
   @@index([approvedById])
+  @@index([contractorId])
+  @@index([projectId, contractorId, status])
 }
 
 model ProjectInvoiceItem {

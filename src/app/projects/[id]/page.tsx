@@ -64,6 +64,7 @@ interface Project {
     location?: string; status: string; progress: number; budget?: number; actualCost: number;
     startDate?: string; endDate?: string; estimatedDuration?: number; actualDuration?: number;
     opmcId?: string; contractorId?: string; areaManagerId?: string;
+    planningSource?: string;
     opmc?: ProjectOPMC; contractor?: ProjectContractorRef; areaManager?: ProjectStaff;
     projectType?: ProjectTypeRef; workflowInstance?: WorkflowInstance;
 }
@@ -147,7 +148,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         return project?.status ?? null;
     }, [project]);
  
-    const visibleTabs = useMemo(() => getTabsForStage(currentStageName), [currentStageName]);
+    const visibleTabs = useMemo(() => getTabsForStage(currentStageName, project?.planningSource), [currentStageName, project?.planningSource]);
     useEffect(() => { if (visibleTabs.length > 0 && !visibleTabs.find(t => t.value === activeTab)) { setActiveTab(visibleTabs[0]?.value ?? 'overview'); } }, [visibleTabs, activeTab]);
  
     const groupedTabs = useMemo(() => {

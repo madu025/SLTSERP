@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   CheckCircle2, 
@@ -18,6 +19,7 @@ import {
   Workflow, 
   ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface Task {
   id: string;
@@ -96,9 +98,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
   const [submitting, setSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
-
-  // Simulation ID
-  const [userId] = useState('usr-admin-1');
+  const [photoProofInputs, setPhotoProofInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchWorkflow();
@@ -118,6 +118,13 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         const data = await res.json();
         setWorkflowError(null);
         setWorkflow(data);
+        const proofInputs: Record<string, string> = {};
+        for (const stage of data.stages ?? []) {
+          for (const checklist of stage.checklists ?? []) {
+            if (checklist.photoUrl) proofInputs[checklist.id] = checklist.photoUrl;
+          }
+        }
+        setPhotoProofInputs(proofInputs);
         const current = data.stages.find((s: Stage) => s.status === 'IN_PROGRESS') || data.stages[0];
         setActiveStage(current || null);
       } else {
@@ -174,15 +181,15 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         body: JSON.stringify({
           stageId,
           status: 'IN_PROGRESS',
-          userId,
         }),
       });
 
       if (res.ok) {
         await fetchWorkflow();
       }
-    } catch {
-} finally {
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to start the stage.');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -196,7 +203,6 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         body: JSON.stringify({
           stageId,
           status: 'COMPLETED',
-          userId,
         }),
       });
 
@@ -208,14 +214,23 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         setValidationErrors(errLines);
         setIsErrorDialogOpen(true);
       }
-    } catch {
-} finally {
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to complete the stage.');
+    } finally {
       setSubmitting(false);
     }
   };
 
-  const handleChecklistToggle = async (checklistId: string, currentVal: boolean) => {
+  const handleChecklistToggle = async (checklistId: string, currentVal: boolean, photoUrl?: string | null) => {
     try {
+      const checklist = activeStage?.checklists.find(item => item.id === checklistId);
+      const nextCompleted = !currentVal;
+      const proofUrl = photoUrl?.trim() || checklist?.photoUrl || null;
+      if (nextCompleted && activeStage?.reqPhotos && checklist?.isMandatory && !proofUrl) {
+        toast.error('Attach a real photo proof URL before completing this mandatory checkpoint.');
+        return;
+      }
+
       // Optimitic UI
       if (activeStage) {
         const updatedChecklists = activeStage.checklists.map(c => 
@@ -224,25 +239,27 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         setActiveStage({ ...activeStage, checklists: updatedChecklists });
       }
 
-      await fetch(`/api/projects/${project.id}/workflow/tasks`, {
+      const res = await fetch(`/api/projects/${project.id}/workflow/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update_checklist',
           checklistId,
-          isCompleted: !currentVal,
-          photoUrl: !currentVal ? 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=150&auto=format&fit=crop' : null // Mock photo proof
+          isCompleted: nextCompleted,
+          photoUrl: nextCompleted ? proofUrl : null
         }),
       });
-      fetchWorkflow();
-    } catch {
-}
+      if (!res.ok) throw new Error('Unable to update checklist.');
+      await fetchWorkflow();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update checklist.');
+    }
   };
 
   const handleTaskToggle = async (taskId: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED';
     try {
-      await fetch(`/api/projects/${project.id}/workflow/tasks`, {
+      const res = await fetch(`/api/projects/${project.id}/workflow/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -252,9 +269,11 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
           progress: nextStatus === 'COMPLETED' ? 100 : 50,
         }),
       });
-      fetchWorkflow();
-    } catch {
-}
+      if (!res.ok) throw new Error('Unable to update workflow task.');
+      await fetchWorkflow();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update workflow task.');
+    }
   };
 
   const handleApprovalSubmit = async (approvalId: string, decision: 'APPROVED' | 'REJECTED') => {
@@ -266,16 +285,15 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         body: JSON.stringify({
           approvalId,
           status: decision,
-          userId,
-          comments: decision === 'APPROVED' ? 'Gate conditions met.' : 'Checklist specifications unmet.',
+          comments: decision === 'APPROVED' ? 'Gate conditions met.' : window.prompt('Reason for rejection') || '',
         }),
       });
 
-      if (res.ok) {
-        fetchWorkflow();
-      }
-    } catch {
-} finally {
+      if (!res.ok) throw new Error('Unable to submit approval.');
+      await fetchWorkflow();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to submit approval.');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -464,7 +482,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                           <div className="flex items-center gap-2.5">
                             <Checkbox 
                               checked={chk.isCompleted} 
-                              onCheckedChange={() => handleChecklistToggle(chk.id, chk.isCompleted)}
+                              onCheckedChange={() => handleChecklistToggle(chk.id, chk.isCompleted, photoProofInputs[chk.id] || chk.photoUrl)}
                               disabled={activeStage.status !== 'IN_PROGRESS'}
                             />
                             <div>
@@ -477,6 +495,20 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {activeStage.status === 'IN_PROGRESS' && !chk.photoUrl && (
+                              <Input
+                                aria-label={`Photo proof URL for ${chk.label}`}
+                                className="h-7 w-52 text-[10px] text-slate-900"
+                                placeholder="Photo proof URL"
+                                value={photoProofInputs[chk.id] || ''}
+                                onChange={(event) => setPhotoProofInputs(current => ({ ...current, [chk.id]: event.target.value }))}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') {
+                                    handleChecklistToggle(chk.id, chk.isCompleted, event.currentTarget.value);
+                                  }
+                                }}
+                              />
+                            )}
                             {chk.photoUrl ? (
                               <div className="flex items-center gap-1 text-emerald-600 text-[10px] font-semibold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
                                 <Camera className="w-3.5 h-3.5" /> Proof Attached
