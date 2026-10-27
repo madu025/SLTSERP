@@ -55,7 +55,10 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
     }, [project.id]);
 
     const fetchStoreItems = React.useCallback(async (storeId: string) => {
-        const res = await fetch(`/api/inventory/stocks?storeId=${storeId}`);
+        // The canonical inventory endpoint is singular (`/api/inventory/stock`).
+        // Keep the project material picker aligned with the server route so
+        // issue/return forms do not silently render an empty item list.
+        const res = await fetch(`/api/inventory/stock?storeId=${storeId}`);
         if (res.ok) setInventoryItems(await res.json());
     }, []);
 

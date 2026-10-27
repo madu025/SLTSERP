@@ -57,10 +57,15 @@ export class ProjectResourceService {
             warning: isOverloaded ? `Warning: Resource total loading will be ${newTotal}% during this period.` : null
         };
     }
-    static async removeResource(resourceAllocationId: string) {
-        await prisma.projectResource.delete({
-            where: { id: resourceAllocationId }
+    static async removeResource(projectId: string, resourceAllocationId: string) {
+        const allocation = await prisma.projectResource.findFirst({
+            where: { id: resourceAllocationId, projectId },
+            select: { id: true },
         });
+        if (!allocation) {
+            throw new Error('Resource allocation not found for this project');
+        }
+        await prisma.projectResource.delete({ where: { id: allocation.id } });
         return { success: true };
     }
 }

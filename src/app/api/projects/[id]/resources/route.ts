@@ -27,7 +27,8 @@ export const POST = apiHandler(async (_request, params, body) => {
     rawResponse: true
 });
 
-export const DELETE = apiHandler(async (request, _params) => {
+export const DELETE = apiHandler(async (request, params) => {
+    const { id: projectId } = params;
     const { searchParams } = new URL(request.url);
     const resourceAllocationId = searchParams.get('id');
 
@@ -35,7 +36,7 @@ export const DELETE = apiHandler(async (request, _params) => {
         throw AppError.badRequest('Allocation ID is required');
     }
 
-    return await ProjectResourceService.removeResource(resourceAllocationId);
+    return await ProjectResourceService.removeResource(projectId, resourceAllocationId);
 }, {
     audit: { action: 'REMOVE_RESOURCE', entity: 'PROJECT_RESOURCE' },
     rawResponse: true

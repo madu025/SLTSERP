@@ -131,6 +131,22 @@ export class FieldTaskService {
     }
 
     static async syncFieldTasks(projectId: string, tasks: SyncFieldTaskInput[], deviceId?: string, appVersion?: string) {
+        // The client may send an existing task ID while syncing under a route
+        // project. Validate every existing ID against that project before
+        // building the transaction; otherwise a task from another project can
+        // be updated through this endpoint.
+        const existingIds = tasks.filter((task) => !!task.id).map((task) => task.id as string);
+        if (existingIds.length > 0) {
+            const existingTasks = await prisma.fieldTask.findMany({
+                where: { id: { in: existingIds }, projectId },
+                select: { id: true },
+            });
+            const validIds = new Set(existingTasks.map((task) => task.id));
+            if (existingIds.some((id) => !validIds.has(id))) {
+                throw AppError.notFound('One or more field tasks do not belong to this project');
+            }
+        }
+
         const operations = tasks.map((task) => {
             if (task.id) {
                 return prisma.fieldTask.update({
