@@ -21,6 +21,23 @@ Configure these secrets before enabling the gates:
 
 Never use a real administrator password for these tests.
 
+## Provisioning the smoke account
+
+Point `DATABASE_URL` at the intended staging/production database, set the
+following values only in the shell or secret manager, and run the command once:
+
+```powershell
+$env:PRODUCTION_SMOKE_USERNAME = 'ci_smoke_readonly'
+$env:PRODUCTION_SMOKE_EMAIL = 'ci-smoke@your-domain.example'
+$env:PRODUCTION_SMOKE_PASSWORD = '<random-password-at-least-16-characters>'
+$env:PROVISION_SMOKE_USER_CONFIRM = 'YES'
+pnpm run provision:production-smoke-user
+```
+
+The command refuses to overwrite an existing account and grants only the
+`HEAD_OF_SECTION`/`dashboard` read-only baseline used by the smoke test. Do not
+commit the password or place it in `.env.example`.
+
 ## Running the post-deploy gate
 
 From GitHub Actions, run **Production Smoke Gate** and supply the deployed URL,

@@ -17,6 +17,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { UserService } from '../src/services/hr/user.service';
+import 'dotenv/config';
 
 const prisma = new PrismaClient();
 
@@ -25,11 +26,15 @@ const QA_USER = {
     name: 'Kamal (QA Audit)',
     email: 'kamal.qa@slts.lk',
     role: 'HEAD_OF_SECTION',
-    password: 'kamal@slts',
+    password: process.env.QA_AUDIT_PASSWORD,
 };
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');
+
+    if (!QA_USER.password) {
+        throw new Error('QA_AUDIT_PASSWORD must be supplied through the environment; no password is stored in source code.');
+    }
 
     const existing = await prisma.user.findFirst({
         where: {
