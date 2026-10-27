@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { AutoBOQService } from '@/services/project/auto-boq.service';
+import { ProjectMaterialReservationService } from '@/services/project/project-material-reservation.service';
 import { ROLE_GROUPS } from '@/config/roles';
 
 export class ProjectBOQApprovalService {
@@ -134,29 +135,38 @@ export class ProjectBOQApprovalService {
 
         if (notes) updateData.notes = notes;
 
-        const updated = await prisma.bOQApproval.update({
-            where: { id: approval.id },
-            data: updateData,
+        const updated = await prisma.$transaction(async (tx) => {
+            const updatedApproval = await tx.bOQApproval.update({
+                where: { id: approval.id },
+                data: updateData,
+            });
+
+            if (updatedApproval.status === 'APPROVED') {
+                const boqTotal = await tx.projectBOQItem.aggregate({
+                    where: { projectId },
+                    _sum: { amount: true },
+                });
+
+                await tx.project.update({
+                    where: { id: projectId },
+                    data: {
+                        status: 'BOQ_APPROVED',
+                        budget: boqTotal._sum.amount ?? 0,
+                    },
+                });
+
+                // BOQ approval creates demand records only. Store reservation is a
+                // separate, auditable action so project approval never deducts or
+                // silently holds physical inventory. Keep both writes atomic.
+                await ProjectMaterialReservationService.syncForProject(projectId, tx);
+            }
+            return updatedApproval;
         });
-
-        if (updated.status === 'APPROVED') {
-            const boqTotal = await prisma.projectBOQItem.aggregate({
-                where: { projectId },
-                _sum: { amount: true },
-            });
-
-            await prisma.project.update({
-                where: { id: projectId },
-                data: {
-                    status: 'BOQ_APPROVED',
-                    budget: boqTotal._sum.amount ?? 0,
-                },
-            });
-        }
 
         return {
             message: `BOQ step ${step} approved`,
             approval: updated,
+            materialRequirementsCreated: updated.status === 'APPROVED',
             nextStep: updated.status === 'APPROVED' ? null : updated.currentStep,
         };
     }

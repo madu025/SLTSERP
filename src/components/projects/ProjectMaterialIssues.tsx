@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import { PackageMinus, Undo2 } from 'lucide-react';
+import { ClipboardCheck, PackageMinus, Undo2 } from 'lucide-react';
 
 interface ProjectMaterialIssuesProps {
     project: { id: string };
@@ -21,12 +21,29 @@ interface MaterialItem { id: string; name: string; unit: string; }
 interface StockItemRow { id: string; item: MaterialItem; quantity: number; }
 interface StockIssue { id: string; issueNumber: string; status: string; store: Store; items: StockItemRow[]; createdAt: string; }
 interface MaterialReturn { id: string; returnNumber: string; status: string; store: Store; items: StockItemRow[]; }
+interface MaterialRequirement {
+    id: string;
+    status: string;
+    requiredQty: number | string;
+    reservedQty: number | string;
+    issuedQty: number | string;
+    shortageQty: number | string;
+    item?: MaterialItem & { code?: string };
+    task?: { name: string; wbsCode?: string | null };
+    contractorAssignment?: { contractor?: { name: string } | null } | null;
+    reservations?: { reservation: { id: string; reservationNumber: string; storeId: string; status: string } }[];
+    availability: { storeId: string; storeName: string; availableToPromise: number; onHand: number; reserved: number; safetyStock: number }[];
+}
 
 export default function ProjectMaterialIssues({ project, refreshProject }: ProjectMaterialIssuesProps) {
     const [issues, setIssues] = useState<StockIssue[]>([]);
     const [returns, setReturns] = useState<MaterialReturn[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [inventoryItems, setInventoryItems] = useState<{ item: MaterialItem; quantity: number }[]>([]);
+    const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
+    const [reservationStore, setReservationStore] = useState('');
+    const [reservationLoading, setReservationLoading] = useState(false);
+    const [reservationMessage, setReservationMessage] = useState('');
 
     const [isIssueOpen, setIsIssueOpen] = useState(false);
     const [isReturnOpen, setIsReturnOpen] = useState(false);
@@ -34,6 +51,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
 
     // Form State
     const [selectedStore, setSelectedStore] = useState('');
+    const [selectedReservationId, setSelectedReservationId] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [remarks, setRemarks] = useState('');
     const [selectedItems, setSelectedItems] = useState<{ itemId: string, quantity: string, condition?: string }[]>([]);
@@ -52,7 +70,34 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
         const resStores = await fetch('/api/inventory/stores');
         if (resStores.ok) setStores(await resStores.json());
         else setStores([]); // handle fail
+
+        const resRequirements = await fetch(`/api/projects/${project.id}/material-reservations`);
+        if (resRequirements.ok) setRequirements(await resRequirements.json());
     }, [project.id]);
+
+    const runReservationAction = async (action: 'SYNC_REQUIREMENTS' | 'RESERVE') => {
+        setReservationLoading(true);
+        setReservationMessage('');
+        try {
+            const res = await fetch(`/api/projects/${project.id}/material-reservations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...(action === 'RESERVE' ? { storeId: reservationStore } : {}) }),
+            });
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(payload?.message || payload?.error || 'Material reservation action failed');
+            if (payload?.status === 'SHORTAGE') {
+                setReservationMessage(`${payload.shortages?.length || 0} material requirement(s) have a store shortage. Procurement is required.`);
+            } else {
+                setReservationMessage(action === 'RESERVE' ? 'Materials reserved. Physical stock is unchanged until issue approval.' : 'BOQ material requirements synced.');
+            }
+            await fetchData();
+        } catch (error) {
+            setReservationMessage(error instanceof Error ? error.message : 'Material reservation action failed');
+        } finally {
+            setReservationLoading(false);
+        }
+    };
 
     const fetchStoreItems = React.useCallback(async (storeId: string) => {
         // The canonical inventory endpoint is singular (`/api/inventory/stock`).
@@ -90,6 +135,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                     storeId: selectedStore,
                     issueDate: date,
                     remarks,
+                    ...(selectedReservationId ? { reservationId: selectedReservationId } : {}),
                     items: selectedItems
                 })
             });
@@ -126,6 +172,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
 
     const resetForm = () => {
         setSelectedStore('');
+        setSelectedReservationId('');
         setRemarks('');
         setSelectedItems([]);
         setDate(new Date().toISOString().split('T')[0]);
@@ -136,7 +183,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
         if (!confirm('Approve this stock issue? Stock will be deducted.')) return;
         await fetch('/api/projects/stock-issue/approve', {
             method: 'POST',
-            body: JSON.stringify({ issueId: id, approvedById: 'ADMIN_ID' })
+            body: JSON.stringify({ issueId: id })
         });
         fetchData();
         refreshProject();
@@ -146,7 +193,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
         if (!confirm('Approve this return? Stock will be restored.')) return;
         await fetch('/api/projects/return/approve', {
             method: 'POST',
-            body: JSON.stringify({ returnId: id, approvedById: 'ADMIN_ID' })
+            body: JSON.stringify({ returnId: id })
         });
         fetchData();
         refreshProject();
@@ -168,6 +215,42 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                     </Button>
                 </div>
             </div>
+
+            <Card className="p-4 border-cyan-200 bg-cyan-50">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h4 className="font-semibold text-slate-900 flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-cyan-700" /> Approved BOQ material planning</h4>
+                        <p className="text-sm text-slate-700 mt-1">BOQ approval creates requirements. Reserve from Stores using available-to-promise; physical stock changes only after an approved issue.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <Button variant="outline" onClick={() => runReservationAction('SYNC_REQUIREMENTS')} disabled={reservationLoading}>Sync BOQ requirements</Button>
+                        <Select value={reservationStore} onValueChange={setReservationStore}>
+                            <SelectTrigger className="w-44 bg-white"><SelectValue placeholder="Reservation store" /></SelectTrigger>
+                            <SelectContent>{stores.map((store) => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Button onClick={() => runReservationAction('RESERVE')} disabled={reservationLoading || !reservationStore}>Reserve available</Button>
+                    </div>
+                </div>
+                {reservationMessage && <p className="mt-3 text-sm font-medium text-slate-800">{reservationMessage}</p>}
+                <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm bg-white">
+                        <thead><tr className="border-b bg-slate-100 text-slate-800"><th className="px-3 py-2 text-left">Material / task</th><th className="px-3 py-2 text-right">Required</th><th className="px-3 py-2 text-right">Reserved</th><th className="px-3 py-2 text-right">Issued</th><th className="px-3 py-2 text-left">Status / ATP</th></tr></thead>
+                        <tbody>
+                            {requirements.slice(0, 12).map((requirement) => {
+                                const atp = requirement.availability.reduce((max, row) => Math.max(max, row.availableToPromise), 0);
+                                return <tr key={requirement.id} className="border-b border-slate-100">
+                                    <td className="px-3 py-2 text-slate-900">{requirement.item?.name || 'Material mapping required'}<span className="block text-xs text-slate-600">{requirement.task?.wbsCode || requirement.task?.name || 'Project BOQ'}</span></td>
+                                    <td className="px-3 py-2 text-right text-slate-900">{Number(requirement.requiredQty)}</td>
+                                    <td className="px-3 py-2 text-right text-slate-900">{Number(requirement.reservedQty)}</td>
+                                    <td className="px-3 py-2 text-right text-slate-900">{Number(requirement.issuedQty)}</td>
+                                    <td className="px-3 py-2 text-slate-900"><Badge className={requirement.status === 'SHORTAGE' ? 'bg-red-100 text-red-800' : requirement.status === 'RESERVED' ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-800'}>{requirement.status}</Badge><span className="ml-2 text-xs">ATP {atp}</span></td>
+                                </tr>;
+                            })}
+                            {requirements.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-600">No approved BOQ material requirements yet.</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
 
             <Tabs defaultValue="issues">
                 <TabsList>
@@ -281,6 +364,18 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                             <div>
                                 <Label>Date</Label>
                                 <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                            </div>
+                            <div className="col-span-2">
+                                <Label>Reservation (optional)</Label>
+                                <Select value={selectedReservationId || 'none'} onValueChange={(value) => setSelectedReservationId(value === 'none' ? '' : value)}>
+                                    <SelectTrigger><SelectValue placeholder="Direct issue (ATP check)" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Direct issue (ATP check)</SelectItem>
+                                        {Array.from(new Map(requirements.flatMap((requirement) => (requirement.reservations || []).map((entry) => [entry.reservation.id, entry.reservation]))).values()).map((reservation) => (
+                                            <SelectItem key={reservation.id} value={reservation.id}>{reservation.reservationNumber} ({reservation.status})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <div className="border p-3 rounded-md space-y-2 max-h-60 overflow-y-auto">

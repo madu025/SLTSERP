@@ -102,6 +102,8 @@ model Project {
   workflowInstance      ProjectWorkflowInstance?
   qfieldConfigs         QFieldFieldConfig[]
   stockIssues           StockIssue[]
+  materialRequirements  ProjectMaterialRequirement[]
+  materialReservations  ProjectMaterialReservation[]
   surveyPoints          SurveyPoint[]
   surveys               SurveyRequest[]
   timesheets            Timesheet[]
@@ -132,6 +134,7 @@ model ProjectContractorAssignment {
   project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   contractor         Contractor @relation("ProjectContractorAssignments", fields: [contractorId], references: [id])
   tasks              ProjectTask[]
+  materialRequirements ProjectMaterialRequirement[]
 
   @@unique([projectId, contractorId])
   @@index([projectId])
@@ -161,6 +164,7 @@ model ProjectBOQItem {
   material       InventoryItem? @relation("BOQMaterials", fields: [materialId], references: [id])
   task           ProjectTask?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
   contractor     Contractor?    @relation(fields: [contractorId], references: [id])
+  materialRequirements ProjectMaterialRequirement[]
   project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
@@ -169,6 +173,36 @@ model ProjectBOQItem {
   @@index([materialId])
   @@index([taskId])
   @@index([contractorId])
+}
+
+model ProjectMaterialRequirement {
+  id                    String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId             String                       @db.Uuid
+  boqItemId             String                       @db.Uuid
+  taskId                String?                      @db.Uuid
+  contractorAssignmentId String?                     @db.Uuid
+  itemId                String?                      @db.Uuid
+  requiredQty           Decimal                      @db.Decimal(14, 4)
+  reservedQty           Decimal                      @default(0) @db.Decimal(14, 4)
+  issuedQty             Decimal                      @default(0) @db.Decimal(14, 4)
+  returnedQty           Decimal                      @default(0) @db.Decimal(14, 4)
+  shortageQty           Decimal                      @default(0) @db.Decimal(14, 4)
+  status                String                       @default("PLANNED")
+  procurementStatus     String                       @default("NOT_REQUIRED")
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  project               Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boqItem               ProjectBOQItem               @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  task                  ProjectTask?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  contractorAssignment  ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
+  item                  InventoryItem?               @relation(fields: [itemId], references: [id])
+  reservations          ProjectMaterialReservationLine[]
+
+  @@unique([boqItemId])
+  @@index([projectId, status])
+  @@index([itemId])
+  @@index([taskId])
+  @@index([contractorAssignmentId])
 }
 
 model ProjectMilestone {
@@ -247,6 +281,7 @@ model ProjectTask {
   progressLogs     TaskProgressLog[]
   timesheets       Timesheet[]
   boqItems         ProjectBOQItem[]
+  materialRequirements ProjectMaterialRequirement[]
   contractor       Contractor?       @relation("ProjectTaskContractor", fields: [contractorId], references: [id])
   contractorAssignment ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
 

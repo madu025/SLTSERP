@@ -20,6 +20,7 @@ export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
             projectId: body.projectId,
             storeId: body.storeId,
             items: body.items,
+            reservationId: body.reservationId,
             remarks: body.remarks,
             userId,
             issueDate: body.issueDate ? new Date(body.issueDate) : undefined

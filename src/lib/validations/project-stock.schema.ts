@@ -10,6 +10,7 @@ export const createStockIssueSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   storeId: z.string().min(1, 'Store ID is required'),
   items: z.array(stockIssueItemSchema).min(1, 'At least one item is required'),
+  reservationId: z.string().uuid().optional(),
   remarks: z.string().optional(),
   issueDate: z.string().optional(),
 });

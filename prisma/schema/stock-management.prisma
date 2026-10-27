@@ -340,6 +340,7 @@ model StockIssue {
   issuedById    String           @db.Uuid
   issueType     String
   projectId     String?          @db.Uuid
+  reservationId String?          @db.Uuid
   contractorId  String?          @db.Uuid
   teamId        String?          @db.Uuid
   recipientName String
@@ -353,6 +354,7 @@ model StockIssue {
   contractor    Contractor?      @relation("ContractorIssues", fields: [contractorId], references: [id])
   issuedBy      User             @relation("StockIssuer", fields: [issuedById], references: [id])
   project       Project?         @relation(fields: [projectId], references: [id])
+  reservation   ProjectMaterialReservation? @relation(fields: [reservationId], references: [id])
   store         InventoryStore   @relation("StockIssues", fields: [storeId], references: [id])
   items         StockIssueItem[]
 
@@ -361,9 +363,55 @@ model StockIssue {
   @@index([status])
   @@index([issuedById])
   @@index([projectId])
+  @@index([reservationId])
   @@index([contractorId])
   @@index([teamId])
   @@index([approvedById])
+}
+
+model ProjectMaterialReservation {
+  id            String                            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  reservationNumber String                         @unique
+  projectId     String                            @db.Uuid
+  storeId       String                            @db.Uuid
+  status        String                            @default("RESERVED")
+  createdById   String                            @db.Uuid
+  releasedById  String?                           @db.Uuid
+  releasedAt    DateTime?
+  notes         String?
+  createdAt     DateTime                          @default(now())
+  updatedAt     DateTime                          @updatedAt
+  project       Project                           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  store         InventoryStore                    @relation(fields: [storeId], references: [id])
+  createdBy     User                              @relation("ProjectMaterialReservationCreator", fields: [createdById], references: [id])
+  releasedBy    User?                             @relation("ProjectMaterialReservationReleaser", fields: [releasedById], references: [id])
+  lines         ProjectMaterialReservationLine[]
+  stockIssues   StockIssue[]
+
+  @@index([projectId, status])
+  @@index([storeId, status])
+  @@index([createdById])
+}
+
+model ProjectMaterialReservationLine {
+  id             String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  reservationId  String                       @db.Uuid
+  requirementId  String                       @db.Uuid
+  itemId         String                       @db.Uuid
+  batchId        String?                      @db.Uuid
+  batchStockId   String?                      @db.Uuid
+  quantity       Decimal                      @db.Decimal(14, 4)
+  issuedQty      Decimal                      @default(0) @db.Decimal(14, 4)
+  createdAt      DateTime                     @default(now())
+  reservation    ProjectMaterialReservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  requirement    ProjectMaterialRequirement   @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  item           InventoryItem                @relation(fields: [itemId], references: [id])
+  batch          InventoryBatch?              @relation(fields: [batchId], references: [id])
+  batchStock     InventoryBatchStock?         @relation(fields: [batchStockId], references: [id])
+
+  @@index([reservationId])
+  @@index([requirementId])
+  @@index([itemId, batchId])
 }
 
 model StockIssueItem {

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { StockService } from '../inventory/stock.service';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { UUID } from '@/types/common';
+import { ProjectMaterialReservationService } from './project-material-reservation.service';
 
 export class ProjectStockIssueService {
     /**
@@ -12,11 +13,12 @@ export class ProjectStockIssueService {
         projectId: UUID;
         storeId: UUID;
         items: { itemId: UUID; quantity: number | string; remarks?: string }[];
+        reservationId?: UUID;
         remarks?: string;
         userId: UUID;
         issueDate?: Date | string;
     }) {
-        const { projectId, storeId, items, remarks, userId, issueDate } = data;
+        const { projectId, storeId, items, remarks, userId, issueDate, reservationId } = data;
 
         // Generate Issue Number
         const count = await prisma.stockIssue.count();
@@ -36,8 +38,17 @@ export class ProjectStockIssueService {
 
         for (const item of items) {
             const stock = stockMap.get(item.itemId);
-            if (!stock || Number(stock.quantity) < parseFloat(item.quantity.toString())) {
+            const requestedQty = parseFloat(item.quantity.toString());
+            const availableToPromise = Number(stock?.quantity || 0) - Number(stock?.allocatedQuantity || 0) - Number(stock?.minLevel || 0);
+            if (!reservationId && (!stock || availableToPromise < requestedQty)) {
                 throw AppError.badRequest(`INSUFFICIENT_STOCK: Insufficient stock for item: ${stock?.item.name || item.itemId}`);
+            }
+        }
+
+        if (reservationId) {
+            const reservation = await prisma.projectMaterialReservation.findUnique({ where: { id: reservationId } });
+            if (!reservation || reservation.projectId !== projectId || reservation.storeId !== storeId || !['RESERVED', 'PARTIAL'].includes(reservation.status)) {
+                throw AppError.badRequest('RESERVATION_PROJECT_OR_STORE_MISMATCH');
             }
         }
 
@@ -54,6 +65,7 @@ export class ProjectStockIssueService {
                 issueNumber,
                 storeId,
                 projectId,
+                reservationId,
                 issuedById: userId,
                 issueType: 'PROJECT',
                 recipientName,
@@ -135,7 +147,8 @@ export class ProjectStockIssueService {
 
         for (const item of issue.items) {
             const stock = issueStockMap.get(item.itemId);
-            if (!stock || Number(stock.quantity.toNumber()) < item.quantity.toNumber()) {
+            const availableToPromise = Number(stock?.quantity || 0) - Number(stock?.allocatedQuantity || 0) - Number(stock?.minLevel || 0);
+            if (!issue.reservationId && (!stock || availableToPromise < item.quantity.toNumber())) {
                 throw AppError.badRequest(`INSUFFICIENT_STOCK: Insufficient stock for item ID: ${item.itemId}`);
             }
         }
@@ -155,46 +168,38 @@ export class ProjectStockIssueService {
             let totalIssueCost = 0;
             const transactionItems: { itemId: UUID; batchId: UUID; quantity: number }[] = [];
 
-            // 2. Process Items
-            for (const item of issue.items) {
-                // Deduct Batch Stock using FIFO
-                const pickedBatches = await StockService.pickStoreBatchesFIFO(
-                    tx as TransactionClient,
-                    issue.storeId,
-                    item.itemId,
-                    item.quantity.toNumber()
-                );
-
-                for (const picked of pickedBatches) {
-                    await tx.inventoryBatchStock.update({
-                        where: {
-                            storeId_batchId: {
-                                storeId: issue.storeId,
-                                batchId: picked.batchId!
-                            }
-                        },
-                        data: { quantity: { decrement: picked.quantity } }
-                    });
-
-                    transactionItems.push({
-                        itemId: item.itemId,
-                        batchId: picked.batchId!,
-                        quantity: -picked.quantity
+            // 2. Process Items. Reserved issues consume the exact reserved
+            // lines; unreserved issues use FIFO against unallocated batches.
+            if (issue.reservationId && issue.projectId) {
+                transactionItems.push(...await ProjectMaterialReservationService.consumeForIssue(tx as TransactionClient, {
+                    reservationId: issue.reservationId,
+                    projectId: issue.projectId,
+                    storeId: issue.storeId,
+                    items: issue.items.map((item) => ({ itemId: item.itemId, quantity: item.quantity.toNumber() })),
+                }));
+            } else {
+                for (const item of issue.items) {
+                    const pickedBatches = await StockService.pickStoreBatchesFIFO(tx as TransactionClient, issue.storeId, item.itemId, item.quantity.toNumber());
+                    for (const picked of pickedBatches) {
+                        if (!picked.batchId) continue;
+                        await tx.inventoryBatchStock.update({
+                            where: { storeId_batchId: { storeId: issue.storeId, batchId: picked.batchId } },
+                            data: { quantity: { decrement: picked.quantity } }
+                        });
+                        transactionItems.push({ itemId: item.itemId, batchId: picked.batchId, quantity: -picked.quantity });
+                    }
+                    await tx.inventoryStock.update({
+                        where: { storeId_itemId: { storeId: issue.storeId, itemId: item.itemId } },
+                        data: { quantity: { decrement: item.quantity } }
                     });
                 }
-
-                // Deduct Summary Stock
-                await tx.inventoryStock.update({
-                    where: { storeId_itemId: { storeId: issue.storeId, itemId: item.itemId } },
-                    data: { quantity: { decrement: item.quantity } }
-                });
             }
 
             // Bulk update BOQ Actuals via fn_bulk_boq_actual_update (single DB call replaces N+1 loop)
             if (issue.projectId) {
                 const boqItemIds = issue.items.map(i => i.itemId);
                 const boqQuantities = issue.items.map(i => Number(i.quantity));
-                const boqUpdated = await tx.$queryRaw<[{ updated: bigint }]>`
+                await tx.$queryRaw<[{ updated: bigint }]>`
                     SELECT fn_bulk_boq_actual_update(
                         ${issue.projectId}::uuid,
                         ${boqItemIds}::uuid[],
