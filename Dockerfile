@@ -49,6 +49,12 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 COPY --from=builder /app/node_modules ./node_modules
+# The production entrypoint seeds the DB-backed RBAC catalog. Keep the small
+# source dependency graph in the runner because the seed runs after migrations
+# and before the web process starts.
+COPY --from=builder /app/src/config/rbac-permissions.ts ./src/config/rbac-permissions.ts
+COPY --from=builder /app/src/config/roles.ts ./src/config/roles.ts
+COPY --from=builder /app/src/config/valid-roles.ts ./src/config/valid-roles.ts
 
 # Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
