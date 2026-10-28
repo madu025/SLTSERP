@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler, castBody } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { InventoryService } from '@/services/inventory/inventory.service';
@@ -6,16 +6,14 @@ import { InventoryService } from '@/services/inventory/inventory.service';
 export const dynamic = 'force-dynamic';
 
 // GET: Fetch all active stores (using rawResponse for backwards-compatibility with frontend)
-export const GET = apiHandler(async (req) => {
-    const userId = req.headers.get('x-user-id');
-    const userRole = req.headers.get('x-user-role');
+export const GET = apiHandler(async (_req, params) => {
+    const userId = params._userId;
+    const userRole = params._userRole;
 
-    if (userId && userRole) {
-        return await InventoryService.getAccessibleStores(userId, userRole);
-    }
-    
-    return await InventoryService.getStores();
+    if (!userId || !userRole) throw AppError.unauthorized('Unauthorized');
+    return await InventoryService.getAccessibleStores(userId, userRole);
 }, {
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
 });
 
@@ -25,7 +23,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
         castBody<Parameters<typeof InventoryService.createStore>[0]>(body)
     );
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'CREATE', entity: 'STORE' }
 });
 
@@ -37,7 +35,7 @@ export const PUT = apiHandler(async (_req, _params, body) => {
     const { id: _id, ...data } = body;
     return await InventoryService.updateStore(id, data);
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'UPDATE', entity: 'STORE' }
 });
 
@@ -50,6 +48,6 @@ export const DELETE = apiHandler(async (req) => {
     }
     return await InventoryService.deleteStore(id);
 }, {
-    roles: ROLE_GROUPS.STORES_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
     audit: { action: 'DELETE', entity: 'STORE' }
 });

@@ -1,9 +1,9 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { AppError } from '@/lib/error';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { StoreWithDetails, TransactionClient, UUID } from '@/types/inventory/inventory-service.types';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export class StoreService {
     /** Low stock alerts are now handled by DB trigger trg_low_stock_auto_alert with InventoryAlertCooldown table */
@@ -16,9 +16,8 @@ export class StoreService {
      * Resolves the caller's permitted stores from User.assignedStoreId,
      * Store.managerId and OPMC-linked stores (mirrors getAccessibleStores)
      * and throws a 403 STORE_SCOPE_VIOLATION when the target store is out
-     * of scope. ADMINS (SUPER_ADMIN/ADMIN/CEO/HEAD_OF_OSP) bypass; stores
-     * staff holding MAIN-store access inherit all-store access exactly like
-     * the read path does.
+     * of scope. Only the database-backed global RBAC capability bypasses;
+     * access to one MAIN store never widens access to every other store.
      */
     static async assertStoreWriteAccess(userId: string | null | undefined, storeId: UUID, tx?: TransactionClient): Promise<void> {
         // Share the caller's transaction snapshot when a tx client is provided
@@ -31,7 +30,6 @@ export class StoreService {
         const dbUser = await db.user.findUnique({
             where: { id: userId },
             select: {
-                role: true,
                 assignedStoreId: true,
                 accessibleOpmcs: { select: { id: true } }
             }
@@ -41,8 +39,8 @@ export class StoreService {
             throw AppError.forbidden('STORE_SCOPE_VIOLATION: USER_NOT_FOUND');
         }
 
-        // Admin-tier bypass (mirrors getAccessibleStores isAdmin)
-        if ((ROLE_GROUPS.ADMINS as readonly string[]).includes(dbUser.role)) {
+        // Global bypass is capability-based, not a legacy role-name bypass.
+        if (await resolveOpmcScope(userId) === undefined) {
             return;
         }
 
@@ -67,35 +65,17 @@ export class StoreService {
             return;
         }
 
-        // Stores staff with MAIN-store access inherit all-store access
-        // (mirrors the isStoreStaff escalation in getAccessibleStores)
-        const isStoreStaff = dbUser.role === 'STORES_MANAGER' || dbUser.role === 'STORES_ASSISTANT';
-        if (isStoreStaff) {
-            const mainStoreWhere: Prisma.InventoryStoreWhereInput = {
-                type: 'MAIN',
-                OR: [
-                    { managerId: userId },
-                    { opmcs: { some: { id: { in: accessibleOpmcIds } } } },
-                    ...(dbUser.assignedStoreId ? [{ id: dbUser.assignedStoreId }] : [])
-                ]
-            };
-            const hasMainAccess = await db.inventoryStore.findFirst({
-                where: mainStoreWhere,
-                select: { id: true }
-            });
-            if (hasMainAccess) {
-                return;
-            }
-        }
-
         throw AppError.forbidden(`STORE_SCOPE_VIOLATION: User does not have write access to store ${storeId}.`);
     }
 
     static async getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]> {
-        const isAdmin = (ROLE_GROUPS.ADMINS as readonly string[]).includes(userRole);
+        // Kept for backwards-compatible callers; authorization uses DB
+        // capabilities and OPMC/assigned-store scope below.
+        void userRole;
+        const isGlobal = await resolveOpmcScope(userId) === undefined;
         let whereClause: Prisma.InventoryStoreWhereInput = {};
 
-        if (!isAdmin) {
+        if (!isGlobal) {
             const dbUser = await prisma.user.findUnique({
                 where: { id: userId },
                 include: { accessibleOpmcs: true }
@@ -118,24 +98,7 @@ export class StoreService {
                 baseWhere.OR?.push({ id: dbUser.assignedStoreId });
             }
 
-            const isStoreStaff = userRole === 'STORES_MANAGER' || userRole === 'STORES_ASSISTANT';
-
-            if (isStoreStaff) {
-                const hasMainAccess = await InventoryRepository.findFirstStore({
-                    where: {
-                        ...baseWhere,
-                        type: 'MAIN'
-                    }
-                });
-
-                if (hasMainAccess) {
-                    whereClause = {};
-                } else {
-                    whereClause = baseWhere;
-                }
-            } else {
-                whereClause = baseWhere;
-            }
+            whereClause = baseWhere;
         }
 
         return this.getStores(whereClause);
