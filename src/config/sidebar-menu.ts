@@ -507,6 +507,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: ClipboardList,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
             },
+            {
+                title: 'Project Material Control',
+                path: '/inventory/project-materials',
+                icon: Package,
+                allowedRoles: [],
+                permissionId: RBAC_PERMISSIONS.INVENTORY_READ
+            },
             // 3. Stock Outflow
             {
                 title: 'Inventory Balance',

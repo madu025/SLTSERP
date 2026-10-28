@@ -197,6 +197,7 @@ model ProjectMaterialRequirement {
   contractorAssignment  ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
   item                  InventoryItem?               @relation(fields: [itemId], references: [id])
   reservations          ProjectMaterialReservationLine[]
+  supplyAllocations     ProjectMaterialSupplyAllocation[]
 
   @@unique([boqItemId])
   @@index([projectId, status])

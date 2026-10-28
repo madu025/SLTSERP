@@ -67,6 +67,7 @@ model StockRequest {
   toStore                   InventoryStore?    @relation("RequestTarget", fields: [toStoreId], references: [id])
   items                     StockRequestItem[]
   purchaseOrders            PurchaseOrder[]
+  projectMaterialSupplyAllocations ProjectMaterialSupplyAllocation[]
 
   @@index([fromStoreId])
   @@index([toStoreId])
@@ -391,6 +392,38 @@ model ProjectMaterialReservation {
   @@index([projectId, status])
   @@index([storeId, status])
   @@index([createdById])
+}
+
+/// Links a project BOQ material requirement to one or more supply sources.
+/// This is intentionally outside the Project workflow: it records how
+/// Inventory fulfills an approved requirement without changing project stages.
+model ProjectMaterialSupplyAllocation {
+  id             String                      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  requirementId  String                      @db.Uuid
+  sourceType     String                      // STORE, SLT, LOCAL_PURCHASE
+  storeId        String?                     @db.Uuid
+  stockRequestId String?                     @db.Uuid
+  requestedQty   Decimal                     @db.Decimal(14, 4)
+  approvedQty    Decimal                     @default(0) @db.Decimal(14, 4)
+  receivedQty    Decimal                     @default(0) @db.Decimal(14, 4)
+  reservedQty    Decimal                     @default(0) @db.Decimal(14, 4)
+  issuedQty      Decimal                     @default(0) @db.Decimal(14, 4)
+  status         String                      @default("PLANNED")
+  requiredDate   DateTime?
+  notes          String?
+  createdById    String                      @db.Uuid
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  requirement    ProjectMaterialRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  store          InventoryStore?             @relation(fields: [storeId], references: [id])
+  stockRequest   StockRequest?               @relation(fields: [stockRequestId], references: [id], onDelete: SetNull)
+  createdBy      User                        @relation("ProjectMaterialSupplyAllocationCreator", fields: [createdById], references: [id])
+
+  @@index([requirementId, status])
+  @@index([stockRequestId])
+  @@index([storeId, status])
+  @@index([sourceType, status])
+  @@unique([requirementId, sourceType])
 }
 
 model ProjectMaterialReservationLine {
