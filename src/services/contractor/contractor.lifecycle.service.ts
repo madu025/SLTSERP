@@ -53,6 +53,8 @@ export class ContractorLifecycleService {
                 registrationFeeSlipUrl: contractorData.registrationFeeSlipUrl,
                 opmcId: contractorData.opmcId || null,
                 siteOfficeStaffId: contractorData.siteOfficeStaffId,
+                kycVerified: contractorData.kycVerified,
+                whtHoldStatus: contractorData.whtHoldStatus,
             }, tx);
 
             if (teams.length > 0) {
@@ -150,6 +152,8 @@ export class ContractorLifecycleService {
                 bankPassbookUrl: contractorData.bankPassbookUrl,
                 opmcId: contractorData.opmcId,
                 documentStatus: contractorData.documentStatus,
+                kycVerified: contractorData.kycVerified,
+                whtHoldStatus: contractorData.whtHoldStatus,
                 registrationFeeSlipUrl: contractorData.registrationFeeSlipUrl,
                 armApprovedAt: contractorData.armApprovedAt,
                 armApprovedById: contractorData.armApprovedById,

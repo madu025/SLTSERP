@@ -36,6 +36,10 @@ export const contractorSchema = z.object({
     brNumber: z.string().optional().nullable(),
     status: z.string().optional(),
     type: z.string().optional(),
+    // Compliance controls used by Finance before contractor payments.
+    // These fields are writable only through the office-admin contractor API.
+    kycVerified: z.boolean().optional(),
+    whtHoldStatus: z.boolean().optional(),
     contactNumber: z.string().trim().min(9, "Valid contact number is required (min 9-10 digits)"),
     nic: z.string().min(10, "Valid NIC is required"),
     email: z.string().email("Invalid email").optional().nullable(),

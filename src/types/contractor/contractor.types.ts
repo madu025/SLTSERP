@@ -39,6 +39,8 @@ export interface ContractorUpdateData {
     brNumber?: string;
     status?: ContractorStatus;
     documentStatus?: string;
+    kycVerified?: boolean;
+    whtHoldStatus?: boolean;
     registrationFeePaid?: boolean;
     registrationFeeSlipUrl?: string;
     agreementSigned?: boolean;

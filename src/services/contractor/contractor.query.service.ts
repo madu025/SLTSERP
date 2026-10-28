@@ -90,6 +90,8 @@ export class ContractorQueryService {
                     policeReportUrl: true,
                     gramaCertUrl: true,
                     documentStatus: true,
+                    kycVerified: true,
+                    whtHoldStatus: true,
                     armApprovedAt: true,
                     ospApprovedAt: true,
                     createdAt: true,
