@@ -65,10 +65,10 @@ jobs:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E Tests
-        run: npx playwright test
+        run: pnpm exec playwright test
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
