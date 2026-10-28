@@ -85,8 +85,12 @@ fi
 # runs this through `vercel-build`, but Docker deployments use `pnpm run build`.
 # Seed it here so Coolify/VPS deployments cannot start with only legacy page
 # permissions and then reject valid users at the API RBAC boundary.
-if [ "${SKIP_DB_SYNC:-false}" = "true" ] || [ "${SKIP_RBAC_SEED:-false}" = "true" ]; then
-  echo "RBAC capability seed skipped (SKIP_DB_SYNC or SKIP_RBAC_SEED is true)."
+# RBAC data is safe to reconcile independently of schema migration ownership.
+# Some Coolify releases intentionally set SKIP_DB_SYNC=true because migrations
+# run in a separate release step; that must not silently disable authorization
+# grants when the schema is already present.
+if [ "${SKIP_RBAC_SEED:-false}" = "true" ]; then
+  echo "RBAC capability seed skipped (SKIP_RBAC_SEED is true)."
 elif [ -x ./node_modules/.bin/tsx ] && [ -f ./scripts/seed-rbac-capabilities.ts ]; then
   if ! ./node_modules/.bin/tsx ./scripts/seed-rbac-capabilities.ts; then
     echo "FATAL: RBAC capability seed failed - refusing to serve with incomplete authorization grants." >&2
