@@ -23,7 +23,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw AppError.internal(err?.message || 'Failed to submit approval');
     }
 }, {
-    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
+    permissions: [RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'SUBMIT_APPROVAL', entity: 'WORKFLOW' },
     rawResponse: true
 });

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, History, Send, Download, FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Plus, History, Send, Download, FileText, CheckCircle2, Clock, XCircle, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { toast } from 'sonner';
@@ -56,6 +56,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('DRAWING');
     const [fileUrl, setFileUrl] = useState('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadedById, setUploadedById] = useState('');
     const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
 
@@ -78,10 +79,11 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
             setLoading(true);
             const res = await fetch(`/api/projects/${project.id}/documents`);
             if (res.ok) {
-                const data = await res.json();
+                const payload = await res.json();
+                const data = Array.isArray(payload) ? payload : payload.data || [];
                 setDocuments(data);
             }
-        } catch (error) {
+        } catch {
 } finally {
             setLoading(false);
         }
@@ -91,31 +93,37 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
         try {
             const res = await fetch('/api/admin/users'); // fallback or generic endpoint
             if (res.ok) {
-                const data = await res.json();
+                const payload = await res.json();
+                const data = Array.isArray(payload) ? payload : payload.data || [];
                 setUsers(data);
             } else {
-                // Mock simple user list if endpoint fails in dev
-                setUsers([
-                    { id: 'usr-dev-1', name: 'OPMC Engineer' },
-                    { id: 'usr-dev-2', name: 'Regional Manager' }
-                ]);
+                setUsers([]);
             }
-        } catch (error) {
-            // fallback mock
-            setUsers([
-                { id: 'usr-dev-1', name: 'OPMC Engineer' },
-                { id: 'usr-dev-2', name: 'Regional Manager' }
-            ]);
+        } catch {
+            setUsers([]);
         }
     };
 
     const handleUpload = async () => {
-        if (!title || !fileUrl || !uploadedById) {
-            toast.error('Title, File URL, and Uploaded By are required');
+        if (!title || (!fileUrl && !selectedFile)) {
+            toast.error('Title and a file or file URL are required');
             return;
         }
 
         try {
+            let resolvedFileUrl = fileUrl;
+            if (selectedFile) {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('bucket', 'documents');
+                const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+                const uploadPayload = await uploadResponse.json();
+                if (!uploadResponse.ok) {
+                    toast.error(uploadPayload.error?.message || uploadPayload.error || 'File upload failed');
+                    return;
+                }
+                resolvedFileUrl = uploadPayload.url || uploadPayload.data?.url || '';
+            }
             const res = await fetch(`/api/projects/${project.id}/documents`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -123,8 +131,8 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                     title,
                     description,
                     category,
-                    fileUrl,
-                    uploadedById
+                    fileUrl: resolvedFileUrl,
+                    ...(uploadedById ? { uploadedById } : {})
                 })
             });
 
@@ -135,7 +143,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
             } else {
                 toast.error('Failed to upload document');
             }
-        } catch (error) {
+        } catch {
 }
     };
 
@@ -165,7 +173,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
             } else {
                 toast.error('Failed to save new version');
             }
-        } catch (error) {
+        } catch {
 }
     };
 
@@ -183,7 +191,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                     description: doc.description || `Approval review for category ${doc.category}`,
                     steps: [
                         { stepNumber: 1, roleRequired: 'ENGINEER' },
-                        { stepNumber: 2, roleRequired: 'OPMC_MANAGER' }
+                        { stepNumber: 2, roleRequired: 'AREA_MANAGER' }
                     ]
                 })
             });
@@ -194,7 +202,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
             } else {
                 toast.error('Failed to submit approval request');
             }
-        } catch (error) {
+        } catch {
 }
     };
 
@@ -203,10 +211,11 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
         setDescription('');
         setCategory('DRAWING');
         setFileUrl('');
+        setSelectedFile(null);
     };
 
     const getStatusBadge = (status: string) => {
-        const configs: Record<string, { className: string; icon: any }> = {
+        const configs: Record<string, { className: string; icon: LucideIcon }> = {
             DRAFT: { className: 'bg-slate-100 text-slate-650', icon: Clock },
             UNDER_REVIEW: { className: 'bg-blue-100 text-blue-750', icon: Clock },
             APPROVED: { className: 'bg-green-100 text-green-750', icon: CheckCircle2 },
@@ -333,7 +342,10 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                                 <Select value={category} onValueChange={setCategory}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="CAD_DRAWING">CAD drawing</SelectItem>
                                         <SelectItem value="DRAWING">Technical Drawing</SelectItem>
+                                        <SelectItem value="CAD_AS_BUILT">CAD as-built</SelectItem>
+                                        <SelectItem value="QGIS_AS_BUILT">QGIS as-built</SelectItem>
                                         <SelectItem value="BOQ">BOQ Specification</SelectItem>
                                         <SelectItem value="CONTRACT">Legal Contract</SelectItem>
                                         <SelectItem value="SPECIFICATION">Spec sheet</SelectItem>
@@ -350,6 +362,10 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                                     </SelectContent>
                                 </Select>
                             </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Upload file (optional if using a URL)</Label>
+                            <Input type="file" accept=".dxf,.dwg,.pdf,.zip,.geojson,.gpkg" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
                         </div>
                         <div className="space-y-2">
                             <Label>File URL (S3/Cloud storage path) *</Label>

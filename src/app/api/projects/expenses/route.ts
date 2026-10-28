@@ -2,12 +2,14 @@ import { apiHandler, castBody } from '@/lib/api-handler';
 import { CreateExpenseInput, ProjectExpenseService } from '@/services/project/project-expense.service';
 import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from '@/config/roles';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
+import { assertProjectAccess } from '@/lib/project-access';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
 const expenseSchema = z.object({
-    projectId: z.string().uuid(),
+    projectId: databaseUuidSchema,
     type: z.string().trim().min(1),
     description: z.string().optional(),
     amount: z.union([z.number(), z.string().trim().min(1)]),
@@ -23,6 +25,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     if (!projectId || !type || !amount) {
         throw AppError.badRequest('Project ID, Type and Amount are required');
     }
+    await assertProjectAccess(projectId, params._userId);
 
     return await ProjectExpenseService.createExpense(castBody<CreateExpenseInput>(body));
 }, {

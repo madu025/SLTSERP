@@ -22,7 +22,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw AppError.internal(err?.message || 'Failed to transition stage');
     }
 }, {
-    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
+    permissions: [RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'TRANSITION_STAGE', entity: 'WORKFLOW' },
     rawResponse: true
 });

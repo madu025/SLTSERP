@@ -41,7 +41,7 @@ const processStepSchema = z.object({
 export const PATCH = apiHandler(async (_request, params, body) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
     const data = processStepSchema.parse(body);
-    return await ProjectApprovalService.processApprovalStep(data.stepId, data.action, params._userId, data.comment);
+    return await ProjectApprovalService.processApprovalStep(data.stepId, data.action, params._userId, data.comment, params.id);
 }, {
     roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.STORES_MANAGERS])],
     audit: { action: 'UPDATE', entity: 'APPROVAL_STEP' },

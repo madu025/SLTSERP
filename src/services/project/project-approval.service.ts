@@ -40,6 +40,14 @@ export class ProjectApprovalService {
     static async createApproval(data: CreateApprovalRequestInput) {
         const { projectId, type, referenceId, title, description, amount, steps } = data;
 
+        if (type === 'DOCUMENT') {
+            const document = await prisma.projectDocument.findFirst({
+                where: { id: referenceId, projectId },
+                select: { id: true },
+            });
+            if (!document) throw AppError.notFound('Document not found in this project');
+        }
+
         const newRequest = await prisma.$transaction(async (tx) => {
             const req = await tx.projectApprovalRequest.create({
                 data: {
@@ -111,7 +119,7 @@ export class ProjectApprovalService {
         return newRequest;
     }
 
-    static async processApprovalStep(stepId: string, action: string, actorUserId: string, comment?: string | null) {
+    static async processApprovalStep(stepId: string, action: string, actorUserId: string, comment?: string | null, routeProjectId?: string) {
         if (!actorUserId) throw AppError.unauthorized('Authenticated approver is required');
         const step = await prisma.projectApprovalStep.findUnique({
             where: { id: stepId },
@@ -120,6 +128,9 @@ export class ProjectApprovalService {
 
         if (!step) {
             throw AppError.notFound('Approval step not found');
+        }
+        if (routeProjectId && step.request.projectId !== routeProjectId) {
+            throw AppError.forbidden('Approval step does not belong to this project');
         }
 
         if (step.status !== 'PENDING') {

@@ -2,17 +2,20 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
 import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from '@/config/roles';
+import { assertProjectAccess } from '@/lib/project-access';
+import { prisma } from '@/lib/prisma';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
 
 const createInvoiceSchema = z.object({
-    projectId: z.string().uuid(),
+    projectId: databaseUuidSchema,
     title: z.string().trim().min(1),
     description: z.string().optional().nullable(),
     type: z.enum(['CLIENT', 'CONTRACTOR', 'INTERNAL']).optional(),
-    contractorId: z.string().uuid().optional().nullable(),
+    contractorId: databaseUuidSchema.optional().nullable(),
     invoiceDate: z.string().optional(),
     dueDate: z.string().optional().nullable(),
     referenceNumber: z.string().optional().nullable(),
@@ -26,8 +29,8 @@ const createInvoiceSchema = z.object({
         description: z.string().trim().min(1),
         quantity: z.number().finite().positive().optional(),
         unitPrice: z.number().finite().min(0).optional(),
-        boqItemId: z.string().uuid().optional().nullable(),
-        taskId: z.string().uuid().optional().nullable(),
+        boqItemId: databaseUuidSchema.optional().nullable(),
+        taskId: databaseUuidSchema.optional().nullable(),
         itemType: z.string().trim().min(1).optional(),
         notes: z.string().optional().nullable(),
     })).min(1),
@@ -40,7 +43,7 @@ const createInvoiceSchema = z.object({
 });
 
 const updateInvoiceSchema = z.object({
-    id: z.string().uuid(),
+    id: databaseUuidSchema,
     status: z.enum(['ISSUED', 'CANCELLED', 'FOLLOW_UP', 'COMPLETED']).optional(),
     cancelledReason: z.string().trim().min(1).optional(),
     title: z.string().trim().min(1).optional(),
@@ -58,18 +61,20 @@ function requireFinanceApprover(userId: string | null, role: string | null) {
     }
 }
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
     const allClient = searchParams.get('allClient') === 'true';
 
     if (allClient) return ProjectInvoiceService.getAllClientInvoices();
     if (!projectId) throw AppError.badRequest('projectId is required');
+    await assertProjectAccess(projectId, params._userId);
     return ProjectInvoiceService.getInvoices(projectId);
 }, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body: z.infer<typeof createInvoiceSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
+    await assertProjectAccess(body.projectId, params._userId);
     try {
         const invoice = await ProjectInvoiceService.createInvoice({ ...body, createdById: params._userId });
         return Response.json(invoice, { status: 201 });
@@ -88,6 +93,9 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof cre
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof updateInvoiceSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
+    const invoice = await prisma.projectInvoice.findUnique({ where: { id: body.id }, select: { projectId: true } });
+    if (!invoice) throw AppError.notFound('Invoice not found');
+    await assertProjectAccess(invoice.projectId, params._userId);
     if (body.status) requireFinanceApprover(params._userId, params._userRole);
     const { id, ...updateFields } = body;
     try {
@@ -105,9 +113,12 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof up
     rawResponse: true
 });
 
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async (request, params) => {
     const id = new URL(request.url).searchParams.get('id');
     if (!id) throw AppError.badRequest('id is required');
+    const invoice = await prisma.projectInvoice.findUnique({ where: { id }, select: { projectId: true } });
+    if (!invoice) throw AppError.notFound('Invoice not found');
+    await assertProjectAccess(invoice.projectId, params._userId);
     try {
         await ProjectInvoiceService.deleteInvoice(id);
         return { message: 'Invoice deleted successfully' };

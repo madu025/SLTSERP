@@ -138,6 +138,16 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
         { value: 'approvals', label: 'Drawing Approval', description: 'Technical drawing approval or rejection' },
         { value: 'tasks', label: 'Design Tasks', description: 'Design review and correction tasks' },
     ],
+    'cad drawing upload': [
+        { value: 'documents', label: 'CAD Drawings', description: 'Drawing upload, revision and approval' },
+        { value: 'approvals', label: 'Drawing Approval', description: 'Technical drawing approval or rejection' },
+        { value: 'tasks', label: 'Design Tasks', description: 'Design review and correction tasks' },
+    ],
+    'cad review & approval': [
+        { value: 'documents', label: 'CAD Drawings', description: 'Drawing upload, revision and approval' },
+        { value: 'approvals', label: 'Drawing Approval', description: 'Technical drawing approval or rejection' },
+        { value: 'tasks', label: 'Design Tasks', description: 'Design review and correction tasks' },
+    ],
     'boq preparation': [
         { value: 'boq', label: 'BOQ & Material', description: 'BOQ linked to task and contractor scope' },
         { value: 'tasks', label: 'BOQ Tasks', description: 'Child task and quantity planning' },
