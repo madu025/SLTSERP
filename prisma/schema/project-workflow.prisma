@@ -95,8 +95,13 @@ model WorkflowTaskTemplate {
   isRequired      Boolean               @default(true)
   autoProgressWeight Decimal?           @db.Decimal(8, 4)
   dependsOnCode   String?
+  defaultDurationDays Int?
+  isSupervisorSelectable Boolean         @default(true)
+  executionType   String                @default("CONTROL")
   stageTemplateId String                @db.Uuid
   stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+  taskPlanItems   ProjectTaskPlanItem[]
+  projectTaskInstances ProjectTaskInstance[]
 
   @@index([stageTemplateId])
 }
@@ -198,6 +203,9 @@ model ProjectTaskInstance {
   dependsOnCode  String?
   assignedTeamId String?              @db.Uuid
   assignedUserId String?              @db.Uuid
+  sourceTemplateId String?            @db.Uuid
+  isEnabled      Boolean              @default(true)
+  sortOrder      Int                  @default(0)
   plannedStart   DateTime?
   plannedFinish  DateTime?
   actualStart    DateTime?
@@ -205,10 +213,78 @@ model ProjectTaskInstance {
   progress       Decimal              @default(0) @db.Decimal(8, 4)
   stageId        String               @db.Uuid
   stage          ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  sourceTemplate WorkflowTaskTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
 
   @@index([stageId])
   @@index([assignedTeamId])
   @@index([assignedUserId])
+  @@index([sourceTemplateId])
+}
+
+/// A project-specific WBS design snapshot. The supervisor can configure this
+/// draft from approved templates and BOQ items; managers approve it before
+/// operational ProjectTask records are generated.
+model ProjectTaskPlan {
+  id             String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String                @unique @db.Uuid
+  status         String                @default("DRAFT")
+  version        Int                   @default(1)
+  configuredById String?               @db.Uuid
+  approvedById   String?               @db.Uuid
+  configuredAt   DateTime?
+  approvedAt     DateTime?
+  generatedAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  project        Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  configuredBy   User?                 @relation("ProjectTaskPlanConfiguredBy", fields: [configuredById], references: [id], onDelete: SetNull)
+  approvedBy     User?                 @relation("ProjectTaskPlanApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  items          ProjectTaskPlanItem[]
+
+  @@index([status])
+  @@index([configuredById])
+  @@index([approvedById])
+}
+
+model ProjectTaskPlanItem {
+  id                    String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  planId                String                @db.Uuid
+  sourceTemplateId      String?               @db.Uuid
+  sourceBoqItemId       String?               @db.Uuid
+  parentId              String?               @db.Uuid
+  code                  String
+  name                  String
+  description           String?
+  sourceType            String                @default("TEMPLATE")
+  taskType              String                @default("TASK")
+  requiredJobRole       String?
+  assignmentTeamKey     String?
+  enabled               Boolean               @default(true)
+  isRequired             Boolean               @default(true)
+  sortOrder             Int                   @default(0)
+  plannedStart          DateTime?
+  plannedFinish         DateTime?
+  plannedDurationDays   Int?
+  assignedUserId        String?               @db.Uuid
+  assignedContractorId  String?               @db.Uuid
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  plan                  ProjectTaskPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  sourceTemplate        WorkflowTaskTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  sourceBoqItem         ProjectBOQItem?      @relation(fields: [sourceBoqItemId], references: [id], onDelete: SetNull)
+  parent                ProjectTaskPlanItem?  @relation("TaskPlanItemHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children              ProjectTaskPlanItem[] @relation("TaskPlanItemHierarchy")
+  assignedUser          User?                 @relation("ProjectTaskPlanAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  assignedContractor    Contractor?           @relation("ProjectTaskPlanContractor", fields: [assignedContractorId], references: [id], onDelete: SetNull)
+  projectTask           ProjectTask?
+
+  @@unique([planId, code])
+  @@unique([planId, sourceBoqItemId])
+  @@index([planId, enabled, sortOrder])
+  @@index([sourceTemplateId])
+  @@index([sourceBoqItemId])
+  @@index([assignedUserId])
+  @@index([assignedContractorId])
 }
 
 model ProjectChecklistInstance {

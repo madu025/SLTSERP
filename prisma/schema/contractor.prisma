@@ -70,6 +70,7 @@ model Contractor {
   projectTasks      ProjectTask[]                  @relation("ProjectTaskContractor")
   projectInvoices   ProjectInvoice[]               @relation("ProjectContractorInvoices")
   projectBOQItems   ProjectBOQItem[]
+  projectTaskPlanItems ProjectTaskPlanItem[] @relation("ProjectTaskPlanContractor")
   serviceOrders     ServiceOrder[]
   stockIssues       StockIssue[]                     @relation("ContractorIssues")
   teamMembers       TeamMember[]

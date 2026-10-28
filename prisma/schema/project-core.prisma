@@ -99,6 +99,7 @@ model Project {
   risks                 ProjectRisk[]
   supervisorAssignments ProjectSupervisorAssignment[]
   tasks                 ProjectTask[]
+  taskPlan              ProjectTaskPlan?
   workflowInstance      ProjectWorkflowInstance?
   workflowReviews       WorkflowReviewCycle[]
   workflowHandoffs      WorkflowHandoff[]
@@ -165,6 +166,7 @@ model ProjectBOQItem {
   updatedAt            DateTime                     @updatedAt
   material             InventoryItem?               @relation("BOQMaterials", fields: [materialId], references: [id])
   task                 ProjectTask?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskPlanItems        ProjectTaskPlanItem[]
   contractor           Contractor?                  @relation(fields: [contractorId], references: [id])
   materialRequirements ProjectMaterialRequirement[]
   project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -275,6 +277,8 @@ model ProjectTask {
   assigneeId             String?                      @db.Uuid
   contractorId           String?                      @db.Uuid
   contractorAssignmentId String?                      @db.Uuid
+  planItemId             String?                      @unique @db.Uuid
+  assignedUserId         String?                      @db.Uuid
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
   parent                 ProjectTask?                 @relation("TaskHierarchy", fields: [parentId], references: [id])
@@ -288,6 +292,8 @@ model ProjectTask {
   materialRequirements   ProjectMaterialRequirement[]
   contractor             Contractor?                  @relation("ProjectTaskContractor", fields: [contractorId], references: [id])
   contractorAssignment   ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
+  planItem               ProjectTaskPlanItem?          @relation(fields: [planItemId], references: [id], onDelete: SetNull)
+  assignedUser           User?                         @relation("ProjectTaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([parentId])
@@ -296,6 +302,7 @@ model ProjectTask {
   @@index([assigneeId])
   @@index([contractorId])
   @@index([contractorAssignmentId])
+  @@index([assignedUserId])
 }
 
 model TaskDependency {

@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, Link2, Clock, AlertTriangle, CalendarDays } from 'lucide-react';
 
 import { toast } from 'sonner';
+import ProjectTaskPlanDesigner from '@/components/projects/ProjectTaskPlanDesigner';
 
 function getApiErrorMessage(payload: unknown, fallback: string): string {
     if (!payload || typeof payload !== 'object') return fallback;
@@ -696,6 +697,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
     return (
         <div className="space-y-6">
+            <ProjectTaskPlanDesigner projectId={project.id} />
             {/* View Switcher & Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">

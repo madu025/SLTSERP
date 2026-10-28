@@ -13,6 +13,7 @@ export class ProjectSupervisorService {
         supervisorId: true,
         role: true,
         assignedAt: true,
+        supervisor: { select: { id: true, name: true, username: true, role: true } },
       },
     });
   }
@@ -20,7 +21,13 @@ export class ProjectSupervisorService {
   /**
    * Assign a supervisor to a project
    */
-  static async assignSupervisor(projectId: string, supervisorId: string, role?: string) {
+  static async assignSupervisor(projectId: string, supervisorId: string, role?: string, actorId?: string | null) {
+    if (!actorId) throw AppError.unauthorized('Authenticated project manager required');
+    const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { role: true, status: true } });
+    const projectManagerRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER']);
+    if (!actor || actor.status !== 'active' || !projectManagerRoles.has(actor.role)) {
+      throw AppError.forbidden('Only a project manager or higher role can assign a project supervisor');
+    }
     // 1. Verify project exists
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -47,12 +54,14 @@ export class ProjectSupervisorService {
     // 3. Verify supervisor is a valid user
     const supervisor = await prisma.user.findUnique({
       where: { id: supervisorId },
-      select: { id: true, name: true, role: true },
+      select: { id: true, name: true, username: true, role: true, status: true },
     });
 
-    if (!supervisor) {
+    const supervisorRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR']);
+    if (!supervisor || supervisor.status !== 'active') {
       throw AppError.badRequest('SUPERVISOR_NOT_FOUND');
     }
+    if (!supervisorRoles.has(supervisor.role)) throw AppError.badRequest('USER_ROLE_CANNOT_SUPERVISE_PROJECT');
 
     // 4. Create assignment
     const assignment = await prisma.projectSupervisorAssignment.create({
@@ -76,6 +85,8 @@ export class ProjectSupervisorService {
       supervisor: {
         id: supervisor.id,
         name: supervisor.name,
+        username: supervisor.username,
+        role: supervisor.role,
       },
     };
   }
@@ -83,7 +94,13 @@ export class ProjectSupervisorService {
   /**
    * Remove supervisor assignment
    */
-  static async removeAssignment(projectId: string, assignmentId: string) {
+  static async removeAssignment(projectId: string, assignmentId: string, actorId?: string | null) {
+    if (!actorId) throw AppError.unauthorized('Authenticated project manager required');
+    const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { role: true, status: true } });
+    const projectManagerRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER']);
+    if (!actor || actor.status !== 'active' || !projectManagerRoles.has(actor.role)) {
+      throw AppError.forbidden('Only a project manager or higher role can remove a project supervisor');
+    }
     const assignment = await prisma.projectSupervisorAssignment.findFirst({
       where: { id: assignmentId, projectId },
     });

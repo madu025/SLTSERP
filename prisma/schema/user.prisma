@@ -46,6 +46,10 @@ model User {
   approvedProjectReturns        ProjectMaterialReturn[]       @relation("ProjectReturnApprover")
   projectReturns                ProjectMaterialReturn[]       @relation("ProjectReturnUser")
   supervisorAssignments         ProjectSupervisorAssignment[]
+  assignedProjectTasks           ProjectTask[]                 @relation("ProjectTaskAssignee")
+  assignedProjectTaskPlanItems   ProjectTaskPlanItem[]          @relation("ProjectTaskPlanAssignee")
+  configuredProjectTaskPlans     ProjectTaskPlan[]              @relation("ProjectTaskPlanConfiguredBy")
+  approvedProjectTaskPlans       ProjectTaskPlan[]              @relation("ProjectTaskPlanApprovedBy")
   pushSubscriptions             PushSubscription[]
   approvedRestores              RestoreRequest[]              @relation("ApprovedRestores")
   requestedRestores             RestoreRequest[]              @relation("RequestedRestores")

@@ -2,7 +2,9 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { AutoBOQService } from '@/services/project/auto-boq.service';
 import { ProjectMaterialReservationService } from '@/services/project/project-material-reservation.service';
+import { ProjectTaskPlanService } from '@/services/project/project-task-plan.service';
 import { ROLE_GROUPS } from '@/config/roles';
+import { logger } from '@/lib/logger';
 
 export class ProjectBOQApprovalService {
     /**
@@ -163,10 +165,22 @@ export class ProjectBOQApprovalService {
             return updatedApproval;
         });
 
+        let taskPlanSync: 'SYNCED' | 'NOT_REQUIRED' | 'ATTENTION' = 'NOT_REQUIRED';
+        if (updated.status === 'APPROVED') {
+            try {
+                await ProjectTaskPlanService.syncApprovedBoq(projectId, userId, { automation: true });
+                taskPlanSync = 'SYNCED';
+            } catch (error) {
+                taskPlanSync = 'ATTENTION';
+                logger.error('[BOQ-TASK-PLAN-SYNC-FAILED]', { projectId, error });
+            }
+        }
+
         return {
             message: `BOQ step ${step} approved`,
             approval: updated,
             materialRequirementsCreated: updated.status === 'APPROVED',
+            taskPlanSync,
             nextStep: updated.status === 'APPROVED' ? null : updated.currentStep,
         };
     }

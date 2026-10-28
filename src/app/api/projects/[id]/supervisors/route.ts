@@ -1,12 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectSupervisorService } from '@/services/project/project-supervisor.service';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
     return await ProjectSupervisorService.getAssignments(params.id);
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {
     const supervisorId = body.supervisorId as string | undefined;
@@ -17,7 +18,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     }
 
     try {
-        return await ProjectSupervisorService.assignSupervisor(params.id, supervisorId, role);
+        return await ProjectSupervisorService.assignSupervisor(params.id, supervisorId, role, params._userId);
     } catch (error: unknown) {
         const err = error as { message?: string };
         const message = err?.message;
@@ -31,6 +32,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw error;
     }
 }, {
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'ASSIGN_SUPERVISOR', entity: 'PROJECT' },
     rawResponse: true
 });
@@ -44,7 +46,7 @@ export const DELETE = apiHandler(async (request, params) => {
     }
 
     try {
-        await ProjectSupervisorService.removeAssignment(params.id, assignmentId);
+        await ProjectSupervisorService.removeAssignment(params.id, assignmentId, params._userId);
         return { success: true };
     } catch (error: unknown) {
         const err = error as { message?: string };
@@ -54,6 +56,7 @@ export const DELETE = apiHandler(async (request, params) => {
         throw error;
     }
 }, {
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'REMOVE_SUPERVISOR', entity: 'PROJECT' },
     rawResponse: true
 });

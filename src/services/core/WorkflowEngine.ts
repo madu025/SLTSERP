@@ -114,7 +114,7 @@ export class WorkflowEngine {
 
       // Clone tasks
       if (stageTemp.taskTemplates.length > 0) {
-        tasksData.push(...stageTemp.taskTemplates.map(t => ({
+        tasksData.push(...stageTemp.taskTemplates.map((t, taskIndex) => ({
           stageId,
           code: t.code,
           name: t.name,
@@ -125,6 +125,9 @@ export class WorkflowEngine {
           assignmentTeamKey: t.assignmentTeamKey,
           isRequired: t.isRequired,
           dependsOnCode: t.dependsOnCode,
+          sourceTemplateId: t.id,
+          isEnabled: true,
+          sortOrder: taskIndex,
           status: 'PENDING',
         })));
       }
@@ -199,7 +202,7 @@ export class WorkflowEngine {
     const errors: string[] = [];
 
     // Check 1: Tasks completion
-    const incompleteTasks = stage.tasks.filter(t => t.status !== 'COMPLETED');
+    const incompleteTasks = stage.tasks.filter(t => t.isEnabled && t.status !== 'COMPLETED');
     if (incompleteTasks.length > 0) {
       errors.push(`All tasks must be completed. Incomplete tasks: ${incompleteTasks.map(t => t.name).join(', ')}`);
     }
@@ -479,6 +482,7 @@ export class WorkflowEngine {
       include: { stage: { include: { projectWorkflowInstance: { select: { projectId: true } } } } },
     });
     if (!task) throw AppError.notFound('Workflow task not found');
+    if (!task.isEnabled) throw AppError.conflict('Workflow task is disabled in the project plan');
     if (projectId && task.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow task does not belong to this project');
     if (task.stage.status !== 'IN_PROGRESS') {
       throw AppError.badRequest(`Workflow stage is ${task.stage.status}; task updates are allowed only while the stage is IN_PROGRESS`);

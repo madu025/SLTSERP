@@ -1,12 +1,13 @@
 import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
-import { ProjectTaskService } from '@/services/project/project-task.service';
+import { CreateTaskInput, ProjectTaskService, UpdateTaskInput } from '@/services/project/project-task.service';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/projects/tasks?projectId=xxx (rawResponse for compatibility)
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get('projectId');
     const parentId = searchParams.get('parentId');
@@ -15,7 +16,7 @@ export const GET = apiHandler(async (req) => {
         throw AppError.badRequest('projectId is required');
     }
 
-    return await ProjectTaskService.getTasks(projectId, parentId);
+    return await ProjectTaskService.getTasks(projectId, parentId, params._userId, params._userRole);
 }, {
     rawResponse: true
 });
@@ -29,7 +30,7 @@ export const POST = apiHandler(async (req, _params, body) => {
         throw AppError.badRequest('projectId and name are required');
     }
 
-    return await ProjectTaskService.createTask(body as any);
+    return await ProjectTaskService.createTask(body as unknown as CreateTaskInput);
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'CREATE', entity: 'PROJECT_TASK' },
@@ -47,15 +48,15 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     }
 
     if (!body.projectId) throw AppError.badRequest('projectId is required for task updates');
-    return await ProjectTaskService.updateTask(id, updateData as any, body.projectId as string);
+    return await ProjectTaskService.updateTask(id, updateData as unknown as UpdateTaskInput, body.projectId as string, _params._userId);
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_PLAN_WRITE],
     audit: { action: 'UPDATE', entity: 'PROJECT_TASK' },
     rawResponse: true
 });
 
 // DELETE /api/projects/tasks?id=xxx
-export const DELETE = apiHandler(async (req) => {
+export const DELETE = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     const projectId = searchParams.get('projectId');
@@ -65,10 +66,10 @@ export const DELETE = apiHandler(async (req) => {
     }
 
     if (!projectId) throw AppError.badRequest('projectId is required for task deletion');
-    await ProjectTaskService.deleteTask(id, projectId);
+    await ProjectTaskService.deleteTask(id, projectId, params._userId);
     return { success: true };
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_PLAN_WRITE],
     audit: { action: 'DELETE', entity: 'PROJECT_TASK' },
     rawResponse: true
 });

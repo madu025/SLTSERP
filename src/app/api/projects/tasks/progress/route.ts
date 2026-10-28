@@ -2,7 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectTaskService } from '@/services/project/project-task.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +46,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_PLAN_WRITE],
     audit: { action: 'UPDATE', entity: 'TASK_PROGRESS' },
     rawResponse: true
 });

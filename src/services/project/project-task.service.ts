@@ -1,10 +1,11 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { dependencyDateConflict, normalizeTaskSchedule } from '@/lib/project-schedule';
+import { Prisma } from '@prisma/client';
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
-interface CreateTaskInput {
+export interface CreateTaskInput {
     projectId: string;
     parentId?: string | null;
     wbsCode?: string;
@@ -23,7 +24,7 @@ interface CreateTaskInput {
     contractorAssignmentId?: string | null;
 }
 
-interface UpdateTaskInput {
+export interface UpdateTaskInput {
     parentId?: string | null;
     wbsCode?: string;
     name?: string;
@@ -100,6 +101,27 @@ async function assertApprovedBoq(projectId: string, db: typeof prisma | Transact
     if (!approval) throw AppError.badRequest('BOQ_APPROVAL_REQUIRED_FOR_CHILD_TASKS');
 }
 
+const TASK_PLAN_MANAGERS = new Set(['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER']);
+const PROGRESS_FIELDS = new Set(['status', 'actualProgress', 'actualStartDate', 'actualEndDate']);
+
+async function assertTaskActor(taskId: string, projectId: string | undefined, actorId: string | null | undefined, mode: 'PROGRESS' | 'FULL') {
+    if (!actorId) throw AppError.unauthorized('Authenticated task user required');
+    const [task, actor] = await Promise.all([
+        prisma.projectTask.findUnique({ where: { id: taskId }, select: { projectId: true, assignedUserId: true, planItem: { select: { assignedUserId: true } } } }),
+        prisma.user.findUnique({ where: { id: actorId }, select: { id: true, role: true, status: true } }),
+    ]);
+    if (!task) throw AppError.notFound('Task not found');
+    if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
+    if (!actor || actor.status !== 'active') throw AppError.unauthorized('Authenticated task user is not active');
+
+    const supervisorAssignment = await prisma.projectSupervisorAssignment.findFirst({ where: { projectId: task.projectId, supervisorId: actorId, status: 'ASSIGNED' }, select: { id: true } });
+    const isManager = TASK_PLAN_MANAGERS.has(actor.role);
+    const isAssigned = task.assignedUserId === actorId || task.planItem?.assignedUserId === actorId;
+    if (!isManager && !supervisorAssignment && !isAssigned) throw AppError.forbidden('Task is not assigned to this user');
+    if (mode === 'FULL' && !isManager && !supervisorAssignment) throw AppError.forbidden('Only the project supervisor or project management can edit task configuration');
+    return { task, actor };
+}
+
 async function updateParentProgress(parentId: string, tx: TransactionClient) {
     const parent = await tx.projectTask.findUnique({
         where: { id: parentId },
@@ -130,12 +152,19 @@ export class ProjectTaskService {
     /**
      * Get all tasks for a project
      */
-    static async getTasks(projectId: string, parentId?: string | null) {
-        const where: Record<string, unknown> = { projectId };
+    static async getTasks(projectId: string, parentId?: string | null, viewerId?: string | null, viewerRole?: string | null) {
+        const where: Prisma.ProjectTaskWhereInput = { projectId };
         if (parentId === 'null') {
             where.parentId = null;
         } else if (parentId) {
             where.parentId = parentId;
+        }
+
+        if (viewerId && viewerRole && !TASK_PLAN_MANAGERS.has(viewerRole)) {
+            const supervisorAssignment = await prisma.projectSupervisorAssignment.findFirst({ where: { projectId, supervisorId: viewerId, status: 'ASSIGNED' }, select: { id: true } });
+            if (!supervisorAssignment) {
+                where.AND = [{ OR: [{ assignedUserId: viewerId }, { planItem: { assignedUserId: viewerId } }, { planItem: { requiredJobRole: viewerRole } }] }];
+            }
         }
 
         const tasks = await prisma.projectTask.findMany({
@@ -261,7 +290,9 @@ export class ProjectTaskService {
     /**
      * Update a task
      */
-    static async updateTask(id: string, updateData: UpdateTaskInput, projectId?: string) {
+    static async updateTask(id: string, updateData: UpdateTaskInput, projectId?: string, actorId?: string | null) {
+        const mode = Object.keys(updateData).every(key => PROGRESS_FIELDS.has(key)) ? 'PROGRESS' : 'FULL';
+        await assertTaskActor(id, projectId, actorId, mode);
         const data: Record<string, unknown> = { ...updateData };
 
         const currentTask = await prisma.projectTask.findUnique({
@@ -392,7 +423,8 @@ export class ProjectTaskService {
     /**
      * Delete a task
      */
-    static async deleteTask(id: string, projectId?: string) {
+    static async deleteTask(id: string, projectId?: string, actorId?: string | null) {
+        await assertTaskActor(id, projectId, actorId, 'FULL');
         const task = await prisma.projectTask.findUnique({ where: { id }, select: { projectId: true } });
         if (!task) throw AppError.notFound('Task not found');
         if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
@@ -526,6 +558,7 @@ export class ProjectTaskService {
         });
         if (!task) throw AppError.notFound('Task not found');
         if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
+        await assertTaskActor(taskId, projectId, loggedById, 'PROGRESS');
 
         const progressVal = parseInt(String(progress), 10);
         if (isNaN(progressVal) || progressVal < 0 || progressVal > 100) {
