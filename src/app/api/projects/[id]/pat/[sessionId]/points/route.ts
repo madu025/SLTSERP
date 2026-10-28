@@ -9,7 +9,8 @@ export const POST = apiHandler(async (_request, params, body) => {
     
     const result = await PATService.recordPointResult(
         sessionId, 
-        (body || {}) as unknown as Parameters<typeof PATService.recordPointResult>[1]
+        (body || {}) as unknown as Parameters<typeof PATService.recordPointResult>[1],
+        params.id
     );
     return Response.json(result, { status: 201 });
 }, {
@@ -24,7 +25,8 @@ export const PATCH = apiHandler(async (_request, params, body) => {
     if (action === 'complete') {
         return await PATService.completeSession(
             sessionId, 
-            sltOfficers as unknown as Parameters<typeof PATService.completeSession>[1]
+            sltOfficers as unknown as Parameters<typeof PATService.completeSession>[1],
+            params.id
         );
     }
 

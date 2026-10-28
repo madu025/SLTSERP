@@ -189,6 +189,7 @@ export class WorkflowEngine {
       projectWorkflowInstance: {
         select: {
           projectId: true,
+          currentStageId: true,
           project: { select: { planningSource: true } },
         },
       },
@@ -354,7 +355,7 @@ export class WorkflowEngine {
 
     const stage = await prisma.projectStageInstance.findUnique({
       where: { id: stageId },
-      include: { approvals: true, projectWorkflowInstance: { select: { projectId: true } } },
+      include: { approvals: true, projectWorkflowInstance: { select: { projectId: true, currentStageId: true } } },
     });
 
     if (!stage) {
@@ -362,6 +363,12 @@ export class WorkflowEngine {
     }
     if (projectId && stage.projectWorkflowInstance.projectId !== projectId) {
       throw AppError.forbidden('Workflow stage does not belong to this project');
+    }
+    if (nextStatus === 'COMPLETED' && stage.projectWorkflowInstance.currentStageId !== stage.id) {
+      throw AppError.badRequest('Only the current workflow stage can be completed');
+    }
+    if (nextStatus === 'COMPLETED' && stage.status !== 'IN_PROGRESS') {
+      throw AppError.badRequest(`Workflow stage is ${stage.status}; only an in-progress stage can be completed`);
     }
 
     const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);

@@ -126,7 +126,7 @@ export class PaymentVoucherService {
           throw AppError.badRequest('CONTRACTOR_PAYMENT_PAYEE_MISMATCH');
         }
       }
-      if (!['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) {
+      if (!['ISSUED', 'FOLLOW_UP', 'PARTIALLY_PAID'].includes(invoice.status)) {
         throw AppError.badRequest('VOUCHERS_REQUIRE_AN_ISSUED_INVOICE');
       }
       const existingPVs = await prisma.paymentVoucher.findMany({
@@ -419,7 +419,7 @@ export class PaymentVoucherService {
           });
           if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
           if (invoice.projectId !== existing.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
-          if (!['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status)) {
+          if (!['ISSUED', 'FOLLOW_UP', 'PARTIALLY_PAID'].includes(invoice.status)) {
             throw AppError.badRequest('PAYMENT_REQUIRES_AN_ISSUED_INVOICE');
           }
           if (Number(existing.amount) > Number(invoice.balanceAmount)) {

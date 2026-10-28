@@ -2,25 +2,28 @@ import { apiHandler } from '@/lib/api-handler';
 import { PaymentVoucherService } from '@/services/finance/payment-voucher.service';
 import { AppError } from '@/lib/error';
 import { ROLE_GROUPS } from '@/config/roles';
+import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
+import { assertProjectAccess } from '@/lib/project-access';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
 
 const voucherSchema = z.object({
-    projectId: z.string().uuid(), title: z.string().trim().min(1), description: z.string().optional().nullable(),
-    type: z.string().trim().min(1).optional(), payeeName: z.string().trim().min(1), payeeId: z.string().uuid().optional().nullable(),
-    invoiceId: z.string().uuid().optional().nullable(), amount: z.number().finite().positive(), paymentDate: z.string().optional().nullable(),
+    projectId: databaseUuidSchema, title: z.string().trim().min(1), description: z.string().optional().nullable(),
+    type: z.string().trim().min(1).optional(), payeeName: z.string().trim().min(1), payeeId: databaseUuidSchema.optional().nullable(),
+    invoiceId: databaseUuidSchema.optional().nullable(), amount: z.number().finite().positive(), paymentDate: z.string().optional().nullable(),
     paymentMethod: z.string().optional().nullable(), bankName: z.string().optional().nullable(), bankBranch: z.string().optional().nullable(),
     accountNumber: z.string().optional().nullable(), chequeNumber: z.string().optional().nullable(), referenceNumber: z.string().optional().nullable(),
     taxWithheld: z.number().finite().min(0).optional(), retentionAmount: z.number().finite().min(0).optional(),
-    retentionReleaseId: z.string().uuid().optional().nullable(), notes: z.string().optional().nullable(),
+    retentionReleaseId: databaseUuidSchema.optional().nullable(), notes: z.string().optional().nullable(),
 }).refine((data) => (data.taxWithheld ?? 0) + (data.retentionAmount ?? 0) <= data.amount, {
     message: 'Tax withheld and retention cannot exceed the voucher amount', path: ['amount'],
 });
 
 const voucherStatusSchema = z.object({
-    id: z.string().uuid(), status: z.enum(['PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED']),
+    id: databaseUuidSchema, status: z.enum(['PENDING_APPROVAL', 'APPROVED', 'PAID', 'REJECTED', 'CANCELLED']),
     rejectionReason: z.string().trim().min(1).optional(), cancelledReason: z.string().trim().min(1).optional(),
 });
 
@@ -30,14 +33,16 @@ function requireFinanceApprover(userId: string | null, role: string | null, acti
     }
 }
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const projectId = new URL(request.url).searchParams.get('projectId');
     if (!projectId) throw AppError.badRequest('projectId is required');
+    await assertProjectAccess(projectId, params._userId);
     return PaymentVoucherService.getVouchers(projectId);
 }, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body: z.infer<typeof voucherSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
+    await assertProjectAccess(body.projectId, params._userId);
     const voucher = await PaymentVoucherService.createVoucher({ ...body, createdById: params._userId });
     return Response.json(voucher, { status: 201 });
 }, {
@@ -47,6 +52,9 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof vou
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof voucherStatusSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: body.id }, select: { projectId: true } });
+    if (!voucher) throw AppError.notFound('Payment voucher not found');
+    await assertProjectAccess(voucher.projectId, params._userId);
     if (body.status !== 'PENDING_APPROVAL') {
         requireFinanceApprover(params._userId, params._userRole, body.status.toLowerCase());
     }

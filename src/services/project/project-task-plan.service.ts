@@ -365,7 +365,12 @@ export class ProjectTaskPlanService {
             const taskIdByPlanItem = new Map<string, string>();
             const wbsByPlanItem = new Map<string, string>();
             const siblingCounters = new Map<string, number>();
-            let cursor = project.startDate || new Date();
+            // A project may be created before dates are entered in the plan
+            // designer. Give generated tasks a deterministic planning window
+            // instead of surfacing an opaque INVALID_TASK_DATE_RANGE 500.
+            const projectStart = project.startDate || new Date();
+            const projectEnd = project.endDate || addDays(projectStart, 365);
+            let cursor = projectStart;
             const depthOf = (item: typeof enabled[number]) => {
                 let depth = 0;
                 let parentId = item.parentId;
@@ -385,8 +390,8 @@ export class ProjectTaskPlanService {
                 const parentTaskId = item.parentId ? taskIdByPlanItem.get(item.parentId) || null : null;
                 const duration = Math.max(1, item.plannedDurationDays || 1);
                 const schedule = normalizeTaskSchedule({
-                    projectStartDate: project.startDate,
-                    projectEndDate: project.endDate,
+                    projectStartDate: projectStart,
+                    projectEndDate: projectEnd,
                     plannedStartDate: item.plannedStart || cursor,
                     plannedEndDate: item.plannedFinish || null,
                     plannedDuration: duration,

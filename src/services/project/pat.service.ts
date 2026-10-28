@@ -40,10 +40,12 @@ export class PATService {
       fineTuneType?: string;
       fineTuneNotes?: string;
       photoUrls?: string[];
-    }
+    },
+    projectId?: string
   ) {
     const session = await prisma.pATSession.findUnique({ where: { id: sessionId } });
     if (!session) throw AppError.badRequest('PAT session not found');
+    if (projectId && session.projectId !== projectId) throw AppError.forbidden('PAT session does not belong to this project');
     if (session.status !== 'IN_PROGRESS') throw AppError.badRequest('PAT session is not in progress');
 
     const powerStatus = data.measuredPower != null && data.acceptedPower != null
@@ -99,12 +101,13 @@ export class PATService {
   /**
    * Complete a PAT session and update project status
    */
-  static async completeSession(sessionId: string, sltOfficers?: object) {
+  static async completeSession(sessionId: string, sltOfficers?: object, projectId?: string) {
     const session = await prisma.pATSession.findUnique({
       where: { id: sessionId },
       include: { pointResults: true },
     });
     if (!session) throw AppError.badRequest('PAT session not found');
+    if (projectId && session.projectId !== projectId) throw AppError.forbidden('PAT session does not belong to this project');
 
     const passRate = session.totalPoints > 0
       ? (session.passedPoints / session.totalPoints) * 100
