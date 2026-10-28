@@ -218,7 +218,10 @@ model SurveyPoint {
   id                 String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   sessionId          String              @db.Uuid
   projectId          String              @db.Uuid
-  layerId            String              @db.Uuid
+  // QField layer identifiers are stable configuration keys (for example
+  // `survey_new_pole`), not database UUIDs. Keeping this as text allows the
+  // mobile survey payload and the as-built exporter to use the same key.
+  layerId            String
   layerName          String
   latitude           Decimal             @db.Decimal(11, 8)
   longitude          Decimal             @db.Decimal(11, 8)

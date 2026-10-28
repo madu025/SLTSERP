@@ -21,6 +21,7 @@ export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
             storeId: body.storeId,
             items: body.items,
             reservationId: body.reservationId,
+            requirementId: body.requirementId,
             remarks: body.remarks,
             userId,
             issueDate: body.issueDate ? new Date(body.issueDate) : undefined

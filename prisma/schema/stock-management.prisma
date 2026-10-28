@@ -16,57 +16,57 @@ model ContractorBatchStock {
 }
 
 model StockRequest {
-  id                        String             @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  requestNr                 String             @unique @default(cuid())
-  issueNoteNumber           String?
-  fromStoreId               String?            @db.Uuid
-  toStoreId                 String?            @db.Uuid
-  status                    String             @default("PENDING")
-  requestedById             String             @db.Uuid
-  approvedById              String?            @db.Uuid
-  remarks                   String?
-  sltReferenceId            String?            @db.Uuid
-  priority                  String             @default("MEDIUM")
-  requiredDate              DateTime?
-  purpose                   String?
-  sourceType                String             @default("SLT")
-  projectTypes              String[]
-  maintenanceMonths         String?
-  workflowStage             String             @default("REQUEST")
-  procurementStatus         String             @default("PENDING")
-  irNumber                  String?
-  isCoveringPO              Boolean            @default(false)
-  armAction                 String?
-  armDate                   DateTime?
-  armRemarks                String?
-  armApprovedById           String?            @db.Uuid
-  storesManagerAction       String?
-  storesManagerDate         DateTime?
-  storesManagerRemarks      String?
-  storesManagerApprovedById String?            @db.Uuid
-  hsOspAction               String?
-  hsOspDate                 DateTime?
-  managerAction             String?
-  managerDate               DateTime?
-  releasedById              String?            @db.Uuid
-  releasedDate              DateTime?
-  releasedRemarks           String?
-  receivedById              String?            @db.Uuid
-  receivedDate              DateTime?
-  receivedRemarks           String?
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
-  grns                      GRN[]
-  approvedBy                User?              @relation("ApproveUser", fields: [approvedById], references: [id])
-  armApprovedBy             User?              @relation("ARMApprover", fields: [armApprovedById], references: [id])
-  fromStore                 InventoryStore?    @relation("RequestSource", fields: [fromStoreId], references: [id])
-  receivedBy                User?              @relation("ReceivedBy", fields: [receivedById], references: [id])
-  releasedBy                User?              @relation("ReleasedBy", fields: [releasedById], references: [id])
-  requestedBy               User               @relation("RequestUser", fields: [requestedById], references: [id])
-  storesManagerApprovedBy   User?              @relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])
-  toStore                   InventoryStore?    @relation("RequestTarget", fields: [toStoreId], references: [id])
-  items                     StockRequestItem[]
-  purchaseOrders            PurchaseOrder[]
+  id                               String                            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  requestNr                        String                            @unique @default(cuid())
+  issueNoteNumber                  String?
+  fromStoreId                      String?                           @db.Uuid
+  toStoreId                        String?                           @db.Uuid
+  status                           String                            @default("PENDING")
+  requestedById                    String                            @db.Uuid
+  approvedById                     String?                           @db.Uuid
+  remarks                          String?
+  sltReferenceId                   String?                           @db.Uuid
+  priority                         String                            @default("MEDIUM")
+  requiredDate                     DateTime?
+  purpose                          String?
+  sourceType                       String                            @default("SLT")
+  projectTypes                     String[]
+  maintenanceMonths                String?
+  workflowStage                    String                            @default("REQUEST")
+  procurementStatus                String                            @default("PENDING")
+  irNumber                         String?
+  isCoveringPO                     Boolean                           @default(false)
+  armAction                        String?
+  armDate                          DateTime?
+  armRemarks                       String?
+  armApprovedById                  String?                           @db.Uuid
+  storesManagerAction              String?
+  storesManagerDate                DateTime?
+  storesManagerRemarks             String?
+  storesManagerApprovedById        String?                           @db.Uuid
+  hsOspAction                      String?
+  hsOspDate                        DateTime?
+  managerAction                    String?
+  managerDate                      DateTime?
+  releasedById                     String?                           @db.Uuid
+  releasedDate                     DateTime?
+  releasedRemarks                  String?
+  receivedById                     String?                           @db.Uuid
+  receivedDate                     DateTime?
+  receivedRemarks                  String?
+  createdAt                        DateTime                          @default(now())
+  updatedAt                        DateTime                          @updatedAt
+  grns                             GRN[]
+  approvedBy                       User?                             @relation("ApproveUser", fields: [approvedById], references: [id])
+  armApprovedBy                    User?                             @relation("ARMApprover", fields: [armApprovedById], references: [id])
+  fromStore                        InventoryStore?                   @relation("RequestSource", fields: [fromStoreId], references: [id])
+  receivedBy                       User?                             @relation("ReceivedBy", fields: [receivedById], references: [id])
+  releasedBy                       User?                             @relation("ReleasedBy", fields: [releasedById], references: [id])
+  requestedBy                      User                              @relation("RequestUser", fields: [requestedById], references: [id])
+  storesManagerApprovedBy          User?                             @relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])
+  toStore                          InventoryStore?                   @relation("RequestTarget", fields: [toStoreId], references: [id])
+  items                            StockRequestItem[]
+  purchaseOrders                   PurchaseOrder[]
   projectMaterialSupplyAllocations ProjectMaterialSupplyAllocation[]
 
   @@index([fromStoreId])
@@ -335,29 +335,31 @@ model ContractorBalanceSheetItem {
 }
 
 model StockIssue {
-  id            String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  issueNumber   String           @unique
-  storeId       String           @db.Uuid
-  issuedById    String           @db.Uuid
-  issueType     String
-  projectId     String?          @db.Uuid
-  reservationId String?          @db.Uuid
-  contractorId  String?          @db.Uuid
-  teamId        String?          @db.Uuid
-  recipientName String
-  remarks       String?
-  status        String           @default("PENDING")
-  approvedById  String?          @db.Uuid
-  approvedAt    DateTime?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  approvedBy    User?            @relation("IssueApprover", fields: [approvedById], references: [id])
-  contractor    Contractor?      @relation("ContractorIssues", fields: [contractorId], references: [id])
-  issuedBy      User             @relation("StockIssuer", fields: [issuedById], references: [id])
-  project       Project?         @relation(fields: [projectId], references: [id])
-  reservation   ProjectMaterialReservation? @relation(fields: [reservationId], references: [id])
-  store         InventoryStore   @relation("StockIssues", fields: [storeId], references: [id])
-  items         StockIssueItem[]
+  id                  String                      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  issueNumber         String                      @unique
+  storeId             String                      @db.Uuid
+  issuedById          String                      @db.Uuid
+  issueType           String
+  projectId           String?                     @db.Uuid
+  reservationId       String?                     @db.Uuid
+  requirementId       String?                     @db.Uuid
+  contractorId        String?                     @db.Uuid
+  teamId              String?                     @db.Uuid
+  recipientName       String
+  remarks             String?
+  status              String                      @default("PENDING")
+  approvedById        String?                     @db.Uuid
+  approvedAt          DateTime?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  approvedBy          User?                       @relation("IssueApprover", fields: [approvedById], references: [id])
+  contractor          Contractor?                 @relation("ContractorIssues", fields: [contractorId], references: [id])
+  issuedBy            User                        @relation("StockIssuer", fields: [issuedById], references: [id])
+  project             Project?                    @relation(fields: [projectId], references: [id])
+  reservation         ProjectMaterialReservation? @relation(fields: [reservationId], references: [id])
+  materialRequirement ProjectMaterialRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  store               InventoryStore              @relation("StockIssues", fields: [storeId], references: [id])
+  items               StockIssueItem[]
 
   @@index([storeId])
   @@index([issueType])
@@ -365,29 +367,30 @@ model StockIssue {
   @@index([issuedById])
   @@index([projectId])
   @@index([reservationId])
+  @@index([requirementId])
   @@index([contractorId])
   @@index([teamId])
   @@index([approvedById])
 }
 
 model ProjectMaterialReservation {
-  id            String                            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  reservationNumber String                         @unique
-  projectId     String                            @db.Uuid
-  storeId       String                            @db.Uuid
-  status        String                            @default("RESERVED")
-  createdById   String                            @db.Uuid
-  releasedById  String?                           @db.Uuid
-  releasedAt    DateTime?
-  notes         String?
-  createdAt     DateTime                          @default(now())
-  updatedAt     DateTime                          @updatedAt
-  project       Project                           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  store         InventoryStore                    @relation(fields: [storeId], references: [id])
-  createdBy     User                              @relation("ProjectMaterialReservationCreator", fields: [createdById], references: [id])
-  releasedBy    User?                             @relation("ProjectMaterialReservationReleaser", fields: [releasedById], references: [id])
-  lines         ProjectMaterialReservationLine[]
-  stockIssues   StockIssue[]
+  id                String                           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  reservationNumber String                           @unique
+  projectId         String                           @db.Uuid
+  storeId           String                           @db.Uuid
+  status            String                           @default("RESERVED")
+  createdById       String                           @db.Uuid
+  releasedById      String?                          @db.Uuid
+  releasedAt        DateTime?
+  notes             String?
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+  project           Project                          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  store             InventoryStore                   @relation(fields: [storeId], references: [id])
+  createdBy         User                             @relation("ProjectMaterialReservationCreator", fields: [createdById], references: [id])
+  releasedBy        User?                            @relation("ProjectMaterialReservationReleaser", fields: [releasedById], references: [id])
+  lines             ProjectMaterialReservationLine[]
+  stockIssues       StockIssue[]
 
   @@index([projectId, status])
   @@index([storeId, status])
@@ -398,49 +401,49 @@ model ProjectMaterialReservation {
 /// This is intentionally outside the Project workflow: it records how
 /// Inventory fulfills an approved requirement without changing project stages.
 model ProjectMaterialSupplyAllocation {
-  id             String                      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  requirementId  String                      @db.Uuid
-  sourceType     String                      // STORE, SLT, LOCAL_PURCHASE
-  storeId        String?                     @db.Uuid
-  stockRequestId String?                     @db.Uuid
-  requestedQty   Decimal                     @db.Decimal(14, 4)
-  approvedQty    Decimal                     @default(0) @db.Decimal(14, 4)
-  receivedQty    Decimal                     @default(0) @db.Decimal(14, 4)
-  reservedQty    Decimal                     @default(0) @db.Decimal(14, 4)
-  issuedQty      Decimal                     @default(0) @db.Decimal(14, 4)
-  status         String                      @default("PLANNED")
+  id             String                     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  requirementId  String                     @db.Uuid
+  sourceType     String // STORE, SLT, LOCAL_PURCHASE
+  storeId        String?                    @db.Uuid
+  stockRequestId String?                    @db.Uuid
+  requestedQty   Decimal                    @db.Decimal(14, 4)
+  approvedQty    Decimal                    @default(0) @db.Decimal(14, 4)
+  receivedQty    Decimal                    @default(0) @db.Decimal(14, 4)
+  reservedQty    Decimal                    @default(0) @db.Decimal(14, 4)
+  issuedQty      Decimal                    @default(0) @db.Decimal(14, 4)
+  status         String                     @default("PLANNED")
   requiredDate   DateTime?
   notes          String?
-  createdById    String                      @db.Uuid
-  createdAt      DateTime                    @default(now())
-  updatedAt      DateTime                    @updatedAt
+  createdById    String                     @db.Uuid
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
   requirement    ProjectMaterialRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
-  store          InventoryStore?             @relation(fields: [storeId], references: [id])
-  stockRequest   StockRequest?               @relation(fields: [stockRequestId], references: [id], onDelete: SetNull)
-  createdBy      User                        @relation("ProjectMaterialSupplyAllocationCreator", fields: [createdById], references: [id])
+  store          InventoryStore?            @relation(fields: [storeId], references: [id])
+  stockRequest   StockRequest?              @relation(fields: [stockRequestId], references: [id], onDelete: SetNull)
+  createdBy      User                       @relation("ProjectMaterialSupplyAllocationCreator", fields: [createdById], references: [id])
 
+  @@unique([requirementId, sourceType])
   @@index([requirementId, status])
   @@index([stockRequestId])
   @@index([storeId, status])
   @@index([sourceType, status])
-  @@unique([requirementId, sourceType])
 }
 
 model ProjectMaterialReservationLine {
-  id             String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  reservationId  String                       @db.Uuid
-  requirementId  String                       @db.Uuid
-  itemId         String                       @db.Uuid
-  batchId        String?                      @db.Uuid
-  batchStockId   String?                      @db.Uuid
-  quantity       Decimal                      @db.Decimal(14, 4)
-  issuedQty      Decimal                      @default(0) @db.Decimal(14, 4)
-  createdAt      DateTime                     @default(now())
-  reservation    ProjectMaterialReservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  requirement    ProjectMaterialRequirement   @relation(fields: [requirementId], references: [id], onDelete: Cascade)
-  item           InventoryItem                @relation(fields: [itemId], references: [id])
-  batch          InventoryBatch?              @relation(fields: [batchId], references: [id])
-  batchStock     InventoryBatchStock?         @relation(fields: [batchStockId], references: [id])
+  id            String                     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  reservationId String                     @db.Uuid
+  requirementId String                     @db.Uuid
+  itemId        String                     @db.Uuid
+  batchId       String?                    @db.Uuid
+  batchStockId  String?                    @db.Uuid
+  quantity      Decimal                    @db.Decimal(14, 4)
+  issuedQty     Decimal                    @default(0) @db.Decimal(14, 4)
+  createdAt     DateTime                   @default(now())
+  reservation   ProjectMaterialReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  requirement   ProjectMaterialRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  item          InventoryItem              @relation(fields: [itemId], references: [id])
+  batch         InventoryBatch?            @relation(fields: [batchId], references: [id])
+  batchStock    InventoryBatchStock?       @relation(fields: [batchStockId], references: [id])
 
   @@index([reservationId])
   @@index([requirementId])

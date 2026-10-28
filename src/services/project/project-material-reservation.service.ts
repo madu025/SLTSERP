@@ -272,6 +272,20 @@ export class ProjectMaterialReservationService {
           where: { id: line.requirementId },
           data: { reservedQty: { decrement: take }, issuedQty: { increment: take }, status: 'IN_PROGRESS' },
         });
+        const storeAllocation = await tx.projectMaterialSupplyAllocation.findUnique({
+          where: { requirementId_sourceType: { requirementId: line.requirementId, sourceType: 'STORE' } },
+        });
+        if (storeAllocation) {
+          const nextReserved = Math.max(0, Number(storeAllocation.reservedQty) - take);
+          await tx.projectMaterialSupplyAllocation.update({
+            where: { id: storeAllocation.id },
+            data: {
+              reservedQty: nextReserved,
+              issuedQty: { increment: take },
+              status: nextReserved > 0 ? 'PARTIALLY_ISSUED' : 'ISSUED',
+            },
+          });
+        }
         if (line.batchId) transactionItems.push({ itemId: requested.itemId, batchId: line.batchId, quantity: -take });
         remaining -= take;
       }

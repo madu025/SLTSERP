@@ -4,6 +4,7 @@ import { StockService } from '../inventory/stock.service';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { UUID } from '@/types/common';
 import { ProjectMaterialReservationService } from './project-material-reservation.service';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 
 export class ProjectStockIssueService {
     /**
@@ -14,11 +15,14 @@ export class ProjectStockIssueService {
         storeId: UUID;
         items: { itemId: UUID; quantity: number | string; remarks?: string }[];
         reservationId?: UUID;
+        requirementId?: UUID;
         remarks?: string;
         userId: UUID;
         issueDate?: Date | string;
     }) {
         const { projectId, storeId, items, remarks, userId, issueDate, reservationId } = data;
+        let requirementId = data.requirementId;
+        let contractorId: UUID | null = null;
 
         // Generate Issue Number
         const count = await prisma.stockIssue.count();
@@ -45,10 +49,43 @@ export class ProjectStockIssueService {
             }
         }
 
+        if (requirementId) {
+            const requirement = await prisma.projectMaterialRequirement.findUnique({
+                where: { id: requirementId },
+                select: { projectId: true, itemId: true, contractorAssignment: { select: { contractorId: true } } },
+            });
+            if (!requirement || requirement.projectId !== projectId) {
+                throw AppError.badRequest('MATERIAL_REQUIREMENT_PROJECT_MISMATCH');
+            }
+            if (!requirement.itemId || items.some((item) => item.itemId !== requirement.itemId)) {
+                throw AppError.badRequest('ISSUE_ITEMS_MUST_MATCH_TASK_REQUIREMENT');
+            }
+            contractorId = requirement.contractorAssignment?.contractorId || null;
+        }
+
         if (reservationId) {
             const reservation = await prisma.projectMaterialReservation.findUnique({ where: { id: reservationId } });
             if (!reservation || reservation.projectId !== projectId || reservation.storeId !== storeId || !['RESERVED', 'PARTIAL'].includes(reservation.status)) {
                 throw AppError.badRequest('RESERVATION_PROJECT_OR_STORE_MISMATCH');
+            }
+            const reservationLines = await prisma.projectMaterialReservationLine.findMany({
+                where: { reservationId, itemId: { in: items.map((item) => item.itemId) } },
+                select: { requirementId: true, itemId: true },
+            });
+            const lineRequirementIds = [...new Set(reservationLines.map((line) => line.requirementId))];
+            if (!requirementId && lineRequirementIds.length === 1) requirementId = lineRequirementIds[0];
+            if (!requirementId || lineRequirementIds.length !== 1 || lineRequirementIds[0] !== requirementId) {
+                throw AppError.badRequest('REQUIREMENT_ID_REQUIRED_FOR_TASK_ISSUE');
+            }
+            if (!contractorId) {
+                const requirement = await prisma.projectMaterialRequirement.findUnique({
+                    where: { id: requirementId },
+                    select: { projectId: true, itemId: true, contractorAssignment: { select: { contractorId: true } } },
+                });
+                if (!requirement || requirement.projectId !== projectId || !requirement.itemId || items.some((item) => item.itemId !== requirement.itemId)) {
+                    throw AppError.badRequest('RESERVATION_REQUIREMENT_MISMATCH');
+                }
+                contractorId = requirement.contractorAssignment?.contractorId || null;
             }
         }
 
@@ -66,6 +103,8 @@ export class ProjectStockIssueService {
                 storeId,
                 projectId,
                 reservationId,
+                requirementId,
+                contractorId,
                 issuedById: userId,
                 issueType: 'PROJECT',
                 recipientName,
@@ -99,6 +138,12 @@ export class ProjectStockIssueService {
                         item: { select: { code: true, name: true, unit: true } }
                     }
                 }
+                ,materialRequirement: {
+                    select: {
+                        task: { select: { name: true, wbsCode: true } },
+                        contractorAssignment: { select: { contractor: { select: { name: true } } } },
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -167,6 +212,10 @@ export class ProjectStockIssueService {
 
             let totalIssueCost = 0;
             const transactionItems: { itemId: UUID; batchId: UUID; quantity: number }[] = [];
+            const stockBefore = new Map((await tx.inventoryStock.findMany({
+                where: { storeId: issue.storeId, itemId: { in: issueItemIds } },
+                select: { itemId: true, quantity: true },
+            })).map((row) => [row.itemId, Number(row.quantity)]));
 
             // 2. Process Items. Reserved issues consume the exact reserved
             // lines; unreserved issues use FIFO against unallocated batches.
@@ -259,6 +308,39 @@ export class ProjectStockIssueService {
                         }
                     });
                 }
+            }
+
+            // Every approved project issue must leave an immutable inventory
+            // ledger entry, including legacy summary-stock reservations that
+            // have no batch row and therefore do not create transactionItems.
+            const itemQuantities = new Map<string, number>();
+            for (const item of issue.items) {
+                itemQuantities.set(item.itemId, (itemQuantities.get(item.itemId) || 0) + item.quantity.toNumber());
+            }
+            const itemPrices = new Map((await tx.inventoryItem.findMany({
+                where: { id: { in: [...itemQuantities.keys()] } },
+                select: { id: true, unitPrice: true },
+            })).map((item) => [item.id, Number(item.unitPrice || 0)]));
+            const stockAfter = new Map((await tx.inventoryStock.findMany({
+                where: { storeId: issue.storeId, itemId: { in: [...itemQuantities.keys()] } },
+                select: { itemId: true, quantity: true },
+            })).map((row) => [row.itemId, Number(row.quantity)]));
+            for (const [itemId, quantity] of itemQuantities) {
+                const quantityAfter = stockAfter.get(itemId);
+                if (quantityAfter === undefined) throw AppError.conflict('STOCK_ROW_MISSING_AFTER_ISSUE');
+                await AuditLedgerService.recordEntry({
+                    storeId: issue.storeId,
+                    itemId,
+                    transactionType: 'PROJECT_ISSUE',
+                    referenceType: 'StockIssue',
+                    referenceId: issue.issueNumber,
+                    quantityBefore: stockBefore.get(itemId) || 0,
+                    quantityChange: -quantity,
+                    quantityAfter,
+                    unitPrice: itemPrices.get(itemId) || 0,
+                    performedById: approvedById,
+                    idempotencyKey: `PROJECT_ISSUE:${issue.id}:${itemId}`,
+                }, tx as TransactionClient);
             }
         });
 

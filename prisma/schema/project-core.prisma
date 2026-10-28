@@ -119,21 +119,21 @@ model Project {
 }
 
 model ProjectContractorAssignment {
-  id                 String     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId          String     @db.Uuid
-  contractorId       String     @db.Uuid
-  role               String     @default("IMPLEMENTATION")
-  status             String     @default("ACTIVE")
-  allocationPercent  Decimal?   @db.Decimal(8, 4)
-  contractValue      Decimal?   @db.Decimal(14, 2)
-  assignedAt         DateTime   @default(now())
-  releasedAt         DateTime?
-  notes              String?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contractor         Contractor @relation("ProjectContractorAssignments", fields: [contractorId], references: [id])
-  tasks              ProjectTask[]
+  id                   String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId            String                       @db.Uuid
+  contractorId         String                       @db.Uuid
+  role                 String                       @default("IMPLEMENTATION")
+  status               String                       @default("ACTIVE")
+  allocationPercent    Decimal?                     @db.Decimal(8, 4)
+  contractValue        Decimal?                     @db.Decimal(14, 2)
+  assignedAt           DateTime                     @default(now())
+  releasedAt           DateTime?
+  notes                String?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor           Contractor                   @relation("ProjectContractorAssignments", fields: [contractorId], references: [id])
+  tasks                ProjectTask[]
   materialRequirements ProjectMaterialRequirement[]
 
   @@unique([projectId, contractorId])
@@ -143,29 +143,29 @@ model ProjectContractorAssignment {
 }
 
 model ProjectBOQItem {
-  id             String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId      String         @db.Uuid
-  itemCode       String
-  description    String
-  unit           String
-  quantity       Decimal        @db.Decimal(12, 4)
-  unitRate       Decimal        @db.Decimal(12, 4)
-  amount         Decimal        @db.Decimal(14, 2)
-  category       String?
-  source         String         @default("NEW")
-  actualQuantity Decimal        @default(0) @db.Decimal(14, 2)
-  actualCost     Decimal        @default(0) @db.Decimal(14, 2)
-  materialId     String?        @db.Uuid
-  taskId         String?        @db.Uuid
-  contractorId   String?        @db.Uuid
-  remarks        String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  material       InventoryItem? @relation("BOQMaterials", fields: [materialId], references: [id])
-  task           ProjectTask?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  contractor     Contractor?    @relation(fields: [contractorId], references: [id])
+  id                   String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId            String                       @db.Uuid
+  itemCode             String
+  description          String
+  unit                 String
+  quantity             Decimal                      @db.Decimal(12, 4)
+  unitRate             Decimal                      @db.Decimal(12, 4)
+  amount               Decimal                      @db.Decimal(14, 2)
+  category             String?
+  source               String                       @default("NEW")
+  actualQuantity       Decimal                      @default(0) @db.Decimal(14, 2)
+  actualCost           Decimal                      @default(0) @db.Decimal(14, 2)
+  materialId           String?                      @db.Uuid
+  taskId               String?                      @db.Uuid
+  contractorId         String?                      @db.Uuid
+  remarks              String?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  material             InventoryItem?               @relation("BOQMaterials", fields: [materialId], references: [id])
+  task                 ProjectTask?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  contractor           Contractor?                  @relation(fields: [contractorId], references: [id])
   materialRequirements ProjectMaterialRequirement[]
-  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([category])
@@ -176,28 +176,29 @@ model ProjectBOQItem {
 }
 
 model ProjectMaterialRequirement {
-  id                    String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId             String                       @db.Uuid
-  boqItemId             String                       @db.Uuid
-  taskId                String?                      @db.Uuid
-  contractorAssignmentId String?                     @db.Uuid
-  itemId                String?                      @db.Uuid
-  requiredQty           Decimal                      @db.Decimal(14, 4)
-  reservedQty           Decimal                      @default(0) @db.Decimal(14, 4)
-  issuedQty             Decimal                      @default(0) @db.Decimal(14, 4)
-  returnedQty           Decimal                      @default(0) @db.Decimal(14, 4)
-  shortageQty           Decimal                      @default(0) @db.Decimal(14, 4)
-  status                String                       @default("PLANNED")
-  procurementStatus     String                       @default("NOT_REQUIRED")
-  createdAt             DateTime                     @default(now())
-  updatedAt             DateTime                     @updatedAt
-  project               Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  boqItem               ProjectBOQItem               @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
-  task                  ProjectTask?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  contractorAssignment  ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
-  item                  InventoryItem?               @relation(fields: [itemId], references: [id])
-  reservations          ProjectMaterialReservationLine[]
-  supplyAllocations     ProjectMaterialSupplyAllocation[]
+  id                     String                            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId              String                            @db.Uuid
+  boqItemId              String                            @db.Uuid
+  taskId                 String?                           @db.Uuid
+  contractorAssignmentId String?                           @db.Uuid
+  itemId                 String?                           @db.Uuid
+  requiredQty            Decimal                           @db.Decimal(14, 4)
+  reservedQty            Decimal                           @default(0) @db.Decimal(14, 4)
+  issuedQty              Decimal                           @default(0) @db.Decimal(14, 4)
+  returnedQty            Decimal                           @default(0) @db.Decimal(14, 4)
+  shortageQty            Decimal                           @default(0) @db.Decimal(14, 4)
+  status                 String                            @default("PLANNED")
+  procurementStatus      String                            @default("NOT_REQUIRED")
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+  project                Project                           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boqItem                ProjectBOQItem                    @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+  task                   ProjectTask?                      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  contractorAssignment   ProjectContractorAssignment?      @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
+  item                   InventoryItem?                    @relation(fields: [itemId], references: [id])
+  reservations           ProjectMaterialReservationLine[]
+  supplyAllocations      ProjectMaterialSupplyAllocation[]
+  stockIssues            StockIssue[]
 
   @@unique([boqItemId])
   @@index([projectId, status])
@@ -247,44 +248,44 @@ model ProjectExpense {
 /// Both are raw strings (no FK relations) to support polymorphic assignment across multiple entity types.
 /// Use assignee lookup endpoints: GET /api/staff, GET /api/contractors, GET /api/contractors/teams
 model ProjectTask {
-  id               String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  projectId        String            @db.Uuid
-  parentId         String?           @db.Uuid
-  wbsCode          String
-  name             String
-  description      String?
-  type             String            @default("TASK")
-  status           String            @default("PENDING")
-  priority         String            @default("MEDIUM")
-  plannedStartDate DateTime?
-  plannedEndDate   DateTime?
-  actualStartDate  DateTime?
-  actualEndDate    DateTime?
-  plannedDuration  Int?
-  actualDuration   Int?
-  plannedProgress  Decimal           @default(0) @db.Decimal(14, 2)
-  actualProgress   Decimal           @default(0) @db.Decimal(14, 2)
-  estimatedCost    Decimal?          @db.Decimal(14, 2)
-  actualCost       Decimal?          @db.Decimal(14, 2)
-  order            Int               @default(0)
-  isCritical       Boolean           @default(false)
-  assigneeType     String?
-  assigneeId       String?           @db.Uuid
-  contractorId     String?           @db.Uuid
-  contractorAssignmentId String?      @db.Uuid
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  parent           ProjectTask?      @relation("TaskHierarchy", fields: [parentId], references: [id])
-  children         ProjectTask[]     @relation("TaskHierarchy")
-  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  dependsOn        TaskDependency[]  @relation("TaskPrerequisites")
-  dependencies     TaskDependency[]  @relation("TaskDependents")
-  progressLogs     TaskProgressLog[]
-  timesheets       Timesheet[]
-  boqItems         ProjectBOQItem[]
-  materialRequirements ProjectMaterialRequirement[]
-  contractor       Contractor?       @relation("ProjectTaskContractor", fields: [contractorId], references: [id])
-  contractorAssignment ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
+  id                     String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId              String                       @db.Uuid
+  parentId               String?                      @db.Uuid
+  wbsCode                String
+  name                   String
+  description            String?
+  type                   String                       @default("TASK")
+  status                 String                       @default("PENDING")
+  priority               String                       @default("MEDIUM")
+  plannedStartDate       DateTime?
+  plannedEndDate         DateTime?
+  actualStartDate        DateTime?
+  actualEndDate          DateTime?
+  plannedDuration        Int?
+  actualDuration         Int?
+  plannedProgress        Decimal                      @default(0) @db.Decimal(14, 2)
+  actualProgress         Decimal                      @default(0) @db.Decimal(14, 2)
+  estimatedCost          Decimal?                     @db.Decimal(14, 2)
+  actualCost             Decimal?                     @db.Decimal(14, 2)
+  order                  Int                          @default(0)
+  isCritical             Boolean                      @default(false)
+  assigneeType           String?
+  assigneeId             String?                      @db.Uuid
+  contractorId           String?                      @db.Uuid
+  contractorAssignmentId String?                      @db.Uuid
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  parent                 ProjectTask?                 @relation("TaskHierarchy", fields: [parentId], references: [id])
+  children               ProjectTask[]                @relation("TaskHierarchy")
+  project                Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dependsOn              TaskDependency[]             @relation("TaskPrerequisites")
+  dependencies           TaskDependency[]             @relation("TaskDependents")
+  progressLogs           TaskProgressLog[]
+  timesheets             Timesheet[]
+  boqItems               ProjectBOQItem[]
+  materialRequirements   ProjectMaterialRequirement[]
+  contractor             Contractor?                  @relation("ProjectTaskContractor", fields: [contractorId], references: [id])
+  contractorAssignment   ProjectContractorAssignment? @relation(fields: [contractorAssignmentId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([parentId])

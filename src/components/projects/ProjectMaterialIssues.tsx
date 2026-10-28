@@ -19,7 +19,7 @@ interface ProjectMaterialIssuesProps {
 interface Store { id: string; name: string; }
 interface MaterialItem { id: string; name: string; unit: string; }
 interface StockItemRow { id: string; item: MaterialItem; quantity: number; }
-interface StockIssue { id: string; issueNumber: string; status: string; store: Store; items: StockItemRow[]; createdAt: string; }
+interface StockIssue { id: string; issueNumber: string; status: string; store: Store; items: StockItemRow[]; createdAt: string; materialRequirement?: { task?: { name: string; wbsCode?: string | null } | null; contractorAssignment?: { contractor?: { name: string } | null } | null } | null; }
 interface MaterialReturn { id: string; returnNumber: string; status: string; store: Store; items: StockItemRow[]; }
 interface MaterialRequirement {
     id: string;
@@ -52,9 +52,13 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
     // Form State
     const [selectedStore, setSelectedStore] = useState('');
     const [selectedReservationId, setSelectedReservationId] = useState('');
+    const [selectedRequirementId, setSelectedRequirementId] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [remarks, setRemarks] = useState('');
     const [selectedItems, setSelectedItems] = useState<{ itemId: string, quantity: string, condition?: string }[]>([]);
+
+    const selectedRequirement = requirements.find((requirement) => requirement.id === selectedRequirementId);
+    const issueableRequirements = requirements.filter((requirement) => requirement.item && Number(requirement.requiredQty) > Number(requirement.issuedQty));
 
     const fetchData = React.useCallback(async () => {
         if (!project?.id) return;
@@ -124,8 +128,21 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
         const n = [...selectedItems]; n.splice(idx, 1); setSelectedItems(n);
     };
 
+    const handleRequirementSelect = (requirementId: string) => {
+        const requirement = requirements.find((row) => row.id === requirementId);
+        setSelectedRequirementId(requirementId);
+        setSelectedReservationId('');
+        const reservation = requirement?.reservations?.find((entry) => ['RESERVED', 'PARTIAL'].includes(entry.reservation.status));
+        const storeId = reservation?.reservation.storeId || requirement?.availability[0]?.storeId || '';
+        setSelectedStore(storeId);
+        setSelectedItems(requirement?.item ? [{
+            itemId: requirement.item.id,
+            quantity: String(Math.max(0, Number(requirement.requiredQty) - Number(requirement.issuedQty))),
+        }] : []);
+    };
+
     const handleSubmitIssue = async () => {
-        if (!selectedStore || selectedItems.length === 0) return;
+        if (!selectedStore || !selectedRequirementId || selectedItems.length === 0) return;
         setLoading(true);
         try {
             const res = await fetch('/api/projects/stock-issue', {
@@ -135,6 +152,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                     storeId: selectedStore,
                     issueDate: date,
                     remarks,
+                    requirementId: selectedRequirementId,
                     ...(selectedReservationId ? { reservationId: selectedReservationId } : {}),
                     items: selectedItems
                 })
@@ -173,6 +191,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
     const resetForm = () => {
         setSelectedStore('');
         setSelectedReservationId('');
+        setSelectedRequirementId('');
         setRemarks('');
         setSelectedItems([]);
         setDate(new Date().toISOString().split('T')[0]);
@@ -267,6 +286,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Issue No</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Store</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Task / Contractor</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Items</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
                                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Action</th>
@@ -278,6 +298,10 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                             <td className="px-6 py-4 text-sm font-medium">{issue.issueNumber}</td>
                                             <td className="px-6 py-4 text-sm">{new Date(issue.createdAt).toLocaleDateString()}</td>
                                             <td className="px-6 py-4 text-sm">{issue.store?.name}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-800">
+                                                <div>{issue.materialRequirement?.task?.wbsCode || 'Project'} · {issue.materialRequirement?.task?.name || 'Unassigned task'}</div>
+                                                <div className="text-xs text-slate-600">{issue.materialRequirement?.contractorAssignment?.contractor?.name || 'Contractor not assigned'}</div>
+                                            </td>
                                             <td className="px-6 py-4 text-sm">
                                                 {issue.items.map((i) => (
                                                     <div key={i.id}>{i.item.name}: {i.quantity} {i.item.unit}</div>
@@ -295,7 +319,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                             </td>
                                         </tr>
                                     ))}
-                                    {issues.length === 0 && <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">No issues found</td></tr>}
+                                    {issues.length === 0 && <tr><td colSpan={7} className="px-6 py-8 text-center text-slate-500">No issues found</td></tr>}
                                 </tbody>
                             </table>
                         </ResponsiveTable>
@@ -352,12 +376,27 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                     {/* Reuse your existing form UI here nicely */}
                     <div className="py-4 space-y-4">
                         <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2">
+                                <Label>Task material requirement</Label>
+                                <Select value={selectedRequirementId} onValueChange={handleRequirementSelect}>
+                                    <SelectTrigger><SelectValue placeholder="Select one task/material requirement" /></SelectTrigger>
+                                    <SelectContent>
+                                        {issueableRequirements.map((requirement) => (
+                                            <SelectItem key={requirement.id} value={requirement.id}>
+                                                {requirement.task?.wbsCode || 'Project'} · {requirement.task?.name || 'Unassigned task'} · {requirement.item?.name}
+                                                {requirement.contractorAssignment?.contractor?.name ? ` · ${requirement.contractorAssignment.contractor.name}` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="mt-1 text-xs text-slate-600">Each issue request is linked to one task/material requirement and its assigned contractor.</p>
+                            </div>
                             <div>
                                 <Label>From Store</Label>
                                 <Select value={selectedStore} onValueChange={setSelectedStore}>
                                     <SelectTrigger><SelectValue placeholder="Select Store" /></SelectTrigger>
                                     <SelectContent>
-                                        {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                        {stores.filter((store) => !selectedRequirement || selectedRequirement.availability.some((row) => row.storeId === store.id)).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -366,12 +405,12 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                 <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
                             </div>
                             <div className="col-span-2">
-                                <Label>Reservation (optional)</Label>
+                                <Label>Task reservation (optional)</Label>
                                 <Select value={selectedReservationId || 'none'} onValueChange={(value) => setSelectedReservationId(value === 'none' ? '' : value)}>
                                     <SelectTrigger><SelectValue placeholder="Direct issue (ATP check)" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="none">Direct issue (ATP check)</SelectItem>
-                                        {Array.from(new Map(requirements.flatMap((requirement) => (requirement.reservations || []).map((entry) => [entry.reservation.id, entry.reservation]))).values()).map((reservation) => (
+                                        {(selectedRequirement?.reservations || []).filter((entry) => ['RESERVED', 'PARTIAL'].includes(entry.reservation.status)).map((entry) => entry.reservation).map((reservation) => (
                                             <SelectItem key={reservation.id} value={reservation.id}>{reservation.reservationNumber} ({reservation.status})</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -381,16 +420,9 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                         <div className="border p-3 rounded-md space-y-2 max-h-60 overflow-y-auto">
                             {selectedItems.map((item, idx) => (
                                 <div key={idx} className="flex gap-2 items-center">
-                                    <Select value={item.itemId} onValueChange={(v) => {
-                                        const n = [...selectedItems]; n[idx].itemId = v; setSelectedItems(n);
-                                    }}>
-                                        <SelectTrigger className="flex-1"><SelectValue placeholder="Item" /></SelectTrigger>
-                                        <SelectContent>
-                                            {inventoryItems.map((i: { item: MaterialItem, quantity: number }) => (
-                                                <SelectItem key={i.item.id} value={i.item.id}>{i.item.name} (Stock: {i.quantity})</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="flex-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">
+                                        {selectedRequirement?.item?.name || 'Select a task requirement first'}
+                                    </div>
                                     <Input
                                         className="w-24" placeholder="Qty" type="number"
                                         value={item.quantity}
@@ -403,7 +435,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                     </Button>
                                 </div>
                             ))}
-                            <Button variant="outline" size="sm" onClick={handleAddItemRow} className="w-full">Add Item</Button>
+                            {!selectedItems.length && <p className="text-sm text-slate-600">Select a task requirement to choose its mapped material.</p>}
                         </div>
                         <Label>Remarks</Label>
                         <Textarea value={remarks} onChange={e => setRemarks(e.target.value)} />
