@@ -33,6 +33,7 @@
     "test:integration": "node --import tsx --test tests/integration/sync-run-claim.test.ts tests/integration/sync-status-writer.test.ts",
     "rbac:sync": "node scripts/rbac-sync.js --write",
     "qa:seed": "node prisma/qa-seed.js",
+    "qa:project-extreme": "node --import tsx prisma/project-extreme-qa-seed.ts",
     "provision:production-smoke-user": "tsx scripts/provision-production-smoke-user.ts",
     "qa:reset": "node prisma/qa-reset.js",
     "test": "playwright test",

@@ -293,6 +293,24 @@ export class ProjectMaterialReservationService {
 
     const openLines = await tx.projectMaterialReservationLine.findMany({ where: { reservationId: input.reservationId } });
     const hasOpenLines = openLines.some((line) => Number(line.quantity) - Number(line.issuedQty) > 0);
+
+    // A requirement is complete only after its full BOQ quantity has been
+    // physically issued. The per-line update above intentionally marks every
+    // issue as IN_PROGRESS, so recalculate the terminal status here after the
+    // transaction has consumed all requested lines.
+    const requirementIds = [...new Set(openLines.map((line) => line.requirementId))];
+    if (requirementIds.length > 0) {
+      const requirements = await tx.projectMaterialRequirement.findMany({ where: { id: { in: requirementIds } } });
+      for (const requirement of requirements) {
+        const issued = Number(requirement.issuedQty);
+        const required = Number(requirement.requiredQty);
+        await tx.projectMaterialRequirement.update({
+          where: { id: requirement.id },
+          data: { status: issued >= required ? 'COMPLETED' : 'IN_PROGRESS' },
+        });
+      }
+    }
+
     await tx.projectMaterialReservation.update({ where: { id: input.reservationId }, data: { status: hasOpenLines ? 'PARTIAL' : 'CONSUMED' } });
     return transactionItems;
   }
