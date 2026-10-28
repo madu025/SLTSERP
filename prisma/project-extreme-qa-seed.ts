@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
@@ -76,7 +77,7 @@ async function main() {
     },
   });
 
-  const contractorUser = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { username: 'qa_extreme_contractor' },
     update: { password, contractorId: contractor.id, status: 'ACTIVE' },
     create: {
@@ -193,7 +194,7 @@ async function main() {
     data: { status: 'BOQ_APPROVED', budget: 25000 },
   });
 
-  const survey = await prisma.surveyRequest.create({
+  await prisma.surveyRequest.create({
     data: {
       projectId: project.id,
       requestNumber: surveyNumber,
@@ -431,7 +432,14 @@ async function main() {
     prisma.projectMaterialRequirement.findUniqueOrThrow({ where: { id: requirement.id } }),
     prisma.projectMaterialReservation.findUniqueOrThrow({ where: { id: reservationResult.reservation.id } }),
     prisma.projectMaterialSupplyAllocation.findUniqueOrThrow({ where: { id: allocation.id } }),
-    prisma.inventoryLedger.findMany({ where: { referenceType: 'StockIssue', referenceId: issue.issueNumber }, orderBy: { createdAt: 'desc' } }),
+    prisma.inventoryLedger.findMany({
+      where: {
+        referenceType: 'StockIssue',
+        referenceId: issue.issueNumber,
+        idempotencyKey: { startsWith: `PROJECT_ISSUE:${issue.id}:` },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
     prisma.project.findUniqueOrThrow({ where: { id: project.id }, select: { id: true, projectCode: true, status: true, progress: true } }),
   ]);
 

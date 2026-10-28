@@ -24,9 +24,10 @@ export class ProjectStockIssueService {
         let requirementId = data.requirementId;
         let contractorId: UUID | null = null;
 
-        // Generate Issue Number
-        const count = await prisma.stockIssue.count();
-        const issueNumber = `ISS-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+        // Generate a globally unique, concurrency-safe issue number. Counting
+        // rows is unsafe after QA resets/archival and can reuse an immutable
+        // ledger reference (and can also collide under concurrent requests).
+        const issueNumber = await AuditLedgerService.getNextDocumentNumber('ISS');
 
         // Verify stock availability (Preliminary check - batched to avoid N+1 queries)
         const itemIds = items.map(i => i.itemId);
