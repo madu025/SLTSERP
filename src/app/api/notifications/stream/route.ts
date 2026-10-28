@@ -74,6 +74,11 @@ export const GET = apiHandler(async (req, params) => {
         cleanup();
     };
 
+    // Flush an initial SSE comment immediately. This lets browsers and reverse
+    // proxies observe the stream before the 15-second heartbeat, avoiding a
+    // false connection failure during the initial handshake.
+    await safeWrite(': connected\n\n');
+
     return new Response(responseStream.readable, {
         headers: {
             'Content-Type': 'text/event-stream',

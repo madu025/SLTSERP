@@ -225,10 +225,10 @@ export async function middleware(request: NextRequest) {
     // If not authenticated (and refresh didn't succeed)
     if (!verifiedToken) {
         if (pathname.startsWith('/api')) {
-            return NextResponse.json(
+            return applySecurityHeaders(NextResponse.json(
                 { message: 'Authentication required' },
                 { status: 401, headers: { 'x-request-id': requestId } }
-            );
+            ));
         }
 
         const targetRedirect = pathname.startsWith('/contractor') ? '/contractor/login' : '/login';
