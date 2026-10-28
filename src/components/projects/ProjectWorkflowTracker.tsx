@@ -17,7 +17,7 @@ import {
   CheckSquare, 
   ListTodo, 
   Workflow, 
-  ChevronRight } from 'lucide-react';
+  ChevronRight, RefreshCcw, Send, GitPullRequest, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -48,12 +48,39 @@ interface Approval {
   comments: string | null;
 }
 
+interface ReviewComment {
+  id: string;
+  severity: string;
+  comment: string;
+  isResolved: boolean;
+  createdAt: string;
+}
+
+interface ReviewCycle {
+  id: string;
+  deliverableType: string;
+  revision: number;
+  status: string;
+  reviewerRole: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  decisionNotes: string | null;
+  comments: ReviewComment[];
+}
+
 interface Stage {
   id: string;
+  code: string | null;
   name: string;
   description: string | null;
   sequence: number;
-  status: string; // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  status: string;
+  workstream: string | null;
+  assignedRole: string | null;
+  assignedTeamKey: string | null;
+  reviewStatus: string;
+  revision: number;
+  reworkCount: number;
   reqApproval: boolean;
   reqChecklist: boolean;
   reqPhotos: boolean;
@@ -64,6 +91,7 @@ interface Stage {
   tasks: Task[];
   checklists: Checklist[];
   approvals: Approval[];
+  reviews: ReviewCycle[];
   actualStart: string | null;
   actualFinish: string | null;
 }
@@ -99,6 +127,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   const [photoProofInputs, setPhotoProofInputs] = useState<Record<string, string>>({});
+  const [reviewNotes, setReviewNotes] = useState('');
 
   useEffect(() => {
     fetchWorkflow();
@@ -186,6 +215,10 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
 
       if (res.ok) {
         await fetchWorkflow();
+      } else {
+        const payload = await res.json().catch(() => null);
+        const error = payload?.error;
+        toast.error(typeof error === 'string' ? error : error?.message || 'Unable to start the stage.');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to start the stage.');
@@ -210,7 +243,13 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         await fetchWorkflow();
       } else {
         const errorData = await res.json();
-        const errLines = errorData.error ? errorData.error.split('\n') : ['Failed to transition stage.'];
+        const rawError = errorData?.error;
+        const message = typeof rawError === 'string'
+          ? rawError
+          : rawError && typeof rawError === 'object' && typeof rawError.message === 'string'
+            ? rawError.message
+            : 'Failed to transition stage.';
+        const errLines = message.split('\n');
         setValidationErrors(errLines);
         setIsErrorDialogOpen(true);
       }
@@ -269,7 +308,11 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
           progress: nextStatus === 'COMPLETED' ? 100 : 50,
         }),
       });
-      if (!res.ok) throw new Error('Unable to update workflow task.');
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        const error = payload?.error;
+        throw new Error(typeof error === 'string' ? error : error?.message || 'Unable to update workflow task.');
+      }
       await fetchWorkflow();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to update workflow task.');
@@ -293,6 +336,47 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
       await fetchWorkflow();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to submit approval.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReviewAction = async (
+    action: 'submit' | 'resubmit' | 'decide',
+    decision?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED'
+  ) => {
+    if (!activeStage) return;
+    const currentReview = activeStage.reviews?.find(item => item.status === 'IN_REVIEW');
+    try {
+      setSubmitting(true);
+      const res = await fetch(`/api/projects/${project.id}/workflow/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          stageId: activeStage.id,
+          reviewId: currentReview?.id,
+          decision,
+          deliverableType: activeStage.code || activeStage.name,
+          reviewerRole: activeStage.assignedRole || undefined,
+          notes: reviewNotes || undefined,
+          comments: decision === 'CHANGES_REQUESTED' && reviewNotes
+            ? [{ comment: reviewNotes, severity: 'REQUIRED' }]
+            : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        const error = payload?.error;
+        const message = typeof error === 'string' ? error : error?.message || 'Unable to update workflow review.';
+        toast.error(message);
+        return;
+      }
+      setReviewNotes('');
+      await fetchWorkflow();
+      toast.success(action === 'decide' ? `Review ${decision?.toLowerCase().replace(/_/g, ' ')}.` : 'Review submitted.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update workflow review.');
     } finally {
       setSubmitting(false);
     }
@@ -426,6 +510,40 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                 </div>
               </CardHeader>
               <CardContent className="pt-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="rounded-lg border bg-slate-50/70 p-3">
+                    <span className="text-slate-500 font-medium block">Owner role</span>
+                    <span className="font-bold text-slate-900 mt-0.5 block">{activeStage.assignedRole || 'Project team'}</span>
+                  </div>
+                  <div className="rounded-lg border bg-slate-50/70 p-3">
+                    <span className="text-slate-500 font-medium block">Team</span>
+                    <span className="font-bold text-slate-900 mt-0.5 block">{activeStage.assignedTeamKey || 'Unassigned'}</span>
+                  </div>
+                  <div className="rounded-lg border bg-slate-50/70 p-3">
+                    <span className="text-slate-500 font-medium block">Revision / rework</span>
+                    <span className="font-bold text-slate-900 mt-0.5 block">R{activeStage.revision} / {activeStage.reworkCount}</span>
+                  </div>
+                </div>
+
+                {activeStage.reviews?.length > 0 && (
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <GitPullRequest className="w-4 h-4 text-blue-600" /> Review / rework history
+                      </Label>
+                      <Badge className="bg-blue-100 text-blue-800 border border-blue-200">{activeStage.reviewStatus.replace(/_/g, ' ')}</Badge>
+                    </div>
+                    <div className="space-y-1.5">
+                      {activeStage.reviews.slice(0, 4).map(review => (
+                        <div key={review.id} className="flex items-start justify-between gap-3 text-[11px]">
+                          <span className="text-slate-700">Revision {review.revision} · {review.reviewerRole || 'Assigned reviewer'}</span>
+                          <Badge variant="outline" className="text-[10px]">{review.status.replace(/_/g, ' ')}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div className="bg-slate-50/60 p-3 rounded-lg border">
                     <span className="text-slate-400 font-medium block">Actual Start</span>
@@ -578,6 +696,54 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                     </div>
                   ))
                 )}
+
+                {/* Design/CAD/BOQ review loop */}
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-blue-600" /> Review handoff
+                    </Label>
+                    <span className="text-[10px] text-slate-600">{activeStage.code || activeStage.name}</span>
+                  </div>
+                  {(activeStage.status === 'IN_PROGRESS' || activeStage.status === 'CHANGES_REQUESTED') && (
+                    <>
+                      <textarea
+                        aria-label="Review notes"
+                        className="min-h-20 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        placeholder={activeStage.status === 'CHANGES_REQUESTED' ? 'Explain rework completed before resubmitting' : 'Add handoff or review context'}
+                        value={reviewNotes}
+                        onChange={(event) => setReviewNotes(event.target.value)}
+                      />
+                      <Button
+                        onClick={() => handleReviewAction(activeStage.status === 'CHANGES_REQUESTED' ? 'resubmit' : 'submit')}
+                        disabled={submitting}
+                        className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                      >
+                        {activeStage.status === 'CHANGES_REQUESTED' ? <RefreshCcw className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                        {activeStage.status === 'CHANGES_REQUESTED' ? 'Resubmit after rework' : 'Submit for review'}
+                      </Button>
+                    </>
+                  )}
+                  {activeStage.status === 'IN_REVIEW' && (
+                    <>
+                      <textarea
+                        aria-label="Review decision notes"
+                        className="min-h-20 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        placeholder="Add review decision or required changes"
+                        value={reviewNotes}
+                        onChange={(event) => setReviewNotes(event.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={() => handleReviewAction('decide', 'CHANGES_REQUESTED')} disabled={submitting} variant="outline" className="flex-1 text-xs text-amber-700 border-amber-300 hover:bg-amber-50">
+                          Request changes
+                        </Button>
+                        <Button onClick={() => handleReviewAction('decide', 'APPROVED')} disabled={submitting} className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                          Approve review
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 {/* Transition Action Buttons */}
                 <div className="border-t pt-4 space-y-2">

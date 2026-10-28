@@ -56,9 +56,13 @@ model WorkflowTemplate {
 
 model WorkflowStageTemplate {
   id                 String                      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  code               String?
   name               String
   description        String?
   sequence           Int
+  workstream         String?
+  assignmentRole     String?
+  assignmentTeamKey  String?
   workflowTemplateId String                      @db.Uuid
   reqApproval        Boolean                     @default(false)
   reqChecklist       Boolean                     @default(false)
@@ -81,9 +85,16 @@ model WorkflowStageTemplate {
 
 model WorkflowTaskTemplate {
   id              String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  code            String?
   name            String
   description     String?
   priority        String                @default("MEDIUM")
+  taskType        String                @default("SEMI_TASK")
+  assignmentRole  String?
+  assignmentTeamKey String?
+  isRequired      Boolean               @default(true)
+  autoProgressWeight Decimal?           @db.Decimal(8, 4)
+  dependsOnCode   String?
   stageTemplateId String                @db.Uuid
   stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
 
@@ -138,10 +149,18 @@ model ProjectWorkflowInstance {
 
 model ProjectStageInstance {
   id                        String                     @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  code                      String?
   name                      String
   description               String?
   sequence                  Int
   status                    String                     @default("PENDING")
+  workstream                String?
+  assignedRole              String?
+  assignedTeamKey           String?
+  assignedUserId            String?                    @db.Uuid
+  reviewStatus              String                     @default("NOT_REQUIRED")
+  revision                  Int                        @default(1)
+  reworkCount               Int                        @default(0)
   projectWorkflowInstanceId String                     @db.Uuid
   reqApproval               Boolean
   reqChecklist              Boolean
@@ -156,6 +175,9 @@ model ProjectStageInstance {
   updatedAt                 DateTime                   @updatedAt
   approvals                 ProjectApprovalInstance[]
   checklists                ProjectChecklistInstance[]
+  reviews                   WorkflowReviewCycle[]
+  outgoingHandoffs          WorkflowHandoff[]          @relation("WorkflowHandoffFromStage")
+  incomingHandoffs           WorkflowHandoff[]          @relation("WorkflowHandoffToStage")
   projectWorkflowInstance   ProjectWorkflowInstance    @relation(fields: [projectWorkflowInstanceId], references: [id], onDelete: Cascade)
   tasks                     ProjectTaskInstance[]
 
@@ -164,10 +186,16 @@ model ProjectStageInstance {
 
 model ProjectTaskInstance {
   id             String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  code           String?
   name           String
   description    String?
   priority       String               @default("MEDIUM")
   status         String               @default("PENDING")
+  taskType       String               @default("SEMI_TASK")
+  assignmentRole String?
+  assignmentTeamKey String?
+  isRequired     Boolean              @default(true)
+  dependsOnCode  String?
   assignedTeamId String?              @db.Uuid
   assignedUserId String?              @db.Uuid
   plannedStart   DateTime?
@@ -221,6 +249,68 @@ model WorkflowAuditLog {
 
   @@index([userId])
   @@index([entityId])
+}
+
+/// A durable review/rework history for design, CAD, BOQ and other stage deliverables.
+/// Each resubmission creates a new revision; prior decisions remain immutable history.
+model WorkflowReviewCycle {
+  id              String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId       String              @db.Uuid
+  stageId         String              @db.Uuid
+  deliverableType String
+  revision        Int                 @default(1)
+  status          String              @default("DRAFT")
+  submittedById   String?             @db.Uuid
+  reviewerRole    String?
+  reviewerUserId  String?             @db.Uuid
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  decisionNotes   String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage           ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  comments        WorkflowReviewComment[]
+
+  @@unique([stageId, revision])
+  @@index([projectId, status])
+  @@index([stageId, status])
+  @@index([reviewerUserId])
+}
+
+model WorkflowReviewComment {
+  id          String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  reviewId    String              @db.Uuid
+  severity    String              @default("REQUIRED")
+  comment     String
+  isResolved  Boolean             @default(false)
+  resolvedById String?            @db.Uuid
+  resolvedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  review      WorkflowReviewCycle @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, isResolved])
+}
+
+model WorkflowHandoff {
+  id              String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId       String              @db.Uuid
+  fromStageId     String              @db.Uuid
+  toStageId       String              @db.Uuid
+  deliverableType String
+  status          String              @default("PENDING")
+  acceptedById    String?             @db.Uuid
+  acceptedAt      DateTime?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromStage       ProjectStageInstance @relation("WorkflowHandoffFromStage", fields: [fromStageId], references: [id], onDelete: Cascade)
+  toStage         ProjectStageInstance @relation("WorkflowHandoffToStage", fields: [toStageId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([fromStageId])
+  @@index([toStageId])
 }
 
 model StageGateRule {

@@ -17,6 +17,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         await WorkflowEngine.transitionStage(stageId, status, userId, params.id);
         return { success: true };
     } catch (error: unknown) {
+        if (error instanceof AppError) throw error;
         const err = error as { message?: string };
         throw AppError.internal(err?.message || 'Failed to transition stage');
     }

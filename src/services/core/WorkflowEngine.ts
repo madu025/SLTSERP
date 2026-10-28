@@ -74,9 +74,14 @@ export class WorkflowEngine {
         dbData: {
           id: generatedId,
           projectWorkflowInstanceId: projectWorkflow.id,
+          code: stageTemp.code,
           name: stageTemp.name,
           description: stageTemp.description,
           sequence: stageTemp.sequence,
+          workstream: stageTemp.workstream,
+          assignedRole: stageTemp.assignmentRole,
+          assignedTeamKey: stageTemp.assignmentTeamKey,
+          reviewStatus: stageTemp.reqApproval ? 'PENDING_REVIEW' : 'NOT_REQUIRED',
           status: stageTemp.sequence === 1 ? 'IN_PROGRESS' : 'PENDING',
           actualStart: stageTemp.sequence === 1 ? new Date() : null,
           reqApproval: stageTemp.reqApproval,
@@ -111,9 +116,15 @@ export class WorkflowEngine {
       if (stageTemp.taskTemplates.length > 0) {
         tasksData.push(...stageTemp.taskTemplates.map(t => ({
           stageId,
+          code: t.code,
           name: t.name,
           description: t.description,
           priority: t.priority,
+          taskType: t.taskType,
+          assignmentRole: t.assignmentRole,
+          assignmentTeamKey: t.assignmentTeamKey,
+          isRequired: t.isRequired,
+          dependsOnCode: t.dependsOnCode,
           status: 'PENDING',
         })));
       }
@@ -244,7 +255,7 @@ export class WorkflowEngine {
     // records so UI checklist completion alone cannot bypass missing evidence.
     const projectId = stage.projectWorkflowInstance.projectId;
     const stageName = stage.name.trim().toLowerCase();
-    if (stageName.includes('cad drawing')) {
+    if (stageName.includes('cad drawing') || stageName.includes('cad review')) {
       const drawingCount = await prisma.projectDocument.count({ where: { projectId, category: { in: ['CAD_DRAWING', 'DRAWING', 'DESIGN'] }, status: 'APPROVED' } });
       if (drawingCount === 0) errors.push('An approved CAD/drawing document is required before continuing.');
     }
@@ -469,6 +480,18 @@ export class WorkflowEngine {
     });
     if (!task) throw AppError.notFound('Workflow task not found');
     if (projectId && task.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow task does not belong to this project');
+    if (task.stage.status !== 'IN_PROGRESS') {
+      throw AppError.badRequest(`Workflow stage is ${task.stage.status}; task updates are allowed only while the stage is IN_PROGRESS`);
+    }
+    if (progress > 0 && task.dependsOnCode) {
+      const prerequisite = await prisma.projectTaskInstance.findFirst({
+        where: { stageId: task.stageId, code: task.dependsOnCode },
+        select: { name: true, status: true },
+      });
+      if (prerequisite && prerequisite.status !== 'COMPLETED') {
+        throw AppError.conflict(`Prerequisite semi-task is not complete: ${prerequisite.name}`);
+      }
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = { status, progress };
     if (status === 'IN_PROGRESS') {
@@ -521,14 +544,35 @@ export class WorkflowEngine {
       throw AppError.badRequest('Previous approval levels must be completed first');
     }
 
-    return prisma.projectApprovalInstance.update({
-      where: { id: approvalId },
-      data: {
-        status,
-        approvedById: actor.id,
-        approvedAt: new Date(),
-        comments: comments || null,
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.projectApprovalInstance.update({
+        where: { id: approvalId },
+        data: {
+          status,
+          approvedById: actor.id,
+          approvedAt: new Date(),
+          comments: comments || null,
+        },
+      });
+
+      if (status === 'REJECTED') {
+        await tx.projectStageInstance.update({
+          where: { id: approval.stageId },
+          data: { status: 'CHANGES_REQUESTED', reviewStatus: 'CHANGES_REQUESTED', reworkCount: { increment: 1 } },
+        });
+      } else {
+        const remaining = await tx.projectApprovalInstance.count({
+          where: { stageId: approval.stageId, status: { not: 'APPROVED' } },
+        });
+        if (remaining === 0) {
+          await tx.projectStageInstance.update({
+            where: { id: approval.stageId },
+            data: { reviewStatus: 'APPROVED' },
+          });
+        }
+      }
+
+      return updated;
     });
   }
 }

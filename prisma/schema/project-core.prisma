@@ -100,6 +100,8 @@ model Project {
   supervisorAssignments ProjectSupervisorAssignment[]
   tasks                 ProjectTask[]
   workflowInstance      ProjectWorkflowInstance?
+  workflowReviews       WorkflowReviewCycle[]
+  workflowHandoffs      WorkflowHandoff[]
   qfieldConfigs         QFieldFieldConfig[]
   stockIssues           StockIssue[]
   materialRequirements  ProjectMaterialRequirement[]

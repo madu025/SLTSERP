@@ -18,6 +18,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         const updated = await WorkflowEngine.submitApproval(approvalId, status, userId, comments, params.id);
         return { success: true, approval: updated };
     } catch (error: unknown) {
+        if (error instanceof AppError) throw error;
         const err = error as { message?: string };
         throw AppError.internal(err?.message || 'Failed to submit approval');
     }
