@@ -46,6 +46,10 @@ jobs:
 
       - name: Production build
         run: pnpm run build
+        env:
+          # The build evaluates auth-protected route modules. This is a CI-only
+          # secret; production uses the JWT_SECRET configured in the deployment environment.
+          JWT_SECRET: ci-only-build-secret-not-for-production
 
       - name: Unit tests (SOD status authority policy and domain tables)
         run: pnpm run test:unit
