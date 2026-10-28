@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, Link2, Clock } from 'lucide-react';
+import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, Link2, Clock, AlertTriangle, CalendarDays } from 'lucide-react';
 
 import { toast } from 'sonner';
 
@@ -29,6 +29,9 @@ interface Project {
     status: string;
     budget?: number;
     actualCost?: number;
+    startDate?: string;
+    endDate?: string;
+    progress?: number;
 }
 
 interface TaskDependency {
@@ -77,6 +80,45 @@ interface ProjectTasksProps {
     refreshProject: () => void;
 }
 
+interface TimelineTask {
+    id: string;
+    wbsCode: string;
+    name: string;
+    status: string;
+    actualProgress: number;
+    plannedStartDate: string | null;
+    plannedEndDate: string | null;
+    actualStartDate: string | null;
+    actualEndDate: string | null;
+    plannedOffsetDays: number | null;
+    plannedDurationDays: number | null;
+    actualOffsetDays: number | null;
+    actualDurationDays: number | null;
+    delayDays: number;
+    isDelayed: boolean;
+    isBlocked: boolean;
+    isCritical: boolean;
+    outOfProjectWindow: boolean;
+}
+
+interface ProjectSchedule {
+    projectStartDate: string | null;
+    projectEndDate: string | null;
+    timelineStartDate: string;
+    timelineEndDate: string;
+    totalDurationDays: number;
+    elapsedDays: number;
+    remainingDays: number;
+    projectProgress: number;
+    tasksTotal: number;
+    tasksCompleted: number;
+    tasksInProgress: number;
+    tasksDelayed: number;
+    tasksBlocked: number;
+    tasksWithoutDates: number;
+    tasks: TimelineTask[];
+}
+
 export default function ProjectTasks({ project, refreshProject }: ProjectTasksProps) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -88,6 +130,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [activeView, setActiveView] = useState<'wbs' | 'gantt' | 'timesheet'>('wbs');
+    const [schedule, setSchedule] = useState<ProjectSchedule | null>(null);
 
     const [taskForm, setTaskForm] = useState({
         name: '', wbsCode: '', description: '', type: 'TASK', priority: 'MEDIUM',
@@ -215,6 +258,30 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         if (project.id) fetchAllTasks();
     }, [project.id, fetchAllTasks]);
 
+    const fetchSchedule = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/projects/${project.id}/schedule`);
+            if (res.ok) {
+                setSchedule(await res.json());
+            } else {
+                setSchedule(null);
+            }
+        } catch (error) {
+            console.error('Failed to fetch project schedule:', error);
+            setSchedule(null);
+        }
+    }, [project.id]);
+
+    useEffect(() => {
+        if (project.id) fetchSchedule();
+    }, [project.id, fetchSchedule]);
+
+    const refreshTaskData = useCallback(() => {
+        void fetchTasks();
+        void fetchAllTasks();
+        void fetchSchedule();
+    }, [fetchTasks, fetchAllTasks, fetchSchedule]);
+
     // Build WBS tree from flat tasks
     const buildTree = (tasksList: Task[], parentId: string | null = null): Task[] => {
         return tasksList
@@ -273,8 +340,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         try {
             const res = await fetch(`/api/projects/tasks?id=${id}&projectId=${project.id}`, { method: 'DELETE' });
             if (res.ok) {
-                fetchTasks();
-                fetchAllTasks();
+                refreshTaskData();
                 refreshProject();
             }
         } catch (error) {
@@ -301,8 +367,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
             if (res.ok) {
                 setIsTaskDialogOpen(false);
-                fetchTasks();
-                fetchAllTasks();
+                refreshTaskData();
                 refreshProject();
             } else {
                 const error = await res.json();
@@ -334,8 +399,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
             if (res.ok) {
                 setIsProgressDialogOpen(false);
-                fetchTasks();
-                fetchAllTasks();
+                refreshTaskData();
                 refreshProject();
             } else {
                 const error = await res.json();
@@ -365,8 +429,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
             if (res.ok) {
                 setIsDependencyDialogOpen(false);
-                fetchTasks();
-                fetchAllTasks();
+                refreshTaskData();
             } else {
                 const error = await res.json();
                 toast.error(getApiErrorMessage(error, 'Failed to add dependency'));
@@ -381,8 +444,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         try {
             const res = await fetch(`/api/projects/tasks/dependencies?id=${depId}`, { method: 'DELETE' });
             if (res.ok) {
-                fetchTasks();
-                fetchAllTasks();
+                refreshTaskData();
             }
         } catch (error) {
 }
@@ -523,42 +585,68 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         );
     };
 
-    // Simple Gantt Chart View
+    // Production schedule view: the API owns the project anchor, dates,
+    // dependency state, delay calculations, and unscheduled-task count.
     const renderGanttView = () => {
-        if (allTasks.length === 0) return <p className="text-slate-500 text-center py-8">No tasks to display in Gantt view</p>;
+        if (schedule && schedule.tasksTotal === 0) return <p className="text-slate-600 text-center py-8">No tasks to display in Gantt view</p>;
+        if (!schedule) return <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-md text-center py-4">Project schedule is loading or unavailable. Refresh to retry.</p>;
 
-        const sortedTasks = [...allTasks].sort((a, b) => {
-            const startA = a.plannedStartDate;
-            const startB = b.plannedStartDate;
-            if (!startA) return 1;
-            if (!startB) return -1;
-            return new Date(startA).getTime() - new Date(startB).getTime();
+        const totalDays = Math.max(schedule.totalDurationDays, 1);
+        const sortedTasks = [...schedule.tasks].sort((a, b) => {
+            if (a.plannedOffsetDays === null) return 1;
+            if (b.plannedOffsetDays === null) return -1;
+            return a.plannedOffsetDays - b.plannedOffsetDays;
         });
-
-        // Find date range
-        const startDates = sortedTasks
-            .map(t => t.plannedStartDate)
-            .filter((d): d is string => d !== undefined && d !== null && d !== '')
-            .map(d => new Date(d));
-        const endDates = sortedTasks
-            .map(t => t.plannedEndDate)
-            .filter((d): d is string => d !== undefined && d !== null && d !== '')
-            .map(d => new Date(d));
-        const minDate = startDates.length > 0 ? new Date(Math.min(...startDates.map(d => d.getTime()))) : new Date();
-        const maxDate = endDates.length > 0 ? new Date(Math.max(...endDates.map(d => d.getTime()))) : new Date();
-        const totalDays = Math.max((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24), 30);
+        const weekCount = Math.max(1, Math.ceil(totalDays / 7));
+        const nowMarkerVisible = schedule.elapsedDays >= 0 && schedule.elapsedDays <= totalDays;
+        const nowMarkerOffset = Math.min(100, Math.max(0, (schedule.elapsedDays / totalDays) * 100));
+        const projectStartLabel = format(new Date(schedule.projectStartDate || schedule.timelineStartDate), 'dd MMM yyyy');
+        const projectEndLabel = schedule.projectEndDate ? format(new Date(schedule.projectEndDate), 'dd MMM yyyy') : 'Not set';
 
         return (
-            <div className="overflow-x-auto">
-                <div className="min-w-[800px]">
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div className="rounded-md border border-slate-200 bg-white p-3">
+                        <div className="text-xs font-semibold text-slate-600 uppercase flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> Project start</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">{projectStartLabel}</div>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-white p-3">
+                        <div className="text-xs font-semibold text-slate-600 uppercase">Planned finish</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">{projectEndLabel}</div>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-white p-3">
+                        <div className="text-xs font-semibold text-slate-600 uppercase">Task completion</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">{schedule.tasksCompleted}/{schedule.tasksTotal}</div>
+                    </div>
+                    <div className={`rounded-md border p-3 ${schedule.tasksDelayed > 0 ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'}`}>
+                        <div className="text-xs font-semibold text-slate-700 uppercase flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Delayed</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">{schedule.tasksDelayed}</div>
+                    </div>
+                    <div className={`rounded-md border p-3 ${schedule.tasksBlocked > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'}`}>
+                        <div className="text-xs font-semibold text-slate-700 uppercase flex items-center gap-1"><Link2 className="w-3.5 h-3.5" /> Blocked</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">{schedule.tasksBlocked}</div>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-700">
+                    <span className="font-semibold">{schedule.elapsedDays} elapsed days</span>
+                    <span>{schedule.remainingDays} days remaining</span>
+                    <span>{schedule.tasksWithoutDates} unscheduled</span>
+                    <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-500" /> Planned</span>
+                    <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500" /> Actual</span>
+                    <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500" /> Delayed</span>
+                </div>
+
+                <div className="overflow-x-auto rounded-md border border-slate-200">
+                    <div className="min-w-[900px]">
                     {/* Header */}
                     <div className="flex border-b border-slate-200 bg-slate-50">
-                        <div className="w-64 px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Task</div>
+                        <div className="w-72 px-4 py-2 text-xs font-semibold text-slate-700 uppercase">Task</div>
                         <div className="flex-1 px-4 py-2 text-xs font-semibold text-slate-500 uppercase relative" style={{ minWidth: '500px' }}>
                             <div className="flex justify-between absolute inset-x-4 top-2">
-                                {Array.from({ length: Math.min(Math.ceil(totalDays / 7), 12) }).map((_, i) => (
-                                    <span key={i} className="text-xs text-slate-400">
-                                        Week {i + 1}
+                                {Array.from({ length: weekCount }).map((_, i) => (
+                                    <span key={i} className="text-xs text-slate-700">
+                                        {format(new Date(new Date(schedule.timelineStartDate).getTime() + i * 7 * 86400000), 'dd MMM')}
                                     </span>
                                 ))}
                             </div>
@@ -567,13 +655,10 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
                     {/* Rows */}
                     {sortedTasks.map((task) => {
-                        if (!task.plannedStartDate) return null;
-                        const taskStart = new Date(task.plannedStartDate);
-                        const taskEnd = task.plannedEndDate ? new Date(task.plannedEndDate) :
-                            new Date(taskStart.getTime() + (task.plannedDuration || 5) * 24 * 60 * 60 * 1000);
-                        const leftOffset = ((taskStart.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-                        const width = Math.max(((taskEnd.getTime() - taskStart.getTime()) / (1000 * 60 * 60 * 24)) / totalDays * 100, 2);
-
+                        const plannedLeft = task.plannedOffsetDays === null ? 0 : (task.plannedOffsetDays / totalDays) * 100;
+                        const plannedWidth = task.plannedDurationDays === null ? 0 : Math.max((task.plannedDurationDays / totalDays) * 100, 1.5);
+                        const actualLeft = task.actualOffsetDays === null ? 0 : (task.actualOffsetDays / totalDays) * 100;
+                        const actualWidth = task.actualDurationDays === null ? Math.max((task.actualProgress / 100) * plannedWidth, 1.5) : Math.max((task.actualDurationDays / totalDays) * 100, 1.5);
                         const barColors: Record<string, string> = {
                             COMPLETED: 'bg-green-500',
                             IN_PROGRESS: 'bg-blue-500',
@@ -582,29 +667,29 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                         };
 
                         return (
-                            <div key={task.id} className="flex border-b border-slate-100 hover:bg-slate-50">
-                                <div className="w-64 px-4 py-3 text-sm text-slate-700 truncate border-r border-slate-100">
-                                    <span className="text-xs font-mono text-slate-400 mr-2">{task.wbsCode}</span>
-                                    {task.name}
+                            <div key={task.id} className="flex border-b border-slate-100 hover:bg-slate-50 min-h-14">
+                                <div className="w-72 px-4 py-3 text-sm text-slate-900 truncate border-r border-slate-100">
+                                    <span className="text-xs font-mono text-slate-500 mr-2">{task.wbsCode}</span>
+                                    <span title={task.name}>{task.name}</span>
+                                    <div className="flex gap-1 mt-1">
+                                        {task.isCritical && <Badge className="text-[10px] bg-purple-100 text-purple-800">Critical</Badge>}
+                                        {task.isBlocked && <Badge className="text-[10px] bg-amber-100 text-amber-900">Blocked</Badge>}
+                                        {task.isDelayed && <Badge className="text-[10px] bg-red-100 text-red-800">+{task.delayDays}d</Badge>}
+                                        {task.outOfProjectWindow && <Badge className="text-[10px] bg-red-100 text-red-800">Outside window</Badge>}
+                                    </div>
                                 </div>
                                 <div className="flex-1 px-4 py-3 relative" style={{ minWidth: '500px' }}>
-                                    <div className={`absolute h-6 rounded ${barColors[task.status] || 'bg-slate-300'} opacity-80`}
-                                        style={{
-                                            left: `${leftOffset}%`,
-                                            width: `${width}%`,
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            minWidth: '20px'
-                                        }}>
-                                        <span className="text-xs text-white px-2 leading-6 block truncate">
-                                            {task.actualProgress}%
-                                        </span>
-                                    </div>
+                                    {nowMarkerVisible && <div className="absolute top-0 bottom-0 w-px bg-red-600 z-10" style={{ left: `${nowMarkerOffset}%` }} title="Today" />}
+                                    {task.plannedStartDate && <div className={`absolute h-5 rounded ${barColors[task.status] || 'bg-slate-300'} opacity-80`} style={{ left: `${plannedLeft}%`, width: `${plannedWidth}%`, top: '32px', minWidth: '12px' }} title={`Planned: ${format(new Date(task.plannedStartDate), 'dd MMM')} - ${task.plannedEndDate ? format(new Date(task.plannedEndDate), 'dd MMM') : 'open end'}`} />}
+                                    {task.actualStartDate && <div className="absolute h-2 rounded bg-emerald-500" style={{ left: `${actualLeft}%`, width: `${actualWidth}%`, top: '26px', minWidth: '8px' }} title={`Actual progress: ${task.actualProgress}%`} />}
+                                    {!task.plannedStartDate && <span className="text-xs font-medium text-slate-600">Unscheduled</span>}
+                                    <span className="absolute right-2 top-1 text-[10px] text-slate-600">{task.actualProgress}%</span>
                                 </div>
                             </div>
                         );
                     })}
                 </div>
+            </div>
             </div>
         );
     };

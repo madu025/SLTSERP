@@ -29,7 +29,7 @@
     "rbac:seed": "tsx scripts/seed-rbac-capabilities.ts",
     "check:email-templates": "node scripts/check-email-template-wiring.mjs",
     "check:sync": "tsx scripts/verify-sync-invariants.ts",
-    "test:unit": "node --import tsx --test tests/unit/sync/status-policy.test.ts tests/unit/sync/status-domain.test.ts tests/unit/sync/daily-report-activity.test.ts tests/unit/rbac/role-validation.test.ts tests/unit/rbac/effective-permissions.test.ts tests/unit/sod-financial-validation.test.ts",
+    "test:unit": "node --import tsx --test tests/unit/sync/status-policy.test.ts tests/unit/sync/status-domain.test.ts tests/unit/sync/daily-report-activity.test.ts tests/unit/rbac/role-validation.test.ts tests/unit/rbac/effective-permissions.test.ts tests/unit/sod-financial-validation.test.ts tests/unit/project-schedule.test.ts",
     "test:integration": "node --import tsx --test tests/integration/sync-run-claim.test.ts tests/integration/sync-status-writer.test.ts",
     "rbac:sync": "node scripts/rbac-sync.js --write",
     "qa:seed": "node prisma/qa-seed.js",

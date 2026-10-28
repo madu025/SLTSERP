@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { dependencyDateConflict, normalizeTaskSchedule } from '@/lib/project-schedule';
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -167,6 +168,26 @@ export class ProjectTaskService {
         };
 
         const task = await prisma.$transaction(async (tx) => {
+            const project = await tx.project.findUnique({
+                where: { id: projectId },
+                select: { id: true, startDate: true, endDate: true },
+            });
+            if (!project) throw AppError.notFound('Project not found');
+
+            let normalizedSchedule;
+            try {
+                normalizedSchedule = normalizeTaskSchedule({
+                    projectStartDate: project.startDate,
+                    projectEndDate: project.endDate,
+                    plannedStartDate,
+                    plannedEndDate,
+                    plannedDuration,
+                });
+            } catch (error: unknown) {
+                if (error instanceof Error) throw AppError.badRequest(error.message);
+                throw error;
+            }
+
             const parent = parentId
                 ? await tx.projectTask.findUnique({ where: { id: parentId } })
                 : null;
@@ -215,9 +236,9 @@ export class ProjectTaskService {
                     description: optionalString(description),
                     type: optionalString(type) || 'TASK',
                     priority: optionalString(priority) || 'MEDIUM',
-                    plannedStartDate: plannedStartDate ? new Date(plannedStartDate) : null,
-                    plannedEndDate: plannedEndDate ? new Date(plannedEndDate) : null,
-                    plannedDuration: plannedDuration !== null && plannedDuration !== undefined && String(plannedDuration).trim() !== '' ? parseInt(String(plannedDuration), 10) : null,
+                    plannedStartDate: normalizedSchedule.plannedStartDate,
+                    plannedEndDate: normalizedSchedule.plannedEndDate,
+                    plannedDuration: normalizedSchedule.plannedDuration,
                     estimatedCost: estimatedCost !== null && estimatedCost !== undefined && String(estimatedCost).trim() !== '' ? parseFloat(String(estimatedCost)) : null,
                     order: order ?? 0,
                     assigneeType: optionalString(assigneeType),
@@ -243,11 +264,63 @@ export class ProjectTaskService {
     static async updateTask(id: string, updateData: UpdateTaskInput, projectId?: string) {
         const data: Record<string, unknown> = { ...updateData };
 
-        const currentTask = await prisma.projectTask.findUnique({ where: { id }, select: { projectId: true, parentId: true } });
+        const currentTask = await prisma.projectTask.findUnique({
+            where: { id },
+            select: {
+                projectId: true,
+                parentId: true,
+                plannedStartDate: true,
+                plannedEndDate: true,
+                plannedDuration: true,
+                actualStartDate: true,
+                actualEndDate: true,
+                status: true,
+            },
+        });
         if (!currentTask) throw AppError.notFound('Task not found');
         if (projectId && currentTask.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
 
         const taskProjectId = currentTask.projectId;
+        const project = await prisma.project.findUnique({
+            where: { id: taskProjectId },
+            select: { startDate: true, endDate: true },
+        });
+        if (!project) throw AppError.notFound('Project not found');
+
+        let normalizedSchedule;
+        try {
+            normalizedSchedule = normalizeTaskSchedule({
+                projectStartDate: project.startDate,
+                projectEndDate: project.endDate,
+                plannedStartDate: updateData.plannedStartDate !== undefined ? updateData.plannedStartDate : currentTask.plannedStartDate,
+                plannedEndDate: updateData.plannedEndDate !== undefined ? updateData.plannedEndDate : currentTask.plannedEndDate,
+                plannedDuration: updateData.plannedDuration !== undefined ? updateData.plannedDuration : currentTask.plannedDuration,
+            });
+        } catch (error: unknown) {
+            if (error instanceof Error) throw AppError.badRequest(error.message);
+            throw error;
+        }
+
+        const dependencies = await prisma.taskDependency.findMany({
+            where: { taskId: id },
+            select: {
+                type: true,
+                lagDays: true,
+                dependsOn: { select: { plannedStartDate: true, plannedEndDate: true } },
+            },
+        });
+        if (dependencies.some((dependency) => dependencyDateConflict(
+            dependency.type,
+            dependency.lagDays,
+            normalizedSchedule,
+            dependency.dependsOn,
+        ))) {
+            throw AppError.conflict('TASK_DEPENDENCY_DATE_CONFLICT');
+        }
+
+        data.plannedStartDate = normalizedSchedule.plannedStartDate;
+        data.plannedEndDate = normalizedSchedule.plannedEndDate;
+        data.plannedDuration = normalizedSchedule.plannedDuration;
         if (updateData.parentId !== undefined && updateData.parentId !== null) {
             if (updateData.parentId === id) throw AppError.badRequest('SELF_PARENT_TASK');
             const parent = await prisma.projectTask.findUnique({ where: { id: updateData.parentId }, select: { projectId: true } });
@@ -258,10 +331,29 @@ export class ProjectTaskService {
             await assertApprovedBoq(taskProjectId);
         }
 
-        if (updateData.plannedStartDate) data.plannedStartDate = new Date(updateData.plannedStartDate);
-        if (updateData.plannedEndDate) data.plannedEndDate = new Date(updateData.plannedEndDate);
-        if (updateData.actualStartDate) data.actualStartDate = new Date(updateData.actualStartDate);
-        if (updateData.actualEndDate) data.actualEndDate = new Date(updateData.actualEndDate);
+        const nextStatus = String(updateData.status || currentTask.status || 'PENDING').toUpperCase();
+        if (!['PENDING', 'IN_PROGRESS', 'COMPLETED', 'DELAYED'].includes(nextStatus)) {
+            throw AppError.badRequest('INVALID_TASK_STATUS');
+        }
+        if (nextStatus === 'IN_PROGRESS' || nextStatus === 'COMPLETED') {
+            const prerequisites = await prisma.taskDependency.findMany({
+                where: { taskId: id },
+                select: { dependsOn: { select: { status: true } } },
+            });
+            if (prerequisites.some(({ dependsOn }) => String(dependsOn.status).toUpperCase() !== 'COMPLETED')) {
+                throw AppError.conflict('TASK_DEPENDENCY_NOT_READY');
+            }
+        }
+
+        if (updateData.actualStartDate !== undefined) data.actualStartDate = updateData.actualStartDate ? new Date(updateData.actualStartDate) : null;
+        if (updateData.actualEndDate !== undefined) data.actualEndDate = updateData.actualEndDate ? new Date(updateData.actualEndDate) : null;
+
+        if (nextStatus === 'IN_PROGRESS' && !currentTask.actualStartDate && updateData.actualStartDate === undefined) {
+            data.actualStartDate = new Date();
+        }
+        if (nextStatus === 'COMPLETED' && !currentTask.actualEndDate && updateData.actualEndDate === undefined) {
+            data.actualEndDate = new Date();
+        }
 
         if (updateData.estimatedCost) data.estimatedCost = parseFloat(String(updateData.estimatedCost));
 
@@ -343,11 +435,23 @@ export class ProjectTaskService {
         }
 
         const [task, prerequisite] = await Promise.all([
-            prisma.projectTask.findUnique({ where: { id: taskId }, select: { id: true, projectId: true } }),
-            prisma.projectTask.findUnique({ where: { id: dependsOnTaskId }, select: { id: true, projectId: true } }),
+            prisma.projectTask.findUnique({ where: { id: taskId }, select: { id: true, projectId: true, plannedStartDate: true, plannedEndDate: true } }),
+            prisma.projectTask.findUnique({ where: { id: dependsOnTaskId }, select: { id: true, projectId: true, plannedStartDate: true, plannedEndDate: true } }),
         ]);
         if (!task || !prerequisite) throw AppError.notFound('DEPENDENCY_TASK_NOT_FOUND');
         if (task.projectId !== prerequisite.projectId) throw AppError.badRequest('CROSS_PROJECT_DEPENDENCY');
+
+        const dependencyType = type || 'FINISH_TO_START';
+        const dependencyLagDays = lagDays || 0;
+        if (!['FINISH_TO_START', 'START_TO_START', 'FINISH_TO_FINISH', 'START_TO_FINISH'].includes(dependencyType)) {
+            throw AppError.badRequest('INVALID_DEPENDENCY_TYPE');
+        }
+        if (!Number.isInteger(dependencyLagDays) || dependencyLagDays < 0) {
+            throw AppError.badRequest('INVALID_DEPENDENCY_LAG');
+        }
+        if (dependencyDateConflict(dependencyType, dependencyLagDays, task, prerequisite)) {
+            throw AppError.conflict('TASK_DEPENDENCY_DATE_CONFLICT');
+        }
 
         // Check for circular dependency
         const existing = await prisma.taskDependency.findUnique({
@@ -379,8 +483,8 @@ export class ProjectTaskService {
             data: {
                 taskId,
                 dependsOnTaskId,
-                type: type || 'FINISH_TO_START',
-                lagDays: lagDays || 0
+                type: dependencyType,
+                lagDays: dependencyLagDays
             },
             include: {
                 task: { select: { id: true, name: true, wbsCode: true } },
@@ -416,13 +520,25 @@ export class ProjectTaskService {
     static async logProgress(data: LogProgressInput & { projectId?: string }) {
         const { taskId, progress, description, photoUrls, gpsLatitude, gpsLongitude, loggedById, projectId } = data;
 
-        const task = await prisma.projectTask.findUnique({ where: { id: taskId }, select: { projectId: true } });
+        const task = await prisma.projectTask.findUnique({
+            where: { id: taskId },
+            select: { projectId: true, actualStartDate: true, actualEndDate: true },
+        });
         if (!task) throw AppError.notFound('Task not found');
         if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
 
         const progressVal = parseInt(String(progress), 10);
         if (isNaN(progressVal) || progressVal < 0 || progressVal > 100) {
             throw AppError.badRequest('INVALID_PROGRESS_RANGE');
+        }
+        if (progressVal > 0) {
+            const prerequisites = await prisma.taskDependency.findMany({
+                where: { taskId },
+                select: { dependsOn: { select: { status: true } } },
+            });
+            if (prerequisites.some(({ dependsOn }) => String(dependsOn.status).toUpperCase() !== 'COMPLETED')) {
+                throw AppError.conflict('TASK_DEPENDENCY_NOT_READY');
+            }
         }
 
         const log = await prisma.$transaction(async (tx) => {
@@ -445,20 +561,20 @@ export class ProjectTaskService {
                 data: {
                     actualProgress: progressVal,
                     status: progressVal >= 100 ? 'COMPLETED' : progressVal > 0 ? 'IN_PROGRESS' : 'PENDING',
-                    actualStartDate: progressVal > 0 ? new Date() : undefined,
-                    actualEndDate: progressVal >= 100 ? new Date() : undefined
+                    actualStartDate: progressVal > 0 ? (task.actualStartDate || new Date()) : undefined,
+                    actualEndDate: progressVal >= 100 ? (task.actualEndDate || new Date()) : undefined
                 }
             });
 
             // Fetch task to check for parent WBS level
-            const task = await tx.projectTask.findUnique({
+            const parentTask = await tx.projectTask.findUnique({
                 where: { id: taskId },
                 select: { parentId: true }
             });
 
             // Recursively update parents
-            if (task?.parentId) {
-                await updateParentProgress(task.parentId, tx);
+            if (parentTask?.parentId) {
+                await updateParentProgress(parentTask.parentId, tx);
             }
 
             return newLog;
