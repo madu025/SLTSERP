@@ -249,7 +249,7 @@ async function main() {
       projectId: project.id,
       title: 'QA As-Built CAD Drawing',
       description: 'CAD-only as-built artifact; GIS is intentionally optional.',
-      category: 'AS_BUILT_CAD',
+      category: 'CAD_AS_BUILT',
       status: 'APPROVED',
       currentVersion: 1,
       fileUrl: `qa://project/${projectCode}/as-built.dwg`,
@@ -300,8 +300,8 @@ async function main() {
   const finalPat = await prisma.pATSession.create({
     data: {
       projectId: project.id,
-      patType: 'IN_HOUSE',
-      status: 'PASSED',
+      patType: 'PRE_PAT',
+      status: 'COMPLETED',
       sltOfficers: { officers: ['QA OSP Engineer'] },
       totalPoints: 1,
       passedPoints: 1,
@@ -317,8 +317,8 @@ async function main() {
   await prisma.pATSession.create({
     data: {
       projectId: project.id,
-      patType: 'SLT',
-      status: 'PASSED',
+      patType: 'SLT_PAT',
+      status: 'COMPLETED',
       sltOfficers: { officers: ['QA SLT Officer'] },
       totalPoints: 1,
       passedPoints: 1,

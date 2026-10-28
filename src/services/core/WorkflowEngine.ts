@@ -292,18 +292,18 @@ export class WorkflowEngine {
     }
     if (stageName.includes('in-house pat')) {
       const passedInHousePat = await prisma.pATSession.count({
-        where: { projectId, patType: 'PRE_PAT', status: 'COMPLETED' },
+        where: { projectId, patType: { in: ['PRE_PAT', 'IN_HOUSE'] }, status: { in: ['COMPLETED', 'PASSED'] } },
       });
       if (passedInHousePat === 0) errors.push('A completed in-house PAT session is required.');
     }
     if (stageName === 'slt pat') {
       const passedSltPat = await prisma.pATSession.count({
-        where: { projectId, patType: 'SLT_PAT', status: 'COMPLETED' },
+        where: { projectId, patType: { in: ['SLT_PAT', 'SLT'] }, status: { in: ['COMPLETED', 'PASSED'] } },
       });
       if (passedSltPat === 0) errors.push('A completed SLT PAT session is required.');
     }
     if (stageName.includes('as-built')) {
-      const asBuiltCount = await prisma.projectDocument.count({ where: { projectId, category: { in: ['AS_BUILT', 'CAD_AS_BUILT', 'QGIS_AS_BUILT'] }, status: 'APPROVED' } });
+      const asBuiltCount = await prisma.projectDocument.count({ where: { projectId, category: { in: ['AS_BUILT', 'AS_BUILT_CAD', 'CAD_AS_BUILT', 'QGIS_AS_BUILT'] }, status: 'APPROVED' } });
       const source = stage.projectWorkflowInstance.project.planningSource?.toUpperCase();
       if (asBuiltCount === 0) {
         errors.push(source === 'CAD'

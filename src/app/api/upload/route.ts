@@ -130,7 +130,12 @@ export const POST = apiHandler(async (req) => {
 
     // File type whitelisting and size limiting
     const ext = (path.extname(file.name) || '.jpg').toLowerCase();
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.doc', '.docx', '.svg', '.xlsx', '.xls', '.csv'];
+    const allowedExtensions = [
+        '.jpg', '.jpeg', '.png', '.webp', '.pdf', '.doc', '.docx', '.svg',
+        '.xlsx', '.xls', '.csv',
+        // Project design and as-built packages may be CAD-only when GIS is unavailable.
+        '.dxf', '.dwg',
+    ];
     
     if (!allowedExtensions.includes(ext)) {
         console.error("[UPLOAD-API] Blocked forbidden file extension:", ext);
