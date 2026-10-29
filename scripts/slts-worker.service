@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/var/www/sltserp
-ExecStart=/usr/bin/npm run worker:start
+ExecStart=/usr/bin/pnpm run worker:start
 Restart=always
 RestartSec=10
 Environment=NODE_ENV=production

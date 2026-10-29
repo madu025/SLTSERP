@@ -41,26 +41,66 @@ interface FinanceStats {
 }
 
 const hasValue = (val: number | null | undefined) => Number(val || 0) > 0;
+const FINANCE_REQUEST_TIMEOUT_MS = 12_000;
 
 function Money({ value, className = '' }: { value: number; className?: string }) {
     return <span className={className}>{formatLKR(value)}</span>;
 }
 
-export default function FinanceSection({ rtom = 'ALL' }: { rtom?: string }) {
-    const { data, isLoading, error } = useQuery<FinanceStats>({
+interface FinanceSectionProps {
+    rtom?: string;
+    enabled?: boolean;
+}
+
+export default function FinanceSection({ rtom = 'ALL', enabled = true }: FinanceSectionProps) {
+    const { data, isLoading, isFetching, error, refetch } = useQuery<FinanceStats>({
         queryKey: ['dashboard-finance', rtom],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const params = new URLSearchParams({ rtom });
-            const resp = await fetch(`/api/dashboard/finance?${params}`);
-            if (!resp.ok) throw new Error('Failed to fetch finance stats');
-            return resp.json();
+            const controller = new AbortController();
+            let timedOut = false;
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, FINANCE_REQUEST_TIMEOUT_MS);
+            const abortFromQuery = () => controller.abort();
+            signal.addEventListener('abort', abortFromQuery, { once: true });
+
+            try {
+                const resp = await fetch(`/api/dashboard/finance?${params}`, { signal: controller.signal });
+                if (!resp.ok) {
+                    const requestError = new Error(`Finance data request failed (${resp.status}).`) as Error & { status?: number };
+                    requestError.status = resp.status;
+                    throw requestError;
+                }
+                return resp.json() as Promise<FinanceStats>;
+            } catch (requestError) {
+                if (timedOut) throw new Error('Finance data is taking too long to respond. Check your connection and retry.');
+                throw requestError;
+            } finally {
+                clearTimeout(timeoutId);
+                signal.removeEventListener('abort', abortFromQuery);
+            }
         },
         staleTime: 5 * 60 * 1000, // 5 mins
+        gcTime: 30 * 60 * 1000,
+        enabled,
+        retry: (failureCount, requestError) => {
+            const status = (requestError as Error & { status?: number }).status;
+            if (status && status >= 400 && status < 500) return false;
+            return failureCount < 1;
+        },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
     });
+
+    if (!enabled) return null;
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6" role="status" aria-live="polite">
+                <p className="px-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Loading finance dashboard data…</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Skeleton className="h-32 rounded-xl" />
                     <Skeleton className="h-32 rounded-xl" />
@@ -75,8 +115,23 @@ export default function FinanceSection({ rtom = 'ALL' }: { rtom?: string }) {
         );
     }
 
-    if (error || !data) {
-        return <div className="text-red-500">Failed to load finance data.</div>;
+    if (error && !data) {
+        return (
+            <div className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100" role="alert">
+                <span>{(error as Error).message || 'Finance data could not be loaded.'}</span>
+                <button type="button" onClick={() => void refetch()} disabled={isFetching} className="w-fit rounded-md bg-rose-700 px-3 py-2 font-semibold text-white hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60 dark:bg-rose-600 dark:hover:bg-rose-500">
+                    {isFetching ? 'Retrying…' : 'Retry'}
+                </button>
+            </div>
+        );
+    }
+    if (!data) {
+        return (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100" role="alert">
+                Finance data was not returned. Please retry.
+                <button type="button" onClick={() => void refetch()} className="ml-3 font-semibold underline underline-offset-2">Retry</button>
+            </div>
+        );
     }
 
     const trend = data.revenueTrend || [];
@@ -116,6 +171,13 @@ export default function FinanceSection({ rtom = 'ALL' }: { rtom?: string }) {
 
     return (
         <div className="space-y-6">
+            {error && (
+                <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <span>Showing cached finance data. Refresh did not complete.</span>
+                    <button type="button" onClick={() => void refetch()} disabled={isFetching} className="font-semibold underline underline-offset-2 disabled:cursor-wait disabled:opacity-60">{isFetching ? 'Retrying…' : 'Retry'}</button>
+                </div>
+            )}
+            {isFetching && !error && <p className="text-xs font-medium text-slate-700 dark:text-slate-300" role="status">Refreshing finance data…</p>}
             {(data.dataQuality?.invalidFinancialSnapshotCount ?? 0) > 0 && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
                     <p className="font-bold">Finance data validation warning</p>

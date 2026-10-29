@@ -1,17 +1,18 @@
 import { DashboardAlertService } from '@/services/core/dashboard-alert.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request) => {
-    const userId = request.headers.get('x-user-id');
-    const userRole = request.headers.get('x-user-role');
-
-    if (!userId || !userRole) {
+export const GET = apiHandler(async (_request, params) => {
+    const userId = params._userId;
+    if (!userId) {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    const data = await DashboardAlertService.getDashboardAlerts(userId, userRole);
-    return data;
-}, { rawResponse: true });
+    return DashboardAlertService.getDashboardAlerts(userId);
+}, {
+    permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
+    rawResponse: true
+});

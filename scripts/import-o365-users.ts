@@ -8,8 +8,8 @@
  *  - Username: email local part
  *
  * Usage:
- *   npx tsx scripts/import-o365-users.ts --dry-run
- *   npx tsx scripts/import-o365-users.ts
+ *   pnpm exec tsx scripts/import-o365-users.ts --dry-run
+ *   pnpm exec tsx scripts/import-o365-users.ts
  */
 import * as XLSX from 'xlsx';
 import { prisma } from '../src/lib/prisma';

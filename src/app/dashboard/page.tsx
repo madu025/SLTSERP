@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardFilters, StatsCardGrid, DashboardError, FinanceSection, InventorySection, ProjectsSection, ProcurementSection } from './components';
-import type { Stats } from './components';
+import type { DashboardFilterMetadata, Stats } from './components';
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS, hasRole, isContractorRole } from '@/config/roles';
 import { hasAccess } from '@/config/sidebar-menu';
@@ -20,6 +20,7 @@ import { getMenuAllowedRoles } from '@/config/route-permissions';
 import ExecutiveControlTower from './components/ExecutiveControlTower';
 
 const DASHBOARD_ALLOWED_ROLES = getMenuAllowedRoles('/dashboard') || [];
+const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
 
 const getDefaultTabForRole = (role?: string) => {
     if (!role) return 'operations';
@@ -95,39 +96,18 @@ export default function DashboardPage() {
         }
     }, [user, router]);
 
-    const { data: stats, isLoading, error, refetch } = useQuery<Stats>({
-        queryKey: ['dashboard-stats', user?.id || 'guest', selectedRegion, selectedRtom],
-        queryFn: async () => {
-            if (!user?.id) return null;
-            const params = new URLSearchParams({ userId: user.id, region: selectedRegion, rtom: selectedRtom });
-            const resp = await fetch(`/api/dashboard/stats?${params}`);
-            if (!resp.ok) {
-                if (resp.status === 403) {
-                    throw new Error('Please change your password to access dashboard data');
-                }
-                throw new Error('Failed to fetch stats');
-            }
-            return resp.json();
-        },
-        enabled: !!user?.id,
-        staleTime: 5 * 60 * 1000,
-        gcTime: 30 * 60 * 1000,
-        refetchInterval: 60 * 1000, // auto-refresh every minute
-        refetchIntervalInBackground: false,
-    });
-
     const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
     const isHigherManagement = hasRole(user?.role, [...ROLE_GROUPS.EXECUTIVES, 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION']);
     const canFilterGlobally = hasRole(user?.role, [...ROLE_GROUPS.EXECUTIVES, 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION']);
-    
-    // Dynamic Role-gated tab visibility
+
+    // Dynamic role-gated tab visibility
     const canViewFinance = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.FINANCE_READ, user?.permissions);
     const canViewInventory = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.INVENTORY_READ, user?.permissions);
     const canViewProcurement = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.PROCUREMENT_READ, user?.permissions);
     const canViewProjects = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.PROJECT_READ, user?.permissions);
     const canViewOperations = hasAccess(user?.role || '', [], !!user, undefined, RBAC_PERMISSIONS.SOD_READ, user?.permissions);
 
-    // Compute the effective default tab, ensuring it maps to a visible tab for the current role
+    // Keep the effective default mapped to a tab the current user can actually see.
     const effectiveDefaultTab = useMemo(() => {
         const defaultTab = getDefaultTabForRole(user?.role);
         const tabVisibility: Record<string, boolean> = {
@@ -138,7 +118,6 @@ export default function DashboardPage() {
             inventory: canViewInventory,
         };
         if (tabVisibility[defaultTab]) return defaultTab;
-        // Fallback to first visible tab in priority order
         const priority = ['operations', 'projects', 'procurement', 'finance', 'inventory'];
         return priority.find(t => tabVisibility[t]) || 'operations';
     }, [user?.role, canViewOperations, canViewProjects, canViewProcurement, canViewFinance, canViewInventory]);
@@ -149,8 +128,114 @@ export default function DashboardPage() {
         setActiveTab(effectiveDefaultTab);
     }, [effectiveDefaultTab]);
 
-    const rtomRegionMap = stats?.rtomRegionMap;
-    const userAccessibleRtoms = stats?.userAccessibleRtoms;
+    const isOperationsStats = activeTab === 'operations';
+    // DashboardFilters needs region/RTOM metadata even when a user lands directly
+    // on a non-Operations tab. Keep that metadata request separate so the heavy
+    // Operations aggregates are fetched only when the Operations tab is active.
+    const statsRegion = selectedRegion;
+    const statsRtom = selectedRtom;
+    const statsQueryKey = [
+        'dashboard-stats',
+        user?.id || 'guest',
+        isOperationsStats ? selectedRegion : 'filter-metadata',
+        statsRtom,
+    ];
+
+    const { data: stats, isLoading: statsIsLoading, error: statsError, refetch: refetchStats } = useQuery<Stats>({
+        queryKey: statsQueryKey,
+        queryFn: async ({ signal }) => {
+            if (!user?.id) throw new Error('Dashboard user is not available');
+            const params = new URLSearchParams({ userId: user.id, region: statsRegion, rtom: statsRtom });
+            const controller = new AbortController();
+            let timedOut = false;
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, DASHBOARD_STATS_REQUEST_TIMEOUT_MS);
+            const abortFromQuery = () => controller.abort();
+            signal.addEventListener('abort', abortFromQuery, { once: true });
+
+            try {
+                const resp = await fetch(`/api/dashboard/stats?${params}`, { signal: controller.signal });
+                if (!resp.ok) {
+                    if (resp.status === 403) {
+                        throw new Error('Please change your password to access dashboard data');
+                    }
+                    const requestError = new Error(`Dashboard stats request failed (${resp.status}).`) as Error & { status?: number };
+                    requestError.status = resp.status;
+                    throw requestError;
+                }
+                return resp.json() as Promise<Stats>;
+            } catch (requestError) {
+                if (timedOut) throw new Error('Dashboard data is taking too long to respond. Check your connection and retry.');
+                throw requestError;
+            } finally {
+                clearTimeout(timeoutId);
+                signal.removeEventListener('abort', abortFromQuery);
+            }
+        },
+        enabled: !!user?.id && isOperationsStats,
+        staleTime: 5 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+        refetchInterval: isOperationsStats ? 60 * 1000 : false, // Operations-only auto-refresh
+        refetchIntervalInBackground: false,
+        retry: (failureCount, requestError) => {
+            const status = (requestError as Error & { status?: number }).status;
+            if (status && status >= 400 && status < 500) return false;
+            return failureCount < 1;
+        },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+    });
+
+    const { data: filterMetadata, isLoading: isFilterMetadataLoading, error: filterMetadataError, refetch: refetchFilterMetadata } = useQuery<DashboardFilterMetadata>({
+        queryKey: ['dashboard-filter-metadata', user?.id || 'guest'],
+        queryFn: async ({ signal }) => {
+            const controller = new AbortController();
+            let timedOut = false;
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, DASHBOARD_STATS_REQUEST_TIMEOUT_MS);
+            const abortFromQuery = () => controller.abort();
+            signal.addEventListener('abort', abortFromQuery, { once: true });
+
+            try {
+                const response = await fetch('/api/dashboard/filter-metadata', { signal: controller.signal });
+                if (!response.ok) {
+                    const requestError = new Error(`Dashboard filter metadata request failed (${response.status}).`) as Error & { status?: number };
+                    requestError.status = response.status;
+                    throw requestError;
+                }
+                return response.json() as Promise<DashboardFilterMetadata>;
+            } catch (requestError) {
+                if (timedOut) throw new Error('Dashboard filters are taking too long to respond. Check your connection and retry.');
+                throw requestError;
+            } finally {
+                clearTimeout(timeoutId);
+                signal.removeEventListener('abort', abortFromQuery);
+            }
+        },
+        enabled: !!user?.id && !isOperationsStats,
+        staleTime: 15 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+        retry: (failureCount, requestError) => {
+            const status = (requestError as Error & { status?: number }).status;
+            if (status && status >= 400 && status < 500) return false;
+            return failureCount < 1;
+        },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+    });
+
+    const filterData = isOperationsStats ? stats : filterMetadata;
+    const isLoading = isOperationsStats ? statsIsLoading : isFilterMetadataLoading;
+    const error = isOperationsStats ? statsError : filterMetadataError;
+    const refetch = isOperationsStats ? refetchStats : refetchFilterMetadata;
+    const rtomRegionMap = filterData?.rtomRegionMap;
+    const userAccessibleRtoms = filterData?.userAccessibleRtoms;
 
     // Compute available RTOMs based on selected region
     const availableRtoms = useMemo(() => {
@@ -235,7 +320,7 @@ export default function DashboardPage() {
                                 onRtomChange={setSelectedRtom}
                                 onClearFilters={() => { setSelectedRegion('ALL'); setSelectedRtom('ALL'); }}
                                 canFilterGlobally={canFilterGlobally}
-                                availableRegions={stats?.availableRegions}
+                                availableRegions={filterData?.availableRegions}
                                 availableRtoms={availableRtoms}
                                 isAreaCoordinator={isAreaCoordinator}
                                 isLoading={isLoading}
@@ -252,7 +337,7 @@ export default function DashboardPage() {
                                 
                                 {canViewOperations && (
                                     <TabsContent value="operations" className="space-y-6">
-                                        <ExecutiveControlTower />
+                                        <ExecutiveControlTower enabled={activeTab === 'operations'} />
                                         {/* PAT Rejection Alert — scoped to Operations tab only */}
                                         {(stats?.pat?.rejected || 0) > 0 && (
                                             <Link
@@ -292,25 +377,25 @@ export default function DashboardPage() {
                                 
                                 {canViewProjects && (
                                     <TabsContent value="projects" className="space-y-6">
-                                        <ProjectsSection user={user} />
+                                        <ProjectsSection user={user} enabled={activeTab === 'projects'} />
                                     </TabsContent>
                                 )}
 
                                 {canViewProcurement && (
                                     <TabsContent value="procurement" className="space-y-6">
-                                        <ProcurementSection rtom={selectedRtom} />
+                                        <ProcurementSection rtom={selectedRtom} enabled={activeTab === 'procurement'} />
                                     </TabsContent>
                                 )}
 
                                 {canViewFinance && (
                                     <TabsContent value="finance" className="space-y-6">
-                                        <FinanceSection rtom={selectedRtom} />
+                                        <FinanceSection rtom={selectedRtom} enabled={activeTab === 'finance'} />
                                     </TabsContent>
                                 )}
 
                                 {canViewInventory && (
                                     <TabsContent value="inventory" className="space-y-6">
-                                        <InventorySection rtom={selectedRtom} />
+                                        <InventorySection rtom={selectedRtom} enabled={activeTab === 'inventory'} />
                                     </TabsContent>
                                 )}
                             </Tabs>

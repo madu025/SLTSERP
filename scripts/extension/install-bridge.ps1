@@ -201,7 +201,7 @@ function Show-Amo {
     if ($PSCmdlet.ShouldProcess($outDir, 'sign the Firefox .xpi via the AMO API')) {
         $null = New-FirefoxXpi   # re-stages the patched sources into $StageRoot\firefox\v$Version
         New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-        & npx --yes web-ext sign `
+        & pnpm exec web-ext sign `
             --source-dir (Join-Path $StageRoot "firefox\v$Version") `
             --artifacts-dir $outDir `
             --channel unlisted `

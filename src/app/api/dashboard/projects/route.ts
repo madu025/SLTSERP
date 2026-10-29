@@ -1,17 +1,23 @@
 import { ProjectDashboardService } from '@/services/project/project-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request) => {
-    const userId = request.headers.get('x-user-id');
-    const userRole = request.headers.get('x-user-role');
+export const GET = apiHandler(async (request, params) => {
+    const userId = params._userId;
+    const userRole = params._userRole;
 
     if (!userId || !userRole) {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    const data = await ProjectDashboardService.getProjectOverview(userId, userRole);
+    const { searchParams } = new URL(request.url);
+    const fullView = searchParams.get('view') === 'full';
+    const includeRecentActivities = searchParams.get('includeRecentActivities') !== 'false';
+    const data = fullView
+        ? await ProjectDashboardService.getProjectOverview(userId, userRole)
+        : await ProjectDashboardService.getProjectOverviewSummary(userId, userRole, { includeRecentActivities });
     return data;
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });

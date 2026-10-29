@@ -102,19 +102,20 @@ export class ExecutiveDashboardService {
   }
 
   private static async getBudgetStats(where: Prisma.ProjectWhereInput) {
-    const stats = await prisma.project.aggregate({
-      where,
-      _sum: { budget: true, actualCost: true, variance: true },
-      _avg: { progress: true },
-    });
+    const [stats, overBudget] = await Promise.all([
+      prisma.project.aggregate({
+        where,
+        _sum: { budget: true, actualCost: true, variance: true },
+        _avg: { progress: true },
+      }),
+      prisma.project.count({
+        where: { ...where, variance: { lt: 0 } },
+      }),
+    ]);
 
     const totalBudget = Number(stats._sum.budget ?? 0);
     const totalSpent = Number(stats._sum.actualCost ?? 0);
     const totalVariance = Number(stats._sum.variance ?? 0);
-
-    const overBudget = await prisma.project.count({
-      where: { ...where, variance: { lt: 0 } },
-    });
 
     return {
       totalBudget,
@@ -132,33 +133,54 @@ export class ExecutiveDashboardService {
   }
 
   private static async getPATStats(scope: Scope) {
-    const patSessions = await prisma.pATSession.findMany({
-      where: { projectId: { in: scope.projectIds } },
-      select: { status: true, patType: true, passRate: true },
-    });
+    const projectScope: Prisma.PATSessionWhereInput = { projectId: { in: scope.projectIds } };
+    const terminalScope: Prisma.PATSessionWhereInput = {
+      ...projectScope,
+      status: { in: ['COMPLETED', 'FAILED'] },
+    };
+    const [sessionCount, statusGroups, terminalTypeGroups, terminalStats] = await Promise.all([
+      prisma.pATSession.count({ where: projectScope }),
+      prisma.pATSession.groupBy({
+        by: ['status'],
+        where: projectScope,
+        _count: { _all: true },
+      }),
+      prisma.pATSession.groupBy({
+        by: ['patType'],
+        where: terminalScope,
+        _count: { _all: true },
+      }),
+      prisma.pATSession.aggregate({
+        where: terminalScope,
+        _avg: { passRate: true },
+      }),
+    ]);
 
-    const terminalPAT = patSessions.filter((session) => ['COMPLETED', 'FAILED'].includes(session.status));
-    const completed = terminalPAT.filter((session) => session.status === 'COMPLETED').length;
-    const prePAT = terminalPAT.filter((session) => session.patType === 'PRE_PAT');
-    const sltPAT = terminalPAT.filter((session) => session.patType === 'SLT_PAT');
-    const passRates = terminalPAT.filter((session) => session.passRate !== null);
-    const avgPassRate = passRates.length > 0
-      ? passRates.reduce((sum, session) => sum + Number(session.passRate), 0) / passRates.length
-      : null;
+    const countForStatus = (status: string) =>
+      statusGroups.find((group) => group.status === status)?._count._all ?? 0;
+    const completed = countForStatus('COMPLETED');
+    const failed = countForStatus('FAILED');
+    const cancelled = countForStatus('CANCELLED');
+    const total = completed + failed;
+    const prePATCount = terminalTypeGroups.find((group) => group.patType === 'PRE_PAT')?._count._all ?? 0;
+    const sltPATCount = terminalTypeGroups.find((group) => group.patType === 'SLT_PAT')?._count._all ?? 0;
+    const avgPassRate = terminalStats._avg.passRate === null
+      ? null
+      : Number(terminalStats._avg.passRate);
 
     return {
       // Keep the legacy terminal-session semantics for existing consumers;
       // sessionCount/open expose the broader control-tower view.
-      total: terminalPAT.length,
-      sessionCount: patSessions.length,
+      total,
+      sessionCount,
       completed,
       passed: completed,
-      failed: patSessions.filter((session) => session.status === 'FAILED').length,
-      open: patSessions.filter((session) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(session.status)).length,
-      passRate: terminalPAT.length > 0 ? Math.round((completed / terminalPAT.length) * 100) : 0,
+      failed,
+      open: Math.max(0, sessionCount - total - cancelled),
+      passRate: total > 0 ? Math.round((completed / total) * 100) : 0,
       avgPassRate: avgPassRate === null ? null : Math.round(avgPassRate),
-      prePATCount: prePAT.length,
-      sltPATCount: sltPAT.length,
+      prePATCount,
+      sltPATCount,
       definitions: {
         completed: "PATSession.status = 'COMPLETED'.",
         failed: "PATSession.status = 'FAILED'.",

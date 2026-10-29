@@ -13,7 +13,7 @@
  *  - getAccessibleStores() returns an empty set for this user (no assigned
  *    store, no OPMCs, non-admin role)
  *
- * Usage: npx tsx scripts/create-qa-audit-user.ts [--dry-run]
+ * Usage: pnpm exec tsx scripts/create-qa-audit-user.ts [--dry-run]
  */
 import { PrismaClient } from '@prisma/client';
 import { UserService } from '../src/services/hr/user.service';

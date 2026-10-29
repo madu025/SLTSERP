@@ -6,7 +6,7 @@
  * 
  * Workflow:
  *   1. Edit prisma/triggers.json (change timing, table, function, add/remove)
- *   2. npx tsx scripts/sync-triggers.ts
+ *   2. pnpm exec tsx scripts/sync-triggers.ts
  *   3. Commit the generated migration file
  *   4. Deploy: prisma migrate deploy
  * 

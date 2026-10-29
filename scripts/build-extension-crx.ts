@@ -1,9 +1,9 @@
 /**
  * Build SLT Bridge Extension .crx file
- * Usage: npx tsx scripts/build-extension-crx.ts
+ * Usage: pnpm exec tsx scripts/build-extension-crx.ts
  * 
  * This script uses the crx CLI to pack the extension.
- * Alternative: npx crx pack public/slt-bridge -o public/slt-bridge.crx -p public/slt-bridge.pem
+ * Alternative: pnpm exec crx pack public/slt-bridge -o public/slt-bridge.crx -p public/slt-bridge.pem
  */
 import { execSync } from 'child_process';
 import * as fs from 'fs';
@@ -25,14 +25,14 @@ async function main() {
     // Check if .pem file exists
     if (!fs.existsSync(PEM_FILE)) {
         console.error(`PEM file not found: ${PEM_FILE}`);
-        console.log('Generate a new key pair using: npx crx keygen public');
+        console.log('Generate a new key pair using: pnpm exec crx keygen public');
         process.exit(1);
     }
 
     // Pack the extension using crx CLI
     console.log('Packing extension...');
     try {
-        execSync(`npx crx pack ${EXTENSION_DIR} -o ${OUTPUT_FILE} -p ${PEM_FILE}`, {
+        execSync(`pnpm exec crx pack ${EXTENSION_DIR} -o ${OUTPUT_FILE} -p ${PEM_FILE}`, {
             stdio: 'inherit'
         });
         console.log(`\nExtension packed successfully!`);

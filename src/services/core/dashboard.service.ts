@@ -38,54 +38,73 @@ export class DashboardService {
             ]
         };
 
-        // 1. Unbilled WIP Revenue (Service Orders Completed but not invoiced)
-        const wipSods = await prisma.serviceOrder.aggregate({
-            where: {
-                AND: [
-                    whereClause,
-                    financialCompletionWhere,
-                    { revenueAmount: { not: null } },
-                    { contractorAmount: { not: null } }
-                ],
-                invoiced: false,
-                invoiceId: null
-            },
-            _sum: {
-                revenueAmount: true,
-                contractorAmount: true
-            }
-        });
+        // Finance rows must remain inside the caller's OPMC scope even when
+        // their RTOM value is shared with another OPMC. Global/admin scope is
+        // represented by undefined; an empty resolved scope denies all rows.
+        const serviceOrderOpmcScope: Prisma.ServiceOrderWhereInput = accessibleOpmcs === undefined
+            ? {}
+            : { opmcId: { in: accessibleOpmcs } };
 
-        const unbilledRevenue = wipSods._sum.revenueAmount || 0;
-        const unbilledContractorPayout = wipSods._sum.contractorAmount || 0;
+        const invoiceOpmcScope: Prisma.InvoiceWhereInput | undefined = accessibleOpmcs === undefined
+            ? undefined
+            : {
+                OR: [
+                    { project: { opmcId: { in: accessibleOpmcs } } },
+                    { sods: { some: { opmcId: { in: accessibleOpmcs } } } }
+                ]
+            };
 
-        // 2. Invoice Aging & Contractor Payouts (From Invoices)
         const invoiceWhere: Prisma.InvoiceWhereInput = {};
         if (scopedRtoms !== undefined) {
             invoiceWhere.rtomArea = { in: scopedRtoms };
         } else if (rtom !== 'ALL') {
             invoiceWhere.rtomArea = rtom;
         }
+        if (invoiceOpmcScope) {
+            invoiceWhere.AND = [invoiceOpmcScope];
+        }
 
-        const pendingInvoicesA = await prisma.invoice.aggregate({
-            where: {
-                ...invoiceWhere,
-                statusA: 'PENDING'
-            },
-            _sum: {
-                amountA: true
-            }
-        });
+        // 1. Unbilled WIP Revenue (Service Orders Completed but not invoiced)
+        const [wipSods, pendingInvoicesA, pendingInvoicesB] = await Promise.all([
+            prisma.serviceOrder.aggregate({
+                where: {
+                    AND: [
+                        whereClause,
+                        serviceOrderOpmcScope,
+                        financialCompletionWhere,
+                        { revenueAmount: { not: null } },
+                        { contractorAmount: { not: null } }
+                    ],
+                    invoiced: false,
+                    invoiceId: null
+                },
+                _sum: {
+                    revenueAmount: true,
+                    contractorAmount: true
+                }
+            }),
+            prisma.invoice.aggregate({
+                where: {
+                    ...invoiceWhere,
+                    statusA: 'PENDING'
+                },
+                _sum: {
+                    amountA: true
+                }
+            }),
+            prisma.invoice.aggregate({
+                where: {
+                    ...invoiceWhere,
+                    statusB: { in: ['HOLD', 'PENDING'] }
+                },
+                _sum: {
+                    amountB: true
+                }
+            })
+        ]);
 
-        const pendingInvoicesB = await prisma.invoice.aggregate({
-            where: {
-                ...invoiceWhere,
-                statusB: { in: ['HOLD', 'PENDING'] }
-            },
-            _sum: {
-                amountB: true
-            }
-        });
+        const unbilledRevenue = wipSods._sum.revenueAmount || 0;
+        const unbilledContractorPayout = wipSods._sum.contractorAmount || 0;
 
         const pendingPayoutA = Number(pendingInvoicesA._sum.amountA || 0);
         const pendingPayoutB = Number(pendingInvoicesB._sum.amountB || 0);
@@ -97,14 +116,26 @@ export class DashboardService {
         trendStart.setMonth(trendStart.getMonth() - 5, 1);
         trendStart.setHours(0, 0, 0, 0);
 
-        const completedSods = await prisma.serviceOrder.findMany({
-            where: {
-                AND: [whereClause, financialCompletionWhere],
-                completedDate: { gte: trendStart },
-                revenueAmount: { not: null }
-            },
-            select: { completedDate: true, revenueAmount: true }
-        });
+        const [completedSods, outstandingInvoices] = await Promise.all([
+            prisma.serviceOrder.findMany({
+                where: {
+                    AND: [whereClause, serviceOrderOpmcScope, financialCompletionWhere],
+                    completedDate: { gte: trendStart },
+                    revenueAmount: { not: null }
+                },
+                select: { completedDate: true, revenueAmount: true }
+            }),
+            prisma.invoice.findMany({
+                where: {
+                    ...invoiceWhere,
+                    OR: [
+                        { statusA: 'PENDING' },
+                        { statusB: { in: ['HOLD', 'PENDING'] } }
+                    ]
+                },
+                select: { date: true, dueDate: true, createdAt: true, amountA: true, amountB: true, statusA: true, statusB: true }
+            })
+        ]);
 
         const now = new Date();
         const trendBuckets: { month: string; year: number; revenue: number; count: number }[] = [];
@@ -131,17 +162,6 @@ export class DashboardService {
         const revenueTrend = trendBuckets.map(b => ({ month: b.month, year: b.year, revenue: b.revenue, count: b.count }));
 
         // 4. Payment Aging Analysis (outstanding payout amounts by invoice age)
-        const outstandingInvoices = await prisma.invoice.findMany({
-            where: {
-                ...invoiceWhere,
-                OR: [
-                    { statusA: 'PENDING' },
-                    { statusB: { in: ['HOLD', 'PENDING'] } }
-                ]
-            },
-            select: { date: true, dueDate: true, createdAt: true, amountA: true, amountB: true, statusA: true, statusB: true }
-        });
-
         const aging = { within30: 0, days31To60: 0, days61To90: 0, over90: 0 };
         const today = Date.now();
         for (const inv of outstandingInvoices) {
@@ -176,26 +196,29 @@ export class DashboardService {
         const invoiceCount = invoiceTotals._count._all;
         const averageInvoiceAmount = Number(invoiceTotals._avg.amount || 0);
 
-        const invalidFinancialSnapshotCount = await prisma.serviceOrder.count({
-            where: {
-                AND: [
-                    whereClause,
-                    financialCompletionWhere,
-                    { OR: [{ revenueAmount: null }, { contractorAmount: null }] }
-                ]
-            }
-        });
-
-        const invalidInvoicableSnapshotCount = await prisma.serviceOrder.count({
-            where: {
-                AND: [
-                    whereClause,
-                    financialCompletionWhere,
-                    { isInvoicable: true },
-                    { OR: [{ revenueAmount: null }, { contractorAmount: null }] }
-                ]
-            }
-        });
+        const [invalidFinancialSnapshotCount, invalidInvoicableSnapshotCount] = await Promise.all([
+            prisma.serviceOrder.count({
+                where: {
+                    AND: [
+                        whereClause,
+                        serviceOrderOpmcScope,
+                        financialCompletionWhere,
+                        { OR: [{ revenueAmount: null }, { contractorAmount: null }] }
+                    ]
+                }
+            }),
+            prisma.serviceOrder.count({
+                where: {
+                    AND: [
+                        whereClause,
+                        serviceOrderOpmcScope,
+                        financialCompletionWhere,
+                        { isInvoicable: true },
+                        { OR: [{ revenueAmount: null }, { contractorAmount: null }] }
+                    ]
+                }
+            })
+        ]);
 
         return {
             unbilledRevenue,
@@ -236,15 +259,57 @@ export class DashboardService {
             storeWhere.opmcs = { some: { AND: opmcConditions } };
         }
 
-        const lowStockStock = await prisma.inventoryStock.findMany({
-            where: {
-                store: storeWhere
-            },
-            include: {
-                item: { select: { name: true, code: true, minLevel: true } },
-                store: { select: { name: true } }
-            },
-        });
+        const projectOpmcConditions: Prisma.OPMCWhereInput[] = [];
+        if (rtom !== 'ALL') projectOpmcConditions.push({ rtom });
+        if (accessibleOpmcs !== undefined) {
+            projectOpmcConditions.push({ id: { in: accessibleOpmcs.length > 0 ? accessibleOpmcs : [NIL_UUID] } });
+        }
+        const projectWhere: Prisma.ProjectWhereInput = projectOpmcConditions.length > 0
+            ? { opmc: projectOpmcConditions.length === 1 ? projectOpmcConditions[0] : { AND: projectOpmcConditions } }
+            : {};
+
+        const [lowStockStock, pendingMRNs, pendingGRNs, negativeStockCount, materialUsageMissingCostCount] = await Promise.all([
+            prisma.inventoryStock.findMany({
+                where: {
+                    store: storeWhere
+                },
+                include: {
+                    item: { select: { name: true, code: true, minLevel: true } },
+                    store: { select: { name: true } }
+                },
+            }),
+            prisma.stockRequest.count({
+                where: {
+                    status: 'PENDING',
+                    fromStore: storeWhere
+                }
+            }),
+            prisma.projectGoodsReceipt.count({
+                where: { status: 'PENDING', project: projectWhere }
+            }),
+            prisma.inventoryStock.count({
+                where: {
+                    store: storeWhere,
+                    quantity: { lt: 0 }
+                }
+            }),
+            prisma.sODMaterialUsage.count({
+                where: {
+                    // Match invoice validation and valuation: a positive unitPrice
+                    // is a valid fallback when costPrice is unset/zero.
+                    AND: [
+                        { OR: [{ costPrice: null }, { costPrice: { lte: 0 } }] },
+                        { OR: [{ unitPrice: null }, { unitPrice: { lte: 0 } }] }
+                    ],
+                    serviceOrder: {
+                        ...(rtom !== 'ALL' ? { rtom } : {}),
+                        ...(accessibleOpmcs !== undefined
+                            ? { opmcId: { in: accessibleOpmcs.length > 0 ? accessibleOpmcs : [NIL_UUID] } }
+                            : {})
+                    }
+                }
+            })
+        ]);
 
         const lowStockItems = lowStockStock
             .map(stock => {
@@ -270,50 +335,6 @@ export class DashboardService {
                 void ignoredLow;
                 return stock;
             });
-
-        const pendingMRNs = await prisma.stockRequest.count({
-            where: {
-                status: 'PENDING',
-                fromStore: storeWhere
-            }
-        });
-
-        const projectOpmcConditions: Prisma.OPMCWhereInput[] = [];
-        if (rtom !== 'ALL') projectOpmcConditions.push({ rtom });
-        if (accessibleOpmcs !== undefined) {
-            projectOpmcConditions.push({ id: { in: accessibleOpmcs.length > 0 ? accessibleOpmcs : [NIL_UUID] } });
-        }
-        const projectWhere: Prisma.ProjectWhereInput = projectOpmcConditions.length > 0
-            ? { opmc: projectOpmcConditions.length === 1 ? projectOpmcConditions[0] : { AND: projectOpmcConditions } }
-            : {};
-
-        const pendingGRNs = await prisma.projectGoodsReceipt.count({
-            where: { status: 'PENDING', project: projectWhere }
-        });
-
-        const negativeStockCount = await prisma.inventoryStock.count({
-            where: {
-                store: storeWhere,
-                quantity: { lt: 0 }
-            }
-        });
-
-        const materialUsageMissingCostCount = await prisma.sODMaterialUsage.count({
-            where: {
-                // Match invoice validation and valuation: a positive unitPrice
-                // is a valid fallback when costPrice is unset/zero.
-                AND: [
-                    { OR: [{ costPrice: null }, { costPrice: { lte: 0 } }] },
-                    { OR: [{ unitPrice: null }, { unitPrice: { lte: 0 } }] }
-                ],
-                serviceOrder: {
-                    ...(rtom !== 'ALL' ? { rtom } : {}),
-                    ...(accessibleOpmcs !== undefined
-                        ? { opmcId: { in: accessibleOpmcs.length > 0 ? accessibleOpmcs : [NIL_UUID] } }
-                        : {})
-                }
-            }
-        });
 
         return {
             lowStockItems,

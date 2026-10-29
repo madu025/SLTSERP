@@ -76,32 +76,60 @@ const delayBadge = (status: string) => {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-LK", { style: "currency", currency: "LKR", minimumFractionDigits: 0 }).format(value);
 
+const PROJECTS_REQUEST_TIMEOUT_MS = 12_000;
+
 export default function PMDashboardPage() {
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [statusBreakdown, setStatusBreakdown] = useState<StatusEntry[]>([]);
   const [delayedProjects, setDelayedProjects] = useState<DelayedProject[]>([]);
   const [recentActivities, setRecentActivities] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    let timedOut = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, PROJECTS_REQUEST_TIMEOUT_MS);
+
     const fetchStats = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const res = await fetch("/api/dashboard/projects");
-        if (!res.ok) throw new Error("Failed to load stats");
+        const res = await fetch("/api/dashboard/projects?includeRecentActivities=true", {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Project dashboard request failed (${res.status}).`);
         const data = await res.json();
+        if (cancelled) return;
         setOverview(data.overview);
         setStatusBreakdown(data.statusBreakdown ?? []);
         setDelayedProjects(data.delayedProjects ?? []);
         setRecentActivities(data.recentActivities ?? []);
-      } catch (error) {
-        console.error(error);
+      } catch (requestError) {
+        if (cancelled) return;
+        setError(timedOut
+          ? "Project dashboard data is taking too long to respond. Check your connection and retry."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Project dashboard data could not be loaded. Please retry.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
+
     fetchStats();
-  }, []);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [retryToken]);
 
   const totalStatusCount = useMemo(() => statusBreakdown.reduce((sum, entry) => sum + entry.count, 0) || 1, [statusBreakdown]);
 
@@ -132,6 +160,21 @@ export default function PMDashboardPage() {
                 Last updated: Today
               </Button>
             </div>
+
+            {loading && (
+              <div className="mb-6 rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-medium text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-100" role="status" aria-live="polite">
+                Loading project manager dashboard data…
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-6 flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100 sm:flex-row sm:items-center sm:justify-between" role="alert">
+                <span>{error}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => setRetryToken((value) => value + 1)} disabled={loading} className="shrink-0 border-rose-300 bg-white font-semibold text-rose-900 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900">
+                  {loading ? "Retrying…" : "Retry"}
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
               <Card>
@@ -199,7 +242,11 @@ export default function PMDashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {statusCards.map((item) => (
+                    {loading && statusCards.length === 0 ? (
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Loading project status data…</p>
+                    ) : statusCards.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No project status data was returned.</p>
+                    ) : statusCards.map((item) => (
                       <div key={item.label}>
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="font-medium text-foreground">{item.label}</span>
@@ -255,7 +302,9 @@ export default function PMDashboardPage() {
                 <div className="space-y-1">
                   {loading
                     ? "Loading activities..."
-                    : recentActivities.map((activity, i) => (
+                    : recentActivities.length === 0
+                      ? "No recent project activities."
+                      : recentActivities.map((activity, i) => (
                         <div key={i} className="flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
                           <div className="mt-0.5 shrink-0">{activityIcon(activity.type)}</div>
                           <div className="flex-1 min-w-0">

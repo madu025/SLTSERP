@@ -41,6 +41,51 @@ const STATS_CACHE = new Map<string, { promise: Promise<unknown>, expiresAt: numb
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
 export class ServiceOrderDashboardService {
+    static async getDashboardFilterMetadata(userId: string) {
+        const [user, allOpmcs, accessibleOpmcScope] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    accessibleOpmcs: {
+                        select: { rtom: true }
+                    }
+                }
+            }),
+            prisma.oPMC.findMany({
+                select: { id: true, rtom: true, region: true },
+                orderBy: { rtom: 'asc' }
+            }),
+            resolveOpmcScope(userId)
+        ]);
+
+        if (!user) {
+            throw AppError.notFound('User not found');
+        }
+
+        // Filter metadata must obey the same capability-derived OPMC scope as
+        // the dashboard aggregates. Region/RTOM names are not data rows, but
+        // returning only visible options also prevents misleading filters.
+        const visibleOpmcIds = accessibleOpmcScope === undefined
+            ? undefined
+            : new Set(accessibleOpmcScope);
+        const visibleOpmcs = visibleOpmcIds === undefined
+            ? allOpmcs
+            : allOpmcs.filter(opmc => visibleOpmcIds.has(opmc.id));
+
+        const rtomRegionMap: Record<string, string> = {};
+        const availableRegions = new Set<string>();
+        visibleOpmcs.forEach(opmc => {
+            rtomRegionMap[opmc.rtom] = opmc.region;
+            availableRegions.add(opmc.region);
+        });
+
+        return {
+            availableRegions: Array.from(availableRegions).sort(),
+            rtomRegionMap,
+            userAccessibleRtoms: Array.from(new Set(user.accessibleOpmcs.map(opmc => opmc.rtom))).sort()
+        };
+    }
+
     static async getServiceOrderStats(params: { userId: string, filterRegion: string, filterRtom: string }) {
         const { userId, filterRegion, filterRtom } = params;
         const cacheKey = `${userId}_${filterRegion}_${filterRtom}`;

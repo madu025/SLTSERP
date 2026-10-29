@@ -3,7 +3,7 @@
  * imported by scripts/import-o365-users.ts (whose original audit writes
  * failed due to the AuditLog uuid column bug, fixed 2026-08-03).
  *
- * Usage: npx tsx scripts/backfill-welcome-notifications.ts
+ * Usage: pnpm exec tsx scripts/backfill-welcome-notifications.ts
  */
 import { prisma } from '../src/lib/prisma';
 import { SystemService } from '../src/services/core/system.service';

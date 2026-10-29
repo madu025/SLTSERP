@@ -1,51 +1,13 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
 import { formatDistanceToNow } from 'date-fns';
 import { Prisma } from '@prisma/client';
-import { NIL_UUID } from '@/lib/opmc-scope';
+import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
 
 export class ProjectDashboardService {
-    
-    // Internal helper to get accessible project IDs based on role
-    private static async getAccessibleProjectIds(userId: string, userRole: string): Promise<string[]> {
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as import("@prisma/client").Role);
-        let accessibleOpmcIds: string[] = [];
-
-        if (!isAdmin) {
-            const dbUser = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { accessibleOpmcs: true }
-            });
-            if (dbUser) {
-                accessibleOpmcIds = dbUser.accessibleOpmcs.map(o => o.id);
-            }
-        }
-
-        const projectWhere: Prisma.ProjectWhereInput = {};
-        if (!isAdmin) {
-            // Tri-state: empty OPMC scope must yield ZERO projects, never all.
-            projectWhere.opmcId = accessibleOpmcIds.length > 0
-                ? { in: accessibleOpmcIds }
-                : NIL_UUID;
-        }
-
-        const accessibleProjects = await prisma.project.findMany({
-            where: projectWhere,
-            select: { id: true }
-        });
-
-        return accessibleProjects.map(p => p.id);
-    }
 
     static async getProjectStats(userId: string, userRole: string) {
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as import("@prisma/client").Role);
-        const projectIds = await this.getAccessibleProjectIds(userId, userRole);
-
-        const projectWhere: Prisma.ProjectWhereInput = {};
-        if (!isAdmin) {
-            // Tri-state: empty project list must deny ALL data, never return all.
-            projectWhere.id = projectIds.length > 0 ? { in: projectIds } : NIL_UUID;
-        }
+        const projectWhere = await this.getProjectScope(userId, userRole);
+        const projectIds = await this.getProjectIdsForScope(projectWhere);
 
         // =====================================================
         // FINANCIALS DASHBOARD
@@ -325,15 +287,183 @@ export class ProjectDashboardService {
         };
     }
 
-    static async getProjectOverview(userId: string, userRole: string) {
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as import("@prisma/client").Role);
-        const projectIds = await this.getAccessibleProjectIds(userId, userRole);
-        
-        const projectWhere: Prisma.ProjectWhereInput = {};
-        if (!isAdmin) {
-            // Tri-state: empty project list must deny ALL data, never return all.
-            projectWhere.id = projectIds.length > 0 ? { in: projectIds } : NIL_UUID;
+    /**
+     * Resolve only the server-side project filter. This helper must not load
+     * project IDs because summary callers can explicitly disable activities.
+     *
+     * The empty OPMC assignment case deliberately uses NIL_UUID so a
+     * restricted user receives no projects rather than an accidental global
+     * result.
+     */
+    private static async getProjectScope(userId: string, userRole: string): Promise<Prisma.ProjectWhereInput> {
+        // Keep the positional role argument for existing service callers;
+        // canonical scope resolution intentionally does not trust it.
+        void userRole;
+        const opmcScope = await resolveOpmcScope(userId);
+        if (opmcScope === undefined) {
+            return {};
         }
+
+        return {
+            // Tri-state scope: an empty assignment must deny all projects.
+            opmcId: opmcScope.length > 0 ? { in: opmcScope } : NIL_UUID
+        };
+    }
+
+    private static async getProjectIdsForScope(projectWhere: Prisma.ProjectWhereInput): Promise<string[]> {
+        const projects = await prisma.project.findMany({
+            where: projectWhere,
+            select: { id: true }
+        });
+        return projects.map(project => project.id);
+    }
+
+    private static async getRecentProjectActivities(projectIds: string[]) {
+        const recentLogs = await prisma.auditLog.findMany({
+            // AuditLog.entityId is free-form, so only include records that
+            // explicitly reference a project in the caller's resolved scope.
+            where: { entityId: { in: projectIds } },
+            take: 10,
+            orderBy: { createdAt: 'desc' },
+            select: {
+                action: true,
+                entity: true,
+                entityId: true,
+                createdAt: true,
+                user: { select: { name: true, email: true } }
+            }
+        });
+
+        return recentLogs.map(log => {
+            let actionType: "approval" | "alert" | "completion" | "upload" | "creation" = "creation";
+            const actionLower = log.action.toLowerCase();
+            if (actionLower.includes('approve')) {
+                actionType = 'approval';
+            } else if (actionLower.includes('fail') || actionLower.includes('alert') || actionLower.includes('warn') || actionLower.includes('reject')) {
+                actionType = 'alert';
+            } else if (actionLower.includes('complete') || actionLower.includes('close')) {
+                actionType = 'completion';
+            } else if (actionLower.includes('upload') || actionLower.includes('import')) {
+                actionType = 'upload';
+            }
+
+            return {
+                user: log.user?.name || log.user?.email || 'System',
+                action: log.action,
+                target: `${log.entity} #${log.entityId}`,
+                time: formatDistanceToNow(new Date(log.createdAt), { addSuffix: true }),
+                type: actionType
+            };
+        });
+    }
+
+    /**
+     * Lightweight project overview for dashboard tabs.
+     *
+     * Counts, status distribution, financial totals, and delayed-project
+     * fields are calculated by PostgreSQL. Only the small delayed-project
+     * projection is returned to the application, avoiding a full project row
+     * load and JavaScript-side filtering/reduction.
+     */
+    static async getProjectOverviewSummary(
+        userId: string,
+        userRole: string,
+        options: { includeRecentActivities?: boolean } = {}
+    ) {
+        const includeRecentActivities = options.includeRecentActivities !== false;
+        const projectWhere = await this.getProjectScope(userId, userRole);
+        const projectIdsPromise = includeRecentActivities
+            ? this.getProjectIdsForScope(projectWhere)
+            : Promise.resolve<string[]>([]);
+        const now = new Date();
+        const activeProjectWhere: Prisma.ProjectWhereInput = {
+            ...projectWhere,
+            status: { notIn: ['COMPLETED', 'CANCELLED'] }
+        };
+        const delayedProjectWhere: Prisma.ProjectWhereInput = {
+            ...activeProjectWhere,
+            endDate: { lt: now }
+        };
+
+        const [
+            financialTotals,
+            statusCounts,
+            activeProjects,
+            delayedProjectsCount,
+            delayedProjects,
+            recentActivities
+        ] = await Promise.all([
+            prisma.project.aggregate({
+                where: projectWhere,
+                _sum: { budget: true, actualCost: true }
+            }),
+            prisma.project.groupBy({
+                by: ['status'],
+                where: projectWhere,
+                _count: { _all: true }
+            }),
+            prisma.project.count({ where: activeProjectWhere }),
+            prisma.project.count({ where: delayedProjectWhere }),
+            prisma.project.findMany({
+                where: delayedProjectWhere,
+                orderBy: { endDate: 'asc' },
+                take: 10,
+                select: {
+                    id: true,
+                    projectCode: true,
+                    name: true,
+                    endDate: true,
+                    progress: true
+                }
+            }),
+            !includeRecentActivities
+                ? Promise.resolve([])
+                : projectIdsPromise.then(projectIds => this.getRecentProjectActivities(projectIds))
+        ]);
+
+        const delayedProjectsFormatted = delayedProjects.map(project => {
+            const end = new Date(project.endDate!);
+            const delayInDays = Math.ceil((now.getTime() - end.getTime()) / (1000 * 60 * 60 * 24));
+
+            let status = 'Normal';
+            if (delayInDays > 15) {
+                status = 'Critical';
+            } else if (delayInDays > 0) {
+                status = 'Warning';
+            }
+
+            return {
+                id: project.id,
+                projectCode: project.projectCode,
+                name: project.name,
+                delay: delayInDays,
+                progress: Number(project.progress),
+                status
+            };
+        });
+
+        return {
+            overview: {
+                activeProjects,
+                totalBudget: Number(financialTotals._sum.budget ?? 0),
+                actualSpend: Number(financialTotals._sum.actualCost ?? 0),
+                scheduleVariance: activeProjects > 0
+                    ? Math.round((delayedProjectsCount / activeProjects) * 100)
+                    : 0,
+                delayedCount: delayedProjectsCount
+            },
+            statusBreakdown: statusCounts.map(entry => ({
+                status: entry.status,
+                count: entry._count._all
+            })),
+            delayedProjects: delayedProjectsFormatted,
+            recentActivities,
+            updatedAt: new Date().toISOString()
+        };
+    }
+
+    static async getProjectOverview(userId: string, userRole: string) {
+        const projectWhere = await this.getProjectScope(userId, userRole);
 
         const now = new Date();
 
@@ -343,6 +473,7 @@ export class ProjectDashboardService {
                 opmc: true
             }
         });
+        const projectIds = allProjects.map(project => project.id);
 
         const activeProjectsList = allProjects.filter(p => p.status !== 'COMPLETED' && p.status !== 'CANCELLED');
         const activeProjectsCount = activeProjectsList.length;
@@ -393,42 +524,7 @@ export class ProjectDashboardService {
             };
         }).sort((a, b) => b.delay - a.delay);
 
-        const recentLogs = await prisma.auditLog.findMany({
-            // AuditLog.entityId is free-form, so only include records that
-            // explicitly reference a project in the caller's resolved scope.
-            // A global recent-log query would leak unrelated tenant activity
-            // into a scoped project dashboard.
-            where: { entityId: { in: projectIds } },
-            take: 10,
-            orderBy: { createdAt: 'desc' },
-            include: {
-                user: {
-                    select: { name: true, email: true }
-                }
-            }
-        });
-
-        const recentActivities = recentLogs.map(log => {
-            let actionType: "approval" | "alert" | "completion" | "upload" | "creation" = "creation";
-            const actionLower = log.action.toLowerCase();
-            if (actionLower.includes('approve')) {
-                actionType = 'approval';
-            } else if (actionLower.includes('fail') || actionLower.includes('alert') || actionLower.includes('warn') || actionLower.includes('reject')) {
-                actionType = 'alert';
-            } else if (actionLower.includes('complete') || actionLower.includes('close')) {
-                actionType = 'completion';
-            } else if (actionLower.includes('upload') || actionLower.includes('import')) {
-                actionType = 'upload';
-            }
-
-            return {
-                user: log.user?.name || log.user?.email || 'System',
-                action: log.action,
-                target: `${log.entity} #${log.entityId}`,
-                time: formatDistanceToNow(new Date(log.createdAt), { addSuffix: true }),
-                type: actionType
-            };
-        });
+        const recentActivities = await this.getRecentProjectActivities(projectIds);
 
         // Removed dummy data padding as requested
 

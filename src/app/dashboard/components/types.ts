@@ -87,6 +87,12 @@ export interface Stats {
     userAccessibleRtoms?: string[];
 }
 
+export interface DashboardFilterMetadata {
+    availableRegions: string[];
+    rtomRegionMap: Record<string, string>;
+    userAccessibleRtoms: string[];
+}
+
 export interface ExecutiveDashboardData {
     generatedAt?: string;
     projectStats: {

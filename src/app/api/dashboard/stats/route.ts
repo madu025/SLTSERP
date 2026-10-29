@@ -1,7 +1,7 @@
 import { ServiceOrderDashboardService } from '@/services/service-order/sod-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
-import { withTracing } from '@/lib/tracing-utils';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,9 +33,6 @@ export const GET = apiHandler(async (request) => {
 
     return data;
 }, {
-    // Role gate first: apiHandler RBAC runs before the handler body, so role
-    // denial precedes the userId session check. Resolved dynamically from the
-    // /dashboard sidebar entry (the page that renders these SO stats).
-    menuPath: '/dashboard',
+    permissions: [RBAC_PERMISSIONS.SOD_READ],
     rawResponse: true
 });

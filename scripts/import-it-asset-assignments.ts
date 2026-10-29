@@ -17,7 +17,7 @@
  *   - Dirty employeeNo rows (null / non-numeric) are imported and flagged
  *     pendingAssignmentReview for admin correction
  *
- * Run: npx tsx scripts/import-it-asset-assignments.ts
+ * Run: pnpm exec tsx scripts/import-it-asset-assignments.ts
  */
 import fs from 'fs';
 import path from 'path';

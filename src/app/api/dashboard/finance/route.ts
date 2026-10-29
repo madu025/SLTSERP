@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { DashboardService } from '@/services/core/dashboard.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,5 +22,5 @@ export const GET = apiHandler(async (req, params) => {
     const accessibleOpmcs = await resolveOpmcScope(params._userId);
 
     return await DashboardService.getFinanceMetrics(parsed.rtom, accessibleOpmcs);
-}, { menuPath: '/dashboard', rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.FINANCE_READ], rawResponse: true });
 

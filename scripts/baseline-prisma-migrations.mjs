@@ -5,9 +5,9 @@
  * their SQL. Run once only after verifying that the existing database matches the
  * current Prisma schema:
  *
- *   npm run db:migrate:baseline -- --confirm-existing-schema
+ *   pnpm run db:migrate:baseline -- --confirm-existing-schema
  *
- * Future deployments must use `npm run db:migrate:deploy`.
+ * Future deployments must use `pnpm run db:migrate:deploy`.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -71,4 +71,4 @@ for (const migration of migrations) {
     }
 }
 
-console.log('\nBaseline complete. Future deploys must run: npm run db:migrate:deploy');
+console.log('\nBaseline complete. Future deploys must run: pnpm run db:migrate:deploy');

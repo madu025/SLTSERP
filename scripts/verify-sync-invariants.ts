@@ -12,7 +12,7 @@
  *   5. the census itself is printed, because that table is what the logonly -> enforce decision is
  *      made from.
  *
- * Usage: npm run check:sync  [--hours=24] [--max-notifications=40]
+ * Usage: pnpm run check:sync  [--hours=24] [--max-notifications=40]
  * Exit code is non-zero on any breach, so a pipeline can gate on it.
  *
  * SQL note: every statement here is assembled as a plain string and run through *RawUnsafe because

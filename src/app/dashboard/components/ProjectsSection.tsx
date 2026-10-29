@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { formatLKR } from '@/lib/utils';
 import Link from 'next/link';
+
 interface ProjectOverview {
     overview: {
         activeProjects: number;
@@ -19,39 +20,136 @@ interface ProjectOverview {
     updatedAt?: string;
 }
 
+interface ProjectsSectionProps {
+    user: { id: string; role: string };
+    enabled?: boolean;
+}
+
+const PROJECTS_REQUEST_TIMEOUT_MS = 12_000;
+
 function statusLabel(status: string) {
     return status.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
-export default function ProjectsSection({ user }: { user: { id: string; role: string } }) {
-    const { data, isLoading, error } = useQuery<ProjectOverview>({
-        queryKey: ['dashboard-projects', user.id],
-        queryFn: async () => {
-            const resp = await fetch(`/api/dashboard/projects`, {
-                headers: {
-                    'x-user-id': user.id,
-                    'x-user-role': user.role,
-                }
-            });
-            if (!resp.ok) throw new Error('Failed to fetch project stats');
-            return resp.json();
-        },
-        staleTime: 5 * 60 * 1000,
-    });
-    if (isLoading) {
-        return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+function ProjectsLoadingState() {
+    return (
+        <div className="space-y-4" role="status" aria-live="polite">
+            <div className="flex items-center gap-2 px-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-600" aria-hidden="true" />
+                Loading project dashboard data…
+            </div>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <Skeleton className="h-48 rounded-xl" />
                 <Skeleton className="h-48 rounded-xl" />
             </div>
-        );
+            <Skeleton className="h-32 rounded-xl" />
+            <span className="sr-only">Project metrics and delayed project information are loading.</span>
+        </div>
+    );
+}
+
+function ProjectsErrorState({ error, onRetry, isRetrying }: { error: Error; onRetry: () => void; isRetrying: boolean }) {
+    return (
+        <Card className="border-rose-200 bg-rose-50 shadow-sm dark:border-rose-900 dark:bg-rose-950/30" role="alert">
+            <CardHeader>
+                <CardTitle className="text-sm font-semibold text-rose-900 dark:text-rose-100">Project dashboard unavailable</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-rose-800 dark:text-rose-200">
+                    {error.message || 'Project data could not be loaded. Please try again.'}
+                </p>
+                <button
+                    type="button"
+                    onClick={onRetry}
+                    disabled={isRetrying}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md bg-rose-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-600 dark:hover:bg-rose-500"
+                >
+                    {isRetrying ? 'Retrying…' : 'Retry'}
+                </button>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function ProjectsSection({ user, enabled = true }: ProjectsSectionProps) {
+    const { data, isLoading, isFetching, error, refetch } = useQuery<ProjectOverview>({
+        queryKey: ['dashboard-projects', user.id],
+        queryFn: async ({ signal }) => {
+            const controller = new AbortController();
+            let timedOut = false;
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, PROJECTS_REQUEST_TIMEOUT_MS);
+
+            const abortFromQuery = () => controller.abort();
+            signal.addEventListener('abort', abortFromQuery, { once: true });
+
+            try {
+                const resp = await fetch(`/api/dashboard/projects?includeRecentActivities=false`, {
+                headers: {
+                    'x-user-id': user.id,
+                    'x-user-role': user.role,
+                    },
+                    signal: controller.signal,
+                });
+                if (!resp.ok) {
+                    const message = resp.status === 403
+                        ? 'You do not have permission to view project dashboard data.'
+                        : `Project data request failed (${resp.status}).`;
+                    const requestError = new Error(message) as Error & { status?: number };
+                    requestError.status = resp.status;
+                    throw requestError;
+                }
+                return resp.json() as Promise<ProjectOverview>;
+            } catch (requestError) {
+                if (timedOut) {
+                    throw new Error('Project data is taking too long to respond. Check your connection and retry.');
+                }
+                throw requestError;
+            } finally {
+                clearTimeout(timeoutId);
+                signal.removeEventListener('abort', abortFromQuery);
+            }
+        },
+        staleTime: 5 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+        enabled: enabled && Boolean(user.id),
+        retry: (failureCount, requestError) => {
+            const status = (requestError as Error & { status?: number }).status;
+            if (status && status >= 400 && status < 500) return false;
+            return failureCount < 1;
+        },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+    });
+
+    if (!enabled) return null;
+
+    if (isLoading) {
+        return <ProjectsLoadingState />;
     }
-    if (error || !data) {
-        return <div className="text-red-500">Failed to load project data.</div>;
+    if (error && !data) {
+        return <ProjectsErrorState error={error as Error} onRetry={() => refetch()} isRetrying={isFetching} />;
     }
-    const overview = data?.overview || { activeProjects: 0, totalBudget: 0, actualSpend: 0, scheduleVariance: 0, delayedCount: 0 };
-    const delayedProjects = data?.delayedProjects || [];
+    if (!data) {
+        return <ProjectsErrorState error={new Error('No project dashboard data was returned.')} onRetry={() => refetch()} isRetrying={isFetching} />;
+    }
+    const overview = data.overview || { activeProjects: 0, totalBudget: 0, actualSpend: 0, scheduleVariance: 0, delayedCount: 0 };
+    const delayedProjects = data.delayedProjects || [];
+    const statusBreakdown = data.statusBreakdown || [];
     return (
         <div className="space-y-4">
+            {error && (
+                <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <span>Showing the last available project data. Refresh did not complete.</span>
+                    <button type="button" onClick={() => refetch()} disabled={isFetching} className="font-semibold underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
+                        {isFetching ? 'Retrying…' : 'Retry'}
+                    </button>
+                </div>
+            )}
+            {isFetching && !error && <p className="text-xs font-medium text-slate-700 dark:text-slate-300" role="status">Refreshing project data…</p>}
             <div className="flex flex-col gap-1 px-1 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-muted-foreground">Project health and delivery portfolio</p>
                 <span className="text-[11px] text-muted-foreground">{data.updatedAt ? `Data refreshed ${new Date(data.updatedAt).toLocaleString()}` : 'Data refresh timestamp was not supplied by the API.'}</span>
@@ -118,11 +216,11 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
                     <Link href="/projects" className="text-xs font-bold text-primary hover:underline">Open projects →</Link>
                 </CardHeader>
                 <CardContent>
-                    {data.statusBreakdown.length === 0 ? (
+                    {statusBreakdown.length === 0 ? (
                         <p className="text-sm text-muted-foreground">No status breakdown was returned.</p>
                     ) : (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                            {data.statusBreakdown.map((row) => (
+                            {statusBreakdown.map((row) => (
                                 <div key={row.status} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
                                     <p className="truncate text-[10px] font-bold uppercase text-slate-600 dark:text-slate-400" title={statusLabel(row.status)}>{statusLabel(row.status)}</p>
                                     <p className="mt-1 text-xl font-black text-foreground">{row.count}</p>

@@ -1,5 +1,7 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { prisma } from '@/lib/prisma';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { NIL_UUID } from '@/lib/opmc-scope';
+import { Prisma } from '@prisma/client';
 
 interface AlertItem {
     type: string;
@@ -11,50 +13,19 @@ interface AlertItem {
 }
 
 export class DashboardAlertService {
-    static async getDashboardAlerts(userId: string, userRole: string): Promise<{ alerts: AlertItem[] }> {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(userRole as any);
-        let storeIds: string[] = [];
+    static async getDashboardAlerts(userId: string): Promise<{ alerts: AlertItem[] }> {
+        const accessibleOpmcScope = await resolveOpmcScope(userId);
+        const storeWhere: Prisma.InventoryStoreWhereInput = accessibleOpmcScope === undefined
+            ? {}
+            : accessibleOpmcScope.length > 0
+                ? { opmcs: { some: { id: { in: accessibleOpmcScope } } } }
+                : { id: NIL_UUID };
 
-        if (isAdmin) {
-            const stores = await prisma.inventoryStore.findMany({ select: { id: true } });
-            storeIds = stores.map(s => s.id);
-        } else {
-            const dbUser = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { accessibleOpmcs: true }
-            });
-
-            if (!dbUser) return { alerts: [] };
-
-            const accessibleOpmcIds = dbUser.accessibleOpmcs.map(o => o.id);
-            const baseWhere = {
-                OR: [
-                    { managerId: userId },
-                    { opmcs: { some: { id: { in: accessibleOpmcIds } } } }
-                ]
-            };
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let whereClause: any = baseWhere;
-            const isStoreStaff = userRole === 'STORES_MANAGER' || userRole === 'STORES_ASSISTANT';
-
-            if (isStoreStaff) {
-                const hasMainAccess = await prisma.inventoryStore.findFirst({
-                    where: { ...baseWhere, type: 'MAIN' },
-                    select: { id: true }
-                });
-                if (hasMainAccess) {
-                    whereClause = {}; // All
-                }
-            }
-
-            const stores = await prisma.inventoryStore.findMany({
-                where: whereClause,
-                select: { id: true }
-            });
-            storeIds = stores.map(s => s.id);
-        }
+        const stores = await prisma.inventoryStore.findMany({
+            where: storeWhere,
+            select: { id: true }
+        });
+        const storeIds = stores.map(s => s.id);
 
         if (storeIds.length === 0) {
             return { alerts: [] };

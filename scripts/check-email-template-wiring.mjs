@@ -7,7 +7,7 @@
  * system (NotificationTemplateEngineService.renderEmailByCode) so admins
  * can customize the email from the admin UI.
  *
- * Usage: npm run check:email-templates
+ * Usage: pnpm run check:email-templates
  *
  * Exit codes: 0 = all send sites wired, 1 = unwired send site detected.
  */

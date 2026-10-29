@@ -22,6 +22,12 @@ Do not manually reread startup files unless:
 2. The provided context is missing something you need
 3. You need a deeper follow-up read beyond the provided startup context
 
+## Package Manager Rule
+
+- This repository uses **pnpm only**. The lockfile of record is `pnpm-lock.yaml` and the required package manager is `pnpm@12.3.4`.
+- For every install, script, test, build, Prisma, TypeScript, Playwright, or executable command, use the pnpm form (`pnpm install`, `pnpm run <script>`, `pnpm exec <binary>`). This remains mandatory even when Cloud Codex, CI, Coolify, or another tool creates or modifies the project.
+- Do not introduce `package-lock.json` or `yarn.lock`, and do not use `npm`/`npx` as the project command runner. If an external platform requires a command, configure its equivalent with `pnpm`.
+
 ## Memory
 
 You wake up fresh each session. These files are your continuity:
@@ -234,7 +240,7 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
    - Seed a default styled HTML template for that code in `prisma/seed-notification-templates.ts`.
    - Call `NotificationTemplateEngineService.renderEmailByCode(CODE, vars)` at the send site and fall back to hardcoded HTML only when no active DB template exists.
 2. **Admin UI is registry-driven**: The template code dropdown at `/admin/settings/notification-templates` reads the registry via `/api/admin/notification-templates/codes`, so new codes appear automatically once registered.
-3. **Enforcement**: Run `npm run check:email-templates` after touching email-sending code. It fails the build check if any `EmailService.sendMail` call site lacks `renderEmailByCode` wiring.
+3. **Enforcement**: Run `pnpm run check:email-templates` after touching email-sending code. It fails the build check if any `EmailService.sendMail` call site lacks `renderEmailByCode` wiring.
 
 ## 🎨 Mandatory UI High-Contrast & Anti-Washed-Out Text Mandate (Zero Invisible Text Tolerance)
 1. **Strict Prohibition of Light-on-Light Fonts**:

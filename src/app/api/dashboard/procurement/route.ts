@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { apiHandler } from '@/lib/api-handler';
 import { DashboardService } from '@/services/core/dashboard.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,6 @@ export const GET = apiHandler(async (req, params) => {
 
     return await DashboardService.getProcurementMetrics(parsed.rtom, accessibleOpmcs);
 }, {
-    roles: ROLE_GROUPS.PROCUREMENT,
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_READ],
     rawResponse: true
 });

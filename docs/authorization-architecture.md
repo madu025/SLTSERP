@@ -30,7 +30,7 @@ Each definition has:
 - `code`: stable key used by API and frontend guards.
 
 Role grants live in `RolePermission`. The seed command
-`npm run rbac:seed` creates/links the catalog and performs the initial legacy
+`pnpm run rbac:seed` creates/links the catalog and performs the initial legacy
 role-to-capability translation. It does not delete legacy page permissions.
 
 ## Scope model
@@ -86,5 +86,5 @@ Before merging an authorization change:
 3. Confirm OPMC/area scope is enforced in the service query and mutation.
 4. Test allow/deny for a shared manager, an OSP-only role, and an unassigned
    user.
-5. Run `npm run rbac:check`, `npm run rbac:seed` when grants change,
-   `npm run test:unit`, `npm run test:types`, and `npm run build`.
+5. Run `pnpm run rbac:check`, `pnpm run rbac:seed` when grants change,
+   `pnpm run test:unit`, `pnpm run test:types`, and `pnpm run build`.

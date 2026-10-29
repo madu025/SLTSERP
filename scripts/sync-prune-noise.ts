@@ -14,7 +14,7 @@
  * Keep rule: one row per (serviceOrderId, status, Sri Lanka calendar day) - the EARLIEST, because
  * that is the row whose `createdAt` is closest to when the ERP first observed the move.
  *
- * Usage: npx tsx scripts/sync-prune-noise.ts [--apply] [--hours=168]
+ * Usage: pnpm exec tsx scripts/sync-prune-noise.ts [--apply] [--hours=168]
  *   without --apply = dry run, reports the count and writes nothing.
  */
 

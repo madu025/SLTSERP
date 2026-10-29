@@ -12,7 +12,7 @@
  */
 
 // Types & constants
-export type { Stats } from './types';
+export type { DashboardFilterMetadata, Stats } from './types';
 export { COLORS, PAT_COLORS, tooltipStyle } from './types';
 
 // Components

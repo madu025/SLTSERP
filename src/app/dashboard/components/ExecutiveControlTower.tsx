@@ -40,28 +40,68 @@ function Metric({ label, value, hint, tone = 'text-foreground' }: { label: strin
     );
 }
 
-export default function ExecutiveControlTower() {
+const EXECUTIVE_REQUEST_TIMEOUT_MS = 12_000;
+
+export default function ExecutiveControlTower({ enabled = true }: { enabled?: boolean }) {
     const { data, isLoading, error, refetch, isFetching } = useQuery<ExecutiveDashboardData | null>({
         queryKey: ['dashboard-executive-control-tower'],
-        queryFn: async () => {
-            const response = await fetch('/api/dashboard/executive');
-            if (response.status === 401 || response.status === 403) return null;
-            if (!response.ok) throw new Error(`Executive dashboard request failed (${response.status})`);
-            return response.json();
+        queryFn: async ({ signal }) => {
+            const controller = new AbortController();
+            let timedOut = false;
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, EXECUTIVE_REQUEST_TIMEOUT_MS);
+            const abortFromQuery = () => controller.abort();
+            signal.addEventListener('abort', abortFromQuery, { once: true });
+
+            try {
+                const response = await fetch('/api/dashboard/executive', { signal: controller.signal });
+                if (response.status === 401 || response.status === 403) return null;
+                if (!response.ok) {
+                    const requestError = new Error(`Executive dashboard request failed (${response.status})`) as Error & { status?: number };
+                    requestError.status = response.status;
+                    throw requestError;
+                }
+                return response.json() as Promise<ExecutiveDashboardData>;
+            } catch (requestError) {
+                if (timedOut) throw new Error('Executive dashboard data is taking too long to respond. Check your connection and retry.');
+                throw requestError;
+            } finally {
+                clearTimeout(timeoutId);
+                signal.removeEventListener('abort', abortFromQuery);
+            }
         },
         staleTime: 2 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+        enabled,
         refetchInterval: 2 * 60 * 1000,
-        retry: false,
+        refetchIntervalInBackground: false,
+        retry: (failureCount, requestError) => {
+            const status = (requestError as Error & { status?: number }).status;
+            if (status && status >= 400 && status < 500) return false;
+            return failureCount < 1;
+        },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
     });
 
+    if (!enabled) return null;
+
     if (isLoading) {
-        return <Skeleton className="h-72 rounded-3xl" aria-label="Loading executive control tower" />;
+        return (
+            <div className="space-y-3" role="status" aria-live="polite">
+                <p className="px-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Loading executive control tower…</p>
+                <Skeleton className="h-72 rounded-3xl" aria-label="Loading executive control tower" />
+            </div>
+        );
     }
 
     // The executive endpoint has its own server-side permission gate. A user
     // with normal dashboard access must not see an error banner for a metric
     // set they are not entitled to view.
-    if (error) {
+    if (error && !data) {
         return (
             <Card className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30" role="status" aria-live="polite">
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -83,7 +123,16 @@ export default function ExecutiveControlTower() {
         );
     }
 
-    if (!data) return null;
+    if (!data) {
+        return (
+            <Card className="border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900" role="status">
+                <CardContent className="p-4">
+                    <p className="text-sm font-black text-slate-900 dark:text-slate-100">Executive control tower is not available for this role.</p>
+                    <p className="mt-1 text-xs text-slate-700 dark:text-slate-300">The rest of the Operations dashboard remains available.</p>
+                </CardContent>
+            </Card>
+        );
+    }
 
     const { projectStats, budgetStats, patStats, contractorRankings, recentActivity, controlTower } = data;
     const statusRows = projectStats.byStatus || [];
@@ -92,6 +141,13 @@ export default function ExecutiveControlTower() {
 
     return (
         <section aria-label="Executive control tower" className="space-y-4">
+            {error && (
+                <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <span>Showing the last available executive snapshot. Refresh did not complete.</span>
+                    <button type="button" onClick={() => void refetch()} disabled={isFetching} className="font-semibold underline underline-offset-2 disabled:cursor-wait disabled:opacity-60">{isFetching ? 'Retrying…' : 'Retry snapshot'}</button>
+                </div>
+            )}
+            {isFetching && !error && <p className="text-xs font-medium text-slate-700 dark:text-slate-300" role="status">Refreshing executive snapshot…</p>}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Executive control tower</p>

@@ -2,8 +2,8 @@ module = {
     apps: [
         {
             name: 'sltserp-worker',
-            script: 'npx',
-            args: 'tsx scripts/run-worker.ts',
+            script: 'pnpm',
+            args: 'exec tsx scripts/run-worker.ts',
             instances: 1,
             autorestart: true,
             watch: false,

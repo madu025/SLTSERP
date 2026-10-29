@@ -62,23 +62,63 @@ interface ProcurementTelemetry {
     updatedAt?: string;
 }
 
-export default function ProcurementSection({ rtom = 'ALL' }: { rtom?: string }) {
-    const { data, isLoading, error } = useQuery<ProcurementTelemetry>({
+const PROCUREMENT_REQUEST_TIMEOUT_MS = 12_000;
+
+interface ProcurementSectionProps {
+    rtom?: string;
+    enabled?: boolean;
+}
+
+export default function ProcurementSection({ rtom = 'ALL', enabled = true }: ProcurementSectionProps) {
+    const { data, isLoading, isFetching, error, refetch } = useQuery<ProcurementTelemetry>({
         queryKey: ['dashboard-procurement-telemetry', rtom],
-        queryFn: async () => {
-            const res = await fetch(`/api/dashboard/procurement?rtom=${rtom}&_t=${Date.now()}`);
-            if (!res.ok) {
-                throw new Error(`Procurement telemetry request failed (${res.status})`);
+        queryFn: async ({ signal }) => {
+            const controller = new AbortController();
+            let timedOut = false;
+            const timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, PROCUREMENT_REQUEST_TIMEOUT_MS);
+            const abortFromQuery = () => controller.abort();
+            signal.addEventListener('abort', abortFromQuery, { once: true });
+
+            try {
+                const res = await fetch(`/api/dashboard/procurement?rtom=${encodeURIComponent(rtom)}`, { signal: controller.signal });
+                if (!res.ok) {
+                    const requestError = new Error(`Procurement telemetry request failed (${res.status})`) as Error & { status?: number };
+                    requestError.status = res.status;
+                    throw requestError;
+                }
+                return res.json() as Promise<ProcurementTelemetry>;
+            } catch (requestError) {
+                if (timedOut) throw new Error('Procurement data is taking too long to respond. Check your connection and retry.');
+                throw requestError;
+            } finally {
+                clearTimeout(timeoutId);
+                signal.removeEventListener('abort', abortFromQuery);
             }
-            return res.json();
         },
         staleTime: 2 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+        enabled,
+        retry: (failureCount, requestError) => {
+            const status = (requestError as Error & { status?: number }).status;
+            if (status && status >= 400 && status < 500) return false;
+            return failureCount < 1;
+        },
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
         refetchInterval: 30 * 1000,
+        refetchIntervalInBackground: false,
     });
+
+    if (!enabled) return null;
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6" role="status" aria-live="polite">
+                <p className="px-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Loading procurement dashboard data…</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {Array(4).fill(0).map((_, i) => (
                         <Skeleton key={i} className="h-28 rounded-2xl" />
@@ -92,10 +132,21 @@ export default function ProcurementSection({ rtom = 'ALL' }: { rtom?: string }) 
         );
     }
 
-    if (error) {
+    if (error && !data) {
         return (
-            <div className="p-6 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 text-xs font-semibold">
-                Failed to load real-time procurement telemetry data.
+            <div className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm font-semibold text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100" role="alert">
+                <span>{(error as Error).message || 'Procurement telemetry could not be loaded.'}</span>
+                <button type="button" onClick={() => void refetch()} disabled={isFetching} className="w-fit rounded-md bg-rose-700 px-3 py-2 text-white hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60 dark:bg-rose-600 dark:hover:bg-rose-500">
+                    {isFetching ? 'Retrying…' : 'Retry'}
+                </button>
+            </div>
+        );
+    }
+    if (!data) {
+        return (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm font-semibold text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100" role="alert">
+                Procurement telemetry was not returned. Please retry.
+                <button type="button" onClick={() => void refetch()} className="ml-3 underline underline-offset-2">Retry</button>
             </div>
         );
     }
@@ -123,6 +174,13 @@ export default function ProcurementSection({ rtom = 'ALL' }: { rtom?: string }) 
 
     return (
         <div className="space-y-6">
+            {error && (
+                <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <span>Showing cached procurement data. Refresh did not complete.</span>
+                    <button type="button" onClick={() => void refetch()} disabled={isFetching} className="font-semibold underline underline-offset-2 disabled:cursor-wait disabled:opacity-60">{isFetching ? 'Retrying…' : 'Retry'}</button>
+                </div>
+            )}
+            {isFetching && !error && <p className="text-xs font-medium text-slate-700 dark:text-slate-300" role="status">Refreshing procurement data…</p>}
             {/* 1. Executive Telemetry Metrics Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Pending Requisitions */}
