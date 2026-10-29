@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectService } from '@/services/project/project.service';
@@ -38,7 +37,7 @@ export const GET = apiHandler(async (req, params) => {
 });
 
 // POST create new project
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (req, params, body) => {
     const projectCode = body.projectCode as string | undefined;
     const name = body.name as string | undefined;
     const type = body.type as string | undefined;
@@ -48,7 +47,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     const parentId = body.parentId as string | null | undefined;
     const planningSource = body.planningSource as string | undefined;
 
-    if (!projectCode || !name) {
+    if (!projectCode || !name || !projectTypeId) {
         throw AppError.badRequest('Project code and name are required');
     }
 
@@ -60,7 +59,8 @@ export const POST = apiHandler(async (req, _params, body) => {
         opmcId: opmcId ?? undefined,
         projectTypeId: projectTypeId ?? undefined,
         parentId: parentId ?? undefined,
-        planningSource: planningSource ?? undefined
+        planningSource: planningSource ?? undefined,
+        actorUserId: params._userId,
     });
 }, {
     permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
@@ -69,7 +69,7 @@ export const POST = apiHandler(async (req, _params, body) => {
 });
 
 // PATCH update project
-export const PATCH = apiHandler(async (req, _params, body) => {
+export const PATCH = apiHandler(async (req, params, body) => {
     const id = body.id as string | undefined;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...updateData } = body;
@@ -78,7 +78,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
         throw AppError.badRequest('Project ID required');
     }
 
-    return await ProjectService.updateProject(id, updateData as Record<string, unknown>);
+    return await ProjectService.updateProject(id, updateData as Record<string, unknown>, params._userId);
 }, {
     permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'UPDATE', entity: 'PROJECT' },
@@ -89,18 +89,15 @@ export const PATCH = apiHandler(async (req, _params, body) => {
 export const DELETE = apiHandler(async (req) => {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    const userRole = req.headers.get('x-user-role') || 'ENGINEER';
-
     if (!id) {
         throw AppError.badRequest('Project ID required');
     }
 
-    // Pass the actual securely extracted userRole instead of a hardcoded 'ADMIN' override
-    await ProjectService.deleteProject(id, userRole);
+    await ProjectService.deleteProject(id);
 
     return { success: true };
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     audit: { action: 'DELETE', entity: 'PROJECT' },
     rawResponse: true
 });

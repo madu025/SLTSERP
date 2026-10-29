@@ -3,15 +3,16 @@ import { ProjectTaskService } from '@/services/project/project-task.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
     if (!taskId) throw AppError.badRequest('taskId is required');
 
-    return await ProjectTaskService.getProgressLogs(taskId);
+    return await ProjectTaskService.getProgressLogs(taskId, params._userId);
 }, { rawResponse: true });
 
 const logProgressSchema = z.object({
@@ -31,6 +32,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     const data = logProgressSchema.parse(body);
 
     try {
+        await assertProjectAccess(data.projectId, params._userId);
         const log = await ProjectTaskService.logProgress({
         ...data,
             description: data.description ?? data.notes,

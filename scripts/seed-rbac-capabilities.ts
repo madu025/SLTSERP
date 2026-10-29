@@ -4,6 +4,19 @@ import { ROLE_GROUPS } from '../src/config/roles';
 
 const prisma = new PrismaClient();
 
+function parseStoredPermissions(value: string | null): string[] {
+    if (!value) return [];
+
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return Array.isArray(parsed)
+            ? parsed.filter((permission): permission is string => typeof permission === 'string')
+            : [];
+    } catch {
+        return [];
+    }
+}
+
 /**
  * One-time/bootstrap DB migration for the capability model.
  *
@@ -48,8 +61,10 @@ function roleCodeFromSystemRole(code: string): string | null {
 async function main() {
     let definitions = 0;
     let grants = 0;
+    let userIdentityRepairs = 0;
+    const roleTargets = new Map<Role, string>();
+    const matchingRoles = await prisma.systemRole.findMany({ select: { id: true, code: true } });
     for (const role of Object.values(Role)) {
-        const matchingRoles = await prisma.systemRole.findMany({ select: { id: true, code: true } });
         const existing = matchingRoles.find((systemRole) => roleCodeFromSystemRole(systemRole.code) === role);
         const systemRole = existing ?? await prisma.systemRole.create({
             data: {
@@ -61,14 +76,58 @@ async function main() {
             select: { id: true },
         });
 
-        await prisma.user.updateMany({
-            where: { role, roleId: null },
-            data: { roleId: systemRole.id },
+        if (!existing) {
+            matchingRoles.push({ id: systemRole.id, code: `${role}_GLOBAL` });
+        }
+
+        roleTargets.set(role, systemRole.id);
+
+    }
+
+    // Repair stale legacy links left by the old role/permission bootstrap.
+    // A user's enum role is the identity source for the canonical SystemRole
+    // link; section-specific roles remain valid when they resolve to the same
+    // enum role through roleCodeFromSystemRole().  Only a stale link paired
+    // with a legacy-only direct override is cleared, because that override
+    // cannot express the canonical capability catalog and would otherwise
+    // shadow the repaired role grants at runtime.
+    const users = await prisma.user.findMany({
+        select: {
+            id: true,
+            role: true,
+            roleId: true,
+            permissions: true,
+            systemRole: { select: { code: true } },
+        },
+    });
+    const canonicalCodes = new Set(RBAC_PERMISSION_DEFINITIONS.map((definition) => definition.code));
+
+    for (const user of users) {
+        const targetRoleId = roleTargets.get(user.role);
+        if (!targetRoleId) continue;
+
+        const linkedRole = user.systemRole ? roleCodeFromSystemRole(user.systemRole.code) : null;
+        const staleLink = !user.roleId || linkedRole !== user.role;
+        if (!staleLink) continue;
+
+        const storedPermissions = parseStoredPermissions(user.permissions);
+        const legacyOnlyOverride = storedPermissions.length > 0
+            && !storedPermissions.some((permission) => canonicalCodes.has(permission));
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                roleId: targetRoleId,
+                ...(legacyOnlyOverride ? { permissions: null } : {}),
+                tokenVersion: { increment: 1 },
+            },
         });
+        userIdentityRepairs++;
     }
 
     const systemRoles = await prisma.systemRole.findMany({ select: { id: true, code: true } });
 
+    const permissionIds = new Map<string, string>();
     for (const definition of RBAC_PERMISSION_DEFINITIONS) {
         const permission = await prisma.permissionDefinition.upsert({
             where: { code: definition.code },
@@ -88,42 +147,40 @@ async function main() {
             },
         });
         definitions++;
-
-        const allowedRoles = new Set(bootstrapGrants[definition.code] ?? []);
-        const desiredRoleIds = systemRoles
-            .filter((systemRole) => {
-                const roleCode = roleCodeFromSystemRole(systemRole.code);
-                return !!roleCode && allowedRoles.has(roleCode);
-            })
-            .map((systemRole) => systemRole.id);
-
-        // Reconcile only the new canonical capability code. Legacy page keys
-        // and unrelated administrator-created permissions are untouched.
-        await prisma.rolePermission.deleteMany({
-            where: {
-                permission: definition.code,
-                ...(desiredRoleIds.length > 0 ? { roleId: { notIn: desiredRoleIds } } : {}),
-            },
-        });
-
-        for (const systemRole of systemRoles) {
-            const roleCode = roleCodeFromSystemRole(systemRole.code);
-            if (!roleCode || !allowedRoles.has(roleCode)) continue;
-
-            await prisma.rolePermission.upsert({
-                where: { roleId_permission: { roleId: systemRole.id, permission: definition.code } },
-                update: { permissionDefinitionId: permission.id },
-                create: {
-                    roleId: systemRole.id,
-                    permission: definition.code,
-                    permissionDefinitionId: permission.id,
-                },
-            });
-            grants++;
-        }
+        permissionIds.set(definition.code, permission.id);
     }
 
-    console.log(`RBAC capability seed complete: ${definitions} definitions, ${grants} grants ensured.`);
+    const desiredGrants = RBAC_PERMISSION_DEFINITIONS.flatMap((definition) => {
+        const allowedRoles = new Set(bootstrapGrants[definition.code] ?? []);
+        const permissionDefinitionId = permissionIds.get(definition.code);
+        if (!permissionDefinitionId) return [];
+
+        return systemRoles.flatMap((systemRole) => {
+            const roleCode = roleCodeFromSystemRole(systemRole.code);
+            if (!roleCode || !allowedRoles.has(roleCode)) return [];
+
+            return [{
+                roleId: systemRole.id,
+                permission: definition.code,
+                permissionDefinitionId,
+            }];
+        });
+    });
+
+    // Reconcile canonical grants in two set-based writes. Legacy page keys
+    // and unrelated administrator-created permissions remain untouched.
+    await prisma.rolePermission.deleteMany({
+        where: { permission: { in: RBAC_PERMISSION_DEFINITIONS.map((definition) => definition.code) } },
+    });
+    if (desiredGrants.length > 0) {
+        await prisma.rolePermission.createMany({ data: desiredGrants, skipDuplicates: true });
+    }
+    grants = desiredGrants.length;
+
+    console.log(
+        `RBAC capability seed complete: ${definitions} definitions, ${grants} grants ensured, `
+        + `${userIdentityRepairs} stale user role link(s) repaired.`
+    );
 }
 
 main()

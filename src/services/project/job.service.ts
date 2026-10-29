@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { getProjectTypeCatalogEntry } from '@/config/project-type-catalog';
 import { AppError } from '@/lib/error';
+import { Prisma } from '@prisma/client';
 
 export class JobService {
     static async getJobs(params: { status?: string; region?: string; assigneeId?: string }) {
@@ -151,53 +152,50 @@ export class JobService {
         const sequence = String(count + 1).padStart(3, '0');
         const projectCode = `FOSP_SLTS_${year}_${sequence}`;
 
-        let projectType = null;
-        if (data.projectTypeId) {
-            projectType = await prisma.projectType.findUnique({ where: { id: data.projectTypeId } });
-            if (!projectType) throw AppError.badRequest('PROJECT_TYPE_NOT_FOUND');
-        }
-        const type = projectType?.name || 'OSP_FTTH';
-        const planningSource = getProjectTypeCatalogEntry(projectType?.name)?.defaultPlanningSource || 'GIS';
-
-        const project = await prisma.project.create({
-            data: {
-                projectCode,
-                name: job.name,
-                description: job.description || `Created from Job ${job.jobCode}`,
-                type,
-                location: job.location || job.region || null,
-                status: 'PLANNING',
-                areaManagerId: data.areaManagerId || null,
-                contractorId: data.contractorId || null,
-                opmcId: data.opmcId || null,
-                projectTypeId: data.projectTypeId || null,
-                planningSource,
-                jobId: jobId
-            }
+        if (!data.projectTypeId) throw AppError.badRequest('PROJECT_TYPE_REQUIRED');
+        const projectType = await prisma.projectType.findFirst({
+            where: { id: data.projectTypeId, workflowTemplates: { some: { isActive: true } } },
         });
+        if (!projectType) throw AppError.badRequest('PROJECT_WORKFLOW_TEMPLATE_NOT_FOUND');
+        const type = projectType.name;
+        const planningSource = getProjectTypeCatalogEntry(projectType.name)?.defaultPlanningSource || 'CAD';
 
-        await prisma.job.update({
-            where: { id: jobId },
-            data: { projectId: project.id, status: 'SURVEY_IN_PROGRESS' }
-        });
+        const result = await prisma.$transaction(async (tx) => {
+            const project = await tx.project.create({
+                data: {
+                    projectCode,
+                    name: job.name,
+                    description: job.description || `Created from Job ${job.jobCode}`,
+                    type,
+                    location: job.location || job.region || null,
+                    status: 'PLANNING',
+                    areaManagerId: data.areaManagerId || null,
+                    contractorId: data.contractorId || null,
+                    opmcId: data.opmcId || null,
+                    projectTypeId: projectType.id,
+                    planningSource,
+                    jobId: jobId
+                }
+            });
 
-        if (data.projectTypeId) {
-            try {
-                await WorkflowEngine.initializeProjectWorkflow(project.id, data.projectTypeId);
-            } catch (e) {
-                console.error('[JOB-SURVEY-WORKFLOW-ERR]', e);
-            }
-        }
+            await tx.job.update({
+                where: { id: jobId },
+                data: { projectId: project.id, status: 'SURVEY_IN_PROGRESS' }
+            });
 
-        const updatedJob = await prisma.job.findUnique({
-            where: { id: jobId },
-            include: { project: true, assignedTo: { select: { id: true, name: true, designation: true } } }
+            await WorkflowEngine.initializeProjectWorkflow(project.id, projectType.id, tx as unknown as Prisma.TransactionClient);
+
+            const updatedJob = await tx.job.findUnique({
+                where: { id: jobId },
+                include: { project: true, assignedTo: { select: { id: true, name: true, designation: true } } }
+            });
+            return { project, updatedJob };
         });
 
         return {
             message: 'Job assigned to survey project. Ready for QGIS upload.',
-            job: updatedJob,
-            project
+            job: result.updatedJob,
+            project: result.project
         };
     }
 }

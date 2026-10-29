@@ -29,7 +29,12 @@ export const DELETE = apiHandler(async (_request, params) => {
 
 export const POST = apiHandler(async (_request, params, body) => {
     const { id } = await params;
-    const result = await JobService.assignJobToSurvey(id, body);
+    const result = await JobService.assignJobToSurvey(id, body as {
+        areaManagerId?: string;
+        contractorId?: string;
+        opmcId?: string;
+        projectTypeId?: string;
+    });
     return result;
 }, {
     audit: { action: 'JOB_ASSIGN_SURVEY', entity: 'Job' },

@@ -1,6 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler } from '@/lib/api-handler';
+import { assertProjectAccess } from '@/lib/project-access';
 import { AppError } from '@/lib/error';
 import { CreateTaskInput, ProjectTaskService, UpdateTaskInput } from '@/services/project/project-task.service';
 
@@ -15,6 +15,7 @@ export const GET = apiHandler(async (req, params) => {
     if (!projectId) {
         throw AppError.badRequest('projectId is required');
     }
+    await assertProjectAccess(projectId, params._userId);
 
     return await ProjectTaskService.getTasks(projectId, parentId, params._userId, params._userRole);
 }, {
@@ -22,17 +23,18 @@ export const GET = apiHandler(async (req, params) => {
 });
 
 // POST /api/projects/tasks
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (req, params, body) => {
     const projectId = body.projectId as string | undefined;
     const name = body.name as string | undefined;
 
     if (!projectId || !name?.trim()) {
         throw AppError.badRequest('projectId and name are required');
     }
+    await assertProjectAccess(projectId, params._userId);
 
-    return await ProjectTaskService.createTask(body as unknown as CreateTaskInput);
+    return await ProjectTaskService.createTask(body as unknown as CreateTaskInput, params._userId);
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_PLAN_WRITE],
     audit: { action: 'CREATE', entity: 'PROJECT_TASK' },
     rawResponse: true
 });

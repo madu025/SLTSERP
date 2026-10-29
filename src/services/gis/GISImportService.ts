@@ -108,6 +108,21 @@ function getCanonicalBoqTotal(boq: BOQSummary): number {
   ) / 100;
 }
 
+function getDetectedCatalogTypeName(projectType: DetectedProjectType): string {
+  switch (projectType) {
+    case 'SSD':
+      return 'SSD';
+    case 'CLUSTER_DEVELOPMENT':
+      return 'CLUSTER_DEVELOPMENT';
+    case 'BUILDING_FIBER':
+      return 'BUILDING_FIBER';
+    default:
+      throw AppError.badRequest(
+        'GIS project type could not be determined. Select a project type manually before importing this file.'
+      );
+  }
+}
+
 // ============================================================================
 // Helper Functions — Default Checklist & Approval Templates
 // ============================================================================
@@ -139,7 +154,7 @@ function getDefaultChecklist(stageName: string, reqPhotos: boolean): DefaultChec
 function getDefaultApprovals(): DefaultApprovalLevel[] {
   // Standard 2-level approval flow
   return [
-    { level: 1, role: 'SUPERVISOR' },
+    { level: 1, role: 'CIVIL_SUPERVISOR' },
     { level: 2, role: 'MANAGER' },
   ];
 }
@@ -1127,6 +1142,7 @@ export class GISImportService {
     auditLog: GISAuditEntry[]
   ): Promise<GISImportResult> {
     let project: import('@prisma/client').Project | null = null;
+    let importedProjectTypeId: string | null = null;
     let isUpgrade = false;
     const canonicalBoqTotal = getCanonicalBoqTotal(boq);
 
@@ -1136,6 +1152,18 @@ export class GISImportService {
       if (!project) throw AppError.notFound(`Project ${session.projectId} not found for route upgrade.`);
       session.isCompletedProject = project.status === 'COMPLETED';
     } else {
+      const detectedCatalogTypeName = getDetectedCatalogTypeName(projectType);
+      const projectTypeRecord = await prisma.projectType.findFirst({
+        where: {
+          name: { equals: detectedCatalogTypeName, mode: 'insensitive' },
+          workflowTemplates: { some: { isActive: true } },
+        },
+        select: { id: true },
+      });
+      if (!projectTypeRecord) {
+        throw AppError.badRequest('PROJECT_WORKFLOW_TEMPLATE_NOT_FOUND');
+      }
+      importedProjectTypeId = projectTypeRecord.id;
       const projectCode = await this.generateProjectCode(projectType);
       const projectName = session.projectName || `${projectType} Project - ${projectCode}`;
 
@@ -1180,6 +1208,8 @@ export class GISImportService {
           variance: canonicalBoqTotal,
           startDate: new Date(),
           estimatedDuration: 180,
+          projectTypeId: importedProjectTypeId,
+          planningSource: 'GIS',
         },
       });
 
@@ -1894,27 +1924,10 @@ export class GISImportService {
 
     if (!session.isCompletedProject && !isUpgrade) {
       const [wfErr] = await safe((async () => {
-        // Get or create ProjectType for workflow template mapping
-        let projectTypeRecord = await prisma.projectType.findFirst({
-          where: {
-            name: {
-              contains: projectType === 'CLUSTER_DEVELOPMENT' ? 'Cluster' :
-                        projectType === 'BUILDING_FIBER' ? 'Building' :
-                        projectType === 'SSD' ? 'SSD' : 'OSP',
-            },
-          },
-        });
-
-        if (!projectTypeRecord) {
-          projectTypeRecord = await prisma.projectType.create({
-            data: {
-              name: projectType === 'CLUSTER_DEVELOPMENT' ? 'Cluster Development' :
-                    projectType === 'BUILDING_FIBER' ? 'Building Fiber' :
-                    projectType === 'SSD' ? 'SSD' : 'OSP FTTH',
-              description: `Auto-created for GIS import project type: ${projectType}`,
-            },
-          });
-        }
+        const projectTypeRecord = project.projectTypeId
+          ? await prisma.projectType.findUnique({ where: { id: project.projectTypeId } })
+          : null;
+        if (!projectTypeRecord) throw AppError.badRequest('PROJECT_TYPE_REQUIRED_FOR_GIS_WORKFLOW');
 
         // Update project with project type
         await prisma.project.update({
@@ -2116,6 +2129,7 @@ export class GISImportService {
           entityId: project.id,
           details: `Workflow instantiation failed: ${wfError.message}`,
         });
+        throw AppError.badRequest('WORKFLOW_INITIALIZATION_FAILED');
       }
     }
 

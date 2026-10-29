@@ -100,12 +100,18 @@ async function main() {
     throw new Error(`Insufficient Kaduwela ATP for ${materialCode}`);
   }
 
+  const projectType = await prisma.projectType.findFirstOrThrow({
+    where: { name: 'SSD', workflowTemplates: { some: { isActive: true } } },
+    select: { id: true },
+  });
+
   const project = await ProjectService.createProject({
     projectCode,
     name: `QA Extreme Full Workflow ${runId}`,
     type: 'FTTH',
     contractorId: contractor.id,
     opmcId: storeOpmcId,
+    projectTypeId: projectType.id,
     planningSource: 'CAD',
   });
 

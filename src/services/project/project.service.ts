@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { calculateProjectProgress } from '@/lib/project-progress';
 import { NIL_UUID } from '@/lib/opmc-scope';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { getProjectTypeCatalogEntry } from '@/config/project-type-catalog';
 
 interface ProjectFilters {
@@ -21,9 +22,10 @@ interface CreateProjectInput {
     type?: string;
     contractorId?: string | null;
     opmcId?: string | null;
-    projectTypeId?: string | null;
+    projectTypeId: string;
     parentId?: string | null;
     planningSource?: string;
+    actorUserId?: string | null;
 }
 
 interface UpdateProjectInput {
@@ -252,7 +254,13 @@ export class ProjectService {
      * Create new project
      */
     static async createProject(data: CreateProjectInput) {
-        const { projectCode, name, type, contractorId, opmcId, projectTypeId, parentId, planningSource } = data;
+        const { projectCode, name, type, contractorId, opmcId, projectTypeId, parentId, planningSource, actorUserId } = data;
+
+        if (!projectTypeId) throw AppError.badRequest('PROJECT_TYPE_REQUIRED');
+        const accessibleOpmcs = actorUserId === undefined ? undefined : await resolveOpmcScope(actorUserId);
+        if (accessibleOpmcs !== undefined && (!opmcId || !accessibleOpmcs.includes(opmcId))) {
+            throw AppError.forbidden('Project OPMC is outside the authenticated user scope');
+        }
 
         const requestedPlanningSource = planningSource?.trim().toUpperCase();
         if (requestedPlanningSource && !['GIS', 'CAD', 'MANUAL'].includes(requestedPlanningSource)) {
@@ -272,21 +280,20 @@ export class ProjectService {
         // template.  A project without a usable workflow is not a valid project record.
         return await prisma.$transaction(async (tx) => {
             if (parentId) {
-                const parent = await tx.project.findUnique({ where: { id: parentId }, select: { id: true } });
+                const parent = await tx.project.findUnique({ where: { id: parentId }, select: { id: true, opmcId: true } });
                 if (!parent) throw AppError.badRequest('PARENT_PROJECT_NOT_FOUND');
+                if (parent.opmcId !== opmcId) {
+                    throw AppError.badRequest('PARENT_PROJECT_OPMC_MISMATCH');
+                }
             }
             const selectedProjectType = await tx.projectType.findFirst({
-                where: projectTypeId
-                    ? { id: projectTypeId, workflowTemplates: { some: { isActive: true } } }
-                    : { workflowTemplates: { some: { isActive: true } } },
+                where: { id: projectTypeId, workflowTemplates: { some: { isActive: true } } },
                 orderBy: { name: 'asc' },
             });
 
             if (!selectedProjectType) {
                 throw AppError.badRequest(
-                    projectTypeId
-                        ? 'PROJECT_WORKFLOW_TEMPLATE_NOT_FOUND'
-                        : 'PROJECT_WORKFLOW_CATALOG_UNAVAILABLE',
+                    'PROJECT_WORKFLOW_TEMPLATE_NOT_FOUND',
                 );
             }
 
@@ -343,7 +350,7 @@ export class ProjectService {
     /**
      * Update project details
      */
-    static async updateProject(id: string, updateData: UpdateProjectInput) {
+    static async updateProject(id: string, updateData: UpdateProjectInput, actorUserId?: string | null) {
         const existingProject = await prisma.project.findUnique({
             where: { id },
             include: { workflowInstance: true }
@@ -351,6 +358,15 @@ export class ProjectService {
 
         if (!existingProject) {
             throw AppError.badRequest('PROJECT_NOT_FOUND');
+        }
+
+        const accessibleOpmcs = actorUserId === undefined ? undefined : await resolveOpmcScope(actorUserId);
+        if (accessibleOpmcs !== undefined && (!existingProject.opmcId || !accessibleOpmcs.includes(existingProject.opmcId))) {
+            throw AppError.forbidden('Project is outside the authenticated user scope');
+        }
+        if (accessibleOpmcs !== undefined && updateData.opmcId !== undefined
+            && (!updateData.opmcId || !accessibleOpmcs.includes(updateData.opmcId))) {
+            throw AppError.forbidden('Project OPMC is outside the authenticated user scope');
         }
 
         const hasActiveWorkflow = !!existingProject.workflowInstance;
@@ -375,11 +391,13 @@ export class ProjectService {
                     if (cursor === id) throw AppError.badRequest('PROJECT_PARENT_CYCLE');
                     if (visited.has(cursor)) break;
                     visited.add(cursor);
-                    const parent: { parentId: string | null } | null = await prisma.project.findUnique({
+                    const parent: { parentId: string | null; opmcId: string | null } | null = await prisma.project.findUnique({
                         where: { id: cursor },
-                        select: { parentId: true },
+                        select: { parentId: true, opmcId: true },
                     });
                     if (!parent) throw AppError.badRequest('PARENT_PROJECT_NOT_FOUND');
+                    const nextOpmcId = updateData.opmcId !== undefined ? updateData.opmcId : existingProject.opmcId;
+                    if (parent.opmcId !== nextOpmcId) throw AppError.badRequest('PARENT_PROJECT_OPMC_MISMATCH');
                     cursor = parent.parentId;
                 }
             }
@@ -476,12 +494,7 @@ export class ProjectService {
     /**
      * Delete project and its associated QFieldCloud project if mapped
      */
-    static async deleteProject(id: string, userRole?: string | null) {
-        const isDev = process.env.NODE_ENV === 'development';
-        if (!isDev && (!userRole || !['SUPER_ADMIN', 'ADMIN'].includes(userRole))) {
-            throw AppError.badRequest('FORBIDDEN');
-        }
-
+    static async deleteProject(id: string) {
         // Verify project exists and get gisMapping
         const project = await prisma.project.findUnique({ where: { id } });
         if (!project) {

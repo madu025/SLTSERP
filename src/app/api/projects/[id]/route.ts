@@ -1,4 +1,3 @@
-import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectService } from '@/services/project/project.service';
 import { AppError } from '@/lib/error';
@@ -23,25 +22,21 @@ export const GET = apiHandler(async (_request, params) => {
     }
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
-export const DELETE = apiHandler(async (request, params) => {
-    const userRole = request.headers.get('x-user-role');
+export const DELETE = apiHandler(async (_request, params) => {
     const { id } = await params;
 
     try {
-        await ProjectService.deleteProject(id, userRole);
+        await ProjectService.deleteProject(id);
         return { success: true, message: 'Project deleted successfully' };
     } catch (error: unknown) {
         const err = error as { message?: string };
-        if (err?.message === 'FORBIDDEN') {
-            throw AppError.forbidden('Unauthorized: Only Admin or Super Admin can delete projects');
-        }
         if (err?.message === 'PROJECT_NOT_FOUND') {
             throw AppError.notFound('Project not found');
         }
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    permissions: [RBAC_PERMISSIONS.ADMIN_RBAC],
     audit: { action: 'DELETE', entity: 'PROJECT' },
     rawResponse: true
 });

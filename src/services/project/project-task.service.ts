@@ -2,6 +2,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { dependencyDateConflict, normalizeTaskSchedule } from '@/lib/project-schedule';
 import { Prisma } from '@prisma/client';
+import { assertProjectAccess } from '@/lib/project-access';
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -153,6 +154,7 @@ export class ProjectTaskService {
      * Get all tasks for a project
      */
     static async getTasks(projectId: string, parentId?: string | null, viewerId?: string | null, viewerRole?: string | null) {
+        await assertProjectAccess(projectId, viewerId);
         const where: Prisma.ProjectTaskWhereInput = { projectId };
         if (parentId === 'null') {
             where.parentId = null;
@@ -188,8 +190,10 @@ export class ProjectTaskService {
     /**
      * Create a task
      */
-    static async createTask(data: CreateTaskInput) {
+    static async createTask(data: CreateTaskInput, actorId?: string | null) {
         const { projectId, parentId, wbsCode, name, description, type, plannedStartDate, plannedEndDate, plannedDuration, priority, estimatedCost, order, assigneeType, assigneeId, contractorId, contractorAssignmentId } = data;
+
+        await assertProjectAccess(projectId, actorId);
 
         const optionalString = (value?: string | null) => {
             const normalized = value?.trim();
@@ -441,9 +445,25 @@ export class ProjectTaskService {
     /**
      * Get all task dependencies
      */
-    static async getDependencies(taskId?: string | null) {
-        const where: Record<string, unknown> = {};
-        if (taskId) where.taskId = taskId;
+    static async getTaskProjectId(taskId: string) {
+        const task = await prisma.projectTask.findUnique({ where: { id: taskId }, select: { projectId: true } });
+        if (!task) throw AppError.notFound('Task not found');
+        return task;
+    }
+
+    static async getDependencyProjectId(id: string) {
+        const dependency = await prisma.taskDependency.findUnique({
+            where: { id },
+            select: { task: { select: { projectId: true } } },
+        });
+        if (!dependency) throw AppError.notFound('Dependency not found');
+        return dependency.task;
+    }
+
+    static async getDependencies(taskId: string, actorId?: string | null) {
+        const task = await this.getTaskProjectId(taskId);
+        await assertProjectAccess(task.projectId, actorId);
+        const where: Record<string, unknown> = { taskId };
 
         const dependencies = await prisma.taskDependency.findMany({
             where,
@@ -459,7 +479,7 @@ export class ProjectTaskService {
     /**
      * Create a task dependency
      */
-    static async createDependency(data: CreateDependencyInput) {
+    static async createDependency(data: CreateDependencyInput, actorId?: string | null) {
         const { taskId, dependsOnTaskId, type, lagDays } = data;
 
         if (taskId === dependsOnTaskId) {
@@ -472,6 +492,7 @@ export class ProjectTaskService {
         ]);
         if (!task || !prerequisite) throw AppError.notFound('DEPENDENCY_TASK_NOT_FOUND');
         if (task.projectId !== prerequisite.projectId) throw AppError.badRequest('CROSS_PROJECT_DEPENDENCY');
+        await assertProjectAccess(task.projectId, actorId);
 
         const dependencyType = type || 'FINISH_TO_START';
         const dependencyLagDays = lagDays || 0;
@@ -538,7 +559,9 @@ export class ProjectTaskService {
     /**
      * Get progress logs for a task
      */
-    static async getProgressLogs(taskId: string) {
+    static async getProgressLogs(taskId: string, actorId?: string | null) {
+        const task = await this.getTaskProjectId(taskId);
+        await assertProjectAccess(task.projectId, actorId);
         const logs = await prisma.taskProgressLog.findMany({
             where: { taskId },
             orderBy: { date: 'desc' }
@@ -558,6 +581,7 @@ export class ProjectTaskService {
         });
         if (!task) throw AppError.notFound('Task not found');
         if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
+        await assertProjectAccess(task.projectId, loggedById);
         await assertTaskActor(taskId, projectId, loggedById, 'PROGRESS');
 
         const progressVal = parseInt(String(progress), 10);

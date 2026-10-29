@@ -203,6 +203,7 @@ export default function ProjectsPage() {
     // ── Handlers ──────────────────────────────────────────────────────────────
     const handleCreate = async () => {
         if (!newProject.name.trim() || !newProject.projectCode.trim()) { toast.error('Project Code and Name are required'); return; }
+        if (!newProject.projectTypeId) { toast.error('Select a project type before creating the project'); return; }
         try {
             const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newProject) });
             if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
@@ -471,7 +472,7 @@ export default function ProjectsPage() {
                          </div>
                          <div className="space-y-1.5">
                              <div className="flex items-center justify-between">
-                                 <Label className="text-xs">Project Type</Label>
+                                 <Label className="text-xs">Project Type *</Label>
                                  <button type="button" onClick={() => setNewTypeDialogOpen(true)} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-0.5">
                                      <PlusCircle className="w-3 h-3" />Add
                                  </button>
@@ -516,7 +517,7 @@ export default function ProjectsPage() {
                      </div>
                      <DialogFooter className="gap-2">
                          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                         <Button size="sm" className="h-8 text-xs" onClick={handleCreate}>Create Project</Button>
+                         <Button size="sm" className="h-8 text-xs" onClick={handleCreate} disabled={!newProject.projectTypeId}>Create Project</Button>
                      </DialogFooter>
                  </DialogContent>
              </Dialog>
