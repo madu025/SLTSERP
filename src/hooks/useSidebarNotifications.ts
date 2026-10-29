@@ -36,8 +36,8 @@ export function useSidebarNotifications(
     const fetchMenuCounts = useCallback(async () => {
         if (!userId) return;
         try {
-            const res = await fetch(`/api/notifications/sidebar-counts?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
-                headers: { 'x-user-id': userId }
+            const res = await fetch(`/api/notifications/sidebar-counts?_t=${Date.now()}`, {
+                cache: 'no-store',
             });
             if (res.ok) {
                 const data = await res.json();
@@ -45,8 +45,9 @@ export function useSidebarNotifications(
                     setMenuCounts(data.data);
                 }
             }
-        } catch (err) {
-            console.error("Failed to fetch sidebar menu counts:", err);
+        } catch {
+            // Sidebar badges are best-effort and must not make the page noisy
+            // during a short deployment restart or session refresh.
         }
     }, [userId]);
 
@@ -54,8 +55,8 @@ export function useSidebarNotifications(
         if (!userId) return;
         setLoadingNotifications(true);
         try {
-            const res = await fetch(`/api/notifications?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
-                headers: { 'x-user-id': userId }
+            const res = await fetch(`/api/notifications?_t=${Date.now()}`, {
+                cache: 'no-store',
             });
             if (res.ok) {
                 const json = await res.json();
@@ -63,8 +64,9 @@ export function useSidebarNotifications(
                 setNotifications(list.slice(0, 8)); // latest 8 notifications in sidebar drawer
                 setUnreadCount(list.filter((n: SidebarNotification) => !n.isRead).length);
             }
-        } catch (err) {
-            console.error("Failed to fetch notifications in sidebar:", err);
+        } catch {
+            // Keep the rest of the sidebar available if notifications are
+            // temporarily unavailable.
         } finally {
             setLoadingNotifications(false);
         }
@@ -72,18 +74,16 @@ export function useSidebarNotifications(
 
     const handleMarkAllRead = async (silent = false) => {
         try {
-            const uid = userId || '';
-            const res = await fetch(`/api/notifications?userId=${encodeURIComponent(uid)}`, { 
+            const res = await fetch('/api/notifications', {
                 method: 'PATCH',
-                headers: { 'x-user-id': uid }
             });
             if (res.ok) {
                 setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
                 setUnreadCount(0);
                 if (!silent) toast.success("All notifications marked as read");
             }
-        } catch (err) {
-            console.error("Failed to mark all notifications read:", err);
+        } catch {
+            // The next refresh will reconcile the read state.
         }
     };
 
@@ -93,8 +93,8 @@ export function useSidebarNotifications(
                 await fetch(`/api/notifications/${n.id}`, { method: 'PATCH' });
                 setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
                 setUnreadCount(prev => Math.max(0, prev - 1));
-            } catch (err) {
-                console.error("Failed to mark notification as read:", err);
+            } catch {
+                // Keep navigation usable even if the read acknowledgement is delayed.
             }
         }
         closeDrawer();
@@ -176,6 +176,7 @@ export function useSidebarNotifications(
                     sseDebounceTimeout = setTimeout(() => {
                         if (data._isSystem) {
                             fetchMenuCounts();
+                            window.dispatchEvent(new CustomEvent('slts-system-event', { detail: data }));
                         } else {
                             fetchNotifications();
                             fetchMenuCounts();
@@ -186,7 +187,9 @@ export function useSidebarNotifications(
                         }
                     }, jitterMs);
                         
-                    if (document.hidden) {    
+                    // NotificationBell consumes this event; the sidebar remains
+                    // the only owner of the EventSource connection.
+                    if (!data._isSystem) {
                         window.dispatchEvent(new CustomEvent('slts-notification', { detail: data }));
                     }
                 } catch (e) {

@@ -33,7 +33,16 @@ export const GET = apiHandler(async (req, params) => {
         }
     };
 
-    const cleanup = () => {
+    // Initialise cleanup dependencies before registering abort handlers. The
+    // previous const declarations were below cleanup, so an early disconnect
+    // could hit the temporal-dead-zone while the stream was starting.
+    const keepAlive = setInterval(() => {
+        safeWrite(': keep-alive\n\n');
+    }, 15000);
+    let unsubscribeUser: () => void = () => {};
+    let unsubscribeSystem: () => void = () => {};
+
+    function cleanup() {
         if (isClosed) return;
         isClosed = true;
         clearInterval(keepAlive);
@@ -45,20 +54,15 @@ export const GET = apiHandler(async (req, params) => {
         } catch {}
     };
 
-    // Heartbeat every 15 seconds to keep proxies and intermediaries active
-    const keepAlive = setInterval(() => {
-        safeWrite(': keep-alive\n\n');
-    }, 15000);
-
     // Subscribe to events
     const { subscribeToNotifications, subscribeToSystemEvents } = await import('@/lib/events');
 
-    const unsubscribeUser = subscribeToNotifications(userId, (data) => {
+    unsubscribeUser = subscribeToNotifications(userId, (data) => {
         const payload = JSON.stringify({ ...data, _realtime: true });
         safeWrite(`data: ${payload}\n\n`);
     });
 
-    const unsubscribeSystem = subscribeToSystemEvents((data) => {
+    unsubscribeSystem = subscribeToSystemEvents((data) => {
         const payload = JSON.stringify({ ...data, _isSystem: true });
         safeWrite(`data: ${payload}\n\n`);
     });

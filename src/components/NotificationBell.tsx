@@ -46,106 +46,61 @@ export default function NotificationBell() {
         return () => clearTimeout(timer);
     }, []);
 
-    // SSE Connection for real-time notifications
+    // The sidebar owns the single app-wide SSE connection. Listen for the
+    // browser event it publishes instead of opening a second stream here.
+    // Two EventSource connections per page caused duplicate reconnect loops
+    // and unnecessary notification API traffic.
     useEffect(() => {
         if (!userId) return;
 
-        let eventSource: EventSource | null = null;
-        let reconnectTimeout: NodeJS.Timeout;
-
-        const connect = () => {
-            console.log("Establishing SSE connection for notifications...");
-            eventSource = new EventSource(`/api/notifications/stream?userId=${userId}`);
-
-            eventSource.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-
-                    // 1. Handle Global System Events (for Dashboard Live Updates)
-                    if (data._isSystem) {
-                        console.log("Global system event received:", data.type);
-                        // Invalidate relevant queries based on event type
-                        if (data.type === 'INVENTORY_UPDATE') queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] });
-                        if (data.type === 'CONTRACTOR_UPDATE') queryClient.invalidateQueries({ queryKey: ['contractors'] });
-                        if (data.type === 'SOD_UPDATE') queryClient.invalidateQueries({ queryKey: ['service-orders'] });
-
-                        // Dispatch global event for other components
-                        window.dispatchEvent(new CustomEvent('slts-system-event', { detail: data }));
-                        return;
-                    }
-
-                    // 2. Handle User Notifications
-                    const newNotification = data;
-                    console.log("New real-time notification received:", newNotification);
-                    setAnimateBell(true);
-                    setTimeout(() => setAnimateBell(false), 600);
-
-                    // Play Notification Sound via Web Audio API (Offline & Firewall proof)
-                    try {
-                        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-                        if (AudioCtx) {
-                            const ctx = new AudioCtx();
-                            const osc = ctx.createOscillator();
-                            const gain = ctx.createGain();
-                            osc.type = 'sine';
-                            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-                            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
-                            gain.gain.setValueAtTime(0.15, ctx.currentTime);
-                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-                            osc.connect(gain);
-                            gain.connect(ctx.destination);
-                            osc.start();
-                            osc.stop(ctx.currentTime + 0.35);
-                        }
-                    } catch {
-                        console.log("Audio chime playback suppressed");
-                    }
-
-                    // Show a real-time Toast for instant feedback
-                    toast.info(newNotification.title || "New Notification", {
-                        description: newNotification.message,
-                        action: newNotification.link ? {
-                            label: "View",
-                            onClick: () => router.push(newNotification.link)
-                        } : undefined,
-                        duration: 8000,
-                    });
-
-                    // Update local query cache immediately
-                    queryClient.setQueryData(["notifications", userId], (oldData: Notification[] | undefined) => {
-                        const currentData = Array.isArray(oldData) ? oldData : [];
-                        if (newNotification.id && currentData.some((n: Notification) => n.id === newNotification.id)) {
-                            return currentData;
-                        }
-                        const sanitized = {
-                            id: newNotification.id || `temp-${Date.now()}`,
-                            isRead: false,
-                            createdAt: new Date().toISOString(),
-                            ...newNotification
-                        };
-                        return [sanitized, ...currentData].slice(0, 50);
-                    });
-
-                    window.dispatchEvent(new CustomEvent('slts-notification', { detail: newNotification }));
-                } catch (error) {
-                    console.warn("Failed to parse SSE notification:", error);
-                }
-            };
-
-            eventSource.onerror = () => {
-                console.warn("SSE Connection lost, attempting to reconnect...");
-                if (eventSource) eventSource.close();
-                // Attempt to reconnect after 5 seconds
-                reconnectTimeout = setTimeout(connect, 5000);
-            };
+        const handleSystemEvent = (event: Event) => {
+            const data = (event as CustomEvent<Record<string, unknown>>).detail;
+            if (!data) return;
+            if (data.type === 'INVENTORY_UPDATE') queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] });
+            if (data.type === 'CONTRACTOR_UPDATE') queryClient.invalidateQueries({ queryKey: ['contractors'] });
+            if (data.type === 'SOD_UPDATE') queryClient.invalidateQueries({ queryKey: ['service-orders'] });
         };
 
-        connect();
+        const handleNotification = (event: Event) => {
+            const detail = (event as CustomEvent<Record<string, unknown>>).detail;
+            if (!detail || typeof detail !== 'object' || !('id' in detail)) return;
+
+            const newNotification = detail as unknown as Notification;
+            setAnimateBell(true);
+            window.setTimeout(() => setAnimateBell(false), 600);
+
+            toast.info(newNotification.title || "New Notification", {
+                description: newNotification.message,
+                action: newNotification.link ? {
+                    label: "View",
+                    onClick: () => router.push(newNotification.link as string)
+                } : undefined,
+                duration: 8000,
+            });
+
+            queryClient.setQueryData(["notifications", userId], (oldData: Notification[] | undefined) => {
+                const currentData = Array.isArray(oldData) ? oldData : [];
+                if (newNotification.id && currentData.some((n) => n.id === newNotification.id)) {
+                    return currentData;
+                }
+                return [
+                    {
+                        ...newNotification,
+                        id: newNotification.id || `temp-${Date.now()}`,
+                        isRead: newNotification.isRead ?? false,
+                        createdAt: newNotification.createdAt || new Date().toISOString(),
+                    },
+                    ...currentData,
+                ].slice(0, 50);
+            });
+        };
+
+        window.addEventListener('slts-system-event', handleSystemEvent);
+        window.addEventListener('slts-notification', handleNotification);
 
         return () => {
-            console.log("Closing SSE connection...");
-            if (eventSource) eventSource.close();
-            clearTimeout(reconnectTimeout);
+            window.removeEventListener('slts-system-event', handleSystemEvent);
+            window.removeEventListener('slts-notification', handleNotification);
         };
     }, [userId, queryClient, router]);
 
@@ -155,19 +110,19 @@ export default function NotificationBell() {
         queryFn: async () => {
             if (!userId) return [];
             try {
-                const res = await fetch(`/api/notifications?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
+                const res = await fetch(`/api/notifications?_t=${Date.now()}`, {
                     cache: 'no-store',
                     headers: {
                         'Pragma': 'no-cache',
                         'Cache-Control': 'no-cache',
-                        'x-user-id': userId
                     }
                 });
                 if (!res.ok) return [];
                 const json = await res.json();
                 return Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
-            } catch (err) {
-                console.error("Fetch notifications error:", err);
+            } catch {
+                // Notifications are optional UI data; keep the header usable
+                // when a deployment briefly restarts or the session refreshes.
                 return [];
             }
         },
@@ -184,7 +139,6 @@ export default function NotificationBell() {
         mutationFn: async (notificationId: string) => {
             await fetch(`/api/notifications/${notificationId}`, {
                 method: "PATCH",
-                headers: { 'x-user-id': userId || '' }
             });
         },
         onSuccess: () => {
@@ -195,9 +149,8 @@ export default function NotificationBell() {
     // Mark all as read mutation
     const markAllReadMutation = useMutation({
         mutationFn: async () => {
-            await fetch(`/api/notifications?userId=${encodeURIComponent(userId || '')}`, {
+            await fetch('/api/notifications', {
                 method: "PATCH",
-                headers: { 'x-user-id': userId || '' }
             });
         },
         onSuccess: () => {
