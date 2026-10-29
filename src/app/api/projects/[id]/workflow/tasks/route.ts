@@ -3,8 +3,10 @@ import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const POST = apiHandler(async (_request, params, body) => {
+    await assertProjectAccess(params.id, params._userId);
     const action = body.action as string | undefined;
 
     try {

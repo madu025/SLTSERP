@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow, BookOpen, Loader2, Edit2, HardHat, Cloud, Download, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow, BookOpen, Loader2, Edit2, HardHat, Cloud, Download, ChevronRight, Layers } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,6 +67,8 @@ interface Project {
     planningSource?: string;
     opmc?: ProjectOPMC; contractor?: ProjectContractorRef; areaManager?: ProjectStaff;
     projectType?: ProjectTypeRef; workflowInstance?: WorkflowInstance;
+    parent?: { id: string; projectCode: string; name: string } | null;
+    children?: { id: string; projectCode: string; name: string; status: string; progress: number }[];
 }
 interface OPMCOption { id: string; rtom: string; region: string; }
 interface ContractorOption { id: string; name: string; }
@@ -148,7 +150,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         return project?.status ?? null;
     }, [project]);
  
-    const visibleTabs = useMemo(() => getTabsForStage(currentStageName, project?.planningSource), [currentStageName, project?.planningSource]);
+    const visibleTabs = useMemo(
+        () => getTabsForStage(currentStageName, project?.planningSource, project?.projectType?.name),
+        [currentStageName, project?.planningSource, project?.projectType?.name],
+    );
     useEffect(() => { if (visibleTabs.length > 0 && !visibleTabs.find(t => t.value === activeTab)) { setActiveTab(visibleTabs[0]?.value ?? 'overview'); } }, [visibleTabs, activeTab]);
  
     const groupedTabs = useMemo(() => {
@@ -303,6 +308,36 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 </p></div>
                             </div>
                         </div>
+
+                        {(project.parent || (project.children && project.children.length > 0)) && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Layers className="w-3.5 h-3.5 text-primary" />
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase">Project hierarchy</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 text-xs">
+                                    {project.parent && (
+                                        <button
+                                            type="button"
+                                            className="rounded border border-border bg-muted/30 px-2 py-1 text-foreground hover:bg-muted"
+                                            onClick={() => router.push(`/projects/${project.parent?.id}`)}
+                                        >
+                                            Parent: {project.parent.projectCode} · {project.parent.name}
+                                        </button>
+                                    )}
+                                    {project.children?.map((child) => (
+                                        <button
+                                            type="button"
+                                            key={child.id}
+                                            className="rounded border border-primary/20 bg-primary/5 px-2 py-1 text-foreground hover:bg-primary/10"
+                                            onClick={() => router.push(`/projects/${child.id}`)}
+                                        >
+                                            Child: {child.projectCode} · {child.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
  
                         {/* Stage Info */}
                         {currentStageName && (

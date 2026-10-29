@@ -26,7 +26,7 @@ interface AsBuiltComparison {
 }
 
 interface ProjectAsBuiltProps {
-  project: { id: string; name?: string };
+  project: { id: string; name?: string; planningSource?: string };
 }
 
 const SURVEY_LAYERS = [
@@ -50,6 +50,7 @@ function pct(a: number, b: number) {
 }
 
 export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
+  const isGisProject = project.planningSource?.toUpperCase() === 'GIS';
   const [comparison, setComparison] = useState<AsBuiltComparison | null>(null);
   const [compLoading, setCompLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -100,12 +101,15 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
       {/* Header */}
       <div>
         <h3 className="text-base font-bold text-foreground">As-Built Output</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Export QGIS GeoJSON, CAD blocks, or view surveyed vs installed comparison</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {isGisProject ? 'Export QGIS GeoJSON, CAD blocks, or view surveyed vs installed comparison' : 'Manage CAD/document handover evidence for this non-GIS project'}
+        </p>
       </div>
 
       {/* Export Format Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* QGIS Export */}
+        {/* QGIS Export is only applicable to GIS-enabled projects. */}
+        {isGisProject && (
         <Card className="border-border shadow-none hover:border-primary/30 transition-colors">
           <CardHeader className="p-4 pb-2">
             <div className="flex items-start justify-between">
@@ -129,6 +133,7 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
             </Button>
           </CardContent>
         </Card>
+        )}
 
         {/* CAD Export */}
         <Card className="border-border shadow-none hover:border-primary/30 transition-colors">
@@ -157,6 +162,7 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
         </Card>
 
         {/* Single Layer Export */}
+        {isGisProject && (
         <Card className="border-border shadow-none hover:border-primary/30 transition-colors">
           <CardHeader className="p-4 pb-2">
             <div className="flex items-start justify-between">
@@ -189,10 +195,10 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
             </Button>
           </CardContent>
         </Card>
+        )}
       </div>
 
-      {/* Comparison Table */}
-      <Card className="border-border shadow-none">
+      {isGisProject ? <Card className="border-border shadow-none">
         <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -282,7 +288,16 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
             </>
           )}
         </CardContent>
-      </Card>
+      </Card> : (
+        <Card className="border-border shadow-none">
+          <CardContent className="p-5 text-sm text-foreground">
+            <p className="font-semibold">CAD / document handover path</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload the approved CAD, configuration, test and warranty documents from the Documents module. GIS/QField evidence is not required for this project type.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

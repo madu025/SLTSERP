@@ -32,6 +32,55 @@ function uniqueTabs(tabs: TabDefinition[]): TabDefinition[] {
  * for work being done in that stage.
  */
 export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
+    // ===== Cross-domain project workflow stages =====
+    'project initiation & requirements': [
+        { value: 'documents', label: 'Documents', description: 'Scope, requirements and approvals' },
+        { value: 'approvals', label: 'Approvals', description: 'Project initiation approvals' },
+        { value: 'risks', label: 'Risks', description: 'Initial project risk register' },
+    ],
+    'survey & current-state assessment': [
+        { value: 'documents', label: 'Assessment Documents', description: 'Site/current-state evidence and requirements' },
+        { value: 'risks', label: 'Risks', description: 'Assessment risks and constraints' },
+    ],
+    'solution design & review': [
+        { value: 'documents', label: 'Design Documents', description: 'CAD, schematics and design evidence' },
+        { value: 'approvals', label: 'Design Approval', description: 'Technical design review and approval' },
+    ],
+    'boq & budget approval': [
+        { value: 'boq', label: 'BOQ & Material', description: 'Bill of quantities and material requirements' },
+        { value: 'budget', label: 'Budget Tracking', description: 'Budget baseline and variance monitoring' },
+        { value: 'approvals', label: 'BOQ Approval', description: 'Commercial and budget approvals' },
+        { value: 'documents', label: 'Documents', description: 'BOQ and budget evidence' },
+    ],
+    'procurement & material readiness': [
+        { value: 'procurement', label: 'Procurement', description: 'Procurement and purchasing' },
+        { value: 'materials', label: 'Material Issues', description: 'Material readiness and issue tracking' },
+        { value: 'documents', label: 'Documents', description: 'Supply and delivery evidence' },
+    ],
+    'implementation & configuration': [
+        { value: 'tasks', label: 'Tasks', description: 'Child work packages and progress' },
+        { value: 'contractor', label: 'Contractor', description: 'Contractor assignments and performance' },
+        { value: 'resources', label: 'Resources', description: 'Resource allocation' },
+        { value: 'hse', label: 'HSE', description: 'Health, safety and environment' },
+        { value: 'documents', label: 'Documents', description: 'Implementation evidence' },
+    ],
+    'qa, testing & commissioning': [
+        { value: 'qa', label: 'QA/QC', description: 'Quality assurance and control' },
+        { value: 'commissioning', label: 'Commissioning', description: 'Testing and commissioning evidence' },
+        { value: 'pat', label: 'PAT', description: 'Pre-acceptance testing' },
+        { value: 'documents', label: 'Documents', description: 'Test reports and evidence' },
+    ],
+    'handover & as-built documentation': [
+        { value: 'as-built', label: 'As-Built Output', description: 'CAD, GIS where applicable, and handover outputs' },
+        { value: 'assets', label: 'Assets', description: 'Asset registration and handover' },
+        { value: 'approvals', label: 'Handover Approval', description: 'Final handover approval' },
+        { value: 'documents', label: 'Documents', description: 'Warranties and handover pack' },
+    ],
+    'invoice follow-up & project closure': [
+        { value: 'finance', label: 'Finance', description: 'Invoice follow-up and financial closeout' },
+        { value: 'closure', label: 'Closure', description: 'Project closure and lessons learned' },
+        { value: 'documents', label: 'Documents', description: 'Final closure evidence' },
+    ],
     // ===== Simple stage name aliases (matches DB stage names from simulation) =====
     'survey': [
         { value: 'survey', label: 'Survey', description: 'Site survey and field verification' },
@@ -443,9 +492,32 @@ const STAGE_NAME_ALIASES: Record<string, string> = {
  * Get the tabs that should be visible for a given stage name.
  * Falls back to a default set if no mapping exists.
  */
-export function getTabsForStage(stageName: string | null | undefined, planningSource?: string | null): TabDefinition[] {
+function filterTabsForProjectCapabilities(
+    tabs: TabDefinition[],
+    planningSource?: string | null,
+    projectTypeName?: string | null,
+) {
+    const source = planningSource?.toUpperCase();
+    const spatialTabs = new Set(['gis', 'survey', 'survey-approval', 'gis-audit']);
+    const fiberTypes = new Set(['SSD', 'OPMC_SSD', 'CLUSTER_DEVELOPMENT', 'BUILDING_FIBER']);
+    const isFiberProject = !!projectTypeName && fiberTypes.has(projectTypeName.toUpperCase());
+
+    return tabs.filter((tab) => {
+        if (source !== 'GIS' && spatialTabs.has(tab.value)) return false;
+        // OTDR is a fiber acceptance instrument workflow, not a generic
+        // building/network/data-centre project capability.
+        if (!isFiberProject && tab.value === 'otdr') return false;
+        return true;
+    });
+}
+
+export function getTabsForStage(
+    stageName: string | null | undefined,
+    planningSource?: string | null,
+    projectTypeName?: string | null,
+): TabDefinition[] {
     if (!stageName) {
-        return getDefaultTabs();
+        return getDefaultTabs(planningSource, projectTypeName);
     }
 
     const key = stageName.toLowerCase().trim();
@@ -453,26 +525,23 @@ export function getTabsForStage(stageName: string | null | undefined, planningSo
     const mapped = STAGE_TAB_MAPPING[aliasedKey];
 
     if (mapped) {
-        const source = planningSource?.toUpperCase();
-        const sourceAware = source === 'CAD' && ['survey & feasibility', 'survey plan & field survey'].includes(aliasedKey)
-            ? mapped.filter((tab) => !['gis', 'survey-approval'].includes(tab.value))
-            : mapped;
+        const sourceAware = filterTabsForProjectCapabilities(mapped, planningSource, projectTypeName);
         // Always include overview and workflow-pipeline
         return uniqueTabs([...ALWAYS_VISIBLE_TABS, ...sourceAware]);
     }
 
     // Fallback: return default tabs
-    return getDefaultTabs();
+    return getDefaultTabs(planningSource, projectTypeName);
 }
 
 /**
  * Get the default set of tabs when no stage-specific mapping exists
  */
-export function getDefaultTabs(): TabDefinition[] {
-    return uniqueTabs([
+export function getDefaultTabs(planningSource?: string | null, projectTypeName?: string | null): TabDefinition[] {
+    return uniqueTabs(filterTabsForProjectCapabilities([
         ...ALWAYS_VISIBLE_TABS,
         { value: 'gis', label: 'GIS Route', description: 'GIS route planning and mapping' },
         { value: 'documents', label: 'Documents', description: 'Project files and documentation' },
         { value: 'guide', label: 'Guide', description: 'Project module guide' }
-    ]);
+    ], planningSource, projectTypeName));
 }

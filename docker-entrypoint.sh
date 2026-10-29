@@ -3,21 +3,22 @@
 # Production schema changes are managed by Prisma Migrate. `prisma migrate deploy` is idempotent
 # and uses the migration lock, so a container restart or a second replica cannot replay a migration.
 # The historical Supabase database must be baselined once with:
-#   npm run db:migrate:baseline -- --confirm-existing-schema
+#   pnpm run db:migrate:baseline -- --confirm-existing-schema
 #
 # SKIP_DB_SYNC=true defers migrations to the release pipeline. This is useful when several
-# replicas boot at once or when the platform runs `npm run db:migrate:deploy` before rollout.
+# replicas boot at once or when the platform runs `pnpm run db:migrate:deploy` before rollout.
 echo "Database synchronization (Prisma Migrate)..."
 
 # Resolved once, before either branch. The image ships the CLI (Dockerfile.prod installs
-# prisma@6.19.1 globally), so a boot does not need npm-registry egress; npx remains the last
-# resort for an image built without it.
+# prisma@6.19.1 in node_modules), so a boot does not need registry egress. The
+# production image must fail closed if the pinned CLI is missing.
 if [ -x ./node_modules/.bin/prisma ]; then
   PRISMA=./node_modules/.bin/prisma
 elif command -v prisma >/dev/null 2>&1; then
   PRISMA=prisma
 else
-  PRISMA="npx --yes prisma@6.19.1"
+  echo "FATAL: Prisma CLI is missing from the production image." >&2
+  exit 1
 fi
 
 if [ "${SKIP_DB_SYNC:-false}" = "true" ]; then
@@ -55,7 +56,7 @@ else
       echo "         Notification dedup unique, operator-class and partial indexes may be stale or absent," >&2
       echo "         which shows up as duplicate notifications rather than an error." >&2
       echo "         Boot continues: SKIP_DB_SYNC=true defers this to the release pipeline. Re-apply with:" >&2
-      echo "           npm run db:migrate:deploy" >&2
+      echo "           pnpm run db:migrate:deploy" >&2
     else
       echo "FATAL: indexes NOT applied - $INDEX_FAILURE." >&2
       echo "       This stack requires its dedup indexes before serving traffic." >&2

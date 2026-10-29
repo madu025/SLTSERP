@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { calculateProjectProgress } from '@/lib/project-progress';
 import { NIL_UUID } from '@/lib/opmc-scope';
+import { getProjectTypeCatalogEntry } from '@/config/project-type-catalog';
 
 interface ProjectFilters {
     status?: string | null;
@@ -253,6 +254,11 @@ export class ProjectService {
     static async createProject(data: CreateProjectInput) {
         const { projectCode, name, type, contractorId, opmcId, projectTypeId, parentId, planningSource } = data;
 
+        const requestedPlanningSource = planningSource?.trim().toUpperCase();
+        if (requestedPlanningSource && !['GIS', 'CAD', 'MANUAL'].includes(requestedPlanningSource)) {
+            throw AppError.badRequest('Planning source must be GIS, CAD, or MANUAL');
+        }
+
         // Check if project code already exists
         const existing = await prisma.project.findUnique({
             where: { projectCode }
@@ -284,14 +290,21 @@ export class ProjectService {
                 );
             }
 
+            const selectedCatalogEntry = getProjectTypeCatalogEntry(selectedProjectType.name);
+            const effectivePlanningSource = requestedPlanningSource
+                || selectedCatalogEntry?.defaultPlanningSource
+                || 'CAD';
+
             const project = await tx.project.create({
                 data: {
                     projectCode,
                     name,
-                    type: type || 'FTTH',
+                    // Preserve an explicitly supplied legacy type, but do not
+                    // label CCTV/PABX/network projects as FTTH by default.
+                    type: type || selectedProjectType.name,
                     contractorId: contractorId || null,
                     parentId: parentId || null,
-                    planningSource: planningSource || 'GIS',
+                    planningSource: effectivePlanningSource,
                     opmcId: opmcId || null,
                     projectTypeId: selectedProjectType.id,
                     status: 'PLANNING'
@@ -372,7 +385,13 @@ export class ProjectService {
             }
             finalUpdateData.parentId = nextParentId;
         }
-        if (updateData.planningSource !== undefined) finalUpdateData.planningSource = updateData.planningSource || 'GIS';
+        if (updateData.planningSource !== undefined) {
+            const nextPlanningSource = updateData.planningSource?.trim().toUpperCase() || 'CAD';
+            if (!['GIS', 'CAD', 'MANUAL'].includes(nextPlanningSource)) {
+                throw AppError.badRequest('Planning source must be GIS, CAD, or MANUAL');
+            }
+            finalUpdateData.planningSource = nextPlanningSource;
+        }
 
         if (updateData.startDate !== undefined) {
             finalUpdateData.startDate = updateData.startDate ? new Date(updateData.startDate) : null;

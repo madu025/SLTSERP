@@ -1,4 +1,4 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectTypeService } from '@/services/project/project-type.service';
@@ -15,7 +15,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
     if (!name) throw AppError.badRequest('Name is required');
     return await ProjectTypeService.createProjectType(name, description);
 }, {
-    roles: ROLE_GROUPS.ADMINS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'PROJECT_TYPE_CREATE', entity: 'ProjectType' },
     rawResponse: true
 });

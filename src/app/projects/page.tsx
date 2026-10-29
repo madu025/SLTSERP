@@ -23,6 +23,8 @@ interface ProjectType {
     id: string;
     name: string;
     description: string;
+    defaultPlanningSource?: 'GIS' | 'CAD' | 'MANUAL';
+    roleSummary?: string[];
 }
 interface OPMCOption {
     id: string;
@@ -189,6 +191,14 @@ export default function ProjectsPage() {
     const totalBudget = projects.reduce((s, p) => s + (p.budget || 0), 0);
     const inProgressCount = projects.filter(p => p.status === 'IN_PROGRESS').length;
     const selectedProjectType = projectTypes.find(pt => pt.id === newProject.projectTypeId);
+    const handleProjectTypeChange = (projectTypeId: string) => {
+        const nextType = projectTypes.find((projectType) => projectType.id === projectTypeId);
+        setNewProject((current) => ({
+            ...current,
+            projectTypeId,
+            planningSource: nextType?.defaultPlanningSource ?? current.planningSource,
+        }));
+    };
  
     // ── Handlers ──────────────────────────────────────────────────────────────
     const handleCreate = async () => {
@@ -222,7 +232,11 @@ export default function ProjectsPage() {
             const res = await fetch('/api/projects/types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTypeName.trim(), description: newTypeDescription.trim() }) });
             if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
             const created = await res.json();
-            setNewProject(prev => ({ ...prev, projectTypeId: created.id }));
+            setNewProject(prev => ({
+                ...prev,
+                projectTypeId: created.id,
+                planningSource: created.defaultPlanningSource || 'CAD',
+            }));
             setNewTypeDialogOpen(false); setNewTypeName(''); setNewTypeDescription(''); fetchProjectTypes();
         } catch { toast.error('Failed'); }
         finally { setCreatingType(false); }
@@ -462,11 +476,16 @@ export default function ProjectsPage() {
                                      <PlusCircle className="w-3 h-3" />Add
                                  </button>
                              </div>
-                             <Select value={newProject.projectTypeId || undefined} onValueChange={(v) => setNewProject({ ...newProject, projectTypeId: v })}>
+                             <Select value={newProject.projectTypeId || undefined} onValueChange={handleProjectTypeChange}>
                                  <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select type..." /></SelectTrigger>
                                  <SelectContent>{(projectTypes || []).map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                              </Select>
                              {selectedProjectType && <p className="text-[10px] text-muted-foreground mt-0.5">Workflow: {selectedProjectType.description}</p>}
+                             {selectedProjectType?.roleSummary?.length ? (
+                                 <p className="text-[10px] text-muted-foreground mt-0.5">
+                                     Typical roles: {selectedProjectType.roleSummary.map((role) => role.replace(/_/g, ' ')).join(' • ')}
+                                 </p>
+                             ) : null}
                          </div>
                          <div className="space-y-1.5">
                              <Label className="text-xs">Planning Source</Label>
@@ -475,9 +494,10 @@ export default function ProjectsPage() {
                                  <SelectContent>
                                      <SelectItem value="GIS">GIS + CAD</SelectItem>
                                      <SelectItem value="CAD">CAD only</SelectItem>
+                                     <SelectItem value="MANUAL">Manual / operational evidence</SelectItem>
                                  </SelectContent>
                              </Select>
-                             <p className="text-[10px] text-muted-foreground">GIS is optional; CAD-only projects use the CAD as-built path.</p>
+                             <p className="text-[10px] text-muted-foreground">GIS is optional. Use CAD or Manual for CCTV, PABX, network and operations projects.</p>
                          </div>
                          <div className="space-y-1.5">
                              <Label className="text-xs">Parent Project (optional)</Label>

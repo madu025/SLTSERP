@@ -55,6 +55,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src/config/rbac-permissions.ts ./src/config/rbac-permissions.ts
 COPY --from=builder /app/src/config/roles.ts ./src/config/roles.ts
 COPY --from=builder /app/src/config/valid-roles.ts ./src/config/valid-roles.ts
+COPY --from=builder /app/src/config/project-type-catalog.ts ./src/config/project-type-catalog.ts
 
 # Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

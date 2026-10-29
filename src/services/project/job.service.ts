@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
+import { getProjectTypeCatalogEntry } from '@/config/project-type-catalog';
 import { AppError } from '@/lib/error';
 
 export class JobService {
@@ -150,18 +151,13 @@ export class JobService {
         const sequence = String(count + 1).padStart(3, '0');
         const projectCode = `FOSP_SLTS_${year}_${sequence}`;
 
-        const typeMap: Record<string, string> = {
-            'Cluster Development': 'CLUSTER_DEVELOPMENT',
-            'SSD': 'SSD',
-            'Building Fiber': 'BUILDING_FIBER',
-            'OSP FTTH': 'OSP_FTTH'
-        };
-
         let projectType = null;
         if (data.projectTypeId) {
             projectType = await prisma.projectType.findUnique({ where: { id: data.projectTypeId } });
+            if (!projectType) throw AppError.badRequest('PROJECT_TYPE_NOT_FOUND');
         }
-        const type = projectType ? (typeMap[projectType.name] || 'OSP_FTTH') : 'OSP_FTTH';
+        const type = projectType?.name || 'OSP_FTTH';
+        const planningSource = getProjectTypeCatalogEntry(projectType?.name)?.defaultPlanningSource || 'GIS';
 
         const project = await prisma.project.create({
             data: {
@@ -175,6 +171,7 @@ export class JobService {
                 contractorId: data.contractorId || null,
                 opmcId: data.opmcId || null,
                 projectTypeId: data.projectTypeId || null,
+                planningSource,
                 jobId: jobId
             }
         });

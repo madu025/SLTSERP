@@ -1,4 +1,8 @@
 import { PrismaClient } from '@prisma/client';
+import {
+  GENERIC_WORKFLOW_STAGES,
+  PROJECT_TYPE_CATALOG,
+} from '../src/config/project-type-catalog';
 
 const prisma = new PrismaClient();
 
@@ -8,14 +12,7 @@ async function main() {
   // ============================================
   // 1. Create Project Types
   // ============================================
-  const projectTypes = [
-    { name: 'SSD', description: 'Standard Service Delivery - FTTH installations' },
-    { name: 'OPMC_SSD', description: 'OPMC-managed Standard Service Delivery' },
-    { name: 'CLUSTER_DEVELOPMENT', description: 'Greenfield/Brownfield cluster fiber development' },
-    { name: 'BUILDING_FIBER', description: 'Multi-dwelling building fiber rollout' },
-    { name: 'BUILDING_NETWORK', description: 'Building internal network cabling' },
-    { name: 'RELATED_TELECOM', description: 'Related telecom infrastructure projects' },
-  ];
+  const projectTypes = PROJECT_TYPE_CATALOG.map(({ name, description }) => ({ name, description }));
 
   for (const pt of projectTypes) {
     await prisma.projectType.upsert({
@@ -471,13 +468,80 @@ async function main() {
   });
   console.log('✓ Building Fiber Workflow created');
 
-  // Fail loudly if a deployment has a project type without a usable workflow.
-  // This keeps a partial/failed seed from presenting an empty workflow selector.
-  const requiredTemplates = [
+  // Reusable cross-domain workflows keep CCTV, PABX, network and future
+  // data-centre projects on the same governed lifecycle as fiber projects.
+  // Existing workflow instances are snapshots and are not changed here.
+  const dedicatedWorkflowNames = new Set([
     'SSD Standard Workflow',
     'Cluster Development Workflow',
     'Building Fiber Workflow',
-  ];
+  ]);
+
+  for (const catalogEntry of PROJECT_TYPE_CATALOG) {
+    if (dedicatedWorkflowNames.has(catalogEntry.workflowName)) continue;
+
+    const projectType = await prisma.projectType.findUnique({ where: { name: catalogEntry.name } });
+    if (!projectType) throw new Error(`Project type not found while seeding: ${catalogEntry.name}`);
+
+    const stages = GENERIC_WORKFLOW_STAGES.map((stage, index) => ({
+      code: stage.code,
+      name: stage.name,
+      description: stage.description,
+      sequence: index + 1,
+      workstream: stage.workstream,
+      assignmentRole: stage.assignmentRole,
+      assignmentTeamKey: stage.assignmentTeamKey,
+      reqApproval: stage.reqApproval ?? false,
+      reqChecklist: stage.reqChecklist ?? false,
+      reqPhotos: stage.reqPhotos ?? false,
+      reqMaterials: stage.reqMaterials ?? false,
+      reqDocuments: stage.reqDocuments ?? false,
+      approvalTemplates: {
+        create: (stage.approvalRoles ?? []).map((role, level) => ({ level: level + 1, role })),
+      },
+      checklistTemplates: {
+        create: (stage.checklistLabels ?? []).map((label) => ({
+          label,
+          isMandatory: true,
+          reqPhoto: stage.reqPhotos ?? false,
+        })),
+      },
+      taskTemplates: {
+        create: stage.tasks.map((task) => ({
+          code: task.code,
+          name: task.name,
+          priority: 'MEDIUM',
+          taskType: task.taskType ?? 'SEMI_TASK',
+          assignmentRole: task.assignmentRole,
+          assignmentTeamKey: task.assignmentTeamKey,
+          isRequired: true,
+          isSupervisorSelectable: true,
+          dependsOnCode: task.dependsOnCode,
+        })),
+      },
+    }));
+
+    await prisma.workflowTemplate.upsert({
+      where: { name: catalogEntry.workflowName },
+      update: {
+        description: catalogEntry.workflowDescription,
+        projectTypeId: projectType.id,
+        isActive: true,
+        stages: { deleteMany: {}, create: stages },
+      },
+      create: {
+        name: catalogEntry.workflowName,
+        description: catalogEntry.workflowDescription,
+        projectTypeId: projectType.id,
+        stages: { create: stages },
+      },
+    });
+  }
+  console.log('Cross-domain project workflows created');
+
+  // Fail loudly if a deployment has a project type without a usable workflow.
+  // This keeps a partial/failed seed from presenting an empty workflow selector.
+  const requiredTemplates = PROJECT_TYPE_CATALOG.map((entry) => entry.workflowName);
   const seededTemplates = await prisma.workflowTemplate.findMany({
     where: { name: { in: requiredTemplates }, isActive: true },
     select: { name: true, projectTypeId: true, stages: { select: { id: true } } },

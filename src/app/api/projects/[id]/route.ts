@@ -2,11 +2,14 @@ import { ROLE_GROUPS } from '@/config/roles';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectService } from '@/services/project/project.service';
 import { AppError } from '@/lib/error';
+import { assertProjectAccess } from '@/lib/project-access';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
     const { id } = await params;
+    await assertProjectAccess(id, params._userId);
 
     try {
         const project = await ProjectService.getProjectDetails(id);
@@ -18,7 +21,7 @@ export const GET = apiHandler(async (_request, params) => {
         }
         throw error;
     }
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 export const DELETE = apiHandler(async (request, params) => {
     const userRole = request.headers.get('x-user-role');

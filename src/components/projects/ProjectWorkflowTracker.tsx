@@ -432,8 +432,8 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
               <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border border-blue-200">Dynamic Stage Pipeline</Badge>
               <span className="text-[10px] text-slate-450 font-mono">ID: {workflow.id.slice(-6).toUpperCase()}</span>
             </div>
-            <h3 className="text-lg font-bold text-slate-900 mt-2">OSP Execution Workflow</h3>
-            <p className="text-xs text-slate-550">Linear step progression mapping template with strict QA gate controls.</p>
+            <h3 className="text-lg font-bold text-slate-900 mt-2">{project.projectType?.name?.replace(/_/g, ' ') || 'Project'} Workflow</h3>
+            <p className="text-xs text-slate-550">Project-type workflow with role-based stage gates and evidence controls.</p>
           </div>
           <div className="w-full md:w-48 space-y-1.5">
             <div className="flex justify-between text-xs font-bold text-slate-750">

@@ -38,8 +38,8 @@ const DOCUMENTATION: DocSection[] = [
                 title: 'System Overview',
                 steps: [
                     'SLT SERP (Service & Resource Planning) is a comprehensive project management system for Sri Lanka Telecom\'s OSP (Outside Plant) projects.',
-                    'Projects are organized by type: SSD, OPMC_SSD, CLUSTER_DEVELOPMENT, BUILDING_FIBER, BUILDING_NETWORK, and RELATED_TELECOM.',
-                    'Each project progresses through workflow stages controlled by Stage Gates (checkpoints). Different tabs/modules become available depending on the current stage.',
+                    'Projects are organized by workflow type: SSD, OPMC_SSD, CLUSTER_DEVELOPMENT, BUILDING_FIBER, BUILDING_NETWORK, CCTV_SECURITY, PABX_TELEPHONY, NETWORK_INFRASTRUCTURE, DATA_CENTER_OPERATIONS, and RELATED_TELECOM. A main project can contain different child project types.',
+                    'Each project progresses through workflow stages controlled by Stage Gates (checkpoints). Different tabs/modules become available depending on the current stage. GIS is optional; CAD or manual evidence can be used for non-GIS projects.',
                     'The system covers the full project lifecycle: Survey → Design → Permits → Procurement → Installation → Testing → QA/QC → Handover → Closure.'
                 ]
             },
@@ -611,7 +611,7 @@ const DOCUMENTATION: DocSection[] = [
 ];
 
 // ─── Component ──────────────────────────────────────────────────────
-export default function ProjectDocumentation({ project }: { project?: any }) {
+export default function ProjectDocumentation(_props: { project?: unknown }) {
     const [search, setSearch] = useState('');
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['getting-started']));

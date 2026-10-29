@@ -32,35 +32,24 @@ export class ProjectWorkflowService {
       });
 
       if (project) {
-        let projectTypeId = project.projectTypeId;
+        const projectTypeId = project.projectTypeId;
 
-        // A legacy project may point at a type whose template was never seeded or was
-        // deactivated.  Only retain the type when it is actually workflow-backed.
-        if (projectTypeId) {
-          const configuredType = await prisma.projectType.findFirst({
-            where: {
-              id: projectTypeId,
-              workflowTemplates: { some: { isActive: true } },
-            },
-            select: { id: true },
-          });
-          if (!configuredType) projectTypeId = null;
+        // Never guess a workflow for a legacy project.  The selected project
+        // type is the business contract; attaching the first active template
+        // could silently turn a CCTV/PABX project into an SSD project.
+        if (!projectTypeId) {
+          throw AppError.badRequest('PROJECT_TYPE_REQUIRED_FOR_WORKFLOW');
         }
 
-        // Fallback: Find the first project type that actually has an active template.
-        // Picking an arbitrary type can still produce the same missing-workflow failure.
-        if (!projectTypeId) {
-          const firstType = await prisma.projectType.findFirst({
-            where: { workflowTemplates: { some: { isActive: true } } },
-            orderBy: { name: 'asc' },
-          });
-          if (firstType) {
-            projectTypeId = firstType.id;
-            await prisma.project.update({
-              where: { id: projectId },
-              data: { projectTypeId },
-            });
-          }
+        const configuredType = await prisma.projectType.findFirst({
+          where: {
+            id: projectTypeId,
+            workflowTemplates: { some: { isActive: true } },
+          },
+          select: { id: true },
+        });
+        if (!configuredType) {
+          throw AppError.badRequest('PROJECT_WORKFLOW_TEMPLATE_NOT_FOUND');
         }
 
         if (projectTypeId) {
@@ -119,9 +108,12 @@ export class ProjectWorkflowService {
         throw AppError.badRequest('PROJECT_WORKFLOW_TEMPLATE_NOT_FOUND');
       }
 
-      // Legacy projects may have been created before workflow seeding.  Attach the
-      // explicitly selected valid type while creating the workflow atomically.
-      if (project.projectTypeId !== projectType.id) {
+      // A legacy project without a type may be repaired by explicitly selecting
+      // one.  Never replace an already-pinned project type through this endpoint.
+      if (project.projectTypeId && project.projectTypeId !== projectType.id) {
+        throw AppError.conflict('PROJECT_TYPE_IMMUTABLE_AFTER_CREATION');
+      }
+      if (!project.projectTypeId) {
         await tx.project.update({
           where: { id: projectId },
           data: { projectTypeId: projectType.id },

@@ -2,11 +2,13 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectWorkflowService } from '@/services/project/project-workflow.service';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/projects/[id]/workflow
 export const GET = apiHandler(async (_request, params) => {
+    await assertProjectAccess(params.id, params._userId);
     const workflowInstance = await ProjectWorkflowService.getWorkflow(params.id);
 
     if (!workflowInstance) {
@@ -18,6 +20,7 @@ export const GET = apiHandler(async (_request, params) => {
 
 // POST /api/projects/[id]/workflow - Initialize workflow manually
 export const POST = apiHandler(async (_request, params, body) => {
+    await assertProjectAccess(params.id, params._userId);
     const projectTypeId = body.projectTypeId as string | undefined;
 
     if (!projectTypeId) {
