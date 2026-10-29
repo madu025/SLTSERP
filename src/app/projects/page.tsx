@@ -68,9 +68,6 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; icon: React.Co
 const PROGRESS_COLOR = (p: number) =>
     p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-blue-500' : p >= 25 ? 'bg-amber-500' : 'bg-rose-500';
 const FILTER_STATUSES = ['ALL', 'PLANNING', 'APPROVED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED'];
-const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(amount);
- 
 const TODAY_MS = Date.now();
  
 const DASHBOARDS = [
@@ -188,8 +185,6 @@ export default function ProjectsPage() {
         p.projectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.location?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-    const totalBudget = projects.reduce((s, p) => s + (p.budget || 0), 0);
-    const inProgressCount = projects.filter(p => p.status === 'IN_PROGRESS').length;
     const selectedProjectType = projectTypes.find(pt => pt.id === newProject.projectTypeId);
     const handleProjectTypeChange = (projectTypeId: string) => {
         const nextType = projectTypes.find((projectType) => projectType.id === projectTypeId);
@@ -477,7 +472,7 @@ export default function ProjectsPage() {
                                      <PlusCircle className="w-3 h-3" />Add
                                  </button>
                              </div>
-                             <Select value={newProject.projectTypeId || undefined} onValueChange={handleProjectTypeChange}>
+                             <Select value={newProject.projectTypeId} onValueChange={handleProjectTypeChange}>
                                  <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select type..." /></SelectTrigger>
                                  <SelectContent>{(projectTypes || []).map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                              </Select>
