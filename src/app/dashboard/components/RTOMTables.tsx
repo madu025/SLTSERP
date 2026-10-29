@@ -51,8 +51,8 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
             const totalB = b.completed + b.pending + b.returned;
             const rateA = totalA > 0 ? (a.completed / totalA) * 100 : 0;
             const rateB = totalB > 0 ? (b.completed / totalB) * 100 : 0;
-            const revA = a.revenue || (a.completed * 6500);
-            const revB = b.revenue || (b.completed * 6500);
+            const revA = a.revenue ?? 0;
+            const revB = b.revenue ?? 0;
 
             if (sortBy === 'revenue') {
                 if (revB !== revA) return revB - revA;
@@ -126,7 +126,7 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                                     <th className="px-3 py-3 text-emerald-500">Comp</th>
                                     <th className="px-3 py-3 text-amber-500">Pend</th>
                                     <th className="px-3 py-3 text-rose-500">Ret</th>
-                                    <th className="px-4 py-3 text-emerald-600 dark:text-emerald-400">Est. Revenue</th>
+                                    <th className="px-4 py-3 text-emerald-600 dark:text-emerald-400">Revenue</th>
                                     <th className="px-4 py-3">Completion %</th>
                                 </tr>
                             </thead>
@@ -139,7 +139,6 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                                     filteredAndSortedRtoms.map((r, i) => {
                                         const totalReceived = r.completed + r.pending + r.returned;
                                         const rate = totalReceived > 0 ? Math.round((r.completed / totalReceived) * 100) : 0;
-                                        const estRevenue = r.revenue || (r.completed * 6500);
                                         return (
                                             <tr key={i} className="hover:bg-card-foreground/[0.03] transition-colors">
                                                 <td className="px-4 py-3.5 font-bold text-foreground">{r.name}</td>
@@ -147,7 +146,7 @@ export function RTOMTables({ isLoading, sortedRtoms }: RTOMTablesProps) {
                                                 <td className="px-3 py-3.5 text-emerald-500 font-bold">{r.completed}</td>
                                                 <td className="px-3 py-3.5 text-amber-500 font-bold">{r.pending}</td>
                                                 <td className="px-3 py-3.5 text-rose-500 font-bold">{r.returned}</td>
-                                                <td className="px-4 py-3.5 font-mono font-extrabold text-emerald-500">Rs. {formatSmartNumber(estRevenue, 0)}</td>
+                                                <td className="px-4 py-3.5 font-mono font-extrabold text-emerald-500">{r.revenue == null ? '—' : `Rs. ${formatSmartNumber(r.revenue, 0)}`}</td>
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-2">
                                                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[55px]">

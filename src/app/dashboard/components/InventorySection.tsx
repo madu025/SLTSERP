@@ -150,6 +150,11 @@ export default function InventorySection({ rtom = 'ALL' }: { rtom?: string }) {
                     </CardContent>
                 </Card>
             </div>
+            <p className="px-1 text-[11px] text-muted-foreground">
+                {data.updatedAt
+                    ? `Inventory data refreshed ${new Date(data.updatedAt).toLocaleString()}`
+                    : 'Inventory refresh timestamp was not supplied by the API.'}
+            </p>
         </div>
     </div>
     );

@@ -17,6 +17,7 @@ import { ROLE_GROUPS, hasRole, isContractorRole } from '@/config/roles';
 import { hasAccess } from '@/config/sidebar-menu';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { getMenuAllowedRoles } from '@/config/route-permissions';
+import ExecutiveControlTower from './components/ExecutiveControlTower';
 
 const DASHBOARD_ALLOWED_ROLES = getMenuAllowedRoles('/dashboard') || [];
 
@@ -251,6 +252,7 @@ export default function DashboardPage() {
                                 
                                 {canViewOperations && (
                                     <TabsContent value="operations" className="space-y-6">
+                                        <ExecutiveControlTower />
                                         {/* PAT Rejection Alert — scoped to Operations tab only */}
                                         {(stats?.pat?.rejected || 0) > 0 && (
                                             <Link

@@ -384,6 +384,8 @@ export class ProjectDashboardService {
             }
 
             return {
+                id: p.id,
+                projectCode: p.projectCode,
                 name: p.name,
                 delay: delayInDays,
                 progress: p.progress,
@@ -392,6 +394,11 @@ export class ProjectDashboardService {
         }).sort((a, b) => b.delay - a.delay);
 
         const recentLogs = await prisma.auditLog.findMany({
+            // AuditLog.entityId is free-form, so only include records that
+            // explicitly reference a project in the caller's resolved scope.
+            // A global recent-log query would leak unrelated tenant activity
+            // into a scoped project dashboard.
+            where: { entityId: { in: projectIds } },
             take: 10,
             orderBy: { createdAt: 'desc' },
             include: {
@@ -435,7 +442,8 @@ export class ProjectDashboardService {
             },
             statusBreakdown,
             delayedProjects: delayedProjectsFormatted,
-            recentActivities
+            recentActivities,
+            updatedAt: new Date().toISOString()
         };
     }
 }

@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { TrendingUp, ArrowUpRight } from 'lucide-react';
 import { formatSmartNumber } from '@/lib/utils';
+import Link from 'next/link';
 
 const TONE_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
     blue: {
@@ -37,12 +38,13 @@ export interface StatCardProps {
     icon: ReactNode;
     color: string;
     sub?: string;
+    href?: string;
 }
 
-export function StatCard({ label, value, icon, color, sub }: StatCardProps) {
+export function StatCard({ label, value, icon, color, sub, href }: StatCardProps) {
     const t = TONE_STYLES[color] ?? TONE_STYLES.blue;
-    return (
-        <div className={`glass-panel p-5 rounded-3xl border ${t.border} bg-gradient-to-br ${t.glow} shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 relative overflow-hidden group`}>
+    const content = (
+        <div className={`glass-panel p-5 rounded-3xl border ${t.border} bg-gradient-to-br ${t.glow} shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 relative overflow-hidden group h-full`}>
             <div className="flex items-start justify-between gap-3">
                 <div className={`w-12 h-12 rounded-2xl border ${t.border} flex items-center justify-center shrink-0 ${t.bg} ${t.text} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
                     {icon}
@@ -64,6 +66,12 @@ export function StatCard({ label, value, icon, color, sub }: StatCardProps) {
             </div>
         </div>
     );
+
+    return href ? (
+        <Link href={href} className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-3xl" aria-label={`Open ${label}`}>
+            {content}
+        </Link>
+    ) : content;
 }
 
 export default StatCard;

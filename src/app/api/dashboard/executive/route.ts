@@ -1,6 +1,6 @@
 import { ExecutiveDashboardService } from '@/services/core/executive-dashboard.service';
 import { apiHandler } from '@/lib/api-handler';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export const dynamic = 'force-dynamic';
@@ -25,4 +25,4 @@ export const GET = apiHandler(async (request, params) => {
 
     const data = await ExecutiveDashboardService.getDashboardData(opmcIds);
     return data;
-}, { roles: ROLE_GROUPS.ADMINS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.DASHBOARD_READ], rawResponse: true });

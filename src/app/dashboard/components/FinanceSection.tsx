@@ -10,6 +10,7 @@ import {
     DollarSign, AlertCircle, Clock, TrendingUp, TrendingDown, Hourglass, BarChart3, Inbox,
 } from 'lucide-react';
 import { formatLKR } from '@/lib/utils';
+import Link from 'next/link';
 
 interface RevenueTrendPoint {
     month: string;
@@ -343,6 +344,10 @@ export default function FinanceSection({ rtom = 'ALL' }: { rtom?: string }) {
                         </p>
                     </CardContent>
                 </Card>
+            </div>
+            <div className="flex flex-col gap-2 px-1 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                <span>{data.updatedAt ? `Finance data refreshed ${new Date(data.updatedAt).toLocaleString()}` : 'Finance refresh timestamp was not supplied by the API.'}</span>
+                <Link href="/finance/reports/pnl" className="font-bold text-primary hover:underline">Open finance reports →</Link>
             </div>
         </div>
     );

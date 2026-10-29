@@ -71,16 +71,17 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                         Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-3xl" />)
                     ) : (
                         <>
-                            <StatCard label="Monthly Received" value={stats?.monthly?.total || 0} icon={<Inbox className="w-6 h-6" />} color="blue" />
-                            <StatCard label="Monthly Invoicable" value={stats?.monthly?.invoicable || 0} icon={<Wallet className="w-6 h-6" />} color="indigo" />
+                            <StatCard label="Monthly Received" value={stats?.monthly?.total || 0} icon={<Inbox className="w-6 h-6" />} color="blue" href="/service-orders/work-order" />
+                            <StatCard label="Monthly Invoicable" value={stats?.monthly?.invoicable || 0} icon={<Wallet className="w-6 h-6" />} color="indigo" href="/service-orders/invoicable" />
                             <StatCard
                                 label="Monthly Completed"
                                 value={stats?.monthly?.completed || 0}
                                 icon={<CheckCircle2 className="w-6 h-6" />}
                                 color="emerald"
                                 sub={`${completionRate}% completion rate`}
+                                href="/service-orders/work-order/completed"
                             />
-                            <StatCard label="Monthly Return" value={stats?.monthly?.returned || 0} icon={<RotateCcw className="w-6 h-6" />} color="rose" />
+                            <StatCard label="Monthly Return" value={stats?.monthly?.returned || 0} icon={<RotateCcw className="w-6 h-6" />} color="rose" href="/service-orders/work-order/return" />
                         </>
                     )}
                 </div>
@@ -99,7 +100,7 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                             <p className="text-2xl font-black font-mono text-blue-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalContractorCost, 0)}</p>
                         </div>
                         <div className="glass-panel p-5 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent shadow-sm hover:shadow-md transition-all">
-                            <p className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Net Profit Margin</p>
+                            <p className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Recognized operating margin</p>
                             <div className="flex items-baseline justify-between mt-1">
                                 <p className="text-2xl font-black font-mono text-indigo-500">Rs. {formatSmartNumber(stats.financials.netMargin, 0)}</p>
                                 <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">{stats.financials.marginPercentage}%</span>
@@ -109,7 +110,7 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                             <p className="text-[10px] font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider">Overdue SLA Pending (&gt;48h)</p>
                             <div className="flex items-baseline justify-between mt-1">
                                 <p className="text-2xl font-black text-rose-500 font-mono">{formatSmartNumber(stats.sla?.slaBreachedCount, 0)}</p>
-                                <span className="text-[10px] font-extrabold text-rose-400 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">Target: 95%</span>
+                                <span className="text-[10px] font-extrabold text-rose-400 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">Target: {stats.sla?.targetSlaPercentage ?? '—'}%</span>
                             </div>
                         </div>
                     </div>
@@ -139,8 +140,8 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                             <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{formatSmartNumber(stats.vehicleSummary?.monthlyTrips, 0)} Monthly Trips (Pending: Rs. {formatSmartNumber(stats.vehicleSummary?.pendingVehiclePayments, 0)})</p>
                         </div>
                         <div className="glass-panel p-4 rounded-2xl border border-teal-500/20 bg-teal-500/5 hover:border-teal-500/30 transition-all">
-                            <p className="text-[10px] font-black uppercase text-teal-600 dark:text-teal-400 tracking-wider">Procurement Approvals</p>
-                            <p className="text-xl font-black font-mono text-teal-500 mt-1">{formatSmartNumber(stats.procurementSummary?.pendingApprovals, 0)} Approvals</p>
+                            <p className="text-[10px] font-black uppercase text-teal-600 dark:text-teal-400 tracking-wider">Pending survey requests</p>
+                            <p className="text-xl font-black font-mono text-teal-500 mt-1">{formatSmartNumber(stats.procurementSummary?.pendingSurveyRequests, 0)} Requests</p>
                             <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{formatSmartNumber(stats.procurementSummary?.totalVendors, 0)} Active Suppliers</p>
                         </div>
                     </div>
@@ -150,7 +151,7 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
             {/* Year-to-date strip */}
             <section aria-label="Year to date">
                 <div className="flex items-center justify-between mb-2 px-1">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Year to Date Overview (2026)</h3>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Year to date overview</h3>
                 </div>
                 <div
                     className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
@@ -160,14 +161,19 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                         Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
                     ) : (
                         <>
-                            <YtdCard label="Brought Forward (2025)" value={stats?.allTime?.broughtForward || 0} valueClass="text-primary" />
-                            <YtdCard label="2026 Total Received" value={stats?.allTime?.total || 0} valueClass="text-foreground" />
-                            <YtdCard label="2026 Total Completed" value={stats?.allTime?.completed || 0} valueClass="text-emerald-500" />
-                            <YtdCard label="2026 PAT Pass" value={stats?.pat?.passed || 0} valueClass="text-sky-500" />
-                            <YtdCard label="2026 PAT Rejected" value={stats?.pat?.rejected || 0} valueClass="text-rose-500" />
+                            <YtdCard label="Brought forward" value={stats?.allTime?.broughtForward || 0} valueClass="text-primary" />
+                            <YtdCard label="Total received" value={stats?.allTime?.total || 0} valueClass="text-foreground" />
+                            <YtdCard label="Total completed" value={stats?.allTime?.completed || 0} valueClass="text-emerald-500" />
+                            <YtdCard label="PAT pass" value={stats?.pat?.passed || 0} valueClass="text-sky-500" />
+                            <YtdCard label="PAT rejected" value={stats?.pat?.rejected || 0} valueClass="text-rose-500" />
                         </>
                     )}
                 </div>
+                <p className="mt-2 px-1 text-[11px] text-muted-foreground">
+                    {stats?.updatedAt
+                        ? `Data refreshed ${new Date(stats.updatedAt).toLocaleString()}`
+                        : 'Data refresh timestamp was not supplied by the operations API.'}
+                </p>
             </section>
         </div>
     );

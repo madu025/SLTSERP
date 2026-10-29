@@ -5,6 +5,7 @@ import { FolderKanban, AlertOctagon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { formatLKR } from '@/lib/utils';
+import Link from 'next/link';
 interface ProjectOverview {
     overview: {
         activeProjects: number;
@@ -14,7 +15,12 @@ interface ProjectOverview {
         delayedCount: number;
     };
     statusBreakdown: { status: string; count: number }[];
-    delayedProjects: { name: string; delay: number; progress: number; status: string }[];
+    delayedProjects: { id?: string; name: string; delay: number; progress: number; status: string }[];
+    updatedAt?: string;
+}
+
+function statusLabel(status: string) {
+    return status.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 export default function ProjectsSection({ user }: { user: { id: string; role: string } }) {
     const { data, isLoading, error } = useQuery<ProjectOverview>({
@@ -45,10 +51,15 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
     const overview = data?.overview || { activeProjects: 0, totalBudget: 0, actualSpend: 0, scheduleVariance: 0, delayedCount: 0 };
     const delayedProjects = data?.delayedProjects || [];
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+            <div className="flex flex-col gap-1 px-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">Project health and delivery portfolio</p>
+                <span className="text-[11px] text-muted-foreground">{data.updatedAt ? `Data refreshed ${new Date(data.updatedAt).toLocaleString()}` : 'Data refresh timestamp was not supplied by the API.'}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="shadow-sm transition-all hover:shadow-md border-slate-200 dark:border-slate-800">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">OSP Projects Overview</CardTitle>
+                    <CardTitle className="text-sm font-medium">Projects overview</CardTitle>
                     <FolderKanban className="w-5 h-5 text-slate-500" />
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -58,7 +69,7 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
                             <div className="text-2xl font-bold">{overview.activeProjects}</div>
                         </div>
                         <div className="space-y-1">
-                            <span className="text-xs text-muted-foreground">Delayed</span>
+                            <span className="text-xs text-muted-foreground">Delayed projects</span>
                             <div className="text-2xl font-bold text-rose-500">{overview.delayedCount}</div>
                         </div>
                     </div>
@@ -84,9 +95,9 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
                     ) : (
                         <div className="space-y-3">
                             {delayedProjects.slice(0, 3).map((project, i) => (
-                                <div key={i} className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50">
+                                <div key={project.id || `${project.name}-${i}`} className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50">
                                     <div className="flex justify-between items-start">
-                                        <span className="font-semibold text-sm truncate pr-2">{project.name}</span>
+                                        {project.id ? <Link href={`/projects/${project.id}`} className="font-semibold text-sm truncate pr-2 text-slate-900 hover:text-primary hover:underline dark:text-slate-100">{project.name}</Link> : <span className="font-semibold text-sm truncate pr-2 text-slate-900 dark:text-slate-100">{project.name}</span>}
                                         <Badge variant="destructive" className="shrink-0">{project.delay}d late</Badge>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -97,6 +108,29 @@ export default function ProjectsSection({ user }: { user: { id: string; role: st
                             ))}
                         </div>
                     )}
+                </CardContent>
+            </Card>
+            </div>
+
+            <Card className="shadow-sm transition-all hover:shadow-md border-slate-200 dark:border-slate-800">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Project status breakdown</CardTitle>
+                    <Link href="/projects" className="text-xs font-bold text-primary hover:underline">Open projects →</Link>
+                </CardHeader>
+                <CardContent>
+                    {data.statusBreakdown.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No status breakdown was returned.</p>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                            {data.statusBreakdown.map((row) => (
+                                <div key={row.status} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+                                    <p className="truncate text-[10px] font-bold uppercase text-slate-600 dark:text-slate-400" title={statusLabel(row.status)}>{statusLabel(row.status)}</p>
+                                    <p className="mt-1 text-xl font-black text-foreground">{row.count}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <p className="mt-3 text-xs text-muted-foreground">Workflow stage, BOQ, materials, PAT, as-built and invoice closeout counters are not returned by this dashboard API.</p>
                 </CardContent>
             </Card>
         </div>

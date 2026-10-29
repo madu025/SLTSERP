@@ -172,7 +172,7 @@ export default function ProcurementSection({ rtom = 'ALL' }: { rtom?: string }) 
                 </Link>
 
                 {/* Pending GRNs Intake */}
-                <Link href="/procurement/orders?tab=COMPLETED" className="group">
+                <Link href="/inventory/grn" className="group">
                     <Card className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/30 dark:border-emerald-500/20 shadow-sm hover:shadow-md transition-all rounded-2xl cursor-pointer">
                         <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-5">
                             <CardTitle className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
@@ -217,6 +217,12 @@ export default function ProcurementSection({ rtom = 'ALL' }: { rtom?: string }) 
                     </CardContent>
                 </Card>
             </div>
+
+            <p className="px-1 text-[11px] text-slate-600 dark:text-slate-400">
+                {data?.updatedAt
+                    ? `Telemetry refreshed ${new Date(data.updatedAt).toLocaleString()}`
+                    : 'Telemetry refresh timestamp was not supplied by the procurement API.'}
+            </p>
 
             {/* 2. Visual Procurement Workflow Pipeline Status Bar */}
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden bg-slate-900 text-white">

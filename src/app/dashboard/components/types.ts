@@ -7,6 +7,8 @@
  */
 
 export interface Stats {
+    /** Server timestamp, when supplied by the dashboard API. */
+    updatedAt?: string;
     monthly: {
         total: number;
         completed: number;
@@ -70,7 +72,9 @@ export interface Stats {
         pendingVehiclePayments: number;
     };
     procurementSummary?: {
-        pendingApprovals: number;
+        /** Survey requests are an operational queue, not procurement approvals. */
+        pendingSurveyRequests?: number;
+        pendingApprovals?: number;
         totalVendors: number;
     };
     sla?: {
@@ -81,6 +85,93 @@ export interface Stats {
     rtomRegionMap?: Record<string, string>;
     userRole?: string;
     userAccessibleRtoms?: string[];
+}
+
+export interface ExecutiveDashboardData {
+    generatedAt?: string;
+    projectStats: {
+        total: number;
+        active: number;
+        delayed: number;
+        completed: number;
+        planning: number;
+        cancelled?: number;
+        completionRate: number;
+        byStatus: Array<{ status: string; count: number }>;
+        byType: Array<{ type: string; count: number }>;
+    };
+    budgetStats: {
+        totalBudget: number;
+        totalSpent: number;
+        totalVariance: number;
+        spendRate: number;
+        overBudgetProjects: number;
+        avgProgress: number;
+    };
+    patStats: {
+        total: number;
+        passed: number;
+        failed: number;
+        passRate: number;
+        avgPassRate: number | null;
+        prePATCount: number;
+        sltPATCount: number;
+    };
+    contractorRankings: Array<{
+        rank: number;
+        name: string;
+        score: number;
+        qualityScore?: number | null;
+        safetyScore?: number | null;
+        scheduleScore?: number | null;
+        patPassPct?: number | null;
+        hseIncidents?: number | null;
+        month?: string | Date | null;
+    }>;
+    recentActivity: {
+        recentProjects: Array<{
+            id: string;
+            name: string;
+            status: string;
+            progress: number;
+            updatedAt: string;
+            opmc?: { name: string } | null;
+        }>;
+        recentPAT: Array<{
+            id: string;
+            patType: string;
+            status: string;
+            passRate?: number | null;
+            completedAt?: string | null;
+            project?: { name: string } | null;
+        }>;
+        highRiskPredictions: Array<{
+            id: string;
+            predictionType: string;
+            riskLevel: string;
+            predictedImpact?: string | number | null;
+            recommendation?: string | null;
+            project?: { id: string; name: string } | null;
+        }>;
+    };
+    controlTower?: {
+        asOf?: string;
+        workflow: {
+            tasks: { total: number; open: number; overdue: number; blocked: number; criticalOpen: number };
+            approvals: { projectRequestsOpen: number; stageApprovalsOpen: number; reviewsPending: number; reviewsRework: number; handoffsPending: number };
+        };
+        materials: { requiredQty: number; reservedQty: number; issuedQty: number; shortageQty: number; requirementCount: number; shortageRequirementCount: number; available: boolean };
+        closeout: {
+            pat: { completed: number; failed: number; open: number };
+            asBuilt: { totalDocuments: number; approvedDocuments: number; pendingDocuments: number };
+            invoices: { count: number; totalAmount: number; paidAmount: number; balanceAmount: number; openCount: number };
+        };
+        risks: { openCount: number; topActionable: Array<{ id: string; projectId: string; projectCode?: string | null; projectName: string; title: string; score: number; status: string }> };
+        changeRequests: { openCount: number; byStatus: Array<{ status: string; count: number }> };
+        coverage: { unknown: string[] };
+    };
+    asOf?: string;
+    updatedAt?: string;
 }
 
 /**

@@ -139,7 +139,7 @@ export class DashboardService {
                     { statusB: { in: ['HOLD', 'PENDING'] } }
                 ]
             },
-            select: { date: true, createdAt: true, amountA: true, amountB: true, statusA: true, statusB: true }
+            select: { date: true, dueDate: true, createdAt: true, amountA: true, amountB: true, statusA: true, statusB: true }
         });
 
         const aging = { within30: 0, days31To60: 0, days61To90: 0, over90: 0 };
@@ -149,7 +149,11 @@ export class DashboardService {
                 (inv.statusA === 'PENDING' ? Number(inv.amountA || 0) : 0) +
                 (inv.statusB === 'HOLD' || inv.statusB === 'PENDING' ? Number(inv.amountB || 0) : 0);
             if (outstanding <= 0) continue;
-            const ageDays = Math.floor((today - (inv.date ?? inv.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+            // Aging is based on contractual due date when one exists. Legacy
+            // invoices without a due date retain the creation/invoice-date
+            // fallback so older records remain visible in the same buckets.
+            const agingDate = inv.dueDate ?? inv.date ?? inv.createdAt;
+            const ageDays = Math.floor((today - agingDate.getTime()) / (1000 * 60 * 60 * 24));
             if (ageDays <= 30) aging.within30 += outstanding;
             else if (ageDays <= 60) aging.days31To60 += outstanding;
             else if (ageDays <= 90) aging.days61To90 += outstanding;
@@ -232,18 +236,40 @@ export class DashboardService {
             storeWhere.opmcs = { some: { AND: opmcConditions } };
         }
 
-        const lowStockItems = await prisma.inventoryStock.findMany({
+        const lowStockStock = await prisma.inventoryStock.findMany({
             where: {
-                store: storeWhere,
-                quantity: { lte: 10 }
+                store: storeWhere
             },
             include: {
-                item: { select: { name: true, code: true } },
+                item: { select: { name: true, code: true, minLevel: true } },
                 store: { select: { name: true } }
             },
-            orderBy: { quantity: 'asc' },
-            take: 5
         });
+
+        const lowStockItems = lowStockStock
+            .map(stock => {
+                const quantity = Number(stock.quantity);
+                const allocatedQuantity = Number(stock.allocatedQuantity);
+                const minLevel = Number(stock.minLevel) > 0
+                    ? Number(stock.minLevel)
+                    : Number(stock.item.minLevel);
+                return {
+                    ...stock,
+                    minLevel,
+                    availableToPromise: Math.max(0, quantity - allocatedQuantity - minLevel),
+                    availableQuantity: Math.max(0, quantity - allocatedQuantity),
+                    _quantityForSort: quantity,
+                    _isLowStock: quantity <= minLevel
+                };
+            })
+            .filter(stock => stock._isLowStock)
+            .sort((a, b) => a._quantityForSort - b._quantityForSort)
+            .slice(0, 5)
+            .map(({ _quantityForSort: ignoredSort, _isLowStock: ignoredLow, ...stock }) => {
+                void ignoredSort;
+                void ignoredLow;
+                return stock;
+            });
 
         const pendingMRNs = await prisma.stockRequest.count({
             where: {
@@ -314,6 +340,17 @@ export class DashboardService {
             storeWhere.opmcs = { some: { AND: opmcConditions } };
         }
 
+        // External procurement requests are raised against the requesting
+        // store (fromStore), while internal transfers target toStore. Include
+        // either relationship so the same OPMC/RTOM scope applies to every
+        // procurement metric without leaking requests from another office.
+        const requestStoreScope: Prisma.StockRequestWhereInput = {
+            OR: [
+                { fromStore: storeWhere },
+                { toStore: storeWhere }
+            ]
+        };
+
         const [
             pendingPRNs,
             openPOs,
@@ -326,6 +363,7 @@ export class DashboardService {
             // 1. Pending PRNs awaiting PO creation
             prisma.stockRequest.count({
                 where: {
+                    ...requestStoreScope,
                     workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
                     procurementStatus: 'PENDING'
                 }
@@ -334,6 +372,7 @@ export class DashboardService {
             // 2. Open / Active POs in progress
             prisma.stockRequest.count({
                 where: {
+                    ...requestStoreScope,
                     workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
                     procurementStatus: { in: ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'] }
                 }
@@ -342,6 +381,7 @@ export class DashboardService {
             // 3. Completed Procurement Requests
             prisma.stockRequest.count({
                 where: {
+                    ...requestStoreScope,
                     procurementStatus: 'COMPLETED'
                 }
             }),
@@ -349,6 +389,7 @@ export class DashboardService {
             // 4. Pending GRNs awaiting receipt intake
             prisma.stockRequest.count({
                 where: {
+                    ...requestStoreScope,
                     workflowStage: { in: ['GRN_PENDING', 'STORE_RECEIVING'] }
                 }
             }),
@@ -356,21 +397,21 @@ export class DashboardService {
             // 5. Critical Stock Outages (Low Stock)
             prisma.inventoryStock.findMany({
                 where: {
-                    store: storeWhere,
-                    quantity: { lte: 10 }
+                    store: storeWhere
                 },
                 select: {
                     quantity: true,
-                    item: { select: { id: true, name: true, code: true, unit: true } },
+                    allocatedQuantity: true,
+                    minLevel: true,
+                    item: { select: { id: true, name: true, code: true, unit: true, minLevel: true } },
                     store: { select: { id: true, name: true } }
-                },
-                orderBy: { quantity: 'asc' },
-                take: 6
+                }
             }),
 
             // 6. Recent Pending Requests (Requisitions Needing PO)
             prisma.stockRequest.findMany({
                 where: {
+                    ...requestStoreScope,
                     workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
                     procurementStatus: 'PENDING'
                 },
@@ -392,6 +433,7 @@ export class DashboardService {
             // 7. Recent Active POs
             prisma.stockRequest.findMany({
                 where: {
+                    ...requestStoreScope,
                     workflowStage: { in: ['PROCUREMENT_PROCESSING', 'PROCUREMENT'] },
                     procurementStatus: { in: ['PO_CREATED', 'PO_SENT', 'PO_CONFIRMED'] }
                 },
@@ -415,6 +457,31 @@ export class DashboardService {
             })
         ]);
 
+        const mappedLowStockItems = lowStockItems
+            .map(stock => {
+                const quantity = Number(stock.quantity);
+                const allocatedQuantity = Number(stock.allocatedQuantity);
+                const minLevel = Number(stock.minLevel) > 0
+                    ? Number(stock.minLevel)
+                    : Number(stock.item.minLevel);
+                return {
+                    ...stock,
+                    minLevel,
+                    availableToPromise: Math.max(0, quantity - allocatedQuantity - minLevel),
+                    availableQuantity: Math.max(0, quantity - allocatedQuantity),
+                    _quantityForSort: quantity,
+                    _isLowStock: quantity <= minLevel
+                };
+            })
+            .filter(stock => stock._isLowStock)
+            .sort((a, b) => a._quantityForSort - b._quantityForSort)
+            .slice(0, 6)
+            .map(({ _quantityForSort: ignoredSort, _isLowStock: ignoredLow, ...stock }) => {
+                void ignoredSort;
+                void ignoredLow;
+                return stock;
+            });
+
         const mappedRecentActivePOs = recentActivePOs.map(prn => ({
             ...prn,
             poNumber: prn.purchaseOrders.map(po => po.poNumber).join(', '),
@@ -427,7 +494,7 @@ export class DashboardService {
             openPOs,
             completedPOs,
             pendingGRNs: pendingGRNsCount,
-            lowStockItems,
+            lowStockItems: mappedLowStockItems,
             recentPendingRequests,
             recentActivePOs: mappedRecentActivePOs,
             updatedAt: new Date().toISOString()

@@ -110,8 +110,10 @@ export class ServiceOrderDashboardService {
 
         let filteredOpmcIds: string[] | null = null;
         if (filterRtom !== 'ALL') {
-            const matched = allOpmcs.find(o => o.rtom === filterRtom);
-            filteredOpmcIds = matched ? [matched.id] : [];
+            // An RTOM can own multiple OPMCs. Filtering by the first match
+            // under-counted operational totals and revenue for the remaining
+            // OPMCs in that RTOM.
+            filteredOpmcIds = allOpmcs.filter(o => o.rtom === filterRtom).map(o => o.id);
         } else if (filterRegion !== 'ALL') {
             filteredOpmcIds = allOpmcs.filter(o => o.region === filterRegion).map(o => o.id);
         }
@@ -145,9 +147,11 @@ export class ServiceOrderDashboardService {
 
         // Invoice scope for regionally-scoped users: restrict to their RTOMs
         // (fail-closed to an empty list when no RTOMs resolve). Admins see all.
-        const invoiceScopeWhere: Prisma.InvoiceWhereInput = canFilterGlobally
-            ? {}
-            : { rtomArea: { in: filteredRtoms ?? [] } };
+        const invoiceScopeWhere: Prisma.InvoiceWhereInput = filteredRtoms !== null
+            ? { rtomArea: { in: filteredRtoms } }
+            : canFilterGlobally
+                ? {}
+                : { rtomArea: { in: [] } };
 
         const now = new Date();
         const firstDayOfMonth = startOfMonth(now);
@@ -204,9 +208,14 @@ export class ServiceOrderDashboardService {
             where: { ...whereClause, ...financialCompletionWhere, completedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
             _sum: { revenueAmount: true }
         });
-        const ytdRtomRevenueMap = new Map(ytdRtomRevenueRaw.map(g => [g.opmcId, Number(g._sum?.revenueAmount || 0)]));
-
         const rtomOpmcMap = new Map(allOpmcs.map(o => [o.id, o.rtom]));
+        const ytdRtomRevenueMap = new Map<string, number>();
+        ytdRtomRevenueRaw.forEach(g => {
+            const rtom = rtomOpmcMap.get(g.opmcId || '');
+            if (!rtom) return;
+            ytdRtomRevenueMap.set(rtom, (ytdRtomRevenueMap.get(rtom) || 0) + Number(g._sum?.revenueAmount || 0));
+        });
+
         const rtomStatsMap: Record<string, { rtom: string; pending: number; completed: number; returned: number; revenue: number }> = {};
 
         allOpmcs.forEach(o => {
@@ -373,7 +382,12 @@ export class ServiceOrderDashboardService {
                 pendingVehiclePayments: Number(pendingVehiclePaymentAggregates._sum?.total_amount || 0)
             },
             procurementSummary: {
-                pendingApprovals: Number(pendingSurveyRequestsCount || 0),
+                // Survey requests are a separate operational queue; they are
+                // not procurement approvals. Keep the legacy numeric field
+                // for API compatibility, but expose the source metric under
+                // an explicit name instead of mislabeling it.
+                pendingApprovals: 0,
+                pendingSurveyRequests: Number(pendingSurveyRequestsCount || 0),
                 totalVendors: Number(totalVendorsCount || 0)
             },
             sla: {
@@ -427,14 +441,13 @@ export class ServiceOrderDashboardService {
         });
 
         cachedRtomStats.forEach((r) => {
-            const opmcId = allOpmcs.find(o => o.rtom === r.rtom)?.id || '';
             stats.rtoms.push({
                 name: r.rtom,
                 completed: r.completed,
                 pending: r.pending,
                 returned: r.returned,
                 total: r.completed + r.pending + r.returned,
-                revenue: ytdRtomRevenueMap.get(opmcId) || 0,
+                revenue: ytdRtomRevenueMap.get(r.rtom) || 0,
                 patPassed: sltPatResults.filter((s) => s.rtom === r.rtom && s.status === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 patRejected: sltPatResults.filter((s) => s.rtom === r.rtom && (s.status === 'OPMC_REJECTED' || s.status === 'REJECTED' || s.status === 'PAT_OPMC_REJECTED') && (s.source === 'OPMC_REJECTED' || s.source === 'SYNC')).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 sltsPatRejected: sltPatResults.filter((s) => s.rtom === r.rtom && (s.status === 'PAT_REJECTED' || s.status === 'REJECTED') && s.source === 'HO_REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
@@ -443,6 +456,7 @@ export class ServiceOrderDashboardService {
 
         const resultData = {
             ...stats,
+            updatedAt: new Date().toISOString(),
             availableRegions,
             rtomRegionMap,
             userRole: user.role,
