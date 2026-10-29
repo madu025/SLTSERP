@@ -97,13 +97,13 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                         </div>
                         <div className="glass-panel p-5 rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent shadow-sm hover:shadow-md transition-all">
                             <p className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">Contractor Cost</p>
-                            <p className="text-2xl font-black font-mono text-blue-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalContractorCost, 0)}</p>
+                            <p className="text-2xl font-black font-mono text-blue-700 dark:text-blue-400 mt-1">Rs. {formatSmartNumber(stats.financials.totalContractorCost, 0)}</p>
                         </div>
                         <div className="glass-panel p-5 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-indigo-500/5 to-transparent shadow-sm hover:shadow-md transition-all">
                             <p className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Recognized operating margin</p>
                             <div className="flex items-baseline justify-between mt-1">
-                                <p className="text-2xl font-black font-mono text-indigo-500">Rs. {formatSmartNumber(stats.financials.netMargin, 0)}</p>
-                                <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">{stats.financials.marginPercentage}%</span>
+                                <p className="text-2xl font-black font-mono text-indigo-700 dark:text-indigo-400">Rs. {formatSmartNumber(stats.financials.netMargin, 0)}</p>
+                                <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30">{stats.financials.marginPercentage}%</span>
                             </div>
                         </div>
                         <div className="glass-panel p-5 rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent shadow-sm hover:shadow-md transition-all">

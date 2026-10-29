@@ -9,6 +9,7 @@ import {
     CheckCircle2,
     Clock3,
     FolderKanban,
+    RefreshCw,
     ShieldCheck,
     Wallet,
 } from 'lucide-react';
@@ -40,7 +41,7 @@ function Metric({ label, value, hint, tone = 'text-foreground' }: { label: strin
 }
 
 export default function ExecutiveControlTower() {
-    const { data, isLoading, error } = useQuery<ExecutiveDashboardData | null>({
+    const { data, isLoading, error, refetch, isFetching } = useQuery<ExecutiveDashboardData | null>({
         queryKey: ['dashboard-executive-control-tower'],
         queryFn: async () => {
             const response = await fetch('/api/dashboard/executive');
@@ -60,7 +61,29 @@ export default function ExecutiveControlTower() {
     // The executive endpoint has its own server-side permission gate. A user
     // with normal dashboard access must not see an error banner for a metric
     // set they are not entitled to view.
-    if (!data || error) return null;
+    if (error) {
+        return (
+            <Card className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30" role="status" aria-live="polite">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="text-sm font-black text-amber-950 dark:text-amber-100">Executive control tower unavailable</p>
+                        <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80">The dashboard is still available, but this control-tower snapshot could not be refreshed.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void refetch()}
+                        disabled={isFetching}
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-amber-400 bg-white px-3 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60 dark:border-amber-700 dark:bg-slate-950 dark:text-amber-200 dark:hover:bg-amber-950"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+                        Retry snapshot
+                    </button>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    if (!data) return null;
 
     const { projectStats, budgetStats, patStats, contractorRankings, recentActivity, controlTower } = data;
     const statusRows = projectStats.byStatus || [];
