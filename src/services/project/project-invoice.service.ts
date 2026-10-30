@@ -1,5 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { applyInvoiceTransition, InvoiceTransition } from './project-invoice-lifecycle';
 
 interface InvoiceItemInput {
     description: string;
@@ -31,13 +33,15 @@ interface CreateInvoiceInput {
 }
 
 interface UpdateInvoiceInput {
-    status?: 'ISSUED' | 'CANCELLED' | 'FOLLOW_UP' | 'COMPLETED';
+    status?: InvoiceTransition;
     cancelledReason?: string | null;
     title?: string;
     description?: string | null;
     dueDate?: string | Date | null;
     notes?: string | null;
     followUpNotes?: string | null;
+    submissionReference?: string | null;
+    submissionNotes?: string | null;
 }
 
 export class ProjectInvoiceService {
@@ -52,6 +56,10 @@ export class ProjectInvoiceService {
                 payments: {
                     select: { pvNumber: true, amount: true, status: true, paymentDate: true }
                 },
+                customerReceipts: {
+                    select: { receiptNumber: true, amount: true, paymentMethod: true, referenceNumber: true, receiptDate: true },
+                    orderBy: { receiptDate: 'desc' },
+                },
                 retentions: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -62,9 +70,10 @@ export class ProjectInvoiceService {
     /**
      * Get all client-facing project invoices (BOM Client Invoices)
      */
-    static async getAllClientInvoices() {
+    static async getAllClientInvoices(userId?: string | null) {
+        const scope = await resolveOpmcScope(userId);
         const invoices = await prisma.projectInvoice.findMany({
-            where: { type: 'CLIENT' },
+            where: { type: 'CLIENT', ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }) },
             include: {
                 items: true,
                 project: {
@@ -189,6 +198,8 @@ export class ProjectInvoiceService {
                     totalAmount,
                     paidAmount: 0,
                     balanceAmount: totalAmount,
+                    submissionStatus: 'NOT_SUBMITTED',
+                    paymentStatus: 'NOT_DUE',
                     currency: currency || 'LKR',
                     notes: notes || null,
                     referenceNumber: referenceNumber || null,
@@ -211,6 +222,7 @@ export class ProjectInvoiceService {
     static async updateInvoice(id: string, updateFields: UpdateInvoiceInput, actorUserId: string) {
         if (!actorUserId) throw AppError.unauthorized('Authentication required');
         const invoice = await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT "id" FROM "ProjectInvoice" WHERE "id" = ${id}::uuid FOR UPDATE`;
             const existing = await tx.projectInvoice.findUnique({ where: { id } });
             if (!existing) {
                 throw AppError.badRequest('INVOICE_NOT_FOUND');
@@ -226,22 +238,20 @@ export class ProjectInvoiceService {
                 throw AppError.badRequest('ONLY_DRAFT_INVOICES_CAN_BE_EDITED');
             }
 
-            if (updateFields.status === 'ISSUED') {
-                if (existing.status !== 'DRAFT') throw AppError.badRequest('ONLY_DRAFT_INVOICES_CAN_BE_ISSUED');
-                if (existing.createdById && existing.createdById === actorUserId) {
-                    throw AppError.badRequest('MAKER_CANNOT_ISSUE_OWN_INVOICE');
-                }
-                updateData.status = 'ISSUED';
-                updateData.approvedById = actorUserId;
-                updateData.approvedAt = new Date();
+            if (updateFields.status) {
+                const transition = applyInvoiceTransition(existing, {
+                    transition: updateFields.status,
+                    actorUserId,
+                    submissionReference: updateFields.submissionReference,
+                    submissionNotes: updateFields.submissionNotes,
+                });
+                Object.assign(updateData, transition.data);
+                if (transition.shouldPostIssuance) {
                 const { LedgerService } = await import('../finance/ledger.service');
                 await LedgerService.logInvoiceIssuance(tx, id, Number(existing.totalAmount), existing.type, existing.invoiceNumber);
-            } else if (updateFields.status === 'CANCELLED') {
-                if (!['DRAFT', 'ISSUED'].includes(existing.status)) {
-                    throw AppError.badRequest('ONLY_DRAFT_OR_ISSUED_INVOICES_CAN_BE_CANCELLED');
                 }
-                updateData.status = 'CANCELLED';
-                updateData.cancelledReason = updateFields.cancelledReason || 'Cancelled';
+                if (updateFields.status === 'CANCELLED') {
+                    updateData.cancelledReason = updateFields.cancelledReason || 'Cancelled';
                 if (existing.status === 'ISSUED') {
                     const issuance = await tx.journalEntry.findFirst({
                         where: { referenceId: id, referenceType: 'INVOICE_ISSUANCE', status: 'POSTED' },
@@ -251,18 +261,7 @@ export class ProjectInvoiceService {
                     const { LedgerService } = await import('../finance/ledger.service');
                     await LedgerService.reverseTransaction(tx, issuance.id, updateData.cancelledReason as string, actorUserId);
                 }
-            } else if (updateFields.status === 'FOLLOW_UP') {
-                if (!['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'].includes(existing.status)) {
-                    throw AppError.badRequest('INVOICE_NOT_READY_FOR_FOLLOW_UP');
                 }
-                updateData.status = 'FOLLOW_UP';
-                updateData.followUpAt = new Date();
-            } else if (updateFields.status === 'COMPLETED') {
-                if (!['FOLLOW_UP', 'FULLY_PAID', 'PAID'].includes(existing.status) || Number(existing.balanceAmount) > 0) {
-                    throw AppError.badRequest('INVOICE_MUST_BE_FULLY_PAID_BEFORE_COMPLETION');
-                }
-                updateData.status = 'COMPLETED';
-                updateData.completedAt = new Date();
             }
 
             if (updateFields.title !== undefined) updateData.title = updateFields.title;
@@ -270,6 +269,12 @@ export class ProjectInvoiceService {
             if (updateFields.dueDate !== undefined) updateData.dueDate = updateFields.dueDate ? new Date(updateFields.dueDate) : null;
             if (updateFields.notes !== undefined) updateData.notes = updateFields.notes;
             if (updateFields.followUpNotes !== undefined) updateData.followUpNotes = updateFields.followUpNotes;
+            if (updateFields.submissionReference !== undefined && !updateFields.status) {
+                throw AppError.badRequest('SUBMISSION_REFERENCE_REQUIRES_SUBMIT_ACTION');
+            }
+            if (updateFields.submissionNotes !== undefined && !updateFields.status) {
+                throw AppError.badRequest('SUBMISSION_NOTES_REQUIRE_SUBMIT_ACTION');
+            }
 
             return tx.projectInvoice.update({
                 where: { id },
@@ -310,6 +315,8 @@ export class ProjectInvoiceService {
                     invoiceNumber: true,
                     title: true,
                     status: true,
+                    submissionStatus: true,
+                    paymentStatus: true,
                     totalAmount: true,
                     paidAmount: true,
                     balanceAmount: true,

@@ -61,6 +61,8 @@ model User {
   materialReservationCreations  ProjectMaterialReservation[]  @relation("ProjectMaterialReservationCreator")
   materialReservationReleases   ProjectMaterialReservation[]  @relation("ProjectMaterialReservationReleaser")
   projectMaterialSupplyAllocationCreations ProjectMaterialSupplyAllocation[] @relation("ProjectMaterialSupplyAllocationCreator")
+  projectFinanceAssignments ProjectFinanceAssignment[] @relation("ProjectFinanceAssignmentUser")
+  projectFinanceAssignmentsMade ProjectFinanceAssignment[] @relation("ProjectFinanceAssignmentAssignedBy")
   approvedStock                 StockRequest[]                @relation("ApproveUser")
   armApprovedRequests           StockRequest[]                @relation("ARMApprover")
   receivedRequests              StockRequest[]                @relation("ReceivedBy")

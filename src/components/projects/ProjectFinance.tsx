@@ -17,6 +17,8 @@ import {
     Loader2, Banknote, ArrowUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ProjectFinanceAssignments from '@/components/projects/ProjectFinanceAssignments';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface Project {
     id: string;
@@ -40,6 +42,7 @@ interface Invoice {
     title: string;
     description?: string;
     status: string;
+    type: string;
     dueDate: string;
     totalAmount: number;
     paidAmount: number;
@@ -51,6 +54,13 @@ interface Invoice {
     taxAmount?: number;
     discountAmount?: number;
     contractorId?: string | null;
+    submissionStatus?: string;
+    paymentStatus?: string;
+    submittedAt?: string | null;
+    submissionReference?: string | null;
+    paymentReceivedAt?: string | null;
+    paymentReference?: string | null;
+    customerReceipts?: { receiptNumber: string; amount: number; paymentMethod: string; referenceNumber?: string | null; receiptDate: string }[];
 }
 
 interface PaymentVoucher {
@@ -160,6 +170,15 @@ interface ReleaseForm {
     remarks?: string;
 }
 
+interface ReceiptForm {
+    invoiceId?: string;
+    amount?: number;
+    paymentMethod?: string;
+    referenceNumber?: string;
+    receiptDate?: string;
+    notes?: string;
+}
+
 interface ProjectFinanceProps {
     project: Project;
     refreshProject: () => void;
@@ -184,6 +203,25 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function ProjectFinance({ project, refreshProject }: ProjectFinanceProps) {
+    return <ProjectFinanceContent key={project.id} project={project} refreshProject={refreshProject} />;
+}
+
+function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps) {
+    const [permissions, setPermissions] = useState<string[]>([]);
+    useEffect(() => {
+        const update = () => {
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                setPermissions(Array.isArray(user?.permissions) ? user.permissions : []);
+            } catch { setPermissions([]); }
+        };
+        update();
+        window.addEventListener('storage', update);
+        return () => window.removeEventListener('storage', update);
+    }, []);
+    const canWrite = permissions.includes(RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE);
+    const canApprove = permissions.includes(RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE);
+    const [invoiceError, setInvoiceError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('invoices');
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [paymentVouchers, setPaymentVouchers] = useState<PaymentVoucher[]>([]);
@@ -198,6 +236,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     const [showLDDialog, setShowLDDialog] = useState(false);
     const [showRetDialog, setShowRetDialog] = useState(false);
     const [showReleaseDialog, setShowReleaseDialog] = useState(false);
+    const [showReceiptDialog, setShowReceiptDialog] = useState(false);
     const [selectedRetention, setSelectedRetention] = useState<Retention | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -215,14 +254,18 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     const [ldForm, setLdForm] = useState<LDForm>({});
     const [retForm, setRetForm] = useState<RetForm>({});
     const [releaseForm, setReleaseForm] = useState<ReleaseForm>({});
+    const [receiptForm, setReceiptForm] = useState<ReceiptForm>({});
 
     const fetchInvoices = useCallback(async () => {
+        setLoading(true);
+        setInvoiceError(null);
         try {
             const res = await fetch(`/api/projects/invoices?projectId=${project.id}`);
             if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load invoices.'));
             setInvoices(await res.json());
         } catch (error) {
-            toast.error(getErrorMessage(error, 'Unable to load invoices.'));
+            setInvoices([]);
+            setInvoiceError(getErrorMessage(error, 'Unable to load invoices.'));
         }
         finally { setLoading(false); }
     }, [project.id]);
@@ -277,6 +320,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     }, [project?.id, fetchInvoices, fetchPaymentVouchers, fetchLdPenalties, fetchRetentions, fetchContractorAssignments]);
 
     const handleCreateInvoice = async () => {
+        if (!canWrite) return;
         if (!window.confirm('Create this invoice? Review the dates, line items, and totals before continuing.')) return;
         setSubmitting(true);
         try {
@@ -306,6 +350,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     };
 
     const handleCreatePV = async () => {
+        if (!canWrite) return;
         if (!window.confirm('Create this payment voucher? Verify the payee, amount, and linked invoice before continuing.')) return;
         setSubmitting(true);
         try {
@@ -327,6 +372,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     };
 
     const handleCreateLD = async () => {
+        if (!canWrite) return;
         if (!window.confirm('Create this LD or penalty entry? This creates a financial record.')) return;
         setSubmitting(true);
         try {
@@ -347,6 +393,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     };
 
     const handleCreateRetention = async () => {
+        if (!canWrite) return;
         if (!window.confirm('Create this retention entry? Verify the amount and release conditions before continuing.')) return;
         setSubmitting(true);
         try {
@@ -367,6 +414,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     };
 
     const handleReleaseRetention = async () => {
+        if (!canApprove) return;
         if (!selectedRetention) return;
         if (!window.confirm(`Release LKR ${(releaseForm.releaseAmount || 0).toLocaleString()} from this retention?`)) return;
         setSubmitting(true);
@@ -400,6 +448,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
         successMessage: string,
         extra: { rejectionReason?: string } = {}
     ) => {
+        if (!canApprove) return;
         if (!window.confirm(confirmation)) return;
         setSubmitting(true);
         try {
@@ -419,6 +468,21 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
     };
 
     const openPaymentWorkflow = (invoice: Invoice) => {
+        if (invoice.type === 'CLIENT' ? !canApprove : !canWrite) return;
+        if (invoice.type === 'CLIENT') {
+            if (invoice.submissionStatus !== 'SUBMITTED_TO_SLT') {
+                toast.error('Submit the invoice to SLT before recording a receipt.');
+                return;
+            }
+            setReceiptForm({
+                invoiceId: invoice.id,
+                amount: invoice.balanceAmount,
+                paymentMethod: 'BANK_TRANSFER',
+                receiptDate: new Date().toISOString().split('T')[0],
+            });
+            setShowReceiptDialog(true);
+            return;
+        }
         setPvForm({
             title: `Payment for invoice ${invoice.invoiceNumber}`,
             amount: invoice.balanceAmount,
@@ -428,6 +492,49 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
         setActiveTab('payments');
         setShowPVDialog(true);
         toast.info('Complete the payment voucher to record payment against this invoice.');
+    };
+
+    const handleRecordReceipt = async () => {
+        if (!receiptForm.referenceNumber?.trim()) {
+            toast.error('Enter a unique bank or receipt reference to prevent duplicate recording.');
+            return;
+        }
+        if (!canApprove) return;
+        const selectedInvoice = invoices.find((invoice) => invoice.id === receiptForm.invoiceId);
+        const invoiceId = receiptForm.invoiceId;
+        if (!invoiceId || !receiptForm.amount || receiptForm.amount <= 0) {
+            toast.error('Receipt amount is required.');
+            return;
+        }
+        if (selectedInvoice && receiptForm.amount > selectedInvoice.balanceAmount) {
+            toast.error('Receipt amount cannot exceed the invoice balance.');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/projects/invoice-receipts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invoiceId,
+                    amount: receiptForm.amount,
+                    paymentMethod: receiptForm.paymentMethod || 'BANK_TRANSFER',
+                    referenceNumber: receiptForm.referenceNumber?.trim() || undefined,
+                    receiptDate: receiptForm.receiptDate ? new Date(`${receiptForm.receiptDate}T00:00:00.000Z`).toISOString() : undefined,
+                    notes: receiptForm.notes?.trim() || undefined,
+                }),
+            });
+            if (!res.ok) throw new Error(await getResponseError(res, 'Unable to record the SLT payment receipt.'));
+            toast.success('SLT payment receipt recorded.');
+            setShowReceiptDialog(false);
+            setReceiptForm({});
+            await fetchInvoices();
+            refreshProject();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Unable to record the SLT payment receipt.'));
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const statusBadge = (status: string, colorMap?: Record<string, string>) => {
@@ -449,6 +556,10 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
             PARTIALLY_RELEASED: 'bg-amber-100 text-amber-800',
             FULLY_RELEASED: 'bg-green-100 text-green-800',
             PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800',
+            NOT_SUBMITTED: 'bg-slate-100 text-slate-800',
+            SUBMITTED_TO_SLT: 'bg-blue-100 text-blue-900',
+            NOT_DUE: 'bg-slate-100 text-slate-800',
+            PENDING_PAYMENT: 'bg-yellow-100 text-yellow-900',
         };
         return <Badge className={colors[status] || 'bg-slate-100'}>{status.replace(/_/g, ' ')}</Badge>;
     };
@@ -458,6 +569,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
 
     return (
         <div className="space-y-6">
+            <ProjectFinanceAssignments projectId={project.id} />
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="bg-white border border-slate-200 p-1">
                     <TabsTrigger value="invoices" className="flex items-center gap-2">
@@ -486,9 +598,9 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                             </p>
                         </div>
                         <Dialog open={showInvDialog} onOpenChange={setShowInvDialog}>
-                            <DialogTrigger asChild>
+                            {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Invoice</Button>
-                            </DialogTrigger>
+                            </DialogTrigger>}
                             <DialogContent className="max-w-2xl">
                                 <DialogHeader><DialogTitle>Create Invoice</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
@@ -591,7 +703,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setShowInvDialog(false)}>Cancel</Button>
-                                    <Button onClick={handleCreateInvoice} disabled={submitting}>
+                                    <Button onClick={handleCreateInvoice} disabled={submitting || !canWrite}>
                                         {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
                                         Create Invoice
                                     </Button>
@@ -600,8 +712,62 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                         </Dialog>
                     </div>
 
+                    <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
+                        <DialogContent className="max-w-lg">
+                            <DialogHeader><DialogTitle>Record SLT Payment Receipt</DialogTitle></DialogHeader>
+                            <div className="space-y-4">
+                                <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-950">
+                                    This records money received from SLT against the submitted project invoice. It is not a contractor payment voucher.
+                                </p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label>Received Amount</Label>
+                                        <Input type="number" min="0.01" value={receiptForm.amount || ''} onChange={e => setReceiptForm({ ...receiptForm, amount: +e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Payment Method</Label>
+                                        <Select value={receiptForm.paymentMethod || 'BANK_TRANSFER'} onValueChange={v => setReceiptForm({ ...receiptForm, paymentMethod: v })}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
+                                                <SelectItem value="CHEQUE">Cheque</SelectItem>
+                                                <SelectItem value="CASH">Cash</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label>Receipt Date</Label>
+                                        <Input type="date" value={receiptForm.receiptDate || ''} onChange={e => setReceiptForm({ ...receiptForm, receiptDate: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <Label>Bank / Receipt Reference (required)</Label>
+                                        <Input value={receiptForm.referenceNumber || ''} onChange={e => setReceiptForm({ ...receiptForm, referenceNumber: e.target.value })} placeholder="Unique payment reference" required />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label>Notes</Label>
+                                    <Textarea value={receiptForm.notes || ''} onChange={e => setReceiptForm({ ...receiptForm, notes: e.target.value })} placeholder="Receipt or reconciliation note" />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setShowReceiptDialog(false)}>Cancel</Button>
+                                <Button onClick={handleRecordReceipt} disabled={submitting || !canApprove || !receiptForm.amount}>
+                                    {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                                    Record Receipt
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
                     {loading ? (
                         <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
+                    ) : invoiceError ? (
+                        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900">
+                            <p>{invoiceError}</p>
+                            <Button variant="outline" className="mt-2" onClick={() => void fetchInvoices()}>Retry loading invoices</Button>
+                        </div>
                     ) : invoices.length === 0 ? (
                         <div className="text-center py-12 text-slate-600">
                             <ReceiptText className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -616,9 +782,10 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             <div className="flex items-center gap-2">
                                                 <span className="font-semibold text-sm text-blue-800">{inv.invoiceNumber}</span>
                                                 {statusBadge(inv.status)}
-                                                {new Date(inv.dueDate) < new Date() && inv.status === 'ISSUED' && (
-                                                    <Badge className="bg-red-100 text-red-700">OVERDUE</Badge>
-                                                )}
+                                                {inv.submissionStatus === 'SUBMITTED_TO_SLT' && statusBadge('SUBMITTED_TO_SLT')}
+                                                {inv.paymentStatus && (inv.type === 'CLIENT' && inv.paymentStatus === 'PENDING'
+                                                    ? <Badge className="bg-yellow-100 text-yellow-900">SLT payment pending</Badge>
+                                                    : statusBadge(inv.paymentStatus))}
                                             </div>
                                             <h4 className="font-medium mt-1 text-slate-900">{inv.title}</h4>
                                             <div className="flex gap-4 mt-2 text-sm text-slate-600">
@@ -633,7 +800,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             )}
                                         </div>
                                         <div className="flex gap-2">
-                                            {inv.status === 'DRAFT' && (
+                                            {canApprove && inv.status === 'DRAFT' && (
                                                 <Button size="sm" variant="outline" disabled={submitting} onClick={() => handleStatusUpdate(
                                                     '/api/projects/invoices',
                                                     inv.id,
@@ -644,15 +811,32 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                                     <CheckCircle className="w-4 h-4 mr-1" /> Issue
                                                 </Button>
                                             )}
-                                            {(inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') && (
+                                            {canApprove && inv.type === 'CLIENT' && inv.status === 'ISSUED' && inv.submissionStatus !== 'SUBMITTED_TO_SLT' && (
+                                                <Button size="sm" variant="outline" disabled={submitting} onClick={() => handleStatusUpdate(
+                                                    '/api/projects/invoices',
+                                                    inv.id,
+                                                    'SUBMIT_TO_SLT',
+                                                    `Submit invoice ${inv.invoiceNumber} to SLT?`,
+                                                    'Invoice submitted to SLT and moved to payment pending.'
+                                                )}>
+                                                    <ReceiptText className="w-4 h-4 mr-1" /> Submit to SLT
+                                                </Button>
+                                            )}
+                                            {canApprove && inv.type === 'CLIENT' && inv.submissionStatus === 'SUBMITTED_TO_SLT' && ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.paymentStatus || '') && (
+                                                <Button size="sm" variant="outline" onClick={() => openPaymentWorkflow(inv)}>
+                                                    <Banknote className="w-4 h-4 mr-1" /> Record SLT Receipt
+                                                </Button>
+                                            )}
+                                            {canWrite && inv.type !== 'CLIENT' && (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') && (
                                                 <Button size="sm" variant="outline" onClick={() => openPaymentWorkflow(inv)}>
                                                     <Banknote className="w-4 h-4 mr-1" /> Record Payment
                                                 </Button>
                                             )}
-                                            {(inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') && (
+                                            {canApprove && ((inv.type === 'CLIENT' && inv.submissionStatus === 'SUBMITTED_TO_SLT' && ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.paymentStatus || ''))
+                                                || (inv.type !== 'CLIENT' && (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID'))) && (
                                                 <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, 'FOLLOW_UP', `Move ${inv.invoiceNumber} to follow-up?`, 'Invoice moved to follow-up.')}>Follow-up</Button>
                                             )}
-                                            {(inv.status === 'FOLLOW_UP' || inv.status === 'FULLY_PAID' || inv.status === 'PAID') && inv.balanceAmount <= 0 && (
+                                            {canApprove && (inv.paymentStatus === 'PAID' || inv.status === 'FULLY_PAID' || inv.status === 'PAID') && inv.balanceAmount <= 0 && (
                                                 <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, 'COMPLETED', `Mark ${inv.invoiceNumber} completed?`, 'Invoice completed.')}>Complete</Button>
                                             )}
                                             <Dialog>
@@ -704,9 +888,9 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                             </p>
                         </div>
                         <Dialog open={showPVDialog} onOpenChange={setShowPVDialog}>
-                            <DialogTrigger asChild>
+                            {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Payment</Button>
-                            </DialogTrigger>
+                            </DialogTrigger>}
                             <DialogContent className="max-w-2xl">
                                 <DialogHeader><DialogTitle>Create Payment Voucher</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
@@ -761,7 +945,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             <Select value={pvForm.invoiceId || ''} onValueChange={v => setPvForm({ ...pvForm, invoiceId: v })}>
                                                 <SelectTrigger><SelectValue placeholder="Link to invoice" /></SelectTrigger>
                                                 <SelectContent>
-                                                    {invoices.filter(i => i.status !== 'CANCELLED' && i.status !== 'FULLY_PAID').map((inv: Invoice) => (
+                                                    {invoices.filter(i => i.type !== 'CLIENT' && i.status !== 'CANCELLED' && i.status !== 'FULLY_PAID').map((inv: Invoice) => (
                                                         <SelectItem key={inv.id} value={inv.id}>
                                                             {inv.invoiceNumber} - LKR {inv.balanceAmount?.toLocaleString()}
                                                         </SelectItem>
@@ -787,7 +971,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setShowPVDialog(false)}>Cancel</Button>
-                                    <Button onClick={handleCreatePV} disabled={submitting}>
+                                    <Button onClick={handleCreatePV} disabled={submitting || !canWrite}>
                                         {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
                                         Create Voucher
                                     </Button>
@@ -822,7 +1006,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            {pv.status === 'DRAFT' && (
+                                            {canApprove && pv.status === 'DRAFT' && (
                                                 <Button size="sm" variant="outline" disabled={submitting} onClick={() => handleStatusUpdate(
                                                     '/api/projects/payment-vouchers',
                                                     pv.id,
@@ -833,7 +1017,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                                     <ArrowUpDown className="w-4 h-4 mr-1" /> Submit
                                                 </Button>
                                             )}
-                                            {pv.status === 'PENDING_APPROVAL' && (
+                                            {canApprove && pv.status === 'PENDING_APPROVAL' && (
                                                 <>
                                                     <Button size="sm" variant="outline" className="text-green-800" disabled={submitting} onClick={() => handleStatusUpdate(
                                                         '/api/projects/payment-vouchers',
@@ -856,7 +1040,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                                     </Button>
                                                 </>
                                             )}
-                                            {pv.status === 'APPROVED' && (
+                                            {canApprove && pv.status === 'APPROVED' && (
                                                 <Button size="sm" variant="outline" className="text-emerald-800" disabled={submitting} onClick={() => handleStatusUpdate(
                                                     '/api/projects/payment-vouchers',
                                                     pv.id,
@@ -886,9 +1070,9 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                             </p>
                         </div>
                         <Dialog open={showLDDialog} onOpenChange={setShowLDDialog}>
-                            <DialogTrigger asChild>
+                            {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New LD/Penalty</Button>
-                            </DialogTrigger>
+                            </DialogTrigger>}
                             <DialogContent>
                                 <DialogHeader><DialogTitle>Add LD / Penalty</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
@@ -936,7 +1120,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setShowLDDialog(false)}>Cancel</Button>
-                                    <Button onClick={handleCreateLD} disabled={submitting}>
+                                    <Button onClick={handleCreateLD} disabled={submitting || !canWrite}>
                                         {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
                                         Create
                                     </Button>
@@ -974,7 +1158,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            {ld.status === 'PROPOSED' && (
+                                            {canApprove && ld.status === 'PROPOSED' && (
                                                 <>
                                                     <Button size="sm" variant="outline" className="text-green-800" disabled={submitting} onClick={() => handleStatusUpdate(
                                                         '/api/projects/ld-penalties',
@@ -996,7 +1180,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                                     </Button>
                                                 </>
                                             )}
-                                            {ld.status === 'APPROVED' && (
+                                            {canApprove && ld.status === 'APPROVED' && (
                                                 <Button size="sm" variant="outline" className="text-emerald-800" disabled={submitting} onClick={() => handleStatusUpdate(
                                                     '/api/projects/ld-penalties',
                                                     ld.id,
@@ -1027,9 +1211,9 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                             </p>
                         </div>
                         <Dialog open={showRetDialog} onOpenChange={setShowRetDialog}>
-                            <DialogTrigger asChild>
+                            {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Retention</Button>
-                            </DialogTrigger>
+                            </DialogTrigger>}
                             <DialogContent>
                                 <DialogHeader><DialogTitle>Create Retention Entry</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
@@ -1066,7 +1250,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setShowRetDialog(false)}>Cancel</Button>
-                                    <Button onClick={handleCreateRetention} disabled={submitting}>
+                                    <Button onClick={handleCreateRetention} disabled={submitting || !canWrite}>
                                         {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
                                         Create
                                     </Button>
@@ -1115,7 +1299,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             )}
                                         </div>
                                         <div className="flex gap-2">
-                                            {ret.status !== 'FULLY_RELEASED' && (
+                                            {canApprove && ret.status !== 'FULLY_RELEASED' && (
                                                 <Button size="sm" variant="outline" disabled={submitting} onClick={() => {
                                                     setSelectedRetention(ret);
                                                     setReleaseForm({});
@@ -1154,7 +1338,7 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                             </div>
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setShowReleaseDialog(false)}>Cancel</Button>
-                                <Button onClick={handleReleaseRetention} disabled={submitting}>
+                                <Button onClick={handleReleaseRetention} disabled={submitting || !canApprove}>
                                     {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
                                     Release
                                 </Button>

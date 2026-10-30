@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
+import { Prisma } from '@prisma/client';
 
 export interface CreatePVInput {
   projectId: string;
@@ -110,6 +111,9 @@ export class PaymentVoucherService {
     if (!Number.isFinite(data.amount) || data.amount <= 0) {
       throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_AMOUNT');
     }
+    if (new Prisma.Decimal(data.amount).decimalPlaces() > 2 || new Prisma.Decimal(data.amount).gt('999999999999.99')) {
+      throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_AMOUNT');
+    }
     if ((data.taxWithheld !== undefined && (!Number.isFinite(data.taxWithheld) || data.taxWithheld < 0))
       || (data.retentionAmount !== undefined && (!Number.isFinite(data.retentionAmount) || data.retentionAmount < 0))) {
       throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_DEDUCTION');
@@ -120,6 +124,7 @@ export class PaymentVoucherService {
         where: { id: data.invoiceId }
       });
       if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
+      if (invoice.type === 'CLIENT') throw AppError.badRequest('CLIENT_INVOICES_REQUIRE_CUSTOMER_RECEIPTS');
       if (invoice.projectId !== data.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
       if (invoice.type === 'CONTRACTOR') {
         if (data.type !== 'CONTRACTOR' || data.payeeId !== invoice.contractorId) {
@@ -136,8 +141,8 @@ export class PaymentVoucherService {
         },
         select: { amount: true }
       });
-      const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
-      if (currentPaidSum + data.amount > Number(invoice.totalAmount)) {
+      const currentPaidSum = existingPVs.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
+      if (currentPaidSum.plus(data.amount).gt(invoice.totalAmount)) {
         throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
       }
     }
@@ -237,6 +242,9 @@ export class PaymentVoucherService {
     if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
       throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_AMOUNT');
     }
+    if (new Prisma.Decimal(amount).decimalPlaces() > 2 || new Prisma.Decimal(amount).gt('999999999999.99')) {
+      throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_AMOUNT');
+    }
     if (!Number.isFinite(Number(taxWithheld)) || Number(taxWithheld) < 0
       || !Number.isFinite(Number(retentionAmount)) || Number(retentionAmount) < 0
       || !Number.isFinite(calculatedNetAmount) || calculatedNetAmount <= 0) {
@@ -261,6 +269,7 @@ export class PaymentVoucherService {
         where: { id: targetInvoiceId }
       });
       if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
+      if (invoice.type === 'CLIENT') throw AppError.badRequest('CLIENT_INVOICES_REQUIRE_CUSTOMER_RECEIPTS');
       if (invoice.projectId !== existing.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
       if (invoice.type === 'CONTRACTOR') {
         const nextPayeeId = data.payeeId !== undefined ? data.payeeId : existing.payeeId;
@@ -280,8 +289,8 @@ export class PaymentVoucherService {
         },
         select: { amount: true }
       });
-      const currentPaidSum = existingPVs.reduce((sum, pv) => sum + Number(pv.amount), 0);
-      if (currentPaidSum + Number(amount) > Number(invoice.totalAmount)) {
+      const currentPaidSum = existingPVs.reduce((sum, pv) => sum.plus(pv.amount), new Prisma.Decimal(0));
+      if (currentPaidSum.plus(amount).gt(invoice.totalAmount)) {
         throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_TOTAL');
       }
     }
@@ -361,6 +370,11 @@ export class PaymentVoucherService {
     }
 
     return prisma.$transaction(async (tx) => {
+      // Lock before posting the ledger or reading settlement balances, matching
+      // the receipt path's invoice-first settlement lock ordering.
+      if (status === 'PAID' && existing.invoiceId) {
+        await tx.$queryRaw`SELECT "id" FROM "ProjectInvoice" WHERE "id" = ${existing.invoiceId}::uuid FOR UPDATE`;
+      }
       const updateData: Record<string, unknown> = { status };
 
       if (status === 'APPROVED') {
@@ -418,21 +432,27 @@ export class PaymentVoucherService {
             where: { id: existing.invoiceId }
           });
           if (!invoice) throw AppError.badRequest('INVOICE_NOT_FOUND');
+          if (invoice.type === 'CLIENT') throw AppError.badRequest('CLIENT_INVOICES_REQUIRE_CUSTOMER_RECEIPTS');
           if (invoice.projectId !== existing.projectId) throw AppError.badRequest('INVOICE_PROJECT_MISMATCH');
           if (!['ISSUED', 'FOLLOW_UP', 'PARTIALLY_PAID'].includes(invoice.status)) {
             throw AppError.badRequest('PAYMENT_REQUIRES_AN_ISSUED_INVOICE');
           }
-          if (Number(existing.amount) > Number(invoice.balanceAmount)) {
+          const settlementAmount = new Prisma.Decimal(existing.amount);
+          if (!settlementAmount.isFinite() || settlementAmount.lte(0) || settlementAmount.decimalPlaces() > 2) {
+            throw AppError.badRequest('INVALID_PAYMENT_VOUCHER_AMOUNT');
+          }
+          if (settlementAmount.gt(invoice.balanceAmount)
+            || settlementAmount.gt(new Prisma.Decimal(invoice.totalAmount).minus(invoice.paidAmount))) {
             throw AppError.badRequest('INVOICE_PAYMENT_EXCEEDS_BALANCE');
           }
-          const newPaidAmount = Number(invoice.paidAmount || 0) + Number(existing.amount);
-          const newBalance = Number(invoice.totalAmount) - newPaidAmount;
+          const newPaidAmount = new Prisma.Decimal(invoice.paidAmount).plus(settlementAmount);
+          const newBalance = new Prisma.Decimal(invoice.totalAmount).minus(newPaidAmount);
           await tx.projectInvoice.update({
             where: { id: existing.invoiceId },
             data: {
               paidAmount: newPaidAmount,
-              balanceAmount: Math.max(0, newBalance),
-              status: newBalance <= 0 ? 'FULLY_PAID' : 'PARTIALLY_PAID',
+              balanceAmount: newBalance,
+              status: newBalance.isZero() ? 'FULLY_PAID' : 'PARTIALLY_PAID',
             },
           });
         }

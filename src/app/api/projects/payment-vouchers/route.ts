@@ -1,14 +1,14 @@
 import { apiHandler } from '@/lib/api-handler';
 import { PaymentVoucherService } from '@/services/finance/payment-voucher.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { userHasPermission } from '@/lib/user-permissions';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
-const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
 
 const voucherSchema = z.object({
     projectId: databaseUuidSchema, title: z.string().trim().min(1), description: z.string().optional().nullable(),
@@ -27,10 +27,10 @@ const voucherStatusSchema = z.object({
     rejectionReason: z.string().trim().min(1).optional(), cancelledReason: z.string().trim().min(1).optional(),
 });
 
-function requireFinanceApprover(userId: string | null, role: string | null, action: string) {
-    if (!userId || !role || !ROLE_GROUPS.FINANCE_APPROVERS.includes(role)) {
-        throw AppError.forbidden(`A finance approver is required to ${action}`);
-    }
+async function requireFinanceApprover(userId: string | null, action: string) {
+    const allowed = await userHasPermission(userId, RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE)
+        || await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE);
+    if (!allowed) throw AppError.forbidden(`A finance approver is required to ${action}`);
 }
 
 export const GET = apiHandler(async (request, params) => {
@@ -38,7 +38,7 @@ export const GET = apiHandler(async (request, params) => {
     if (!projectId) throw AppError.badRequest('projectId is required');
     await assertProjectAccess(projectId, params._userId);
     return PaymentVoucherService.getVouchers(projectId);
-}, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body: z.infer<typeof voucherSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
@@ -46,7 +46,7 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof vou
     const voucher = await PaymentVoucherService.createVoucher({ ...body, createdById: params._userId });
     return Response.json(voucher, { status: 201 });
 }, {
-    schema: voucherSchema, roles: ROLE_GROUPS.FINANCE,
+    schema: voucherSchema, permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE],
     audit: { action: 'CREATE', entity: 'PAYMENT_VOUCHER' }, rawResponse: true
 });
 
@@ -56,7 +56,7 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof vo
     if (!voucher) throw AppError.notFound('Payment voucher not found');
     await assertProjectAccess(voucher.projectId, params._userId);
     if (body.status !== 'PENDING_APPROVAL') {
-        requireFinanceApprover(params._userId, params._userRole, body.status.toLowerCase());
+        await requireFinanceApprover(params._userId, body.status.toLowerCase());
     }
     try {
         return await PaymentVoucherService.updatePaymentVoucherStatus(body.id, body.status, params._userId, {
@@ -67,13 +67,16 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof vo
         throw error;
     }
 }, {
-    schema: voucherStatusSchema, roles: ROLE_GROUPS.FINANCE,
+    schema: voucherStatusSchema, permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE, RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'UPDATE_STATUS', entity: 'PAYMENT_VOUCHER' }, rawResponse: true
 });
 
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async (request, params) => {
     const id = new URL(request.url).searchParams.get('id');
     if (!id) throw AppError.badRequest('id is required');
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id }, select: { projectId: true } });
+    if (!voucher) throw AppError.notFound('Payment voucher not found');
+    await assertProjectAccess(voucher.projectId, params._userId);
     try {
         await PaymentVoucherService.deleteVoucher(id);
         return { message: 'Payment voucher deleted successfully' };
@@ -83,6 +86,6 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'DELETE', entity: 'PAYMENT_VOUCHER' }, rawResponse: true
 });

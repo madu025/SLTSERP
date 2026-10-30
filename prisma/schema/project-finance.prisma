@@ -1,3 +1,31 @@
+/// Project finance accountability is deliberately separate from User.role.
+/// A project may have several finance participants and the accountable person
+/// can be handed over without changing the user's global identity or grants.
+model ProjectFinanceAssignment {
+  id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  projectId      String   @db.Uuid
+  userId         String   @db.Uuid
+  assignmentRole String
+  status         String   @default("ACTIVE")
+  isPrimary      Boolean  @default(false)
+  startsAt       DateTime @default(now())
+  endsAt         DateTime?
+  assignedById   String   @db.Uuid
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User     @relation("ProjectFinanceAssignmentUser", fields: [userId], references: [id], onDelete: Restrict)
+  assignedBy     User     @relation("ProjectFinanceAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, userId, assignmentRole])
+  @@index([projectId, status])
+  @@index([projectId, assignmentRole, status])
+  @@index([userId, status])
+  @@index([assignedById])
+}
+
 model Invoice {
   id                String                    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   invoiceNumber     String                    @unique
@@ -350,6 +378,8 @@ model ProjectInvoice {
   title            String
   description      String?
   status           String               @default("DRAFT")
+  submissionStatus String               @default("NOT_SUBMITTED")
+  paymentStatus    String               @default("NOT_DUE")
   type             String               @default("CLIENT")
   invoiceDate      DateTime             @default(now())
   dueDate          DateTime?
@@ -369,6 +399,12 @@ model ProjectInvoice {
   notes            String?
   followUpAt       DateTime?
   followUpNotes    String?
+  submittedAt      DateTime?
+  submittedById    String?              @db.Uuid
+  submissionReference String?
+  submissionNotes  String?
+  paymentReceivedAt DateTime?
+  paymentReference String?
   completedAt      DateTime?
   referenceNumber  String?
   periodFrom       DateTime?
@@ -390,6 +426,8 @@ model ProjectInvoice {
 
   @@index([projectId])
   @@index([status])
+  @@index([submissionStatus, paymentStatus])
+  @@index([projectId, paymentStatus])
   @@index([invoiceNumber])
   @@index([invoiceDate])
   @@index([createdById])

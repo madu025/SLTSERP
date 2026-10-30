@@ -286,3 +286,9 @@ BEGIN
   END IF;
 END
 $guard$;
+-- Project finance accountability: one active primary controller per project.
+-- The migration creates this index; this guard keeps it present after a
+-- prisma db push on environments that use the schema-sync path.
+CREATE UNIQUE INDEX IF NOT EXISTS "ProjectFinanceAssignment_one_active_primary_idx"
+  ON public."ProjectFinanceAssignment" ("projectId")
+  WHERE "status" = 'ACTIVE' AND "isPrimary" = true;

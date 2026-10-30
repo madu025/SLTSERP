@@ -39,13 +39,28 @@ describe('Project Finance route authorization intent', () => {
         'src/app/api/finance/retention/route.ts',
     ];
 
-    it('requires an explicit role guard on every financial read/write route', () => {
+    it('requires an explicit capability or legacy guard on every financial read/write route', () => {
         for (const route of protectedRoutes) {
             assert.match(
                 source(route),
-                /roles\s*:/,
-                `${route} must declare its own roles; GET routes otherwise receive no apiHandler RBAC check`,
+                /(?:roles|permissions)\s*:/,
+                `${route} must declare its own authorization guard; GET routes otherwise receive no apiHandler RBAC check`,
             );
+        }
+    });
+
+    it('uses the canonical project-finance capabilities for project financial records', () => {
+        for (const route of [
+            'src/app/api/projects/invoices/route.ts',
+            'src/app/api/projects/payment-vouchers/route.ts',
+            'src/app/api/projects/retentions/route.ts',
+            'src/app/api/projects/expenses/route.ts',
+            'src/app/api/projects/ld-penalties/route.ts',
+            'src/app/api/projects/[id]/budget/route.ts',
+            'src/app/api/projects/finance-assignments/route.ts',
+        ]) {
+            assert.match(source(route), /RBAC_PERMISSIONS\.PROJECT_FINANCE_/, `${route} must use project-finance capabilities`);
+            assert.match(source(route), /assertProjectAccess/, `${route} must enforce the project OPMC boundary`);
         }
     });
 

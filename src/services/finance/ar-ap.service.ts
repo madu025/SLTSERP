@@ -3,6 +3,8 @@ import { LedgerService } from './ledger.service';
 import { AppError } from '@/lib/error';
 import { ACCOUNTS } from './account-codes';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { Prisma } from '@prisma/client';
 
 export interface CustomerReceiptPayload {
     receiptNumber?: string;
@@ -64,16 +66,45 @@ export class ArApService {
      */
     static async recordCustomerReceipt(payload: CustomerReceiptPayload) {
         return await prisma.$transaction(async (tx) => {
-            const { invoiceId, customerId, amount, paymentMethod, referenceNumber, receiptDate, createdById, notes } = payload;
+            const { invoiceId, customerId, amount, paymentMethod, receiptDate, createdById, notes } = payload;
+            const referenceNumber = payload.referenceNumber?.trim();
 
-            if (amount <= 0) {
+            if (!Number.isFinite(amount) || amount <= 0) {
                 throw AppError.badRequest('Receipt amount must be greater than zero');
+            }
+            const receiptAmount = new Prisma.Decimal(amount);
+            if (receiptAmount.decimalPlaces() > 2 || receiptAmount.gt('999999999999.99')) {
+                throw AppError.badRequest('Receipt amount must be an exact monetary amount with at most two decimal places');
             }
 
             let invoice = null;
             if (invoiceId) {
+                if (!referenceNumber) throw AppError.badRequest('BANK_REFERENCE_REQUIRED_FOR_INVOICE_RECEIPT');
+                // Serialize settlement and duplicate-reference checks on the invoice row.
+                await tx.$queryRaw`SELECT "id" FROM "ProjectInvoice" WHERE "id" = ${invoiceId}::uuid FOR UPDATE`;
                 invoice = await tx.projectInvoice.findUnique({ where: { id: invoiceId } });
                 if (!invoice) throw AppError.notFound(`Invoice #${invoiceId} not found`);
+                if (invoice.type !== 'CLIENT') throw AppError.badRequest('RECEIPT_ONLY_FOR_CLIENT_INVOICES');
+                if (invoice.submissionStatus !== 'SUBMITTED_TO_SLT') {
+                    throw AppError.badRequest('INVOICE_MUST_BE_SUBMITTED_TO_SLT_BEFORE_RECEIPT');
+                }
+                if (Number(invoice.balanceAmount) <= 0) throw AppError.badRequest('INVOICE_IS_ALREADY_PAID');
+                if (receiptAmount.gt(invoice.balanceAmount)
+                    || receiptAmount.gt(new Prisma.Decimal(invoice.totalAmount).minus(invoice.paidAmount))) {
+                    throw AppError.badRequest('RECEIPT_AMOUNT_EXCEEDS_INVOICE_BALANCE');
+                }
+                if (referenceNumber) {
+                    const duplicate = await tx.customerReceipt.findFirst({
+                        where: { invoiceId, referenceNumber },
+                        select: { id: true },
+                    });
+                    if (duplicate) throw AppError.conflict('A receipt with this bank reference already exists for this invoice');
+                }
+            }
+
+            const effectiveReceiptDate = receiptDate || new Date();
+            if (Number.isNaN(new Date(effectiveReceiptDate).getTime())) {
+                throw AppError.badRequest('Receipt date is invalid');
             }
 
             const receiptNo = payload.receiptNumber || await AuditLedgerService.getNextDocumentNumber('RCT', tx);
@@ -84,10 +115,10 @@ export class ArApService {
                     receiptNumber: receiptNo,
                     customerId: customerId || null,
                     invoiceId: invoiceId || null,
-                    amount,
+                    amount: receiptAmount,
                     paymentMethod: paymentMethod || 'BANK_TRANSFER',
                     referenceNumber,
-                    receiptDate: receiptDate || new Date(),
+                    receiptDate: effectiveReceiptDate,
                     notes,
                     createdById
                 }
@@ -95,16 +126,19 @@ export class ArApService {
 
             // 2. Update Invoice settlement balances
             if (invoice) {
-                const newPaid = invoice.paidAmount.toNumber() + amount;
-                const newBalance = Math.max(0, Number(invoice.totalAmount) - newPaid);
-                const newStatus = newBalance === 0 ? 'PAID' : 'PARTIALLY_PAID';
+                const newPaid = new Prisma.Decimal(invoice.paidAmount).plus(receiptAmount);
+                const newBalance = new Prisma.Decimal(invoice.totalAmount).minus(newPaid);
+                const newStatus = newBalance.isZero() ? 'PAID' : 'PARTIALLY_PAID';
 
                 await tx.projectInvoice.update({
                     where: { id: invoiceId },
                     data: {
                         paidAmount: newPaid,
                         balanceAmount: newBalance,
-                        status: newStatus
+                        status: newStatus,
+                        paymentStatus: newStatus,
+                        paymentReceivedAt: effectiveReceiptDate,
+                        paymentReference: referenceNumber || null,
                     }
                 });
             }
@@ -114,7 +148,7 @@ export class ArApService {
                 referenceId: receipt.id,
                 referenceType: 'CUSTOMER_RECEIPT',
                 description: notes || `Customer Receipt #${receiptNo} payment collection`,
-                date: receiptDate || new Date(),
+                date: effectiveReceiptDate,
                 createdById,
                 lines: [
                     {
@@ -136,8 +170,12 @@ export class ArApService {
         });
     }
 
-    static async getCustomerReceipts() {
+    static async getCustomerReceipts(userId?: string | null) {
+        const scope = await resolveOpmcScope(userId);
         return await prisma.customerReceipt.findMany({
+            where: scope === undefined
+                ? undefined
+                : { invoice: { project: { opmcId: { in: scope } } } },
             include: {
                 customer: true,
                 invoice: true
@@ -151,11 +189,14 @@ export class ArApService {
     /**
      * Compute Accounts Receivable (AR) Aging Report across all unpaid project invoices.
      */
-    static async getArAgingReport(): Promise<ArAgingReport> {
+    static async getArAgingReport(userId?: string | null): Promise<ArAgingReport> {
+        const scope = await resolveOpmcScope(userId);
         const unpaidInvoices = await prisma.projectInvoice.findMany({
             where: {
+                ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }),
+                type: 'CLIENT',
                 balanceAmount: { gt: 0 },
-                status: { notIn: ['CANCELLED', 'PAID'] }
+                paymentStatus: { in: ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'] }
             },
             include: {
                 project: true
@@ -205,19 +246,21 @@ export class ArApService {
         }
 
         // Fetch GL AR-1110 control account balance
-        const arGlLines = await prisma.journalLine.findMany({
+        // GL entries have no reliable OPMC attribution. Never compare a scoped
+        // subledger to the global control account or expose its balance.
+        const arGlLines = scope === undefined ? await prisma.journalLine.findMany({
             where: {
                 accountCode: ACCOUNTS.AR_CLIENT,
                 entry: { status: { not: 'REVERSED' } }
             }
-        });
+        }) : [];
 
         let glControlBalance = 0;
         for (const l of arGlLines) {
             glControlBalance += Number(l.debit) - Number(l.credit);
         }
 
-        const isReconciled = Math.abs(summary.total - glControlBalance) < 0.01;
+        const isReconciled = scope === undefined && Math.abs(summary.total - glControlBalance) < 0.01;
 
         return {
             summary,
@@ -230,9 +273,11 @@ export class ArApService {
     /**
      * Compute Accounts Payable (AP) Aging Report across all unpaid contractor invoices.
      */
-    static async getApAgingReport(): Promise<ApAgingReport> {
+    static async getApAgingReport(userId?: string | null): Promise<ApAgingReport> {
+        const scope = await resolveOpmcScope(userId);
         const unpaidInvoices = await prisma.invoice.findMany({
             where: {
+                ...(scope === undefined ? {} : { project: { opmcId: { in: scope } } }),
                 status: { in: ['PENDING', 'APPROVED', 'HOLD'] }
             },
             include: {
@@ -283,19 +328,19 @@ export class ArApService {
         }
 
         // Fetch GL AP-2010 control account balance
-        const apGlLines = await prisma.journalLine.findMany({
+        const apGlLines = scope === undefined ? await prisma.journalLine.findMany({
             where: {
                 accountCode: { in: [ACCOUNTS.AP_ACCRUED, ACCOUNTS.AP_VENDOR, ACCOUNTS.AP_CONTRACTOR] },
                 entry: { status: { not: 'REVERSED' } }
             }
-        });
+        }) : [];
 
         let glControlBalance = 0;
         for (const l of apGlLines) {
             glControlBalance += Number(l.credit) - Number(l.debit);
         }
 
-        const isReconciled = Math.abs(summary.total - glControlBalance) < 0.01;
+        const isReconciled = scope === undefined && Math.abs(summary.total - glControlBalance) < 0.01;
 
         return {
             summary,

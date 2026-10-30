@@ -1,20 +1,22 @@
 import { apiHandler } from '@/lib/api-handler';
 import { BudgetTrackingService } from '@/services/finance/budget-tracking.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
-const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
 
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
+    await assertProjectAccess(projectId, params._userId);
     return await BudgetTrackingService.getBudgetDashboard(projectId);
-}, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
+    await assertProjectAccess(projectId, params._userId);
     return await BudgetTrackingService.syncActualCost(projectId);
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'SYNC_BUDGET', entity: 'PROJECT_BUDGET' },
     rawResponse: true
 });

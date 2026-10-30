@@ -1,14 +1,14 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectInvoiceService } from '@/services/project/project-invoice.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { userHasPermission } from '@/lib/user-permissions';
 import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
-const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
 
 const createInvoiceSchema = z.object({
     projectId: databaseUuidSchema,
@@ -44,21 +44,23 @@ const createInvoiceSchema = z.object({
 
 const updateInvoiceSchema = z.object({
     id: databaseUuidSchema,
-    status: z.enum(['ISSUED', 'CANCELLED', 'FOLLOW_UP', 'COMPLETED']).optional(),
+    status: z.enum(['ISSUED', 'SUBMIT_TO_SLT', 'MARK_OVERDUE', 'CANCELLED', 'FOLLOW_UP', 'COMPLETED']).optional(),
     cancelledReason: z.string().trim().min(1).optional(),
     title: z.string().trim().min(1).optional(),
     description: z.string().optional().nullable(),
     dueDate: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
     followUpNotes: z.string().optional().nullable(),
+    submissionReference: z.string().trim().max(120).optional().nullable(),
+    submissionNotes: z.string().trim().max(1000).optional().nullable(),
 }).refine((data) => data.status || data.title || data.description !== undefined || data.dueDate !== undefined || data.notes !== undefined || data.followUpNotes !== undefined, {
     message: 'At least one permitted invoice update is required',
 });
 
-function requireFinanceApprover(userId: string | null, role: string | null) {
-    if (!userId || !role || !ROLE_GROUPS.FINANCE_APPROVERS.includes(role)) {
-        throw AppError.forbidden('A finance approver is required for this invoice action');
-    }
+async function requireFinanceApprover(userId: string | null) {
+    const allowed = await userHasPermission(userId, RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE)
+        || await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE);
+    if (!allowed) throw AppError.forbidden('A finance approver is required for this invoice action');
 }
 
 export const GET = apiHandler(async (request, params) => {
@@ -66,11 +68,11 @@ export const GET = apiHandler(async (request, params) => {
     const projectId = searchParams.get('projectId');
     const allClient = searchParams.get('allClient') === 'true';
 
-    if (allClient) return ProjectInvoiceService.getAllClientInvoices();
+    if (allClient) return ProjectInvoiceService.getAllClientInvoices(params._userId);
     if (!projectId) throw AppError.badRequest('projectId is required');
     await assertProjectAccess(projectId, params._userId);
     return ProjectInvoiceService.getInvoices(projectId);
-}, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body: z.infer<typeof createInvoiceSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
@@ -86,7 +88,7 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof cre
     }
 }, {
     schema: createInvoiceSchema,
-    roles: ROLE_GROUPS.FINANCE,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE],
     audit: { action: 'CREATE', entity: 'INVOICE' },
     rawResponse: true
 });
@@ -96,7 +98,7 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof up
     const invoice = await prisma.projectInvoice.findUnique({ where: { id: body.id }, select: { projectId: true } });
     if (!invoice) throw AppError.notFound('Invoice not found');
     await assertProjectAccess(invoice.projectId, params._userId);
-    if (body.status) requireFinanceApprover(params._userId, params._userRole);
+    if (body.status) await requireFinanceApprover(params._userId);
     const { id, ...updateFields } = body;
     try {
         return await ProjectInvoiceService.updateInvoice(id, updateFields, params._userId);
@@ -108,7 +110,7 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof up
     }
 }, {
     schema: updateInvoiceSchema,
-    roles: ROLE_GROUPS.FINANCE,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE, RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'UPDATE', entity: 'INVOICE' },
     rawResponse: true
 });
@@ -128,7 +130,7 @@ export const DELETE = apiHandler(async (request, params) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'DELETE', entity: 'INVOICE' },
     rawResponse: true
 });

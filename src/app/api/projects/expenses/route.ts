@@ -1,9 +1,10 @@
 import { apiHandler, castBody } from '@/lib/api-handler';
 import { CreateExpenseInput, ProjectExpenseService } from '@/services/project/project-expense.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { assertProjectAccess } from '@/lib/project-access';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     return await ProjectExpenseService.createExpense(castBody<CreateExpenseInput>(body));
 }, {
     schema: expenseSchema,
-    roles: ROLE_GROUPS.FINANCE,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE],
     audit: { action: 'CREATE', entity: 'PROJECT_EXPENSE' },
     rawResponse: true
 });
@@ -46,6 +47,9 @@ export const DELETE = apiHandler(async (request, params) => {
     if (!params._userId) {
         throw AppError.unauthorized('Authenticated user required to void an expense');
     }
+    const expense = await prisma.projectExpense.findUnique({ where: { id }, select: { projectId: true } });
+    if (!expense) throw AppError.notFound('Expense not found');
+    await assertProjectAccess(expense.projectId, params._userId);
 
     try {
         return await ProjectExpenseService.voidExpense(id, params._userId);
@@ -57,7 +61,7 @@ export const DELETE = apiHandler(async (request, params) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'DELETE', entity: 'PROJECT_EXPENSE' },
     rawResponse: true
 });

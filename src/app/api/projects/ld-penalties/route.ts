@@ -1,11 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectLDPenaltyService } from '@/services/project/project-ld-penalty.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { userHasPermission } from '@/lib/user-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
-const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
 
 const createPenaltySchema = z.object({
     projectId: z.string().uuid(),
@@ -29,31 +31,36 @@ const updatePenaltySchema = z.object({
     remarks: z.string().optional().nullable(),
 });
 
-function requireFinanceApprover(userId: string | null, role: string | null) {
-    if (!userId || !role || !ROLE_GROUPS.FINANCE_APPROVERS.includes(role)) {
-        throw AppError.forbidden('A finance approver is required for this LD/penalty action');
-    }
+async function requireFinanceApprover(userId: string | null) {
+    const allowed = await userHasPermission(userId, RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE)
+        || await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE);
+    if (!allowed) throw AppError.forbidden('A finance approver is required for this LD/penalty action');
 }
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const projectId = new URL(request.url).searchParams.get('projectId');
     if (!projectId) throw AppError.badRequest('projectId is required');
+    await assertProjectAccess(projectId, params._userId);
     return ProjectLDPenaltyService.getPenalties(projectId);
-}, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body: z.infer<typeof createPenaltySchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
+    await assertProjectAccess(body.projectId, params._userId);
     const penalty = await ProjectLDPenaltyService.createPenalty({ ...body, leviedById: params._userId });
     return Response.json(penalty, { status: 201 });
 }, {
     schema: createPenaltySchema,
-    roles: ROLE_GROUPS.FINANCE,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE],
     audit: { action: 'CREATE', entity: 'LD_PENALTY' },
     rawResponse: true,
 });
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof updatePenaltySchema>) => {
-    requireFinanceApprover(params._userId, params._userRole);
+    await requireFinanceApprover(params._userId);
+    const penalty = await prisma.projectLDPenalty.findUnique({ where: { id: body.id }, select: { projectId: true } });
+    if (!penalty) throw AppError.notFound('LD/penalty not found');
+    await assertProjectAccess(penalty.projectId, params._userId);
     const { id, status, ...options } = body;
     try {
         return await ProjectLDPenaltyService.updatePenalty(id, status, {
@@ -68,14 +75,17 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof up
     }
 }, {
     schema: updatePenaltySchema,
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'UPDATE', entity: 'LD_PENALTY' },
     rawResponse: true,
 });
 
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async (request, params) => {
     const id = new URL(request.url).searchParams.get('id');
     if (!id) throw AppError.badRequest('id is required');
+    const penalty = await prisma.projectLDPenalty.findUnique({ where: { id }, select: { projectId: true } });
+    if (!penalty) throw AppError.notFound('LD/penalty not found');
+    await assertProjectAccess(penalty.projectId, params._userId);
     try {
         await ProjectLDPenaltyService.deletePenalty(id);
         return { success: true };
@@ -87,7 +97,7 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'DELETE', entity: 'LD_PENALTY' },
     rawResponse: true,
 });

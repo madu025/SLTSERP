@@ -1,12 +1,12 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ArApService } from '@/services/finance/ar-ap.service';
-import { ROLE_GROUPS } from "@/config/roles";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async () => {
-    const report = await ArApService.getArAgingReport();
+export const GET = apiHandler(async (_request, params) => {
+    const report = await ArApService.getArAgingReport(params._userId);
     return report;
 }, {
-    roles: ROLE_GROUPS.FINANCE_ALL
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ]
 });

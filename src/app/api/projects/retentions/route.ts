@@ -1,11 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectRetentionService } from '@/services/project/project-retention.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { userHasPermission } from '@/lib/user-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
-const PROJECT_FINANCE_READERS = [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE])];
 
 const createRetentionSchema = z.object({
     projectId: z.string().uuid(),
@@ -38,30 +40,35 @@ const patchRetentionSchema = z.object({
     }
 });
 
-function requireFinanceApprover(userId: string | null, role: string | null) {
-    if (!userId || !role || !ROLE_GROUPS.FINANCE_APPROVERS.includes(role)) {
-        throw AppError.forbidden('A finance approver is required for this retention action');
-    }
+async function requireFinanceApprover(userId: string | null) {
+    const allowed = await userHasPermission(userId, RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE)
+        || await userHasPermission(userId, RBAC_PERMISSIONS.FINANCE_APPROVE);
+    if (!allowed) throw AppError.forbidden('A finance approver is required for this retention action');
 }
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const projectId = new URL(request.url).searchParams.get('projectId');
     if (!projectId) throw AppError.badRequest('projectId is required');
+    await assertProjectAccess(projectId, params._userId);
     return ProjectRetentionService.getRetentions(projectId);
-}, { roles: PROJECT_FINANCE_READERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_READ], rawResponse: true });
 
-export const POST = apiHandler(async (_request, _params, body: z.infer<typeof createRetentionSchema>) => {
+export const POST = apiHandler(async (_request, params, body: z.infer<typeof createRetentionSchema>) => {
+    await assertProjectAccess(body.projectId, params._userId);
     const retention = await ProjectRetentionService.createRetention(body);
     return Response.json(retention, { status: 201 });
 }, {
     schema: createRetentionSchema,
-    roles: ROLE_GROUPS.FINANCE,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE],
     audit: { action: 'CREATE', entity: 'RETENTION' },
     rawResponse: true,
 });
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof patchRetentionSchema>) => {
-    requireFinanceApprover(params._userId, params._userRole);
+    await requireFinanceApprover(params._userId);
+    const retention = await prisma.projectRetention.findUnique({ where: { id: body.id }, select: { projectId: true } });
+    if (!retention) throw AppError.notFound('Retention not found');
+    await assertProjectAccess(retention.projectId, params._userId);
     try {
         if (body.action === 'RELEASE') {
             return await ProjectRetentionService.releaseRetention(
@@ -83,14 +90,17 @@ export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof pa
     }
 }, {
     schema: patchRetentionSchema,
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'UPDATE', entity: 'RETENTION' },
     rawResponse: true,
 });
 
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async (request, params) => {
     const id = new URL(request.url).searchParams.get('id');
     if (!id) throw AppError.badRequest('id is required');
+    const retention = await prisma.projectRetention.findUnique({ where: { id }, select: { projectId: true } });
+    if (!retention) throw AppError.notFound('Retention not found');
+    await assertProjectAccess(retention.projectId, params._userId);
     try {
         await ProjectRetentionService.deleteRetention(id);
         return { success: true };
@@ -102,7 +112,7 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],
     audit: { action: 'DELETE', entity: 'RETENTION' },
     rawResponse: true,
 });

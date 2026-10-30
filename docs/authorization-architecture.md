@@ -79,6 +79,20 @@ changed only through the admin permission workflow and audited.
 
 ## Verification checklist
 
+### Project finance controls
+
+`project.finance.read/write/approve/assign` separate financial visibility,
+preparation, approval/posting, and team accountability management. Each still
+requires the project OPMC boundary. Finance assignments record responsibility;
+they do not grant capabilities or expand OPMC scope. OPMC-wide finance oversight
+remains permission-based, not restricted to the assignment list.
+
+Client invoice collections use CustomerReceipt, never outgoing payment vouchers.
+Submission and settlement are distinct dimensions. Completion requires a
+submitted client invoice with PAID settlement, zero balance, and sufficient
+received funds. Collection and transition writes lock the invoice row within
+their transaction; receipt bank references prevent duplicate settlement retries.
+
 Before merging an authorization change:
 
 1. Confirm the permission code exists in the catalog and DB seed.
