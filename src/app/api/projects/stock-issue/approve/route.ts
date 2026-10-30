@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { approveStockIssueSchema, ApproveStockIssueSchema } from '@/lib/validations/project-stock.schema';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AppError } from '@/lib/error';
 
 /**
@@ -18,5 +18,5 @@ export const POST = apiHandler<{ success: boolean }, ApproveStockIssueSchema>(
         const result = await ProjectStockIssueService.approveIssueRequest(body.issueId, approvedById);
         return result;
     },
-    { schema: approveStockIssueSchema, roles: ROLE_GROUPS.STORES_MANAGERS }
+    { schema: approveStockIssueSchema, permissions: [RBAC_PERMISSIONS.INVENTORY_APPROVE] }
 );

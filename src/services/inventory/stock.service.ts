@@ -424,9 +424,14 @@ export class StockService {
     static async getStockIssues(filters: {
         storeId?: string;
         issueType?: string;
+        allowedStoreIds?: string[];
     }): Promise<StockIssue[]> {
         const where: Prisma.StockIssueWhereInput = {};
-        if (filters.storeId && filters.storeId !== 'unassigned') where.storeId = filters.storeId;
+        if (filters.allowedStoreIds) where.storeId = { in: filters.allowedStoreIds };
+        if (filters.storeId && filters.storeId !== 'unassigned') {
+            if (filters.allowedStoreIds && !filters.allowedStoreIds.includes(filters.storeId)) throw AppError.forbidden('STORE_SCOPE_VIOLATION');
+            where.storeId = filters.storeId;
+        }
         if (filters.issueType) where.issueType = filters.issueType;
 
         return await InventoryRepository.findManyStockIssues({

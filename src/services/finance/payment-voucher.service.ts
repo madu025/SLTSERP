@@ -2,6 +2,7 @@ import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { Prisma } from '@prisma/client';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export interface CreatePVInput {
   projectId: string;
@@ -49,8 +50,10 @@ export class PaymentVoucherService {
     status?: string;
     projectId?: string;
     type?: string;
-  }) {
+  }, userId?: string | null) {
+    const scope = await resolveOpmcScope(userId);
     const where: Record<string, unknown> = {};
+    if (scope !== undefined) where.project = { opmcId: { in: scope } };
 
     if (filters?.status && filters.status !== 'ALL') {
       where.status = filters.status;

@@ -3,6 +3,9 @@ import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { createStockIssueSchema, CreateStockIssueSchema } from '@/lib/validations/project-stock.schema';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { StoreService } from '@/services/inventory/store.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +18,8 @@ export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }
+        await assertProjectAccess(body.projectId, userId);
+        await StoreService.assertStoreWriteAccess(userId, body.storeId);
 
         const stockIssue = await ProjectStockIssueService.createIssueRequest({
             projectId: body.projectId,
@@ -31,11 +36,7 @@ export const POST = apiHandler<StockIssue, CreateStockIssueSchema>(
     },
     {
         schema: createStockIssueSchema,
-        // Caller page is /projects (ProjectMaterialIssues) — resolve roles from
-        // its sidebar entry (ADMINS + OSP_PROJECTS + SOD_PROJECT) so engineering
-        // staff (OSP_MANAGER, ENGINEER, ...) keep write access. Same convention
-        // as /api/projects.
-        menuPath: '/projects'
+        permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE]
     }
 );
 
@@ -55,9 +56,10 @@ export const GET = apiHandler<unknown[], void>(
         if (!projectId) {
             throw AppError.badRequest('Project ID required');
         }
+        await assertProjectAccess(projectId, userId);
 
         const issues = await ProjectStockIssueService.getProjectIssues(projectId);
         return issues;
     },
-    { menuPath: '/projects' }
+    { permissions: [RBAC_PERMISSIONS.PROJECT_READ] }
 );

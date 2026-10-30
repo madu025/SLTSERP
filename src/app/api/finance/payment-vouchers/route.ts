@@ -2,18 +2,20 @@ import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
+import { assertProjectAccess } from '@/lib/project-access';
 
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/finance/payment-vouchers - List payment vouchers with optional filters (rawResponse for compatibility)
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || undefined;
     const projectId = searchParams.get("projectId") || undefined;
     const type = searchParams.get("type") || undefined;
 
-    return await PaymentVoucherService.getPaymentVouchers({ status, projectId, type });
+    if (projectId) await assertProjectAccess(projectId, params._userId);
+    return await PaymentVoucherService.getPaymentVouchers({ status, projectId, type }, params._userId);
 }, {
     permissions: [RBAC_PERMISSIONS.FINANCE_READ],
     rawResponse: true
@@ -44,7 +46,8 @@ const createPVSchema = z.object({
 });
 
 // POST /api/finance/payment-vouchers - Create a new payment voucher
-export const POST = apiHandler(async (req, _params, body) => {
+export const POST = apiHandler(async (req, params, body) => {
+    await assertProjectAccess(body.projectId, params._userId);
     const userId = req.headers.get("x-user-id") ?? undefined;
     const payload = { ...body, createdById: userId };
     return await PaymentVoucherService.createPaymentVoucher(payload);

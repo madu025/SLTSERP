@@ -83,15 +83,20 @@ changed only through the admin permission workflow and audited.
 
 `project.finance.read/write/approve/assign` separate financial visibility,
 preparation, approval/posting, and team accountability management. Each still
-requires the project OPMC boundary. Finance assignments record responsibility;
-they do not grant capabilities or expand OPMC scope. OPMC-wide finance oversight
-remains permission-based, not restricted to the assignment list.
+requires the project OPMC boundary. Finance assignments never grant capabilities
+or expand OPMC scope. Once a project has an active finance team, its invoice
+preparation requires PREPARER or LEAD_CONTROLLER assignment, and invoice
+transitions/collection require APPROVER or LEAD_CONTROLLER assignment. Invoice
+creators cannot approve or collect their own invoice; `admin.rbac` is the
+explicit administrative override. Projects without active assignments retain
+the canonical capability and OPMC checks during rollout.
 
 Client invoice collections use CustomerReceipt, never outgoing payment vouchers.
 Submission and settlement are distinct dimensions. Completion requires a
 submitted client invoice with PAID settlement, zero balance, and sufficient
 received funds. Collection and transition writes lock the invoice row within
-their transaction; receipt bank references prevent duplicate settlement retries.
+their transaction; a unique invoice/reference constraint prevents duplicate
+settlement retries even when another write path bypasses the application check.
 
 Before merging an authorization change:
 

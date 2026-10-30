@@ -7,6 +7,7 @@ import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { databaseUuidSchema } from '@/lib/validations/uuid.schema';
 import { z } from 'zod';
+import { assertProjectFinanceAssignment } from '@/services/project/project-finance-assignment.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +78,7 @@ export const GET = apiHandler(async (request, params) => {
 export const POST = apiHandler(async (_request, params, body: z.infer<typeof createInvoiceSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
     await assertProjectAccess(body.projectId, params._userId);
+    await assertProjectFinanceAssignment(body.projectId, params._userId, ['PREPARER', 'LEAD_CONTROLLER']);
     try {
         const invoice = await ProjectInvoiceService.createInvoice({ ...body, createdById: params._userId });
         return Response.json(invoice, { status: 201 });
@@ -95,10 +97,18 @@ export const POST = apiHandler(async (_request, params, body: z.infer<typeof cre
 
 export const PATCH = apiHandler(async (_request, params, body: z.infer<typeof updateInvoiceSchema>) => {
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const invoice = await prisma.projectInvoice.findUnique({ where: { id: body.id }, select: { projectId: true } });
+    const invoice = await prisma.projectInvoice.findUnique({ where: { id: body.id }, select: { projectId: true, createdById: true } });
     if (!invoice) throw AppError.notFound('Invoice not found');
     await assertProjectAccess(invoice.projectId, params._userId);
-    if (body.status) await requireFinanceApprover(params._userId);
+    if (body.status) {
+        await requireFinanceApprover(params._userId);
+        await assertProjectFinanceAssignment(invoice.projectId, params._userId, ['APPROVER', 'LEAD_CONTROLLER']);
+        if (invoice.createdById === params._userId && !await userHasPermission(params._userId, RBAC_PERMISSIONS.ADMIN_RBAC)) {
+            throw AppError.forbidden('Invoice creator cannot approve their own invoice');
+        }
+    } else {
+        await assertProjectFinanceAssignment(invoice.projectId, params._userId, ['PREPARER', 'LEAD_CONTROLLER']);
+    }
     const { id, ...updateFields } = body;
     try {
         return await ProjectInvoiceService.updateInvoice(id, updateFields, params._userId);
@@ -121,6 +131,7 @@ export const DELETE = apiHandler(async (request, params) => {
     const invoice = await prisma.projectInvoice.findUnique({ where: { id }, select: { projectId: true } });
     if (!invoice) throw AppError.notFound('Invoice not found');
     await assertProjectAccess(invoice.projectId, params._userId);
+    await assertProjectFinanceAssignment(invoice.projectId, params._userId!, ['APPROVER', 'LEAD_CONTROLLER']);
     try {
         await ProjectInvoiceService.deleteInvoice(id);
         return { message: 'Invoice deleted successfully' };

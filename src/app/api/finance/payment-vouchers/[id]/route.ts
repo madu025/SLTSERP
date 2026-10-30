@@ -1,4 +1,6 @@
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 import { AppError } from '@/lib/error';
@@ -25,27 +27,34 @@ const updatePVSchema = z.object({
 export const GET = apiHandler(async (_req, params) => {
     const voucher = await PaymentVoucherService.getPaymentVoucherById(params.id);
     if (!voucher) throw AppError.notFound('Payment voucher not found');
+    await assertProjectAccess(voucher.projectId, params._userId);
     return voucher;
 }, {
-    roles: ROLE_GROUPS.FINANCE,
+    permissions: [RBAC_PERMISSIONS.FINANCE_READ],
     rawResponse: true
 });
 
 // PUT /api/finance/payment-vouchers/[id] - Update payment voucher details (DRAFT only)
 export const PUT = apiHandler(async (_req, params, body) => {
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });
+    if (!voucher) throw AppError.notFound('Payment voucher not found');
+    await assertProjectAccess(voucher.projectId, params._userId);
     return await PaymentVoucherService.updatePaymentVoucher(params.id, body);
 }, {
     schema: updatePVSchema,
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.FINANCE_WRITE],
     audit: { action: 'UPDATE', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });
 
 // DELETE /api/finance/payment-vouchers/[id] - Delete payment voucher (DRAFT only)
 export const DELETE = apiHandler(async (_req, params) => {
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });
+    if (!voucher) throw AppError.notFound('Payment voucher not found');
+    await assertProjectAccess(voucher.projectId, params._userId);
     return await PaymentVoucherService.deletePaymentVoucher(params.id);
 }, {
-    roles: ROLE_GROUPS.FINANCE_APPROVERS,
+    permissions: [RBAC_PERMISSIONS.FINANCE_APPROVE],
     audit: { action: 'DELETE', entity: 'PAYMENT_VOUCHER' },
     rawResponse: true
 });

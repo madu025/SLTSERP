@@ -4,6 +4,8 @@ import { apiHandler } from "@/lib/api-handler";
 import { PaymentVoucherService } from "@/services/finance/payment-voucher.service";
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { assertProjectAccess } from '@/lib/project-access';
 
 const updateStatusSchema = z.object({
     status: z.string(),
@@ -17,6 +19,9 @@ export const PATCH = apiHandler(async (req, params, body) => {
     const userId = req.headers.get("x-user-id");
 
     if (!userId) throw AppError.unauthorized('Authentication required');
+    const voucher = await prisma.paymentVoucher.findUnique({ where: { id: params.id }, select: { projectId: true } });
+    if (!voucher) throw AppError.notFound('Payment voucher not found');
+    await assertProjectAccess(voucher.projectId, userId);
 
     return await PaymentVoucherService.updatePaymentVoucherStatus(params.id, status, userId, {
         rejectionReason,

@@ -104,6 +104,7 @@ model CustomerReceipt {
   @@index([customerId])
   @@index([invoiceId])
   @@index([createdById])
+  @@unique([invoiceId, referenceNumber])
 }
 
 model BankAccount {

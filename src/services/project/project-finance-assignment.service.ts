@@ -3,6 +3,7 @@ import { deriveEffectivePermissions } from '@/lib/effective-permissions';
 import { prisma } from '@/lib/prisma';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { userHasPermission } from '@/lib/user-permissions';
 
 export const PROJECT_FINANCE_ASSIGNMENT_ROLES = [
   'LEAD_CONTROLLER',
@@ -13,6 +14,18 @@ export const PROJECT_FINANCE_ASSIGNMENT_ROLES = [
 
 export type ProjectFinanceAssignmentRole = typeof PROJECT_FINANCE_ASSIGNMENT_ROLES[number];
 export type ProjectFinanceAssignmentStatus = 'ACTIVE' | 'ENDED';
+
+/** Assignments constrain actions once a project has an active finance team. */
+export async function assertProjectFinanceAssignment(projectId: string, userId: string, allowedRoles: readonly ProjectFinanceAssignmentRole[]) {
+  if (await userHasPermission(userId, RBAC_PERMISSIONS.ADMIN_RBAC)) return;
+  const active = await prisma.projectFinanceAssignment.count({ where: { projectId, status: 'ACTIVE' } });
+  if (!active) return;
+  const assignment = await prisma.projectFinanceAssignment.findFirst({
+    where: { projectId, userId, status: 'ACTIVE', assignmentRole: { in: [...allowedRoles] }, startsAt: { lte: new Date() }, OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] },
+    select: { id: true },
+  });
+  if (!assignment) throw AppError.forbidden('You are not assigned to this project finance action');
+}
 
 const roleRequirements: Record<ProjectFinanceAssignmentRole, readonly string[]> = {
   LEAD_CONTROLLER: [RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE, RBAC_PERMISSIONS.FINANCE_WRITE, RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE],

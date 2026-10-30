@@ -5,6 +5,10 @@ import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import { UUID } from '@/types/common';
 import { ProjectMaterialReservationService } from './project-material-reservation.service';
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
+import { StoreService } from '@/services/inventory/store.service';
+import { assertProjectAccess } from '@/lib/project-access';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export class ProjectStockIssueService {
     /**
@@ -162,6 +166,8 @@ export class ProjectStockIssueService {
         if (!issue) {
             throw AppError.badRequest('ISSUE_NOT_FOUND');
         }
+        await StoreService.assertStoreWriteAccess(approvedById, issue.storeId);
+        if (issue.projectId) await assertProjectAccess(issue.projectId, approvedById);
 
         if (issue.status !== 'PENDING') {
             throw AppError.badRequest('ISSUE_NOT_PENDING');
@@ -172,11 +178,11 @@ export class ProjectStockIssueService {
         if (!approvedById) {
             throw AppError.badRequest('APPROVER_ID_REQUIRED: approvedById must be provided.');
         }
-        const approver = await prisma.user.findUnique({ where: { id: approvedById }, select: { role: true } });
+        const approver = await prisma.user.findUnique({ where: { id: approvedById }, select: { id: true } });
         if (!approver) {
             throw AppError.badRequest('APPROVER_NOT_FOUND: The approver account may have been deleted.');
         }
-        if (approver.role !== 'SUPER_ADMIN' && issue.issuedById && issue.issuedById === approvedById) {
+        if (!await userHasPermission(approvedById, RBAC_PERMISSIONS.ADMIN_RBAC) && issue.issuedById && issue.issuedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: Issue creator cannot approve their own stock issue.');
         }
 
