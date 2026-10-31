@@ -1,8 +1,19 @@
 import { defineConfig } from '@playwright/test';
+import { existsSync } from 'node:fs';
 
 const hasAuthenticatedE2ECredentials = Boolean(
   process.env.E2E_USERNAME && process.env.E2E_PASSWORD,
 );
+const hasAuthenticatedE2ESpecs = [
+  'project-module.spec.ts',
+  'inventory-module.spec.ts',
+  'dynamic-reports.spec.ts',
+  'cost-allocation.spec.ts',
+  'gis-upload-sanity.spec.ts',
+  'gis-import.spec.ts',
+  'e2e-pipeline-test.spec.ts',
+  'e2e-complete-erp-pipeline.spec.ts',
+].some((fileName) => existsSync(`tests/${fileName}`));
 
 const authenticatedProjects = [
   {
@@ -75,7 +86,7 @@ export default defineConfig({
       name: 'production-smoke',
       testMatch: /production-smoke\.spec\.ts/,
     },
-    ...(hasAuthenticatedE2ECredentials
+    ...(hasAuthenticatedE2ECredentials && hasAuthenticatedE2ESpecs
       ? [{ name: 'setup', testMatch: /auth\.setup\.ts/ }, ...authenticatedProjects]
       : []),
   ],
