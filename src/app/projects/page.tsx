@@ -149,7 +149,7 @@ export default function ProjectsPage() {
         try {
             setLoading(true);
             const params = new URLSearchParams();
-            if (statusFilter !== 'ALL') params.append('status', statusFilter);
+            params.append('status', statusFilter);
             if (opmcFilter !== 'ALL') params.append('opmcId', opmcFilter);
             if (contractorFilter !== 'ALL') params.append('contractorId', contractorFilter);
             params.append('page', page.toString());
