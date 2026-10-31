@@ -91,6 +91,15 @@ An explicit assignee remains exclusive. Unassigned steps resolve required job
 identity from active canonical SystemRole/section role codes, not `User.role`.
 The `admin.rbac` capability permits the existing administrative routing override;
 it does not substitute for `project.approve`.
+Workflow stage transitions require `project.approve` and Project OPMC access;
+workflow approval levels additionally require an active canonical SystemRole or
+section role matching the configured approval role. `admin.rbac` may override
+approval-level routing but cannot approve two levels of the same stage as one
+user. The legacy `User.role` field must not decide workflow actions.
+Submitting a workflow review requires `project.write`; deciding it requires
+`project.approve`, Project OPMC access, and the configured active DB reviewer
+role. The reviewer role is taken from the persisted stage, never the request.
+The submitter cannot decide the same review, including with `admin.rbac`.
 
 ### Project finance controls
 

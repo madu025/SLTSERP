@@ -376,7 +376,6 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings,
           reviewId: currentReview?.id,
           decision,
           deliverableType: activeStage.code || activeStage.name,
-          reviewerRole: activeStage.assignedRole || undefined,
           notes: reviewNotes || undefined,
           comments: decision === 'CHANGES_REQUESTED' && reviewNotes
             ? [{ comment: reviewNotes, severity: 'REQUIRED' }]

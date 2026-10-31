@@ -21,12 +21,16 @@ role acceptance result.
 
 ## Remaining gaps
 
-1. **High: legacy role checks inside workflow actions.** `WorkflowEngine`
-   `transitionStage` and `submitApproval` use `ROLE_GROUPS` and `actor.role` after
-   the API has granted canonical `project.approve`. This can reject an explicit
-   capability grant and can make approval eligibility depend on a legacy display
-   role. Migrate stage-level eligibility to active DB role assignments and explicit
-   approval-level policy, preserving role isolation and maker-checker rules.
+1. **Resolved in follow-up: legacy role checks inside workflow actions.**
+   `WorkflowEngine` now checks effective `project.approve` and Project OPMC scope.
+   Approval-level eligibility uses active DB role assignments, with an explicit
+   `admin.rbac` routing override and a same-user multi-level approval ban.
+   Service-level tests cover allow/deny, direct override, inactive role, foreign
+   OPMC, and legacy display-role independence.
+   Workflow review decisions now use the same canonical capability/active-role
+   model. The client no longer chooses the reviewer role; a review submitter
+   cannot decide their own review. Service-level allow/deny tests cover these
+   paths. The Project suite now runs 81 tests locally.
 2. **High: no Project browser lifecycle test in CI.** The production Playwright
    config runs only `production-smoke.spec.ts`: health, login form, and optional
    login/profile. It does not visit Project detail, complete a stage, exercise

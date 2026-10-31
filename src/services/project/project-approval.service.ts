@@ -5,6 +5,7 @@ import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification/notification.service';
 import { AppError } from '@/lib/error';
+import { hasActiveWorkflowRole } from '@/lib/project-workflow-role';
 
 interface CreateApprovalStepInput {
     stepNumber: number;
@@ -161,11 +162,7 @@ export class ProjectApprovalService {
         // Required job identity remains a routing constraint, not a capability
         // grant. Resolve it from active canonical DB roles, never User.role.
         const roles = [actor.systemRole, ...actor.sectionAssignments.map(assignment => assignment.role)];
-        const eligible = roles.some(role => {
-            if (!role?.isActive) return false;
-            const code = role.code.replace(/_GLOBAL$/, '');
-            return code === step.roleRequired || code.endsWith(`_${step.roleRequired}`);
-        });
+        const eligible = hasActiveWorkflowRole(step.roleRequired, roles);
         if (!step.assignedUserId && !isAdmin && !eligible) {
             throw AppError.forbidden('Authenticated user is not eligible for this approval step');
         }

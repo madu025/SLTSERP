@@ -53,3 +53,9 @@ test('workflow review and handoff routes scope both reads and writes', () => {
         assert.equal((route.match(/await assertProjectAccess\(params\.id,/g) || []).length, 2);
     }
 });
+
+test('workflow review route allows canonical writers and approvers without a client reviewer role', () => {
+    const route = source('src/app/api/projects/[id]/workflow/reviews/route.ts');
+    assert.match(route, /permissions: \[RBAC_PERMISSIONS\.PROJECT_WRITE, RBAC_PERMISSIONS\.PROJECT_APPROVE\]/);
+    assert.doesNotMatch(route, /reviewerRole: z\.|_userRole/);
+});

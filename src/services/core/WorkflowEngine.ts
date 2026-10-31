@@ -1,7 +1,10 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { hasActiveWorkflowRole } from '@/lib/project-workflow-role';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { getStageTransitionError, WORKFLOW_TASK_STATUSES } from '@/services/core/workflow-transitions';
@@ -343,7 +346,7 @@ export class WorkflowEngine {
   static async transitionStage(stageId: string, nextStatus: string, userId: string, projectId?: string) {
     const actor = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true, status: true },
+      select: { id: true, status: true, systemRole: { select: { code: true, isActive: true } }, sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } } },
     });
     if (!actor || actor.status !== 'active') {
       throw AppError.unauthorized('Authenticated workflow actor is not active');
@@ -365,6 +368,11 @@ export class WorkflowEngine {
     if (projectId && stage.projectWorkflowInstance.projectId !== projectId) {
       throw AppError.forbidden('Workflow stage does not belong to this project');
     }
+    const capabilities = await getUserEffectivePermissions(userId);
+    if (!capabilities.includes(RBAC_PERMISSIONS.PROJECT_APPROVE)) {
+      throw AppError.forbidden('Project approval capability is required');
+    }
+    await assertProjectAccess(stage.projectWorkflowInstance.projectId, userId);
     const isCurrentStage = stage.projectWorkflowInstance.currentStageId === stage.id;
     if (nextStatus === 'COMPLETED' && !isCurrentStage) {
       throw AppError.badRequest('Only the current workflow stage can be completed');
@@ -375,13 +383,6 @@ export class WorkflowEngine {
     const transitionError = getStageTransitionError(stage.status, nextStatus, isCurrentStage);
     if (transitionError) {
       throw AppError.badRequest(transitionError);
-    }
-
-    const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
-    const hasConfiguredApprovalRole = stage.approvals.some((approval) => approval.role === actor.role);
-    const isProjectOwner = ROLE_GROUPS.AREA_MANAGERS.includes(actor.role);
-    if (!isAdmin && !hasConfiguredApprovalRole && !isProjectOwner) {
-        throw AppError.forbidden('User is not authorized to transition workflow stages');
     }
 
     if (nextStatus === 'COMPLETED') {
@@ -599,7 +600,7 @@ export class WorkflowEngine {
 
     const actor = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true, status: true },
+      select: { id: true, status: true, systemRole: { select: { code: true, isActive: true } }, sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } } },
     });
     if (!actor || actor.status !== 'active') {
       throw AppError.unauthorized('Authenticated approver is not active');
@@ -611,6 +612,11 @@ export class WorkflowEngine {
     });
     if (!approval) throw AppError.notFound('Workflow approval not found');
     if (projectId && approval.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow approval does not belong to this project');
+    const capabilities = await getUserEffectivePermissions(userId);
+    if (!capabilities.includes(RBAC_PERMISSIONS.PROJECT_APPROVE)) {
+      throw AppError.forbidden('Project approval capability is required');
+    }
+    await assertProjectAccess(approval.stage.projectWorkflowInstance.projectId, userId);
     if (approval.status !== 'PENDING') {
       throw AppError.badRequest('Workflow approval has already been actioned');
     }
@@ -621,11 +627,12 @@ export class WorkflowEngine {
       throw AppError.badRequest(`Workflow stage is ${approval.stage.status}; approvals are allowed only while the stage is IN_PROGRESS or IN_REVIEW`);
     }
 
-    const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
-    if (!isAdmin && approval.role !== actor.role) {
+    const isAdmin = capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+    const actorRoles = [actor.systemRole, ...actor.sectionAssignments.map((assignment) => assignment.role)];
+    if (!isAdmin && !hasActiveWorkflowRole(approval.role, actorRoles)) {
       throw AppError.forbidden('User is not eligible for this approval level');
     }
-    if (!isAdmin && approval.stage.approvals.some((item) => item.id !== approval.id && item.approvedById === actor.id)) {
+    if (approval.stage.approvals.some((item) => item.id !== approval.id && item.approvedById === actor.id)) {
       throw AppError.forbidden('The same user cannot action more than one approval level of a stage');
     }
 

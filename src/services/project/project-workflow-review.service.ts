@@ -1,6 +1,9 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { hasActiveWorkflowRole } from '@/lib/project-workflow-role';
 
 const ACTIVE_REVIEW_STATUSES = ['DRAFT', 'IN_REVIEW'];
 const REVIEW_DECISIONS = ['APPROVED', 'CHANGES_REQUESTED', 'REJECTED'] as const;
@@ -35,10 +38,12 @@ export class ProjectWorkflowReviewService {
     projectId: string;
     stageId: string;
     deliverableType?: string;
-    reviewerRole?: string;
     submittedById: string;
     notes?: string;
   }) {
+    const capabilities = await getUserEffectivePermissions(input.submittedById);
+    if (!capabilities.includes(RBAC_PERMISSIONS.PROJECT_WRITE)) throw AppError.forbidden('Project write capability is required');
+    await assertProjectAccess(input.projectId, input.submittedById);
     const stage = await this.getStage(input.projectId, input.stageId);
     if (!['IN_PROGRESS', 'CHANGES_REQUESTED'].includes(stage.status)) {
       throw AppError.badRequest('Only an active or rework-requested stage can be submitted for review');
@@ -56,7 +61,7 @@ export class ProjectWorkflowReviewService {
       select: { revision: true },
     });
     const revision = (latest?.revision ?? 0) + 1;
-    const reviewerRole = input.reviewerRole || stage.assignedRole || stage.approvals[0]?.role || null;
+    const reviewerRole = stage.assignedRole || stage.approvals[0]?.role || null;
 
     return prisma.$transaction(async (tx) => {
       const review = await tx.workflowReviewCycle.create({
@@ -102,7 +107,6 @@ export class ProjectWorkflowReviewService {
     reviewId: string;
     decision: ReviewDecision;
     reviewerUserId: string;
-    reviewerRole?: string;
     notes?: string;
     comments?: Array<{ comment: string; severity?: string }>;
   }) {
@@ -117,9 +121,18 @@ export class ProjectWorkflowReviewService {
     if (!review) throw AppError.notFound('Workflow review not found for this project');
     if (review.status !== 'IN_REVIEW') throw AppError.badRequest('This review cycle has already been actioned');
 
-    const role = input.reviewerRole || '';
-    const isAdmin = ROLE_GROUPS.ADMINS.includes(role as never);
-    if (!isAdmin && review.reviewerRole && review.reviewerRole !== role) {
+    const actor = await prisma.user.findUnique({
+      where: { id: input.reviewerUserId },
+      select: { status: true, systemRole: { select: { code: true, isActive: true } }, sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } } },
+    });
+    if (!actor || actor.status !== 'active') throw AppError.unauthorized('Authenticated reviewer is not active');
+    const capabilities = await getUserEffectivePermissions(input.reviewerUserId);
+    if (!capabilities.includes(RBAC_PERMISSIONS.PROJECT_APPROVE)) throw AppError.forbidden('Project approval capability is required');
+    await assertProjectAccess(input.projectId, input.reviewerUserId);
+    if (review.submittedById === input.reviewerUserId) throw AppError.forbidden('Review submitter cannot decide the same review');
+    const isAdmin = capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+    const roles = [actor.systemRole, ...actor.sectionAssignments.map((assignment) => assignment.role)];
+    if (!isAdmin && review.reviewerRole && !hasActiveWorkflowRole(review.reviewerRole, roles)) {
       throw AppError.forbidden(`This review requires the ${review.reviewerRole} role`);
     }
 

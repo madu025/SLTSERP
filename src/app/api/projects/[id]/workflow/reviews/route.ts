@@ -17,7 +17,6 @@ const reviewSchema = z.object({
   stageId: z.string().uuid().optional(),
   reviewId: z.string().uuid().optional(),
   deliverableType: z.string().trim().min(2).optional(),
-  reviewerRole: z.string().trim().min(2).optional(),
   decision: z.enum(['APPROVED', 'CHANGES_REQUESTED', 'REJECTED']).optional(),
   notes: z.string().trim().max(4000).optional().nullable(),
   comments: z.array(reviewCommentSchema).optional(),
@@ -45,7 +44,6 @@ export const POST = apiHandler(async (_request, params, body) => {
       projectId: params.id,
       stageId: input.stageId,
       deliverableType: input.deliverableType,
-      reviewerRole: input.reviewerRole,
       submittedById: actorId,
       notes: input.notes || undefined,
     });
@@ -60,12 +58,11 @@ export const POST = apiHandler(async (_request, params, body) => {
     reviewId: input.reviewId,
     decision: input.decision,
     reviewerUserId: actorId,
-    reviewerRole: params._userRole || undefined,
     notes: input.notes || undefined,
     comments: input.comments,
   });
 }, {
-  permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
+  permissions: [RBAC_PERMISSIONS.PROJECT_WRITE, RBAC_PERMISSIONS.PROJECT_APPROVE],
   audit: { action: 'WORKFLOW_REVIEW', entity: 'WORKFLOW_REVIEW' },
   rawResponse: true,
 });
