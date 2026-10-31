@@ -6,6 +6,18 @@ const requireAuth = process.env.SMOKE_REQUIRE_AUTH === 'true';
 
 test.describe.configure({ mode: 'serial' });
 
+test.afterEach(async ({}, testInfo) => {
+  if (process.env.CI && testInfo.status !== testInfo.expectedStatus) {
+    const detail = testInfo.error?.message?.replace(/\s+/g, ' ').slice(0, 500) || 'no error detail';
+    console.log(`::notice file=tests/production-smoke.spec.ts,line=1::smoke failure ${JSON.stringify({
+      title: testInfo.title,
+      status: testInfo.status,
+      expectedStatus: testInfo.expectedStatus,
+      detail,
+    })}`);
+  }
+});
+
 test('liveness endpoint is available', async ({ request }) => {
   const response = await request.get('/api/health/live');
 
