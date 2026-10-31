@@ -74,6 +74,9 @@ jobs:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          # The CI server renders the root gateway and login page during smoke tests.
+          # Keep the fail-closed auth module configured without reusing production secrets.
+          JWT_SECRET: ci-only-build-secret-not-for-production
           NEXTAUTH_SECRET: test-secret-for-ci
           NEXTAUTH_URL: http://localhost:3000
           NODE_ENV: test
