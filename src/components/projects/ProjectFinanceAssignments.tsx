@@ -76,11 +76,13 @@ function ProjectFinanceAssignmentsContent({ projectId }: Props) {
   const [assignmentRole, setAssignmentRole] = useState<AssignmentRole>('PREPARER');
   const [startsAt, setStartsAt] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch(`/api/projects/finance-assignments?projectId=${projectId}&includeCandidates=${canAssign}`);
       if (!response.ok) throw new Error(await responseError(response, 'Unable to load project finance assignments.'));
@@ -89,7 +91,9 @@ function ProjectFinanceAssignmentsContent({ projectId }: Props) {
       setCandidates(data.candidates ?? []);
       setSelectedUserId((current) => current || data.candidates?.[0]?.id || '');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to load project finance assignments.');
+      setAssignments([]);
+      setCandidates([]);
+      setLoadError(error instanceof Error ? error.message : 'Unable to load project finance assignments.');
     } finally {
       setLoading(false);
     }
@@ -163,7 +167,12 @@ function ProjectFinanceAssignmentsContent({ projectId }: Props) {
       </div>
 
       {loading ? (
-        <div className="mt-5 flex items-center gap-2 text-sm text-slate-700"><Loader2 className="h-4 w-4 animate-spin" /> Loading accountability records…</div>
+        <div role="status" className="mt-5 flex items-center gap-2 text-sm text-slate-700"><Loader2 className="h-4 w-4 animate-spin" /> Loading accountability records…</div>
+      ) : loadError ? (
+        <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <p>{loadError}</p>
+          <Button variant="outline" className="mt-2 bg-white text-slate-900" onClick={() => void load()}>Retry loading finance assignments</Button>
+        </div>
       ) : (
         <>
           {canAssign && <><div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr_auto]">
@@ -185,7 +194,7 @@ function ProjectFinanceAssignmentsContent({ projectId }: Props) {
               <Label htmlFor="project-finance-start">Starts on</Label>
               <Input id="project-finance-start" type="date" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="mt-1 text-slate-900" />
             </div>
-            <Button className="self-end" onClick={assign} disabled={submitting || !selectedUserId}>
+            <Button className="self-end bg-slate-900 text-white hover:bg-slate-800" onClick={assign} disabled={submitting || !selectedUserId}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Assign
             </Button>

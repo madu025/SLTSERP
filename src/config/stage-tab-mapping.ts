@@ -10,11 +10,26 @@
  * "always" tabs are shown at all stages (overview, workflow-pipeline)
  */
 
+import { RBAC_PERMISSIONS } from './rbac-permissions';
+
 export interface TabDefinition {
     value: string;
     label: string;
     icon?: string;
     description?: string;
+}
+
+/** Match module discovery to existing API read capabilities, not display roles. */
+export function filterProjectTabsByPermissions(tabs: TabDefinition[], permissions: readonly string[]) {
+    const required: Record<string, readonly string[]> = {
+        finance: [RBAC_PERMISSIONS.PROJECT_FINANCE_READ],
+        budget: [RBAC_PERMISSIONS.PROJECT_FINANCE_READ],
+        expenses: [RBAC_PERMISSIONS.FINANCE_READ, RBAC_PERMISSIONS.PROJECT_FINANCE_READ],
+        procurement: [RBAC_PERMISSIONS.PROCUREMENT_READ],
+        materials: [RBAC_PERMISSIONS.INVENTORY_READ],
+        contractor: [RBAC_PERMISSIONS.CONTRACTOR_READ],
+    };
+    return tabs.filter(tab => !required[tab.value] || required[tab.value].some(code => permissions.includes(code)));
 }
 
 export const ALWAYS_VISIBLE_TABS: TabDefinition[] = [
@@ -39,6 +54,7 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
         { value: 'risks', label: 'Risks', description: 'Initial project risk register' },
     ],
     'survey & current-state assessment': [
+        { value: 'survey', label: 'Survey', description: 'Site assessment, survey evidence and requests' },
         { value: 'documents', label: 'Assessment Documents', description: 'Site/current-state evidence and requirements' },
         { value: 'risks', label: 'Risks', description: 'Assessment risks and constraints' },
     ],
@@ -454,6 +470,9 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
 };
 
 const STAGE_NAME_ALIASES: Record<string, string> = {
+    'requirements evaluation': 'project initiation & requirements',
+    'design plan': 'solution design & review',
+    'design review & approval': 'solution design & review',
     // Map simplified template stage names -> keys present in STAGE_TAB_MAPPING
     feasibility: 'feasibility study',
     permit: 'permit acquisition',
@@ -498,7 +517,9 @@ function filterTabsForProjectCapabilities(
     projectTypeName?: string | null,
 ) {
     const source = planningSource?.toUpperCase();
-    const spatialTabs = new Set(['gis', 'survey', 'survey-approval', 'gis-audit']);
+    // A survey can use documents/CAD; it must not disappear just because GIS
+    // is optional for an indoor project.
+    const spatialTabs = new Set(['gis', 'survey-approval', 'gis-audit']);
     const fiberTypes = new Set(['SSD', 'OPMC_SSD', 'CLUSTER_DEVELOPMENT', 'BUILDING_FIBER']);
     const isFiberProject = !!projectTypeName && fiberTypes.has(projectTypeName.toUpperCase());
 
@@ -543,5 +564,14 @@ export function getDefaultTabs(planningSource?: string | null, projectTypeName?:
         { value: 'gis', label: 'GIS Route', description: 'GIS route planning and mapping' },
         { value: 'documents', label: 'Documents', description: 'Project files and documentation' },
         { value: 'guide', label: 'Guide', description: 'Project module guide' }
+    ], planningSource, projectTypeName));
+}
+
+/** Discover modules without advancing a stage or bypassing backend gates. */
+export function getAllProjectTabs(planningSource?: string | null, projectTypeName?: string | null): TabDefinition[] {
+    return uniqueTabs(filterTabsForProjectCapabilities([
+        ...ALWAYS_VISIBLE_TABS,
+        ...Object.entries(STAGE_TAB_MAPPING).filter(([key]) => key !== 'always').flatMap(([, tabs]) => tabs),
+        { value: 'guide', label: 'Guide', description: 'Project module guide' },
     ], planningSource, projectTypeName));
 }

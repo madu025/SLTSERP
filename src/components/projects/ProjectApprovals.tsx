@@ -1,4 +1,5 @@
-import {  useEffect, useState  } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CheckCircle2, XCircle, Clock, MessageSquare } from 'lucide-react';
-import { format } from 'date-fns';
 
 import { toast } from 'sonner';
 interface Project {
@@ -51,28 +51,51 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
     const [selectedRequest, setSelectedRequest] = useState<ApprovalRequest | null>(null);
     const [isActionOpen, setIsActionOpen] = useState(false);
     const [comment, setComment] = useState('');
-    const [userId, setUserId] = useState('usr-dev-1'); // Fallback dev reviewer ID
-
+    const [permissions, setPermissions] = useState<string[]>([]);
+    const canApprove = permissions.includes(RBAC_PERMISSIONS.PROJECT_APPROVE);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const submittingRef = useRef(false);
     useEffect(() => {
-        fetchApprovals();
-    }, [project.id]);
+        const update = () => {
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                setPermissions(Array.isArray(user?.permissions) ? user.permissions : []);
+            } catch { setPermissions([]); }
+        };
+        update();
+        window.addEventListener('storage', update);
+        return () => window.removeEventListener('storage', update);
+    }, []);
 
-    const fetchApprovals = async () => {
+    const fetchApprovals = useCallback(async () => {
         try {
             setLoading(true);
+            setLoadError(null);
             const res = await fetch(`/api/projects/${project.id}/approvals`);
-            if (res.ok) {
-                const data = await res.json();
-                setApprovals(data);
-            }
-        } catch (error) {
-} finally {
+            if (!res.ok) throw new Error('Failed to load approvals');
+            setApprovals(await res.json());
+        } catch {
+            setApprovals([]);
+            setLoadError('Unable to load approvals. Please retry.');
+        } finally {
             setLoading(false);
         }
-    };
+    }, [project.id]);
+
+    useEffect(() => {
+        setApprovals([]);
+        setIsActionOpen(false);
+        setSelectedStep(null);
+        setSelectedRequest(null);
+        setComment('');
+        void fetchApprovals();
+    }, [fetchApprovals]);
 
     const handleAction = async (action: 'APPROVED' | 'REJECTED') => {
-        if (!selectedStep) return;
+        if (!canApprove || !selectedStep || submittingRef.current) return;
+        submittingRef.current = true;
+        setSubmitting(true);
 
         try {
             const res = await fetch(`/api/projects/${project.id}/approvals`, {
@@ -81,20 +104,23 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
                 body: JSON.stringify({
                     stepId: selectedStep.id,
                     action,
-                    comment,
-                    actionedById: userId
+                    comment
                 })
             });
 
             if (res.ok) {
                 setIsActionOpen(false);
                 setComment('');
-                fetchApprovals();
+                await fetchApprovals();
             } else {
                 toast.error('Failed to process approval step');
             }
-        } catch (error) {
-}
+        } catch {
+            toast.error('Failed to process approval step');
+        } finally {
+            submittingRef.current = false;
+            setSubmitting(false);
+        }
     };
 
     const getStatusIcon = (status: string) => {
@@ -130,6 +156,11 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
 
             {loading ? (
                 <div className="text-center py-12 text-slate-500">Loading approvals...</div>
+            ) : loadError ? (
+                <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+                    <p>{loadError}</p>
+                    <Button variant="outline" onClick={() => void fetchApprovals()}>Retry</Button>
+                </div>
             ) : approvals.length === 0 ? (
                 <Card className="border-dashed border-2">
                     <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -184,7 +215,7 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
                                                     </div>
                                                 )}
 
-                                                {isActive && (
+                                                {canApprove && isActive && (
                                                     <Button size="sm" onClick={() => { setSelectedStep(step); setSelectedRequest(req); setIsActionOpen(true); }} className="w-full mt-3 h-8 text-xs bg-blue-600 hover:bg-blue-700">
                                                         Perform Action
                                                     </Button>
@@ -200,7 +231,7 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
             )}
 
             {/* Perform Action Review Dialog */}
-            <Dialog open={isActionOpen} onOpenChange={setIsActionOpen}>
+            <Dialog open={canApprove && isActionOpen} onOpenChange={(open) => { if (!submitting) setIsActionOpen(open); }}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>Perform Review Decision</DialogTitle>
@@ -220,20 +251,12 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
                             <Textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Type review observations or reason for rejection..." rows={3} />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Acting User Role Simulator</Label>
-                            <select value={userId} onChange={(e) => setUserId(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                                <option value="usr-dev-1">OPMC Engineer (usr-dev-1)</option>
-                                <option value="usr-dev-2">Regional OPMC Manager (usr-dev-2)</option>
-                            </select>
-                        </div>
-
                         <DialogFooter className="pt-4 gap-2 sm:gap-0">
-                            <Button variant="outline" onClick={() => setIsActionOpen(false)}>Cancel</Button>
-                            <Button onClick={() => handleAction('REJECTED')} variant="destructive" className="gap-1">
+                            <Button disabled={submitting} variant="outline" onClick={() => setIsActionOpen(false)}>Cancel</Button>
+                            <Button disabled={submitting || !canApprove} onClick={() => handleAction('REJECTED')} variant="destructive" className="gap-1">
                                 <XCircle className="w-4 h-4" /> Reject
                             </Button>
-                            <Button onClick={() => handleAction('APPROVED')} className="gap-1 bg-green-600 hover:bg-green-700">
+                            <Button disabled={submitting || !canApprove} onClick={() => handleAction('APPROVED')} className="gap-1 bg-green-600 hover:bg-green-700">
                                 <CheckCircle2 className="w-4 h-4" /> Approve
                             </Button>
                         </DialogFooter>

@@ -50,15 +50,18 @@ import ProjectBudgetTracking from '@/components/projects/ProjectBudgetTracking';
 import ProjectChangeRequests from '@/components/projects/ProjectChangeRequests';
 import ProjectGISAudit from '@/components/projects/ProjectGISAudit';
 import ProjectAsBuilt from '@/components/projects/ProjectAsBuilt';
-import { getTabsForStage, TabDefinition } from '@/config/stage-tab-mapping';
+import { getTabsForStage, getAllProjectTabs, filterProjectTabsByPermissions, TabDefinition } from '@/config/stage-tab-mapping';
+import { resolveCurrentProjectStage } from '@/lib/project-navigation';
+import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
  
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface ProjectStaff { id: string; name: string; }
 interface ProjectContractorRef { id: string; name: string; contactNumber?: string; }
 interface ProjectTypeRef { id: string; name: string; }
 interface ProjectOPMC { id: string; rtom: string; region?: string; }
-interface WorkflowStage { id: string; name: string; status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED'; }
-interface WorkflowInstance { id: string; stages: WorkflowStage[]; }
+interface WorkflowStage { id: string; name: string; status: string; sequence?: number; }
+interface WorkflowInstance { id: string; currentStageId?: string | null; stages: WorkflowStage[]; }
 interface Project {
     id: string; projectCode: string; name: string; description?: string; type: string;
     location?: string; status: string; progress: number; budget?: number; actualCost: number;
@@ -116,11 +119,15 @@ class TabErrorBoundary extends React.Component<{ children: React.ReactNode; tabL
  
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const permissions = useCanonicalPermissions();
     const router = useRouter();
     const { id } = use(params);
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
+    const [showAllModules, setShowAllModules] = useState(false);
+    const [workflowOpenKey, setWorkflowOpenKey] = useState(0);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [guideDialogOpen, setGuideDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -130,30 +137,40 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     const [editOpmcId, setEditOpmcId] = useState('');
     const [editContractorId, setEditContractorId] = useState('');
  
-    const fetchProjectDetails = useCallback(async () => {
+    const fetchProjectDetails = useCallback(async (signalOrEvent?: AbortSignal | React.MouseEvent) => {
+        const signal = signalOrEvent instanceof AbortSignal ? signalOrEvent : undefined;
+        setLoadError(null);
         try {
-            const res = await fetch(`/api/projects/${id}`);
+            const res = await fetch(`/api/projects/${id}`, { signal });
             if (!res.ok) throw new Error('Failed to fetch');
-            setProject(await res.json() as Project);
-        } catch { toast.error('Failed to load project details'); }
-        finally { setLoading(false); }
+            const data = await res.json() as Project;
+            if (!signal?.aborted) setProject(data);
+        } catch { if (!signal?.aborted) setLoadError('Unable to load this project. Check your connection and retry.'); }
+        finally { if (!signal?.aborted) setLoading(false); }
     }, [id]);
  
-    useEffect(() => { fetchProjectDetails(); }, [fetchProjectDetails]);
+    useEffect(() => {
+        const controller = new AbortController();
+        setProject(null); setLoading(true); setActiveTab('overview'); setEditDialogOpen(false);
+        void fetchProjectDetails(controller.signal);
+        return () => controller.abort();
+    }, [fetchProjectDetails]);
  
     const currentStageName = useMemo(() => {
         if (project?.workflowInstance?.stages) {
-            const active = project.workflowInstance.stages.find(s => s.status === 'IN_PROGRESS') ||
-                project.workflowInstance.stages.find(s => s.status === 'PENDING');
+            const active = resolveCurrentProjectStage(project.workflowInstance.stages, project.workflowInstance.currentStageId);
             if (active) return active.name;
         }
         return project?.status ?? null;
     }, [project]);
  
-    const visibleTabs = useMemo(
+    const stageTabs = useMemo(
         () => getTabsForStage(currentStageName, project?.planningSource, project?.projectType?.name),
         [currentStageName, project?.planningSource, project?.projectType?.name],
     );
+    const visibleTabs = useMemo(() => filterProjectTabsByPermissions(showAllModules
+        ? getAllProjectTabs(project?.planningSource, project?.projectType?.name)
+        : stageTabs, permissions), [showAllModules, stageTabs, project?.planningSource, project?.projectType?.name, permissions]);
     useEffect(() => { if (visibleTabs.length > 0 && !visibleTabs.find(t => t.value === activeTab)) { setActiveTab(visibleTabs[0]?.value ?? 'overview'); } }, [visibleTabs, activeTab]);
  
     const groupedTabs = useMemo(() => {
@@ -244,7 +261,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         return <div className="min-h-screen flex bg-background text-foreground"><Sidebar /><main className="flex-1 flex items-center justify-center"><div className="animate-spin w-8 h-8 border-3 border-primary border-t-transparent rounded-full" /></main></div>;
     }
     if (!project) {
-        return <div className="min-h-screen flex bg-background text-foreground"><Sidebar /><main className="flex-1 flex flex-col items-center justify-center gap-3"><p className="text-muted-foreground text-sm">Project not found</p><Button size="sm" className="h-8 text-xs" onClick={() => router.back()}>Go Back</Button></main></div>;
+        return <div className="min-h-screen flex bg-background text-foreground"><Sidebar /><main className="flex-1 flex flex-col items-center justify-center gap-3"><p role="alert" className="text-foreground text-sm">{loadError || 'Project not found'}</p><Button onClick={fetchProjectDetails}>Retry</Button><Button size="sm" className="h-8 text-xs" onClick={() => router.back()}>Go Back</Button></main></div>;
     }
  
     return (
@@ -282,12 +299,16 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-1.5">
-                                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs border-emerald-500/20 text-emerald-600 bg-emerald-500/10">
-                                    <Cloud className="w-3.5 h-3.5" />Sync QField
-                                </Button>
-                                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs text-foreground border-border"><Download className="w-3.5 h-3.5" />Export</Button>
+                                {project.planningSource === 'GIS' && <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${project.id}/qfield-config`)} className="gap-1 h-7 text-xs border-emerald-700 text-emerald-800 bg-emerald-50">
+                                    <Cloud className="w-3.5 h-3.5" />QField Setup
+                                </Button>}
+                                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs text-foreground border-border" onClick={() => {
+                                    const blob = new Blob([JSON.stringify({ projectCode: project.projectCode, name: project.name, status: project.status, progress: project.progress, planningSource: project.planningSource, budget: project.budget, actualCost: project.actualCost, startDate: project.startDate, endDate: project.endDate, currentStage: currentStageName }, null, 2)], { type: 'application/json' });
+                                    const url = URL.createObjectURL(blob);
+                                    const link = document.createElement('a'); link.href = url; link.download = `${project.projectCode.replace(/[^a-zA-Z0-9_-]/g, '_')}-summary.json`; link.click(); URL.revokeObjectURL(url);
+                                }}><Download className="w-3.5 h-3.5" />Export Summary</Button>
                                 <Button variant="outline" size="sm" onClick={() => setGuideDialogOpen(true)} className="gap-1 h-7 text-xs text-foreground border-border"><BookOpen className="w-3.5 h-3.5" />Guide</Button>
-                                <Button variant="outline" size="sm" onClick={handleOpenEdit} className="gap-1 h-7 text-xs text-foreground border-border"><Edit2 className="w-3.5 h-3.5" />Edit</Button>
+                                {permissions.includes(RBAC_PERMISSIONS.PROJECT_WRITE) && <Button variant="outline" size="sm" onClick={handleOpenEdit} className="gap-1 h-7 text-xs text-foreground border-border"><Edit2 className="w-3.5 h-3.5" />Edit</Button>}
                             </div>
                         </div>
  
@@ -352,6 +373,15 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 </div>
  
                 {/* Sub-Sidebar Layout */}
+                <section aria-label="Project workflow navigation" className="border-b border-border bg-card px-4 py-3 space-y-3">
+                    {loadError && <p role="alert" className="text-sm text-red-700">{loadError} <button className="underline" onClick={fetchProjectDetails}>Retry</button></p>}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div><p className="text-sm font-semibold text-foreground">Current step: {currentStageName || 'Project setup'}</p><p className="text-xs text-muted-foreground">Complete evidence, tasks and approvals in Workflow Pipeline. Opening a module does not advance the workflow.</p></div>
+                        <Button size="sm" onClick={() => { setWorkflowOpenKey(key => key + 1); setActiveTab('workflow-pipeline'); }}>Open current step</Button>
+                    </div>
+                    {project.workflowInstance?.stages && <ol className="flex gap-2 overflow-x-auto pb-2" aria-label="Project lifecycle steps">{project.workflowInstance.stages.map((stage, index) => <li key={stage.id} className={`shrink-0 rounded-md border px-3 py-2 text-xs ${stage.name === currentStageName ? 'border-cyan-700 bg-cyan-50 text-cyan-950' : 'border-slate-200 bg-slate-50 text-slate-800'}`} aria-current={stage.name === currentStageName ? 'step' : undefined}><span className="font-semibold">{index + 1}. {stage.name}</span><span className="block text-[11px]">{stage.status.replace(/_/g, ' ')}</span></li>)}</ol>}
+                    <button type="button" aria-pressed={showAllModules} className="text-sm font-medium text-foreground underline underline-offset-4" onClick={() => setShowAllModules(value => !value)}>{showAllModules ? 'Show current-step modules' : 'Browse all project modules'}</button>
+                </section>
                 <div className="flex-1 flex overflow-hidden">
                     <aside className="w-48 border-r border-border bg-card/50 overflow-y-auto flex-shrink-0 hidden md:block">
                         <div className="p-2 space-y-4">
@@ -360,7 +390,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 px-2">{groupName}</h3>
                                     <div className="space-y-0">
                                         {tabs.map(tab => (
-                                            <button key={tab.value} onClick={() => setActiveTab(tab.value)}
+                                            <button key={tab.value} aria-current={activeTab === tab.value ? 'page' : undefined} onClick={() => setActiveTab(tab.value)}
                                                 className={`w-full flex items-center justify-between px-2 py-1.5 text-xs rounded transition-colors ${activeTab === tab.value ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'}`}>
                                                 {tab.label}
                                                 {activeTab === tab.value && <ChevronRight className="w-3.5 h-3.5 text-primary" />}
@@ -382,8 +412,8 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                             {/* Mobile Tabs */}
                             <div className="md:hidden mb-3 overflow-x-auto pb-1 flex gap-1.5">
                                 {visibleTabs.map(tab => (
-                                    <button key={tab.value} onClick={() => setActiveTab(tab.value)}
-                                        className={`whitespace-nowrap px-3 py-1.5 text-xs rounded-full border transition-all ${activeTab === tab.value ? 'bg-primary text-white border-primary' : 'bg-card text-muted-foreground border-border'}`}>
+                                    <button key={tab.value} aria-current={activeTab === tab.value ? 'page' : undefined} onClick={() => setActiveTab(tab.value)}
+                                        className={`whitespace-nowrap px-3 py-1.5 text-xs rounded-full border transition-all ${activeTab === tab.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border'}`}>
                                         {tab.label}
                                     </button>
                                 ))}
@@ -399,9 +429,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                         <div className="bg-card rounded-lg border border-border overflow-hidden shadow-xs">
                                             <TabErrorBoundary tabLabel={tab.label}>
                                                 <Component
+                                                    key={tab.value === 'workflow-pipeline' ? `${id}-${workflowOpenKey}` : id}
                                                     project={project}
                                                     projectId={project.id}
-                                                    refreshProject={REFRESH_TABS.has(tab.value) ? fetchProjectDetails : undefined}
+                                                    refreshProject={REFRESH_TABS.has(tab.value) || tab.value === 'workflow-pipeline' ? () => fetchProjectDetails() : undefined}
                                                     onOpenProjectSettings={tab.value === 'workflow-pipeline' ? handleOpenEdit : undefined}
                                                 />
                                             </TabErrorBoundary>

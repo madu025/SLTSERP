@@ -79,6 +79,19 @@ changed only through the admin permission workflow and audited.
 
 ## Verification checklist
 
+### Project UI and approval routing
+
+Project readers may see project budget/actual-cost summary (business rule
+confirmed 2026-10-30). This does not grant detailed Finance modules or write/
+approval capability. Navigation filters restricted modules and mutation controls
+by canonical capabilities; backend authorization remains mandatory.
+
+Project approval decisions require `project.approve` plus project OPMC access.
+An explicit assignee remains exclusive. Unassigned steps resolve required job
+identity from active canonical SystemRole/section role codes, not `User.role`.
+The `admin.rbac` capability permits the existing administrative routing override;
+it does not substitute for `project.approve`.
+
 ### Project finance controls
 
 `project.finance.read/write/approve/assign` separate financial visibility,

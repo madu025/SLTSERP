@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,9 @@ import {
   ChevronRight, RefreshCcw, Send, GitPullRequest, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { resolveCurrentProjectStage } from '@/lib/project-navigation';
+import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface Task {
   id: string;
@@ -115,9 +118,14 @@ interface Project {
 interface ProjectWorkflowTrackerProps {
   project: Project;
   onOpenProjectSettings?: () => void;
+  refreshProject?: () => void;
 }
 
-export default function ProjectWorkflowTracker({ project, onOpenProjectSettings }: ProjectWorkflowTrackerProps) {
+export default function ProjectWorkflowTracker({ project, onOpenProjectSettings, refreshProject }: ProjectWorkflowTrackerProps) {
+  const permissions = useCanonicalPermissions();
+  const canWrite = permissions.includes(RBAC_PERMISSIONS.PROJECT_WRITE);
+  const canApprove = permissions.includes(RBAC_PERMISSIONS.PROJECT_APPROVE);
+  const [workflowMissing, setWorkflowMissing] = useState(false);
   const [workflow, setWorkflow] = useState<ProjectWorkflow | null>(null);
   const [activeStage, setActiveStage] = useState<Stage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,11 +137,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
   const [photoProofInputs, setPhotoProofInputs] = useState<Record<string, string>>({});
   const [reviewNotes, setReviewNotes] = useState('');
 
-  useEffect(() => {
-    fetchWorkflow();
-  }, [project.id]);
-
-  const fetchWorkflow = async () => {
+  const fetchWorkflow = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/projects/${project.id}/workflow?_t=${Date.now()}`, {
@@ -154,9 +158,11 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
           }
         }
         setPhotoProofInputs(proofInputs);
-        const current = data.stages.find((s: Stage) => s.status === 'IN_PROGRESS') || data.stages[0];
+        setWorkflowMissing(false);
+        const current = resolveCurrentProjectStage<Stage>(data.stages, data.currentStageId);
         setActiveStage(current || null);
       } else {
+        setWorkflowMissing(res.status === 404);
         setWorkflow(null);
         setActiveStage(null);
         setWorkflowError(res.status === 404
@@ -164,15 +170,19 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
           : 'The workflow could not be loaded. Check your access or try again.');
       }
     } catch {
+      setWorkflowMissing(false);
       setWorkflow(null);
       setActiveStage(null);
       setWorkflowError('The workflow could not be loaded. Check your connection and try again.');
 } finally {
       setLoading(false);
     }
-  };
+  }, [project.id]);
+
+  useEffect(() => { void fetchWorkflow(); }, [fetchWorkflow]);
 
   const handleInitializeWorkflow = async () => {
+    if (!canWrite) return;
     if (!project.projectType?.id) {
       setWorkflowError('Choose a project type first. The project type provides the stages and task gates.');
       onOpenProjectSettings?.();
@@ -194,6 +204,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
       }
 
       await fetchWorkflow();
+      refreshProject?.();
     } catch {
       setWorkflowError('Workflow initialization failed. Check your connection and try again.');
     } finally {
@@ -202,6 +213,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
   };
 
   const handleStartStage = async (stageId: string) => {
+    if (!canApprove) return;
     try {
       setSubmitting(true);
       const res = await fetch(`/api/projects/${project.id}/workflow/stages`, {
@@ -215,6 +227,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
 
       if (res.ok) {
         await fetchWorkflow();
+        refreshProject?.();
       } else {
         const payload = await res.json().catch(() => null);
         const error = payload?.error;
@@ -228,6 +241,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
   };
 
   const handleCompleteStage = async (stageId: string) => {
+    if (!canApprove) return;
     try {
       setSubmitting(true);
       const res = await fetch(`/api/projects/${project.id}/workflow/stages`, {
@@ -241,6 +255,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
 
       if (res.ok) {
         await fetchWorkflow();
+        refreshProject?.();
       } else {
         const errorData = await res.json();
         const rawError = errorData?.error;
@@ -261,6 +276,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
   };
 
   const handleChecklistToggle = async (checklistId: string, currentVal: boolean, photoUrl?: string | null) => {
+    if (!canWrite || submitting) return;
     try {
       const checklist = activeStage?.checklists.find(item => item.id === checklistId);
       const nextCompleted = !currentVal;
@@ -270,13 +286,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
         return;
       }
 
-      // Optimitic UI
-      if (activeStage) {
-        const updatedChecklists = activeStage.checklists.map(c => 
-          c.id === checklistId ? { ...c, isCompleted: !currentVal } : c
-        );
-        setActiveStage({ ...activeStage, checklists: updatedChecklists });
-      }
+      setSubmitting(true);
 
       const res = await fetch(`/api/projects/${project.id}/workflow/tasks`, {
         method: 'POST',
@@ -292,12 +302,16 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
       await fetchWorkflow();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to update checklist.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleTaskToggle = async (taskId: string, currentStatus: string) => {
+    if (!canWrite || submitting) return;
     const nextStatus = currentStatus === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED';
     try {
+      setSubmitting(true);
       const res = await fetch(`/api/projects/${project.id}/workflow/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -316,10 +330,13 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
       await fetchWorkflow();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to update workflow task.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleApprovalSubmit = async (approvalId: string, decision: 'APPROVED' | 'REJECTED') => {
+    if (!canApprove || submitting) return;
     try {
       setSubmitting(true);
       const res = await fetch(`/api/projects/${project.id}/workflow/approvals`, {
@@ -345,7 +362,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
     action: 'submit' | 'resubmit' | 'decide',
     decision?: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED'
   ) => {
-    if (!activeStage) return;
+    if (!activeStage || (action === 'decide' ? !canApprove : !canWrite)) return;
     const currentReview = activeStage.reviews?.find(item => item.status === 'IN_REVIEW');
     try {
       setSubmitting(true);
@@ -374,6 +391,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
       }
       setReviewNotes('');
       await fetchWorkflow();
+      refreshProject?.();
       toast.success(action === 'decide' ? `Review ${decision?.toLowerCase().replace(/_/g, ' ')}.` : 'Review submitted.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to update workflow review.');
@@ -392,6 +410,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
   }
 
   if (!workflow) {
+    if (!workflowMissing) return <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-900"><p>{workflowError || 'Unable to load workflow'}</p><Button className="mt-3" variant="outline" onClick={fetchWorkflow}>Retry</Button></div>;
     return (
       <Card className="border-dashed border-2">
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -400,7 +419,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
           <p className="text-xs text-slate-700 max-w-md mt-1">
             {workflowError || 'Initialize the project type workflow to unlock stage control, checklists, and workflow task gates.'}
           </p>
-          {project.projectType?.id ? (
+          {canWrite && (project.projectType?.id ? (
             <Button className="mt-4 gap-2 bg-blue-600 text-white hover:bg-blue-700" onClick={handleInitializeWorkflow} disabled={initializing}>
               {initializing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Workflow className="w-4 h-4" />}
               {initializing ? 'Initializing workflow...' : `Initialize ${project.projectType.name.replace(/_/g, ' ')} workflow`}
@@ -409,7 +428,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
             <Button variant="outline" className="mt-4 border-blue-600 text-blue-700 hover:bg-blue-50" onClick={onOpenProjectSettings}>
               Choose project type in Edit
             </Button>
-          )}
+          ))}
           <p className="text-[11px] text-slate-600 max-w-md mt-3">
             Parent and child task management is available from the Tasks tab while the workflow is being prepared.
           </p>
@@ -572,7 +591,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                             <Checkbox 
                               checked={task.status === 'COMPLETED'} 
                               onCheckedChange={() => handleTaskToggle(task.id, task.status)}
-                              disabled={activeStage.status !== 'IN_PROGRESS'}
+                              disabled={!canWrite || submitting || activeStage.status !== 'IN_PROGRESS'}
                             />
                             <div>
                               <span className={`text-xs font-semibold block ${task.status === 'COMPLETED' ? 'line-through text-slate-400' : 'text-slate-800'}`}>
@@ -601,7 +620,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                             <Checkbox 
                               checked={chk.isCompleted} 
                               onCheckedChange={() => handleChecklistToggle(chk.id, chk.isCompleted, photoProofInputs[chk.id] || chk.photoUrl)}
-                              disabled={activeStage.status !== 'IN_PROGRESS'}
+                              disabled={!canWrite || submitting || activeStage.status !== 'IN_PROGRESS'}
                             />
                             <div>
                               <span className={`text-xs font-semibold block ${chk.isCompleted ? 'text-slate-500' : 'text-slate-800'}`}>
@@ -674,7 +693,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                         </Badge>
                       </div>
 
-                      {app.status === 'PENDING' && activeStage.status === 'IN_PROGRESS' && (
+                      {canApprove && app.status === 'PENDING' && activeStage.status === 'IN_PROGRESS' && (
                         <div className="flex gap-2 pt-2">
                           <Button 
                             size="sm" 
@@ -705,7 +724,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                     </Label>
                     <span className="text-[10px] text-slate-600">{activeStage.code || activeStage.name}</span>
                   </div>
-                  {(activeStage.status === 'IN_PROGRESS' || activeStage.status === 'CHANGES_REQUESTED') && (
+                  {canWrite && (activeStage.status === 'IN_PROGRESS' || activeStage.status === 'CHANGES_REQUESTED') && (
                     <>
                       <textarea
                         aria-label="Review notes"
@@ -724,7 +743,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                       </Button>
                     </>
                   )}
-                  {activeStage.status === 'IN_REVIEW' && (
+                  {canApprove && activeStage.status === 'IN_REVIEW' && (
                     <>
                       <textarea
                         aria-label="Review decision notes"
@@ -747,7 +766,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
 
                 {/* Transition Action Buttons */}
                 <div className="border-t pt-4 space-y-2">
-                  {activeStage.status === 'PENDING' && (
+                  {canApprove && activeStage.status === 'PENDING' && (
                     <Button 
                       onClick={() => handleStartStage(activeStage.id)} 
                       disabled={submitting}
@@ -756,7 +775,7 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings 
                       <Play className="w-4 h-4 fill-white" /> Start Stage Work
                     </Button>
                   )}
-                  {activeStage.status === 'IN_PROGRESS' && (
+                  {canApprove && activeStage.status === 'IN_PROGRESS' && (
                     <Button 
                       onClick={() => handleCompleteStage(activeStage.id)} 
                       disabled={submitting}

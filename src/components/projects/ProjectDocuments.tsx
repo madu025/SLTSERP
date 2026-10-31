@@ -1,4 +1,4 @@
-import {  useEffect, useState  } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,8 +57,10 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
     const [category, setCategory] = useState('DRAWING');
     const [fileUrl, setFileUrl] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [uploadedById, setUploadedById] = useState('');
-    const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const submissionLock = useRef(false);
+    const loadSequence = useRef(0);
 
     // Version Dialog State
     const [isVersionOpen, setIsVersionOpen] = useState(false);
@@ -69,48 +71,49 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
     // History Dialog State
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-    useEffect(() => {
-        fetchDocuments();
-        fetchUsers();
-    }, [project.id]);
-
-    const fetchDocuments = async () => {
+    const fetchDocuments = useCallback(async () => {
+        const sequence = ++loadSequence.current;
         try {
             setLoading(true);
+            setLoadError(null);
             const res = await fetch(`/api/projects/${project.id}/documents`);
-            if (res.ok) {
+            if (!res.ok) throw new Error('Failed to load documents');
+            if (sequence === loadSequence.current) {
                 const payload = await res.json();
                 const data = Array.isArray(payload) ? payload : payload.data || [];
-                setDocuments(data);
+                if (sequence === loadSequence.current) setDocuments(data);
             }
         } catch {
-} finally {
-            setLoading(false);
+            if (sequence === loadSequence.current) {
+                setDocuments([]);
+                setLoadError('Failed to load documents. Please retry.');
+            }
+        } finally {
+            if (sequence === loadSequence.current) setLoading(false);
         }
-    };
+    }, [project.id]);
 
-    const fetchUsers = async () => {
-        try {
-            const res = await fetch('/api/admin/users'); // fallback or generic endpoint
-            if (res.ok) {
-                const payload = await res.json();
-                const data = Array.isArray(payload) ? payload : payload.data || [];
-                setUsers(data);
-            } else {
-                setUsers([]);
-            }
-        } catch {
-            setUsers([]);
-        }
-    };
+    useEffect(() => {
+        const sequence = loadSequence;
+        setDocuments([]);
+        setSelectedDoc(null);
+        setIsUploadOpen(false);
+        setIsVersionOpen(false);
+        setIsHistoryOpen(false);
+        void fetchDocuments();
+        return () => { ++sequence.current; };
+    }, [fetchDocuments]);
 
     const handleUpload = async () => {
-        if (!title || (!fileUrl && !selectedFile)) {
+        if (submissionLock.current) return;
+        if (!title.trim() || (!fileUrl.trim() && !selectedFile)) {
             toast.error('Title and a file or file URL are required');
             return;
         }
 
         try {
+            submissionLock.current = true;
+            setSubmitting(true);
             let resolvedFileUrl = fileUrl;
             if (selectedFile) {
                 const formData = new FormData();
@@ -123,6 +126,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                     return;
                 }
                 resolvedFileUrl = uploadPayload.url || uploadPayload.data?.url || '';
+                if (!resolvedFileUrl) throw new Error('Upload returned no file URL');
             }
             const res = await fetch(`/api/projects/${project.id}/documents`, {
                 method: 'POST',
@@ -131,8 +135,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                     title,
                     description,
                     category,
-                    fileUrl: resolvedFileUrl,
-                    ...(uploadedById ? { uploadedById } : {})
+                    fileUrl: resolvedFileUrl
                 })
             });
 
@@ -144,23 +147,29 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                 toast.error('Failed to upload document');
             }
         } catch {
-}
+            toast.error('Failed to upload document');
+        } finally {
+            submissionLock.current = false;
+            setSubmitting(false);
+        }
     };
 
     const handleNewVersion = async () => {
-        if (!selectedDoc || !newVersionFileUrl || !uploadedById) {
-            toast.error('File URL and Uploaded By are required');
+        if (submissionLock.current) return;
+        if (!selectedDoc || !newVersionFileUrl.trim()) {
+            toast.error('Revision file URL is required');
             return;
         }
 
         try {
+            submissionLock.current = true;
+            setSubmitting(true);
             const res = await fetch(`/api/projects/${project.id}/documents`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     documentId: selectedDoc.id,
                     fileUrl: newVersionFileUrl,
-                    uploadedById,
                     changeSummary
                 })
             });
@@ -174,12 +183,19 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                 toast.error('Failed to save new version');
             }
         } catch {
-}
+            toast.error('Failed to save new version');
+        } finally {
+            submissionLock.current = false;
+            setSubmitting(false);
+        }
     };
 
     const handleSubmitApproval = async (doc: ProjectDoc) => {
+        if (submissionLock.current) return;
         if (!confirm(`Submit "${doc.title}" for management approval review?`)) return;
 
+        submissionLock.current = true;
+        setSubmitting(true);
         try {
             const res = await fetch(`/api/projects/${project.id}/approvals`, {
                 method: 'POST',
@@ -203,7 +219,11 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                 toast.error('Failed to submit approval request');
             }
         } catch {
-}
+            toast.error('Failed to submit approval request');
+        } finally {
+            submissionLock.current = false;
+            setSubmitting(false);
+        }
     };
 
     const resetUploadForm = () => {
@@ -216,10 +236,10 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
 
     const getStatusBadge = (status: string) => {
         const configs: Record<string, { className: string; icon: LucideIcon }> = {
-            DRAFT: { className: 'bg-slate-100 text-slate-650', icon: Clock },
-            UNDER_REVIEW: { className: 'bg-blue-100 text-blue-750', icon: Clock },
-            APPROVED: { className: 'bg-green-100 text-green-750', icon: CheckCircle2 },
-            REJECTED: { className: 'bg-red-100 text-red-750', icon: XCircle }
+            DRAFT: { className: 'bg-slate-100 text-slate-800', icon: Clock },
+            UNDER_REVIEW: { className: 'bg-blue-100 text-blue-900', icon: Clock },
+            APPROVED: { className: 'bg-green-100 text-green-900', icon: CheckCircle2 },
+            REJECTED: { className: 'bg-red-100 text-red-900', icon: XCircle }
         };
 
         const config = configs[status] || configs.DRAFT;
@@ -247,6 +267,11 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
 
             {loading ? (
                 <div className="text-center py-12 text-slate-500">Loading documents...</div>
+            ) : loadError ? (
+                <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+                    <p>{loadError}</p>
+                    <Button variant="outline" className="mt-2" onClick={() => void fetchDocuments()}>Retry</Button>
+                </div>
             ) : documents.length === 0 ? (
                 <Card className="border-dashed border-2">
                     <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -256,7 +281,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
                             <tr>
@@ -307,7 +332,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                                                 <History className="w-3.5 h-3.5" /> Logs
                                             </Button>
                                             {doc.status === 'DRAFT' && (
-                                                <Button variant="default" size="sm" onClick={() => handleSubmitApproval(doc)} className="h-8 text-xs gap-1 bg-blue-600 hover:bg-blue-700">
+                                                <Button disabled={submitting} variant="default" size="sm" onClick={() => handleSubmitApproval(doc)} className="h-8 text-xs gap-1 bg-blue-600 hover:bg-blue-700">
                                                     <Send className="w-3.5 h-3.5" /> Submit
                                                 </Button>
                                             )}
@@ -321,8 +346,8 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
             )}
 
             {/* Add Document Dialog */}
-            <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-                <DialogContent className="max-w-md">
+            <Dialog open={isUploadOpen} onOpenChange={(open) => { if (!submissionLock.current) setIsUploadOpen(open); }}>
+                <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Add Document</DialogTitle>
                         <DialogDescription>Register a new drawing, contract, or BOQ specification.</DialogDescription>
@@ -353,15 +378,6 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Uploaded By User *</Label>
-                                <Select value={uploadedById} onValueChange={setUploadedById}>
-                                    <SelectTrigger><SelectValue placeholder="Choose user..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
                         </div>
                         <div className="space-y-2">
                             <Label>Upload file (optional if using a URL)</Label>
@@ -372,16 +388,16 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                             <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://s3.amazonaws.com/sltserp/drawings/fdn-1.pdf" />
                         </div>
                         <DialogFooter className="pt-4">
-                            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
-                            <Button onClick={handleUpload}>Save Document</Button>
+                            <Button disabled={submitting} variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
+                            <Button disabled={submitting} onClick={handleUpload}>{submitting ? 'Saving...' : 'Save Document'}</Button>
                         </DialogFooter>
                     </div>
                 </DialogContent>
             </Dialog>
 
             {/* Upload New Version Dialog */}
-            <Dialog open={isVersionOpen} onOpenChange={setIsVersionOpen}>
-                <DialogContent className="max-w-md">
+            <Dialog open={isVersionOpen} onOpenChange={(open) => { if (!submissionLock.current) setIsVersionOpen(open); }}>
+                <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Upload New Version</DialogTitle>
                         <DialogDescription>Publishing a new revision for: <strong>{selectedDoc?.title}</strong></DialogDescription>
@@ -395,18 +411,9 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                             <Label>Change log summary</Label>
                             <Input value={changeSummary} onChange={(e) => setChangeSummary(e.target.value)} placeholder="e.g. Updated layout near OPMC store crossing" />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Uploaded By User *</Label>
-                            <Select value={uploadedById} onValueChange={setUploadedById}>
-                                <SelectTrigger><SelectValue placeholder="Choose user..." /></SelectTrigger>
-                                <SelectContent>
-                                    {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
                         <DialogFooter className="pt-4">
-                            <Button variant="outline" onClick={() => setIsVersionOpen(false)}>Cancel</Button>
-                            <Button onClick={handleNewVersion}>Publish Version</Button>
+                            <Button disabled={submitting} variant="outline" onClick={() => setIsVersionOpen(false)}>Cancel</Button>
+                            <Button disabled={submitting} onClick={handleNewVersion}>{submitting ? 'Publishing...' : 'Publish Version'}</Button>
                         </DialogFooter>
                     </div>
                 </DialogContent>

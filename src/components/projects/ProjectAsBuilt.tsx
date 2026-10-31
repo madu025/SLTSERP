@@ -1,5 +1,6 @@
 "use client";
-import {  useCallback, useEffect, useState  } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { SURVEY_LAYERS } from '@/config/survey-layers';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,21 +30,6 @@ interface ProjectAsBuiltProps {
   project: { id: string; name?: string; planningSource?: string };
 }
 
-const SURVEY_LAYERS = [
-  { id: 'fiber_route', name: 'Fiber Route' },
-  { id: 'handhole', name: 'Handhole' },
-  { id: 'joint_closure', name: 'Joint Closure' },
-  { id: 'cabinet', name: 'Cabinet' },
-  { id: 'pole', name: 'Pole' },
-  { id: 'duct', name: 'Duct' },
-  { id: 'customer_premise', name: 'Customer Premise' },
-  { id: 'splitter', name: 'Splitter' },
-  { id: 'onu', name: 'ONU' },
-  { id: 'access_point', name: 'Access Point' },
-  { id: 'building_entry', name: 'Building Entry' },
-  { id: 'repeater', name: 'Repeater' },
-];
-
 function pct(a: number, b: number) {
   if (b === 0) return 0;
   return Math.round((a / b) * 100);
@@ -55,22 +41,36 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
   const [compLoading, setCompLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [selectedLayer, setSelectedLayer] = useState('');
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const loadSequence = useRef(0);
 
   const fetchComparison = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    setComparison(null);
+    setComparisonError(null);
+    if (!isGisProject) {
+      setCompLoading(false);
+      return;
+    }
     try {
       setCompLoading(true);
-      const res = await fetch(`/api/projects/${project.id}/as-built?format=comparison`, {
-        headers: { 'x-user-id': 'current-user' },
-      });
-      if (res.ok) setComparison(await res.json());
+      const res = await fetch(`/api/projects/${project.id}/as-built?format=comparison`);
+      if (!res.ok) throw new Error('Failed to load comparison');
+      const data = await res.json();
+      if (sequence === loadSequence.current) setComparison(data);
     } catch {
-      // comparison may not be critical
+      if (sequence === loadSequence.current) setComparisonError('Failed to load comparison data. Please retry.');
     } finally {
-      setCompLoading(false);
+      if (sequence === loadSequence.current) setCompLoading(false);
     }
-  }, [project.id]);
+  }, [project.id, isGisProject]);
 
-  useEffect(() => { fetchComparison(); }, [fetchComparison]);
+  useEffect(() => {
+    const sequence = loadSequence;
+    setSelectedLayer('');
+    void fetchComparison();
+    return () => { ++sequence.current; };
+  }, [fetchComparison]);
 
   const handleDownload = async (format: string, label: string, layerId?: string) => {
     const key = layerId ? `layer-${layerId}` : format;
@@ -78,7 +78,7 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
     try {
       let url = `/api/projects/${project.id}/as-built?format=${format}`;
       if (layerId) url += `&layerId=${layerId}`;
-      const res = await fetch(url, { headers: { 'x-user-id': 'current-user' } });
+      const res = await fetch(url);
       if (!res.ok) throw new Error();
       const data = await res.json();
       // Trigger download
@@ -222,6 +222,11 @@ export default function ProjectAsBuilt({ project }: ProjectAsBuiltProps) {
           {compLoading ? (
             <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-xs">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading comparison data...
+            </div>
+          ) : comparisonError ? (
+            <div role="alert" className="p-4 text-sm text-red-800 bg-red-50">
+              <p>{comparisonError}</p>
+              <Button variant="outline" className="mt-2" onClick={() => void fetchComparison()}>Retry</Button>
             </div>
           ) : !comparison || comparison.layers?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-xs">

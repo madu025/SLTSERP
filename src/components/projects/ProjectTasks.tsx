@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -121,6 +122,35 @@ interface ProjectSchedule {
 }
 
 export default function ProjectTasks({ project, refreshProject }: ProjectTasksProps) {
+    const [permissions, setPermissions] = useState<string[]>([]);
+    const canWrite = permissions.includes(RBAC_PERMISSIONS.PROJECT_PLAN_WRITE);
+    const [submitting, setSubmitting] = useState(false);
+    const submittingRef = useRef(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [treeError, setTreeError] = useState<string | null>(null);
+    const [scheduleError, setScheduleError] = useState<string | null>(null);
+    useEffect(() => {
+        const update = () => {
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                setPermissions(Array.isArray(user?.permissions) ? user.permissions : []);
+            } catch { setPermissions([]); }
+        };
+        update();
+        window.addEventListener('storage', update);
+        return () => window.removeEventListener('storage', update);
+    }, []);
+
+    const runMutation = async (action: () => Promise<void>) => {
+        if (!canWrite || submittingRef.current) return;
+        submittingRef.current = true;
+        setSubmitting(true);
+        try { await action(); }
+        finally {
+            submittingRef.current = false;
+            setSubmitting(false);
+        }
+    };
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -208,13 +238,14 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     const fetchTasks = useCallback(async () => {
         try {
             setLoading(true);
+            setLoadError(null);
             const res = await fetch(`/api/projects/tasks?projectId=${project.id}`);
-            if (res.ok) {
-                const data = await res.json();
-                setTasks(data);
-            }
-        } catch (error) {
-} finally {
+            if (!res.ok) throw new Error('Failed to load tasks');
+            setTasks(await res.json());
+        } catch {
+            setTasks([]);
+            setLoadError('Unable to load project tasks. Please retry.');
+        } finally {
             setLoading(false);
         }
     }, [project.id]);
@@ -228,7 +259,9 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
     const fetchAllTasks = useCallback(async () => {
         try {
+            setTreeError(null);
             const res = await fetch(`/api/projects/tasks?projectId=${project.id}`);
+            if (!res.ok) throw new Error('Failed to load task hierarchy');
             if (res.ok) {
                 const rootTasks = await res.json();
 
@@ -239,6 +272,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                         result.push(task);
                         if (task._count && task._count.children > 0) {
                             const childRes = await fetch(`/api/projects/tasks?projectId=${project.id}&parentId=${task.id}`);
+                            if (!childRes.ok) throw new Error('Failed to load child tasks');
                             if (childRes.ok) {
                                 const children = await childRes.json();
                                 result.push(...await fetchChildren(children));
@@ -251,8 +285,10 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 const all = await fetchChildren(rootTasks);
                 setAllTasks(all);
             }
-        } catch (error) {
-}
+        } catch {
+            setAllTasks([]);
+            setTreeError('Unable to load the complete task hierarchy. Please retry.');
+        }
     }, [project.id]);
 
     useEffect(() => {
@@ -261,15 +297,18 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
     const fetchSchedule = useCallback(async () => {
         try {
+            setScheduleError(null);
             const res = await fetch(`/api/projects/${project.id}/schedule`);
             if (res.ok) {
                 setSchedule(await res.json());
             } else {
                 setSchedule(null);
+                setScheduleError('Unable to load the project schedule. Please retry.');
             }
         } catch (error) {
             console.error('Failed to fetch project schedule:', error);
             setSchedule(null);
+            setScheduleError('Unable to load the project schedule. Please retry.');
         }
     }, [project.id]);
 
@@ -307,6 +346,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     };
 
     const handleAddTask = (parentId?: string) => {
+        if (!canWrite || submittingRef.current) return;
         setEditingTask(null);
         setTaskForm({
             name: '', wbsCode: '', description: '', type: 'TASK', priority: 'MEDIUM',
@@ -317,6 +357,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     };
 
     const handleEditTask = (task: Task) => {
+        if (!canWrite || submittingRef.current) return;
         setEditingTask(task);
         setTaskForm({
             name: task.name,
@@ -336,7 +377,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         setIsTaskDialogOpen(true);
     };
 
-    const handleDeleteTask = async (id: string) => {
+    const handleDeleteTask = async (id: string) => runMutation(async () => {
         if (!confirm('Are you sure you want to delete this task?')) return;
         try {
             const res = await fetch(`/api/projects/tasks?id=${id}&projectId=${project.id}`, { method: 'DELETE' });
@@ -344,11 +385,13 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 refreshTaskData();
                 refreshProject();
             }
-        } catch (error) {
-}
-    };
+            else toast.error('Failed to delete task');
+        } catch {
+            toast.error('Failed to delete task');
+        }
+    });
 
-    const handleSaveTask = async () => {
+    const handleSaveTask = async () => runMutation(async () => {
         if (!taskForm.name) {
             toast.error('Task name is required');
             return;
@@ -378,9 +421,9 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
             console.error('Failed to save task:', error);
             toast.error('Failed to save task');
 }
-    };
+    });
 
-    const handleLogProgress = async () => {
+    const handleLogProgress = async () => runMutation(async () => {
         if (!selectedTask) return;
 
         try {
@@ -410,9 +453,9 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
             console.error('Failed to log progress:', error);
             toast.error('Failed to log progress');
 }
-    };
+    });
 
-    const handleAddDependency = async () => {
+    const handleAddDependency = async () => runMutation(async () => {
         if (!selectedTask || !dependencyForm.dependsOnTaskId) {
             toast.error('Please select a prerequisite task');
             return;
@@ -439,19 +482,21 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
             console.error('Failed to add dependency:', error);
             toast.error('Failed to add dependency');
 }
-    };
+    });
 
-    const handleRemoveDependency = async (depId: string) => {
+    const handleRemoveDependency = async (depId: string) => runMutation(async () => {
         try {
             const res = await fetch(`/api/projects/tasks/dependencies?id=${depId}`, { method: 'DELETE' });
             if (res.ok) {
                 refreshTaskData();
             }
-        } catch (error) {
-}
-    };
+            else toast.error('Failed to remove dependency');
+        } catch {
+            toast.error('Failed to remove dependency');
+        }
+    });
 
-    const handleSaveTimesheet = async () => {
+    const handleSaveTimesheet = async () => runMutation(async () => {
         try {
             const res = await fetch('/api/projects/timesheets', {
                 method: 'POST',
@@ -472,7 +517,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
             console.error('Failed to save timesheet:', error);
             toast.error('Failed to save timesheet');
 }
-    };
+    });
 
     const getStatusBadge = (status: string) => {
         const variants: Record<string, string> = {
@@ -539,7 +584,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                         {task.assigneeType || '-'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
+                        {canWrite && <div className="flex items-center gap-1" inert={submitting}>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
                                 onClick={() => { setSelectedTask(task); setProgressForm({ progress: task.actualProgress.toString(), description: '', gpsLatitude: '', gpsLongitude: '', photoUrl: '' }); setIsProgressDialogOpen(true); }}>
                                 <Clock className="w-3.5 h-3.5 text-blue-500" />
@@ -560,7 +605,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                 onClick={() => handleDeleteTask(task.id)}>
                                 <Trash2 className="w-3.5 h-3.5 text-red-500" />
                             </Button>
-                        </div>
+                        </div>}
                     </td>
                 </tr>
                 {/* Dependencies display */}
@@ -572,9 +617,9 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                 {task.dependencies.map((dep: TaskDependency) => (
                                     <Badge key={dep.id} variant="outline" className="text-xs bg-white flex items-center gap-1">
                                         {dep.dependsOn.wbsCode} - {dep.dependsOn.name}
-                                        <button onClick={() => handleRemoveDependency(dep.id)} className="ml-1 text-red-400 hover:text-red-600">
+                                        {canWrite && <button disabled={submitting} aria-label={`Remove dependency on ${dep.dependsOn.name}`} onClick={() => handleRemoveDependency(dep.id)} className="ml-1 text-red-400 hover:text-red-600">
                                             ×
-                                        </button>
+                                        </button>}
                                     </Badge>
                                 ))}
                             </div>
@@ -697,7 +742,13 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
 
     return (
         <div className="space-y-6">
-            <ProjectTaskPlanDesigner projectId={project.id} />
+            {canWrite && <ProjectTaskPlanDesigner projectId={project.id} />}
+            {(loadError || treeError || scheduleError) && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+                {loadError && <p>{loadError}</p>}
+                {treeError && <p>{treeError}</p>}
+                {scheduleError && <p>{scheduleError}</p>}
+                <Button variant="outline" onClick={refreshTaskData} disabled={loading}>Retry</Button>
+            </div>}
             {/* View Switcher & Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
@@ -711,14 +762,14 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                         <Clock className="w-4 h-4 mr-1" /> Timesheets
                     </Button>
                 </div>
-                <div className="flex gap-2">
+                {canWrite && <div className="flex gap-2" inert={submitting}>
                     <Button onClick={() => handleAddTask()} className="gap-2">
                         <Plus className="w-4 h-4" /> Add Parent Task
                     </Button>
                     <Button variant="outline" onClick={() => { setTimesheetForm({ ...timesheetForm, taskId: '' }); setIsTimesheetDialogOpen(true); }} className="gap-2">
                         <Clock className="w-4 h-4" /> Log Hours
                     </Button>
-                </div>
+                </div>}
             </div>
 
             {/* WBS Tree View */}
@@ -779,7 +830,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
             )}
 
             {/* Add/Edit Task Dialog */}
-            <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+            <Dialog open={canWrite && isTaskDialogOpen} onOpenChange={(open) => { if (!submitting) setIsTaskDialogOpen(open); }}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>{editingTask ? 'Edit Task' : 'Add New Task'}</DialogTitle>
@@ -898,13 +949,13 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsTaskDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSaveTask}>Save Task</Button>
+                        <Button disabled={submitting || !canWrite} onClick={handleSaveTask}>Save Task</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* Progress Log Dialog */}
-            <Dialog open={isProgressDialogOpen} onOpenChange={setIsProgressDialogOpen}>
+            <Dialog open={canWrite && isProgressDialogOpen} onOpenChange={(open) => { if (!submitting) setIsProgressDialogOpen(open); }}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>Log Progress</DialogTitle>
@@ -948,13 +999,13 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsProgressDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleLogProgress}>Log Progress</Button>
+                        <Button disabled={submitting || !canWrite} onClick={handleLogProgress}>Log Progress</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* Dependency Dialog */}
-            <Dialog open={isDependencyDialogOpen} onOpenChange={setIsDependencyDialogOpen}>
+            <Dialog open={canWrite && isDependencyDialogOpen} onOpenChange={(open) => { if (!submitting) setIsDependencyDialogOpen(open); }}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>Add Dependency</DialogTitle>
@@ -997,13 +1048,13 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsDependencyDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleAddDependency}>Add Dependency</Button>
+                        <Button disabled={submitting || !canWrite} onClick={handleAddDependency}>Add Dependency</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* Timesheet Dialog */}
-            <Dialog open={isTimesheetDialogOpen} onOpenChange={setIsTimesheetDialogOpen}>
+            <Dialog open={canWrite && isTimesheetDialogOpen} onOpenChange={(open) => { if (!submitting) setIsTimesheetDialogOpen(open); }}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>Log Hours</DialogTitle>
@@ -1047,7 +1098,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsTimesheetDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSaveTimesheet}>Save Hours</Button>
+                        <Button disabled={submitting || !canWrite} onClick={handleSaveTimesheet}>Save Hours</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1071,16 +1122,22 @@ interface TimesheetEntry {
 function TimesheetView({ projectId }: { projectId: string }) {
     const [timesheets, setTimesheets] = useState<TimesheetEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const fetchTimesheets = useCallback(async () => {
         try {
+            setLoading(true);
+            setLoadError(null);
             const res = await fetch(`/api/projects/timesheets?projectId=${projectId}`);
+            if (!res.ok) throw new Error('Failed to load timesheets');
             if (res.ok) {
                 const data = await res.json();
                 setTimesheets(data);
             }
-        } catch (error) {
-} finally {
+        } catch {
+            setTimesheets([]);
+            setLoadError('Unable to load timesheets. Please retry.');
+        } finally {
             setLoading(false);
         }
     }, [projectId]);
@@ -1111,6 +1168,11 @@ function TimesheetView({ projectId }: { projectId: string }) {
                     <tbody className="bg-white">
                         {loading ? (
                             <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
+                        ) : loadError ? (
+                            <tr><td colSpan={5} className="px-4 py-8 text-center text-red-800" role="alert">
+                                <p>{loadError}</p>
+                                <Button variant="outline" onClick={() => void fetchTimesheets()}>Retry</Button>
+                            </td></tr>
                         ) : timesheets.length === 0 ? (
                             <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No timesheet entries</td></tr>
                         ) : (

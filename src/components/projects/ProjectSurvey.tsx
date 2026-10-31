@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ interface ProjectRef {
   id: string;
   name: string;
   projectCode: string;
+  planningSource?: string;
   gisMapping?: {
     qfieldProjectId?: string;
     [key: string]: unknown;
@@ -88,6 +89,15 @@ function getApiArray<T>(payload: unknown): T[] {
 
 export default function ProjectSurvey({ project, refreshProject }: ProjectSurveyProps) {
   const router = useRouter();
+  const isGisProject = project.planningSource?.toUpperCase() === 'GIS';
+  const [surveyLoading, setSurveyLoading] = useState(true);
+  const [surveyError, setSurveyError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef(false);
+  const qfieldLock = useRef(false);
+  const surveySequence = useRef(0);
+  const syncSequence = useRef(0);
   const [surveys, setSurveys] = useState<SurveyRequest[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newSurvey, setNewSurvey] = useState({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '', assignedToId: '', assignedTeamId: '' });
@@ -128,57 +138,77 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
   const [showManualForm, setShowManualForm] = useState(false);
 
   const fetchSurveys = useCallback(async () => {
+    const sequence = ++surveySequence.current;
+    setSurveyLoading(true);
+    setSurveyError(null);
     try {
       const res = await fetch(`/api/projects/${project.id}/surveys`);
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setSurveys([]);
-        console.error('Failed to fetch surveys:', data);
-        return;
+        throw new Error(getApiMessage(data, 'Failed to fetch surveys'));
       }
       const records = Array.isArray(data)
         ? data
         : data && Array.isArray(data.data)
           ? data.data
           : [];
-      setSurveys(records as SurveyRequest[]);
+      if (sequence === surveySequence.current) setSurveys(records as SurveyRequest[]);
     } catch (err) {
-      console.error('Failed to fetch surveys:', err);
+      if (sequence === surveySequence.current) {
+        setSurveys([]);
+        setSurveyError(err instanceof Error ? err.message : 'Failed to fetch surveys');
+      }
+    } finally {
+      if (sequence === surveySequence.current) setSurveyLoading(false);
     }
   }, [project.id]);
 
   const fetchSyncStatus = useCallback(async () => {
+    const sequence = ++syncSequence.current;
+    setSyncError(null);
+    setSyncStatus(null);
+    if (!isGisProject) {
+      setSyncLoading(false);
+      return;
+    }
     try {
       setSyncLoading(true);
-      const res = await fetch(`/api/projects/${project.id}/qfield-sync`, {
-        headers: { 'x-user-id': 'system' }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSyncStatus(data);
-        if (data.projectId && !manualProjectId) {
-          // prefill manual input if it is loaded
-          setManualProjectId(project.gisMapping?.qfieldProjectId || '');
-        }
-      }
+      const res = await fetch(`/api/projects/${project.id}/qfield-sync`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(getApiMessage(data, 'Failed to load QFieldCloud sync status'));
+      if (sequence === syncSequence.current) setSyncStatus(data);
     } catch (err) {
-      console.error('Failed to fetch QFieldCloud sync status:', err);
+      if (sequence === syncSequence.current) setSyncError(err instanceof Error ? err.message : 'Failed to load sync status');
     } finally {
-      setSyncLoading(false);
+      if (sequence === syncSequence.current) setSyncLoading(false);
     }
-  }, [project.id, project.gisMapping?.qfieldProjectId, manualProjectId]);
+  }, [project.id, isGisProject]);
 
-  useEffect(() => { 
-    fetchSurveys(); 
-    fetchSyncStatus();
-  }, [fetchSurveys, fetchSyncStatus]);
+  useEffect(() => {
+    const sequence = surveySequence;
+    setSurveys([]);
+    setDialogOpen(false);
+    setNewSurvey({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '', assignedToId: '', assignedTeamId: '' });
+    void fetchSurveys();
+    return () => { ++sequence.current; };
+  }, [fetchSurveys]);
+
+  useEffect(() => {
+    const sequence = syncSequence;
+    setManualProjectId(project.gisMapping?.qfieldProjectId || '');
+    setShowManualForm(false);
+    void fetchSyncStatus();
+    return () => { ++sequence.current; };
+  }, [fetchSyncStatus, project.gisMapping?.qfieldProjectId]);
 
   const handleCreateQFieldProject = async () => {
+    if (!isGisProject || qfieldLock.current) return;
+    qfieldLock.current = true;
     setSyncing(true);
     try {
       const res = await fetch(`/api/projects/${project.id}/qfield-sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': 'system' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create_project' })
       });
       const data = await res.json();
@@ -196,15 +226,18 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       console.error('Create error:', err);
       toast.error('Sync request failed');
     } finally {
+      qfieldLock.current = false;
       setSyncing(false);
     }
   };
 
   const handleManualLinkProject = async () => {
+    if (!isGisProject || qfieldLock.current) return;
     if (!manualProjectId.trim()) {
       toast.error('Please enter a valid QFieldCloud Project ID');
       return;
     }
+    qfieldLock.current = true;
     setLinking(true);
     try {
       // API expects qfieldProjectId and action full_sync or push_layers,
@@ -234,21 +267,24 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       console.error('Link error:', err);
       toast.error('Link request failed');
     } finally {
+      qfieldLock.current = false;
       setLinking(false);
     }
   };
 
   const handleSyncQFieldData = async () => {
+    if (!isGisProject || qfieldLock.current) return;
     const qfieldId = project.gisMapping?.qfieldProjectId || syncStatus?.syncHistory?.[0]?.projectId || manualProjectId;
     if (!qfieldId) {
       toast.error('No connected QFieldCloud Project found.');
       return;
     }
+    qfieldLock.current = true;
     setSyncing(true);
     try {
       const res = await fetch(`/api/projects/${project.id}/qfield-sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': 'system' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'full_sync', qfieldProjectId: qfieldId })
       });
       const data = await res.json();
@@ -262,21 +298,24 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       console.error('Sync error:', err);
       toast.error('Sync operation failed');
     } finally {
+      qfieldLock.current = false;
       setSyncing(false);
     }
   };
 
   const handlePushLayerSchema = async () => {
+    if (!isGisProject || qfieldLock.current) return;
     const qfieldId = project.gisMapping?.qfieldProjectId || manualProjectId;
     if (!qfieldId) {
       toast.error('No connected QFieldCloud Project found.');
       return;
     }
+    qfieldLock.current = true;
     setSyncing(true);
     try {
       const res = await fetch(`/api/projects/${project.id}/qfield-sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': 'system' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'push_layers', qfieldProjectId: qfieldId })
       });
       const data = await res.json();
@@ -290,11 +329,19 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       console.error('Push error:', err);
       toast.error('Push operation failed');
     } finally {
+      qfieldLock.current = false;
       setSyncing(false);
     }
   };
 
   const handleCreate = async () => {
+    if (submissionLock.current) return;
+    if (!newSurvey.title.trim()) {
+      toast.error('Survey title is required');
+      return;
+    }
+    submissionLock.current = true;
+    setSubmitting(true);
     try {
       const payload = {
         ...newSurvey,
@@ -308,7 +355,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
-        toast.error(errorData?.error?.message || errorData?.error || 'Failed to create survey request');
+        toast.error(getApiMessage(errorData, 'Failed to create survey request'));
         return;
       }
       setDialogOpen(false);
@@ -316,6 +363,10 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       fetchSurveys();
     } catch (err) {
       console.error('Create survey request failed:', err);
+      toast.error('Failed to create survey request. Please retry.');
+    } finally {
+      submissionLock.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -335,7 +386,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       </div>
 
       {/* QFieldCloud Integration Panel */}
-      <Card className="border-indigo-100 bg-indigo-50/20">
+      {isGisProject && <Card className="border-indigo-100 bg-indigo-50/20">
         <CardHeader className="pb-3 border-b border-indigo-100/50 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Cloud className="w-5 h-5 text-indigo-600" />
@@ -375,6 +426,10 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
           </div>
         </CardHeader>
         <CardContent className="pt-4 space-y-4">
+          {syncError && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            <p>{syncError}</p>
+            <Button variant="outline" className="mt-2" disabled={syncLoading} onClick={() => void fetchSyncStatus()}>Retry sync status</Button>
+          </div>}
           {!project.gisMapping?.qfieldProjectId ? (
             <div className="p-6 flex flex-col items-center justify-center text-center bg-white rounded-lg border border-dashed border-indigo-200">
               <div className="space-y-3 py-4 max-w-md">
@@ -386,7 +441,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
                   This project is not linked to any survey mapping workspace. Click below to initialize or paste a project ID.
                 </p>
                 <div className="flex gap-2 justify-center pt-2">
-                  <Button size="sm" onClick={handleCreateQFieldProject} className="bg-indigo-600 hover:bg-indigo-700">
+                  <Button size="sm" disabled={syncing || linking} onClick={handleCreateQFieldProject} className="bg-indigo-600 hover:bg-indigo-700">
                     Create QFieldCloud Project
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setShowManualForm(!showManualForm)} className="bg-white">
@@ -408,7 +463,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
                     <Button 
                       size="sm" 
                       onClick={handleManualLinkProject} 
-                      disabled={linking}
+                      disabled={linking || syncing}
                       className="h-8 shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
                     >
                       {linking ? "Linking..." : "Link Project"}
@@ -530,14 +585,18 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      <div className="grid grid-cols-4 gap-4">
+      {surveyError && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+        <p>{surveyError}</p>
+        <Button variant="outline" className="mt-2" onClick={() => void fetchSurveys()}>Retry surveys</Button>
+      </div>}
+      {!surveyLoading && !surveyError && <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total Surveys</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{surveys.length}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">In Progress</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-purple-600">{surveys.filter(s => s.status === 'IN_PROGRESS' || s.status === 'ASSIGNED').length}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Completed</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-green-600">{surveys.filter(s => s.status === 'COMPLETED' || s.status === 'APPROVED').length}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Findings</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-orange-600">{surveys.reduce((sum: number, s: SurveyRequest) => sum + (s.findings?.length || 0), 0)}</p></CardContent></Card>
-      </div>
+      </div>}
 
       <Card>
         <CardContent className="p-0">
@@ -546,7 +605,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
               <TableRow><TableHead>Request #</TableHead><TableHead>Title</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Findings</TableHead><TableHead>Photos</TableHead><TableHead>Est. BOQ</TableHead><TableHead>Actions</TableHead></TableRow>
             </TableHeader>
             <TableBody>
-              {surveys.map((survey: SurveyRequest) => (
+              {!surveyLoading && !surveyError && surveys.map((survey: SurveyRequest) => (
                 <TableRow key={survey.id}>
                   <TableCell className="font-mono text-xs">{survey.requestNumber}</TableCell>
                   <TableCell className="font-medium">{survey.title}</TableCell>
@@ -558,14 +617,15 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
                   <TableCell><Button variant="outline" size="sm">View</Button></TableCell>
                 </TableRow>
               ))}
-              {surveys.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-500">No surveys found</TableCell></TableRow>}
+              {surveyLoading && <TableRow><TableCell colSpan={8} className="text-center py-8">Loading surveys...</TableCell></TableRow>}
+              {!surveyLoading && !surveyError && surveys.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-500">No surveys found</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!submissionLock.current) setDialogOpen(open); }}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Survey Request</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -630,8 +690,8 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate}>Create Survey Request</Button>
+            <Button disabled={submitting} variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button disabled={submitting} onClick={handleCreate}>{submitting ? 'Creating...' : 'Create Survey Request'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

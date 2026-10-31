@@ -1,4 +1,7 @@
 import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification/notification.service';
 import { AppError } from '@/lib/error';
@@ -139,7 +142,7 @@ export class ProjectApprovalService {
 
         const actor = await prisma.user.findUnique({
             where: { id: actorUserId },
-            select: { id: true, role: true, status: true },
+            select: { id: true, status: true, systemRole: { select: { code: true, isActive: true } }, sectionAssignments: { select: { role: { select: { code: true, isActive: true } } } } },
         });
         if (!actor || actor.status !== 'active') {
             throw AppError.unauthorized('Authenticated approver is not active');
@@ -149,8 +152,19 @@ export class ProjectApprovalService {
             throw AppError.forbidden('This approval step is assigned to another user');
         }
 
-        const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
-        if (!step.assignedUserId && !isAdmin && step.roleRequired !== actor.role) {
+        const capabilities = await getUserEffectivePermissions(actorUserId);
+        if (!capabilities.includes(RBAC_PERMISSIONS.PROJECT_APPROVE)) throw AppError.forbidden('Project approval capability is required');
+        await assertProjectAccess(step.request.projectId, actorUserId);
+        const isAdmin = capabilities.includes(RBAC_PERMISSIONS.ADMIN_RBAC);
+        // Required job identity remains a routing constraint, not a capability
+        // grant. Resolve it from active canonical DB roles, never User.role.
+        const roles = [actor.systemRole, ...actor.sectionAssignments.map(assignment => assignment.role)];
+        const eligible = roles.some(role => {
+            if (!role?.isActive) return false;
+            const code = role.code.replace(/_GLOBAL$/, '');
+            return code === step.roleRequired || code.endsWith(`_${step.roleRequired}`);
+        });
+        if (!step.assignedUserId && !isAdmin && !eligible) {
             throw AppError.forbidden('Authenticated user is not eligible for this approval step');
         }
 

@@ -221,6 +221,12 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
     }, []);
     const canWrite = permissions.includes(RBAC_PERMISSIONS.PROJECT_FINANCE_WRITE);
     const canApprove = permissions.includes(RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE);
+    const [voucherLoading, setVoucherLoading] = useState(true);
+    const [voucherError, setVoucherError] = useState<string | null>(null);
+    const [ldLoading, setLdLoading] = useState(true);
+    const [ldError, setLdError] = useState<string | null>(null);
+    const [retentionLoading, setRetentionLoading] = useState(true);
+    const [retentionError, setRetentionError] = useState<string | null>(null);
     const [invoiceError, setInvoiceError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('invoices');
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -271,33 +277,42 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
     }, [project.id]);
 
     const fetchPaymentVouchers = useCallback(async () => {
+        setVoucherLoading(true);
+        setVoucherError(null);
         try {
             const res = await fetch(`/api/projects/payment-vouchers?projectId=${project.id}`);
             if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load payment vouchers.'));
             setPaymentVouchers(await res.json());
         } catch (error) {
-            toast.error(getErrorMessage(error, 'Unable to load payment vouchers.'));
-        }
+            setPaymentVouchers([]);
+            setVoucherError(getErrorMessage(error, 'Unable to load payment vouchers.'));
+        } finally { setVoucherLoading(false); }
     }, [project.id]);
 
     const fetchLdPenalties = useCallback(async () => {
+        setLdLoading(true);
+        setLdError(null);
         try {
             const res = await fetch(`/api/projects/ld-penalties?projectId=${project.id}`);
             if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load LD and penalties.'));
             setLdPenalties(await res.json());
         } catch (error) {
-            toast.error(getErrorMessage(error, 'Unable to load LD and penalties.'));
-        }
+            setLdPenalties([]);
+            setLdError(getErrorMessage(error, 'Unable to load LD and penalties.'));
+        } finally { setLdLoading(false); }
     }, [project.id]);
 
     const fetchRetentions = useCallback(async () => {
+        setRetentionLoading(true);
+        setRetentionError(null);
         try {
             const res = await fetch(`/api/projects/retentions?projectId=${project.id}`);
             if (!res.ok) throw new Error(await getResponseError(res, 'Unable to load retentions.'));
             setRetentions(await res.json());
         } catch (error) {
-            toast.error(getErrorMessage(error, 'Unable to load retentions.'));
-        }
+            setRetentions([]);
+            setRetentionError(getErrorMessage(error, 'Unable to load retentions.'));
+        } finally { setRetentionLoading(false); }
     }, [project.id]);
 
     const fetchContractorAssignments = useCallback(async () => {
@@ -448,8 +463,11 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
         successMessage: string,
         extra: { rejectionReason?: string } = {}
     ) => {
-        if (!canApprove) return;
-        if (!window.confirm(confirmation)) return;
+        const isVoucherSubmission = endpoint === '/api/projects/payment-vouchers'
+            && status === 'PENDING_APPROVAL'
+            && paymentVouchers.some(voucher => voucher.id === id && voucher.status === 'DRAFT');
+        if (isVoucherSubmission ? !canWrite : !canApprove) return;
+        if (submitting || !window.confirm(confirmation)) return;
         setSubmitting(true);
         try {
             const res = await fetch(endpoint, {
@@ -571,20 +589,22 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
         <div className="space-y-6">
             <ProjectFinanceAssignments projectId={project.id} />
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="bg-white border border-slate-200 p-1">
-                    <TabsTrigger value="invoices" className="flex items-center gap-2">
+                <div className="max-w-full overflow-x-auto pb-1">
+                <TabsList className="w-max min-w-full bg-white text-slate-800 border border-slate-200 p-1">
+                    <TabsTrigger value="invoices" className="flex items-center gap-2 text-slate-700 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900">
                         <ReceiptText className="w-4 h-4" /> Invoices
                     </TabsTrigger>
-                    <TabsTrigger value="payments" className="flex items-center gap-2">
+                    <TabsTrigger value="payments" className="flex items-center gap-2 text-slate-700 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900">
                         <Wallet className="w-4 h-4" /> Payments
                     </TabsTrigger>
-                    <TabsTrigger value="ld-penalties" className="flex items-center gap-2">
+                    <TabsTrigger value="ld-penalties" className="flex items-center gap-2 text-slate-700 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900">
                         <Gavel className="w-4 h-4" /> LD & Penalties
                     </TabsTrigger>
-                    <TabsTrigger value="retentions" className="flex items-center gap-2">
+                    <TabsTrigger value="retentions" className="flex items-center gap-2 text-slate-700 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900">
                         <Lock className="w-4 h-4" /> Retentions
                     </TabsTrigger>
                 </TabsList>
+                </div>
 
                 {/* INVOICES TAB */}
                 <TabsContent value="invoices" className="space-y-4 mt-4">
@@ -592,27 +612,29 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                         <div>
                             <h3 className="text-lg font-semibold text-slate-900">Client Invoices</h3>
                             <p className="text-sm text-slate-600">
+                                {loading ? 'Loading totals...' : invoiceError ? 'Totals unavailable until records are reloaded.' : <>
                                 Total: LKR {totalFor(invoices, 'totalAmount').toLocaleString()} |
                                 Paid: LKR {totalFor(invoices, 'paidAmount').toLocaleString()} |
                                 Balance: LKR {totalFor(invoices, 'balanceAmount').toLocaleString()}
+                                </>}
                             </p>
                         </div>
                         <Dialog open={showInvDialog} onOpenChange={setShowInvDialog}>
                             {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Invoice</Button>
                             </DialogTrigger>}
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto bg-white text-slate-900">
                                 <DialogHeader><DialogTitle>Create Invoice</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Title</Label>
-                                            <Input value={invForm.title || ''} onChange={e => setInvForm({ ...invForm, title: e.target.value })} placeholder="Invoice title" />
+                                            <Label htmlFor="project-finance-field-1" className="text-slate-800">Title</Label>
+                                            <Input id="project-finance-field-1" value={invForm.title || ''} onChange={e => setInvForm({ ...invForm, title: e.target.value })} placeholder="Invoice title" />
                                         </div>
                                         <div>
-                                            <Label>Type</Label>
+                                            <Label htmlFor="project-finance-field-2" className="text-slate-800">Type</Label>
                                             <Select value={invForm.type || 'CLIENT'} onValueChange={v => setInvForm({ ...invForm, type: v })}>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectTrigger id="project-finance-field-2"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="CLIENT">Client Invoice</SelectItem>
                                                     <SelectItem value="CONTRACTOR">Contractor Invoice</SelectItem>
@@ -623,9 +645,9 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                     </div>
                                     {invForm.type === 'CONTRACTOR' && (
                                         <div>
-                                            <Label>Contractor Work Package</Label>
+                                            <Label htmlFor="project-finance-field-3" className="text-slate-800">Contractor Work Package</Label>
                                             <Select value={invForm.contractorId || ''} onValueChange={v => setInvForm({ ...invForm, contractorId: v })}>
-                                                <SelectTrigger><SelectValue placeholder="Select assigned contractor" /></SelectTrigger>
+                                                <SelectTrigger id="project-finance-field-3"><SelectValue placeholder="Select assigned contractor" /></SelectTrigger>
                                                 <SelectContent>
                                                     {contractorAssignments.map((assignment) => <SelectItem key={assignment.contractorId} value={assignment.contractorId}>{assignment.contractor.name} · {assignment.role.replace(/_/g, ' ')}</SelectItem>)}
                                                 </SelectContent>
@@ -633,33 +655,33 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                             {contractorAssignments.length === 0 && <p className="text-xs text-red-700 mt-1">Assign a contractor work package before creating a contractor invoice.</p>}
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Invoice Date</Label>
-                                            <Input type="date" value={invForm.invoiceDate?.split('T')[0] || ''} onChange={e => setInvForm({ ...invForm, invoiceDate: e.target.value })} />
+                                            <Label htmlFor="project-finance-field-4" className="text-slate-800">Invoice Date</Label>
+                                            <Input id="project-finance-field-4" type="date" value={invForm.invoiceDate?.split('T')[0] || ''} onChange={e => setInvForm({ ...invForm, invoiceDate: e.target.value })} />
                                         </div>
                                         <div>
-                                            <Label>Due Date</Label>
-                                            <Input type="date" value={invForm.dueDate?.split('T')[0] || ''} onChange={e => setInvForm({ ...invForm, dueDate: e.target.value })} />
+                                            <Label htmlFor="project-finance-field-5" className="text-slate-800">Due Date</Label>
+                                            <Input id="project-finance-field-5" type="date" value={invForm.dueDate?.split('T')[0] || ''} onChange={e => setInvForm({ ...invForm, dueDate: e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Reference No (Client PO/SO)</Label>
-                                        <Input value={invForm.referenceNumber || ''} onChange={e => setInvForm({ ...invForm, referenceNumber: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-6" className="text-slate-800">Reference No (Client PO/SO)</Label>
+                                        <Input id="project-finance-field-6" value={invForm.referenceNumber || ''} onChange={e => setInvForm({ ...invForm, referenceNumber: e.target.value })} />
                                     </div>
                                     <div>
-                                        <Label>Items</Label>
+                                        <p className="text-sm font-medium text-slate-800">Invoice items</p>
                                         {invForm.items?.map((item: InvoiceItem, i: number) => (
-                                            <div key={i} className="grid grid-cols-5 gap-2 mt-2">
-                                                <Input placeholder="Description" value={item.description} onChange={e => {
+                                            <div key={i} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 mt-2 rounded-lg border border-slate-200 p-3">
+                                                <Input aria-label={`Item ${i + 1} description`} placeholder="Description" value={item.description} onChange={e => {
                                                     const items = [...invForm.items]; items[i].description = e.target.value;
                                                     setInvForm({ ...invForm, items });
                                                 }} />
-                                                <Input type="number" placeholder="Qty" value={item.quantity} onChange={e => {
+                                                <Input aria-label={`Item ${i + 1} quantity`} type="number" placeholder="Qty" value={item.quantity} onChange={e => {
                                                     const items = [...invForm.items]; items[i].quantity = +e.target.value;
                                                     setInvForm({ ...invForm, items });
                                                 }} />
-                                                <Input type="number" placeholder="Unit Price" value={item.unitPrice} onChange={e => {
+                                                <Input aria-label={`Item ${i + 1} unit price`} type="number" placeholder="Unit Price" value={item.unitPrice} onChange={e => {
                                                     const items = [...invForm.items]; items[i].unitPrice = +e.target.value;
                                                     setInvForm({ ...invForm, items });
                                                 }} />
@@ -667,7 +689,7 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                                     const items = [...invForm.items]; items[i].itemType = v;
                                                     setInvForm({ ...invForm, items });
                                                 }}>
-                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectTrigger aria-label={`Item ${i + 1} type`}><SelectValue /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="SERVICE">Service</SelectItem>
                                                         <SelectItem value="MATERIAL">Material</SelectItem>
@@ -686,19 +708,19 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                             setInvForm({ ...invForm, items: [...invForm.items, { description: '', quantity: 1, unitPrice: 0, itemType: 'SERVICE' }] })
                                         }><Plus className="w-4 h-4 mr-1" /> Add Item</Button>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Tax Amount</Label>
-                                            <Input type="number" value={invForm.taxAmount || 0} onChange={e => setInvForm({ ...invForm, taxAmount: +e.target.value })} />
+                                            <Label htmlFor="project-finance-field-8" className="text-slate-800">Tax Amount</Label>
+                                            <Input id="project-finance-field-8" type="number" value={invForm.taxAmount || 0} onChange={e => setInvForm({ ...invForm, taxAmount: +e.target.value })} />
                                         </div>
                                         <div>
-                                            <Label>Discount Amount</Label>
-                                            <Input type="number" value={invForm.discountAmount || 0} onChange={e => setInvForm({ ...invForm, discountAmount: +e.target.value })} />
+                                            <Label htmlFor="project-finance-field-9" className="text-slate-800">Discount Amount</Label>
+                                            <Input id="project-finance-field-9" type="number" value={invForm.discountAmount || 0} onChange={e => setInvForm({ ...invForm, discountAmount: +e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Notes</Label>
-                                        <Textarea value={invForm.notes || ''} onChange={e => setInvForm({ ...invForm, notes: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-10" className="text-slate-800">Notes</Label>
+                                        <Textarea id="project-finance-field-10" value={invForm.notes || ''} onChange={e => setInvForm({ ...invForm, notes: e.target.value })} />
                                     </div>
                                 </div>
                                 <DialogFooter>
@@ -713,21 +735,21 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                     </div>
 
                     <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
-                        <DialogContent className="max-w-lg">
+                        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto bg-white text-slate-900">
                             <DialogHeader><DialogTitle>Record SLT Payment Receipt</DialogTitle></DialogHeader>
                             <div className="space-y-4">
                                 <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-950">
                                     This records money received from SLT against the submitted project invoice. It is not a contractor payment voucher.
                                 </p>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <Label>Received Amount</Label>
-                                        <Input type="number" min="0.01" value={receiptForm.amount || ''} onChange={e => setReceiptForm({ ...receiptForm, amount: +e.target.value })} />
+                                        <Label htmlFor="project-finance-field-11" className="text-slate-800">Received Amount</Label>
+                                        <Input id="project-finance-field-11" type="number" min="0.01" value={receiptForm.amount || ''} onChange={e => setReceiptForm({ ...receiptForm, amount: +e.target.value })} />
                                     </div>
                                     <div>
-                                        <Label>Payment Method</Label>
+                                        <Label htmlFor="project-finance-field-12" className="text-slate-800">Payment Method</Label>
                                         <Select value={receiptForm.paymentMethod || 'BANK_TRANSFER'} onValueChange={v => setReceiptForm({ ...receiptForm, paymentMethod: v })}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectTrigger id="project-finance-field-12"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
                                                 <SelectItem value="CHEQUE">Cheque</SelectItem>
@@ -736,19 +758,19 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                         </Select>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <Label>Receipt Date</Label>
-                                        <Input type="date" value={receiptForm.receiptDate || ''} onChange={e => setReceiptForm({ ...receiptForm, receiptDate: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-13" className="text-slate-800">Receipt Date</Label>
+                                        <Input id="project-finance-field-13" type="date" value={receiptForm.receiptDate || ''} onChange={e => setReceiptForm({ ...receiptForm, receiptDate: e.target.value })} />
                                     </div>
                                     <div>
-                                        <Label>Bank / Receipt Reference (required)</Label>
-                                        <Input value={receiptForm.referenceNumber || ''} onChange={e => setReceiptForm({ ...receiptForm, referenceNumber: e.target.value })} placeholder="Unique payment reference" required />
+                                        <Label htmlFor="project-finance-field-14" className="text-slate-800">Bank / Receipt Reference (required)</Label>
+                                        <Input id="project-finance-field-14" value={receiptForm.referenceNumber || ''} onChange={e => setReceiptForm({ ...receiptForm, referenceNumber: e.target.value })} placeholder="Unique payment reference" required />
                                     </div>
                                 </div>
                                 <div>
-                                    <Label>Notes</Label>
-                                    <Textarea value={receiptForm.notes || ''} onChange={e => setReceiptForm({ ...receiptForm, notes: e.target.value })} placeholder="Receipt or reconciliation note" />
+                                    <Label htmlFor="project-finance-field-15" className="text-slate-800">Notes</Label>
+                                    <Textarea id="project-finance-field-15" value={receiptForm.notes || ''} onChange={e => setReceiptForm({ ...receiptForm, notes: e.target.value })} placeholder="Receipt or reconciliation note" />
                                 </div>
                             </div>
                             <DialogFooter>
@@ -836,7 +858,7 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                                 || (inv.type !== 'CLIENT' && (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID'))) && (
                                                 <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, 'FOLLOW_UP', `Move ${inv.invoiceNumber} to follow-up?`, 'Invoice moved to follow-up.')}>Follow-up</Button>
                                             )}
-                                            {canApprove && (inv.paymentStatus === 'PAID' || inv.status === 'FULLY_PAID' || inv.status === 'PAID') && inv.balanceAmount <= 0 && (
+                                            {canApprove && inv.status !== 'COMPLETED' && (inv.paymentStatus === 'PAID' || inv.status === 'FULLY_PAID' || inv.status === 'PAID') && inv.balanceAmount <= 0 && (
                                                 <Button size="sm" variant="outline" onClick={() => handleStatusUpdate('/api/projects/invoices', inv.id, 'COMPLETED', `Mark ${inv.invoiceNumber} completed?`, 'Invoice completed.')}>Complete</Button>
                                             )}
                                             <Dialog>
@@ -845,7 +867,7 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                                         <Eye className="w-4 h-4" />
                                                     </Button>
                                                 </DialogTrigger>
-                                                <DialogContent className="max-w-lg">
+                                                <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto bg-white text-slate-900">
                                                     <DialogHeader><DialogTitle>{inv.invoiceNumber} - {inv.title}</DialogTitle></DialogHeader>
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between text-sm text-slate-500">
@@ -883,26 +905,28 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                         <div>
                             <h3 className="text-lg font-semibold text-slate-900">Payment Vouchers</h3>
                             <p className="text-sm text-slate-600">
+                                {voucherLoading ? 'Loading totals...' : voucherError ? 'Totals unavailable until records are reloaded.' : <>
                                 Total: LKR {totalFor(paymentVouchers, 'amount').toLocaleString()} |
                                 Net: LKR {totalFor(paymentVouchers, 'netAmount').toLocaleString()}
+                                </>}
                             </p>
                         </div>
                         <Dialog open={showPVDialog} onOpenChange={setShowPVDialog}>
                             {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Payment</Button>
                             </DialogTrigger>}
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto bg-white text-slate-900">
                                 <DialogHeader><DialogTitle>Create Payment Voucher</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Title</Label>
-                                            <Input value={pvForm.title || ''} onChange={e => setPvForm({ ...pvForm, title: e.target.value })} />
+                                            <Label htmlFor="project-finance-field-16" className="text-slate-800">Title</Label>
+                                            <Input id="project-finance-field-16" value={pvForm.title || ''} onChange={e => setPvForm({ ...pvForm, title: e.target.value })} />
                                         </div>
                                         <div>
-                                            <Label>Type</Label>
+                                            <Label htmlFor="project-finance-field-17" className="text-slate-800">Type</Label>
                                             <Select value={pvForm.type || 'CONTRACTOR'} onValueChange={v => setPvForm({ ...pvForm, type: v })}>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectTrigger id="project-finance-field-17"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="CONTRACTOR">Contractor</SelectItem>
                                                     <SelectItem value="VENDOR">Vendor</SelectItem>
@@ -914,24 +938,24 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Payee Name</Label>
-                                        <Input value={pvForm.payeeName || ''} onChange={e => setPvForm({ ...pvForm, payeeName: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-18" className="text-slate-800">Payee Name</Label>
+                                        <Input id="project-finance-field-18" value={pvForm.payeeName || ''} onChange={e => setPvForm({ ...pvForm, payeeName: e.target.value })} />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Amount</Label>
-                                            <Input type="number" value={pvForm.amount || ''} onChange={e => setPvForm({ ...pvForm, amount: +e.target.value })} />
+                                            <Label htmlFor="project-finance-field-19" className="text-slate-800">Amount</Label>
+                                            <Input id="project-finance-field-19" type="number" value={pvForm.amount || ''} onChange={e => setPvForm({ ...pvForm, amount: +e.target.value })} />
                                         </div>
                                         <div>
-                                            <Label>Payment Date</Label>
-                                            <Input type="date" value={pvForm.paymentDate?.split('T')[0] || ''} onChange={e => setPvForm({ ...pvForm, paymentDate: e.target.value })} />
+                                            <Label htmlFor="project-finance-field-20" className="text-slate-800">Payment Date</Label>
+                                            <Input id="project-finance-field-20" type="date" value={pvForm.paymentDate?.split('T')[0] || ''} onChange={e => setPvForm({ ...pvForm, paymentDate: e.target.value })} />
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Payment Method</Label>
+                                            <Label htmlFor="project-finance-field-21" className="text-slate-800">Payment Method</Label>
                                             <Select value={pvForm.paymentMethod || ''} onValueChange={v => setPvForm({ ...pvForm, paymentMethod: v })}>
-                                                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                                                <SelectTrigger id="project-finance-field-21"><SelectValue placeholder="Select method" /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
                                                     <SelectItem value="CHEQUE">Cheque</SelectItem>
@@ -941,9 +965,9 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label>Invoice (optional)</Label>
+                                            <Label htmlFor="project-finance-field-22" className="text-slate-800">Invoice (optional)</Label>
                                             <Select value={pvForm.invoiceId || ''} onValueChange={v => setPvForm({ ...pvForm, invoiceId: v })}>
-                                                <SelectTrigger><SelectValue placeholder="Link to invoice" /></SelectTrigger>
+                                                <SelectTrigger id="project-finance-field-22"><SelectValue placeholder="Link to invoice" /></SelectTrigger>
                                                 <SelectContent>
                                                     {invoices.filter(i => i.type !== 'CLIENT' && i.status !== 'CANCELLED' && i.status !== 'FULLY_PAID').map((inv: Invoice) => (
                                                         <SelectItem key={inv.id} value={inv.id}>
@@ -954,19 +978,19 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                             </Select>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Tax Withheld</Label>
-                                            <Input type="number" value={pvForm.taxWithheld || 0} onChange={e => setPvForm({ ...pvForm, taxWithheld: +e.target.value })} />
+                                            <Label htmlFor="project-finance-field-23" className="text-slate-800">Tax Withheld</Label>
+                                            <Input id="project-finance-field-23" type="number" value={pvForm.taxWithheld || 0} onChange={e => setPvForm({ ...pvForm, taxWithheld: +e.target.value })} />
                                         </div>
                                         <div>
-                                            <Label>Retention Amount</Label>
-                                            <Input type="number" value={pvForm.retentionAmount || 0} onChange={e => setPvForm({ ...pvForm, retentionAmount: +e.target.value })} />
+                                            <Label htmlFor="project-finance-field-24" className="text-slate-800">Retention Amount</Label>
+                                            <Input id="project-finance-field-24" type="number" value={pvForm.retentionAmount || 0} onChange={e => setPvForm({ ...pvForm, retentionAmount: +e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Notes</Label>
-                                        <Textarea value={pvForm.notes || ''} onChange={e => setPvForm({ ...pvForm, notes: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-25" className="text-slate-800">Notes</Label>
+                                        <Textarea id="project-finance-field-25" value={pvForm.notes || ''} onChange={e => setPvForm({ ...pvForm, notes: e.target.value })} />
                                     </div>
                                 </div>
                                 <DialogFooter>
@@ -980,7 +1004,14 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                         </Dialog>
                     </div>
 
-                    {paymentVouchers.length === 0 ? (
+                    {voucherLoading ? (
+                        <div role="status" className="p-6 text-slate-700">Loading payment vouchers...</div>
+                    ) : voucherError ? (
+                        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900">
+                            <p>{voucherError}</p>
+                            <Button variant="outline" className="mt-2 bg-white text-slate-900" onClick={() => void fetchPaymentVouchers()}>Retry loading payment vouchers</Button>
+                        </div>
+                    ) : paymentVouchers.length === 0 ? (
                         <div className="text-center py-12 text-slate-600">
                             <Wallet className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No payment vouchers yet.</p>
@@ -1006,7 +1037,7 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            {canApprove && pv.status === 'DRAFT' && (
+                                            {canWrite && pv.status === 'DRAFT' && (
                                                 <Button size="sm" variant="outline" disabled={submitting} onClick={() => handleStatusUpdate(
                                                     '/api/projects/payment-vouchers',
                                                     pv.id,
@@ -1065,26 +1096,28 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                         <div>
                             <h3 className="text-lg font-semibold text-slate-900">LD & Penalties</h3>
                             <p className="text-sm text-slate-600">
+                                {ldLoading ? 'Loading totals...' : ldError ? 'Totals unavailable until records are reloaded.' : <>
                                 Total: LKR {totalFor(ldPenalties, 'amount').toLocaleString()} |
                                 Net: LKR {totalFor(ldPenalties, 'netAmount').toLocaleString()}
+                                </>}
                             </p>
                         </div>
                         <Dialog open={showLDDialog} onOpenChange={setShowLDDialog}>
                             {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New LD/Penalty</Button>
                             </DialogTrigger>}
-                            <DialogContent>
+                            <DialogContent className="max-h-[90dvh] overflow-y-auto bg-white text-slate-900">
                                 <DialogHeader><DialogTitle>Add LD / Penalty</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
                                     <div>
-                                        <Label>Title</Label>
-                                        <Input value={ldForm.title || ''} onChange={e => setLdForm({ ...ldForm, title: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-26" className="text-slate-800">Title</Label>
+                                        <Input id="project-finance-field-26" value={ldForm.title || ''} onChange={e => setLdForm({ ...ldForm, title: e.target.value })} />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Type</Label>
+                                            <Label htmlFor="project-finance-field-27" className="text-slate-800">Type</Label>
                                             <Select value={ldForm.type || 'LD'} onValueChange={v => setLdForm({ ...ldForm, type: v })}>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectTrigger id="project-finance-field-27"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="LD">Liquidated Damages</SelectItem>
                                                     <SelectItem value="PENALTY">Penalty</SelectItem>
@@ -1092,9 +1125,9 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label>Category</Label>
+                                            <Label htmlFor="project-finance-field-28" className="text-slate-800">Category</Label>
                                             <Select value={ldForm.category || 'DELAY'} onValueChange={v => setLdForm({ ...ldForm, category: v })}>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectTrigger id="project-finance-field-28"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="DELAY">Delay</SelectItem>
                                                     <SelectItem value="QUALITY">Quality</SelectItem>
@@ -1106,16 +1139,16 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Amount (LKR)</Label>
-                                        <Input type="number" value={ldForm.amount || ''} onChange={e => setLdForm({ ...ldForm, amount: +e.target.value })} />
+                                        <Label htmlFor="project-finance-field-29" className="text-slate-800">Amount (LKR)</Label>
+                                        <Input id="project-finance-field-29" type="number" value={ldForm.amount || ''} onChange={e => setLdForm({ ...ldForm, amount: +e.target.value })} />
                                     </div>
                                     <div>
-                                        <Label>Percentage (e.g., 0.5% per week)</Label>
-                                        <Input type="number" step="0.01" value={ldForm.percentage || ''} onChange={e => setLdForm({ ...ldForm, percentage: +e.target.value })} />
+                                        <Label htmlFor="project-finance-field-30" className="text-slate-800">Percentage (e.g., 0.5% per week)</Label>
+                                        <Input id="project-finance-field-30" type="number" step="0.01" value={ldForm.percentage || ''} onChange={e => setLdForm({ ...ldForm, percentage: +e.target.value })} />
                                     </div>
                                     <div>
-                                        <Label>Description</Label>
-                                        <Textarea value={ldForm.description || ''} onChange={e => setLdForm({ ...ldForm, description: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-31" className="text-slate-800">Description</Label>
+                                        <Textarea id="project-finance-field-31" value={ldForm.description || ''} onChange={e => setLdForm({ ...ldForm, description: e.target.value })} />
                                     </div>
                                 </div>
                                 <DialogFooter>
@@ -1129,7 +1162,14 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                         </Dialog>
                     </div>
 
-                    {ldPenalties.length === 0 ? (
+                    {ldLoading ? (
+                        <div role="status" className="p-6 text-slate-700">Loading LD and penalties...</div>
+                    ) : ldError ? (
+                        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900">
+                            <p>{ldError}</p>
+                            <Button variant="outline" className="mt-2 bg-white text-slate-900" onClick={() => void fetchLdPenalties()}>Retry loading LD and penalties</Button>
+                        </div>
+                    ) : ldPenalties.length === 0 ? (
                         <div className="text-center py-12 text-slate-600">
                             <Gavel className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No LD or penalties recorded.</p>
@@ -1180,16 +1220,8 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                                     </Button>
                                                 </>
                                             )}
-                                            {canApprove && ld.status === 'APPROVED' && (
-                                                <Button size="sm" variant="outline" className="text-emerald-800" disabled={submitting} onClick={() => handleStatusUpdate(
-                                                    '/api/projects/ld-penalties',
-                                                    ld.id,
-                                                    'COLLECTED',
-                                                    `Record collection of LD or penalty "${ld.title}"?`,
-                                                    'LD or penalty marked as collected.'
-                                                )}>
-                                                    <Banknote className="w-4 h-4 mr-1" /> Collect
-                                                </Button>
+                                            {ld.status === 'APPROVED' && (
+                                                <p className="max-w-sm text-sm text-slate-700">Collection recording is not supported here. Approval does not confirm payment or collection.</p>
                                             )}
                                         </div>
                                     </div>
@@ -1205,36 +1237,38 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                         <div>
                             <h3 className="text-lg font-semibold text-slate-900">Retention Money</h3>
                             <p className="text-sm text-slate-600">
+                                {retentionLoading ? 'Loading totals...' : retentionError ? 'Totals unavailable until records are reloaded.' : <>
                                 Held: LKR {totalFor(retentions, 'retentionAmount').toLocaleString()} |
                                 Released: LKR {totalFor(retentions, 'releasedAmount').toLocaleString()} |
                                 Balance: LKR {totalFor(retentions, 'balanceAmount').toLocaleString()}
+                                </>}
                             </p>
                         </div>
                         <Dialog open={showRetDialog} onOpenChange={setShowRetDialog}>
                             {canWrite && <DialogTrigger asChild>
                                 <Button size="sm"><Plus className="w-4 h-4 mr-1" /> New Retention</Button>
                             </DialogTrigger>}
-                            <DialogContent>
+                            <DialogContent className="max-h-[90dvh] overflow-y-auto bg-white text-slate-900">
                                 <DialogHeader><DialogTitle>Create Retention Entry</DialogTitle></DialogHeader>
                                 <div className="space-y-4">
                                     <div>
-                                        <Label>Title</Label>
-                                        <Input value={retForm.title || ''} onChange={e => setRetForm({ ...retForm, title: e.target.value })} />
+                                        <Label htmlFor="project-finance-field-32" className="text-slate-800">Title</Label>
+                                        <Input id="project-finance-field-32" value={retForm.title || ''} onChange={e => setRetForm({ ...retForm, title: e.target.value })} />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <Label>Retention %</Label>
-                                            <Input type="number" value={retForm.retentionPercent || 10} onChange={e => setRetForm({ ...retForm, retentionPercent: +e.target.value })} />
+                                            <Label htmlFor="project-finance-field-33" className="text-slate-800">Retention %</Label>
+                                            <Input id="project-finance-field-33" type="number" value={retForm.retentionPercent || 10} onChange={e => setRetForm({ ...retForm, retentionPercent: +e.target.value })} />
                                         </div>
                                         <div>
-                                            <Label>Amount (LKR)</Label>
-                                            <Input type="number" value={retForm.retentionAmount || ''} onChange={e => setRetForm({ ...retForm, retentionAmount: +e.target.value })} />
+                                            <Label htmlFor="project-finance-field-34" className="text-slate-800">Amount (LKR)</Label>
+                                            <Input id="project-finance-field-34" type="number" value={retForm.retentionAmount || ''} onChange={e => setRetForm({ ...retForm, retentionAmount: +e.target.value })} />
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Release Condition</Label>
+                                        <Label htmlFor="project-finance-field-35" className="text-slate-800">Release Condition</Label>
                                         <Select value={retForm.releaseCondition || ''} onValueChange={v => setRetForm({ ...retForm, releaseCondition: v })}>
-                                            <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                                            <SelectTrigger id="project-finance-field-35"><SelectValue placeholder="Select condition" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="DEFECT_LIABILITY_PERIOD">Defect Liability Period</SelectItem>
                                                 <SelectItem value="COMPLETION_CERTIFICATE">Completion Certificate</SelectItem>
@@ -1244,8 +1278,8 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                                         </Select>
                                     </div>
                                     <div>
-                                        <Label>Defect Liability Period (days)</Label>
-                                        <Input type="number" value={retForm.defectLiabilityPeriod || ''} onChange={e => setRetForm({ ...retForm, defectLiabilityPeriod: +e.target.value })} />
+                                        <Label htmlFor="project-finance-field-36" className="text-slate-800">Defect Liability Period (days)</Label>
+                                        <Input id="project-finance-field-36" type="number" value={retForm.defectLiabilityPeriod || ''} onChange={e => setRetForm({ ...retForm, defectLiabilityPeriod: +e.target.value })} />
                                     </div>
                                 </div>
                                 <DialogFooter>
@@ -1259,7 +1293,14 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
                         </Dialog>
                     </div>
 
-                    {retentions.length === 0 ? (
+                    {retentionLoading ? (
+                        <div role="status" className="p-6 text-slate-700">Loading retentions...</div>
+                    ) : retentionError ? (
+                        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900">
+                            <p>{retentionError}</p>
+                            <Button variant="outline" className="mt-2 bg-white text-slate-900" onClick={() => void fetchRetentions()}>Retry loading retentions</Button>
+                        </div>
+                    ) : retentions.length === 0 ? (
                         <div className="text-center py-12 text-slate-600">
                             <Lock className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No retention entries yet.</p>
@@ -1317,23 +1358,23 @@ function ProjectFinanceContent({ project, refreshProject }: ProjectFinanceProps)
 
                     {/* Release Dialog */}
                     <Dialog open={showReleaseDialog} onOpenChange={setShowReleaseDialog}>
-                        <DialogContent>
+                        <DialogContent className="max-h-[90dvh] overflow-y-auto bg-white text-slate-900">
                             <DialogHeader><DialogTitle>Release Retention</DialogTitle></DialogHeader>
                             <div className="space-y-4">
                                 <p className="text-sm text-slate-600">
                                     Retention: <strong>LKR {selectedRetention?.balanceAmount?.toLocaleString()}</strong> remaining
                                 </p>
                                 <div>
-                                    <Label>Release Amount</Label>
-                                    <Input type="number" value={releaseForm.releaseAmount || ''} onChange={e => setReleaseForm({ ...releaseForm, releaseAmount: +e.target.value })} max={selectedRetention?.balanceAmount} />
+                                    <Label htmlFor="project-finance-field-37" className="text-slate-800">Release Amount</Label>
+                                    <Input id="project-finance-field-37" type="number" value={releaseForm.releaseAmount || ''} onChange={e => setReleaseForm({ ...releaseForm, releaseAmount: +e.target.value })} max={selectedRetention?.balanceAmount} />
                                 </div>
                                 <div>
-                                    <Label>Release Date</Label>
-                                    <Input type="date" value={releaseForm.releaseDate?.split('T')[0] || new Date().toISOString().split('T')[0]} onChange={e => setReleaseForm({ ...releaseForm, releaseDate: e.target.value })} />
+                                    <Label htmlFor="project-finance-field-38" className="text-slate-800">Release Date</Label>
+                                    <Input id="project-finance-field-38" type="date" value={releaseForm.releaseDate?.split('T')[0] || new Date().toISOString().split('T')[0]} onChange={e => setReleaseForm({ ...releaseForm, releaseDate: e.target.value })} />
                                 </div>
                                 <div>
-                                    <Label>Remarks</Label>
-                                    <Textarea value={releaseForm.remarks || ''} onChange={e => setReleaseForm({ ...releaseForm, remarks: e.target.value })} />
+                                    <Label htmlFor="project-finance-field-39" className="text-slate-800">Remarks</Label>
+                                    <Textarea id="project-finance-field-39" value={releaseForm.remarks || ''} onChange={e => setReleaseForm({ ...releaseForm, remarks: e.target.value })} />
                                 </div>
                             </div>
                             <DialogFooter>
