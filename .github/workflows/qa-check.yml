@@ -42,7 +42,17 @@ jobs:
           fi
 
       - name: Strict TypeScript Compilation (Zero `any` Rule Check)
-        run: pnpm exec tsc --noEmit
+        shell: bash
+        run: |
+          set +e
+          pnpm exec tsc --noEmit --pretty false 2>&1 | tee /tmp/slts-tsc.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            while IFS= read -r line; do
+              echo "::error::$line"
+            done < /tmp/slts-tsc.log
+          fi
+          exit "$status"
 
       - name: Production build
         run: pnpm run build
