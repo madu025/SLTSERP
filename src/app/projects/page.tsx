@@ -16,6 +16,8 @@ import {
     CheckCircle2, AlertCircle, Eye, BookOpen, PlusCircle, ArrowRight,
 } from 'lucide-react';
 import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
+import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { toast } from 'sonner';
  
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -79,6 +81,7 @@ const DASHBOARDS = [
  
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ProjectsPage() {
+    const canWriteProjects = useCanonicalPermissions().includes(RBAC_PERMISSIONS.PROJECT_WRITE);
     const router = useRouter();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
@@ -271,9 +274,9 @@ export default function ProjectsPage() {
                                 <Button variant="outline" size="sm" onClick={() => setGuideDialogOpen(true)} className="gap-1.5 h-8 text-xs">
                                     <BookOpen className="w-3.5 h-3.5" />Guide
                                 </Button>
-                                <Button onClick={() => setCreateDialogOpen(true)} className="gap-1.5 h-8 text-xs">
+                                {canWriteProjects && <Button onClick={() => setCreateDialogOpen(true)} className="gap-1.5 h-8 text-xs">
                                     <Plus className="w-3.5 h-3.5" />New Project
-                                </Button>
+                                </Button>}
                             </div>
                         </div>
  
