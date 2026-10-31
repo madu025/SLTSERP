@@ -20,8 +20,15 @@ test('application health reports a live database', async ({ request }) => {
   // The health contract may return 503 when the read-only sync census proves the
   // worker tier fully stale. That is distinct from a database outage, which is
   // the dependency this smoke test is intended to verify.
-  expect([200, 503]).toContain(response.status());
   const body = await response.json() as { services?: { database?: string } };
+  if (process.env.CI) {
+    const safeSummary = JSON.stringify({
+      httpStatus: response.status(),
+      database: body.services?.database ?? null,
+    });
+    console.log(`::notice file=tests/production-smoke.spec.ts,line=24::health smoke ${safeSummary}`);
+  }
+  expect([200, 503]).toContain(response.status());
   expect(body.services?.database).toBe('healthy');
 });
 
