@@ -1,4 +1,54 @@
 import { defineConfig } from '@playwright/test';
+
+const hasAuthenticatedE2ECredentials = Boolean(
+  process.env.E2E_USERNAME && process.env.E2E_PASSWORD,
+);
+
+const authenticatedProjects = [
+  {
+    name: 'project-module',
+    dependencies: ['setup'],
+    testMatch: /project-module\.spec\.ts/,
+    use: { storageState: '.auth/user.json' },
+  },
+  {
+    name: 'inventory-module',
+    dependencies: ['setup'],
+    testMatch: /inventory-module\.spec\.ts/,
+    use: { storageState: '.auth/user.json' },
+  },
+  {
+    name: 'dynamic-reports',
+    dependencies: ['setup'],
+    testMatch: /dynamic-reports\.spec\.ts/,
+    use: { storageState: '.auth/user.json' },
+  },
+  {
+    name: 'cost-allocation',
+    dependencies: ['setup'],
+    testMatch: /cost-allocation\.spec\.ts/,
+    use: { storageState: '.auth/user.json' },
+  },
+  {
+    name: 'gis-import',
+    dependencies: ['setup'],
+    testMatch: /gis-upload-sanity\.spec\.ts|gis-import\.spec\.ts/,
+    use: { storageState: '.auth/user.json' },
+  },
+  {
+    name: 'e2e-pipeline',
+    dependencies: ['setup'],
+    testMatch: /e2e-pipeline-test\.spec\.ts/,
+    use: { storageState: '.auth/user.json' },
+  },
+  {
+    name: 'e2e-complete-pipeline',
+    dependencies: ['setup'],
+    testMatch: /e2e-complete-erp-pipeline\.spec\.ts/,
+    use: { storageState: '.auth/user.json' },
+  },
+];
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -22,65 +72,12 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'setup',
-      testMatch: /auth\.setup\.ts/,
+      name: 'production-smoke',
+      testMatch: /production-smoke\.spec\.ts/,
     },
-    {
-      name: 'project-module',
-      dependencies: ['setup'],
-      testMatch: /project-module\.spec\.ts/,
-      use: {
-        storageState: '.auth/user.json',
-      },
-    },
-    {
-      name: 'inventory-module',
-      dependencies: ['setup'],
-      testMatch: /inventory-module\.spec\.ts/,
-      use: {
-        storageState: '.auth/user.json',
-      },
-    },
-    {
-      name: 'dynamic-reports',
-      dependencies: ['setup'],
-      testMatch: /dynamic-reports\.spec\.ts/,
-      use: {
-        storageState: '.auth/user.json',
-      },
-    },
-    {
-      name: 'cost-allocation',
-      dependencies: ['setup'],
-      testMatch: /cost-allocation\.spec\.ts/,
-      use: {
-        storageState: '.auth/user.json',
-      },
-    },
-    {
-      name: 'gis-import',
-      dependencies: ['setup'],
-      testMatch: /gis-upload-sanity\.spec\.ts|gis-import\.spec\.ts/,
-      use: {
-        storageState: '.auth/user.json',
-      },
-    },
-    {
-      name: 'e2e-pipeline',
-      dependencies: ['setup'],
-      testMatch: /e2e-pipeline-test\.spec\.ts/,
-      use: {
-        storageState: '.auth/user.json',
-      },
-    },
-    {
-      name: 'e2e-complete-pipeline',
-      dependencies: ['setup'],
-      testMatch: /e2e-complete-erp-pipeline\.spec\.ts/,
-      use: {
-        storageState: '.auth/user.json',
-      },
-    },
+    ...(hasAuthenticatedE2ECredentials
+      ? [{ name: 'setup', testMatch: /auth\.setup\.ts/ }, ...authenticatedProjects]
+      : []),
   ],
   webServer: {
     command: process.env.CI ? 'pnpm run start -p 3000' : 'pnpm run dev -p 3000',
