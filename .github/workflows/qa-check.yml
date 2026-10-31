@@ -64,10 +64,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
-      - name: Install Playwright Browsers
-        run: pnpm exec playwright install --with-deps chromium
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: 120000
+      - name: Verify Chrome for Playwright
+        run: google-chrome --version
 
       - name: Run E2E Tests
         run: pnpm exec playwright test
