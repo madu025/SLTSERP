@@ -61,7 +61,7 @@ export class ProjectService {
 
         if (status && status !== 'ALL') {
             where.status = status as import("@prisma/client").ProjectStatus;
-        } else {
+        } else if (!status) {
             where.status = { not: 'COMPLETED' };
         }
         if (type && type !== 'ALL') where.type = type;
