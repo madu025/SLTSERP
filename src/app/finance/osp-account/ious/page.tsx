@@ -42,8 +42,13 @@ export default function IOUPage() {
       setLoading(true);
       const res = await fetch(`/api/finance/osp-account/ious?_t=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
-        setIous(data.data);
+        const payload = await res.json() as {
+          data?: { data?: IOU[] } | IOU[];
+        };
+        const rows = Array.isArray(payload.data)
+          ? payload.data
+          : payload.data?.data;
+        setIous(Array.isArray(rows) ? rows : []);
       }
     } catch (error) {
       console.error('Error fetching IOUs:', error);

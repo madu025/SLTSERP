@@ -114,3 +114,6 @@ tsc_errors_*.txt
 # root-level test screenshots (ad-hoc QA artifacts)
 test-*.png
 
+# Finance browser QA report output
+playwright-finance-report/
+
