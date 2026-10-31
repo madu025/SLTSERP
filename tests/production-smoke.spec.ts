@@ -33,7 +33,20 @@ test('application health reports a live database', async ({ request }) => {
 });
 
 test('login page is reachable and exposes the expected form', async ({ page }) => {
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  const response = await page.goto('/login', { waitUntil: 'domcontentloaded' });
+
+  if (process.env.CI) {
+    const selectorCounts = {
+      username: await page.locator('#login-username').count(),
+      password: await page.locator('#login-password').count(),
+      submit: await page.locator('#login-submit-btn').count(),
+    };
+    console.log(`::notice file=tests/production-smoke.spec.ts,line=39::login smoke ${JSON.stringify({
+      httpStatus: response?.status() ?? null,
+      url: page.url(),
+      selectorCounts,
+    })}`);
+  }
 
   await expect(page.locator('#login-username')).toBeVisible();
   await expect(page.locator('#login-password')).toBeVisible();
