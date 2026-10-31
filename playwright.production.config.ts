@@ -23,7 +23,7 @@ export default defineConfig({
     launchOptions: process.env.CI ? { executablePath: '/usr/bin/google-chrome' } : undefined,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'off',
     ...devices['Desktop Chrome'],
   },
 });
