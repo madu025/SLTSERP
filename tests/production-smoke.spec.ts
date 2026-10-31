@@ -33,7 +33,16 @@ test('application health reports a live database', async ({ request }) => {
 });
 
 test('login page is reachable and exposes the expected form', async ({ page }) => {
-  const response = await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  let response;
+  try {
+    response = await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  } catch (error: unknown) {
+    if (process.env.CI) {
+      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      console.log(`::notice file=tests/production-smoke.spec.ts,line=39::login navigation ${detail.slice(0, 300)}`);
+    }
+    throw error;
+  }
 
   if (process.env.CI) {
     const selectorCounts = {
