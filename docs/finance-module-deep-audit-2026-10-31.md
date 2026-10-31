@@ -42,6 +42,9 @@ passing count does not prove every Finance screen or posting integration.
 
 ## Open findings
 
+Note: the manual bank matching item below was remediated in commit `349f0467`;
+the remaining open items are the other listed Finance workflow gaps.
+
 1. **High — credit/debit notes still need a dedicated reversal/approval UI.**
    The route now validates the authenticated actor, amount precision, invoice
    scope, over-credit and settled-invoice rules; linked invoice totals and
