@@ -1,6 +1,12 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectHSEService } from '@/services/project/project-hse.service';
+import { assertRecordInProject } from '@/lib/project-record-access';
 import { AppError } from '@/lib/error';
+import { z } from 'zod';
+
+const attendeesSchema = z.array(z.object({
+    name: z.string(), designation: z.string().optional(), signatureUrl: z.string().optional()
+})).optional();
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +31,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         severity: body.severity as string | undefined,
         location: body.location as string | undefined,
         recordedById: recordedById as string,
-        attendees: body.attendees as any
+        attendees: attendeesSchema.parse(body.attendees)
     });
     return Response.json(safetyLog, { status: 201 });
 }, {
@@ -33,13 +39,14 @@ export const POST = apiHandler(async (_request, params, body) => {
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (_request, params, body) => {
     const { logId, status, correctiveAction, closedById } = body || {};
 
     if (!logId) {
         throw AppError.badRequest('Log ID is required');
     }
 
+    await assertRecordInProject('hseLog', logId as string, params.id);
     return await ProjectHSEService.updateSafetyLog(logId as string, { 
         status: status as string | undefined, 
         correctiveAction: correctiveAction as string | undefined, 

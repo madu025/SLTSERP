@@ -3,6 +3,8 @@ import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { CapexOpexLedgerService } from '@/services/finance/capex-opex-ledger.service';
 import { z } from 'zod';
+import { assertProjectAccess } from '@/lib/project-access';
+import { assertOpmcAccess } from '@/lib/project-record-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +14,11 @@ const SyncSchema = z.object({
   projectIds: z.array(z.string()).min(1).max(500),
 });
 
-export const POST = apiHandler(async (_req, _params, body) => {
-  const userId = _req.headers.get('x-user-id');
+export const POST = apiHandler(async (_req, ctx, body) => {
+  const userId = ctx._userId;
   if (!userId) throw AppError.unauthorized('Authentication required');
+  await assertOpmcAccess(body.opmcId, userId);
+  for (const projectId of body.projectIds) await assertProjectAccess(projectId, userId);
 
   const result = await CapexOpexLedgerService.bulkSyncFromProjectExpenses(
     body.opmcId,

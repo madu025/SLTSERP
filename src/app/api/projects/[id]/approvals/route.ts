@@ -1,13 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectApprovalService } from '@/services/project/project-approval.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
 export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
-    return await ProjectApprovalService.getApprovals(projectId);
-}, { roles: ROLE_GROUPS.PROJECT_MANAGERS, rawResponse: true });
+    return await ProjectApprovalService.getApprovals(projectId, params._userId);
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 const createApprovalSchema = z.object({
     type: z.string().min(1),
     referenceId: z.string().min(1),
@@ -26,10 +26,10 @@ export const POST = apiHandler(async (_request, params, body) => {
     const newRequest = await ProjectApprovalService.createApproval({
         projectId,
         ...data,
-    });
+    }, params._userId);
     return Response.json(newRequest, { status: 201 });
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'CREATE', entity: 'APPROVAL_REQUEST' },
     rawResponse: true
 });
@@ -43,7 +43,7 @@ export const PATCH = apiHandler(async (_request, params, body) => {
     const data = processStepSchema.parse(body);
     return await ProjectApprovalService.processApprovalStep(data.stepId, data.action, params._userId, data.comment, params.id);
 }, {
-    roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.STORES_MANAGERS])],
+    permissions: [RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'UPDATE', entity: 'APPROVAL_STEP' },
     rawResponse: true
 });

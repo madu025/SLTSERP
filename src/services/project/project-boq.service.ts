@@ -48,6 +48,21 @@ interface BulkRateInput {
 
 export class ProjectBOQService {
     /**
+     * BOQ lock: items are frozen while the latest BOQ approval is PENDING or APPROVED.
+     * Writes are allowed when no approval exists or the latest one was REJECTED.
+     */
+    static async assertBOQEditable(projectId: string) {
+        const latest = await prisma.bOQApproval.findFirst({
+            where: { projectId },
+            orderBy: { createdAt: 'desc' },
+            select: { status: true },
+        });
+        if (latest && (latest.status === 'PENDING' || latest.status === 'APPROVED')) {
+            throw AppError.conflict(`BOQ is ${latest.status} and locked for changes. Reject or revise the approval first.`);
+        }
+    }
+
+    /**
      * Get list of BOQ items for a project
      */
     static async getBOQItems(projectId: string) {
@@ -95,6 +110,8 @@ export class ProjectBOQService {
         }
         const amount = quantityVal * unitRateVal;
 
+        await this.assertBOQEditable(projectId);
+
         if (taskId) {
             const task = await prisma.projectTask.findUnique({ where: { id: taskId }, select: { projectId: true, contractorId: true } });
             if (!task || task.projectId !== projectId) throw AppError.badRequest('BOQ_TASK_PROJECT_MISMATCH');
@@ -135,6 +152,7 @@ export class ProjectBOQService {
         const data: Record<string, unknown> = {};
         const existing = await prisma.projectBOQItem.findUnique({ where: { id }, select: { projectId: true, quantity: true, contractorId: true } });
         if (!existing) throw AppError.notFound('BOQ item not found');
+        await this.assertBOQEditable(existing.projectId);
 
         const targetTaskId = updateData.taskId !== undefined ? updateData.taskId : undefined;
         const targetContractorId = updateData.contractorId !== undefined ? updateData.contractorId : existing.contractorId;
@@ -196,6 +214,9 @@ export class ProjectBOQService {
      * Delete a BOQ item
      */
     static async deleteBOQItem(id: string) {
+        const existing = await prisma.projectBOQItem.findUnique({ where: { id }, select: { projectId: true } });
+        if (!existing) throw AppError.notFound('BOQ item not found');
+        await this.assertBOQEditable(existing.projectId);
         await prisma.projectBOQItem.delete({
             where: { id }
         });

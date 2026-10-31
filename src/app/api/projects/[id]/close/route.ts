@@ -1,15 +1,20 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectService } from '@/services/project/project.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
-    return await ProjectService.checkClosure(params.id);
-}, { rawResponse: true });
+    await assertProjectAccess(params.id, params._userId);
+    return await ProjectService.checkClosure(params.id, params._userId);
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
-export const POST = apiHandler(async (request, params, body) => {
-    const userId = request.headers.get('x-user-id') || '';
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
+    await assertProjectAccess(params.id, userId);
     const remarks = body.remarks as string | undefined;
     const finalAsBuiltGenerated = body.finalAsBuiltGenerated as boolean | undefined;
 
@@ -26,7 +31,7 @@ export const POST = apiHandler(async (request, params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.AREA_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'CLOSE', entity: 'PROJECT' },
     rawResponse: true // We handle a custom Response.json inside catch for specific 400 with payload
 });

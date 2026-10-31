@@ -28,9 +28,10 @@ export interface IRLedgerEntry {
 }
 
 export class ProjectIRLedgerService {
-  static async getIRLedgerHistory(irNumber: string) {
+  static async getIRLedgerHistory(irNumber: string, storeIds?: string[]) {
     const txItems = await prisma.inventoryTransactionItem.findMany({
       where: {
+        ...(storeIds ? { transaction: { storeId: { in: storeIds } } } : {}),
         batch: {
           grn: { reference: irNumber }
         }
@@ -61,15 +62,18 @@ export class ProjectIRLedgerService {
       itemUnit: txi.item.unit,
       storeName: txi.transaction.store.name,
       notes: txi.transaction.notes,
+      referenceId: txi.transaction.referenceId ?? undefined,
       projectName: txi.transaction.referenceId ? (projectMap.get(txi.transaction.referenceId) || txi.transaction.referenceId) : undefined
     }));
   }
 
-  static async getIRLedgerMeta() {
+  static async getIRLedgerMeta(storeIds?: string[], projectIds?: string[]) {
     const projects = await prisma.project.findMany({
+      ...(projectIds ? { where: { id: { in: projectIds } } } : {}),
       select: { id: true, name: true, projectCode: true }
     });
     const stores = await prisma.inventoryStore.findMany({
+      ...(storeIds ? { where: { id: { in: storeIds } } } : {}),
       select: { id: true, name: true, type: true }
     });
     const items = await prisma.inventoryItem.findMany({
@@ -80,7 +84,7 @@ export class ProjectIRLedgerService {
     });
     // Fetch all IR batches to map batchId for project operations
     const batches = await prisma.inventoryBatch.findMany({
-      where: { grn: { reference: { not: null } } },
+      where: { grn: { reference: { not: null }, ...(storeIds ? { storeId: { in: storeIds } } : {}) } },
       include: {
         grn: true,
         item: true
@@ -89,7 +93,7 @@ export class ProjectIRLedgerService {
 
     // Fetch physical store inventory (actual quantity > 0)
     const storeBatchStocks = await prisma.inventoryBatchStock.findMany({
-      where: { quantity: { gt: 0 } },
+      where: { quantity: { gt: 0 }, ...(storeIds ? { storeId: { in: storeIds } } : {}) },
       include: {
         batch: {
           include: { grn: true }
@@ -222,7 +226,7 @@ export class ProjectIRLedgerService {
    * Computes the IR Material Ledger balances grouped by IR Number and Item Code.
    * If a projectId is provided, returns the ledger specifically for that project.
    */
-  static async getIRLedger(projectId?: string): Promise<IRLedgerEntry[]> {
+  static async getIRLedger(projectId?: string, storeIds?: string[]): Promise<IRLedgerEntry[]> {
     // 1. Fetch all inventory batches that have an associated GRN and IR reference number
     const batches = await prisma.inventoryBatch.findMany({
       include: {
@@ -231,7 +235,8 @@ export class ProjectIRLedgerService {
       },
       where: {
         grn: {
-          reference: { not: null }
+          reference: { not: null },
+          ...(storeIds ? { storeId: { in: storeIds } } : {})
         }
       }
     });
@@ -247,6 +252,7 @@ export class ProjectIRLedgerService {
       where: {
         batchId: { not: null },
         transaction: {
+          ...(storeIds ? { storeId: { in: storeIds } } : {}),
           type: {
             in: [
               'PROJECT_ISSUE', 

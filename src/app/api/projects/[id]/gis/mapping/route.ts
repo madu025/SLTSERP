@@ -1,7 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { GISRouteService } from '@/services/gis/GISRouteService';
 import { saveGISMappingSchema, SaveGISMappingSchema } from '@/lib/validations/gis.schema';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +12,7 @@ export const GET = apiHandler<unknown, void>(
     async (_request, params) => {
         const mappings = await GISRouteService.getProjectGISMapping(params.id);
         return mappings;
-    }, { roles: ROLE_GROUPS.PROJECT_READERS }
+    }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ] }
 );
 
 /**
@@ -26,5 +26,5 @@ export const POST = apiHandler<unknown, SaveGISMappingSchema>(
             message: 'GIS material mappings saved successfully'
         };
     },
-    { schema: saveGISMappingSchema, roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OSP_PROJECTS])] }
+    { schema: saveGISMappingSchema, permissions: [RBAC_PERMISSIONS.PROJECT_WRITE] }
 );

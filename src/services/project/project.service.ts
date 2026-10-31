@@ -6,6 +6,8 @@ import { calculateProjectProgress } from '@/lib/project-progress';
 import { NIL_UUID } from '@/lib/opmc-scope';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { getProjectTypeCatalogEntry } from '@/config/project-type-catalog';
+import { assertProjectAccess } from '@/lib/project-access';
+import { getIncompleteClosureStages, isInvoiceOpenForClosure } from './project-closure';
 
 interface ProjectFilters {
     status?: string | null;
@@ -527,15 +529,16 @@ export class ProjectService {
     /**
      * Check if project can be closed
      */
-    static async checkClosure(projectId: string) {
+    static async checkClosure(projectId: string, actorUserId: string | null | undefined) {
+        await assertProjectAccess(projectId, actorUserId);
         const [
             project,
             patSessions,
-            unpaidInvoices,
+            invoices,
             openChangeRequests,
             pendingTasks,
-            pendingExpenses,
             pendingReturns,
+            workflow,
         ] = await Promise.all([
             prisma.project.findUnique({
                 where: { id: projectId },
@@ -544,11 +547,9 @@ export class ProjectService {
             prisma.pATSession.count({
                 where: { projectId, status: { notIn: ['COMPLETED'] } },
             }),
-            prisma.projectInvoice.count({
-                where: {
-                    projectId,
-                    status: { not: 'PAID' },
-                },
+            prisma.projectInvoice.findMany({
+                where: { projectId },
+                select: { type: true, status: true, submissionStatus: true, paymentStatus: true, totalAmount: true, paidAmount: true, balanceAmount: true },
             }),
             prisma.projectChangeRequest.count({
                 where: { projectId, status: { in: ['DRAFT', 'SUBMITTED'] } },
@@ -556,15 +557,23 @@ export class ProjectService {
             prisma.projectTask.count({
                 where: { projectId, status: { not: 'COMPLETED' } },
             }),
-            prisma.projectExpense.count({
-                where: { projectId },
-            }),
             prisma.projectMaterialReturn.count({
+                where: { projectId, status: 'PENDING' },
+            }),
+            prisma.projectWorkflowInstance.findUnique({
                 where: { projectId },
+                select: { stages: { select: { code: true, name: true, sequence: true, status: true } } },
             }),
         ]);
+        const unpaidInvoices = invoices.filter(isInvoiceOpenForClosure).length;
+        const incompleteStages = workflow ? getIncompleteClosureStages(workflow.stages) : ['Workflow is missing'];
 
         const checks = [
+            {
+                check: 'Workflow Stages Complete',
+                passed: incompleteStages.length === 0,
+                detail: incompleteStages.length > 0 ? `Incomplete: ${incompleteStages.join(', ')}` : 'Delivery stages complete',
+            },
             {
                 check: 'PAT Complete',
                 passed: patSessions === 0,
@@ -584,11 +593,6 @@ export class ProjectService {
                 check: 'Tasks Complete',
                 passed: pendingTasks === 0,
                 detail: pendingTasks > 0 ? `${pendingTasks} pending tasks` : 'All tasks complete',
-            },
-            {
-                check: 'Expenses Approved',
-                passed: pendingExpenses === 0,
-                detail: pendingExpenses > 0 ? `${pendingExpenses} expenses pending approval` : 'All expenses processed',
             },
             {
                 check: 'Returns Closed',
@@ -617,47 +621,57 @@ export class ProjectService {
      * Close the project
      */
     static async closeProject(projectId: string, userId: string, remarks?: string, finalAsBuiltGenerated?: boolean) {
-        // Verify all checks pass (re-run validation)
-        const openIssues = await Promise.all([
-            prisma.pATSession.count({ where: { projectId, status: { notIn: ['COMPLETED'] } } }),
-            prisma.projectInvoice.count({ where: { projectId, status: { not: 'PAID' } } }),
-            prisma.projectChangeRequest.count({ where: { projectId, status: { in: ['DRAFT', 'SUBMITTED'] } } }),
-            prisma.projectTask.count({ where: { projectId, status: { not: 'COMPLETED' } } }),
-            prisma.projectExpense.count({ where: { projectId } }),
-        ]);
-
-        const totalOpen = openIssues.reduce((sum, count) => sum + count, 0);
-        if (totalOpen > 0) {
-            const error = new Error(`Cannot close: ${totalOpen} open items remain (PAT, invoices, CRs, tasks, expenses)`) as Error & { code?: string; openIssues?: Record<string, number> };
-            error.code = 'OPEN_ISSUES_REMAIN';
-            error.openIssues = {
-                patPending: openIssues[0],
-                unpaidInvoices: openIssues[1],
-                openChangeRequests: openIssues[2],
-                pendingTasks: openIssues[3],
-                pendingExpenses: openIssues[4],
-            };
-            throw error;
-        }
-
-        // Close project
-        const project = await prisma.project.update({
-            where: { id: projectId },
-            data: {
-                status: 'COMPLETED',
-                actualDuration: undefined,
-            },
-        });
-
-        // Generate final as-built automatically
-        if (finalAsBuiltGenerated !== false) {
-            try {
-                const { AsBuiltService } = await import('@/services/project/as-built.service');
-                await AsBuiltService.generateQGIS(projectId);
-            } catch (e) {
-                console.warn('Final as-built generation skipped:', e);
+        await assertProjectAccess(projectId, userId);
+        if (finalAsBuiltGenerated === false) throw AppError.badRequest('Final as-built generation is required');
+        const readiness = await this.checkClosure(projectId, userId);
+        if (!readiness.canClose) throw AppError.badRequest('PROJECT_CLOSURE_CHECKS_FAILED');
+        const { AsBuiltService } = await import('@/services/project/as-built.service');
+        await AsBuiltService.generateQGIS(projectId);
+        const project = await prisma.$transaction(async (tx) => {
+            const current = await tx.project.findUnique({ where: { id: projectId }, select: { status: true } });
+            if (!current) throw AppError.notFound('Project not found');
+            if (current.status === 'COMPLETED') throw AppError.badRequest('PROJECT_ALREADY_CLOSED');
+            const [patPending, invoices, openChangeRequests, pendingTasks, pendingReturns, workflow] = await Promise.all([
+                tx.pATSession.count({ where: { projectId, status: { notIn: ['COMPLETED'] } } }),
+                tx.projectInvoice.findMany({
+                    where: { projectId },
+                    select: { type: true, status: true, submissionStatus: true, paymentStatus: true, totalAmount: true, paidAmount: true, balanceAmount: true },
+                }),
+                tx.projectChangeRequest.count({ where: { projectId, status: { in: ['DRAFT', 'SUBMITTED'] } } }),
+                tx.projectTask.count({ where: { projectId, status: { not: 'COMPLETED' } } }),
+                tx.projectMaterialReturn.count({ where: { projectId, status: 'PENDING' } }),
+                tx.projectWorkflowInstance.findUnique({
+                    where: { projectId },
+                    select: { stages: { select: { code: true, name: true, sequence: true, status: true } } },
+                }),
+            ]);
+            const unpaidInvoices = invoices.filter(isInvoiceOpenForClosure).length;
+            const incompleteStages = workflow ? getIncompleteClosureStages(workflow.stages) : ['Workflow is missing'];
+            const totalOpen = patPending + unpaidInvoices + openChangeRequests + pendingTasks + pendingReturns + incompleteStages.length;
+            if (totalOpen > 0) {
+                const error = new Error(`Cannot close: ${totalOpen} open items remain`) as Error & { code?: string; openIssues?: Record<string, number> };
+                error.code = 'OPEN_ISSUES_REMAIN';
+                error.openIssues = { patPending, unpaidInvoices, openChangeRequests, pendingTasks, pendingReturns, incompleteStages: incompleteStages.length };
+                throw error;
             }
-        }
+
+            const updated = await tx.project.update({
+                where: { id: projectId },
+                data: { status: 'COMPLETED' },
+            });
+            await tx.gISAuditLog.create({
+                data: {
+                    projectId,
+                    entityType: 'PROJECT',
+                    entityId: projectId,
+                    action: 'CLOSED',
+                    performedById: userId,
+                    fieldChanges: { remarks, closedAt: new Date().toISOString() },
+                    source: 'PROJECT_CLOSURE',
+                },
+            });
+            return updated;
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         // Calculate final KPI for contractor
         if (project.contractorId) {
@@ -672,19 +686,6 @@ export class ProjectService {
                 console.warn('Final KPI calculation skipped:', e);
             }
         }
-
-        // Log closure in GIS audit
-        await prisma.gISAuditLog.create({
-            data: {
-                projectId,
-                entityType: 'PROJECT',
-                entityId: projectId,
-                action: 'CLOSED',
-                performedById: userId,
-                fieldChanges: { remarks, closedAt: new Date().toISOString() },
-                source: 'PROJECT_CLOSURE',
-            },
-        });
 
         return {
             message: 'Project closed successfully',

@@ -1,16 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { ProjectBOQPRService } from '@/services/project/project-boq-pr.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
-export const POST = apiHandler(async (request, params) => {
+export const POST = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
-    const userId = request.headers.get('x-user-id');
-    
-    // We expect userId to be provided by middleware or the apiHandler itself if we had req.user,
-    // but sticking to the original route logic for reading headers:
+    const userId = params._userId;
     if (!userId) throw AppError.unauthorized('Unauthorized');
 
     const result = await ProjectBOQPRService.generatePR(projectId, userId);
@@ -26,7 +23,7 @@ export const POST = apiHandler(async (request, params) => {
 
     return Response.json(result, { status: 201 });
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE],
     audit: { action: 'CREATE', entity: 'PR' },
     rawResponse: true
 });
@@ -34,4 +31,4 @@ export const POST = apiHandler(async (request, params) => {
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
     return await ProjectBOQPRService.getPRGenerationStatus(projectId);
-}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROCUREMENT_READ], rawResponse: true });

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { ProjectBOQService } from '@/services/project/project-boq.service';
 
 interface CableSection {
   startPoint: { latitude: number; longitude: number; attributes: Record<string, unknown> };
@@ -133,6 +134,8 @@ export class AutoBOQService {
    */
   static async saveGeneratedBOQ(projectId: string, boq: BOQItem[]) {
     if (!boq || boq.length === 0) return [];
+
+    await ProjectBOQService.assertBOQEditable(projectId);
 
     // Delete existing auto-calculated items (identified by remarks marker)
     await prisma.projectBOQItem.deleteMany({

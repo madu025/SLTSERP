@@ -367,7 +367,8 @@ export function apiHandler<T, B = Record<string, unknown>, P extends Record<stri
                 // Dynamic project routes must respect the authenticated user's
                 // OPMC scope. Flat collection routes are handled by their own
                 // service policy and are not mistaken for project IDs.
-                const projectIdSegment = pathname.split('/').filter(Boolean)[2];
+                const pathSegments = pathname.split('/').filter(Boolean);
+                const projectIdSegment = pathSegments[1] === 'projects' ? pathSegments[2] : undefined;
                 if (projectIdSegment && isValidUuid(projectIdSegment)) {
                     await assertProjectAccess(projectIdSegment, userId);
                 }

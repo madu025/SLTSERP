@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory';
 import { z } from 'zod';
 import { ROLE_GROUPS } from '@/config/roles';
+import { assertProjectAccess } from '@/lib/project-access';
 
 const createPoSchema = z.object({
     projectId: z.string().min(1, 'Project ID is required'),
@@ -17,8 +18,9 @@ const createPoSchema = z.object({
     })).min(1, 'At least one item is required')
 });
 
-export const POST = apiHandler(async (_req, _params, body) => {
+export const POST = apiHandler(async (_req, params, body) => {
     const { projectId, vendorId, title, items } = createPoSchema.parse(body);
+    await assertProjectAccess(projectId, params._userId);
 
     const po = await InventoryService.generateDraftPO({
         projectId,

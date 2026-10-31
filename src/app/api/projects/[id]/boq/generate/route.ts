@@ -1,6 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { AutoBOQService } from '@/services/project/auto-boq.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +19,7 @@ export const POST = apiHandler(async (_request, params) => {
 
     return { boq, summary, count: boq.length };
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'PREVIEW_AUTO_BOQ', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });

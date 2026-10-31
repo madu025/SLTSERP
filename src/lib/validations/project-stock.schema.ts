@@ -30,6 +30,7 @@ export const returnItemSchema = z.object({
 export const createReturnSchema = z.object({
   projectId: z.string().min(1, 'Project ID is required'),
   storeId: z.string().min(1, 'Store ID is required'),
+  issueId: z.string().uuid('Approved source issue is required'),
   items: z.array(returnItemSchema).min(1, 'At least one item is required'),
   reason: z.string().optional(),
 });

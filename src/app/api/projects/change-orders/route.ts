@@ -1,11 +1,25 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectChangeOrderService } from '@/services/project/project-change-order.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { assertRecordProjectAccess, requireAnyPermission } from '@/lib/project-record-access';
+import { z } from 'zod';
+
+const CO_APPROVAL_ACTIONS = new Set(['APPROVE', 'APPROVED', 'REJECT', 'REJECTED', 'IMPLEMENT', 'IMPLEMENTED']);
+const createChangeOrderSchema = z.object({
+    projectId: z.string().min(1), title: z.string().min(1), description: z.string().nullable().optional(),
+    type: z.string().optional(), priority: z.string().optional(), reason: z.string().nullable().optional(),
+    referenceTable: z.string().nullable().optional(), referenceId: z.string().nullable().optional(),
+    originalValue: z.number().nullable().optional(), newValue: z.number().nullable().optional(),
+    costImpact: z.number().optional(), timeImpact: z.number().nullable().optional(),
+    scopeImpact: z.string().nullable().optional(), riskAssessment: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
+});
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
 
@@ -13,21 +27,21 @@ export const GET = apiHandler(async (request) => {
         throw AppError.badRequest('projectId is required');
     }
 
+    await assertProjectAccess(projectId, params._userId);
     return await ProjectChangeOrderService.getChangeOrders(projectId);
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {
-    const { projectId, title } = body || {};
+    const data = createChangeOrderSchema.parse(body);
+    const { projectId } = data;
 
-    if (!projectId || !title) {
-        throw AppError.badRequest('projectId and title are required');
-    }
+    await assertProjectAccess(projectId, params._userId);
 
     try {
         const changeOrder = await ProjectChangeOrderService.createChangeOrder({
-            ...body,
+            ...data,
             requestedById: params._userId,
-        } as any);
+        });
         return Response.json(changeOrder, { status: 201 });
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
@@ -37,7 +51,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'CREATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });
@@ -47,16 +61,21 @@ export const PATCH = apiHandler(async (_request, params, body) => {
     const status = body.status as string | undefined;
     const rejectionReason = body.rejectionReason as string | undefined;
 
-    if (!coId) {
-        throw AppError.badRequest('id is required');
+    if (!coId || !status) {
+        throw AppError.badRequest('id and status are required');
+    }
+
+    await assertRecordProjectAccess('changeOrder', coId, params._userId);
+    if (status && CO_APPROVAL_ACTIONS.has(status)) {
+        await requireAnyPermission(params._userId, [RBAC_PERMISSIONS.PROJECT_APPROVE], 'project.approve is required to approve, reject or implement a change order');
     }
 
     try {
-        return await ProjectChangeOrderService.updateChangeOrder(coId, status as any, {
-            approvedById: status === 'APPROVED' ? params._userId : undefined,
-            implementedById: status === 'IMPLEMENTED' ? params._userId : undefined,
+        return await ProjectChangeOrderService.updateChangeOrder(coId, status, {
+            approvedById: status === 'APPROVED' || status === 'APPROVE' ? params._userId : undefined,
+            implementedById: status === 'IMPLEMENTED' || status === 'IMPLEMENT' ? params._userId : undefined,
             rejectionReason
-        } as any);
+        });
     } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : '';
         
@@ -80,18 +99,20 @@ export const PATCH = apiHandler(async (_request, params, body) => {
         }
     }
 }, {
-    roles: ROLE_GROUPS.AREA_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE, RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'UPDATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });
 
-export const DELETE = apiHandler(async (request) => {
+export const DELETE = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
         throw AppError.badRequest('id is required');
     }
+
+    await assertRecordProjectAccess('changeOrder', id, params._userId);
 
     try {
         await ProjectChangeOrderService.deleteChangeOrder(id);
@@ -107,7 +128,7 @@ export const DELETE = apiHandler(async (request) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'DELETE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });

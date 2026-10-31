@@ -3,6 +3,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { apiHandler, castBody } from '@/lib/api-handler';
 import { StoreService } from '@/services/inventory/store.service';
 import { AppError } from '@/lib/error';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +20,12 @@ interface CreateStockIssueInput {
 }
 
 // POST: Create a stock issue (store-level material issuance)
-export const POST = apiHandler(async (request, _params, body) => {
-    const userId = request.headers.get('x-user-id') || '';
+export const POST = apiHandler(async (_request, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     const input = castBody<CreateStockIssueInput>(body);
+    if (input.projectId) await assertProjectAccess(input.projectId, userId);
     const result = await InventoryService.createStockIssue({
         ...input,
         issuedById: userId

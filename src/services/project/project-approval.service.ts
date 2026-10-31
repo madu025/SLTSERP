@@ -23,7 +23,8 @@ interface CreateApprovalRequestInput {
 }
 
 export class ProjectApprovalService {
-    static async getApprovals(projectId: string) {
+    static async getApprovals(projectId: string, actorUserId: string | null | undefined) {
+        await assertProjectAccess(projectId, actorUserId);
         return await prisma.projectApprovalRequest.findMany({
             where: { projectId },
             include: {
@@ -40,8 +41,9 @@ export class ProjectApprovalService {
         });
     }
 
-    static async createApproval(data: CreateApprovalRequestInput) {
+    static async createApproval(data: CreateApprovalRequestInput, actorUserId: string | null | undefined) {
         const { projectId, type, referenceId, title, description, amount, steps } = data;
+        await assertProjectAccess(projectId, actorUserId);
 
         if (type === 'DOCUMENT') {
             const document = await prisma.projectDocument.findFirst({

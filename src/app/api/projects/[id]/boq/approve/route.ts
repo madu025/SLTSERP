@@ -1,31 +1,34 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectBOQApprovalService } from '@/services/project/project-boq-approval.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { userHasPermission } from '@/lib/user-permissions';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request, params) => {
+export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
-    const userId = request.headers.get('x-user-id');
-    
-    if (!userId) {
-        throw AppError.unauthorized('Unauthorized');
-    }
-
+    await assertProjectAccess(projectId, params._userId);
     return await ProjectBOQApprovalService.getApprovalStatus(projectId);
-}, { roles: ROLE_GROUPS.PROJECT_READERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
-export const POST = apiHandler(async (request, params, body) => {
+export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId } = params;
-    const userId = request.headers.get('x-user-id');
-    
+    const userId = params._userId;
     if (!userId) {
         throw AppError.unauthorized('Unauthorized');
     }
+    await assertProjectAccess(projectId, userId);
 
     const action = body.action as string | undefined;
     const notes = body.notes as string | undefined;
+    const requiredPermission = action === 'approve' || action === 'reject'
+        ? RBAC_PERMISSIONS.PROJECT_APPROVE
+        : RBAC_PERMISSIONS.PROJECT_WRITE;
+    if (!await userHasPermission(userId, requiredPermission)) {
+        throw AppError.forbidden(`${requiredPermission} is required for this BOQ action`);
+    }
 
     if (action === 'submit') {
         const result = await ProjectBOQApprovalService.submitForApproval(projectId, notes);
@@ -47,7 +50,7 @@ export const POST = apiHandler(async (request, params, body) => {
 
     throw AppError.badRequest('Invalid action. Use: submit, approve, reject, revise');
 }, {
-    roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OSP_PROJECTS])],
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE, RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'APPROVE_BOQ', entity: 'PROJECT_BOQ' },
     rawResponse: true
 });

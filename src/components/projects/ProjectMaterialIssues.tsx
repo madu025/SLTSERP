@@ -20,7 +20,7 @@ interface Store { id: string; name: string; }
 interface MaterialItem { id: string; name: string; unit: string; }
 interface StockItemRow { id: string; item: MaterialItem; quantity: number; }
 interface StockIssue { id: string; issueNumber: string; status: string; store: Store; items: StockItemRow[]; createdAt: string; materialRequirement?: { task?: { name: string; wbsCode?: string | null } | null; contractorAssignment?: { contractor?: { name: string } | null } | null } | null; }
-interface MaterialReturn { id: string; returnNumber: string; status: string; store: Store; items: StockItemRow[]; }
+interface MaterialReturn { id: string; returnNumber: string; status: string; store: Store; issue?: { issueNumber: string } | null; items: StockItemRow[]; }
 interface MaterialRequirement {
     id: string;
     status: string;
@@ -39,7 +39,6 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
     const [issues, setIssues] = useState<StockIssue[]>([]);
     const [returns, setReturns] = useState<MaterialReturn[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
-    const [inventoryItems, setInventoryItems] = useState<{ item: MaterialItem; quantity: number }[]>([]);
     const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
     const [reservationStore, setReservationStore] = useState('');
     const [reservationLoading, setReservationLoading] = useState(false);
@@ -51,6 +50,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
 
     // Form State
     const [selectedStore, setSelectedStore] = useState('');
+    const [selectedIssueId, setSelectedIssueId] = useState('');
     const [selectedReservationId, setSelectedReservationId] = useState('');
     const [selectedRequirementId, setSelectedRequirementId] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -58,6 +58,11 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
     const [selectedItems, setSelectedItems] = useState<{ itemId: string, quantity: string, condition?: string }[]>([]);
 
     const selectedRequirement = requirements.find((requirement) => requirement.id === selectedRequirementId);
+    const selectedSourceIssue = issues.find((issue) => issue.id === selectedIssueId);
+    const handleAddReturnItem = () => {
+        const next = selectedSourceIssue?.items.find((line) => !selectedItems.some((item) => item.itemId === line.item.id));
+        if (next) setSelectedItems([...selectedItems, { itemId: next.item.id, quantity: '', condition: 'GOOD' }]);
+    };
     const issueableRequirements = requirements.filter((requirement) => requirement.item && Number(requirement.requiredQty) > Number(requirement.issuedQty));
 
     const fetchData = React.useCallback(async () => {
@@ -103,27 +108,12 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
         }
     };
 
-    const fetchStoreItems = React.useCallback(async (storeId: string) => {
-        // The canonical inventory endpoint is singular (`/api/inventory/stock`).
-        // Keep the project material picker aligned with the server route so
-        // issue/return forms do not silently render an empty item list.
-        const res = await fetch(`/api/inventory/stock?storeId=${storeId}`);
-        if (res.ok) setInventoryItems(await res.json());
-    }, []);
-
     useEffect(() => {
         if (project?.id) {
             Promise.resolve().then(() => fetchData());
         }
     }, [project?.id, fetchData]);
 
-    useEffect(() => {
-        if (selectedStore) {
-            Promise.resolve().then(() => fetchStoreItems(selectedStore));
-        }
-    }, [selectedStore, fetchStoreItems]);
-
-    const handleAddItemRow = () => setSelectedItems([...selectedItems, { itemId: '', quantity: '' }]);
     const handleRemoveItemRow = (idx: number) => {
         const n = [...selectedItems]; n.splice(idx, 1); setSelectedItems(n);
     };
@@ -167,7 +157,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
     };
 
     const handleSubmitReturn = async () => {
-        if (!selectedStore || selectedItems.length === 0) return;
+        if (!selectedStore || !selectedIssueId || selectedItems.length === 0) return;
         setLoading(true);
         try {
             const res = await fetch('/api/projects/return', {
@@ -175,6 +165,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                 body: JSON.stringify({
                     projectId: project.id,
                     storeId: selectedStore,
+                    issueId: selectedIssueId,
                     reason: remarks,
                     items: selectedItems // contains condition
                 })
@@ -190,6 +181,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
 
     const resetForm = () => {
         setSelectedStore('');
+        setSelectedIssueId('');
         setSelectedReservationId('');
         setSelectedRequirementId('');
         setRemarks('');
@@ -342,7 +334,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                 <tbody className="bg-white divide-y divide-slate-200">
                                     {returns.map((ret) => (
                                         <tr key={ret.id}>
-                                            <td className="px-6 py-4 text-sm font-medium">{ret.returnNumber}</td>
+                                            <td className="px-6 py-4 text-sm font-medium">{ret.returnNumber}<div className="text-xs text-slate-600">Source: {ret.issue?.issueNumber || 'Legacy - review required'}</div></td>
                                             <td className="px-6 py-4 text-sm">{ret.store?.name}</td>
                                             <td className="px-6 py-4 text-sm">
                                                 {ret.items.map((i) => (
@@ -355,7 +347,10 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                                 </Badge>
                                             </td>
                                             <td className="px-6 py-4 text-sm">
-                                                {ret.status === 'PENDING' && (
+                                                {ret.status === 'PENDING' && !ret.issue && (
+                                                    <span className="text-xs font-medium text-amber-800">Requires source Issue Note review</span>
+                                                )}
+                                                {ret.status === 'PENDING' && ret.issue && (
                                                     <Button size="sm" onClick={() => approveReturn(ret.id)}>Approve</Button>
                                                 )}
                                             </td>
@@ -452,28 +447,38 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                 <DialogContent className="max-w-2xl">
                     <DialogHeader><DialogTitle>Return Material to Store</DialogTitle></DialogHeader>
                     <div className="py-4 space-y-4">
+                        <div>
+                            <Label htmlFor="project-return-source-issue">Approved source Issue Note</Label>
+                            <Select value={selectedIssueId} onValueChange={(id) => {
+                                const issue = issues.find((row) => row.id === id);
+                                setSelectedIssueId(id);
+                                setSelectedStore(issue?.store.id || '');
+                                setSelectedItems(issue?.items[0] ? [{ itemId: issue.items[0].item.id, quantity: '', condition: 'GOOD' }] : []);
+                            }}>
+                                <SelectTrigger id="project-return-source-issue"><SelectValue placeholder="Select an approved Issue Note" /></SelectTrigger>
+                                <SelectContent>
+                                    {issues.filter((issue) => issue.status === 'APPROVED').map((issue) => (
+                                        <SelectItem key={issue.id} value={issue.id}>{issue.issueNumber} - {issue.store.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label>To Store</Label>
-                                <Select value={selectedStore} onValueChange={setSelectedStore}>
-                                    <SelectTrigger><SelectValue placeholder="Select Store" /></SelectTrigger>
-                                    <SelectContent>
-                                        {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">{selectedSourceIssue?.store.name || 'Select a source Issue Note'}</div>
                             </div>
                         </div>
                         <div className="border p-3 rounded-md space-y-2 max-h-60 overflow-y-auto">
                             {selectedItems.map((item, idx) => (
                                 <div key={idx} className="flex gap-2 items-center">
-                                    <Select value={item.itemId} onValueChange={(v) => {
-                                        const n = [...selectedItems]; n[idx].itemId = v; setSelectedItems(n);
+                                    <Select value={item.itemId} onValueChange={(value) => {
+                                        const next = [...selectedItems]; next[idx] = { ...item, itemId: value }; setSelectedItems(next);
                                     }}>
-                                        <SelectTrigger className="flex-1"><SelectValue placeholder="Item" /></SelectTrigger>
+                                        <SelectTrigger className="flex-1"><SelectValue placeholder="Source item" /></SelectTrigger>
                                         <SelectContent>
-                                            {/* Ideally fetch items from Project BOQ Actuals or just all items */}
-                                            {inventoryItems.map((i: { item: MaterialItem }) => (
-                                                <SelectItem key={i.item.id} value={i.item.id}>{i.item.name}</SelectItem>
+                                            {selectedSourceIssue?.items.filter((line) => line.item.id === item.itemId || !selectedItems.some((row) => row.itemId === line.item.id)).map((line) => (
+                                                <SelectItem key={line.item.id} value={line.item.id}>{line.item.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -498,7 +503,8 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                     </Button>
                                 </div>
                             ))}
-                            <Button variant="outline" size="sm" onClick={handleAddItemRow} className="w-full">Add Item</Button>
+                            {selectedSourceIssue && selectedItems.length < selectedSourceIssue.items.length && <Button variant="outline" size="sm" onClick={handleAddReturnItem} className="w-full">Add source item</Button>}
+                            {!selectedSourceIssue && <p className="text-sm text-slate-600">Select an approved Issue Note to choose returned materials.</p>}
                         </div>
                         <Label>Reason for Return</Label>
                         <Textarea value={remarks} onChange={e => setRemarks(e.target.value)} />

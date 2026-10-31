@@ -4,6 +4,7 @@ import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
 import { ROLE_GROUPS } from '@/config/roles';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { getStageTransitionError, WORKFLOW_TASK_STATUSES } from '@/services/core/workflow-transitions';
 
 // The application Prisma client is extended for read routing, while transaction callbacks
 // expose Prisma's base transaction client.  Both have the same model operations at runtime;
@@ -364,11 +365,16 @@ export class WorkflowEngine {
     if (projectId && stage.projectWorkflowInstance.projectId !== projectId) {
       throw AppError.forbidden('Workflow stage does not belong to this project');
     }
-    if (nextStatus === 'COMPLETED' && stage.projectWorkflowInstance.currentStageId !== stage.id) {
+    const isCurrentStage = stage.projectWorkflowInstance.currentStageId === stage.id;
+    if (nextStatus === 'COMPLETED' && !isCurrentStage) {
       throw AppError.badRequest('Only the current workflow stage can be completed');
     }
     if (nextStatus === 'COMPLETED' && stage.status !== 'IN_PROGRESS') {
       throw AppError.badRequest(`Workflow stage is ${stage.status}; only an in-progress stage can be completed`);
+    }
+    const transitionError = getStageTransitionError(stage.status, nextStatus, isCurrentStage);
+    if (transitionError) {
+      throw AppError.badRequest(transitionError);
     }
 
     const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
@@ -384,82 +390,107 @@ export class WorkflowEngine {
         throw AppError.badRequest(`Gate validation failed:\n- ${validation.errors.join('\n- ')}`);
       }
 
-      // Complete current stage
-      await prisma.projectStageInstance.update({
-        where: { id: stageId },
-        data: {
-          status: 'COMPLETED',
-          actualFinish: new Date(),
-        },
-      });
-
-      // Log Audit
-      await prisma.workflowAuditLog.create({
-        data: {
-          userId,
-          action: 'STAGE_COMPLETED',
-          entityType: 'ProjectStageInstance',
-          entityId: stageId,
-          details: { stageName: stage.name },
-        },
-      });
-
-      // Find next stage in sequence
-      const nextStage = await prisma.projectStageInstance.findFirst({
-        where: {
-          projectWorkflowInstanceId: stage.projectWorkflowInstanceId,
-          sequence: stage.sequence + 1,
-        },
-      });
-
-      if (nextStage) {
-        await prisma.projectStageInstance.update({
-          where: { id: nextStage.id },
+      await prisma.$transaction(async (tx) => {
+        // Guard against concurrent completion: only flip a stage that is still IN_PROGRESS.
+        const claimed = await tx.projectStageInstance.updateMany({
+          where: { id: stageId, status: 'IN_PROGRESS' },
           data: {
-            status: 'IN_PROGRESS',
-            actualStart: new Date(),
+            status: 'COMPLETED',
+            actualFinish: new Date(),
           },
         });
+        if (claimed.count === 0) {
+          throw AppError.conflict('Workflow stage is no longer in progress');
+        }
 
-        await prisma.projectWorkflowInstance.update({
-          where: { id: stage.projectWorkflowInstanceId },
-          data: { currentStageId: nextStage.id },
-        });
-
-        // Log Audit
-        await prisma.workflowAuditLog.create({
+        await tx.workflowAuditLog.create({
           data: {
             userId,
-            action: 'STAGE_STARTED',
+            action: 'STAGE_COMPLETED',
             entityType: 'ProjectStageInstance',
-            entityId: nextStage.id,
-            details: { stageName: nextStage.name },
+            entityId: stageId,
+            details: { stageName: stage.name },
           },
         });
-      }
+
+        // Find next stage in sequence
+        const nextStage = await tx.projectStageInstance.findFirst({
+          where: {
+            projectWorkflowInstanceId: stage.projectWorkflowInstanceId,
+            sequence: stage.sequence + 1,
+          },
+        });
+
+        if (nextStage) {
+          await tx.projectStageInstance.update({
+            where: { id: nextStage.id },
+            data: {
+              status: 'IN_PROGRESS',
+              actualStart: new Date(),
+            },
+          });
+
+          await tx.projectWorkflowInstance.update({
+            where: { id: stage.projectWorkflowInstanceId },
+            data: { currentStageId: nextStage.id },
+          });
+
+          await tx.workflowAuditLog.create({
+            data: {
+              userId,
+              action: 'STAGE_STARTED',
+              entityType: 'ProjectStageInstance',
+              entityId: nextStage.id,
+              details: { stageName: nextStage.name },
+            },
+          });
+        }
+      });
 
       // Auto-update project progress after stage completion
-      const workflowInstance = await prisma.projectWorkflowInstance.findUnique({
-        where: { id: stage.projectWorkflowInstanceId },
-        select: { projectId: true }
-      });
-      if (workflowInstance?.projectId) {
-        await updateProjectProgressOnStageChange(workflowInstance.projectId);
+      if (stage.projectWorkflowInstance.projectId) {
+        await updateProjectProgressOnStageChange(stage.projectWorkflowInstance.projectId);
       }
     } else {
-      // Manual status adjustments (e.g. BLOCKED, ON_HOLD)
-      await prisma.projectStageInstance.update({
-        where: { id: stageId },
-        data: { status: nextStatus },
-      });
+      // Manual status adjustments (e.g. BLOCKED, ON_HOLD, resume to IN_PROGRESS)
+      await prisma.$transaction(async (tx) => {
+        await tx.projectStageInstance.update({
+          where: { id: stageId },
+          data: { status: nextStatus },
+        });
 
-      await prisma.workflowAuditLog.create({
-        data: {
-          userId,
-          action: `STAGE_STATUS_SET_${nextStatus.toUpperCase()}`,
-          entityType: 'ProjectStageInstance',
-          entityId: stageId,
-        },
+        // A rejected approval would otherwise deadlock the stage after rework:
+        // reopen rejected levels so they can be actioned again.
+        if (nextStatus === 'IN_PROGRESS') {
+          const reset = await tx.projectApprovalInstance.updateMany({
+            where: { stageId, status: 'REJECTED' },
+            data: { status: 'PENDING', approvedById: null, approvedAt: null, comments: null },
+          });
+          if (reset.count > 0) {
+            await tx.projectStageInstance.update({
+              where: { id: stageId },
+              data: { reviewStatus: 'PENDING_REVIEW' },
+            });
+            await tx.workflowAuditLog.create({
+              data: {
+                userId,
+                action: 'STAGE_APPROVALS_RESET',
+                entityType: 'ProjectStageInstance',
+                entityId: stageId,
+                details: { resetCount: reset.count },
+              },
+            });
+          }
+        }
+
+        await tx.workflowAuditLog.create({
+          data: {
+            userId,
+            action: `STAGE_STATUS_SET_${nextStatus.toUpperCase()}`,
+            entityType: 'ProjectStageInstance',
+            entityId: stageId,
+          },
+        });
       });
     }
   }
@@ -474,6 +505,9 @@ export class WorkflowEngine {
     });
     if (!checklist) throw AppError.notFound('Workflow checklist not found');
     if (projectId && checklist.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow checklist does not belong to this project');
+    if (checklist.stage.status !== 'IN_PROGRESS') {
+      throw AppError.badRequest(`Workflow stage is ${checklist.stage.status}; checklist updates are allowed only while the stage is IN_PROGRESS`);
+    }
     return prisma.projectChecklistInstance.update({
       where: { id: checklistId },
       data: { isCompleted, photoUrl: photoUrl ?? null },
@@ -494,7 +528,13 @@ export class WorkflowEngine {
     if (task.stage.status !== 'IN_PROGRESS') {
       throw AppError.badRequest(`Workflow stage is ${task.stage.status}; task updates are allowed only while the stage is IN_PROGRESS`);
     }
-    if (progress > 0 && task.dependsOnCode) {
+    if (!(WORKFLOW_TASK_STATUSES as readonly string[]).includes(status)) {
+      throw AppError.badRequest('Invalid workflow task status');
+    }
+    if (!Number.isFinite(progress) || progress < 0 || progress > 100) {
+      throw AppError.badRequest('Task progress must be between 0 and 100');
+    }
+    if ((status === 'IN_PROGRESS' || status === 'COMPLETED' || progress > 0) && task.dependsOnCode) {
       const prerequisite = await prisma.projectTaskInstance.findFirst({
         where: { stageId: task.stageId, code: task.dependsOnCode },
         select: { name: true, status: true },
@@ -535,17 +575,26 @@ export class WorkflowEngine {
 
     const approval = await prisma.projectApprovalInstance.findUnique({
       where: { id: approvalId },
-      include: { stage: { include: { approvals: true, projectWorkflowInstance: { select: { projectId: true } } } } },
+      include: { stage: { include: { approvals: true, projectWorkflowInstance: { select: { projectId: true, currentStageId: true } } } } },
     });
     if (!approval) throw AppError.notFound('Workflow approval not found');
     if (projectId && approval.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow approval does not belong to this project');
     if (approval.status !== 'PENDING') {
       throw AppError.badRequest('Workflow approval has already been actioned');
     }
+    if (approval.stage.projectWorkflowInstance.currentStageId !== approval.stageId) {
+      throw AppError.badRequest('Approvals can only be actioned on the current workflow stage');
+    }
+    if (approval.stage.status !== 'IN_PROGRESS' && approval.stage.status !== 'IN_REVIEW') {
+      throw AppError.badRequest(`Workflow stage is ${approval.stage.status}; approvals are allowed only while the stage is IN_PROGRESS or IN_REVIEW`);
+    }
 
     const isAdmin = ROLE_GROUPS.ADMINS.includes(actor.role);
     if (!isAdmin && approval.role !== actor.role) {
       throw AppError.forbidden('User is not eligible for this approval level');
+    }
+    if (!isAdmin && approval.stage.approvals.some((item) => item.id !== approval.id && item.approvedById === actor.id)) {
+      throw AppError.forbidden('The same user cannot action more than one approval level of a stage');
     }
 
     const priorPending = approval.stage.approvals.some(

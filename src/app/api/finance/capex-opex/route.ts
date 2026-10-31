@@ -8,6 +8,9 @@ import {
   type LedgerSourceType,
 } from '@/services/finance/capex-opex-types';
 import { z } from 'zod';
+import { assertProjectAccess } from '@/lib/project-access';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
+import { assertOpmcAccess } from '@/lib/project-record-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +39,7 @@ const CreateLedgerEntrySchema = z.object({
 
 // ── GET — Paginated ledger entries ────────────────────────────────────────────
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, ctx) => {
   const { searchParams } = new URL(request.url);
 
   const params = {
@@ -50,6 +53,18 @@ export const GET = apiHandler(async (request) => {
     limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 20,
   };
 
+  // OPMC boundary: an explicit opmcId must be in scope; scoped users without one are pinned to their only OPMC.
+  if (params.opmcId) {
+    await assertOpmcAccess(params.opmcId, ctx._userId);
+  } else {
+    const scope = await resolveOpmcScope(ctx._userId);
+    if (scope !== undefined) {
+      if (scope.length === 0) throw AppError.forbidden('You are not assigned to any OPMC scope');
+      if (scope.length > 1) throw AppError.badRequest('opmcId is required');
+      params.opmcId = scope[0];
+    }
+  }
+
   return CapexOpexLedgerService.getEntries(params);
 }, {
   roles: ROLE_GROUPS.PROJECT_MANAGERS,
@@ -58,9 +73,11 @@ export const GET = apiHandler(async (request) => {
 
 // ── POST — Create manual ledger entry ─────────────────────────────────────────
 
-export const POST = apiHandler(async (_req, _params, body) => {
-  const userId = _req.headers.get('x-user-id');
+export const POST = apiHandler(async (_req, ctx, body) => {
+  const userId = ctx._userId;
   if (!userId) throw AppError.unauthorized('Authentication required');
+  await assertOpmcAccess(body.opmcId, userId);
+  if (body.projectId) await assertProjectAccess(body.projectId, userId);
 
   const result = await CapexOpexLedgerService.recordEntry({
     ...body,

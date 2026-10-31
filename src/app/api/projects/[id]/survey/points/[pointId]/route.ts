@@ -1,10 +1,12 @@
 export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { MapApprovalService } from '@/services/gis/map-approval.service';
+import { assertRecordInProject } from '@/lib/project-record-access';
 import { AppError } from '@/lib/error';
 
 export const PATCH = apiHandler(async (request, params, body) => {
     const pointId = params.pointId;
+    await assertRecordInProject('surveyPoint', pointId, params.id);
     const userId = request.headers.get('x-user-id');
     const action = body.action as string | undefined;
     const reason = body.reason as string | undefined;

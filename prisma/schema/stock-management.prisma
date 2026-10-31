@@ -360,6 +360,7 @@ model StockIssue {
   materialRequirement ProjectMaterialRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
   store               InventoryStore              @relation("StockIssues", fields: [storeId], references: [id])
   items               StockIssueItem[]
+  projectReturns      ProjectMaterialReturn[]
 
   @@index([storeId])
   @@index([issueType])
@@ -469,6 +470,7 @@ model ProjectMaterialReturn {
   returnNumber String                      @unique
   projectId    String                      @db.Uuid
   storeId      String                      @db.Uuid
+  issueId      String?                     @db.Uuid
   returnedById String                      @db.Uuid
   status       String                      @default("PENDING")
   approvedById String?                     @db.Uuid
@@ -480,10 +482,12 @@ model ProjectMaterialReturn {
   project      Project                     @relation(fields: [projectId], references: [id])
   returnedBy   User                        @relation("ProjectReturnUser", fields: [returnedById], references: [id])
   store        InventoryStore              @relation(fields: [storeId], references: [id])
+  issue        StockIssue?                 @relation(fields: [issueId], references: [id], onDelete: Restrict)
   items        ProjectMaterialReturnItem[]
 
   @@index([projectId])
   @@index([storeId])
+  @@index([issueId, status])
   @@index([status])
   @@index([returnedById])
   @@index([approvedById])

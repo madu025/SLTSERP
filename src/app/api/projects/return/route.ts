@@ -4,6 +4,7 @@ import { AppError } from '@/lib/error';
 import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
 import { createReturnSchema, CreateReturnSchema } from '@/lib/validations/project-stock.schema';
 import { ROLE_GROUPS } from '@/config/roles';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,10 +17,12 @@ export const POST = apiHandler<ProjectMaterialReturn, CreateReturnSchema>(
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }
+        await assertProjectAccess(body.projectId, userId);
 
         const returnReq = await ProjectStockIssueService.createReturnRequest({
             projectId: body.projectId,
             storeId: body.storeId,
+            issueId: body.issueId,
             items: body.items,
             reason: body.reason,
             userId
@@ -47,6 +50,7 @@ export const GET = apiHandler<unknown[], void>(
             throw AppError.badRequest('Project ID required');
         }
 
+        await assertProjectAccess(projectId, userId);
         const returns = await ProjectStockIssueService.getProjectReturns(projectId);
         return returns;
     }

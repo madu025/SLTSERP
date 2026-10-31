@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectRiskService } from '@/services/project/project-risk.service';
+import { assertRecordInProject } from '@/lib/project-record-access';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
@@ -27,13 +28,14 @@ export const POST = apiHandler(async (_request, params, body) => {
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (_request, params, body) => {
     const { riskId } = body || {};
 
     if (!riskId) {
         throw AppError.badRequest('Risk ID is required');
     }
 
+    await assertRecordInProject('risk', riskId as string, params.id);
     return await ProjectRiskService.updateRisk(
         riskId as string, 
         body as unknown as Parameters<typeof ProjectRiskService.updateRisk>[1]

@@ -231,10 +231,10 @@ toast.error('Failed to create change order');
     const handleCloseProject = async () => {
         setClosing(true);
         try {
-            const res = await fetch('/api/projects', {
-                method: 'PATCH',
+            const res = await fetch(`/api/projects/${project.id}/close`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: project.id, status: 'COMPLETED', progress: 100 }),
+                body: JSON.stringify({}),
             });
             if (res.ok) {
                 setShowConfirmClose(false);
@@ -810,7 +810,7 @@ toast.error('Failed to close project');
                                         <DialogTitle>Confirm Project Closure</DialogTitle>
                                         <DialogDescription>
                                             Are you sure you want to close this project? This will mark the project as COMPLETED
-                                            with 100% progress. This action can be reversed by updating the project status.
+                                            after the server verifies the workflow, finances, and final as-built.
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">

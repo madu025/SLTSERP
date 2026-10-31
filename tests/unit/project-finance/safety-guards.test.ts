@@ -72,6 +72,88 @@ describe('Project Finance route authorization intent', () => {
             'approval actioner must come from authenticated request metadata, not the request body',
         );
     });
+
+    it('guards approval and closure routes with canonical capabilities and project scope', () => {
+        const approval = source('src/app/api/projects/[id]/approvals/route.ts');
+        const closure = source('src/app/api/projects/[id]/close/route.ts');
+        const approvalService = source('src/services/project/project-approval.service.ts');
+        const projectService = source('src/services/project/project.service.ts');
+
+        for (const capability of ['PROJECT_READ', 'PROJECT_WRITE', 'PROJECT_APPROVE']) {
+            assert.match(approval, new RegExp(`permissions: \\[RBAC_PERMISSIONS\\.${capability}\\]`));
+        }
+        assert.match(approvalService, /static async getApprovals[\s\S]*?await assertProjectAccess\(projectId, actorUserId\)/);
+        assert.match(approvalService, /static async createApproval[\s\S]*?await assertProjectAccess\(projectId, actorUserId\)/);
+        assert.match(closure, /permissions: \[RBAC_PERMISSIONS\.PROJECT_READ\]/);
+        assert.match(closure, /permissions: \[RBAC_PERMISSIONS\.PROJECT_APPROVE\]/);
+        assert.match(closure, /const userId = params\._userId/);
+        assert.doesNotMatch(closure, /headers\.get\(['"]x-user-id['"]\)/);
+        assert.match(projectService, /static async checkClosure[\s\S]*?await assertProjectAccess\(projectId, actorUserId\)/);
+        assert.match(projectService, /static async closeProject[\s\S]*?await assertProjectAccess\(projectId, userId\)/);
+    });
+
+    it('binds BOQ approval actions to the authenticated actor and required capability', () => {
+        const route = source('src/app/api/projects/[id]/boq/approve/route.ts');
+        assert.match(route, /const userId = params\._userId/);
+        assert.doesNotMatch(route, /headers\.get\(['"]x-user-id['"]\)/);
+        assert.match(route, /await assertProjectAccess\(projectId, userId\)/);
+        assert.match(route, /userHasPermission\(userId, requiredPermission\)/);
+        assert.match(route, /RBAC_PERMISSIONS\.PROJECT_APPROVE/);
+        assert.match(route, /RBAC_PERMISSIONS\.PROJECT_WRITE/);
+    });
+
+    it('uses active canonical roles and capabilities for BOQ step eligibility', () => {
+        const service = source('src/services/project/project-boq-approval.service.ts');
+        assert.match(service, /getUserEffectivePermissions\(userId\)/);
+        assert.match(service, /systemRole: \{ select: \{ code: true, isActive: true \} \}/);
+        assert.match(service, /sectionAssignments: \{ select: \{ role: \{ select: \{ code: true, isActive: true \} \} \} \}/);
+        assert.match(service, /capabilities\.includes\(RBAC_PERMISSIONS\.ADMIN_RBAC\)/);
+        assert.doesNotMatch(service, /select: \{ role: true, status: true \}/);
+        assert.doesNotMatch(service, /actor\.role/);
+    });
+
+    it('guards variation reads and creation with canonical capabilities and project scope', () => {
+        const route = source('src/app/api/projects/[id]/variations/route.ts');
+        assert.match(route, /permissions: \[RBAC_PERMISSIONS\.PROJECT_READ\]/);
+        assert.match(route, /permissions: \[RBAC_PERMISSIONS\.PROJECT_WRITE\]/);
+        assert.match(route, /await assertProjectAccess\(params\.id, params\._userId\)/);
+        assert.match(route, /await assertProjectAccess\(params\.id, requestedById\)/);
+    });
+
+    it('keeps BOQ source updates and goods receipts bound to their project', () => {
+        const boqAnalysis = source('src/app/api/projects/[id]/boq/analyze/route.ts');
+        const goodsReceipts = source('src/app/api/projects/goods-receipts/route.ts');
+        assert.match(boqAnalysis, /projectBOQItem\.count\(\{ where: \{ id: \{ in: itemIds \}, projectId \} \}\)/);
+        assert.match(goodsReceipts, /po\.projectId !== projectId/);
+        assert.match(goodsReceipts, /const userId = params\._userId/);
+        assert.doesNotMatch(goodsReceipts, /headers\.get\(['"]x-user-id['"]\)/);
+    });
+
+    it('uses canonical session permissions for QField sync and top-level Project reads', () => {
+        const qfield = source('src/app/api/projects/[id]/qfield-sync/route.ts');
+        assert.match(qfield, /permissions: \[RBAC_PERMISSIONS\.PROJECT_READ\]/);
+        assert.match(qfield, /permissions: \[RBAC_PERMISSIONS\.PROJECT_WRITE\]/);
+        assert.match(qfield, /await assertProjectAccess\(params\.id, userId\)/);
+        assert.doesNotMatch(qfield, /headers\.get\(['"]x-user-id['"]\)/);
+        for (const route of ['change-orders', 'milestones', 'permits', 'purchase-orders', 'requisitions', 'timesheets']) {
+            const content = source(`src/app/api/projects/${route}/route.ts`);
+            const getBlock = content.slice(content.indexOf('export const GET'), content.indexOf('export const POST'));
+            assert.match(getBlock, /permissions: \[RBAC_PERMISSIONS\./, `${route} GET needs an explicit canonical capability`);
+        }
+    });
+
+    it('scopes global IR reads to accessible stores and validates receipt store writes', () => {
+        const route = source('src/app/api/projects/ir-ledger/route.ts');
+        const service = source('src/services/project/project-ir-ledger.service.ts');
+        assert.match(route, /StoreService\.getAccessibleStores\(userId, ''\)/);
+        assert.match(route, /getIRLedgerHistory\(irNumber, storeIds\)/);
+        assert.match(route, /getIRLedger\(projectId, projectId \? undefined : storeIds\)/);
+        assert.match(route, /getIRLedgerMeta\(storeIds,/);
+        assert.match(route, /StoreService\.assertStoreWriteAccess\(userId, storeId\)/);
+        assert.match(service, /static async getIRLedgerHistory\(irNumber: string, storeIds\?: string\[\]\)/);
+        assert.match(service, /static async getIRLedgerMeta\(storeIds\?: string\[\], projectIds\?: string\[\]\)/);
+        assert.match(service, /static async getIRLedger\(projectId\?: string, storeIds\?: string\[\]\)/);
+    });
 });
 
 describe('Payment voucher transition and posting guards', () => {

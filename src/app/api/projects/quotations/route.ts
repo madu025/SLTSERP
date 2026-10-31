@@ -2,17 +2,19 @@ import { apiHandler } from '@/lib/api-handler';
 import { QuotationService } from '@/services/finance/quotation.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertRecordProjectAccess, requireUserId } from '@/lib/project-record-access';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request) => {
+export const GET = apiHandler(async (request, params) => {
     const { searchParams } = new URL(request.url);
     const requisitionId = searchParams.get('requisitionId');
     if (!requisitionId) throw AppError.badRequest('requisitionId is required');
 
+    await assertRecordProjectAccess('requisition', requisitionId, params._userId);
     return await QuotationService.getQuotations(requisitionId);
-}, { roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS, rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROCUREMENT_READ], rawResponse: true });
 
 const createQuotationSchema = z.object({
     requisitionId: z.string().min(1),
@@ -37,8 +39,9 @@ const createQuotationSchema = z.object({
     })).min(1),
 });
 
-export const POST = apiHandler(async (_request, _params, body) => {
+export const POST = apiHandler(async (_request, params, body) => {
     const data = createQuotationSchema.parse(body);
+    await assertRecordProjectAccess('requisition', data.requisitionId, params._userId);
     
     try {
         const quotation = await QuotationService.createQuotation(data);
@@ -50,7 +53,7 @@ export const POST = apiHandler(async (_request, _params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE],
     audit: { action: 'CREATE', entity: 'QUOTATION' },
     rawResponse: true
 });
@@ -61,11 +64,13 @@ const updateQuotationSchema = z.object({
     acceptedById: z.string().optional(),
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (_request, params, body) => {
     const data = updateQuotationSchema.parse(body);
-    return await QuotationService.updateQuotationStatus(data.id, data.status, data.acceptedById);
+    await assertRecordProjectAccess('quotation', data.id, params._userId);
+    // Acceptor is always the authenticated user; a client-supplied acceptedById is ignored.
+    return await QuotationService.updateQuotationStatus(data.id, data.status, requireUserId(params._userId));
 }, {
-    roles: ROLE_GROUPS.PURCHASE_ORDER_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROCUREMENT_WRITE],
     audit: { action: 'UPDATE', entity: 'QUOTATION' },
     rawResponse: true
 });

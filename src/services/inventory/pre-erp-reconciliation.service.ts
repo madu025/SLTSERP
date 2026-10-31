@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { UUID } from '@/types/common';
 import { AppError } from '@/lib/error';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
 import type { PreErpMaterialBalance, MaterialVarianceAdjustment } from '@prisma/client';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,20 +226,24 @@ export class PreErpReconciliationService {
       throw AppError.badRequest('No active main store found. Please create an InventoryStore first.');
     }
 
-    // Perform atomic transaction: Approve adjustment + Upsert InventoryStock opening balance
-    const [updatedAdjustment, stock] = await prisma.$transaction([
-      prisma.materialVarianceAdjustment.update({
-        where: { id: adjustmentId },
+    // Perform atomic transaction: claim adjustment + set InventoryStock opening balance + ledger
+    const { updatedAdjustment, stock } = await prisma.$transaction(async (tx) => {
+      const claim = await tx.materialVarianceAdjustment.updateMany({
+        where: { id: adjustmentId, status: 'PENDING' },
         data: {
           status: 'APPROVED',
           approvedById,
           approvedAt: new Date(),
         },
-      }),
-      prisma.inventoryStock.upsert({
-        where: {
-          id: `${storeId}_${adjustment.itemId}`, // fallback lookup or standard query
-        },
+      });
+      if (claim.count === 0) throw AppError.conflict('ADJUSTMENT_ALREADY_PROCESSED');
+
+      const before = await tx.inventoryStock.findUnique({
+        where: { storeId_itemId: { storeId, itemId: adjustment.itemId } },
+        select: { quantity: true },
+      });
+      const stock = await tx.inventoryStock.upsert({
+        where: { storeId_itemId: { storeId, itemId: adjustment.itemId } },
         update: {
           quantity: adjustment.physicalAuditedQty,
         },
@@ -246,15 +252,33 @@ export class PreErpReconciliationService {
           itemId: adjustment.itemId,
           quantity: adjustment.physicalAuditedQty,
         },
-      }),
-      prisma.preErpMaterialBalance.update({
+      });
+      await tx.preErpMaterialBalance.update({
         where: { id: adjustment.balanceId },
         data: {
           status: 'RECONCILED',
           closingBalanceQuantity: adjustment.physicalAuditedQty,
         },
-      }),
-    ]);
+      });
+
+      const qtyBefore = Number(before?.quantity ?? 0);
+      const qtyAfter = Number(adjustment.physicalAuditedQty);
+      await AuditLedgerService.recordEntry({
+        storeId,
+        itemId: adjustment.itemId,
+        transactionType: 'CYCLE_COUNT_CORRECTION',
+        referenceType: 'Adjustment',
+        referenceId: adjustment.id,
+        quantityBefore: qtyBefore,
+        quantityChange: qtyAfter - qtyBefore,
+        quantityAfter: qtyAfter,
+        performedById: approvedById,
+        idempotencyKey: `PRE_ERP_ADJ:${adjustment.id}`,
+      }, tx as TransactionClient);
+
+      const updatedAdjustment = await tx.materialVarianceAdjustment.findUniqueOrThrow({ where: { id: adjustmentId } });
+      return { updatedAdjustment, stock };
+    });
 
     return {
       adjustment: updatedAdjustment,

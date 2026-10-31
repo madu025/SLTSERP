@@ -1,5 +1,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectInspectionService } from '@/services/project/project-inspection.service';
+import { assertRecordInProject } from '@/lib/project-record-access';
 import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
@@ -27,13 +28,14 @@ export const POST = apiHandler(async (_request, params, body) => {
     rawResponse: true
 });
 
-export const PATCH = apiHandler(async (_request, _params, body) => {
+export const PATCH = apiHandler(async (_request, params, body) => {
     const { inspectionId, status, checklist, correctiveAction, photoUrls } = body || {};
 
     if (!inspectionId) {
         throw AppError.badRequest('Inspection ID is required');
     }
 
+    await assertRecordInProject('inspection', inspectionId as string, params.id);
     return await ProjectInspectionService.updateInspection(
         inspectionId as string, 
         body as unknown as Parameters<typeof ProjectInspectionService.updateInspection>[1]

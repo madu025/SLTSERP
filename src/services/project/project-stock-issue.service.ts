@@ -7,8 +7,6 @@ import { ProjectMaterialReservationService } from './project-material-reservatio
 import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
 import { StoreService } from '@/services/inventory/store.service';
 import { assertProjectAccess } from '@/lib/project-access';
-import { userHasPermission } from '@/lib/user-permissions';
-import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export class ProjectStockIssueService {
     /**
@@ -173,8 +171,7 @@ export class ProjectStockIssueService {
             throw AppError.badRequest('ISSUE_NOT_PENDING');
         }
 
-        // Segregation of duties: the requester cannot approve their own issue
-        // (mirrors stock-request.service.ts enforcement; SUPER_ADMIN exempt).
+        // Segregation of duties: no actor may approve their own stock issue.
         if (!approvedById) {
             throw AppError.badRequest('APPROVER_ID_REQUIRED: approvedById must be provided.');
         }
@@ -182,7 +179,7 @@ export class ProjectStockIssueService {
         if (!approver) {
             throw AppError.badRequest('APPROVER_NOT_FOUND: The approver account may have been deleted.');
         }
-        if (!await userHasPermission(approvedById, RBAC_PERMISSIONS.ADMIN_RBAC) && issue.issuedById && issue.issuedById === approvedById) {
+        if (issue.issuedById && issue.issuedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: Issue creator cannot approve their own stock issue.');
         }
 
@@ -207,15 +204,18 @@ export class ProjectStockIssueService {
 
         // Execute Transaction
         await prisma.$transaction(async (tx) => {
-            // 1. Update Issue Status
-            await tx.stockIssue.update({
-                where: { id: issueId },
+            // 1. Claim the issue (compare-and-set) so concurrent approvals cannot double-post
+            const claim = await tx.stockIssue.updateMany({
+                where: { id: issueId, status: 'PENDING' },
                 data: {
                     status: 'APPROVED',
                     approvedById: approvedById,
                     approvedAt: new Date()
                 }
             });
+            if (claim.count === 0) {
+                throw AppError.conflict('ISSUE_NOT_PENDING');
+            }
 
             let totalIssueCost = 0;
             const transactionItems: { itemId: UUID; batchId: UUID; quantity: number }[] = [];
@@ -244,10 +244,14 @@ export class ProjectStockIssueService {
                         });
                         transactionItems.push({ itemId: item.itemId, batchId: picked.batchId, quantity: -picked.quantity });
                     }
-                    await tx.inventoryStock.update({
-                        where: { storeId_itemId: { storeId: issue.storeId, itemId: item.itemId } },
+                    // Guarded decrement: never let stock go negative
+                    const decremented = await tx.inventoryStock.updateMany({
+                        where: { storeId: issue.storeId, itemId: item.itemId, quantity: { gte: item.quantity } },
                         data: { quantity: { decrement: item.quantity } }
                     });
+                    if (decremented.count === 0) {
+                        throw AppError.badRequest(`INSUFFICIENT_STOCK: Insufficient stock for item ID: ${item.itemId}`);
+                    }
                 }
             }
 
@@ -360,20 +364,55 @@ export class ProjectStockIssueService {
     static async createReturnRequest(data: {
         projectId: UUID;
         storeId: UUID;
+        issueId: UUID;
         items: { itemId: UUID; quantity: number | string; condition?: string; remarks?: string }[];
         reason?: string;
         userId: UUID;
     }) {
-        const { projectId, storeId, items, reason, userId } = data;
+        const { projectId, storeId, issueId, items, reason, userId } = data;
 
-        const count = await prisma.projectMaterialReturn.count();
-        const returnNumber = `PMRN-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+        if (!issueId || items.length === 0 || items.some(item => !Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0)) {
+            throw AppError.badRequest('RETURN_SOURCE_ISSUE_AND_POSITIVE_ITEMS_REQUIRED');
+        }
+        await StoreService.assertStoreWriteAccess(userId, storeId);
 
-        const returnReq = await prisma.projectMaterialReturn.create({
+        // Concurrency-safe MRN number from the DB document-number generator
+        const returnNumber = await AuditLedgerService.generateMRNNumber();
+
+        const returnReq = await prisma.$transaction(async (tx) => {
+            // Serialize reservations of the same source issue before counting
+            // outstanding returns, including pending requests.
+            const locked = await tx.$queryRaw<{ id: string }[]>`
+                SELECT id FROM "StockIssue" WHERE id = ${issueId}::uuid FOR UPDATE
+            `;
+            if (locked.length !== 1) throw AppError.badRequest('SOURCE_ISSUE_NOT_FOUND');
+            const issue = await tx.stockIssue.findUnique({
+                where: { id: issueId },
+                include: { items: true },
+            });
+            if (!issue || issue.status !== 'APPROVED' || issue.projectId !== projectId || issue.storeId !== storeId) {
+                throw AppError.badRequest('SOURCE_ISSUE_NOT_APPROVED_FOR_PROJECT_STORE');
+            }
+            const priorReturns = await tx.projectMaterialReturn.findMany({
+                where: { issueId, status: { in: ['PENDING', 'APPROVED'] } },
+                include: { items: true },
+            });
+            const available = new Map<string, number>();
+            for (const line of issue.items) available.set(line.itemId, (available.get(line.itemId) || 0) + Number(line.quantity));
+            for (const ret of priorReturns) for (const line of ret.items) {
+                available.set(line.itemId, (available.get(line.itemId) || 0) - Number(line.quantity));
+            }
+            for (const item of items) {
+                const remaining = (available.get(item.itemId) || 0) - Number(item.quantity);
+                if (remaining < -0.00001) throw AppError.badRequest('RETURN_EXCEEDS_SOURCE_ISSUE_QUANTITY');
+                available.set(item.itemId, remaining);
+            }
+            return tx.projectMaterialReturn.create({
             data: {
                 returnNumber,
                 projectId,
                 storeId,
+                issueId,
                 returnedById: userId,
                 reason,
                 status: 'PENDING',
@@ -386,6 +425,7 @@ export class ProjectStockIssueService {
                     }))
                 }
             }
+            });
         });
 
         return returnReq;
@@ -398,6 +438,7 @@ export class ProjectStockIssueService {
         return await prisma.projectMaterialReturn.findMany({
             where: { projectId },
             include: {
+                issue: { select: { issueNumber: true } },
                 store: { select: { name: true } },
                 items: { include: { item: { select: { code: true, name: true, unit: true } } } },
                 returnedBy: { select: { name: true } },
@@ -419,29 +460,34 @@ export class ProjectStockIssueService {
         if (!returnReq || returnReq.status !== 'PENDING') {
             throw AppError.badRequest('INVALID_RETURN_REQUEST');
         }
+        if (!returnReq.issueId) throw AppError.badRequest('LEGACY_RETURN_REQUIRES_SOURCE_ISSUE_REVIEW');
+        await StoreService.assertStoreWriteAccess(approvedById, returnReq.storeId);
 
         // Segregation of duties: the returner cannot approve their own return.
         if (!approvedById) {
             throw AppError.badRequest('APPROVER_ID_REQUIRED: approvedById must be provided.');
         }
-        const returnApprover = await prisma.user.findUnique({ where: { id: approvedById }, select: { role: true } });
+        const returnApprover = await prisma.user.findUnique({ where: { id: approvedById }, select: { id: true } });
         if (!returnApprover) {
             throw AppError.badRequest('APPROVER_NOT_FOUND: The approver account may have been deleted.');
         }
-        if (returnApprover.role !== 'SUPER_ADMIN' && returnReq.returnedById && returnReq.returnedById === approvedById) {
+        if (returnReq.returnedById && returnReq.returnedById === approvedById) {
             throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: Return creator cannot approve their own material return.');
         }
 
         await prisma.$transaction(async (tx) => {
-            // 1. Update Status
-            await tx.projectMaterialReturn.update({
-                where: { id: returnId },
+            // 1. Claim the return (compare-and-set) so concurrent approvals cannot double-post
+            const claim = await tx.projectMaterialReturn.updateMany({
+                where: { id: returnId, status: 'PENDING' },
                 data: {
                     status: 'APPROVED',
                     approvedById,
                     approvedAt: new Date()
                 }
             });
+            if (claim.count === 0) {
+                throw AppError.badRequest('INVALID_RETURN_REQUEST');
+            }
 
             let totalCredit = 0;
             const transferInItems: { itemId: UUID; quantity: number }[] = [];
@@ -451,21 +497,58 @@ export class ProjectStockIssueService {
             for (const item of returnReq.items) {
                 if (item.condition === 'GOOD') {
                     // Add back to stock
-                    await tx.inventoryStock.upsert({
+                    const before = await tx.inventoryStock.findUnique({
+                        where: { storeId_itemId: { storeId: returnReq.storeId, itemId: item.itemId } },
+                        select: { quantity: true },
+                    });
+                    const stockRow = await tx.inventoryStock.upsert({
                         where: { storeId_itemId: { storeId: returnReq.storeId, itemId: item.itemId } },
                         create: { storeId: returnReq.storeId, itemId: item.itemId, quantity: item.quantity },
                         update: { quantity: { increment: item.quantity } }
                     });
+                    const invItem = await tx.inventoryItem.findUnique({ where: { id: item.itemId }, select: { unitPrice: true } });
+                    await AuditLedgerService.recordEntry({
+                        storeId: returnReq.storeId,
+                        itemId: item.itemId,
+                        transactionType: 'PROJECT_RETURN',
+                        referenceType: 'ProjectIR',
+                        referenceId: returnReq.returnNumber,
+                        quantityBefore: Number(before?.quantity ?? 0),
+                        quantityChange: Number(item.quantity),
+                        quantityAfter: Number(stockRow.quantity),
+                        unitPrice: Number(invItem?.unitPrice || 0),
+                        performedById: approvedById,
+                        idempotencyKey: `PROJECT_RETURN:${returnReq.id}:${item.id}`,
+                    }, tx as TransactionClient);
                     transferInItems.push({ itemId: item.itemId, quantity: Number(item.quantity) });
                 } else {
-                    // Log as wastage (not added back to usable stock)
+                    // Damaged custody returns do not replenish usable stock or
+                    // reverse the project's material consumption and cost.
+                    const stockRow = await tx.inventoryStock.findUnique({
+                        where: { storeId_itemId: { storeId: returnReq.storeId, itemId: item.itemId } },
+                        select: { quantity: true },
+                    });
+                    const invItem = await tx.inventoryItem.findUnique({ where: { id: item.itemId }, select: { unitPrice: true } });
+                    await AuditLedgerService.recordEntry({
+                        storeId: returnReq.storeId,
+                        itemId: item.itemId,
+                        transactionType: 'WASTAGE_ADJUSTMENT',
+                        referenceType: 'ProjectIR',
+                        referenceId: returnReq.returnNumber,
+                        quantityBefore: Number(stockRow?.quantity ?? 0),
+                        quantityChange: 0,
+                        quantityAfter: Number(stockRow?.quantity ?? 0),
+                        unitPrice: Number(invItem?.unitPrice || 0),
+                        performedById: approvedById,
+                        idempotencyKey: `PROJECT_RETURN_DAMAGED:${returnReq.id}:${item.id}`,
+                    }, tx as TransactionClient);
                     wastageItems.push({ itemId: item.itemId, quantity: Number(item.quantity) });
                 }
 
-                // Credit Project BOQ
-                const boqItem = await tx.projectBOQItem.findFirst({
+                // Only reusable material reduces the project's consumed quantity/cost.
+                const boqItem = item.condition === 'GOOD' ? await tx.projectBOQItem.findFirst({
                     where: { projectId: returnReq.projectId, materialId: item.itemId }
-                });
+                }) : null;
 
                 if (boqItem) {
                     const credit = Number(item.quantity) * Number(boqItem.unitRate);

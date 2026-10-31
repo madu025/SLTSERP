@@ -1,13 +1,16 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectChangeOrderService } from '@/services/project/project-change-order.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
+import { assertRecordInProject, requireAnyPermission } from '@/lib/project-record-access';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
+    await assertProjectAccess(params.id, params._userId);
     return await ProjectChangeOrderService.getChangeOrders(params.id);
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 export const POST = apiHandler(async (_request, params, body) => {
     const title = body.title as string | undefined;
@@ -22,6 +25,7 @@ export const POST = apiHandler(async (_request, params, body) => {
     if (!title || !type || !requestedById) {
         throw AppError.badRequest('Missing required fields: title, type, and authenticated session');
     }
+    await assertProjectAccess(params.id, requestedById);
 
     try {
         return await ProjectChangeOrderService.createChangeOrder({
@@ -43,7 +47,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'CREATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });
@@ -55,6 +59,12 @@ export const PATCH = apiHandler(async (_request, params, body) => {
 
     if (!coId) {
         throw AppError.badRequest('Change order ID is required');
+    }
+
+    // Bind the change order to the project in the URL (OPMC access is enforced centrally for this path).
+    await assertRecordInProject('changeOrder', coId, params.id);
+    if (status === 'APPROVED' || status === 'REJECTED' || status === 'IMPLEMENTED') {
+        await requireAnyPermission(params._userId, [RBAC_PERMISSIONS.PROJECT_APPROVE], 'project.approve is required to approve, reject or implement a variation');
     }
 
     // Map status update to service action
@@ -97,7 +107,7 @@ export const PATCH = apiHandler(async (_request, params, body) => {
         throw error;
     }
 }, {
-    roles: ROLE_GROUPS.AREA_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE, RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'UPDATE', entity: 'CHANGE_ORDER' },
     rawResponse: true
 });

@@ -3,7 +3,8 @@ import { AppError } from '@/lib/error';
 import { QFieldCloudSyncService } from '@/services/gis/qfieldcloud-sync.service';
 import { SURVEY_LAYERS } from '@/config/survey-layers';
 import { qfieldSyncSchema, QFieldSyncSchema } from '@/lib/validations/gis.schema';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,26 +12,28 @@ export const dynamic = 'force-dynamic';
  * GET: Get sync history and status
  */
 export const GET = apiHandler<unknown, void>(
-    async (request, params) => {
-        const userId = request.headers.get('x-user-id');
+    async (_request, params) => {
+        const userId = params._userId;
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }
+        await assertProjectAccess(params.id, userId);
 
         const syncStatus = await QFieldCloudSyncService.getSyncStatus(params.id);
         return syncStatus;
-    }, { roles: ROLE_GROUPS.PROJECT_READERS }
+    }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ] }
 );
 
 /**
  * POST: Trigger sync operations with QFieldCloud (create project, push layers, or full sync)
  */
 export const POST = apiHandler<unknown, QFieldSyncSchema>(
-    async (request, params, body) => {
-        const userId = request.headers.get('x-user-id');
+    async (_request, params, body) => {
+        const userId = params._userId;
         if (!userId) {
             throw AppError.unauthorized('Unauthorized');
         }
+        await assertProjectAccess(params.id, userId);
 
         const { action = 'full_sync', qfieldProjectId, qgisTemplate } = body;
 
@@ -70,5 +73,5 @@ export const POST = apiHandler<unknown, QFieldSyncSchema>(
 
         throw AppError.badRequest('Invalid action. Use: create_project, push_layers, full_sync');
     },
-    { schema: qfieldSyncSchema, roles: [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OSP_PROJECTS])] }
+    { schema: qfieldSyncSchema, permissions: [RBAC_PERMISSIONS.PROJECT_WRITE] }
 );

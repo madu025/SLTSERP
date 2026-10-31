@@ -1,7 +1,8 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectPermitService } from '@/services/project/project-permit.service';
 import { AppError } from '@/lib/error';
-import { ROLE_GROUPS } from '@/config/roles';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { userHasPermission } from '@/lib/user-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export const GET = apiHandler(async (_request, params) => {
     }
 
     return permit;
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 export const PATCH = apiHandler(async (_request, params, body) => {
     const { id: projectId, permitId } = await params;
@@ -22,6 +23,12 @@ export const PATCH = apiHandler(async (_request, params, body) => {
     const existing = await ProjectPermitService.getPermit(projectId, permitId);
     if (!existing) {
         throw AppError.notFound('Permit not found');
+    }
+    const requiredPermission = body.status === 'APPROVED'
+        ? RBAC_PERMISSIONS.PROJECT_APPROVE
+        : RBAC_PERMISSIONS.PROJECT_WRITE;
+    if (!await userHasPermission(params._userId, requiredPermission)) {
+        throw AppError.forbidden(`${requiredPermission} is required to update this permit`);
     }
 
     const updateData: Record<string, unknown> = {};
@@ -38,7 +45,7 @@ export const PATCH = apiHandler(async (_request, params, body) => {
 
     return await ProjectPermitService.updatePermit(permitId, updateData);
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE, RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'UPDATE', entity: 'PROJECT_PERMIT' },
     rawResponse: true
 });
@@ -54,7 +61,7 @@ export const DELETE = apiHandler(async (_request, params) => {
     await ProjectPermitService.deletePermit(permitId);
     return { success: true };
 }, {
-    roles: ROLE_GROUPS.AREA_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_APPROVE],
     audit: { action: 'DELETE', entity: 'PROJECT_PERMIT' },
     rawResponse: true
 });

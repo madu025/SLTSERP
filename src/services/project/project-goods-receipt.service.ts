@@ -1,5 +1,9 @@
 import { AppError } from '@/lib/error';
 import { prisma } from '@/lib/prisma';
+import { AuditLedgerService } from '@/services/inventory/audit-ledger.service';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { userHasPermission } from '@/lib/user-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 interface GRNItemInput {
     poItemId: string;
@@ -188,10 +192,30 @@ export class ProjectGoodsReceiptService {
         }
 
         if (status === 'APPROVED') {
+            if (!approvedById) {
+                throw AppError.badRequest('APPROVER_ID_REQUIRED: approvedById must be provided.');
+            }
             const goodsReceipt = await prisma.$transaction(async (tx) => {
-                const grn = await tx.projectGoodsReceipt.update({
+                const existing = await tx.projectGoodsReceipt.findUnique({
                     where: { id },
+                    select: { receivedById: true },
+                });
+                if (!existing) throw AppError.notFound('GOODS_RECEIPT_NOT_FOUND');
+                // Segregation of duties: the receiver cannot approve their own GRN (global admin exempt).
+                if (existing.receivedById === approvedById && !await userHasPermission(approvedById, RBAC_PERMISSIONS.ADMIN_RBAC)) {
+                    throw AppError.badRequest('SEGREGATION_OF_DUTIES_VIOLATION: GRN creator cannot approve their own goods receipt.');
+                }
+
+                // Compare-and-set claim: only one approval may post stock/GL.
+                const claim = await tx.projectGoodsReceipt.updateMany({
+                    where: { id, status: { not: 'APPROVED' } },
                     data: updateData,
+                });
+                if (claim.count === 0) {
+                    throw AppError.conflict('GOODS_RECEIPT_ALREADY_APPROVED');
+                }
+                const grn = await tx.projectGoodsReceipt.findUniqueOrThrow({
+                    where: { id },
                     include: { items: true, project: true },
                 });
 
@@ -207,38 +231,60 @@ export class ProjectGoodsReceiptService {
                 }
 
                 if (store) {
-                    // Update stocks
+                    // Update stocks (accepted quantity only; fall back to received when accepted is not recorded)
                     for (const item of grn.items) {
                         const invItem = await tx.inventoryItem.findUnique({ where: { code: item.itemCode }});
-                        if (invItem) {
-                            await tx.inventoryStock.upsert({
-                                where: { storeId_itemId: { storeId: store.id, itemId: invItem.id } },
-                                update: { quantity: { increment: item.quantityReceived } },
-                                create: { storeId: store.id, itemId: invItem.id, quantity: item.quantityReceived, minLevel: 0 }
-                            });
-                            
-                            // Create transaction record
-                            await tx.inventoryTransaction.create({
-                                data: {
-                                    storeId: store.id,
-                                    type: 'IN',
-                                    referenceId: grn.grnNumber,
-                                    userId: approvedById || 'system',
-                                    items: {
-                                        create: [{
-                                            itemId: invItem.id,
-                                            quantity: item.quantityReceived
-                                        }]
-                                    }
-                                }
-                            });
+                        if (!invItem) {
+                            throw AppError.badRequest(`INVENTORY_ITEM_NOT_FOUND: ${item.itemCode}`);
                         }
+                        const qty = Number(item.quantityAccepted ?? item.quantityReceived ?? 0);
+                        if (!(qty > 0)) continue;
+
+                        const before = await tx.inventoryStock.findUnique({
+                            where: { storeId_itemId: { storeId: store.id, itemId: invItem.id } },
+                            select: { quantity: true },
+                        });
+                        const stock = await tx.inventoryStock.upsert({
+                            where: { storeId_itemId: { storeId: store.id, itemId: invItem.id } },
+                            update: { quantity: { increment: qty } },
+                            create: { storeId: store.id, itemId: invItem.id, quantity: qty, minLevel: 0 }
+                        });
+
+                        await AuditLedgerService.recordEntry({
+                            storeId: store.id,
+                            itemId: invItem.id,
+                            transactionType: 'GRN_RECEIPT',
+                            referenceType: 'GRN',
+                            referenceId: grn.grnNumber,
+                            quantityBefore: Number(before?.quantity ?? 0),
+                            quantityChange: qty,
+                            quantityAfter: Number(stock.quantity),
+                            unitPrice: Number(item.unitPrice || 0),
+                            performedById: approvedById,
+                            idempotencyKey: `PROJECT_GRN:${grn.id}:${item.id}`,
+                        }, tx as TransactionClient);
+
+                        // Create transaction record
+                        await tx.inventoryTransaction.create({
+                            data: {
+                                storeId: store.id,
+                                type: 'IN',
+                                referenceId: grn.grnNumber,
+                                userId: approvedById,
+                                items: {
+                                    create: [{
+                                        itemId: invItem.id,
+                                        quantity: qty
+                                    }]
+                                }
+                            }
+                        });
                     }
                 }
 
-                // Calculate total cost of items received/accepted in this GRN:
+                // Calculate total cost of items accepted in this GRN:
                 const totalCost = grn.items.reduce((sum, item) => {
-                    return sum + Number(item.unitPrice || 0) * Number(item.quantityReceived || 0);
+                    return sum + Number(item.unitPrice || 0) * Number(item.quantityAccepted ?? item.quantityReceived ?? 0);
                 }, 0);
 
                 if (totalCost > 0) {

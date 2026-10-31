@@ -46,10 +46,19 @@ export class ProjectProgressService {
                 },
             });
             if (data.progressPct != null) {
-                await tx.project.update({
+                // Conservative: never move overall project progress backwards via a daily report.
+                const project = await tx.project.findUnique({
                     where: { id: data.projectId },
-                    data: { progress: data.progressPct },
+                    select: { progress: true },
                 });
+                const current = Number(project?.progress ?? 0);
+                const next = Math.min(100, Math.max(0, data.progressPct));
+                if (next > current) {
+                    await tx.project.update({
+                        where: { id: data.projectId },
+                        data: { progress: next },
+                    });
+                }
             }
         });
         return record;

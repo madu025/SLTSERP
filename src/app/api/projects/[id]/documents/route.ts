@@ -2,14 +2,16 @@ import { apiHandler } from '@/lib/api-handler';
 import { ProjectDocumentService } from '@/services/project/project-document.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
-import { ROLE_GROUPS } from '@/config/roles';
+import { assertProjectAccess } from '@/lib/project-access';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
     const { id: projectId } = params;
+    await assertProjectAccess(projectId, params._userId);
     return await ProjectDocumentService.getDocuments(projectId);
-}, { rawResponse: true });
+}, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });
 
 const documentSchema = z.object({
     title: z.string().optional(),
@@ -25,9 +27,11 @@ export const POST = apiHandler(async (_request, params, body) => {
     const { id: projectId } = params;
     const data = documentSchema.parse(body);
     if (!params._userId) throw AppError.unauthorized('Authenticated uploader is required');
+    await assertProjectAccess(projectId, params._userId);
 
     if (data.documentId) {
         const updatedDoc = await ProjectDocumentService.updateDocumentVersion({
+            projectId,
             documentId: data.documentId,
             fileUrl: data.fileUrl,
             uploadedById: params._userId,
@@ -49,7 +53,7 @@ export const POST = apiHandler(async (_request, params, body) => {
         return Response.json(newDoc);
     }
 }, {
-    roles: ROLE_GROUPS.PROJECT_MANAGERS,
+    permissions: [RBAC_PERMISSIONS.PROJECT_WRITE],
     audit: { action: 'CREATE', entity: 'PROJECT_DOCUMENT' },
     rawResponse: true
 });

@@ -10,6 +10,7 @@ interface CreateDocumentInput {
 }
 
 interface UpdateDocumentInput {
+    projectId: string;
     documentId: string;
     fileUrl: string;
     uploadedById: string;
@@ -36,10 +37,10 @@ export class ProjectDocumentService {
     }
 
     static async updateDocumentVersion(data: UpdateDocumentInput) {
-        const { documentId, fileUrl, uploadedById, changeSummary } = data;
+        const { projectId, documentId, fileUrl, uploadedById, changeSummary } = data;
 
-        const document = await prisma.projectDocument.findUnique({
-            where: { id: documentId }
+        const document = await prisma.projectDocument.findFirst({
+            where: { id: documentId, projectId }
         });
 
         if (!document) {

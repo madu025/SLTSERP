@@ -1,11 +1,13 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ProjectAssetService } from '@/services/project/project-asset.service';
+import { assertRecordInProject } from '@/lib/project-record-access';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (_request, params) => {
     const { assetId } = params;
+    await assertRecordInProject('asset', assetId, params.id);
     return await ProjectAssetService.getAsset(assetId);
 }, { rawResponse: true });
 
@@ -22,6 +24,7 @@ const patchAssetSchema = z.object({
 
 export const PATCH = apiHandler(async (_request, params, body) => {
     const { assetId } = params;
+    await assertRecordInProject('asset', assetId, params.id);
     const data = patchAssetSchema.parse(body);
     return await ProjectAssetService.updateAsset(assetId, data);
 }, {
@@ -31,6 +34,7 @@ export const PATCH = apiHandler(async (_request, params, body) => {
 
 export const DELETE = apiHandler(async (_request, params) => {
     const { assetId } = params;
+    await assertRecordInProject('asset', assetId, params.id);
     return await ProjectAssetService.deleteAsset(assetId);
 }, {
     audit: { action: 'DELETE', entity: 'ASSET' },
