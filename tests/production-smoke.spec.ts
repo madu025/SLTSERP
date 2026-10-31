@@ -17,7 +17,10 @@ test('liveness endpoint is available', async ({ request }) => {
 test('application health reports a live database', async ({ request }) => {
   const response = await request.get('/api/health');
 
-  expect(response.status()).toBe(200);
+  // The health contract may return 503 when the read-only sync census proves the
+  // worker tier fully stale. That is distinct from a database outage, which is
+  // the dependency this smoke test is intended to verify.
+  expect([200, 503]).toContain(response.status());
   const body = await response.json() as { services?: { database?: string } };
   expect(body.services?.database).toBe('healthy');
 });
