@@ -20,6 +20,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.SMOKE_BASE_URL || process.env.BASE_URL || 'http://localhost:3000',
     channel: 'chrome',
+    launchOptions: process.env.CI ? { executablePath: '/usr/bin/google-chrome' } : undefined,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
