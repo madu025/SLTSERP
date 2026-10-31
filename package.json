@@ -42,6 +42,7 @@
     "test": "playwright test",
     "test:agentic": "pnpm exec ts-node scripts/agent-test-runner.ts",
     "test:e2e": "pnpm exec playwright test",
+    "test:finance:browser": "pnpm exec playwright test --config=playwright.finance.config.ts",
     "test:production-smoke": "pnpm exec playwright test --config=playwright.production.config.ts",
     "test:e2e:ui": "pnpm exec playwright test --ui",
     "test:e2e:debug": "pnpm exec playwright test --debug",
