@@ -4,10 +4,11 @@
 
 Source review covered Finance navigation/pages, Finance API routes, invoice and
 receipt lifecycle, voucher and ledger posting, year-end close, bank
-reconciliation, AR/AP aging, and existing tests. This audit did not post to a
-live database or execute an authenticated browser finance lifecycle. The Finance
-test gate includes service-level tests and existing Project-Finance tests; its
-passing count does not prove every Finance screen or posting integration.
+reconciliation, AR/AP aging, and existing tests. An authenticated Super Admin
+Chrome session also exercised the deployed Finance route matrix read-only; no
+financial mutation was submitted. The Finance test gate includes service-level
+tests and existing Project-Finance tests; its passing count does not prove every
+Finance posting integration.
 
 ## Fixed in this round
 
@@ -39,6 +40,12 @@ passing count does not prove every Finance screen or posting integration.
    setting its own; using API handler identity makes the actor contract explicit.
 5. Added `pnpm run test:finance` to CI. Service tests cover the year-end posting
    boundary, posted-only reports, bank reconciliation status, and invoice scope.
+6. **Browser audit finding — IOU response envelope and Petty Cash alias.** The
+   deployed route matrix exposed an IOU page crash caused by reading the nested
+   API envelope as an array, and a `/finance/petty-cash` sidebar target that
+   returned 404. The page now normalizes the envelope and the alias redirects to
+   the canonical OSP report route. These fixes are in commits `70acef41` and
+   `1c772964`; the deployed host must be retested after rollout.
 
 ## Open findings
 
@@ -83,6 +90,11 @@ the remaining open items are the other listed Finance workflow gaps.
 
 ## Acceptance criteria still needed
 
+The authenticated deployed route matrix is now covered read-only. Mutation
+lifecycle coverage still requires a disposable QA database and role fixtures;
+do not submit invoice settlement, bank matching, or year-end close against
+production.
+
 Run tests against a disposable database with maker/checker identities and
 foreign-OPMC records; verify journal and period rows after close, duplicate
 requests, rejected/manual bank links, over-credit notes, and invoice approval
@@ -102,5 +114,8 @@ rejects already reconciled statement or journal lines, and has focused tests.
 - Changed-file ESLint and `git diff --check`: passed.
 - `pnpm run build`: passed on the current revision (Next.js compiled, TypeScript
   completed, and 160 static pages generated; existing Next.js warnings remain).
-- No disposable Finance database or authenticated role fixture was available
-  for an actual posting lifecycle. These checks remain local/source evidence.
+- Authenticated deployed browser route matrix: 48 Finance URLs exercised
+  read-only; invoice, credit-note, bank-reconciliation, period-close, AR/AP
+  aging, and payment-voucher screens rendered without login/runtime errors.
+- The pre-rollout host still showed the IOU crash and Petty Cash 404; retest
+  those two routes after commits `70acef41` and `1c772964` deploy.
