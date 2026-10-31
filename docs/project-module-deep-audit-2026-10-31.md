@@ -30,13 +30,16 @@ role acceptance result.
    Workflow review decisions now use the same canonical capability/active-role
    model. The client no longer chooses the reviewer role; a review submitter
    cannot decide their own review. Service-level allow/deny tests cover these
-   paths. The Project suite now runs 81 tests locally.
+   paths. The Project suite now runs 83 tests locally.
 2. **High: no Project browser lifecycle test in CI.** The production Playwright
    config runs only `production-smoke.spec.ts`: health, login form, and optional
    login/profile. It does not visit Project detail, complete a stage, exercise
    review/rework, invoice/receipt, or verify role-specific controls. Local
    `playwright.config.ts` references `project-module.spec.ts`, but that file is
-   absent. Add a disposable QA project fixture and role matrix before claiming
+   absent. The previously documented `tests/qa-agent/_infrastructure/fixtures.ts`
+   is also absent in this checkout. The main QA workflow sets
+   `SMOKE_REQUIRE_AUTH=false`, so its browser gate may skip login. Add a
+   disposable QA project fixture and role matrix before claiming
    end-to-end Project acceptance. Do not mutate production records for that test.
 3. **Medium: Project tests are mostly unit/source contracts.** Existing tests
    cover finance lifecycle, scopes, costs, navigation, closure, stock return and
@@ -48,6 +51,12 @@ role acceptance result.
    pending visual, mobile, keyboard, and role-specific browser checks. Source
    tests and a successful build cannot establish contrast or usability in a
    rendered Project page.
+5. **Medium: other Project services still read legacy roles.** Supervisor
+   assignment, task-plan editing/assignee checks, task management, BOQ step
+   routing, and change-request approval-chain construction still reference
+   `User.role` or `ROLE_GROUPS`. The workflow transition and review paths fixed
+   here are canonical; this does not certify all Project services as migrated.
+   Migrate each policy with service-level allow/deny tests and OPMC checks.
 
 ## Acceptance path
 

@@ -168,3 +168,12 @@ test('review decision rejects a legacy display role without active DB role', asy
     projectId: 'project-1', reviewId: 'review-1', decision: 'APPROVED', reviewerUserId: 'actor-1',
   }), /requires the AREA_MANAGER role/);
 });
+
+test('review decision requires project.approve even when the DB role matches', async () => {
+  actor({ permissions: [RBAC_PERMISSIONS.PROJECT_WRITE], roleCode: 'AREA_MANAGER' });
+  review();
+  db.$transaction = async () => { throw new Error('write reached'); };
+  await assert.rejects(() => ProjectWorkflowReviewService.decide({
+    projectId: 'project-1', reviewId: 'review-1', decision: 'APPROVED', reviewerUserId: 'actor-1',
+  }), /capability is required/);
+});
