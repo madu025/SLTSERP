@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { ProjectWorkflowReviewService } from '@/services/project/project-workflow-review.service';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,7 @@ const reviewSchema = z.object({
 });
 
 export const GET = apiHandler(async (request, params) => {
+  await assertProjectAccess(params.id, params._userId);
   const { searchParams } = new URL(request.url);
   const stageId = searchParams.get('stageId') || undefined;
   return {
@@ -35,6 +37,7 @@ export const POST = apiHandler(async (_request, params, body) => {
   const input = reviewSchema.parse(body);
   const actorId = params._userId;
   if (!actorId) throw AppError.unauthorized('Authenticated session is required');
+  await assertProjectAccess(params.id, actorId);
 
   if (input.action === 'submit' || input.action === 'resubmit') {
     if (!input.stageId) throw AppError.badRequest('stageId is required');

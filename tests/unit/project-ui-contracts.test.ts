@@ -32,3 +32,24 @@ test('approval eligibility uses DB capabilities rather than the legacy user enum
     assert.match(service, /RBAC_PERMISSIONS\.PROJECT_APPROVE/);
     assert.match(service, /assertProjectAccess\(step\.request\.projectId/);
 });
+
+test('workflow mutations enforce project OPMC scope before changing stages or approvals', () => {
+    for (const path of [
+        'src/app/api/projects/[id]/workflow/stages/route.ts',
+        'src/app/api/projects/[id]/workflow/approvals/route.ts',
+    ]) {
+        const route = source(path);
+        assert.match(route, /assertProjectAccess\(params\.id, userId\)/);
+        assert.match(route, /permissions: \[RBAC_PERMISSIONS\.PROJECT_APPROVE\]/);
+    }
+});
+
+test('workflow review and handoff routes scope both reads and writes', () => {
+    for (const path of [
+        'src/app/api/projects/[id]/workflow/reviews/route.ts',
+        'src/app/api/projects/[id]/workflow/handoffs/route.ts',
+    ]) {
+        const route = source(path);
+        assert.equal((route.match(/await assertProjectAccess\(params\.id,/g) || []).length, 2);
+    }
+});

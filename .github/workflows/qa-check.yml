@@ -54,6 +54,9 @@ jobs:
       - name: Unit tests (SOD status authority policy and domain tables)
         run: pnpm run test:unit
 
+      - name: Project workflow, finance and scope tests
+        run: pnpm run test:project
+
       - name: SOD sync invariants (read-only census against the live schema)
         # Diagnostic until the rewrite is in enforce mode: the census is legitimately empty and the
         # pre-rewrite history still holds its duplicate rows, so failing the job here would block

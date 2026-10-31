@@ -3,6 +3,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { WorkflowEngine } from '@/services/core/WorkflowEngine';
 import { AppError } from '@/lib/error';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { assertProjectAccess } from '@/lib/project-access';
 
 export const POST = apiHandler(async (_request, params, body) => {
     const approvalId = body.approvalId as string | undefined;
@@ -13,6 +14,8 @@ export const POST = apiHandler(async (_request, params, body) => {
     if (!approvalId || !status || !userId) {
         throw AppError.badRequest('approvalId, status, and authenticated session are required');
     }
+
+    await assertProjectAccess(params.id, userId);
 
     try {
         const updated = await WorkflowEngine.submitApproval(approvalId, status, userId, comments, params.id);
