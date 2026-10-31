@@ -50,7 +50,7 @@ import ProjectBudgetTracking from '@/components/projects/ProjectBudgetTracking';
 import ProjectChangeRequests from '@/components/projects/ProjectChangeRequests';
 import ProjectGISAudit from '@/components/projects/ProjectGISAudit';
 import ProjectAsBuilt from '@/components/projects/ProjectAsBuilt';
-import { getTabsForStage, getAllProjectTabs, filterProjectTabsByPermissions, TabDefinition } from '@/config/stage-tab-mapping';
+import { getTabsForStage, filterProjectTabsByPermissions, TabDefinition } from '@/config/stage-tab-mapping';
 import { resolveCurrentProjectStage } from '@/lib/project-navigation';
 import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
@@ -125,7 +125,6 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
-    const [showAllModules, setShowAllModules] = useState(false);
     const [workflowOpenKey, setWorkflowOpenKey] = useState(0);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [guideDialogOpen, setGuideDialogOpen] = useState(false);
@@ -168,9 +167,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         () => getTabsForStage(currentStageName, project?.planningSource, project?.projectType?.name),
         [currentStageName, project?.planningSource, project?.projectType?.name],
     );
-    const visibleTabs = useMemo(() => filterProjectTabsByPermissions(showAllModules
-        ? getAllProjectTabs(project?.planningSource, project?.projectType?.name)
-        : stageTabs, permissions), [showAllModules, stageTabs, project?.planningSource, project?.projectType?.name, permissions]);
+    // The stage mapping is deliberately the source of truth for the project
+    // navigation. A module discovery view can make every future action look
+    // available, so the detail page only exposes modules for the current gate
+    // (plus the always-visible overview/workflow/tasks tabs).
+    const visibleTabs = useMemo(() => filterProjectTabsByPermissions(stageTabs, permissions), [stageTabs, permissions]);
     useEffect(() => { if (visibleTabs.length > 0 && !visibleTabs.find(t => t.value === activeTab)) { setActiveTab(visibleTabs[0]?.value ?? 'overview'); } }, [visibleTabs, activeTab]);
  
     const groupedTabs = useMemo(() => {
@@ -376,11 +377,15 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 <section aria-label="Project workflow navigation" className="border-b border-border bg-card px-4 py-3 space-y-3">
                     {loadError && <p role="alert" className="text-sm text-red-700">{loadError} <button className="underline" onClick={fetchProjectDetails}>Retry</button></p>}
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div><p className="text-sm font-semibold text-foreground">Current step: {currentStageName || 'Project setup'}</p><p className="text-xs text-muted-foreground">Complete evidence, tasks and approvals in Workflow Pipeline. Opening a module does not advance the workflow.</p></div>
-                        <Button size="sm" onClick={() => { setWorkflowOpenKey(key => key + 1); setActiveTab('workflow-pipeline'); }}>Open current step</Button>
+                        <div><p className="text-sm font-semibold text-foreground">Current step: {currentStageName || 'Project setup'}</p><p className="text-xs text-muted-foreground">Complete the evidence, tasks and approvals for this step. The next step unlocks only after the stage gate is approved.</p></div>
+                        <Button size="sm" onClick={() => { setWorkflowOpenKey(key => key + 1); setActiveTab('workflow-pipeline'); }}>Open current step gate</Button>
                     </div>
-                    {project.workflowInstance?.stages && <ol className="flex gap-2 overflow-x-auto pb-2" aria-label="Project lifecycle steps">{project.workflowInstance.stages.map((stage, index) => <li key={stage.id} className={`shrink-0 rounded-md border px-3 py-2 text-xs ${stage.name === currentStageName ? 'border-cyan-700 bg-cyan-50 text-cyan-950' : 'border-slate-200 bg-slate-50 text-slate-800'}`} aria-current={stage.name === currentStageName ? 'step' : undefined}><span className="font-semibold">{index + 1}. {stage.name}</span><span className="block text-[11px]">{stage.status.replace(/_/g, ' ')}</span></li>)}</ol>}
-                    <button type="button" aria-pressed={showAllModules} className="text-sm font-medium text-foreground underline underline-offset-4" onClick={() => setShowAllModules(value => !value)}>{showAllModules ? 'Show current-step modules' : 'Browse all project modules'}</button>
+                    {project.workflowInstance?.stages && <ol className="flex gap-2 overflow-x-auto pb-2" aria-label="Project lifecycle steps">{project.workflowInstance.stages.map((stage, index) => {
+                        const isCurrent = stage.id === project.workflowInstance?.currentStageId || stage.name === currentStageName;
+                        const isCompleted = stage.status === 'COMPLETED' || stage.status === 'SKIPPED';
+                        return <li key={stage.id} className={`shrink-0 rounded-md border px-3 py-2 text-xs ${isCurrent ? 'border-cyan-700 bg-cyan-50 text-cyan-950' : isCompleted ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-slate-50 text-slate-700'}`} aria-current={isCurrent ? 'step' : undefined}><span className="font-semibold">{index + 1}. {stage.name}</span><span className="block text-[11px]">{isCompleted ? 'COMPLETED' : isCurrent ? stage.status.replace(/_/g, ' ') : 'LOCKED · COMPLETE PREVIOUS STEP'}</span></li>;
+                    })}</ol>}
+                    <p className="text-xs text-muted-foreground">Future modules stay locked until the current stage gate is completed. Completed-stage records remain available through the Workflow Pipeline as read-only history.</p>
                 </section>
                 <div className="flex-1 flex overflow-hidden">
                     <aside className="w-48 border-r border-border bg-card/50 overflow-y-auto flex-shrink-0 hidden md:block">

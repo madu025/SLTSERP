@@ -124,7 +124,7 @@ const DOCUMENTATION: DocSection[] = [
                     'Each project type has a predefined workflow with stages (e.g., Survey, Design, Permits, etc.).',
                     'Stages appear as cards in a pipeline view, arranged in order.',
                     'Each stage shows: name, status (PENDING, IN_PROGRESS, COMPLETED, REJECTED), and assigned users.',
-                    'Only one stage is active (IN_PROGRESS) at a time.'
+                    'Only one stage is active (IN_PROGRESS) at a time; future stages remain locked until the current gate is completed.'
                 ]
             },
             {
@@ -134,7 +134,7 @@ const DOCUMENTATION: DocSection[] = [
                     'When work in a stage is complete, click "Submit for Gate Approval".',
                     'The assigned approver reviews the stage completion.',
                     'If approved: The stage status changes to COMPLETED, and the next stage becomes IN_PROGRESS.',
-                    'New tabs/modules become available based on the current stage.',
+                    'Modules for the current stage are editable; completed-stage records remain read-only and future-stage modules stay locked.',
                     'If rejected: The stage stays IN_PROGRESS. Review feedback and make necessary changes before resubmitting.'
                 ]
             },

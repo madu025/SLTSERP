@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   CheckCircle2, 
+  LockKeyhole,
   Play, 
   AlertTriangle, 
   Camera, 
@@ -20,7 +21,7 @@ import {
   ChevronRight, RefreshCcw, Send, GitPullRequest, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { resolveCurrentProjectStage } from '@/lib/project-navigation';
+import { getProjectStageAccess, resolveCurrentProjectStage } from '@/lib/project-navigation';
 import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
@@ -440,6 +441,8 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings,
   const overallProgress = Math.round(
     (workflow.stages.filter(s => s.status === 'COMPLETED').length / workflow.stages.length) * 100
   );
+  const resolvedCurrentStage = resolveCurrentProjectStage<Stage>(workflow.stages, workflow.currentStageId);
+  const currentStageId = workflow.currentStageId ?? resolvedCurrentStage?.id ?? null;
 
   return (
     <div className="space-y-6">
@@ -469,25 +472,38 @@ export default function ProjectWorkflowTracker({ project, onOpenProjectSettings,
         <div className="flex items-center min-w-max gap-3 px-1">
           {workflow.stages.map((stage, idx) => {
             const isActive = activeStage?.id === stage.id;
-            const isCompleted = stage.status === 'COMPLETED';
+            const isCompleted = stage.status === 'COMPLETED' || stage.status === 'SKIPPED';
             const isBlocked = stage.status === 'BLOCKED';
+            const access = getProjectStageAccess(stage, currentStageId);
+            const isLocked = access === 'locked';
 
             let borderStyle = 'border-slate-200 bg-white text-slate-700';
             if (isActive) borderStyle = 'border-blue-600 bg-blue-50/40 text-blue-900 shadow-sm ring-1 ring-blue-600';
             if (isCompleted) borderStyle = 'border-green-600 bg-green-50/20 text-green-900';
             if (isBlocked) borderStyle = 'border-red-600 bg-red-50/20 text-red-900';
+            if (isLocked) borderStyle = 'border-slate-200 bg-slate-100 text-slate-500';
 
             return (
               <React.Fragment key={stage.id}>
                 <button
-                  onClick={() => setActiveStage(stage)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all hover:translate-y-[-1px] ${borderStyle}`}
+                  type="button"
+                  onClick={() => {
+                    if (isLocked) {
+                      toast.info('This step is locked. Complete the current stage gate first.');
+                      return;
+                    }
+                    setActiveStage(stage);
+                  }}
+                  aria-disabled={isLocked}
+                  title={isLocked ? 'Complete the current stage gate to unlock this step' : isCompleted ? 'Read-only completed stage' : 'Current stage'}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all ${isLocked ? 'cursor-not-allowed' : 'hover:translate-y-[-1px]'} ${borderStyle}`}
                 >
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
                     isCompleted ? 'bg-green-600 text-white' : isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
                   }`}>
                     {isCompleted ? '✓' : stage.sequence}
                   </span>
+                  {isLocked && <LockKeyhole className="w-3.5 h-3.5" aria-hidden="true" />}
                   <span>{stage.name}</span>
                 </button>
                 {idx < workflow.stages.length - 1 && (

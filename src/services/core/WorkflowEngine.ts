@@ -501,17 +501,33 @@ export class WorkflowEngine {
   static async updateChecklistItem(checklistId: string, isCompleted: boolean, photoUrl?: string | null, projectId?: string) {
     const checklist = await prisma.projectChecklistInstance.findUnique({
       where: { id: checklistId },
-      include: { stage: { include: { projectWorkflowInstance: { select: { projectId: true } } } } },
+      include: { stage: { include: { projectWorkflowInstance: { select: { projectId: true, currentStageId: true } } } } },
     });
     if (!checklist) throw AppError.notFound('Workflow checklist not found');
     if (projectId && checklist.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow checklist does not belong to this project');
+    if (checklist.stage.projectWorkflowInstance.currentStageId !== checklist.stageId) {
+      throw AppError.badRequest('Checklist updates are allowed only on the current workflow stage');
+    }
     if (checklist.stage.status !== 'IN_PROGRESS') {
       throw AppError.badRequest(`Workflow stage is ${checklist.stage.status}; checklist updates are allowed only while the stage is IN_PROGRESS`);
     }
-    return prisma.projectChecklistInstance.update({
-      where: { id: checklistId },
+    const updated = await prisma.projectChecklistInstance.updateMany({
+      where: {
+        id: checklistId,
+        stageId: checklist.stageId,
+        stage: {
+          is: {
+            status: 'IN_PROGRESS',
+            projectWorkflowInstance: { is: { currentStageId: checklist.stageId } },
+          },
+        },
+      },
       data: { isCompleted, photoUrl: photoUrl ?? null },
     });
+    if (updated.count === 0) {
+      throw AppError.conflict('Workflow stage advanced before the checklist update was saved');
+    }
+    return prisma.projectChecklistInstance.findUniqueOrThrow({ where: { id: checklistId } });
   }
 
   /**
@@ -520,11 +536,14 @@ export class WorkflowEngine {
   static async updateTaskStatus(taskId: string, status: string, progress: number = 0, projectId?: string) {
     const task = await prisma.projectTaskInstance.findUnique({
       where: { id: taskId },
-      include: { stage: { include: { projectWorkflowInstance: { select: { projectId: true } } } } },
+      include: { stage: { include: { projectWorkflowInstance: { select: { projectId: true, currentStageId: true } } } } },
     });
     if (!task) throw AppError.notFound('Workflow task not found');
     if (!task.isEnabled) throw AppError.conflict('Workflow task is disabled in the project plan');
     if (projectId && task.stage.projectWorkflowInstance.projectId !== projectId) throw AppError.forbidden('Workflow task does not belong to this project');
+    if (task.stage.projectWorkflowInstance.currentStageId !== task.stageId) {
+      throw AppError.badRequest('Task updates are allowed only on the current workflow stage');
+    }
     if (task.stage.status !== 'IN_PROGRESS') {
       throw AppError.badRequest(`Workflow stage is ${task.stage.status}; task updates are allowed only while the stage is IN_PROGRESS`);
     }
@@ -551,10 +570,23 @@ export class WorkflowEngine {
       data.actualFinish = new Date();
       data.progress = 100;
     }
-    return prisma.projectTaskInstance.update({
-      where: { id: taskId },
+    const updated = await prisma.projectTaskInstance.updateMany({
+      where: {
+        id: taskId,
+        stageId: task.stageId,
+        stage: {
+          is: {
+            status: 'IN_PROGRESS',
+            projectWorkflowInstance: { is: { currentStageId: task.stageId } },
+          },
+        },
+      },
       data,
     });
+    if (updated.count === 0) {
+      throw AppError.conflict('Workflow stage advanced before the task update was saved');
+    }
+    return prisma.projectTaskInstance.findUniqueOrThrow({ where: { id: taskId } });
   }
 
   /**

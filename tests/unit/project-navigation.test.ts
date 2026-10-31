@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { getTabsForStage, getAllProjectTabs, filterProjectTabsByPermissions } from '../../src/config/stage-tab-mapping';
-import { resolveCurrentProjectStage } from '../../src/lib/project-navigation';
+import { getProjectStageAccess, resolveCurrentProjectStage } from '../../src/lib/project-navigation';
 
 test('requirements and design stages expose actionable modules', () => {
     for (const stage of ['Requirements Evaluation', 'Design Plan', 'Design Review & Approval']) {
@@ -47,4 +47,16 @@ test('module discovery filters restricted modules by canonical read capabilities
     assert.ok(!reader.some(tab => tab.value === 'finance'));
     assert.ok(!reader.some(tab => tab.value === 'procurement'));
     assert.ok(filterProjectTabsByPermissions(all, ['project.finance.read']).some(tab => tab.value === 'finance'));
+});
+
+test('project stage access locks future work while keeping completed history read-only', () => {
+    const stages = [
+        { id: 'survey', name: 'Survey', status: 'COMPLETED', sequence: 1 },
+        { id: 'materials', name: 'Material Issuance', status: 'IN_PROGRESS', sequence: 2 },
+        { id: 'install', name: 'Installation', status: 'PENDING', sequence: 3 },
+    ];
+
+    assert.equal(getProjectStageAccess(stages[0], 'materials'), 'completed');
+    assert.equal(getProjectStageAccess(stages[1], 'materials'), 'current');
+    assert.equal(getProjectStageAccess(stages[2], 'materials'), 'locked');
 });

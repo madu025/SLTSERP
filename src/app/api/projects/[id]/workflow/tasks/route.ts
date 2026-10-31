@@ -34,6 +34,7 @@ export const POST = apiHandler(async (_request, params, body) => {
 
         throw AppError.badRequest('Invalid action parameter');
     } catch (error: unknown) {
+        if (error instanceof AppError) throw error;
         const err = error as { message?: string };
         const msg = err?.message || 'Failed to update details';
         
