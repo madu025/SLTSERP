@@ -6,18 +6,6 @@ const requireAuth = process.env.SMOKE_REQUIRE_AUTH === 'true';
 
 test.describe.configure({ mode: 'serial' });
 
-test.afterEach(async ({}, testInfo) => {
-  if (process.env.CI && testInfo.status !== testInfo.expectedStatus) {
-    const detail = testInfo.error?.message?.replace(/\s+/g, ' ').slice(0, 500) || 'no error detail';
-    console.log(`::notice file=tests/production-smoke.spec.ts,line=1::smoke failure ${JSON.stringify({
-      title: testInfo.title,
-      status: testInfo.status,
-      expectedStatus: testInfo.expectedStatus,
-      detail,
-    })}`);
-  }
-});
-
 test('liveness endpoint is available', async ({ request }) => {
   const response = await request.get('/api/health/live');
 
@@ -33,41 +21,12 @@ test('application health reports a live database', async ({ request }) => {
   // worker tier fully stale. That is distinct from a database outage, which is
   // the dependency this smoke test is intended to verify.
   const body = await response.json() as { services?: { database?: string } };
-  if (process.env.CI) {
-    const safeSummary = JSON.stringify({
-      httpStatus: response.status(),
-      database: body.services?.database ?? null,
-    });
-    console.log(`::notice file=tests/production-smoke.spec.ts,line=24::health smoke ${safeSummary}`);
-  }
   expect([200, 503]).toContain(response.status());
   expect(body.services?.database).toBe('healthy');
 });
 
 test('login page is reachable and exposes the expected form', async ({ page }) => {
-  let response;
-  try {
-    response = await page.goto('/login', { waitUntil: 'domcontentloaded' });
-  } catch (error: unknown) {
-    if (process.env.CI) {
-      const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-      console.log(`::notice file=tests/production-smoke.spec.ts,line=39::login navigation ${detail.slice(0, 300)}`);
-    }
-    throw error;
-  }
-
-  if (process.env.CI) {
-    const selectorCounts = {
-      username: await page.locator('#login-username').count(),
-      password: await page.locator('#login-password').count(),
-      submit: await page.locator('#login-submit-btn').count(),
-    };
-    console.log(`::notice file=tests/production-smoke.spec.ts,line=39::login smoke ${JSON.stringify({
-      httpStatus: response?.status() ?? null,
-      url: page.url(),
-      selectorCounts,
-    })}`);
-  }
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('#login-username')).toBeVisible();
   await expect(page.locator('#login-password')).toBeVisible();
