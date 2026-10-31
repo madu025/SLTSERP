@@ -49,8 +49,8 @@ export class FiscalPeriodService {
     /**
      * Set Period Status (OPEN, CLOSED, LOCKED)
      */
-    static async setPeriodStatus(year: number, month: number, status: FiscalPeriodStatus, closedById?: string) {
-        return await prisma.fiscalPeriod.upsert({
+    static async setPeriodStatus(year: number, month: number, status: FiscalPeriodStatus, closedById?: string, db: TransactionClient | typeof prisma = prisma) {
+        return await db.fiscalPeriod.upsert({
             where: { year_month: { year, month } },
             update: {
                 status,

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { AccountType, Prisma } from '@prisma/client';
+import type { TransactionClient } from '@/types/inventory/inventory-service.types';
 
 export interface AccountBalanceSummary {
     code: string;
@@ -60,7 +61,7 @@ export class LedgerReportService {
     /**
      * Group JournalLines by accountCode and aggregate balances.
      */
-    static async getAccountBalances(fromDate?: Date, toDate?: Date): Promise<TrialBalanceReportResult> {
+    static async getAccountBalances(fromDate?: Date, toDate?: Date, db: TransactionClient | typeof prisma = prisma): Promise<TrialBalanceReportResult> {
         // Build date filter for JournalEntry
         const dateFilter: Prisma.DateTimeFilter = {};
         if (fromDate) dateFilter.gte = fromDate;
@@ -68,19 +69,17 @@ export class LedgerReportService {
 
         const entryWhere = {
             ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
-            // Official financials reflect only authoritative postings: exclude
-            // reversed entries and any still awaiting maker-checker approval.
-            status: { notIn: ['REVERSED', 'PENDING_APPROVAL'] }
+            // Financial reports include only authoritative posted entries.
+            status: 'POSTED'
         };
 
         // Fetch all CoA records for catalog names & types
-        const coaList = await prisma.chartOfAccount.findMany({
+        const coaList = await db.chartOfAccount.findMany({
             orderBy: { code: 'asc' }
         });
-        const coaMap = new Map(coaList.map(c => [c.code, c]));
 
         // Aggregate journal line debits & credits grouped by accountCode
-        const lineAggregations = await prisma.journalLine.groupBy({
+        const lineAggregations = await db.journalLine.groupBy({
             by: ['accountCode'],
             _sum: {
                 debit: true,

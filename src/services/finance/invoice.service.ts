@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { AppError } from '@/lib/error';
 import { AuditService } from '@/services/audit/audit.service';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export interface GetInvoicesParams {
     page?: number;
@@ -11,11 +12,13 @@ export interface GetInvoicesParams {
 }
 
 export class InvoiceService {
-    static async getInvoices(params: GetInvoicesParams) {
+    static async getInvoices(params: GetInvoicesParams, userId?: string | null) {
         const { page = 1, limit = 10, search = '', approvalStatus = '' } = params;
         const skip = (page - 1) * limit;
 
         const where: Prisma.InvoiceWhereInput = {};
+        const allowedOpmcs = await resolveOpmcScope(userId);
+        if (allowedOpmcs !== undefined) where.project = { opmcId: { in: allowedOpmcs } };
 
         if (search) {
             where.invoiceNumber = { contains: search, mode: 'insensitive' };

@@ -41,6 +41,13 @@ export interface BankReconciliationSummary {
 }
 
 export class BankCashService {
+    static async getActiveBankAccounts() {
+        return prisma.bankAccount.findMany({
+            where: { isActive: true },
+            select: { id: true, accountNumber: true, bankName: true },
+            orderBy: { accountNumber: 'asc' },
+        });
+    }
     /**
      * Get Cash Book ledger with running balance via DB function fn_cash_book_report().
      * Replaces JS loop with PostgreSQL window functions for O(1) DB round-trip.
@@ -177,7 +184,7 @@ export class BankCashService {
         const glLines = await prisma.journalLine.findMany({
             where: {
                 accountCode: bankAccount.glAccountCode,
-                entry: { status: { not: 'REVERSED' } }
+                entry: { status: 'POSTED' }
             }
         });
 
@@ -186,8 +193,10 @@ export class BankCashService {
             reconciledGlBalance += Number(l.debit) - Number(l.credit);
         }
 
+        const matchedJournalIds = new Set(statementLines.filter(line => line.isReconciled && line.reconciledJournalLineId).map(line => line.reconciledJournalLineId));
+        const unreconciledGlCount = glLines.filter(line => !matchedJournalIds.has(line.id)).length;
         const variance = Math.abs(statementBalance - reconciledGlBalance);
-        const isReconciled = variance < 0.01;
+        const isReconciled = statementLines.length > 0 && variance < 0.01 && unreconciledStatementCount === 0 && unreconciledGlCount === 0;
 
         return {
             bankAccountId: bankAccount.id,
@@ -196,7 +205,7 @@ export class BankCashService {
             statementBalance,
             reconciledGlBalance,
             unreconciledStatementCount,
-            unreconciledGlCount: glLines.length,
+            unreconciledGlCount,
             variance,
             isReconciled
         };

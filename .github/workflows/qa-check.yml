@@ -57,6 +57,9 @@ jobs:
       - name: Project workflow, finance and scope tests
         run: pnpm run test:project
 
+      - name: Finance posting and lifecycle tests
+        run: pnpm run test:finance
+
       - name: SOD sync invariants (read-only census against the live schema)
         # Diagnostic until the rewrite is in enforce mode: the census is legitimately empty and the
         # pre-rewrite history still holds its duplicate rows, so failing the job here would block

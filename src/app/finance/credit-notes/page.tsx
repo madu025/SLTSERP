@@ -82,7 +82,7 @@ export default function CreditNotesPage() {
                                                         LKR {n.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                                     </td>
                                                     <td className="py-3.5 px-4 text-center">
-                                                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">POSTED</Badge>
+                                                        <Badge className={n.status === 'POSTED' ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}>{n.status}</Badge>
                                                     </td>
                                                 </tr>
                                             ))}

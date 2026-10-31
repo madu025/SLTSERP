@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { AppError } from '@/lib/error';
 import { apiHandler } from "@/lib/api-handler";
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { z } from 'zod';
@@ -11,15 +10,12 @@ const approveInvoiceSchema = z.object({
 });
 
 export const POST = apiHandler(
-    async (req, params, body: z.infer<typeof approveInvoiceSchema>) => {
-        const userId = req.headers.get('x-user-id');
-        if (!userId) throw AppError.unauthorized('Authentication required');
-        
+    async (_req, params, body: z.infer<typeof approveInvoiceSchema>) => {
         if (body.action === 'APPROVE') {
-            const invoice = await InvoiceApprovalService.approveInvoice(params.id);
+            const invoice = await InvoiceApprovalService.approveInvoice(params.id, params._userId);
             return { message: 'Invoice approved successfully', invoice };
         } else {
-            const invoice = await InvoiceApprovalService.rejectInvoice(params.id, body.reason || 'Rejected by approver');
+            const invoice = await InvoiceApprovalService.rejectInvoice(params.id, body.reason || 'Rejected by approver', params._userId);
             return { message: 'Invoice rejected successfully', invoice };
         }
     },

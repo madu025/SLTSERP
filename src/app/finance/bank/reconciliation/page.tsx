@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from 'react';
 
 interface BankReconciliationSummary {
     bankAccountId: string;
@@ -21,28 +22,29 @@ interface BankReconciliationSummary {
 }
 
 export default function BankReconciliationPage() {
-    const { data, refetch } = useQuery<BankReconciliationSummary>({
-        queryKey: ['bank-reconciliation-summary'],
+    const [bankAccountId, setBankAccountId] = useState('');
+    const { data: accounts = [], isError: accountsError } = useQuery<Array<{ id: string; accountNumber: string; bankName: string }>>({
+        queryKey: ['bank-accounts-for-reconciliation'],
         queryFn: async () => {
-            const res = await fetch(`/api/finance/bank/reconciliation?bankAccountId=default&_t=${Date.now()}`, { cache: 'no-store' });
-            if (!res.ok) return {
-                bankAccountId: 'default',
-                accountNumber: 'OPERATING-001',
-                bankName: 'Main Commercial Bank',
-                statementBalance: 0,
-                reconciledGlBalance: 0,
-                unreconciledStatementCount: 0,
-                unreconciledGlCount: 0,
-                variance: 0,
-                isReconciled: true
-            };
+            const res = await fetch('/api/finance/bank/reconciliation', { cache: 'no-store' });
+            if (!res.ok) throw new Error('Failed to load bank accounts');
+            const json = await res.json();
+            return json.data.accounts;
+        },
+    });
+    const { data, refetch, isError, isLoading } = useQuery<BankReconciliationSummary>({
+        queryKey: ['bank-reconciliation-summary', bankAccountId],
+        enabled: Boolean(bankAccountId),
+        queryFn: async () => {
+            const res = await fetch(`/api/finance/bank/reconciliation?bankAccountId=${encodeURIComponent(bankAccountId)}`, { cache: 'no-store' });
+            if (!res.ok) throw new Error('Failed to load bank reconciliation');
             const json = await res.json();
             return json.data;
         }
     });
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.ADMIN_RBAC}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -61,14 +63,26 @@ export default function BankReconciliationPage() {
                                 </p>
                             </div>
 
-                            <Button variant="outline" size="sm" onClick={() => refetch()} className="border-slate-300">
+                            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={!bankAccountId} className="border-slate-300">
                                 <RefreshCw className="w-4 h-4 mr-1.5" />
                                 Refresh Status
                             </Button>
                         </div>
 
+                        <div className="space-y-1">
+                            <label htmlFor="reconciliation-bank-account" className="text-sm font-semibold text-slate-800">Bank account</label>
+                            <select id="reconciliation-bank-account" value={bankAccountId} onChange={(event) => setBankAccountId(event.target.value)}
+                                className="block w-full max-w-md rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900">
+                                <option value="">Select a bank account</option>
+                                {accounts.map(account => <option key={account.id} value={account.id}>{account.bankName} · {account.accountNumber}</option>)}
+                            </select>
+                        </div>
+                        {accountsError && <p role="alert" className="text-sm text-red-700">Bank accounts could not be loaded. Retry the page.</p>}
+                        {bankAccountId && isLoading && <p className="text-sm text-slate-700">Loading reconciliation...</p>}
+                        {isError && <p role="alert" className="text-sm text-red-700">Reconciliation could not be loaded. Select the account again or retry.</p>}
+
                         {/* Summary Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {data && !isError && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
                                 <div className="text-xs font-semibold uppercase text-slate-500">Bank Statement Balance</div>
                                 <div className="text-2xl font-bold text-slate-900 mt-1 font-mono">
@@ -87,18 +101,18 @@ export default function BankReconciliationPage() {
                                     LKR {(data?.variance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </div>
                             </div>
-                        </div>
+                        </div>}
 
                         {/* Reconciliation Status Panel */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex flex-col items-center text-center space-y-3">
+                        {data && !isError && <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex flex-col items-center text-center space-y-3">
                             <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
                                 <CheckCircle2 className="w-6 h-6" />
                             </div>
-                            <h2 className="text-lg font-bold text-slate-900">Bank Statement Auto-Matching Active</h2>
+                            <h2 className="text-lg font-bold text-slate-900">{data.isReconciled ? 'Balances and lines match' : data.variance > 0 ? 'Reconciliation variance remains' : 'Reconciliation not yet complete'}</h2>
                             <p className="text-sm text-slate-500 max-w-md">
-                                All imported bank statement transaction lines are automatically cross-checked against GL journal entries for amount, date, and reference matching.
+                                {data.unreconciledStatementCount} statement line(s) remain unmatched. Review the variance and source transactions before closing the reconciliation.
                             </p>
-                        </div>
+                        </div>}
 
                     </main>
                 </div>

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { TransactionClient } from '@/types/inventory/inventory-service.types';
+import { assertProjectAccess } from '@/lib/project-access';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export class InvoiceApprovalService {
     /**
@@ -13,7 +15,8 @@ export class InvoiceApprovalService {
      * invoice generation), so posting again at approval would double-recognize
      * AR / revenue. Approval is purely a maker-checker status gate.
      */
-    static async approveInvoice(invoiceId: string) {
+    static async approveInvoice(invoiceId: string, actorId?: string | null) {
+        await this.assertInvoiceScope(invoiceId, actorId);
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const invoice = await tx.invoice.findUnique({
                 where: { id: invoiceId },
@@ -36,7 +39,8 @@ export class InvoiceApprovalService {
         });
     }
 
-    static async rejectInvoice(invoiceId: string, reason: string) {
+    static async rejectInvoice(invoiceId: string, reason: string, actorId?: string | null) {
+        await this.assertInvoiceScope(invoiceId, actorId);
         return await prisma.invoice.update({
             where: { id: invoiceId },
             data: {
@@ -45,5 +49,16 @@ export class InvoiceApprovalService {
                 description: reason
             }
         });
+    }
+
+    private static async assertInvoiceScope(invoiceId: string, actorId?: string | null) {
+        if (!actorId) throw AppError.unauthorized('Authentication required');
+        const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { projectId: true } });
+        if (!invoice) throw AppError.notFound('Invoice not found');
+        if (invoice.projectId) {
+            await assertProjectAccess(invoice.projectId, actorId);
+        } else if (await resolveOpmcScope(actorId) !== undefined) {
+            throw AppError.forbidden('Unlinked invoice is outside assigned OPMC scope');
+        }
     }
 }

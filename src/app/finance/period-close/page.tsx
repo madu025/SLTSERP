@@ -1,10 +1,10 @@
 "use client";
 
-import {  useState  } from 'react';
+import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import RoleGuard from '@/components/RoleGuard';
-import { ROLE_GROUPS } from "@/config/roles";
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { Lock, CheckCircle2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -17,11 +17,16 @@ interface YearEndResult {
 }
 
 export default function PeriodClosePage() {
-    const [year] = useState<number>(2026);
+    const [year, setYear] = useState<number>(() => new Date().getFullYear() - 1);
     const [isExecuting, setIsExecuting] = useState<boolean>(false);
     const [lastClose, setLastClose] = useState<YearEndResult | null>(null);
 
     const handleExecuteYearEnd = async () => {
+        if (!Number.isInteger(year) || year < 2000 || year >= new Date().getFullYear()) {
+            toast.error('Select a completed fiscal year');
+            return;
+        }
+        if (!window.confirm(`Close FY ${year}? This posts the year-end journal and locks all 12 fiscal periods.`)) return;
         setIsExecuting(true);
         try {
             const res = await fetch('/api/finance/period-close', {
@@ -41,7 +46,7 @@ export default function PeriodClosePage() {
     };
 
     return (
-        <RoleGuard allowedRoles={ROLE_GROUPS.FINANCE}>
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.ADMIN_RBAC}>
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <Sidebar />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -70,21 +75,22 @@ export default function PeriodClosePage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
                                 <div className="text-xs font-semibold uppercase text-slate-500">Selected Fiscal Year</div>
-                                <div className="text-2xl font-bold text-slate-900 mt-1 font-mono">
-                                    FY {year}
-                                </div>
+                                <label htmlFor="fiscal-close-year" className="sr-only">Fiscal year to close</label>
+                                <input id="fiscal-close-year" type="number" min={2000} max={new Date().getFullYear() - 1}
+                                    value={year} onChange={(event) => setYear(Number(event.target.value))}
+                                    className="mt-1 w-32 rounded border border-slate-300 bg-white px-2 py-1 text-xl font-bold text-slate-900" />
                             </div>
                             <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-200">
                                 <div className="text-xs font-semibold uppercase text-emerald-800">Trial Balance Integrity</div>
                                 <div className="text-xl font-bold text-emerald-950 mt-1 font-mono flex items-center gap-1.5">
                                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                                    DR === CR (Balanced)
+                                    {lastClose?.year === year ? 'Balanced at close' : 'Validated on close'}
                                 </div>
                             </div>
                             <div className="bg-indigo-900 text-white rounded-xl p-5 shadow-sm">
                                 <div className="text-xs font-semibold uppercase text-indigo-300">Period Lock Security</div>
                                 <div className="text-xl font-bold text-indigo-100 mt-1 font-mono">
-                                    Enforced Immutability
+                                    {lastClose?.year === year ? 'FY periods locked' : 'Not yet verified'}
                                 </div>
                             </div>
                         </div>
