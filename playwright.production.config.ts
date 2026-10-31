@@ -19,6 +19,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   use: {
     baseURL: process.env.SMOKE_BASE_URL || process.env.BASE_URL || 'http://localhost:3000',
+    channel: 'chrome',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
