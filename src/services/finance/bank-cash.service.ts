@@ -143,22 +143,56 @@ export class BankCashService {
      * Reconcile a bank statement line with a GL journal line.
      */
     static async reconcileStatementLine(statementLineId: string, journalLineId: string) {
-        const statementLine = await prisma.bankStatementLine.findUnique({ where: { id: statementLineId } });
-        if (!statementLine) throw AppError.notFound(`Statement line #${statementLineId} not found`);
+        return prisma.$transaction(async (tx) => {
+            // Serialize both rows so two concurrent operators cannot match the same
+            // statement or GL line and silently create a false reconciliation.
+            await tx.$queryRaw`SELECT id FROM "BankStatementLine" WHERE id = ${statementLineId}::uuid FOR UPDATE`;
+            await tx.$queryRaw`SELECT id FROM "JournalLine" WHERE id = ${journalLineId}::uuid FOR UPDATE`;
 
-        const journalLine = await prisma.journalLine.findUnique({ where: { id: journalLineId } });
-        if (!journalLine) throw AppError.notFound(`Journal line #${journalLineId} not found`);
-
-        const updated = await prisma.bankStatementLine.update({
-            where: { id: statementLineId },
-            data: {
-                isReconciled: true,
-                reconciledJournalLineId: journalLineId,
-                reconciledAt: new Date()
+            const statementLine = await tx.bankStatementLine.findUnique({
+                where: { id: statementLineId },
+                include: { bankAccount: { select: { glAccountCode: true } } },
+            });
+            if (!statementLine) throw AppError.notFound(`Statement line #${statementLineId} not found`);
+            if (statementLine.isReconciled) {
+                throw AppError.conflict(`Statement line #${statementLineId} is already reconciled`);
             }
-        });
 
-        return updated;
+            const journalLine = await tx.journalLine.findUnique({
+                where: { id: journalLineId },
+                include: { entry: { select: { status: true } } },
+            });
+            if (!journalLine) throw AppError.notFound(`Journal line #${journalLineId} not found`);
+            if (journalLine.entry.status !== 'POSTED') {
+                throw AppError.badRequest('Only POSTED journal lines can be reconciled');
+            }
+            if (journalLine.accountCode !== statementLine.bankAccount.glAccountCode) {
+                throw AppError.badRequest('Journal line does not belong to the selected bank account');
+            }
+
+            const statementNet = Number(statementLine.debit) - Number(statementLine.credit);
+            const journalNet = Number(journalLine.debit) - Number(journalLine.credit);
+            if (!Number.isFinite(statementNet) || !Number.isFinite(journalNet) || Math.abs(statementNet - journalNet) >= 0.01) {
+                throw AppError.badRequest('Statement and journal amounts do not match');
+            }
+
+            const alreadyMatched = await tx.bankStatementLine.findFirst({
+                where: { reconciledJournalLineId: journalLineId },
+                select: { id: true },
+            });
+            if (alreadyMatched) {
+                throw AppError.conflict(`Journal line #${journalLineId} is already reconciled`);
+            }
+
+            return tx.bankStatementLine.update({
+                where: { id: statementLineId },
+                data: {
+                    isReconciled: true,
+                    reconciledJournalLineId: journalLineId,
+                    reconciledAt: new Date(),
+                },
+            });
+        });
     }
 
     /**

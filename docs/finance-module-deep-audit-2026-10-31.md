@@ -86,12 +86,18 @@ requests, rejected/manual bank links, over-credit notes, and invoice approval
 scope. Browser-test the corresponding screens and error states at desktop and
 mobile sizes. A passing local suite or CI build alone is not financial sign-off.
 
+## Reconciliation hardening completed
+
+Manual bank matching now uses one transaction with row locks, requires a
+posted journal line on the selected bank GL account with a matching net amount,
+rejects already reconciled statement or journal lines, and has focused tests.
+
 ## Validation in this audit
 
-- `pnpm run test:finance`: 50 passed.
+- `pnpm run test:finance`: 52 passed.
 - `pnpm run test:types`: passed.
 - Changed-file ESLint and `git diff --check`: passed.
-- A production build passed before the final credit-note and reconciliation
-  contract edits; rerun the build gate on the committed revision.
+- `pnpm run build`: passed on the current revision (Next.js compiled, TypeScript
+  completed, and 160 static pages generated; existing Next.js warnings remain).
 - No disposable Finance database or authenticated role fixture was available
   for an actual posting lifecycle. These checks remain local/source evidence.

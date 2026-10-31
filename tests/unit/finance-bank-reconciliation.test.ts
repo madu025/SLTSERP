@@ -9,11 +9,13 @@ const original = {
   bankFindUnique: db.bankAccount.findUnique,
   statementFindMany: db.bankStatementLine.findMany,
   journalFindMany: db.journalLine.findMany,
+  transaction: db.$transaction,
 };
 afterEach(() => {
   db.bankAccount.findUnique = original.bankFindUnique;
   db.bankStatementLine.findMany = original.statementFindMany;
   db.journalLine.findMany = original.journalFindMany;
+  db.$transaction = original.transaction;
 });
 
 test('matching balances do not hide unmatched statement or GL lines', async () => {
@@ -49,4 +51,61 @@ test('empty bank statements are not reported as reconciled', async () => {
   const summary = await BankCashService.getBankReconciliationSummary('bank-1');
   assert.equal(summary.variance, 0);
   assert.equal(summary.isReconciled, false);
+});
+
+test('manual matching requires a posted line on the same bank account and matching amount', async () => {
+  const updated = { id: 'statement-1', isReconciled: true, reconciledJournalLineId: 'line-1' };
+  const tx = {
+    $queryRaw: async () => [],
+    bankStatementLine: {
+      findUnique: async () => ({
+        id: 'statement-1',
+        debit: 100,
+        credit: 0,
+        isReconciled: false,
+        bankAccount: { glAccountCode: 'BANK-1000' },
+      }),
+      findFirst: async () => null,
+      update: async () => updated,
+    },
+    journalLine: {
+      findUnique: async () => ({
+        id: 'line-1',
+        accountCode: 'BANK-1000',
+        debit: 100,
+        credit: 0,
+        entry: { status: 'POSTED' },
+      }),
+    },
+  };
+  db.$transaction = async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx);
+
+  const result = await BankCashService.reconcileStatementLine('statement-1', 'line-1');
+  assert.deepEqual(result, updated);
+});
+
+test('manual matching rejects draft or cross-account journal lines', async () => {
+  const tx = {
+    $queryRaw: async () => [],
+    bankStatementLine: {
+      findUnique: async () => ({
+        id: 'statement-1', debit: 100, credit: 0, isReconciled: false,
+        bankAccount: { glAccountCode: 'BANK-1000' },
+      }),
+      findFirst: async () => null,
+      update: async () => { throw new Error('must not update'); },
+    },
+    journalLine: {
+      findUnique: async () => ({
+        id: 'line-1', accountCode: 'BANK-2000', debit: 100, credit: 0,
+        entry: { status: 'DRAFT' },
+      }),
+    },
+  };
+  db.$transaction = async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx);
+
+  await assert.rejects(
+    () => BankCashService.reconcileStatementLine('statement-1', 'line-1'),
+    /POSTED journal lines/,
+  );
 });
