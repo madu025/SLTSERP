@@ -67,16 +67,23 @@ jobs:
       - name: Verify Chrome for Playwright
         run: google-chrome --version
 
-      - name: Run E2E Tests
-        run: pnpm exec playwright test
+      - name: Wait for deployed application
+        shell: bash
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.DIRECT_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL || secrets.DATABASE_URL }}
-          E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-          # The CI server renders the root gateway and login page during smoke tests.
-          # Keep the fail-closed auth module configured without reusing production secrets.
-          JWT_SECRET: ci-only-build-secret-not-for-production
-          NEXTAUTH_SECRET: test-secret-for-ci
-          NEXTAUTH_URL: http://localhost:3000
-          NODE_ENV: test
+          SMOKE_BASE_URL: https://slts.vynor.lk
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error "$SMOKE_BASE_URL/api/health/live" >/dev/null; then
+              echo "Deployed application is live."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Deployed application did not become live within 5 minutes."
+          exit 1
+
+      - name: Run E2E Tests
+        run: pnpm exec playwright test --config=playwright.production.config.ts
+        env:
+          SMOKE_BASE_URL: https://slts.vynor.lk
+          SMOKE_REQUIRE_AUTH: 'false'
