@@ -61,8 +61,8 @@ jobs:
         continue-on-error: true
         run: pnpm run check:sync -- --hours=6
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL || secrets.DATABASE_URL }}
 
       - name: Verify Chrome for Playwright
         run: google-chrome --version
@@ -70,8 +70,8 @@ jobs:
       - name: Run E2E Tests
         run: pnpm exec playwright test
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL || secrets.DATABASE_URL }}
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           # The CI server renders the root gateway and login page during smoke tests.
