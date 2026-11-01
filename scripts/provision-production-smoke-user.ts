@@ -55,7 +55,10 @@ async function main() {
         where: { id: user.id },
         data: {
             mustChangePassword: false,
-            permissions: JSON.stringify([RBAC_PERMISSIONS.DASHBOARD_READ]),
+            permissions: JSON.stringify([
+                RBAC_PERMISSIONS.DASHBOARD_READ,
+                RBAC_PERMISSIONS.SOD_READ,
+            ]),
         },
     });
 
