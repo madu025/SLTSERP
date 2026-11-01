@@ -162,3 +162,24 @@ test('Project to GL/reporting handoff chain renders in order without mutation', 
     await expect(page.getByRole('heading').filter({ hasText: heading }).first()).toBeVisible({ timeout: 20_000 });
   }
 });
+
+test('SOD to billing/tax handoff chain renders in order without mutation', async ({ page }) => {
+  const chain = [
+    ['/service-orders', /Service Orders/i],
+    ['/inventory/issues', /Issue|Material/i],
+    ['/contractor/inventory', /Stock|Inventory/i],
+    ['/inventory/admin/returns', /Return/i],
+    ['/service-orders/work-order/pat', /PAT/i],
+    ['/finance/wip-revenue', /WIP|Revenue/i],
+    ['/finance/billing', /Contractor Billing/i],
+    ['/finance/tax/vat-return', /VAT/i],
+    ['/finance/tax/wht-register', /WHT|Withholding/i],
+  ] as const;
+
+  for (const [route, heading] of chain) {
+    await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+    await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error/i);
+    await expect(page.getByRole('heading').filter({ hasText: heading }).first()).toBeVisible({ timeout: 20_000 });
+  }
+});
