@@ -14,7 +14,7 @@ const financeRoutes = [
   ['/finance/capex-opex', /Capex.*Opex/i],
   ['/finance/chart-of-accounts', /Chart of Accounts/i],
   ['/finance/contractor-payments', /Contractor Payment Configuration/i],
-  ['/finance/cost-allocation', /Cost Allocation/i],
+  ['/finance/cost-allocation', /Cost(?: Center)? Allocation/i],
   ['/finance/credit-notes', /Credit.*Debit Notes Register/i],
   ['/finance/exchange-rates', /Exchange Rates/i],
   ['/finance/fixed-assets', /Fixed Assets/i],

@@ -23,7 +23,9 @@ export const POST = apiHandler(async (_req, _params, body) => {
     const payload = dynamicReportSchema.parse(body) as DynamicReportPayload;
     const report = await DynamicReportService.generateReport(payload);
     
-    return Response.json({ success: true, data: report });
+    // Return the report value to apiHandler so it owns the standard response
+    // envelope (`{ success: true, data: report }`) consumed by the UI.
+    return report;
 }, {
     roles: ROLE_GROUPS.PROJECT_MANAGERS,
     audit: { action: 'GENERATE_DYNAMIC_REPORT', entity: 'Reports' }

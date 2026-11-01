@@ -126,7 +126,11 @@ export class DynamicReportService {
         } else if (entity === 'wastage') {
             includeClause = { contractor: true, store: true };
         } else if (entity === 'serviceOrder') {
-            includeClause = { opmc: true };
+            // The standard service-order report only exposes scalar fields.
+            // Loading the full OPMC relation for every row caused very slow
+            // live queries and left the browser in its compiling state. Nested
+            // relation columns are not whitelisted for this entity.
+            includeClause = undefined;
         }
 
         // 4. Fetch Raw Data from Master
@@ -137,7 +141,11 @@ export class DynamicReportService {
         const rawRecords = await client.findMany({
             where: whereClause,
             include: includeClause,
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            // Keep interactive report generation bounded on production-sized
+            // datasets. The UI is an operational report, not an unbounded
+            // table export; CSV export can be extended with server pagination.
+            take: 500,
         });
 
         // 5. Apply Aggregations if configured
