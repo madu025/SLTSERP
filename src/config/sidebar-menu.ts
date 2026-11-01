@@ -636,7 +636,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         permissionId: 'corporate-finance',
         submenu: [
             {
-                title: 'GL & Reports',
+                title: 'Accounting & Reporting',
                 path: '#',
                 icon: Layers,
                 allowedRoles: ROLE_GROUPS.FINANCE,
@@ -689,7 +689,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             },
             {
-                title: 'Tax & Receivables',
+                title: 'Tax, AR & AP',
                 path: '#',
                 icon: Receipt,
                 allowedRoles: ROLE_GROUPS.FINANCE,
@@ -729,7 +729,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             },
             {
-                title: 'Banking & Cash',
+                title: 'Treasury & Reconciliation',
                 path: '#',
                 icon: Landmark,
                 allowedRoles: ROLE_GROUPS.FINANCE,
@@ -777,7 +777,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             },
             {
-                title: 'Close & Billing',
+                title: 'Billing & Period Controls',
                 path: '#',
                 icon: Lock,
                 allowedRoles: ROLE_GROUPS.FINANCE,

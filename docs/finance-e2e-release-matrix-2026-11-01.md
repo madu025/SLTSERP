@@ -73,6 +73,26 @@ The existing `tests/unit/finance-*-batch-10.test.ts` files are deliberately
 labelled service-adapter tests. They protect transition logic but do not satisfy
 this real-data browser/database rule.
 
+## Segregation-of-duties menu rule
+
+General Ledger and Cash Book remain separate functions. The menu groups them
+under related Finance areas, but it does not merge their data or actions:
+
+- **Accounting & Reporting:** General Ledger, Chart of Accounts, Trial Balance,
+  P&L, Balance Sheet, GL drill-down, and FP&A.
+- **Treasury & Reconciliation:** Cash Book/Bank Ledger, Bank Reconciliation,
+  and FX rates.
+- **Tax, AR & AP:** VAT, WHT, receivables, payables, and credit/debit notes.
+- **Assets & Payroll:** Fixed Assets and HO Payroll allocation.
+- **Billing & Period Controls:** Contractor Billing, Invoice Approvals, and
+  Financial Period Close.
+
+The role boundary is separate from the visual grouping: makers prepare billing
+and vouchers; checkers approve/pay; Cashiers operate cash views but cannot close
+periods; Finance Managers/Controllers own approvals, reconciliation, setup, and
+period close; readers see reports only. A menu group never grants a write or
+approval capability by itself.
+
 The legacy CSV auto-match route remains available by URL, but it is excluded
 from the primary navigation. `Bank Reconciliation` is the official persisted
 workflow for the release candidate. Customer receipts belong to the separate
