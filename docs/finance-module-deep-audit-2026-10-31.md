@@ -117,5 +117,9 @@ rejects already reconciled statement or journal lines, and has focused tests.
 - Authenticated deployed browser route matrix: 48 Finance URLs exercised
   read-only; invoice, credit-note, bank-reconciliation, period-close, AR/AP
   aging, and payment-voucher screens rendered without login/runtime errors.
+- Read-only integration chains also passed: Project → Procurement → Inventory
+  → Invoice → Payment/Approval → Bank Reconciliation → GL/Reports (9/9), and
+  SOD → Inventory Issue → Contractor Custody → Return → PAT → WIP → Billing
+  → VAT/WHT (9/9).
 - The pre-rollout host still showed the IOU crash and Petty Cash 404; retest
   those two routes after commits `70acef41` and `1c772964` deploy.
