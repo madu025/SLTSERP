@@ -52,6 +52,27 @@ browser storage states are missing. It also rejects reusing the configured
 application database or application origin. A passing service adapter test
 never satisfies this preflight.
 
+## No-mocked-input rule
+
+The real chain suite must use records returned by the system's source modules;
+it must not invent IDs, hard-code business amounts, or seed an in-memory
+replacement for a source record. The discovery step must query the disposable
+QA database through the application/API and write a manifest of the discovered
+IDs. If a source module has no eligible record, the chain is recorded as an
+environment/data issue and stops at that boundary instead of fabricating an
+input.
+
+Examples:
+
+- Billing starts from an eligible completed SOD and its contractor.
+- Payment Voucher starts from the invoice produced by that billing action.
+- Depreciation starts from an asset returned by the Fixed Asset Register.
+- Period Close starts from the posted GL rows produced by the preceding steps.
+
+The existing `tests/unit/finance-*-batch-10.test.ts` files are deliberately
+labelled service-adapter tests. They protect transition logic but do not satisfy
+this real-data browser/database rule.
+
 The legacy CSV auto-match route remains available by URL, but it is excluded
 from the primary navigation. `Bank Reconciliation` is the official persisted
 workflow for the release candidate. Customer receipts belong to the separate

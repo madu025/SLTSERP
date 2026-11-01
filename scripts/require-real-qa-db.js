@@ -13,6 +13,8 @@ const required = [
   'QA_BASE_URL',
   'QA_RESET_SCRIPT',
   'QA_FIXTURE_MANIFEST',
+  'QA_FIXTURE_SOURCE',
+  'QA_FIXTURE_DISCOVERY',
   'QA_MAKER_STORAGE',
   'QA_CHECKER_STORAGE',
 ];
@@ -23,6 +25,12 @@ for (const name of required) {
 
 if (process.env.QA_ENVIRONMENT !== 'disposable') {
   fail('QA_ENVIRONMENT must be exactly disposable');
+}
+if (process.env.QA_FIXTURE_SOURCE !== 'database') {
+  fail('QA_FIXTURE_SOURCE must be database; mocked or hardcoded fixture inputs are forbidden');
+}
+if (process.env.QA_SYNTHETIC_DATA === 'true' || process.env.USE_MOCK_DATA === 'true') {
+  fail('synthetic/mock data flags are enabled; real chain tests must consume source-module records');
 }
 
 function parseUrl(name) {
@@ -51,7 +59,7 @@ if (qaDb && !['postgres:', 'postgresql:'].includes(qaDb.protocol)) {
   fail('QA_DATABASE_URL must use PostgreSQL');
 }
 
-for (const name of ['QA_RESET_SCRIPT', 'QA_FIXTURE_MANIFEST', 'QA_MAKER_STORAGE', 'QA_CHECKER_STORAGE']) {
+for (const name of ['QA_RESET_SCRIPT', 'QA_FIXTURE_MANIFEST', 'QA_FIXTURE_DISCOVERY', 'QA_MAKER_STORAGE', 'QA_CHECKER_STORAGE']) {
   const resolved = path.resolve(process.cwd(), process.env[name] || '');
   if (!fs.existsSync(resolved)) fail(`${name} path does not exist: ${process.env[name] || '<empty>'}`);
 }
