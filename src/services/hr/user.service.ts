@@ -326,7 +326,7 @@ export class UserService {
             }));
 
             return user;
-        });
+        }, { maxWait: 10_000, timeout: 30_000 });
 
         const userWithoutPassword = { ...result } as Partial<typeof result>;
         delete userWithoutPassword.password;

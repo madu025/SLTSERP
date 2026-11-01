@@ -1,4 +1,4 @@
-import { test as setup } from '@playwright/test';
+import { test as setup, expect } from '@playwright/test';
 
 const AUTH_FILE = '.auth/user.json';
 const E2E_USERNAME = process.env.E2E_USERNAME;
@@ -32,9 +32,11 @@ setup('authenticate as configured E2E user', async ({ page }) => {
   // Click the submit button
   await page.click('#login-submit-btn');
 
-  // Wait for navigation to dashboard (timeout after 15s)
+  // Wait for the authenticated shell to settle. With a remote database the
+  // redirect can complete before waitForURL attaches its listener, so poll the
+  // actual current URL instead of relying on a navigation event race.
   try {
-    await page.waitForURL('**/dashboard', { timeout: 15000 });
+    await expect.poll(() => page.url(), { timeout: 30_000 }).toMatch(/\/dashboard(?:\?|$)/);
     console.log('Login successful, redirected to dashboard');
   } catch (error) {
     await page.screenshot({ path: 'test-results/auth-login-result.png' });

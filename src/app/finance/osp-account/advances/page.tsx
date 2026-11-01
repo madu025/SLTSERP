@@ -19,9 +19,18 @@ const advanceSchema = z.object({
 });
 
 type AdvanceFormValues = z.infer<typeof advanceSchema>;
+type AdvanceRecord = {
+  id: string;
+  refNumber: string;
+  supplierName?: string | null;
+  amount: number;
+  vatAmount: number;
+  totalAmount: number;
+  status: string;
+};
 
 export default function AdvancesPage() {
-  const [advances, setAdvances] = useState<any[]>([]);
+  const [advances, setAdvances] = useState<AdvanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -35,7 +44,12 @@ export default function AdvancesPage() {
       const res = await fetch(`/api/finance/osp-account/advances?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        setAdvances(data.data);
+        const records = Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data.data?.data)
+            ? data.data.data
+            : [];
+        setAdvances(records);
       }
     } catch (error) {
       console.error('Error fetching Advances:', error);
@@ -48,7 +62,7 @@ export default function AdvancesPage() {
     fetchAdvances();
   }, []);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: AdvanceFormValues) => {
     try {
       const res = await fetch('/api/finance/osp-account/advances', {
         method: 'POST',
@@ -63,8 +77,8 @@ export default function AdvancesPage() {
       setIsModalOpen(false);
       reset();
       fetchAdvances();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create Advance');
     }
   };
 
@@ -78,8 +92,8 @@ export default function AdvancesPage() {
       if (!res.ok) throw new Error('Approval failed');
       toast.success('Advance Approved');
       fetchAdvances();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Approval failed');
     }
   };
 

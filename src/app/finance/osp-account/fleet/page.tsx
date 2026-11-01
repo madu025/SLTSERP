@@ -27,11 +27,26 @@ const fuelSchema = z.object({
 
 type HiringFormValues = z.infer<typeof hiringSchema>;
 type FuelFormValues = z.infer<typeof fuelSchema>;
+type HiringPaymentRecord = {
+  id: string;
+  accountName: string;
+  vehicleNo?: string | null;
+  slipNo: string;
+  amount: number;
+  status: string;
+};
+type FuelDepositRecord = {
+  id: string;
+  officeLocation: string;
+  stationName: string;
+  actualDeposit: number;
+  status: string;
+};
 
 export default function FleetPage() {
   const [activeTab, setActiveTab] = useState<'hiring' | 'fuel'>('hiring');
-  const [payments, setPayments] = useState<any[]>([]);
-  const [deposits, setDeposits] = useState<any[]>([]);
+  const [payments, setPayments] = useState<HiringPaymentRecord[]>([]);
+  const [deposits, setDeposits] = useState<FuelDepositRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isHiringModalOpen, setIsHiringModalOpen] = useState(false);
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
@@ -46,8 +61,14 @@ export default function FleetPage() {
         fetch(`/api/finance/osp-account/fleet/hiring-payments?_t=${Date.now()}`),
         fetch(`/api/finance/osp-account/fleet/fuel-deposits?_t=${Date.now()}`)
       ]);
-      if (pRes.ok) setPayments((await pRes.json()).data);
-      if (dRes.ok) setDeposits((await dRes.json()).data);
+      if (pRes.ok) {
+        const payload = await pRes.json();
+        setPayments(Array.isArray(payload.data) ? payload.data : Array.isArray(payload.data?.data) ? payload.data.data : []);
+      }
+      if (dRes.ok) {
+        const payload = await dRes.json();
+        setDeposits(Array.isArray(payload.data) ? payload.data : Array.isArray(payload.data?.data) ? payload.data.data : []);
+      }
     } catch (error) {
       console.error('Error fetching fleet data:', error);
     } finally {
@@ -59,7 +80,7 @@ export default function FleetPage() {
     fetchData();
   }, []);
 
-  const onHiringSubmit = async (data: any) => {
+  const onHiringSubmit = async (data: HiringFormValues) => {
     try {
       const res = await fetch('/api/finance/osp-account/fleet/hiring-payments', {
         method: 'POST',
@@ -71,12 +92,12 @@ export default function FleetPage() {
       setIsHiringModalOpen(false);
       resetHiring();
       fetchData();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create Hiring Payment');
     }
   };
 
-  const onFuelSubmit = async (data: any) => {
+  const onFuelSubmit = async (data: FuelFormValues) => {
     try {
       const res = await fetch('/api/finance/osp-account/fleet/fuel-deposits', {
         method: 'POST',
@@ -88,8 +109,8 @@ export default function FleetPage() {
       setIsFuelModalOpen(false);
       resetFuel();
       fetchData();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create Fuel Deposit');
     }
   };
 
@@ -103,8 +124,8 @@ export default function FleetPage() {
       if (!res.ok) throw new Error('Approval failed');
       toast.success('Payment Approved');
       fetchData();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Approval failed');
     }
   };
 
@@ -118,8 +139,8 @@ export default function FleetPage() {
       if (!res.ok) throw new Error('Approval failed');
       toast.success('Deposit Approved');
       fetchData();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Approval failed');
     }
   };
 

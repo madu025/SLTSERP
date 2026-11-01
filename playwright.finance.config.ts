@@ -1,12 +1,22 @@
+import 'dotenv/config';
 import { defineConfig } from '@playwright/test';
+
+const hasE2EAuth = Boolean(process.env.E2E_USERNAME && process.env.E2E_PASSWORD);
+
+if (!hasE2EAuth) {
+  throw new Error(
+    'Finance browser QA requires E2E_USERNAME and E2E_PASSWORD for a dedicated QA account. ' +
+      'The suite refuses to reuse stale or unauthenticated storage state.',
+  );
+}
 
 /**
  * Local Finance browser contract suite.
  *
- * This suite intentionally uses the existing non-production storage state and
- * only performs read-only navigation plus client-side validation checks. It is
- * separate from the production smoke project because a Finance role session
- * is required.
+ * This suite performs read-only Finance navigation and client-side validation
+ * checks using a real authenticated QA session. The setup project logs in
+ * through the normal UI using E2E_USERNAME/E2E_PASSWORD and persists the
+ * resulting storage state before the Finance matrix starts.
  */
 export default defineConfig({
   testDir: './tests',
@@ -24,6 +34,18 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
+  projects: [
+    {
+      name: 'finance-auth-setup',
+      testMatch: /auth\.setup\.ts/,
+      use: { baseURL: process.env.FINANCE_BASE_URL || 'http://localhost:3000' },
+    },
+    {
+      name: 'finance-module',
+      dependencies: ['finance-auth-setup'],
+      testMatch: /finance-module\.browser\.spec\.ts/,
+    },
+  ],
   webServer: {
     command: 'pnpm run dev -p 3000',
     url: 'http://localhost:3000',

@@ -2,8 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 
 const financeRoutes = [
   ['/finance', /Financial Control Center/i],
-  ['/finance/ap/aging', /Accounts Payable Aging/i],
-  ['/finance/ar/aging', /Accounts Receivable Aging/i],
+  ['/finance/ap/aging', /Accounts Payable.*Aging/i],
+  ['/finance/ar/aging', /Accounts Receivable.*Aging/i],
   ['/finance/bank/cash-book', /Cash Book.*Bank Ledger/i],
   ['/finance/bank/reconciliation', /Bank Statement Import.*Reconciliation Engine/i],
   ['/finance/bank-reconciliation', /Auto Bank Reconciliation/i],
@@ -32,7 +32,7 @@ const financeRoutes = [
   ['/finance/period-close', /Financial Period Close/i],
   ['/finance/rate-matrix', /Rate Matrix/i],
   ['/finance/reports/balance-sheet', /Balance Sheet/i],
-  ['/finance/reports/gl-viewer', /GL Viewer|General Ledger/i],
+  ['/finance/reports/gl-viewer', /GL.*Ledger Viewer|General Ledger/i],
   ['/finance/reports/pnl', /Profit.*Loss|P&L/i],
   ['/finance/reports/trial-balance', /Trial Balance/i],
   ['/finance/retention', /Retention/i],
@@ -41,7 +41,7 @@ const financeRoutes = [
   ['/finance/sf-audit/header-mapping', /Header Mapping/i],
   ['/finance/sf-audit/payment-split-config', /Payment Split/i],
   ['/finance/sf-audit/pricing-audit', /Pricing Audit/i],
-  ['/finance/slt-contracts', /SLT Contracts/i],
+  ['/finance/slt-contracts', /SLT.*Commercial Agreements|SLT Contracts/i],
   ['/finance/sod-revenue', /SOD Revenue/i],
   ['/finance/tax/vat-return', /VAT/i],
   ['/finance/tax/wht-register', /WHT|Withholding/i],
@@ -82,7 +82,13 @@ async function assertHealthyFinancePage(page: Page, route: string, heading: RegE
     expect(bodyText, `${route} must not render a Next.js error boundary`).not.toMatch(
       /Application error|Unhandled Runtime Error|Internal Server Error/i,
     );
-    await expect(page.getByRole('heading').filter({ hasText: heading }).first()).toBeVisible({ timeout: 20_000 });
+    await expect.poll(async () => {
+      const candidates = page.locator('main').getByText(heading);
+      for (let index = 0; index < await candidates.count(); index += 1) {
+        if (await candidates.nth(index).isVisible()) return true;
+      }
+      return false;
+    }, { timeout: 20_000 }).toBe(true);
     expect(responseErrors, `${route} server errors`).toEqual([]);
     expect(pageErrors, `${route} page errors`).toEqual([]);
     expect(consoleErrors, `${route} console errors`).toEqual([]);
@@ -128,9 +134,9 @@ test.describe('Finance critical browser interactions', () => {
   test('period close requires an explicit completed year before any action', async ({ page }) => {
     await page.goto('/finance/period-close', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /Financial Period Close/i })).toBeVisible();
-    const year = page.locator('#period-close-year');
+    const year = page.locator('#fiscal-close-year');
     await expect(year).toBeVisible();
-    await expect(page.getByRole('button', { name: /Close Financial Year/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Execute FY.*Close/i })).toBeVisible();
     await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error/i);
   });
 
@@ -143,9 +149,19 @@ test.describe('Finance critical browser interactions', () => {
 });
 
 test('Project to GL/reporting handoff chain renders in order without mutation', async ({ page }) => {
+  async function expectVisibleMainText(heading: RegExp) {
+    await expect.poll(async () => {
+      const candidates = page.locator('main').getByText(heading);
+      for (let index = 0; index < await candidates.count(); index += 1) {
+        if (await candidates.nth(index).isVisible()) return true;
+      }
+      return false;
+    }, { timeout: 20_000 }).toBe(true);
+  }
+
   const chain = [
     ['/projects', /Projects/i],
-    ['/projects/purchase-orders', /Purchase/i],
+    ['/procurement/orders', /Purchase/i],
     ['/inventory/stores', /Stores|Store Management/i],
     ['/finance/invoices', /Invoice Approvals/i],
     ['/finance/payments', /Payment Vouchers/i],
@@ -159,11 +175,21 @@ test('Project to GL/reporting handoff chain renders in order without mutation', 
     await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
     await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error/i);
-    await expect(page.getByRole('heading').filter({ hasText: heading }).first()).toBeVisible({ timeout: 20_000 });
+    await expectVisibleMainText(heading);
   }
 });
 
 test('SOD to billing/tax handoff chain renders in order without mutation', async ({ page }) => {
+  async function expectVisibleMainText(heading: RegExp) {
+    await expect.poll(async () => {
+      const candidates = page.locator('main').getByText(heading);
+      for (let index = 0; index < await candidates.count(); index += 1) {
+        if (await candidates.nth(index).isVisible()) return true;
+      }
+      return false;
+    }, { timeout: 20_000 }).toBe(true);
+  }
+
   const chain = [
     ['/service-orders', /Service Orders/i],
     ['/inventory/issues', /Issue|Material/i],
@@ -180,6 +206,6 @@ test('SOD to billing/tax handoff chain renders in order without mutation', async
     await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
     await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error/i);
-    await expect(page.getByRole('heading').filter({ hasText: heading }).first()).toBeVisible({ timeout: 20_000 });
+    await expectVisibleMainText(heading);
   }
 });

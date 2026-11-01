@@ -19,9 +19,18 @@ const rentSchema = z.object({
 });
 
 type RentFormValues = z.infer<typeof rentSchema>;
+type RentRecord = {
+  id: string;
+  supplierName: string;
+  accountNo?: string | null;
+  slipNo: string;
+  category?: string | null;
+  amount: number;
+  status: string;
+};
 
 export default function RentsPage() {
-  const [rents, setRents] = useState<any[]>([]);
+  const [rents, setRents] = useState<RentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -36,7 +45,12 @@ export default function RentsPage() {
       const res = await fetch(`/api/finance/osp-account/rents?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        setRents(data.data);
+        const records = Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data.data?.data)
+            ? data.data.data
+            : [];
+        setRents(records);
       }
     } catch (error) {
       console.error('Error fetching Rents:', error);
@@ -49,7 +63,7 @@ export default function RentsPage() {
     fetchRents();
   }, []);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: RentFormValues) => {
     try {
       const res = await fetch('/api/finance/osp-account/rents', {
         method: 'POST',
@@ -64,8 +78,8 @@ export default function RentsPage() {
       setIsModalOpen(false);
       reset();
       fetchRents();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create Rent Payment');
     }
   };
 
@@ -79,8 +93,8 @@ export default function RentsPage() {
       if (!res.ok) throw new Error('Approval failed');
       toast.success('Rent Payment Approved');
       fetchRents();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Approval failed');
     }
   };
 
