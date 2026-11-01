@@ -141,3 +141,24 @@ test.describe('Finance critical browser interactions', () => {
     await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error|Failed to fetch/i);
   });
 });
+
+test('Project to GL/reporting handoff chain renders in order without mutation', async ({ page }) => {
+  const chain = [
+    ['/projects', /Projects/i],
+    ['/projects/purchase-orders', /Purchase/i],
+    ['/inventory/stores', /Stores|Store Management/i],
+    ['/finance/invoices', /Invoice Approvals/i],
+    ['/finance/payments', /Payment Vouchers/i],
+    ['/finance/bank/reconciliation', /Bank Statement Import|Auto Bank Reconciliation/i],
+    ['/finance/general-ledger', /General Ledger/i],
+    ['/finance/reports/trial-balance', /Trial Balance/i],
+    ['/finance/reports/pnl', /Profit|Loss|P&L/i],
+  ] as const;
+
+  for (const [route, heading] of chain) {
+    await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+    await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error/i);
+    await expect(page.getByRole('heading').filter({ hasText: heading }).first()).toBeVisible({ timeout: 20_000 });
+  }
+});
