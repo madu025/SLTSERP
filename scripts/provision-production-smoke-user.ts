@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { UserService } from '../src/services/hr/user.service';
+import { RBAC_PERMISSIONS } from '../src/config/rbac-permissions';
 
 /**
  * Provision a least-privilege account for the post-deploy smoke gate.
@@ -54,7 +55,7 @@ async function main() {
         where: { id: user.id },
         data: {
             mustChangePassword: false,
-            permissions: JSON.stringify(['dashboard']),
+            permissions: JSON.stringify([RBAC_PERMISSIONS.DASHBOARD_READ]),
         },
     });
 
