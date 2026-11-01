@@ -13,7 +13,7 @@ the chain complete.
 | SOD → Issue → Contractor Custody → Return → PAT → WIP → Billing → VAT/WHT | 9/9 | pending QA DB | 9/9 live read-only | pending | partial |
 | OSP IOU → Approval → OSP Ledger | service path | 1/1 | browser pending | in-memory only | partial |
 | Petty Cash → Approval → Reimbursement → Replenishment | service path | 1/1 | browser pending | in-memory only | partial |
-| Contractor Billing → Invoice Approval → Customer Receipt → Bank Reconciliation → GL | pending | pending | pending | pending | not started |
+| Contractor Billing → Invoice Approval → Payment Voucher → Bank/Cash → GL | 10/10 | 10/10 service batches | browser pending | in-memory only | partial |
 | Fixed Asset → Depreciation → GL → Period Close | pending | pending | pending | pending | not started |
 | Payroll Allocation → Payment Voucher → Bank/Cash → GL | pending | pending | pending | pending | not started |
 
@@ -47,5 +47,13 @@ Required non-secret inputs for the next run are:
 
 The legacy CSV auto-match route remains available by URL, but it is excluded
 from the primary navigation. `Bank Reconciliation` is the official persisted
-workflow for the release candidate.
+workflow for the release candidate. Customer receipts belong to the separate
+client-invoice chain; contractor invoices settle through an approved payment
+voucher.
+
+The contractor chain's deterministic service batch test is
+`tests/unit/finance-contractor-chain-batch-10.test.ts`. It verifies ten unique
+invoice/voucher/statement/journal identities, maker-checker transitions, paid
+voucher ledger events, and reconciled bank summaries. It is not a substitute
+for the browser + disposable-database gate above.
 
