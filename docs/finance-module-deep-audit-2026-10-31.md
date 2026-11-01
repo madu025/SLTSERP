@@ -109,7 +109,9 @@ rejects already reconciled statement or journal lines, and has focused tests.
 
 ## Validation in this audit
 
-- `pnpm run test:finance`: 52 passed.
+- `pnpm run test:finance`: 54 passed, including OSP IOU and Petty Cash
+  create → approve → settlement/reimbursement write-path tests using an
+  in-memory transactional adapter.
 - `pnpm run test:types`: passed.
 - Changed-file ESLint and `git diff --check`: passed.
 - `pnpm run build`: passed on the current revision (Next.js compiled, TypeScript
@@ -123,3 +125,6 @@ rejects already reconciled statement or journal lines, and has focused tests.
   → VAT/WHT (9/9).
 - The pre-rollout host still showed the IOU crash and Petty Cash 404; retest
   those two routes after commits `70acef41` and `1c772964` deploy.
+- Persistent Finance mutations were not run against the configured remote
+  database; production-safe QA still requires a disposable database and seeded
+  maker/checker fixtures before browser lifecycle sign-off.
