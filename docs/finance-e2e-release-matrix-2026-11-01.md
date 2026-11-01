@@ -45,6 +45,13 @@ Required non-secret inputs for the next run are:
   chart-of-accounts records; and
 - a reset command that is restricted to that QA database.
 
+The repository now enforces this boundary with
+`pnpm run qa:real-preflight`. It fails when the disposable environment marker,
+QA database URL, QA base URL, reset script, fixture manifest, or maker/checker
+browser storage states are missing. It also rejects reusing the configured
+application database or application origin. A passing service adapter test
+never satisfies this preflight.
+
 The legacy CSV auto-match route remains available by URL, but it is excluded
 from the primary navigation. `Bank Reconciliation` is the official persisted
 workflow for the release candidate. Customer receipts belong to the separate
