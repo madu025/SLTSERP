@@ -14,7 +14,7 @@ the chain complete.
 | OSP IOU → Approval → OSP Ledger | service path | 1/1 | browser pending | in-memory only | partial |
 | Petty Cash → Approval → Reimbursement → Replenishment | service path | 1/1 | browser pending | in-memory only | partial |
 | Contractor Billing → Invoice Approval → Payment Voucher → Bank/Cash → GL | 10/10 | 10/10 service batches | browser pending | in-memory only | partial |
-| Fixed Asset → Depreciation → GL → Period Close | pending | pending | pending | pending | not started |
+| Fixed Asset → Depreciation → GL → Period Close | 10/10 | 10/10 service batches | browser pending | in-memory only | partial |
 | Payroll Allocation → Payment Voucher → Bank/Cash → GL | pending | pending | pending | pending | not started |
 
 ## Completion rule
@@ -56,4 +56,10 @@ The contractor chain's deterministic service batch test is
 invoice/voucher/statement/journal identities, maker-checker transitions, paid
 voucher ledger events, and reconciled bank summaries. It is not a substitute
 for the browser + disposable-database gate above.
+
+The fixed-asset chain's deterministic service batch test is
+`tests/unit/finance-fixed-asset-close-batch-10.test.ts`. It verifies ten unique
+asset/depreciation/year-close identities, monthly depreciation GL postings,
+year-end retained-earnings postings, and 120 locked fiscal periods. It is not a
+substitute for the browser + disposable-database gate above.
 
