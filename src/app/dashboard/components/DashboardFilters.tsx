@@ -7,7 +7,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { LayoutDashboard, X, Activity, Printer } from 'lucide-react';
+import { LayoutDashboard, X, Activity, Printer, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export interface DashboardFiltersProps {
@@ -22,6 +22,8 @@ export interface DashboardFiltersProps {
     availableRtoms: string[];
     isAreaCoordinator: boolean;
     isLoading: boolean;
+    isRefreshing?: boolean;
+    onRefresh?: () => void;
 }
 
 export function DashboardFilters({
@@ -35,7 +37,9 @@ export function DashboardFilters({
     availableRegions,
     availableRtoms,
     isAreaCoordinator,
-    isLoading
+    isLoading,
+    isRefreshing = false,
+    onRefresh
 }: DashboardFiltersProps) {
     const hasFilters = selectedRegion !== 'ALL' || selectedRtom !== 'ALL';
 
@@ -148,6 +152,21 @@ export function DashboardFilters({
                     >
                         <Printer className="w-3.5 h-3.5 mr-1.5" /> Export PDF
                     </Button>
+
+                    {onRefresh && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onRefresh}
+                            disabled={isLoading || isRefreshing}
+                            aria-label={isRefreshing ? 'Refreshing dashboard data' : 'Refresh dashboard data'}
+                            className="h-9 px-3 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300 transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
+                            {isRefreshing ? 'Refreshing…' : 'Refresh'}
+                        </Button>
+                    )}
 
                     {hasFilters && (
                         <Button

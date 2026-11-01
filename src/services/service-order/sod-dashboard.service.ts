@@ -140,18 +140,20 @@ export class ServiceOrderDashboardService {
             orderBy: { rtom: 'asc' }
         });
 
+        // Keep filter metadata inside the same OPMC boundary as the metrics.
+        // Counts were already scoped, but exposing every RTOM/region here let
+        // scoped users discover out-of-scope organizational names.
+        const scopedOpmcIds = canFilterGlobally ? undefined : (accessibleOpmcScope ?? []);
+        const visibleOpmcs = scopedOpmcIds === undefined
+            ? allOpmcs
+            : allOpmcs.filter(opmc => scopedOpmcIds.includes(opmc.id));
         const rtomRegionMap: Record<string, string> = {};
         const availableRegionsSet = new Set<string>();
-        allOpmcs.forEach(o => {
+        visibleOpmcs.forEach(o => {
             rtomRegionMap[o.rtom] = o.region;
             availableRegionsSet.add(o.region);
         });
         const availableRegions = Array.from(availableRegionsSet).sort();
-
-        let accessibleOpmcIds: string[] = [];
-        if (!canFilterGlobally) {
-            accessibleOpmcIds = accessibleOpmcScope ?? [];
-        }
 
         let filteredOpmcIds: string[] | null = null;
         if (filterRtom !== 'ALL') {
@@ -166,8 +168,8 @@ export class ServiceOrderDashboardService {
         const whereClause: Prisma.ServiceOrderWhereInput = {};
         if (!canFilterGlobally) {
             const effectiveIds = filteredOpmcIds
-                ? accessibleOpmcIds.filter(id => filteredOpmcIds!.includes(id))
-                : accessibleOpmcIds;
+                ? scopedOpmcIds!.filter(id => filteredOpmcIds!.includes(id))
+                : scopedOpmcIds!;
             whereClause.opmcId = { in: effectiveIds };
         } else if (filteredOpmcIds) {
             whereClause.opmcId = { in: filteredOpmcIds };

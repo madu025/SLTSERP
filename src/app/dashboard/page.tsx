@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -65,6 +65,7 @@ const RTOMTables = dynamic(() => import('./components/RTOMTables'), {
 
 export default function DashboardPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [user] = useState<{ id: string; name: string; role: string; permissions?: string[] } | null>(() => {
         if (typeof window !== 'undefined') {
             const storedUser = localStorage.getItem('user');
@@ -75,6 +76,19 @@ export default function DashboardPage() {
     const [mounted, setMounted] = useState(false);
     const [selectedRegion, setSelectedRegion] = useState('ALL');
     const [selectedRtom, setSelectedRtom] = useState('ALL');
+    const [isDashboardRefreshing, setIsDashboardRefreshing] = useState(false);
+
+    const refreshDashboard = async () => {
+        if (isDashboardRefreshing) return;
+        setIsDashboardRefreshing(true);
+        try {
+            await queryClient.invalidateQueries({
+                predicate: (query) => String(query.queryKey[0] ?? '').startsWith('dashboard-'),
+            });
+        } finally {
+            setIsDashboardRefreshing(false);
+        }
+    };
 
     useEffect(() => {
         Promise.resolve().then(() => setMounted(true));
@@ -324,6 +338,8 @@ export default function DashboardPage() {
                                 availableRtoms={availableRtoms}
                                 isAreaCoordinator={isAreaCoordinator}
                                 isLoading={isLoading}
+                                isRefreshing={isDashboardRefreshing}
+                                onRefresh={refreshDashboard}
                             />
                             
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
