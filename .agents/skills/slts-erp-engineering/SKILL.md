@@ -22,6 +22,14 @@ Route the task to the smallest applicable local skills:
 - New or changed UI: `ui-accessibility`
 - Email sending: `email-templates`
 - Build, release, Coolify, or production verification: `release-verification`
+- Service-order status sync, Redis, queues, or workers: `service-order-sync`
+- GIS, QField, uploads, MinIO/S3, or geospatial processing: `storage-gis-qfield`
+- Contractor portal, SOD, contractor stock, or contractor invoice boundaries: `contractor-portal-isolation`
+- QA accounts, fixtures, seed data, or browser setup: `qa-fixture-management`
+- Reports, exports, reconciliations, or read models: `reporting-reconciliation`
+- Health, metrics, retries, logs, or worker reliability: `observability-reliability`
+- AI/agent, prompts, model data, or generated decisions: `ai-data-governance`
+- Vehicles, fleet, assets, maintenance, or EAM: `fleet-eam-controls`
 
 Do not claim a production PASS from unit tests, a local build, or an API-only
 check. Keep local/API, browser/lifecycle, and deployed evidence separate.
