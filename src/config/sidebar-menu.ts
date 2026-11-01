@@ -635,6 +635,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
         allowedRoles: ROLE_GROUPS.FINANCE,
         permissionId: 'corporate-finance',
         submenu: [
+            {
+                title: 'GL & Reports',
+                path: '#',
+                icon: Layers,
+                allowedRoles: ROLE_GROUPS.FINANCE,
+                submenu: [
             // — General Ledger —
             {
                 title: 'General Ledger',
@@ -668,7 +674,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             {
-                title: 'GL Ledger Viewer',
+                title: 'GL Account Drill-down',
                 path: '/finance/reports/gl-viewer',
                 icon: Layers,
                 allowedRoles: ROLE_GROUPS.FINANCE
@@ -677,9 +683,17 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'FP&A Variance Dashboard',
                 path: '/finance/fpa-dashboard',
                 icon: Activity,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             // — Tax & Compliance —
+                ]
+            },
+            {
+                title: 'Tax & Receivables',
+                path: '#',
+                icon: Receipt,
+                allowedRoles: ROLE_GROUPS.FINANCE,
+                submenu: [
             {
                 title: 'VAT Return & Tax Register',
                 path: '/finance/tax/vat-return',
@@ -712,17 +726,19 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.FINANCE
             },
             // — Banking & Cash —
-            {
-                title: 'Auto Bank Reconciliation',
-                path: '/finance/bank-reconciliation',
-                icon: CheckCircle2,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                ]
             },
             {
-                title: 'Bank Statement Reconciliation',
+                title: 'Banking & Cash',
+                path: '#',
+                icon: Landmark,
+                allowedRoles: ROLE_GROUPS.FINANCE,
+                submenu: [
+            {
+                title: 'Bank Reconciliation',
                 path: '/finance/bank/reconciliation',
                 icon: CheckCircle2,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             {
                 title: 'Cash Book & Bank Ledger',
@@ -734,27 +750,43 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Multi-Currency FX Rates',
                 path: '/finance/exchange-rates',
                 icon: Globe,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             // — Assets & Payroll —
+                ]
+            },
+            {
+                title: 'Assets & Payroll',
+                path: '#',
+                icon: Package,
+                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS,
+                submenu: [
             {
                 title: 'Fixed Asset Register & Depreciation',
                 path: '/finance/fixed-assets',
                 icon: Package,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             {
                 title: 'HO Payroll Expense Allocation',
                 path: '/finance/payroll',
                 icon: Users,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             // — Period Close & Approvals —
+                ]
+            },
+            {
+                title: 'Close & Billing',
+                path: '#',
+                icon: Lock,
+                allowedRoles: ROLE_GROUPS.FINANCE,
+                submenu: [
             {
                 title: 'Financial Period Close & Year-End',
                 path: '/finance/period-close',
                 icon: Lock,
-                allowedRoles: ROLE_GROUPS.FINANCE
+                allowedRoles: ROLE_GROUPS.FINANCE_APPROVERS
             },
             {
                 title: 'Contractor Billing',
@@ -767,6 +799,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/finance/invoices',
                 icon: CheckCircle2,
                 allowedRoles: ['SUPER_ADMIN', 'FINANCE_MANAGER']
+                }
+                ]
             }
         ]
     },
