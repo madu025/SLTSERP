@@ -262,94 +262,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
     },
 
     {
-        title: 'Finance Setup & Ops',
-        path: '/finance/setup',
-        icon: Banknote,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER'],
-        permissionId: 'finance-ops',
-        submenu: [
-            {
-                title: 'SLT SLA Agreements',
-                path: '/finance/slt-contracts',
-                icon: FileCheck2,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'MANAGER']
-            },
-            {
-                title: 'Vendor Registry',
-                path: '/finance/vendors',
-                icon: Building,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
-            },
-            {
-                title: 'Bank Registry',
-                path: '/finance/banks',
-                icon: Landmark,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
-            },
-            {
-                title: 'Payment Vouchers',
-                path: '/finance/payments',
-                icon: Receipt,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
-            },
-            {
-                title: 'Petty Cash',
-                path: '/finance/petty-cash',
-                icon: Banknote,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS]
-            },
-            {
-                title: 'Retention Management',
-                path: '/finance/retention',
-                icon: Shield,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
-            },
-            {
-                title: 'LD Penalties',
-                path: '/finance/ld-penalties',
-                icon: ShieldAlert,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
-            },
-            {
-                title: 'Rate Matrix Config',
-                path: '/finance/rate-matrix',
-                icon: Calculator,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
-            },
-            {
-                title: 'CAPEX / OPEX Dashboard',
-                path: '/finance/capex-opex',
-                icon: TrendingUp,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'AREA_MANAGER']
-            },
-            {
-                title: 'WIP Revenue & Billing Pipeline',
-                path: '/finance/wip-revenue',
-                icon: TrendingUp,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
-            },
-            {
-                title: 'Budget Allocations',
-                path: '/finance/budget',
-                icon: PieChart,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
-            },
-            {
-                title: 'Vendor Upload (HO)',
-                path: '/finance/vendors/import',
-                icon: Upload,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            },
-            {
-                title: 'Bank Upload (HO)',
-                path: '/finance/banks/import',
-                icon: Upload,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            }
-        ]
-    },
-
-    {
         title: 'SF Audit Division',
         path: '/finance/sf-audit/governance',
         icon: ShieldCheck,
@@ -379,92 +291,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/finance/sf-audit/payment-split-config',
                 icon: Calculator,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.SF_AUDITING]
-            }
-        ]
-    },
-
-    {
-        title: 'Billing & Invoices',
-        path: '/invoices',
-        icon: FileSignature,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
-        permissionId: 'billing',
-        submenu: [
-            {
-                title: 'Submit Invoices (SLT)',
-                path: '/invoices',
-                icon: Receipt,
-                allowedRoles: [
-                    ...ROLE_GROUPS.ADMINS,
-                    ...ROLE_GROUPS.INVOICE,
-                    ...ROLE_GROUPS.FINANCE,
-                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'
-                ]
-            },
-            {
-                title: 'BOM Sheets (Imports)',
-                path: '/invoices/bom-sheets',
-                icon: Upload,
-                allowedRoles: [
-                    ...ROLE_GROUPS.ADMINS,
-                    ...ROLE_GROUPS.INVOICE,
-                    ...ROLE_GROUPS.FINANCE,
-                    'MANAGER', 'OSP_MANAGER'
-                ]
-            },
-            {
-                title: 'Cost Allocation',
-                path: '/finance/cost-allocation',
-                icon: FileSignature,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
-            },
-            {
-                title: 'SOD Revenue Config',
-                path: '/finance/sod-revenue',
-                icon: Receipt,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            }
-        ]
-    },
-
-    {
-        title: 'OSP Accounts',
-        path: '/finance/osp-account',
-        icon: Landmark,
-        // QA audit: all submenus are FINANCE_MANAGER + OSP_MANAGER only.
-        // FINANCE_ASSISTANT/CASHIER would see empty expandable button. Restrict parent to match.
-        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
-        permissionId: 'osp-account',
-        submenu: [
-            {
-                title: 'OSP Dashboard',
-                path: '/finance/osp-account-reports',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
-            },
-            {
-                title: 'Petty Cash IOUs',
-                path: '/finance/osp-account/ious',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
-            },
-            {
-                title: 'Project Advances',
-                path: '/finance/osp-account/advances',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
-            },
-            {
-                title: 'Property Rents',
-                path: '/finance/osp-account/rents',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
-            },
-            {
-                title: 'Fleet Ledger',
-                path: '/finance/osp-account/fleet',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
             }
         ]
     },
@@ -629,12 +455,187 @@ export const SIDEBAR_MENU: MenuItem[] = [
         ]
     },
     {
-        title: 'Corporate Finance & Accounts',
+        title: 'Finance & Accounting',
         path: '/finance/chart-of-accounts',
         icon: Calculator,
-        allowedRoles: ROLE_GROUPS.FINANCE,
+        allowedRoles: [
+            ...ROLE_GROUPS.FINANCE,
+            ...ROLE_GROUPS.INVOICE,
+            ...ROLE_GROUPS.OFFICE_ADMINS,
+            'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER'
+        ],
         permissionId: 'corporate-finance',
         submenu: [
+            {
+                title: 'Finance Setup & Ops',
+                path: '#',
+                icon: Banknote,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER'],
+                permissionId: 'finance-ops',
+                submenu: [
+                    {
+                        title: 'SLT SLA Agreements',
+                        path: '/finance/slt-contracts',
+                        icon: FileCheck2,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'MANAGER']
+                    },
+                    {
+                        title: 'Vendor Registry',
+                        path: '/finance/vendors',
+                        icon: Building,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+                    },
+                    {
+                        title: 'Bank Registry',
+                        path: '/finance/banks',
+                        icon: Landmark,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+                    },
+                    {
+                        title: 'Payment Vouchers',
+                        path: '/finance/payments',
+                        icon: Receipt,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+                    },
+                    {
+                        title: 'Petty Cash',
+                        path: '/finance/petty-cash',
+                        icon: Banknote,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS]
+                    },
+                    {
+                        title: 'Retention Management',
+                        path: '/finance/retention',
+                        icon: Shield,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+                    },
+                    {
+                        title: 'LD Penalties',
+                        path: '/finance/ld-penalties',
+                        icon: ShieldAlert,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+                    },
+                    {
+                        title: 'Rate Matrix Config',
+                        path: '/finance/rate-matrix',
+                        icon: Calculator,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
+                    },
+                    {
+                        title: 'CAPEX / OPEX Dashboard',
+                        path: '/finance/capex-opex',
+                        icon: TrendingUp,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER', 'AREA_MANAGER']
+                    },
+                    {
+                        title: 'WIP Revenue & Billing Pipeline',
+                        path: '/finance/wip-revenue',
+                        icon: TrendingUp,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
+                    },
+                    {
+                        title: 'Budget Allocations',
+                        path: '/finance/budget',
+                        icon: PieChart,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+                    },
+                    {
+                        title: 'Vendor Upload (HO)',
+                        path: '/finance/vendors/import',
+                        icon: Upload,
+                        allowedRoles: ROLE_GROUPS.ADMINS
+                    },
+                    {
+                        title: 'Bank Upload (HO)',
+                        path: '/finance/banks/import',
+                        icon: Upload,
+                        allowedRoles: ROLE_GROUPS.ADMINS
+                    }
+                ]
+            },
+            {
+                title: 'Billing & Invoices',
+                path: '#',
+                icon: FileSignature,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+                permissionId: 'billing',
+                submenu: [
+                    {
+                        title: 'Submit Invoices (SLT)',
+                        path: '/invoices',
+                        icon: Receipt,
+                        allowedRoles: [
+                            ...ROLE_GROUPS.ADMINS,
+                            ...ROLE_GROUPS.INVOICE,
+                            ...ROLE_GROUPS.FINANCE,
+                            'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'
+                        ]
+                    },
+                    {
+                        title: 'BOM Sheets (Imports)',
+                        path: '/invoices/bom-sheets',
+                        icon: Upload,
+                        allowedRoles: [
+                            ...ROLE_GROUPS.ADMINS,
+                            ...ROLE_GROUPS.INVOICE,
+                            ...ROLE_GROUPS.FINANCE,
+                            'MANAGER', 'OSP_MANAGER'
+                        ]
+                    },
+                    {
+                        title: 'Cost Allocation',
+                        path: '/finance/cost-allocation',
+                        icon: FileSignature,
+                        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
+                    },
+                    {
+                        title: 'SOD Revenue Config',
+                        path: '/finance/sod-revenue',
+                        icon: Receipt,
+                        allowedRoles: ROLE_GROUPS.ADMINS
+                    }
+                ]
+            },
+            {
+                title: 'OSP Accounts',
+                path: '#',
+                icon: Landmark,
+                // Keep the OSP account section restricted to its existing roles.
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER'],
+                permissionId: 'osp-account',
+                submenu: [
+                    {
+                        title: 'OSP Dashboard',
+                        path: '/finance/osp-account-reports',
+                        icon: Receipt,
+                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+                    },
+                    {
+                        title: 'Petty Cash IOUs',
+                        path: '/finance/osp-account/ious',
+                        icon: Receipt,
+                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+                    },
+                    {
+                        title: 'Project Advances',
+                        path: '/finance/osp-account/advances',
+                        icon: Receipt,
+                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+                    },
+                    {
+                        title: 'Property Rents',
+                        path: '/finance/osp-account/rents',
+                        icon: Receipt,
+                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+                    },
+                    {
+                        title: 'Fleet Ledger',
+                        path: '/finance/osp-account/fleet',
+                        icon: Receipt,
+                        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER', 'OSP_MANAGER']
+                    }
+                ]
+            },
             {
                 title: 'Accounting & Reporting',
                 path: '#',
