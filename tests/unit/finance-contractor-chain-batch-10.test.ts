@@ -98,20 +98,26 @@ test('contractor billing to payment voucher, bank reconciliation, and GL complet
       approvalStatus: 'PENDING',
     };
     invoices.set(invoice.id, invoice);
-    return invoice;
+    return {
+      invoice,
+      sods: [],
+      totalGrossAmount: 1000,
+      publicUrl: '',
+    };
   });
   mock.method(LedgerService, 'logPaymentVoucherPayment', async () => {
     ledgerEvents.push(`PV_PAID_${activeBatch}`);
   });
 
   for (activeBatch = 1; activeBatch <= 10; activeBatch += 1) {
-    const invoice = await BillingService.generateContractorInvoice({
+    const billing = await BillingService.generateContractorInvoice({
       contractorId: 'contractor-qa',
       retentionPercent: 5,
       whtPercent: 5,
       month: 10,
       year: 2026,
     }, 'maker-qa');
+    const invoice = billing.invoice;
     assert.equal(invoice.status, 'PENDING_SF_AUDIT');
 
     const approvedInvoice = await InvoiceApprovalService.approveInvoice(invoice.id, 'checker-qa');
