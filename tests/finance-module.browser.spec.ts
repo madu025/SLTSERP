@@ -146,6 +146,22 @@ test.describe('Finance critical browser interactions', () => {
     await page.waitForTimeout(1200);
     await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error|Failed to fetch/i);
   });
+
+  test('WIP revenue reports incomplete snapshots without a server error', async ({ page }) => {
+    const serverErrors: string[] = [];
+    page.on('response', (response) => {
+      if (response.status() >= 500 && response.url().includes('/api/finance/wip-revenue')) {
+        serverErrors.push(`${response.status()} ${response.url()}`);
+      }
+    });
+
+    await page.goto('/finance/wip-revenue', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: /WIP.*Revenue/i })).toBeVisible();
+    await expect(page.locator('body')).not.toContainText(/Application error|Unhandled Runtime Error|Failed to fetch/i);
+    await expect.poll(async () => page.locator('main').innerText(), { timeout: 45_000 })
+      .toMatch(/WIP revenue|Financial snapshot review required/i);
+    expect(serverErrors).toEqual([]);
+  });
 });
 
 test('Project to GL/reporting handoff chain renders in order without mutation', async ({ page }) => {

@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma';
 import { safe } from '@/utils/safe-await.util';
 import { safeJsonParse } from '@/utils/safeJsonParse';
 import { UUID } from '@/types/common';
-import { AppError } from '@/lib/error';
 
 export interface MonthlyWipBuildupItem {
     month: string;
@@ -84,6 +83,11 @@ export interface WipSodItem {
     ageDays: number;
 }
 
+export interface WipSnapshotIssue {
+    soNum: string;
+    reason: 'SOD_FINANCIAL_SNAPSHOT_MISSING';
+}
+
 export class SODWipRevenueService {
     /**
      * Get active SF Audit Payment Split Config from SystemConfig table
@@ -121,7 +125,11 @@ export class SODWipRevenueService {
     /**
      * Get comprehensive Monthly Build-up WIP Revenue, Inventory COGS, Vehicle, Site Office & Staff Cost Allocation Summary
      */
-    static async getWipSummary(opmcId?: string, accessibleOpmcs?: string[]): Promise<{ metrics: WipSummaryMetrics; items: WipSodItem[] }> {
+    static async getWipSummary(opmcId?: string, accessibleOpmcs?: string[]): Promise<{
+        metrics: WipSummaryMetrics;
+        items: WipSodItem[];
+        snapshotIssues: WipSnapshotIssue[];
+    }> {
         const splitConfig = await this.getPaymentSplitConfig();
 
         // Accounting Rule: Only physically completed field jobs (COMPLETED, INSTALL_CLOSED, PROV_CLOSED)
@@ -222,6 +230,7 @@ export class SODWipRevenueService {
         };
 
         const items: WipSodItem[] = [];
+        const snapshotIssues: WipSnapshotIssue[] = [];
 
         for (const order of orders) {
             const rawDist = Number(order.dropWireDistance || 0);
@@ -234,7 +243,11 @@ export class SODWipRevenueService {
             // completed SOD with today's rate matrix; completion must have
             // persisted both financial snapshots already.
             if (order.revenueAmount === null || order.contractorAmount === null) {
-                throw AppError.badRequest(`SOD_FINANCIAL_SNAPSHOT_MISSING: ${order.soNum}`);
+                snapshotIssues.push({
+                    soNum: order.soNum,
+                    reason: 'SOD_FINANCIAL_SNAPSHOT_MISSING',
+                });
+                continue;
             }
 
             // Calculate Material COGS for this SOD from inventory material usage records
@@ -366,7 +379,7 @@ export class SODWipRevenueService {
         const metrics: WipSummaryMetrics = {
             totalWipValue,
             invoicablePoolValue,
-            unbilledSodCount: orders.length,
+            unbilledSodCount: items.length,
             invoicableSodCount,
             completedSodCount,
             completedSodValue,
@@ -390,7 +403,7 @@ export class SODWipRevenueService {
             agingBreakdown
         };
 
-        return { metrics, items };
+        return { metrics, items, snapshotIssues };
     }
 
 }

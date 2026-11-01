@@ -51,6 +51,9 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      DB_CONNECTION_LIMIT: process.env.DB_CONNECTION_LIMIT || '4',
+    },
     stdout: 'pipe',
     stderr: 'pipe',
   },

@@ -20,12 +20,13 @@ import {
     Calculator,
     Calendar
 } from 'lucide-react';
-import { WipSummaryMetrics, WipSodItem } from '@/services/finance/sod-wip-revenue.service';
+import { WipSnapshotIssue, WipSummaryMetrics, WipSodItem } from '@/services/finance/sod-wip-revenue.service';
 
 export default function WipRevenueDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [metrics, setMetrics] = useState<WipSummaryMetrics | null>(null);
     const [items, setItems] = useState<WipSodItem[]>([]);
+    const [snapshotIssues, setSnapshotIssues] = useState<WipSnapshotIssue[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
     const fetchData = async () => {
@@ -39,6 +40,7 @@ export default function WipRevenueDashboardPage() {
                 const data = await res.json();
                 setMetrics(data.metrics);
                 setItems(data.items);
+                setSnapshotIssues(data.snapshotIssues || []);
             }
         } catch (err) {
             console.error('Failed to fetch WIP Revenue data:', err);
@@ -92,6 +94,15 @@ export default function WipRevenueDashboardPage() {
                         <div className="p-4 bg-blue-50 border border-blue-200 text-blue-900 rounded-xl text-sm font-medium">
                             WIP revenue and material COGS are posted automatically when a valid SOD is completed. This page is a read-only finance reconciliation view.
                         </div>
+
+                        {snapshotIssues.length > 0 && (
+                            <div className="p-4 bg-amber-50 border border-amber-300 text-amber-950 rounded-xl text-sm" role="alert">
+                                <p className="font-semibold">Financial snapshot review required</p>
+                                <p className="mt-1">
+                                    {snapshotIssues.length} completed SOD record(s) are excluded until their persisted revenue and contractor snapshots are repaired.
+                                </p>
+                            </div>
+                        )}
 
                         {/* Top KPI Cards (Status Breakdown + Total Revenue) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
