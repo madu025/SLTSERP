@@ -30,6 +30,15 @@ Route the task to the smallest applicable local skills:
 - Health, metrics, retries, logs, or worker reliability: `observability-reliability`
 - AI/agent, prompts, model data, or generated decisions: `ai-data-governance`
 - Vehicles, fleet, assets, maintenance, or EAM: `fleet-eam-controls`
+- Any tenant/organization boundary or cross-tenant data path: `saas-tenancy-isolation`
+- Plans, billing, quotas, subscriptions, or feature entitlements: `saas-billing-entitlements`
+- Personal data, retention, export, deletion, or compliance: `privacy-compliance`
+- Public API, webhooks, integrations, rate limits, or versioning: `api-platform-governance`
+- Backups, restore, disaster recovery, or data-loss prevention: `backup-disaster-recovery`
+- Caching, latency, load, concurrency, or scale-out: `scalability-performance`
+- Dependencies, containers, CI artifacts, or supply-chain risk: `supply-chain-hardening`
+- Environment config, secrets, feature flags, or runtime settings: `configuration-secrets`
+- Security incidents, breach response, or operational escalation: `incident-response`
 
 Do not claim a production PASS from unit tests, a local build, or an API-only
 check. Keep local/API, browser/lifecycle, and deployed evidence separate.
