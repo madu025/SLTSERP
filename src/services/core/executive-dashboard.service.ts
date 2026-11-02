@@ -30,13 +30,14 @@ export class ExecutiveDashboardService {
     });
     const scope: Scope = { opmcIds, projectIds: scopedProjects.map((project) => project.id) };
 
-    const [projectStats, budgetStats, patStats, contractorRankings, recentActivity, controlTower] = await Promise.all([
+    const [projectStats, budgetStats, patStats, contractorRankings, recentActivity, controlTower, decisionSignals] = await Promise.all([
       ExecutiveDashboardService.getProjectStats(projectWhere),
       ExecutiveDashboardService.getBudgetStats(projectWhere),
       ExecutiveDashboardService.getPATStats(scope),
       ExecutiveDashboardService.getContractorRankings(scope),
       ExecutiveDashboardService.getRecentActivity(scope),
       ExecutiveDashboardService.getControlTower(scope, asOf),
+      ExecutiveDashboardService.getDecisionSignals(scope),
     ]);
 
     return {
@@ -46,6 +47,7 @@ export class ExecutiveDashboardService {
       contractorRankings,
       recentActivity,
       controlTower,
+      decisionSignals,
       // Keep the legacy timestamp while exposing an explicit API freshness
       // contract for consumers that need to show an "as of" indicator.
       generatedAt: asOf,
@@ -61,6 +63,137 @@ export class ExecutiveDashboardService {
           'Budget, actual cost, PAT, material, document, invoice, risk and change-request values are stored fields; no estimates are substituted.',
           'Task blocked count means tasks explicitly marked BLOCKED; dependency-derived blockers are not inferred.',
         ],
+      },
+    };
+  }
+
+  private static async getDecisionSignals(scope: Scope) {
+    const projectIdWhere = { in: scope.projectIds };
+    const [evmRows, invoiceTotals, pendingPayments, retentionTotals, penaltyTotals, changeRequestCount, changeRequests] = await Promise.all([
+      prisma.projectEVM.findMany({
+        where: { projectId: projectIdWhere },
+        orderBy: [{ status: 'desc' }, { updatedAt: 'desc' }],
+        select: {
+          projectId: true,
+          lastCalculatedAt: true,
+          status: true,
+          spi: true,
+          cpi: true,
+          estimateAtCompletion: true,
+          estimateToComplete: true,
+          varianceAtCompletion: true,
+          project: { select: { projectCode: true, name: true } },
+        },
+      }),
+      prisma.projectInvoice.aggregate({
+        where: { projectId: projectIdWhere },
+        _sum: { totalAmount: true, paidAmount: true, balanceAmount: true },
+      }),
+      prisma.projectPayment.aggregate({
+        where: { projectId: projectIdWhere, status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } },
+        _count: { id: true },
+        _sum: { amount: true },
+      }),
+      prisma.projectRetention.aggregate({
+        where: { projectId: projectIdWhere, status: { not: 'CANCELLED' } },
+        _sum: { balanceAmount: true },
+      }),
+      prisma.projectLDPenalty.aggregate({
+        where: { projectId: projectIdWhere, status: { notIn: ['WAIVED', 'REJECTED', 'COLLECTED'] } },
+        _count: { id: true },
+        _sum: { netAmount: true },
+      }),
+      prisma.projectChangeRequest.count({
+        where: { projectId: projectIdWhere, status: { notIn: TERMINAL_CHANGE_STATUSES } },
+      }),
+      prisma.projectChangeRequest.findMany({
+        where: { projectId: projectIdWhere, status: { notIn: TERMINAL_CHANGE_STATUSES } },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 10,
+        select: {
+          id: true,
+          projectId: true,
+          requestNumber: true,
+          title: true,
+          status: true,
+          costImpact: true,
+          timeImpact: true,
+          project: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    const toNumber = (value: Prisma.Decimal | null | undefined) => value == null ? null : Number(value);
+    const forecastRows = evmRows.filter((row) => row.estimateAtCompletion !== null || row.estimateToComplete !== null || row.varianceAtCompletion !== null);
+    const sumNullable = (rows: typeof evmRows, field: 'estimateAtCompletion' | 'estimateToComplete' | 'varianceAtCompletion') =>
+      rows.reduce((sum, row) => sum + (toNumber(row[field]) ?? 0), 0);
+    const averageNullable = (field: 'spi' | 'cpi') => {
+      const values = evmRows.map((row) => toNumber(row[field])).filter((value): value is number => value !== null);
+      return values.length > 0 ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(3)) : null;
+    };
+    const latestCalculatedAt = evmRows.reduce<Date | null>((latest, row) => {
+      if (!latest || row.lastCalculatedAt > latest) return row.lastCalculatedAt;
+      return latest;
+    }, null);
+    const exceptions = evmRows
+      .filter((row) => row.status !== 'GREEN'
+        || (toNumber(row.spi) !== null && Number(row.spi) < 1)
+        || (toNumber(row.cpi) !== null && Number(row.cpi) < 1)
+        || (toNumber(row.varianceAtCompletion) !== null && Number(row.varianceAtCompletion) < 0))
+      .slice(0, 5)
+      .map((row) => ({
+        projectId: row.projectId,
+        projectCode: row.project.projectCode,
+        projectName: row.project.name,
+        status: row.status,
+        spi: toNumber(row.spi),
+        cpi: toNumber(row.cpi),
+        estimateAtCompletion: toNumber(row.estimateAtCompletion),
+        estimateToComplete: toNumber(row.estimateToComplete),
+        varianceAtCompletion: toNumber(row.varianceAtCompletion),
+        lastCalculatedAt: row.lastCalculatedAt.toISOString(),
+      }));
+
+    return {
+      evm: {
+        projectCount: scope.projectIds.length,
+        recordCount: evmRows.length,
+        forecastValueCount: forecastRows.length,
+        greenCount: evmRows.filter((row) => row.status === 'GREEN').length,
+        amberCount: evmRows.filter((row) => row.status === 'AMBER' || row.status === 'YELLOW').length,
+        redCount: evmRows.filter((row) => row.status === 'RED').length,
+        totalEstimateAtCompletion: sumNullable(evmRows, 'estimateAtCompletion'),
+        totalEstimateToComplete: sumNullable(evmRows, 'estimateToComplete'),
+        totalVarianceAtCompletion: sumNullable(evmRows, 'varianceAtCompletion'),
+        averageSpi: averageNullable('spi'),
+        averageCpi: averageNullable('cpi'),
+        latestCalculatedAt: latestCalculatedAt?.toISOString() ?? null,
+        exceptions,
+      },
+      commercial: {
+        billedAmount: Number(invoiceTotals._sum.totalAmount ?? 0),
+        collectedAmount: Number(invoiceTotals._sum.paidAmount ?? 0),
+        receivablesAmount: Number(invoiceTotals._sum.balanceAmount ?? 0),
+        pendingPaymentAmount: Number(pendingPayments._sum.amount ?? 0),
+        pendingPaymentCount: pendingPayments._count.id,
+        retentionHeldAmount: Number(retentionTotals._sum.balanceAmount ?? 0),
+        openPenaltyAmount: Number(penaltyTotals._sum.netAmount ?? 0),
+        openPenaltyCount: penaltyTotals._count.id,
+      },
+      changes: {
+        openCount: changeRequestCount,
+        totalCostImpact: changeRequests.reduce((sum, row) => sum + Number(row.costImpact ?? 0), 0),
+        totalTimeImpactDays: changeRequests.reduce((sum, row) => sum + Number(row.timeImpact ?? 0), 0),
+        topOpen: changeRequests.slice(0, 5).map((row) => ({
+          id: row.id,
+          projectId: row.projectId,
+          projectName: row.project.name,
+          requestNumber: row.requestNumber,
+          title: row.title,
+          status: row.status,
+          costImpact: Number(row.costImpact ?? 0),
+          timeImpact: Number(row.timeImpact ?? 0),
+        })),
       },
     };
   }

@@ -176,6 +176,59 @@ export interface ExecutiveDashboardData {
         changeRequests: { openCount: number; byStatus: Array<{ status: string; count: number }> };
         coverage: { unknown: string[] };
     };
+    decisionSignals?: {
+        evm: {
+            projectCount: number;
+            recordCount: number;
+            forecastValueCount: number;
+            greenCount: number;
+            amberCount: number;
+            redCount: number;
+            totalEstimateAtCompletion: number;
+            totalEstimateToComplete: number;
+            totalVarianceAtCompletion: number;
+            averageSpi: number | null;
+            averageCpi: number | null;
+            latestCalculatedAt: string | null;
+            exceptions: Array<{
+                projectId: string;
+                projectCode: string;
+                projectName: string;
+                status: string;
+                spi: number | null;
+                cpi: number | null;
+                estimateAtCompletion: number | null;
+                estimateToComplete: number | null;
+                varianceAtCompletion: number | null;
+                lastCalculatedAt: string;
+            }>;
+        };
+        commercial: {
+            billedAmount: number;
+            collectedAmount: number;
+            receivablesAmount: number;
+            pendingPaymentAmount: number;
+            pendingPaymentCount: number;
+            retentionHeldAmount: number;
+            openPenaltyAmount: number;
+            openPenaltyCount: number;
+        };
+        changes: {
+            openCount: number;
+            totalCostImpact: number;
+            totalTimeImpactDays: number;
+            topOpen: Array<{
+                id: string;
+                projectId: string;
+                projectName: string;
+                requestNumber: string;
+                title: string;
+                status: string;
+                costImpact: number;
+                timeImpact: number;
+            }>;
+        };
+    };
     asOf?: string;
     updatedAt?: string;
 }

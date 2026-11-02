@@ -135,6 +135,7 @@ export default function ExecutiveControlTower({ enabled = true, operationalStats
     }
 
     const { projectStats, budgetStats, patStats, contractorRankings, recentActivity, controlTower } = data;
+    const decisionSignals = data.decisionSignals;
     const statusRows = projectStats.byStatus || [];
     const topContractors = (contractorRankings || []).slice(0, 3);
     const highRisk = recentActivity.highRiskPredictions || [];
@@ -373,6 +374,73 @@ export default function ExecutiveControlTower({ enabled = true, operationalStats
                         </Card>
                     </div>
                 </>
+            )}
+
+            {decisionSignals && (
+                <section aria-label="CEO decision signals" className="space-y-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">CEO decision signals</p>
+                            <h2 className="mt-1 text-lg font-black text-foreground">Forecast, commercial exposure and change impact</h2>
+                            <p className="mt-1 text-xs text-muted-foreground">Only persisted EVM, invoice, payment, retention, penalty and change-request values are included.</p>
+                        </div>
+                        <Link href="/projects/dashboards/financials" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">Open financial controls <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                        <Card className="border-indigo-200 bg-indigo-50/50 dark:border-indigo-900 dark:bg-indigo-950/20">
+                            <CardHeader className="pb-3"><CardTitle className="text-sm font-black text-indigo-950 dark:text-indigo-100">Forecast and delivery outlook</CardTitle></CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Metric label="Forecast coverage" value={`${decisionSignals.evm.forecastValueCount}/${decisionSignals.evm.projectCount}`} hint={`${decisionSignals.evm.recordCount} EVM records`} />
+                                    <Metric label="EVM exceptions" value={decisionSignals.evm.exceptions.length} hint={`${decisionSignals.evm.redCount} red · ${decisionSignals.evm.amberCount} amber`} tone={decisionSignals.evm.exceptions.length > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div className="flex justify-between gap-2"><span className="text-muted-foreground">EAC</span><span className="font-black text-foreground">{decisionSignals.evm.forecastValueCount > 0 ? formatLKR(decisionSignals.evm.totalEstimateAtCompletion) : '—'}</span></div>
+                                    <div className="flex justify-between gap-2"><span className="text-muted-foreground">ETC</span><span className="font-black text-foreground">{decisionSignals.evm.forecastValueCount > 0 ? formatLKR(decisionSignals.evm.totalEstimateToComplete) : '—'}</span></div>
+                                    <div className="flex justify-between gap-2"><span className="text-muted-foreground">VAC</span><span className={`font-black ${decisionSignals.evm.totalVarianceAtCompletion < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>{decisionSignals.evm.forecastValueCount > 0 ? formatLKR(decisionSignals.evm.totalVarianceAtCompletion) : '—'}</span></div>
+                                    <div className="flex justify-between gap-2"><span className="text-muted-foreground">SPI / CPI</span><span className="font-black text-foreground">{decisionSignals.evm.averageSpi == null ? '—' : `${decisionSignals.evm.averageSpi} / ${decisionSignals.evm.averageCpi ?? '—'}`}</span></div>
+                                </div>
+                                {decisionSignals.evm.exceptions.length > 0 ? (
+                                    <div className="space-y-1 border-t border-indigo-200 pt-2 dark:border-indigo-800">
+                                        {decisionSignals.evm.exceptions.slice(0, 3).map((exception) => <Link key={exception.projectId} href={`/projects/${exception.projectId}`} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-white/70 dark:hover:bg-slate-950/60"><span className="truncate">{exception.projectName}</span><span className="shrink-0">{exception.status}</span></Link>)}
+                                    </div>
+                                ) : <p className="text-xs text-muted-foreground">No stored EVM exception signals in this scope.</p>}
+                                {decisionSignals.evm.latestCalculatedAt && <p className="text-[11px] text-muted-foreground">Latest EVM calculation: {formatAsOf(decisionSignals.evm.latestCalculatedAt)}</p>}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20">
+                            <CardHeader className="pb-3"><CardTitle className="text-sm font-black text-emerald-950 dark:text-emerald-100">Commercial exposure</CardTitle></CardHeader>
+                            <CardContent className="space-y-2 text-sm">
+                                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Billed</span><span className="font-black text-foreground">{formatLKR(decisionSignals.commercial.billedAmount)}</span></div>
+                                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Collected</span><span className="font-black text-emerald-700 dark:text-emerald-400">{formatLKR(decisionSignals.commercial.collectedAmount)}</span></div>
+                                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Receivables</span><span className="font-black text-rose-700 dark:text-rose-400">{formatLKR(decisionSignals.commercial.receivablesAmount)}</span></div>
+                                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Pending payment commitments</span><span className="font-black text-amber-700 dark:text-amber-400">{formatLKR(decisionSignals.commercial.pendingPaymentAmount)} <span className="text-xs font-semibold">({decisionSignals.commercial.pendingPaymentCount})</span></span></div>
+                                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Retention held</span><span className="font-black text-foreground">{formatLKR(decisionSignals.commercial.retentionHeldAmount)}</span></div>
+                                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Open LD penalties</span><span className="font-black text-rose-700 dark:text-rose-400">{formatLKR(decisionSignals.commercial.openPenaltyAmount)} <span className="text-xs font-semibold">({decisionSignals.commercial.openPenaltyCount})</span></span></div>
+                                <Link href="/finance/reports/pnl" className="inline-flex items-center gap-1 pt-2 text-xs font-bold text-primary hover:underline">Reconcile finance position <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
+                            <CardHeader className="pb-3"><CardTitle className="text-sm font-black text-amber-950 dark:text-amber-100">Decision queue</CardTitle></CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="grid grid-cols-3 gap-2">
+                                    <Metric label="Open changes" value={decisionSignals.changes.openCount} />
+                                    <Metric label="Cost impact" value={formatLKR(decisionSignals.changes.totalCostImpact)} />
+                                    <Metric label="Time impact" value={`${decisionSignals.changes.totalTimeImpactDays}d`} />
+                                </div>
+                                {decisionSignals.changes.topOpen.length > 0 ? (
+                                    <div className="space-y-1 border-t border-amber-200 pt-2 dark:border-amber-800">
+                                        {decisionSignals.changes.topOpen.slice(0, 3).map((change) => <Link key={change.id} href={`/projects/${change.projectId}`} className="block rounded-lg px-2 py-1 hover:bg-white/70 dark:hover:bg-slate-950/60"><p className="truncate text-xs font-bold text-primary">{change.projectName}: {change.title}</p><p className="text-[11px] text-muted-foreground">{change.requestNumber} · {change.status} · {formatLKR(change.costImpact)} · {change.timeImpact}d</p></Link>)}
+                                    </div>
+                                ) : <p className="text-xs text-muted-foreground">No open change requests in this scope.</p>}
+                                <Link href="/projects/dashboards/pm" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">Open project decisions <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </section>
             )}
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
