@@ -134,6 +134,7 @@ export class ProjectDashboardService {
         });
         const inventoryStoreIds = inventoryStores.map((store) => store.id);
         const scopedInventoryStoreIds = inventoryStoreIds.length > 0 ? inventoryStoreIds : [NIL_UUID];
+        const scopedInventoryStoreParams = scopedInventoryStoreIds.map((storeId) => Prisma.sql`${storeId}::uuid`);
 
         // =====================================================
         // FINANCIALS DASHBOARD
@@ -252,7 +253,7 @@ export class ProjectDashboardService {
                    i."name", i."unit"
             FROM "InventoryStock" s
             JOIN "InventoryItem" i ON i."id" = s."itemId"
-            WHERE s."storeId" IN (${Prisma.join(scopedInventoryStoreIds)})
+            WHERE s."storeId" IN (${Prisma.join(scopedInventoryStoreParams)})
               AND (s."quantity" - COALESCE(s."allocatedQuantity", 0)) <=
                   CASE WHEN s."minLevel" > 0 THEN s."minLevel" ELSE i."minLevel" END
             LIMIT 5
@@ -261,7 +262,7 @@ export class ProjectDashboardService {
             SELECT COUNT(*)::int AS count
             FROM "InventoryStock" s
             JOIN "InventoryItem" i ON i."id" = s."itemId"
-            WHERE s."storeId" IN (${Prisma.join(scopedInventoryStoreIds)})
+            WHERE s."storeId" IN (${Prisma.join(scopedInventoryStoreParams)})
               AND (s."quantity" - COALESCE(s."allocatedQuantity", 0)) <=
                   CASE WHEN s."minLevel" > 0 THEN s."minLevel" ELSE i."minLevel" END
         `;
