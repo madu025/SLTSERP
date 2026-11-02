@@ -247,7 +247,6 @@ CREATE OR REPLACE FUNCTION public.fn_bulk_stock_initialize(
     p_quantities NUMERIC[]
 )
 RETURNS TABLE(item_id UUID, old_qty NUMERIC, new_qty NUMERIC)
-LANGUAGE plpgsql
 AS $$
 DECLARE
     i INT;
