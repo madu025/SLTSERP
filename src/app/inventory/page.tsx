@@ -9,6 +9,7 @@ import { hasRole } from '@/config/roles';
 import StoreManagerCommandCenter from './components/StoreManagerCommandCenter';
 import StoreAssistantDashboard from './components/StoreAssistantDashboard';
 import { User, StoreType, KpiData } from '@/types/inventory/dashboard.types';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export default function StoresManagerDashboardPage() {
     const [user] = useState<User | null>(() => {
@@ -60,7 +61,10 @@ export default function StoresManagerDashboardPage() {
     });
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'SITE_OFFICE_STAFF', 'OSP_MANAGER', 'AREA_MANAGER']}>
+        <RoleGuard
+            allowedRoles={[]}
+            permissionId={RBAC_PERMISSIONS.INVENTORY_READ}
+        >
             <div className="erp-page-wrapper flex-row overflow-hidden bg-slate-50 dark:bg-slate-950">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">

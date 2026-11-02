@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCanonicalPermissions } from '@/hooks/use-canonical-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import {
     ShoppingCart,
     FileText,
@@ -45,6 +47,10 @@ interface OverviewRequest {
 }
 
 export default function ProcurementOverviewPage() {
+    const permissions = useCanonicalPermissions();
+    const canCreateRequests = permissions.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE)
+        || permissions.includes(RBAC_PERMISSIONS.INVENTORY_WRITE)
+        || permissions.includes(RBAC_PERMISSIONS.PROJECT_WRITE);
     // Fetch all procurement requests for statistics
     const { data: rawRequests, isLoading } = useQuery<OverviewRequest[]>({
         queryKey: ["procurement-overview"],
@@ -118,7 +124,7 @@ export default function ProcurementOverviewPage() {
     };
 
     return (
-        <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'PROCUREMENT_OFFICER', 'OSP_MANAGER', 'FINANCE_MANAGER']}>
+        <RoleGuard allowedRoles={[]} permissionId={RBAC_PERMISSIONS.PROCUREMENT_READ}>
             <div className="erp-page-wrapper flex-row overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
@@ -134,11 +140,13 @@ export default function ProcurementOverviewPage() {
                                     <p className="text-xs text-slate-500">Real-time procurement workflow insights, purchase order tracking and metrics</p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Link href="/inventory/requests/create">
-                                        <Button className="h-9 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm">
-                                            <PlusCircle className="w-3.5 h-3.5" /> + New PRN
-                                        </Button>
-                                    </Link>
+                                    {canCreateRequests && (
+                                        <Link href="/inventory/requests/create">
+                                            <Button className="h-9 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm">
+                                                <PlusCircle className="w-3.5 h-3.5" /> + New PRN
+                                            </Button>
+                                        </Link>
+                                    )}
                                     <Link href="/procurement/orders">
                                         <Button variant="outline" className="h-9 px-3 text-xs font-bold text-slate-700 border-slate-200 hover:bg-slate-50 rounded-xl flex items-center gap-1.5">
                                             Manage POs <ArrowRight className="w-3.5 h-3.5" />
