@@ -1,0 +1,143 @@
+name: Coolify Production Deploy
+
+on:
+  workflow_run:
+    workflows: ["QA & Security Check"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer main push supersedes an older deployment request. The API cleanup
+# below also cancels a deployment that has already entered Coolify's queue.
+concurrency:
+  group: coolify-production-main
+  cancel-in-progress: true
+
+env:
+  COOLIFY_API_URL: ${{ secrets.COOLIFY_API_URL }}
+  COOLIFY_APPLICATION_UUID: ${{ secrets.COOLIFY_APPLICATION_UUID }}
+  PRODUCTION_BASE_URL: https://slts.vynor.lk
+
+jobs:
+  deploy:
+    name: Deploy latest verified main commit to Coolify
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Verify this is still the latest main commit
+        if: github.event_name == 'workflow_run'
+        id: revision
+        env:
+          QA_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk '{print $1}')"
+          if [[ -z "$latest_sha" || "$latest_sha" != "$QA_HEAD_SHA" ]]; then
+            echo "A newer main commit exists; this deployment is superseded."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
+
+      - name: Validate deployment configuration
+        if: steps.revision.outputs.current != 'false'
+        shell: bash
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          for name in COOLIFY_API_URL COOLIFY_APPLICATION_UUID COOLIFY_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required GitHub secret/configuration: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Cancel older queued or in-progress Coolify deployments
+        if: steps.revision.outputs.current != 'false'
+        shell: bash
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          api="${COOLIFY_API_URL%/}/api/v1"
+          deployments="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            "${api}/deployments/applications/${COOLIFY_APPLICATION_UUID}?take=20")"
+
+          echo "$deployments" | jq -r '.[] | select((.status // "") | test("queued|in_progress|in-progress"; "i")) | .deployment_uuid' |
+            while IFS= read -r deployment_uuid; do
+              [[ -z "$deployment_uuid" ]] && continue
+              echo "Cancelling superseded Coolify deployment ${deployment_uuid}."
+              curl --fail --silent --show-error -X POST \
+                -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+                "${api}/deployments/${deployment_uuid}/cancel" >/dev/null || true
+            done
+
+      - name: Start Coolify deployment for the latest main revision
+        if: steps.revision.outputs.current != 'false'
+        id: deploy
+        shell: bash
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          api="${COOLIFY_API_URL%/}/api/v1"
+          response="$(curl --fail --silent --show-error -X POST \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            --data "{\"uuid\":\"${COOLIFY_APPLICATION_UUID}\"}" \
+            "${api}/deploy")"
+          deployment_uuid="$(echo "$response" | jq -r '.deployments[0].deployment_uuid // empty')"
+          if [[ -z "$deployment_uuid" ]]; then
+            echo "Coolify did not return a deployment UUID." >&2
+            exit 1
+          fi
+          echo "deployment_uuid=$deployment_uuid" >> "$GITHUB_OUTPUT"
+          echo "Queued Coolify deployment ${deployment_uuid}."
+
+      - name: Wait for Coolify deployment and verify the release
+        if: steps.revision.outputs.current != 'false'
+        shell: bash
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          DEPLOYMENT_UUID: ${{ steps.deploy.outputs.deployment_uuid }}
+        run: |
+          set -euo pipefail
+          api="${COOLIFY_API_URL%/}/api/v1"
+          for attempt in {1..180}; do
+            deployment="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+              "${api}/deployments/${DEPLOYMENT_UUID}")"
+            status="$(echo "$deployment" | jq -r '.status // "unknown"')"
+            commit="$(echo "$deployment" | jq -r '.commit // "unknown"')"
+            echo "Coolify deployment status=${status} commit=${commit}"
+            case "$status" in
+              finished|success|successful)
+                exit 0
+                ;;
+              failed|error|cancelled|cancelled-by-user)
+                echo "$deployment" >&2
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Coolify deployment did not finish within 30 minutes." >&2
+          exit 1
+
+      - name: Verify production health
+        if: steps.revision.outputs.current != 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "${PRODUCTION_BASE_URL}/api/health/live"
+          curl --fail --silent --show-error "${PRODUCTION_BASE_URL}/api/health"

@@ -7,6 +7,10 @@ on:
     branches: [ main, staging ]
   workflow_dispatch:
 
+concurrency:
+  group: qa-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   qa-gate:
     runs-on: ubuntu-latest

@@ -10,6 +10,14 @@ The repository now has two separate gates:
    account session. It does not create, edit, delete, upload, or process business
    records.
 
+Production deployment is handled by `.github/workflows/coolify-deploy.yml`.
+It runs only after `QA & Security Check` succeeds for `main`, verifies that the
+tested SHA is still the latest `main` SHA, cancels older queued or in-progress
+Coolify deployments, deploys the latest revision, waits for the deployment to
+finish, and checks both production health endpoints. Do not also enable a
+direct Coolify Git push webhook, otherwise one push can create duplicate
+deployments.
+
 ## Required GitHub secrets
 
 Configure these secrets before enabling the gates:
@@ -18,6 +26,9 @@ Configure these secrets before enabling the gates:
 - `PRODUCTION_SMOKE_USERNAME` / `PRODUCTION_SMOKE_PASSWORD`: dedicated
   production smoke account with the minimum read-only permissions required for
   `/api/profile`.
+- `COOLIFY_API_URL`: trusted Coolify base URL without `/api/v1`.
+- `COOLIFY_API_TOKEN`: team API token with `deploy` permission.
+- `COOLIFY_APPLICATION_UUID`: production application UUID.
 
 Never use a real administrator password for these tests.
 
