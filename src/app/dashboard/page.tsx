@@ -23,7 +23,8 @@ const DASHBOARD_ALLOWED_ROLES = getMenuAllowedRoles('/dashboard') || [];
 const DASHBOARD_STATS_REQUEST_TIMEOUT_MS = 12_000;
 
 const getDefaultTabForRole = (role?: string) => {
-    if (!role) return 'operations';
+    if (!role) return 'overview';
+    if (hasRole(role, [...ROLE_GROUPS.EXECUTIVES, 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER', 'OSP_MANAGER', 'HEAD_OF_SECTION'])) return 'overview';
     if (role === 'PROCUREMENT_OFFICER') return 'procurement';
     if (['STORES_MANAGER', 'STORES_ASSISTANT'].includes(role)) return 'inventory';
     if ([
@@ -34,6 +35,16 @@ const getDefaultTabForRole = (role?: string) => {
     if (['SA_MANAGER', 'SA_ASSISTANT', 'ENGINEER', 'OSP_ENGINEER', 'CIVIL_SUPERVISOR', 'CABLE_SPLICER'].includes(role)) return 'projects';
     return 'operations';
 };
+
+function DashboardTabHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">{eyebrow}</p>
+            <h2 className="mt-1 text-lg font-black text-foreground">{title}</h2>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{description}</p>
+        </div>
+    );
+}
 
 /* ── Chart-heavy sections are dynamically imported (client-only) ── */
 const ChartSection = dynamic(() => import('./components/ChartSection'), {
@@ -125,6 +136,7 @@ export default function DashboardPage() {
     const effectiveDefaultTab = useMemo(() => {
         const defaultTab = getDefaultTabForRole(user?.role);
         const tabVisibility: Record<string, boolean> = {
+            overview: canViewOperations,
             operations: canViewOperations,
             projects: canViewProjects,
             procurement: canViewProcurement,
@@ -132,7 +144,7 @@ export default function DashboardPage() {
             inventory: canViewInventory,
         };
         if (tabVisibility[defaultTab]) return defaultTab;
-        const priority = ['operations', 'projects', 'procurement', 'finance', 'inventory'];
+        const priority = ['overview', 'operations', 'projects', 'procurement', 'finance', 'inventory'];
         return priority.find(t => tabVisibility[t]) || 'operations';
     }, [user?.role, canViewOperations, canViewProjects, canViewProcurement, canViewFinance, canViewInventory]);
 
@@ -343,7 +355,8 @@ export default function DashboardPage() {
                             />
                             
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                <TabsList className="mb-4">
+                                <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-950">
+                                    {canViewOperations && <TabsTrigger value="overview" className="min-w-[7.5rem]">Management overview</TabsTrigger>}
                                     {canViewOperations && <TabsTrigger value="operations">Operations</TabsTrigger>}
                                     {canViewProjects && <TabsTrigger value="projects">Projects</TabsTrigger>}
                                     {canViewProcurement && <TabsTrigger value="procurement">Procurement</TabsTrigger>}
@@ -352,8 +365,23 @@ export default function DashboardPage() {
                                 </TabsList>
                                 
                                 {canViewOperations && (
+                                    <TabsContent value="overview" className="space-y-6">
+                                        <DashboardTabHeader
+                                            eyebrow="Management view"
+                                            title="Portfolio decision overview"
+                                            description="Use this tab for cross-module signals that need an executive decision. Open Operations, Projects, Procurement, Finance, or Inventory for the underlying operational detail."
+                                        />
+                                        <ExecutiveControlTower enabled={activeTab === 'overview'} operationalStats={stats} />
+                                    </TabsContent>
+                                )}
+
+                                {canViewOperations && (
                                     <TabsContent value="operations" className="space-y-6">
-                                        <ExecutiveControlTower enabled={activeTab === 'operations'} operationalStats={stats} />
+                                        <DashboardTabHeader
+                                            eyebrow="Service delivery"
+                                            title="Operations performance"
+                                            description="Monitor service-order throughput, PAT outcomes, contractor performance, aging, and RTOM-level operational execution."
+                                        />
                                         {/* PAT Rejection Alert — scoped to Operations tab only */}
                                         {(stats?.pat?.rejected || 0) > 0 && (
                                             <Link
@@ -393,24 +421,44 @@ export default function DashboardPage() {
                                 
                                 {canViewProjects && (
                                     <TabsContent value="projects" className="space-y-6">
+                                        <DashboardTabHeader
+                                            eyebrow="Project portfolio"
+                                            title="Projects delivery"
+                                            description="Review project progress, budget movement, schedule variance, and delayed-project actions."
+                                        />
                                         <ProjectsSection user={user} enabled={activeTab === 'projects'} />
                                     </TabsContent>
                                 )}
 
                                 {canViewProcurement && (
                                     <TabsContent value="procurement" className="space-y-6">
+                                        <DashboardTabHeader
+                                            eyebrow="Supply chain"
+                                            title="Procurement pipeline"
+                                            description="Track requisitions, purchase orders, goods receipts, fulfilment, and stock-out sourcing actions."
+                                        />
                                         <ProcurementSection rtom={selectedRtom} enabled={activeTab === 'procurement'} />
                                     </TabsContent>
                                 )}
 
                                 {canViewFinance && (
                                     <TabsContent value="finance" className="space-y-6">
+                                        <DashboardTabHeader
+                                            eyebrow="Financial control"
+                                            title="Finance and billing"
+                                            description="Review revenue, invoicing, collections, payout exposure, aging, and finance data-quality exceptions."
+                                        />
                                         <FinanceSection rtom={selectedRtom} enabled={activeTab === 'finance'} />
                                     </TabsContent>
                                 )}
 
                                 {canViewInventory && (
                                     <TabsContent value="inventory" className="space-y-6">
+                                        <DashboardTabHeader
+                                            eyebrow="Stores and materials"
+                                            title="Inventory control"
+                                            description="Review critical stock shortages, material valuation warnings, pending material requests, and goods receipts."
+                                        />
                                         <InventorySection rtom={selectedRtom} enabled={activeTab === 'inventory'} />
                                     </TabsContent>
                                 )}
