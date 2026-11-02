@@ -2,9 +2,13 @@ import { NotificationRepository } from '@/repositories/notification.repository';
 import { emitNotification } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { redis } from '@/lib/redis';
 import { notificationsQueue } from '@/lib/queue';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
+import { StoreService } from '@/services/inventory/store.service';
 
 export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type NotificationType = 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE' | 'HELPDESK';
@@ -448,44 +452,45 @@ export class NotificationService {
      * callers cannot override the role or store identity through headers.
      */
     static async getSidebarCounts(userId: string) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { role: true, assignedStoreId: true }
-        });
-        const userRole = String(user?.role || '');
-        const assignedStoreId = user?.assignedStoreId ?? null;
-
         // Real actionable database pending count for material requests & approvals
         let dbMaterialPending = 0;
-        if (['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'PROCUREMENT_OFFICER', 'HEAD_OF_PROCUREMENT', 'STORES_MANAGER', 'STORES_ASSISTANT', 'AREA_MANAGER'].includes(userRole)) {
-            if (['OSP_MANAGER', 'HEAD_OF_OSP', 'PROCUREMENT_OFFICER', 'HEAD_OF_PROCUREMENT'].includes(userRole)) {
-                dbMaterialPending = await prisma.stockRequest.count({
-                    where: { status: 'PENDING', workflowStage: { in: ['OSP_MANAGER_APPROVAL', 'PROCUREMENT'] } }
-                });
-            } else if (userRole === 'AREA_MANAGER') {
-                dbMaterialPending = await prisma.stockRequest.count({
-                    where: { status: 'PENDING', workflowStage: 'ARM_APPROVAL' }
-                });
-            } else if (['STORES_MANAGER', 'STORES_ASSISTANT'].includes(userRole)) {
-                if (assignedStoreId) {
-                    dbMaterialPending = await prisma.stockRequest.count({
-                        where: {
-                            OR: [
-                                { fromStoreId: assignedStoreId, workflowStage: { in: ['STORES_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'PARTIALLY_ISSUED'] } },
-                                { toStoreId: assignedStoreId, workflowStage: { in: ['RECEIVE_PENDING', 'DISPATCHED', 'SUB_STORE_RECEIVE', 'GRN_PENDING'] } }
-                            ]
-                        }
-                    });
-                } else {
-                    dbMaterialPending = await prisma.stockRequest.count({
-                        where: { workflowStage: { in: ['STORES_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'RECEIVE_PENDING', 'GRN_PENDING'] } }
-                    });
-                }
-            } else {
-                dbMaterialPending = await prisma.stockRequest.count({
-                    where: { status: 'PENDING', workflowStage: { notIn: ['COMPLETED', 'REJECTED'] } }
-                });
-            }
+        const permissions = await getUserEffectivePermissions(userId);
+        const canApproveInventory = permissions.includes(RBAC_PERMISSIONS.INVENTORY_APPROVE);
+        const canWriteInventory = permissions.includes(RBAC_PERMISSIONS.INVENTORY_WRITE);
+        const canWriteProcurement = permissions.includes(RBAC_PERMISSIONS.PROCUREMENT_WRITE);
+        const isGlobal = (await resolveOpmcScope(userId)) === undefined;
+        const accessibleStoreIds = isGlobal
+            ? undefined
+            : (await StoreService.getAccessibleStores(userId)).map((store) => store.id);
+        const storeScope: Prisma.StockRequestWhereInput = accessibleStoreIds === undefined
+            ? {}
+            : {
+                OR: [
+                    { fromStoreId: { in: accessibleStoreIds.length > 0 ? accessibleStoreIds : [NIL_UUID] } },
+                    { toStoreId: { in: accessibleStoreIds.length > 0 ? accessibleStoreIds : [NIL_UUID] } },
+                ],
+            };
+
+        if (canApproveInventory || canWriteInventory || canWriteProcurement) {
+            const approvalStages = ['ARM_APPROVAL', 'OSP_MANAGER_APPROVAL', 'STORES_MANAGER_APPROVAL'];
+            const storeStages = ['MAIN_STORE_RELEASE', 'PARTIALLY_ISSUED', 'RECEIVE_PENDING', 'DISPATCHED', 'SUB_STORE_RECEIVE', 'GRN_PENDING'];
+            const procurementStages = ['PROCUREMENT', 'PROCUREMENT_PROCESSING'];
+            const stages = isGlobal
+                ? undefined
+                : [...new Set([
+                    ...(canApproveInventory ? approvalStages : []),
+                    ...(canWriteInventory ? storeStages : []),
+                    ...(canWriteProcurement ? procurementStages : []),
+                ])];
+            dbMaterialPending = await prisma.stockRequest.count({
+                where: {
+                    ...storeScope,
+                    status: 'PENDING',
+                    ...(stages && stages.length > 0
+                        ? { workflowStage: { in: stages } }
+                        : { workflowStage: { notIn: ['COMPLETED', 'REJECTED'] } }),
+                },
+            });
         }
 
         // Fix #4: Single grouped count query instead of 6 separate LIKE queries (820s → ~10ms)

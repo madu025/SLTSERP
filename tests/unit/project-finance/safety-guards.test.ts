@@ -145,7 +145,7 @@ describe('Project Finance route authorization intent', () => {
     it('scopes global IR reads to accessible stores and validates receipt store writes', () => {
         const route = source('src/app/api/projects/ir-ledger/route.ts');
         const service = source('src/services/project/project-ir-ledger.service.ts');
-        assert.match(route, /StoreService\.getAccessibleStores\(userId, ''\)/);
+        assert.match(route, /StoreService\.getAccessibleStores\(userId\)/);
         assert.match(route, /getIRLedgerHistory\(irNumber, storeIds\)/);
         assert.match(route, /getIRLedger\(projectId, projectId \? undefined : storeIds\)/);
         assert.match(route, /getIRLedgerMeta\(storeIds,/);
@@ -160,8 +160,8 @@ describe('Project Finance route authorization intent', () => {
         const service = source('src/services/project/project-dashboard.service.ts');
         const page = source('src/app/projects/dashboards/financials/page.tsx');
         assert.match(route, /section === 'financials'/);
-        assert.match(route, /getFinancialStats\(userId, userRole\)/);
-        assert.match(service, /static async getFinancialStats\(userId: string, userRole: string\)/);
+        assert.match(route, /getFinancialStats\(userId\)/);
+        assert.match(service, /static async getFinancialStats\(userId: string\)/);
         assert.match(service, /const \[budgetAgg, invoiceAgg, voucherCounts, expenseTypeCounts, recentInvoices, recentPayments\] = await Promise\.all/);
         assert.match(page, /project-stats\?section=financials/);
         assert.match(page, /new AbortController\(\)/);

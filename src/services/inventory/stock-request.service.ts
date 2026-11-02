@@ -11,7 +11,9 @@ import { prisma } from '@/lib/prisma';
 import { ProcessGateEngine } from '../approval/process-gate-engine';
 import { AuditLedgerService } from './audit-ledger.service';
 import { StoreService } from './store.service';
-import { ROLE_GROUPS } from '@/config/roles';
+import { getUserEffectivePermissions } from '@/lib/user-permissions';
+import { getStockRequestActionPermission } from '@/lib/inventory-stock-request-permissions';
+import { NIL_UUID, resolveOpmcScope } from '@/lib/opmc-scope';
 export class StockRequestService {
     private static generateRequestId(sourceType?: string): string {
         const date = new Date();
@@ -174,8 +176,20 @@ export class StockRequestService {
         sourceType?: string;
         procurementStatus?: string;
         awaitingApproval?: boolean;
-    }) {
-        const where: Prisma.StockRequestWhereInput = {};
+    }, userId: string) {
+        const opmcScope = await resolveOpmcScope(userId);
+        const accessibleStoreIds = opmcScope === undefined
+            ? undefined
+            : (await StoreService.getAccessibleStores(userId)).map((store) => store.id);
+        const storeScope: Prisma.StockRequestWhereInput | undefined = accessibleStoreIds === undefined
+            ? undefined
+            : {
+                OR: [
+                    { fromStoreId: { in: accessibleStoreIds.length > 0 ? accessibleStoreIds : [NIL_UUID] } },
+                    { toStoreId: { in: accessibleStoreIds.length > 0 ? accessibleStoreIds : [NIL_UUID] } },
+                ],
+            };
+        const where: Prisma.StockRequestWhereInput = storeScope ? { AND: [storeScope] } : {};
 
         if (filters.storeId) {
             if (filters.isApprover) {
@@ -250,36 +264,47 @@ export class StockRequestService {
     static async processStockRequestAction(data: StockRequestActionData) {
         const { action, requestId, userId } = data;
 
+        const requiredPermission = getStockRequestActionPermission(action);
+        if (!requiredPermission) {
+            throw AppError.badRequest('INVALID_ACTION');
+        }
+
+        const permissions = await getUserEffectivePermissions(userId);
+        if (!permissions.includes(requiredPermission)) {
+            throw AppError.forbidden(`INVENTORY_ACTION_PERMISSION_DENIED: ${requiredPermission}`);
+        }
+
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { role: true }
+            select: { id: true }
         });
 
         if (!user) {
             throw AppError.unauthorized("USER_NOT_FOUND");
         }
 
-        // Segregation of Duties (SoD) enforcement: Request creator cannot approve/release/process their own request
-        if (['ARM_APPROVE', 'STORES_MANAGER_APPROVE', 'APPROVE', 'RELEASE'].includes(action)) {
-            const stockReq = await prisma.stockRequest.findUnique({
-                where: { id: requestId },
-                select: { requestedById: true }
-            });
-            if (user.role !== 'SUPER_ADMIN' && stockReq && stockReq.requestedById === userId) {
-                throw AppError.badRequest("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
+        const stockRequest = await StockRequestRepository.findById(requestId);
+        if (!stockRequest) {
+            throw AppError.badRequest('REQUEST_NOT_FOUND');
+        }
+
+        const requestStoreIds = [stockRequest.fromStoreId, stockRequest.toStoreId].filter(
+            (storeId): storeId is string => Boolean(storeId),
+        );
+        if (requestStoreIds.length === 0 && (await resolveOpmcScope(userId)) !== undefined) {
+            throw AppError.forbidden('STORE_SCOPE_VIOLATION: Request is not attached to an accessible store.');
+        }
+        if (requestStoreIds.length > 0) {
+            const accessibleStores = await StoreService.getAccessibleStores(userId);
+            if (!requestStoreIds.some((storeId) => accessibleStores.some((store) => store.id === storeId))) {
+                throw AppError.forbidden('STORE_SCOPE_VIOLATION: Stock request is outside the user store scope.');
             }
         }
 
-        // Stage-Specific Role Isolation Enforcement
-        if (action === 'RELEASE') {
-            // Aligned with ROLE_GROUPS.STORES_ALL (src/config/roles.ts) so the
-            // guard includes CEO and never drifts from the stores group definition.
-            if (!(ROLE_GROUPS.STORES_ALL as readonly string[]).includes(user.role)) {
-                throw AppError.forbidden("ROLE_PERMISSION_DENIED: Only Main Stores Officers can perform MIN Release and dispatch warehouse stock.");
-            }
-        } else if (action === 'ARM_APPROVE') {
-            if (!['AREA_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-                throw AppError.forbidden("ROLE_PERMISSION_DENIED: Only Area Managers and OSP Managers can perform ARM Stage Approvals.");
+        // Segregation of Duties (SoD) enforcement: Request creator cannot approve/release/process their own request
+        if (['ARM_APPROVE', 'STORES_MANAGER_APPROVE', 'APPROVE', 'GATE_PASSED', 'REJECT', 'RECALL_APPROVAL', 'RELEASE'].includes(action)) {
+            if (stockRequest.requestedById === userId) {
+                throw AppError.badRequest("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
             }
         }
 

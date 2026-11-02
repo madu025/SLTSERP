@@ -7,7 +7,7 @@ import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 export const dynamic = 'force-dynamic';
 
 // GET all stock requests
-export const GET = apiHandler(async (req) => {
+export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
 
     const filters = {
@@ -20,7 +20,8 @@ export const GET = apiHandler(async (req) => {
         awaitingApproval: searchParams.get('awaitingApproval') === 'true'
     };
 
-    return await InventoryService.getStockRequests(filters);
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
+    return await InventoryService.getStockRequests(filters, params._userId);
 }, {
     permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
@@ -34,7 +35,7 @@ export const POST = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE, RBAC_PERMISSIONS.PROJECT_WRITE, RBAC_PERMISSIONS.PROCUREMENT_WRITE],
     audit: { action: 'CREATE', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });
@@ -47,7 +48,7 @@ export const PATCH = apiHandler(async (req, _params, body) => {
     }
     return result.data;
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE, RBAC_PERMISSIONS.INVENTORY_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_WRITE],
     audit: { action: 'UPDATE_STATUS', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });

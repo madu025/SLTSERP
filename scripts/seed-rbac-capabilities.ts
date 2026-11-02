@@ -47,7 +47,10 @@ const bootstrapGrants: Record<string, readonly string[]> = {
     'inventory.read': [...new Set([...ROLE_GROUPS.STORES, ...ROLE_GROUPS.OPS, 'MANAGER'])],
     'inventory.cost.read': ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'MANAGER', 'FINANCE_MANAGER', 'STORES_MANAGER'],
     'inventory.write': ROLE_GROUPS.STORES_ALL,
-    'inventory.approve': ROLE_GROUPS.STORES_MANAGERS,
+    // Material-request approvals are performed by stores managers and the
+    // OPMC/area management tier. Runtime checks use this capability, never
+    // the legacy role-name groups directly.
+    'inventory.approve': [...new Set([...ROLE_GROUPS.STORES_MANAGERS, ...ROLE_GROUPS.AREA_MANAGERS])],
     'procurement.read': ROLE_GROUPS.PROCUREMENT,
     'procurement.write': ROLE_GROUPS.PROCUREMENT,
     'contractor.read': ROLE_GROUPS.CONTRACTOR_READERS,

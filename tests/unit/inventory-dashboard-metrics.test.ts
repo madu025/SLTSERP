@@ -6,6 +6,8 @@ import {
     isInventoryOverAllocated,
     isInventoryReorderNeeded,
 } from '../../src/lib/inventory-dashboard-metrics';
+import { RBAC_PERMISSIONS } from '../../src/config/rbac-permissions';
+import { getStockRequestActionPermission } from '../../src/lib/inventory-stock-request-permissions';
 
 test('inventory dashboards subtract allocated reservations from available stock', () => {
     const row = { quantity: 10, allocatedQuantity: 9, minLevel: 5, itemMinLevel: 2 };
@@ -35,4 +37,11 @@ test('zero minimum does not create a false low-stock alert for positive availabl
 
     assert.equal(availableInventoryQuantity(row), 3);
     assert.equal(isInventoryReorderNeeded(row), false);
+});
+
+test('stock request actions use canonical capability boundaries', () => {
+    assert.equal(getStockRequestActionPermission('ARM_APPROVE'), RBAC_PERMISSIONS.INVENTORY_APPROVE);
+    assert.equal(getStockRequestActionPermission('RELEASE'), RBAC_PERMISSIONS.INVENTORY_WRITE);
+    assert.equal(getStockRequestActionPermission('CREATE_PO'), RBAC_PERMISSIONS.PROCUREMENT_WRITE);
+    assert.equal(getStockRequestActionPermission('UNKNOWN'), undefined);
 });

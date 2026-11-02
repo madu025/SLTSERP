@@ -3,6 +3,8 @@
 import { InventoryService } from '@/services/inventory/inventory.service';
 import { requirePermission, toSerializable } from '@/lib/server-utils';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { getStockRequestActionPermission } from '@/lib/inventory-stock-request-permissions';
+import type { StockRequestActionData } from '@/types/inventory/inventory-service.types';
 import { revalidatePath } from 'next/cache';
 
 // --- ITEM MANAGEMENT ---
@@ -179,12 +181,9 @@ export async function createStockIssue(data: any) {
 }
 
 export async function processStockRequestAction(data: any) {
-    const user = await requirePermission([
-        RBAC_PERMISSIONS.INVENTORY_WRITE,
-        RBAC_PERMISSIONS.INVENTORY_APPROVE,
-        RBAC_PERMISSIONS.PROJECT_WRITE,
-        RBAC_PERMISSIONS.PROCUREMENT_WRITE,
-    ]);
+    const permission = getStockRequestActionPermission(data?.action as StockRequestActionData['action'] | undefined);
+    if (!permission) return { success: false, error: 'INVALID_ACTION' };
+    const user = await requirePermission(permission);
     try {
         const result = await InventoryService.processStockRequestAction({
             ...data,

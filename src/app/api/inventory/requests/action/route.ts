@@ -27,7 +27,7 @@ export const POST = apiHandler(async (_request, params, body) => {
 
     return result;
 }, {
-    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE],
+    permissions: [RBAC_PERMISSIONS.INVENTORY_WRITE, RBAC_PERMISSIONS.INVENTORY_APPROVE, RBAC_PERMISSIONS.PROCUREMENT_WRITE],
     audit: { action: 'UPDATE', entity: 'STOCK_REQUEST' },
     rawResponse: true
 });
