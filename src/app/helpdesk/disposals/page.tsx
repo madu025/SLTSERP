@@ -172,10 +172,7 @@ export default function AssetDisposalsPage() {
     try {
       const res = await fetch("/api/helpdesk/disposal", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUserId
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assetId: selectedAssetId,
           reason,
@@ -211,10 +208,7 @@ export default function AssetDisposalsPage() {
     try {
       const res = await fetch("/api/helpdesk/disposal", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUserId
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId, action })
       });
 

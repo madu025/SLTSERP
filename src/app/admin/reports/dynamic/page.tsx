@@ -155,9 +155,6 @@ export default function DynamicReportPage() {
 
         setLoading(true);
         try {
-            const userId = localStorage.getItem("erp_user_id") || "";
-            const role = localStorage.getItem("erp_user_role") || "";
-
             const payload = {
                 entity,
                 columns: selectedColumns,
@@ -171,11 +168,7 @@ export default function DynamicReportPage() {
 
             const res = await fetch('/api/admin/reports/dynamic', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-user-id': userId,
-                    'x-user-role': role
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 

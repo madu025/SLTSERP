@@ -1,7 +1,8 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/server-utils';
+import { requirePermission } from '@/lib/server-utils';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import bcrypt from 'bcryptjs';
 import { SystemService } from '@/services/core/system.service';
 import { revalidatePath } from 'next/cache';
@@ -23,7 +24,7 @@ export interface UserActionInput {
 }
 
 export async function createUser(data: UserActionInput) {
-    const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
 
     try {
         const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
@@ -171,7 +172,7 @@ export interface UpdateUserActionData extends Partial<UserActionInput> {
 }
 
 export async function updateUser(data: UpdateUserActionData) {
-    const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
 
     try {
         const { id, username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, permissions } = data;
@@ -290,7 +291,7 @@ export async function updateUser(data: UpdateUserActionData) {
 }
 
 export async function deleteUser(id: string) {
-    const currentUser = await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
 
     try {
         if (currentUser.id === id) {

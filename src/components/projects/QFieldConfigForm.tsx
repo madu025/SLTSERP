@@ -117,9 +117,7 @@ export default function QFieldConfigForm({ projectId, projectCode, projectName }
   useEffect(() => {
     async function fetchConfigs() {
       try {
-        const res = await fetch(`/api/projects/${projectId}/qfield-config`, {
-          headers: { 'x-user-id': 'system' }
-        });
+        const res = await fetch(`/api/projects/${projectId}/qfield-config`);
         if (res.ok) {
           const data = await res.json();
           if (data.configs && data.configs.length > 0) {
@@ -240,10 +238,7 @@ export default function QFieldConfigForm({ projectId, projectCode, projectName }
     try {
       const res = await fetch(`/api/projects/${projectId}/qfield-config`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'system'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ configs })
       });
 

@@ -2,6 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ReportService } from '@/services/core/report.service';
 import { z } from 'zod';
 import { PaymentTypeEnum, PaymentStatusEnum } from '@prisma/client';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,4 +53,4 @@ export const GET = apiHandler(async (request) => {
         },
         meta: { total, page, limit, pages: Math.ceil(total / limit) },
     };
-}, { rawResponse: true, menuPath: '/reports/fleet' });
+}, { rawResponse: true, permissions: [RBAC_PERMISSIONS.FLEET_READ] });

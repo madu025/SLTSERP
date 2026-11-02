@@ -312,11 +312,10 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         const ids = Array.from(selectedIds);
         toast.info(`Applying ${action} to ${ids.length} orders...`);
         try {
-            const userId = localStorage.getItem("erp_user_id") || "";
             const patchOrder = async (id: string, body: Record<string, unknown>) => {
                 const response = await fetch("/api/service-orders", {
                     method: "PATCH",
-                    headers: { "Content-Type": "application/json", "x-user-id": userId },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ id, ...body })
                 });
                 const payload = await response.json().catch(() => null);

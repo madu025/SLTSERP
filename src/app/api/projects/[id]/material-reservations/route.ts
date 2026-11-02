@@ -18,7 +18,7 @@ const reservationSchema = z.object({
 });
 
 async function scopeAvailability<T extends { availability: Array<{ storeId: string }> }>(overview: T[], userId: string) {
-  const stores = await StoreService.getAccessibleStores(userId, '');
+  const stores = await StoreService.getAccessibleStores(userId);
   const allowedStores = new Set(stores.map((store) => store.id));
   return overview.map((requirement) => ({
     ...requirement,

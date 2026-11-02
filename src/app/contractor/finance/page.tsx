@@ -66,9 +66,7 @@ export default function ContractorFinancePage() {
     const [selectedClaim, setSelectedClaim] = useState<ContractorClaim | null>(null);
 
     const getAuthHeaders = () => {
-        const contractorUser = typeof window !== 'undefined' ? (localStorage.getItem('contractor_user') || localStorage.getItem('user')) : null;
         const contractorToken = typeof window !== 'undefined' ? (localStorage.getItem('contractor_token') || localStorage.getItem('token')) : null;
-        const selectedContractorId = typeof window !== 'undefined' ? localStorage.getItem('selected_contractor_id') : null;
 
         const headers: Record<string, string> = {
             'Cache-Control': 'no-cache',
@@ -76,17 +74,6 @@ export default function ContractorFinancePage() {
         };
         if (contractorToken) {
             headers['Authorization'] = `Bearer ${contractorToken}`;
-        }
-        if (contractorUser) {
-            try {
-                const u = JSON.parse(contractorUser);
-                if (u.id) headers['x-user-id'] = u.id;
-                if (u.role) headers['x-user-role'] = u.role;
-                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
-            } catch {}
-        }
-        if (selectedContractorId) {
-            headers['x-contractor-id'] = selectedContractorId;
         }
         return headers;
     };

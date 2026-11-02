@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { apiHandler } from '@/lib/api-handler';
 import { MaterialSummaryReportService } from '@/services/inventory/material-summary-report.service';
 import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
+import { prisma } from '@/lib/prisma';
+import { resolveOpmcScope } from '@/lib/opmc-scope';
 
 export const GET = apiHandler(async (req: Request, params) => {
     const { searchParams } = new URL(req.url);
@@ -15,12 +17,23 @@ export const GET = apiHandler(async (req: Request, params) => {
     const year  = yearParam  ? parseInt(yearParam,  10) : undefined;
     const month = monthParam ? parseInt(monthParam, 10) : undefined;
 
-    // Role-based data scoping: viewer's role + their assigned RTOM (for field staff)
-    const viewerRole  = params._userRole ?? undefined;
-    const scopedRtom  = req.headers.get('x-user-rtom') ?? undefined;
+    const opmcScope = await resolveOpmcScope(params._userId);
+    const allowedRtoms = opmcScope === undefined
+        ? undefined
+        : (opmcScope.length === 0
+            ? []
+            : (await prisma.oPMC.findMany({
+                where: { id: { in: opmcScope } },
+                select: { rtom: true },
+            })).map((opmc) => opmc.rtom));
 
     const report = await MaterialSummaryReportService.generate({
-        year, month, rtom, itemCode, viewerRole, scopedRtom,
+        year,
+        month,
+        rtom,
+        itemCode,
+        canViewCosts: params._permissions.includes(RBAC_PERMISSIONS.INVENTORY_COST_READ),
+        allowedRtoms,
     });
 
     return Response.json({ success: true, data: report });

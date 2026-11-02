@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     let storeId = searchParams.get('storeId');
-    const { _userId, _userRole } = params;
+    const { _userId } = params;
     if (!_userId) throw AppError.unauthorized('Authentication required');
 
     // Capability and store scope are separate. A display role must never turn
@@ -23,7 +23,7 @@ export const GET = apiHandler(async (req, params) => {
     if (!user) throw AppError.unauthorized('Authenticated user not found');
 
     if (!isGlobalScope) {
-        const accessibleStores = await StoreService.getAccessibleStores(_userId, _userRole || '');
+        const accessibleStores = await StoreService.getAccessibleStores(_userId);
         const accessibleStoreIds = accessibleStores.map((store) => store.id);
 
         // A directly assigned store is authoritative for store assistants.

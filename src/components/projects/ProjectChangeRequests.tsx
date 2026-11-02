@@ -93,9 +93,7 @@ export default function ProjectChangeRequests({ project }: ProjectChangeRequests
   const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/projects/${project.id}/change-requests`, {
-        headers: { 'x-user-id': 'current-user' },
-      });
+      const res = await fetch(`/api/projects/${project.id}/change-requests`);
       if (!res.ok) throw new Error();
       setRequests(await res.json());
     } catch {
@@ -113,7 +111,7 @@ export default function ProjectChangeRequests({ project }: ProjectChangeRequests
     try {
       const res = await fetch(`/api/projects/${project.id}/change-requests`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': 'current-user' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           changeType: form.changeType,
           title: form.title,

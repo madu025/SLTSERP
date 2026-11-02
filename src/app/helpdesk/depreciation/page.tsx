@@ -123,10 +123,7 @@ export default function ITAssetDepreciationPage() {
     try {
       const res = await fetch("/api/helpdesk/depreciation", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": currentUserId
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           period: new Date().toISOString().substring(0, 7)
         })

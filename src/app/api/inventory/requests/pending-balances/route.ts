@@ -22,7 +22,7 @@ export const GET = apiHandler(async (req, params) => {
     }
     if (!params._userId) throw AppError.unauthorized('Authentication required');
 
-    const accessibleStores = await StoreService.getAccessibleStores(params._userId, params._userRole || '');
+    const accessibleStores = await StoreService.getAccessibleStores(params._userId);
     if (!accessibleStores.some((store) => store.id === storeId)) {
         throw AppError.forbidden('STORE_SCOPE_VIOLATION');
     }

@@ -20,7 +20,7 @@ const receiptSchema = z.object({
 export const GET = apiHandler(async (req, params) => {
   const userId = requireUserId(params._userId);
   const accessible = await getAccessibleProjectIds(userId);
-  const stores = await StoreService.getAccessibleStores(userId, '');
+  const stores = await StoreService.getAccessibleStores(userId);
   const storeIds = stores.map(store => store.id);
   const { searchParams } = new URL(req.url);
   const history = searchParams.get('history') === 'true';

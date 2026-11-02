@@ -2,7 +2,7 @@ import { apiHandler } from '@/lib/api-handler';
 import { ReportService } from '@/services/core/report.service';
 import { AppError } from '@/lib/error';
 import { z } from 'zod';
-import { getMenuAllowedRoles } from '@/config/route-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,16 +31,14 @@ export const GET = apiHandler(async (request, params) => {
         throw AppError.badRequest(`Invalid query parameters: ${queryParams.error.issues.map(i => i.message).join(', ')}`);
     }
 
-    // Runtime RBAC check: ensure user has access to the specific view
-    const userRole = params._userRole;
-    if (!userRole) {
-        throw AppError.unauthorized('Authentication required');
-    }
-    
-    const menuPath = view === 'manager' ? '/reports/manager' : '/reports/arm';
-    const allowedRoles = getMenuAllowedRoles(menuPath);
-    
-    if (allowedRoles && !allowedRoles.includes(userRole) && !allowedRoles.includes('ALL')) {
+    // The route-level capability authenticates the report module. The view
+    // capability remains separate so a manager-view caller cannot switch to
+    // an area view (or vice versa) by changing a client role label.
+    const viewPermission = view === 'manager'
+        ? RBAC_PERMISSIONS.REPORTS_MANAGER_READ
+        : RBAC_PERMISSIONS.REPORTS_AREA_READ;
+    if (!params._userId) throw AppError.unauthorized('Authentication required');
+    if (!params._permissions.includes(viewPermission)) {
         throw AppError.forbidden(`You do not have access to the ${view} view`);
     }
 
@@ -49,4 +47,4 @@ export const GET = apiHandler(async (request, params) => {
         customTo,
         groupBy
     });
-}, { rawResponse: true, menuPath: '/reports/arm' });
+}, { rawResponse: true, permissions: [RBAC_PERMISSIONS.REPORTS_READ] });

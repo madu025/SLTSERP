@@ -1,14 +1,15 @@
 import { apiHandler } from '@/lib/api-handler';
 import { NotificationAnalyticsService } from '@/services/notification/analytics.service';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request, params) => {
-    const role = params._userRole || '';
     const userId = params._userId || '';
 
-    // Only admins or super admins can view global analytics
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) {
+    // Only canonical global administration capability can view global
+    // analytics. Other authenticated users receive their own statistics.
+    if (!params._permissions.includes(RBAC_PERMISSIONS.ADMIN_RBAC)) {
         // Normal users get personal stats
         const personalStats = await NotificationAnalyticsService.getUserStats(userId);
         return { data: personalStats };

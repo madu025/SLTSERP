@@ -1,11 +1,12 @@
 'use server';
 
 import { ContractorService, ContractorUpdateData } from '@/services/contractor/contractor.service';
-import { requireAuth } from '@/lib/server-utils';
+import { requirePermission } from '@/lib/server-utils';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { revalidatePath } from 'next/cache';
 
 export async function createContractor(data: ContractorUpdateData) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
 
     try {
         const contractor = await ContractorService.createContractor(data);
@@ -22,7 +23,7 @@ export async function createContractor(data: ContractorUpdateData) {
 }
 
 export async function updateContractor(id: string, data: ContractorUpdateData) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
 
     try {
         const updated = await ContractorService.updateContractor(id, data);
@@ -40,7 +41,10 @@ export async function updateContractor(id: string, data: ContractorUpdateData) {
 }
 
 export async function deleteContractor(id: string) {
-    await requireAuth(['SUPER_ADMIN']);
+    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
+    if (currentUser.role !== 'SUPER_ADMIN') {
+        throw new Error('Forbidden: only a Super Admin can delete contractors');
+    }
 
     try {
         await ContractorService.deleteContractor(id);
@@ -57,7 +61,7 @@ export async function deleteContractor(id: string) {
 }
 
 export async function approveContractor(id: string) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
         const updated = await ContractorService.updateContractor(id, { status: 'ACTIVE' });
         revalidatePath('/admin/contractors');
@@ -69,7 +73,7 @@ export async function approveContractor(id: string) {
 }
 
 export async function rejectContractor(id: string) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
         const updated = await ContractorService.updateContractor(id, { status: 'REJECTED' });
         revalidatePath('/admin/contractors');

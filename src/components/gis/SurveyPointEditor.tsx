@@ -224,10 +224,7 @@ export function SurveyPointEditor({
           `/api/projects/${projectId}/survey/points/${pointId}`,
           {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "x-user-id": "web-editor",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               action: "update_coordinates",
               latitude: lat,

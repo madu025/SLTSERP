@@ -87,10 +87,6 @@ export default function ProjectsSection({ user, enabled = true }: ProjectsSectio
 
             try {
                 const resp = await fetch(`/api/dashboard/projects?includeRecentActivities=false`, {
-                headers: {
-                    'x-user-id': user.id,
-                    'x-user-role': user.role,
-                    },
                     signal: controller.signal,
                 });
                 if (!resp.ok) {

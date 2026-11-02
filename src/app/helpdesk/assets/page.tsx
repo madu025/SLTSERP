@@ -125,11 +125,7 @@ export default function HelpdeskAssetManagementPage() {
   const fetchStaff = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch("/api/staff", {
-        headers: {
-          "x-user-role": user.role
-        }
-      });
+      const res = await fetch("/api/staff");
       if (!res.ok) throw new Error("Failed to fetch staff");
       const json = await res.json();
       

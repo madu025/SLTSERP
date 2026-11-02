@@ -74,9 +74,7 @@ export default function ProjectGISAudit({ project }: ProjectGISAuditProps) {
       if (filters.from) params.set('from', filters.from);
       if (filters.to) params.set('to', filters.to);
 
-      const res = await fetch(`/api/projects/${project.id}/gis-audit?${params}`, {
-        headers: { 'x-user-id': 'current-user' },
-      });
+      const res = await fetch(`/api/projects/${project.id}/gis-audit?${params}`);
       if (!res.ok) throw new Error();
       const payload = await res.json();
       setResult({

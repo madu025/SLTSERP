@@ -11,8 +11,8 @@ export class ProjectDashboardService {
      * dashboard request could wait on many unrelated queries. Keep the
      * finance tab independent and execute its source reads in parallel.
      */
-    static async getFinancialStats(userId: string, userRole: string) {
-        const projectWhere = await this.getProjectScope(userId, userRole);
+    static async getFinancialStats(userId: string) {
+        const projectWhere = await this.getProjectScope(userId);
         const projectIds = await this.getProjectIdsForScope(projectWhere);
 
         const [budgetAgg, invoiceAgg, voucherCounts, expenseTypeCounts, recentInvoices, recentPayments] = await Promise.all([
@@ -115,8 +115,8 @@ export class ProjectDashboardService {
         };
     }
 
-    static async getProjectStats(userId: string, userRole: string) {
-        const projectWhere = await this.getProjectScope(userId, userRole);
+    static async getProjectStats(userId: string) {
+        const projectWhere = await this.getProjectScope(userId);
         const projectIds = await this.getProjectIdsForScope(projectWhere);
         const inventoryOpmcScope = await resolveOpmcScope(userId);
         const inventoryStoreWhere: Prisma.InventoryStoreWhereInput = inventoryOpmcScope === undefined
@@ -433,10 +433,7 @@ export class ProjectDashboardService {
      * restricted user receives no projects rather than an accidental global
      * result.
      */
-    private static async getProjectScope(userId: string, userRole: string): Promise<Prisma.ProjectWhereInput> {
-        // Keep the positional role argument for existing service callers;
-        // canonical scope resolution intentionally does not trust it.
-        void userRole;
+    private static async getProjectScope(userId: string): Promise<Prisma.ProjectWhereInput> {
         const opmcScope = await resolveOpmcScope(userId);
         if (opmcScope === undefined) {
             return {};
@@ -505,11 +502,10 @@ export class ProjectDashboardService {
      */
     static async getProjectOverviewSummary(
         userId: string,
-        userRole: string,
         options: { includeRecentActivities?: boolean } = {}
     ) {
         const includeRecentActivities = options.includeRecentActivities !== false;
-        const projectWhere = await this.getProjectScope(userId, userRole);
+        const projectWhere = await this.getProjectScope(userId);
         const projectIdsPromise = includeRecentActivities
             ? this.getProjectIdsForScope(projectWhere)
             : Promise.resolve<string[]>([]);
@@ -600,8 +596,8 @@ export class ProjectDashboardService {
         };
     }
 
-    static async getProjectOverview(userId: string, userRole: string) {
-        const projectWhere = await this.getProjectScope(userId, userRole);
+    static async getProjectOverview(userId: string) {
+        const projectWhere = await this.getProjectScope(userId);
 
         const now = new Date();
 

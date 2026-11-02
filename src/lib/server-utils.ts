@@ -3,6 +3,14 @@ import { verifyJWT } from './auth';
 import { validateSession } from './session-validator';
 import { AppError } from './error';
 
+export interface CurrentUser {
+    id: string;
+    role: string;
+    username: string;
+    name: string;
+    permissions: string[];
+}
+
 /**
  * Recursively convert Prisma results into plain serializable values so they can
  * safely cross the Server Action / RSC boundary. Prisma Decimal (decimal.js)
@@ -66,7 +74,8 @@ export async function getCurrentUser() {
         id: userId,
         role: session.role as string,
         username: payload.username as string,
-        name: payload.name as string
+        name: payload.name as string,
+        permissions: session.permissions ?? [],
     };
 }
 
@@ -79,6 +88,31 @@ export async function requireAuth(roles?: string[]) {
 
     if (roles && !roles.includes('ALL') && !roles.includes(user.role)) {
         throw AppError.forbidden('Forbidden: Insufficient permissions');
+    }
+
+    return user;
+}
+
+/**
+ * Server-action authorization boundary. Capability codes come from the
+ * database-backed session, never from a client role label.
+ */
+export async function requirePermission(
+    permissions: string | readonly string[],
+    mode: 'any' | 'all' = 'any',
+) {
+    const user = await getCurrentUser();
+    if (!user) {
+        throw AppError.unauthorized('Authentication required');
+    }
+
+    const required = Array.isArray(permissions) ? permissions : [permissions];
+    const allowed = mode === 'all'
+        ? required.every((permission) => user.permissions.includes(permission))
+        : required.some((permission) => user.permissions.includes(permission));
+
+    if (!allowed) {
+        throw AppError.forbidden('Forbidden: insufficient permission');
     }
 
     return user;

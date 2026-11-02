@@ -1,26 +1,14 @@
 import { prisma } from '@/lib/prisma';
 
-// Roles that can see LKR cost columns in this report
-const COST_VISIBLE_ROLES = new Set([
-  'SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP',
-  'OSP_MANAGER', 'MANAGER', 'FINANCE_MANAGER',
-  'STORES_MANAGER',
-]);
-
-// Roles whose RTOM scope is limited to their own assigned RTOM
-const RTOM_SCOPED_ROLES = new Set([
-  'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER',
-]);
-
 export interface MaterialSummaryFilters {
   year?: number;
   month?: number;       // 1–12; if omitted returns all months in the year
   rtom?: string;        // explicit RTOM filter (from query param)
   itemCode?: string;
-  /** Role of the requesting user — drives cost visibility + RTOM scoping */
-  viewerRole?: string;
-  /** Assigned RTOM of the requesting user (for RTOM-scoped roles) */
-  scopedRtom?: string;
+  /** Canonical permission-derived cost visibility */
+  canViewCosts?: boolean;
+  /** Server-resolved RTOM allowlist; undefined means global scope */
+  allowedRtoms?: string[];
 }
 
 export interface MaterialSummaryRow {
@@ -86,14 +74,13 @@ export class MaterialSummaryReportService {
    *   - AREA_MANAGER → quantity only, all RTOMs
    */
   static async generate(filters: MaterialSummaryFilters): Promise<MaterialSummaryReport> {
-    const { viewerRole, scopedRtom } = filters;
-    const canViewCosts = COST_VISIBLE_ROLES.has(viewerRole ?? '');
-    const isRtomScoped = RTOM_SCOPED_ROLES.has(viewerRole ?? '');
-
-    // RTOM enforcement: scoped roles can only see their own RTOM
-    const effectiveRtom = isRtomScoped
-      ? (scopedRtom ?? filters.rtom)    // ignore explicit filter override
-      : (filters.rtom ?? undefined);
+    const canViewCosts = filters.canViewCosts === true;
+    const isRtomScoped = filters.allowedRtoms !== undefined;
+    const effectiveRtoms = filters.allowedRtoms === undefined
+      ? (filters.rtom ? [filters.rtom] : undefined)
+      : filters.rtom
+        ? (filters.allowedRtoms.includes(filters.rtom) ? [filters.rtom] : [])
+        : filters.allowedRtoms;
     let completedFrom: Date | undefined;
     let completedTo: Date | undefined;
 
@@ -110,7 +97,9 @@ export class MaterialSummaryReportService {
     const usageLines = await prisma.sODMaterialUsage.findMany({
       where: {
         serviceOrder: {
-          ...(effectiveRtom ? { rtom: effectiveRtom } : {}),
+          ...(effectiveRtoms
+            ? { rtom: effectiveRtoms.length === 1 ? effectiveRtoms[0] : { in: effectiveRtoms } }
+            : {}),
           ...(completedFrom && completedTo
             ? { completedDate: { gte: completedFrom, lte: completedTo } }
             : { completedDate: { not: null } }),
@@ -222,7 +211,7 @@ export class MaterialSummaryReportService {
       distinctMonths,
       canViewCosts,
       isScopedView: isRtomScoped,
-      scopedRtomLabel: isRtomScoped ? (scopedRtom ?? undefined) : undefined,
+      scopedRtomLabel: isRtomScoped && effectiveRtoms?.length === 1 ? effectiveRtoms[0] : undefined,
     };
   }
 }

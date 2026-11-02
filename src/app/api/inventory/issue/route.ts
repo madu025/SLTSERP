@@ -37,7 +37,7 @@ export const GET = apiHandler(async (req, params) => {
         throw AppError.badRequest('Contractor ID required');
     }
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const allowedStoreIds = (await StoreService.getAccessibleStores(params._userId, params._userRole || '')).map((store) => store.id);
+    const allowedStoreIds = (await StoreService.getAccessibleStores(params._userId)).map((store) => store.id);
 
     return await InventoryService.getMaterialIssues(contractorId, month || undefined, allowedStoreIds);
 }, {

@@ -1,7 +1,8 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/server-utils';
+import { requirePermission } from '@/lib/server-utils';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { revalidatePath } from 'next/cache';
 
 const OPMC_CACHE_KEY = 'opmcs:all';
@@ -13,7 +14,7 @@ export async function createOPMC(data: {
     province: string;
     storeId?: string | null;
 }) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
 
     try {
         const opmc = await prisma.oPMC.create({
@@ -44,7 +45,7 @@ export async function updateOPMC(data: {
     province: string;
     storeId?: string | null;
 }) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
 
     try {
         const opmc = await prisma.oPMC.update({
@@ -69,7 +70,10 @@ export async function updateOPMC(data: {
 }
 
 export async function deleteOPMC(id: string) {
-    await requireAuth(['SUPER_ADMIN']);
+    const currentUser = await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
+    if (currentUser.role !== 'SUPER_ADMIN') {
+        throw new Error('Forbidden: only a Super Admin can delete OPMCs');
+    }
 
     try {
         await prisma.oPMC.delete({

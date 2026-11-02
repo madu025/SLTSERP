@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { dependencyDateConflict, normalizeTaskSchedule } from '@/lib/project-schedule';
 import { Prisma } from '@prisma/client';
 import { assertProjectAccess } from '@/lib/project-access';
+import { deriveEffectivePermissions } from '@/lib/effective-permissions';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -102,21 +104,53 @@ async function assertApprovedBoq(projectId: string, db: typeof prisma | Transact
     if (!approval) throw AppError.badRequest('BOQ_APPROVAL_REQUIRED_FOR_CHILD_TASKS');
 }
 
-const TASK_PLAN_MANAGERS = new Set(['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER']);
 const PROGRESS_FIELDS = new Set(['status', 'actualProgress', 'actualStartDate', 'actualEndDate']);
+
+async function getTaskActorAccess(actorId: string) {
+    const actor = await prisma.user.findUnique({
+        where: { id: actorId },
+        select: {
+            id: true,
+            role: true,
+            status: true,
+            permissions: true,
+            systemRole: {
+                select: {
+                    isActive: true,
+                    permissions: true,
+                    rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } },
+                },
+            },
+            sectionAssignments: {
+                select: {
+                    role: {
+                        select: {
+                            isActive: true,
+                            permissions: true,
+                            rolePermissions: { select: { permission: true, permissionDefinition: { select: { code: true } } } },
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    return actor ? { ...actor, effectivePermissions: deriveEffectivePermissions(actor) } : null;
+}
 
 async function assertTaskActor(taskId: string, projectId: string | undefined, actorId: string | null | undefined, mode: 'PROGRESS' | 'FULL') {
     if (!actorId) throw AppError.unauthorized('Authenticated task user required');
     const [task, actor] = await Promise.all([
         prisma.projectTask.findUnique({ where: { id: taskId }, select: { projectId: true, assignedUserId: true, planItem: { select: { assignedUserId: true } } } }),
-        prisma.user.findUnique({ where: { id: actorId }, select: { id: true, role: true, status: true } }),
+        getTaskActorAccess(actorId),
     ]);
     if (!task) throw AppError.notFound('Task not found');
     if (projectId && task.projectId !== projectId) throw AppError.forbidden('Task does not belong to this project');
     if (!actor || actor.status !== 'active') throw AppError.unauthorized('Authenticated task user is not active');
 
     const supervisorAssignment = await prisma.projectSupervisorAssignment.findFirst({ where: { projectId: task.projectId, supervisorId: actorId, status: 'ASSIGNED' }, select: { id: true } });
-    const isManager = TASK_PLAN_MANAGERS.has(actor.role);
+    const isManager = actor.effectivePermissions.includes(RBAC_PERMISSIONS.PROJECT_PLAN_WRITE)
+        || actor.effectivePermissions.includes(RBAC_PERMISSIONS.PROJECT_PLAN_APPROVE);
     const isAssigned = task.assignedUserId === actorId || task.planItem?.assignedUserId === actorId;
     if (!isManager && !supervisorAssignment && !isAssigned) throw AppError.forbidden('Task is not assigned to this user');
     if (mode === 'FULL' && !isManager && !supervisorAssignment) throw AppError.forbidden('Only the project supervisor or project management can edit task configuration');
@@ -153,7 +187,7 @@ export class ProjectTaskService {
     /**
      * Get all tasks for a project
      */
-    static async getTasks(projectId: string, parentId?: string | null, viewerId?: string | null, viewerRole?: string | null) {
+    static async getTasks(projectId: string, parentId?: string | null, viewerId?: string | null) {
         await assertProjectAccess(projectId, viewerId);
         const where: Prisma.ProjectTaskWhereInput = { projectId };
         if (parentId === 'null') {
@@ -162,10 +196,14 @@ export class ProjectTaskService {
             where.parentId = parentId;
         }
 
-        if (viewerId && viewerRole && !TASK_PLAN_MANAGERS.has(viewerRole)) {
+        const viewer = viewerId ? await getTaskActorAccess(viewerId) : null;
+        if (viewerId && !viewer) throw AppError.unauthorized('Authenticated task user is not active');
+        const canViewAllTasks = viewer?.effectivePermissions.includes(RBAC_PERMISSIONS.PROJECT_PLAN_WRITE)
+            || viewer?.effectivePermissions.includes(RBAC_PERMISSIONS.PROJECT_PLAN_APPROVE);
+        if (viewerId && viewer && !canViewAllTasks) {
             const supervisorAssignment = await prisma.projectSupervisorAssignment.findFirst({ where: { projectId, supervisorId: viewerId, status: 'ASSIGNED' }, select: { id: true } });
             if (!supervisorAssignment) {
-                where.AND = [{ OR: [{ assignedUserId: viewerId }, { planItem: { assignedUserId: viewerId } }, { planItem: { requiredJobRole: viewerRole } }] }];
+                where.AND = [{ OR: [{ assignedUserId: viewerId }, { planItem: { assignedUserId: viewerId } }, { planItem: { requiredJobRole: viewer.role } }] }];
             }
         }
 

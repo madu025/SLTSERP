@@ -44,6 +44,9 @@ export function resolveRouteCapability(pathname: string, method: string): RbacPe
     if (path.startsWith('/api/admin')) return RBAC_PERMISSIONS.ADMIN_RBAC;
     if (path.startsWith('/api/automation')) return RBAC_PERMISSIONS.ADMIN_RBAC;
     if (path.startsWith('/api/dashboard')) return RBAC_PERMISSIONS.DASHBOARD_READ;
+    if (path.startsWith('/api/ai')) return RBAC_PERMISSIONS.DASHBOARD_READ;
+    if (path.startsWith('/api/notifications')) return RBAC_PERMISSIONS.DASHBOARD_READ;
+    if (path.startsWith('/api/reports')) return RBAC_PERMISSIONS.REPORTS_READ;
 
     if (path.startsWith('/api/service-orders')) {
         if (path.startsWith('/api/service-orders/extension-push') || path.startsWith('/api/service-orders/bridge-sync')) {

@@ -45,7 +45,7 @@ export const GET = apiHandler(async (request, params) => {
     const issueType = searchParams.get('issueType') || undefined;
 
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const stores = await StoreService.getAccessibleStores(params._userId, '');
+    const stores = await StoreService.getAccessibleStores(params._userId);
     const allowedStoreIds = stores.map((store) => store.id);
     if (storeId && !allowedStoreIds.includes(storeId)) throw AppError.forbidden('STORE_SCOPE_VIOLATION');
     const issues = await InventoryService.getStockIssues({ storeId, issueType, allowedStoreIds });

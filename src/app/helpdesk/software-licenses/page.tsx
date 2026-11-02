@@ -228,9 +228,7 @@ export default function SoftwareLicensesDashboard() {
     
     setSearchingUsers(true);
     try {
-      const res = await fetch(`/api/users?limit=50&search=${encodeURIComponent(query)}`, {
-        headers: { "x-user-role": user?.role || "" }
-      });
+      const res = await fetch(`/api/users?limit=50&search=${encodeURIComponent(query)}`);
       if (res.ok) {
         const json = await res.json();
         if (json.users && Array.isArray(json.users)) {
@@ -278,9 +276,7 @@ export default function SoftwareLicensesDashboard() {
   const fetchUsers = useCallback(async () => {
     if (!user?.role) return;
     try {
-      const res = await fetch("/api/users?limit=1000", {
-        headers: { "x-user-role": user.role }
-      });
+      const res = await fetch("/api/users?limit=1000");
       if (res.ok) {
         const json = await res.json();
         if (json.users && Array.isArray(json.users)) {

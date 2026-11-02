@@ -7,9 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request, params) => {
     const userId = params._userId;
-    const userRole = params._userRole;
 
-    if (!userId || !userRole) {
+    if (!userId) {
         throw AppError.unauthorized('Unauthorized');
     }
 
@@ -17,7 +16,7 @@ export const GET = apiHandler(async (request, params) => {
     const fullView = searchParams.get('view') === 'full';
     const includeRecentActivities = searchParams.get('includeRecentActivities') !== 'false';
     const data = fullView
-        ? await ProjectDashboardService.getProjectOverview(userId, userRole)
-        : await ProjectDashboardService.getProjectOverviewSummary(userId, userRole, { includeRecentActivities });
+        ? await ProjectDashboardService.getProjectOverview(userId)
+        : await ProjectDashboardService.getProjectOverviewSummary(userId, { includeRecentActivities });
     return data;
 }, { permissions: [RBAC_PERMISSIONS.PROJECT_READ], rawResponse: true });

@@ -444,22 +444,16 @@ export class NotificationService {
 
     /**
      * Get aggregated sidebar notification counts in memory.
-     * Accepts optional pre-fetched role/storeId to avoid a redundant DB lookup
-     * when the caller (API route) already has these values from auth headers.
+     * Workflow stage selection is resolved from the server-side user record;
+     * callers cannot override the role or store identity through headers.
      */
-    static async getSidebarCounts(userId: string, preloadedRole?: string, preloadedStoreId?: string | null) {
-        let userRole = preloadedRole || '';
-        let assignedStoreId = preloadedStoreId !== undefined ? preloadedStoreId : null;
-
-        // Only hit DB if we don't have the role pre-loaded
-        if (!userRole) {
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { role: true, assignedStoreId: true }
-            });
-            userRole = String(user?.role || '');
-            assignedStoreId = user?.assignedStoreId ?? null;
-        }
+    static async getSidebarCounts(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true, assignedStoreId: true }
+        });
+        const userRole = String(user?.role || '');
+        const assignedStoreId = user?.assignedStoreId ?? null;
 
         // Real actionable database pending count for material requests & approvals
         let dbMaterialPending = 0;

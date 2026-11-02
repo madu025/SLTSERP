@@ -16,7 +16,7 @@ export const GET = apiHandler(async (req, params) => {
     }
 
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const accessibleStores = await StoreService.getAccessibleStores(params._userId, params._userRole || '');
+    const accessibleStores = await StoreService.getAccessibleStores(params._userId);
     const allowedStoreIds = accessibleStores.map((store) => store.id);
     if (storeId !== 'all' && !allowedStoreIds.includes(storeId)) {
         throw AppError.forbidden('STORE_SCOPE_VIOLATION');
@@ -38,7 +38,7 @@ export const POST = apiHandler(async (_req, params, body) => {
         throw AppError.badRequest('INVALID_PAYLOAD');
     }
     if (!userId) throw AppError.unauthorized('Authentication required');
-    const accessibleStores = await StoreService.getAccessibleStores(userId, params._userRole || '');
+    const accessibleStores = await StoreService.getAccessibleStores(userId);
     if (!accessibleStores.some((store) => store.id === storeId)) {
         throw AppError.forbidden('STORE_SCOPE_VIOLATION');
     }

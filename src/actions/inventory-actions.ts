@@ -1,15 +1,14 @@
 'use server';
 
 import { InventoryService } from '@/services/inventory/inventory.service';
-import { requireAuth, toSerializable } from '@/lib/server-utils';
-import { ROLE_GROUPS } from '@/config/roles';
-import { getMenuAllowedRoles } from '@/config/route-permissions';
+import { requirePermission, toSerializable } from '@/lib/server-utils';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 import { revalidatePath } from 'next/cache';
 
 // --- ITEM MANAGEMENT ---
 
 export async function createItem(data: any) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN', 'PROCUREMENT_OFFICER']);
+    await requirePermission(RBAC_PERMISSIONS.PROCUREMENT_WRITE);
     try {
         const item = await InventoryService.createItem(data);
         revalidatePath('/inventory/items');
@@ -20,7 +19,7 @@ export async function createItem(data: any) {
 }
 
 export async function updateItem(id: string, data: any) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN', 'PROCUREMENT_OFFICER']);
+    await requirePermission(RBAC_PERMISSIONS.PROCUREMENT_WRITE);
     try {
         const item = await InventoryService.updateItem(id, data);
         revalidatePath('/inventory/items');
@@ -31,7 +30,7 @@ export async function updateItem(id: string, data: any) {
 }
 
 export async function deleteItem(id: string) {
-    await requireAuth(['SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
         await InventoryService.deleteItem(id);
         revalidatePath('/inventory/items');
@@ -42,7 +41,7 @@ export async function deleteItem(id: string) {
 }
 
 export async function mergeItemsAction(sourceId: string, targetId: string) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
         await InventoryService.mergeItems(sourceId, targetId);
         revalidatePath('/inventory/items');
@@ -53,7 +52,7 @@ export async function mergeItemsAction(sourceId: string, targetId: string) {
 }
 
 export async function patchBulkItemsAction(updates: any[]) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN', 'PROCUREMENT_OFFICER']);
+    await requirePermission(RBAC_PERMISSIONS.PROCUREMENT_WRITE);
     try {
         await InventoryService.patchBulkItems(updates);
         revalidatePath('/inventory/items');
@@ -66,7 +65,7 @@ export async function patchBulkItemsAction(updates: any[]) {
 // --- STORE MANAGEMENT ---
 
 export async function createStore(data: any) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
         const store = await InventoryService.createStore(data);
         revalidatePath('/admin/stores');
@@ -77,7 +76,7 @@ export async function createStore(data: any) {
 }
 
 export async function updateStore(id: string, data: any) {
-    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
         const store = await InventoryService.updateStore(id, data);
         revalidatePath('/admin/stores');
@@ -88,7 +87,7 @@ export async function updateStore(id: string, data: any) {
 }
 
 export async function deleteStore(id: string) {
-    await requireAuth(['SUPER_ADMIN']);
+    await requirePermission(RBAC_PERMISSIONS.ADMIN_RBAC);
     try {
         await InventoryService.deleteStore(id);
         revalidatePath('/admin/stores');
@@ -100,13 +99,11 @@ export async function deleteStore(id: string) {
 
 // --- GRN / MRN OPERATIONS ---
 
-// Authorization derived from the sidebar menu (single source of truth) so the
-// GRN page and its write action can never drift apart. Fallback keeps the
-// action safe if the menu entry is ever removed.
-const GRN_ALLOWED_ROLES = getMenuAllowedRoles('/inventory/grn') ?? ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'];
-
 export async function createGRN(data: any) {
-    const user = await requireAuth(GRN_ALLOWED_ROLES);
+    const user = await requirePermission([
+        RBAC_PERMISSIONS.INVENTORY_WRITE,
+        RBAC_PERMISSIONS.PROCUREMENT_WRITE,
+    ]);
     try {
         const result = await InventoryService.createGRN({
             ...data,
@@ -123,7 +120,7 @@ export async function createGRN(data: any) {
 }
 
 export async function createMRN(data: any) {
-    const user = await requireAuth(['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN']);
+    const user = await requirePermission(RBAC_PERMISSIONS.INVENTORY_WRITE);
     try {
         // Creator identity is session-derived — never trust client-supplied returnedById
         const result = await InventoryService.createMRN({ ...data, returnedById: user.id });
@@ -135,7 +132,7 @@ export async function createMRN(data: any) {
 }
 
 export async function updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT') {
-    const user = await requireAuth(['STORES_MANAGER', 'ADMIN', 'SUPER_ADMIN']);
+    const user = await requirePermission(RBAC_PERMISSIONS.INVENTORY_APPROVE);
     try {
         const result = await InventoryService.updateMRNStatus(mrnId, action, user.id);
         revalidatePath('/inventory/mrn');
@@ -149,7 +146,11 @@ export async function updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT
 // --- STOCK REQUESTS & ISSUES ---
 
 export async function createStockRequest(data: any) {
-    const user = await requireAuth(ROLE_GROUPS.MATERIAL_REQUESTERS);
+    const user = await requirePermission([
+        RBAC_PERMISSIONS.INVENTORY_WRITE,
+        RBAC_PERMISSIONS.PROJECT_WRITE,
+        RBAC_PERMISSIONS.PROCUREMENT_WRITE,
+    ]);
     try {
         const result = await InventoryService.createStockRequest({
             ...data,
@@ -163,7 +164,7 @@ export async function createStockRequest(data: any) {
 }
 
 export async function createStockIssue(data: any) {
-    const user = await requireAuth(['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN']);
+    const user = await requirePermission(RBAC_PERMISSIONS.INVENTORY_WRITE);
     try {
         const result = await InventoryService.createStockIssue({
             ...data,
@@ -178,7 +179,12 @@ export async function createStockIssue(data: any) {
 }
 
 export async function processStockRequestAction(data: any) {
-    const user = await requireAuth(ROLE_GROUPS.MATERIAL_REQUESTERS);
+    const user = await requirePermission([
+        RBAC_PERMISSIONS.INVENTORY_WRITE,
+        RBAC_PERMISSIONS.INVENTORY_APPROVE,
+        RBAC_PERMISSIONS.PROJECT_WRITE,
+        RBAC_PERMISSIONS.PROCUREMENT_WRITE,
+    ]);
     try {
         const result = await InventoryService.processStockRequestAction({
             ...data,
@@ -196,7 +202,7 @@ export async function processStockRequestAction(data: any) {
 // --- MATERIAL ISSUANCE & WASTAGE ---
 
 export async function issueMaterial(data: any) {
-    const user = await requireAuth(['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN']);
+    const user = await requirePermission(RBAC_PERMISSIONS.INVENTORY_WRITE);
     try {
         const result = await InventoryService.issueMaterial({
             ...data,
@@ -211,7 +217,10 @@ export async function issueMaterial(data: any) {
 }
 
 export async function recordWastage(data: any) {
-    const user = await requireAuth(['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN', 'QC_OFFICER']);
+    const user = await requirePermission([
+        RBAC_PERMISSIONS.INVENTORY_WRITE,
+        RBAC_PERMISSIONS.PROJECT_APPROVE,
+    ]);
     try {
         const result = await InventoryService.recordWastage({
             ...data,

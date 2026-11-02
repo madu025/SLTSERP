@@ -13,7 +13,6 @@ export interface ContractorAuthHeaders extends Record<string, string> {
  */
 export function useContractorAuth() {
     const getHeaders = useCallback((): ContractorAuthHeaders => {
-        const contractorUser = typeof window !== 'undefined' ? localStorage.getItem('contractor_user') : null;
         const contractorToken = typeof window !== 'undefined' ? localStorage.getItem('contractor_token') : null;
 
         const headers: ContractorAuthHeaders = {
@@ -23,17 +22,6 @@ export function useContractorAuth() {
 
         if (contractorToken) {
             headers['Authorization'] = `Bearer ${contractorToken}`;
-        }
-
-        if (contractorUser) {
-            try {
-                const u = JSON.parse(contractorUser) as { id?: string; role?: string; contractorId?: string };
-                if (u.id) headers['x-user-id'] = u.id;
-                if (u.role) headers['x-user-role'] = u.role;
-                if (u.contractorId) headers['x-contractor-id'] = u.contractorId;
-            } catch {
-                // Ignore malformed session data
-            }
         }
 
         return headers;

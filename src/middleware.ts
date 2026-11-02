@@ -124,6 +124,7 @@ export async function middleware(request: NextRequest) {
     requestHeaders.delete('x-user-id');
     requestHeaders.delete('x-user-role');
     requestHeaders.delete('x-contractor-id');
+    requestHeaders.delete('x-user-rtom');
     requestHeaders.delete('x-authenticated-user-id');
     requestHeaders.delete('x-authenticated-user-role');
     requestHeaders.delete('x-authenticated-contractor-id');

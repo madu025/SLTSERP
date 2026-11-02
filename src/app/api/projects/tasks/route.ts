@@ -17,7 +17,7 @@ export const GET = apiHandler(async (req, params) => {
     }
     await assertProjectAccess(projectId, params._userId);
 
-    return await ProjectTaskService.getTasks(projectId, parentId, params._userId, params._userRole);
+    return await ProjectTaskService.getTasks(projectId, parentId, params._userId);
 }, {
     rawResponse: true
 });

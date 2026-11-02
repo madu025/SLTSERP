@@ -74,12 +74,8 @@ export default function VirtualSwapPage() {
     const [selectedContractor, setSelectedContractor] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Auth Helper
-    const getAuthHeaders = () => {
-        const userId = localStorage.getItem("erp_user_id") || "";
-        const role = localStorage.getItem("erp_user_role") || "";
-        return { 'x-user-id': userId, 'x-user-role': role };
-    };
+    // Authentication is provided by the HttpOnly session cookie.
+    const getAuthHeaders = () => ({});
 
     // 1. Fetch Contractors for filters
     const { data: contractors = [] } = useQuery<ContractorItem[]>({

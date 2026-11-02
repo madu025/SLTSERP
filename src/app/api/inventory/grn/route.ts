@@ -25,7 +25,7 @@ export const GET = apiHandler(async (req, params) => {
     const { searchParams } = new URL(req.url);
     const storeId = searchParams.get('storeId') || undefined;
     if (!params._userId) throw AppError.unauthorized('Authentication required');
-    const accessibleStores = await StoreService.getAccessibleStores(params._userId, params._userRole || '');
+    const accessibleStores = await StoreService.getAccessibleStores(params._userId);
     const allowedStoreIds = accessibleStores.map((store) => store.id);
     if (storeId && !allowedStoreIds.includes(storeId)) {
         throw AppError.forbidden('STORE_SCOPE_VIOLATION');

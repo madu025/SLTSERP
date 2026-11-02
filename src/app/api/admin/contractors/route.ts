@@ -1,4 +1,4 @@
-import { getAuthenticatedUserId, getRequestAuth } from '@/lib/request-context';
+import { getAuthenticatedUserId } from '@/lib/request-context';
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
@@ -18,16 +18,13 @@ export const GET = apiHandler(
         const rtomId = searchParams.get('rtomId') || searchParams.get('opmcId');
         
         const userId = getAuthenticatedUserId() || undefined;
-        const role = getRequestAuth().userRole || undefined;
-
         const opmcIds = rtomId ? [rtomId] : undefined;
 
         return await ContractorService.getAllContractors({
             opmcIds,
             page,
             limit,
-            userId,
-            userRole: role
+            userId
         });
     },
     {

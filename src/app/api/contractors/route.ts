@@ -4,7 +4,6 @@ import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
 import { AppError } from '@/lib/error';
-import { getRequestAuth } from '@/lib/request-context';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,16 +22,13 @@ export const GET = apiHandler(
         const rtomId = searchParams.get('rtomId') || searchParams.get('opmcId');
         
         const userId = getAuthenticatedUserId() || undefined;
-        const role = getRequestAuth().userRole || undefined;
-
         const opmcIds = rtomId ? [rtomId] : undefined;
 
         return await ContractorService.getAllContractors({
             opmcIds,
             page,
             limit,
-            userId,
-            userRole: role
+            userId
         });
     },
     {

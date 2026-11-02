@@ -8,13 +8,12 @@ export const dynamic = 'force-dynamic';
 // GET - Get all stores with their OPMCs (Filtered by User Role)
 export const GET = apiHandler(async (_request, params) => {
     const userId = params._userId;
-    const userRole = params._userRole;
 
-    if (!userId || !userRole) {
+    if (!userId) {
         throw AppError.unauthorized('Unauthorized');
     }
 
-    return await InventoryService.getAccessibleStores(userId, userRole);
+    return await InventoryService.getAccessibleStores(userId);
 }, {
     permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true,

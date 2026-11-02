@@ -68,16 +68,9 @@ export default function CostAllocationPage() {
     // Create Memo Mutation
     const createMemoMutation = useMutation({
         mutationFn: async (payload: any) => {
-            const userId = localStorage.getItem("erp_user_id") || "";
-            const role = localStorage.getItem("erp_user_role") || "";
-
             const res = await fetch('/api/admin/finance/cost-allocation', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-user-id': userId,
-                    'x-user-role': role
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 

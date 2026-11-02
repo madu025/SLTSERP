@@ -4,6 +4,7 @@ import { PaymentTypeEnum, PaymentStatusEnum } from '@prisma/client';
 import { PaymentType } from '@/types/finance/payment.types';
 import { createPaymentSchema, CreatePaymentSchema } from '@/lib/validations/payment.schema';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,8 +91,7 @@ export const POST = apiHandler<unknown, CreatePaymentSchema>(
     },
     {
         schema: createPaymentSchema,
-        // Roles resolve dynamically from the /finance/payments sidebar entry
-        menuPath: '/finance/payments',
+        permissions: [RBAC_PERMISSIONS.FINANCE_WRITE],
         audit: { action: 'CREATE_PAYMENT', entity: 'Payment' }
     }
 );

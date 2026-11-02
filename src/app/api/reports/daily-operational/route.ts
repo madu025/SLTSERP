@@ -1,6 +1,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ReportService } from '@/services/core/report.service';
 import { z } from 'zod';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,4 +20,4 @@ export const GET = apiHandler(async (request) => {
     }
 
     return await ReportService.getDailyOperationalReport({ date: parsed.data.date });
-}, { rawResponse: true, menuPath: '/reports/daily-operational' });
+}, { rawResponse: true, permissions: [RBAC_PERMISSIONS.REPORTS_READ] });

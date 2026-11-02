@@ -25,6 +25,7 @@ export const RBAC_PERMISSIONS = {
     PROJECT_FINANCE_APPROVE: 'project.finance.approve',
     PROJECT_FINANCE_ASSIGN: 'project.finance.assign',
     INVENTORY_READ: 'inventory.read',
+    INVENTORY_COST_READ: 'inventory.cost.read',
     INVENTORY_WRITE: 'inventory.write',
     INVENTORY_APPROVE: 'inventory.approve',
     PROCUREMENT_READ: 'procurement.read',
@@ -36,6 +37,11 @@ export const RBAC_PERMISSIONS = {
     HELPDESK_APPROVE: 'helpdesk.approve',
     FLEET_READ: 'fleet.read',
     FLEET_WRITE: 'fleet.write',
+    REPORTS_READ: 'reports.read',
+    REPORTS_MANAGER_READ: 'reports.manager.read',
+    REPORTS_AREA_READ: 'reports.area.read',
+    AI_CUSTODY_EXECUTE: 'ai.custody.execute',
+    AI_STOCK_EXECUTE: 'ai.stock.execute',
     ADMIN_RBAC: 'admin.rbac',
 } as const;
 
@@ -61,6 +67,7 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.PROJECT_FINANCE_APPROVE, module: 'PROJECT_FINANCE', action: 'APPROVE', scope: 'OPMC', description: 'Approve project-level financial workflow actions within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROJECT_FINANCE_ASSIGN, module: 'PROJECT_FINANCE', action: 'ASSIGN', scope: 'OPMC', description: 'Assign project finance accountability roles within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.INVENTORY_READ, module: 'INVENTORY', action: 'READ', scope: 'OPMC', description: 'Read inventory data within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.INVENTORY_COST_READ, module: 'INVENTORY', action: 'COST_READ', scope: 'OPMC', description: 'Read inventory cost values within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.INVENTORY_WRITE, module: 'INVENTORY', action: 'WRITE', scope: 'OPMC', description: 'Modify inventory data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.INVENTORY_APPROVE, module: 'INVENTORY', action: 'APPROVE', scope: 'OPMC', description: 'Approve inventory workflows within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.PROCUREMENT_READ, module: 'PROCUREMENT', action: 'READ', scope: 'OPMC', description: 'Read procurement data within the assigned OPMC scope' },
@@ -72,6 +79,11 @@ export const RBAC_PERMISSION_DEFINITIONS = [
     { code: RBAC_PERMISSIONS.HELPDESK_APPROVE, module: 'HELPDESK', action: 'APPROVE', scope: 'OPMC', description: 'Approve helpdesk asset custody and disposal workflows within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_READ, module: 'FLEET', action: 'READ', scope: 'OPMC', description: 'Read fleet, vehicle, trip, and utilization data within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.FLEET_WRITE, module: 'FLEET', action: 'WRITE', scope: 'OPMC', description: 'Modify fleet, vehicle, and trip records within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.REPORTS_READ, module: 'REPORTS', action: 'READ', scope: 'OPMC', description: 'Read operational reports within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.REPORTS_MANAGER_READ, module: 'REPORTS', action: 'MANAGER_READ', scope: 'OPMC', description: 'Read executive manager reports within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.REPORTS_AREA_READ, module: 'REPORTS', action: 'AREA_READ', scope: 'OPMC', description: 'Read area performance reports within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.AI_CUSTODY_EXECUTE, module: 'AI', action: 'CUSTODY_EXECUTE', scope: 'OPMC', description: 'Execute AI-assisted custody assignments within the assigned OPMC scope' },
+    { code: RBAC_PERMISSIONS.AI_STOCK_EXECUTE, module: 'AI', action: 'STOCK_EXECUTE', scope: 'OPMC', description: 'Execute AI-assisted stock operations within the assigned OPMC scope' },
     { code: RBAC_PERMISSIONS.ADMIN_RBAC, module: 'ADMIN', action: 'RBAC', scope: 'GLOBAL', description: 'Manage users, roles, permission grants, and scope assignments' },
 ] as const;
 

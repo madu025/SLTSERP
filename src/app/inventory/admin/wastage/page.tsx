@@ -85,19 +85,8 @@ export default function WastageReportPage() {
     ]);
     // History Filters
     const [historyMonth, setHistoryMonth] = useState<string>(new Date().toISOString().slice(0, 7));
-    // Auth Helper
-    const getAuthHeaders = () => {
-        if (typeof window === 'undefined') return { 'x-user-id': '', 'x-user-role': '' };
-        try {
-            const userObj = JSON.parse(localStorage.getItem('user') || '{}');
-            return {
-                'x-user-id': userObj.id || '',
-                'x-user-role': userObj.role || ''
-            };
-        } catch {
-            return { 'x-user-id': '', 'x-user-role': '' };
-        }
-    };
+    // Authentication is provided by the HttpOnly session cookie.
+    const getAuthHeaders = () => ({});
     // --- FETCH DATA ---
     const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ['contractors'],

@@ -72,13 +72,9 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string, f
 
     const updateStatusMutation = useMutation({
         mutationFn: async (data: OrderCompletionData & { id: string }) => {
-            const userId = localStorage.getItem("erp_user_id") || "";
             const res = await fetch("/api/service-orders", {
                 method: "PATCH",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "x-user-id": userId
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             });
             const payload = await res.json().catch(() => null);
@@ -183,13 +179,9 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string, f
 
     const commentMutation = useMutation({
         mutationFn: async ({ orderId, comment }: { orderId: string, comment: string }) => {
-            const userId = localStorage.getItem("erp_user_id") || "";
             const res = await fetch("/api/service-orders", {
                 method: "PUT",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "x-user-id": userId
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: orderId, comments: comment })
             });
             if (!res.ok) throw new Error("Failed to add comment");

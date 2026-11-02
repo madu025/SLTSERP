@@ -45,6 +45,7 @@ const bootstrapGrants: Record<string, readonly string[]> = {
     'project.finance.approve': ROLE_GROUPS.FINANCE_APPROVERS,
     'project.finance.assign': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.FINANCE_APPROVERS])],
     'inventory.read': [...new Set([...ROLE_GROUPS.STORES, ...ROLE_GROUPS.OPS, 'MANAGER'])],
+    'inventory.cost.read': ['SUPER_ADMIN', 'ADMIN', 'CEO', 'HEAD_OF_OSP', 'OSP_MANAGER', 'MANAGER', 'FINANCE_MANAGER', 'STORES_MANAGER'],
     'inventory.write': ROLE_GROUPS.STORES_ALL,
     'inventory.approve': ROLE_GROUPS.STORES_MANAGERS,
     'procurement.read': ROLE_GROUPS.PROCUREMENT,
@@ -56,6 +57,11 @@ const bootstrapGrants: Record<string, readonly string[]> = {
     'helpdesk.approve': [...new Set([...ROLE_GROUPS.EAM_ASSET_MANAGERS, ...ROLE_GROUPS.FINANCE_APPROVERS])],
     'fleet.read': [...new Set([...ROLE_GROUPS.PROJECT_MANAGERS, ...ROLE_GROUPS.OFFICE_ADMINS])],
     'fleet.write': ROLE_GROUPS.OFFICE_ADMINS,
+    'reports.read': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', 'HEAD_OF_SECTION'],
+    'reports.manager.read': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'HEAD_OF_SECTION'],
+    'reports.area.read': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', 'AREA_MANAGER', 'HEAD_OF_SECTION'],
+    'ai.custody.execute': ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'],
+    'ai.stock.execute': ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER'],
     'admin.rbac': ROLE_GROUPS.CORE_ADMINS,
 };
 

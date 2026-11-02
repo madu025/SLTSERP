@@ -68,10 +68,7 @@ export class StoreService {
         throw AppError.forbidden(`STORE_SCOPE_VIOLATION: User does not have write access to store ${storeId}.`);
     }
 
-    static async getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]> {
-        // Kept for backwards-compatible callers; authorization uses DB
-        // capabilities and OPMC/assigned-store scope below.
-        void userRole;
+    static async getAccessibleStores(userId: string): Promise<StoreWithDetails[]> {
         const isGlobal = await resolveOpmcScope(userId) === undefined;
         let whereClause: Prisma.InventoryStoreWhereInput = {};
 

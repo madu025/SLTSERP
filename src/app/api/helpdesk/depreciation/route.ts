@@ -3,13 +3,14 @@ import { apiHandler } from '@/lib/api-handler';
 import { z } from 'zod';
 import { ITAssetDepreciationService } from '@/services/helpdesk/asset-depreciation.service';
 import { AppError } from '@/lib/error';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async () => {
     return await ITAssetDepreciationService.getDepreciationSchedule();
 }, {
-    menuPath: '/helpdesk/depreciation'
+    permissions: [RBAC_PERMISSIONS.HELPDESK_READ]
 });
 
 export const POST = apiHandler(async (req: Request) => {
@@ -34,5 +35,5 @@ export const POST = apiHandler(async (req: Request) => {
         ...result
     };
 }, {
-    menuPath: '/helpdesk/depreciation'
+    permissions: [RBAC_PERMISSIONS.HELPDESK_WRITE]
 });

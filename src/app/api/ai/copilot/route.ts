@@ -5,7 +5,7 @@ import { NexusAgentService } from '@/services/ai/nexus-agent.service';
 import { SystemService } from '@/services/core/system.service';
 import { z } from 'zod';
 import { AppError } from '@/lib/error';
-import { requireAuth } from '@/lib/server-utils';
+import { RBAC_PERMISSIONS } from '@/config/rbac-permissions';
 
 const copilotActionSchema = z.object({
     message: z.string().optional(),
@@ -15,19 +15,19 @@ const copilotActionSchema = z.object({
 });
 
 // GET /api/ai/copilot - Fetch chat history for user securely
-export const GET = apiHandler(async () => {
-    // Enforce session check
-    const user = await requireAuth();
+export const GET = apiHandler(async (_req, params) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
 
     const { NexusMemoryService } = await import('@/services/ai/nexus-memory.service');
     const [history, suggestions] = await Promise.all([
-        NexusMemoryService.getConversation(user.id),
-        NexusMemoryService.getFrequentSuggestions(user.id)
+        NexusMemoryService.getConversation(userId),
+        NexusMemoryService.getFrequentSuggestions(userId)
     ]);
 
     return {
         history,
-        userName: user.name || "User",
+        userName: params._userName || "User",
         suggestions
     };
 }, {
@@ -35,39 +35,36 @@ export const GET = apiHandler(async () => {
 });
 
 // POST /api/ai/copilot - Ask questions or execute database actions securely
-export const POST = apiHandler(async (_req, _params, body) => {
-    // Enforce session check
-    const user = await requireAuth();
+export const POST = apiHandler(async (_req, params, body) => {
+    const userId = params._userId;
+    if (!userId) throw AppError.unauthorized('Authentication required');
     
     const { message, action, execute, clear } = copilotActionSchema.parse(body);
 
     // Handle clear chat history request
     if (clear) {
         const { NexusMemoryService } = await import('@/services/ai/nexus-memory.service');
-        await NexusMemoryService.clearConversation(user.id);
+        await NexusMemoryService.clearConversation(userId);
         return Response.json({ success: true, message: 'Chat history cleared' });
     }
 
     // If the user is executing a proactive action
     if (execute && action) {
-        // Enforce Strict Role-Based Access Control (RBAC) for AI transactions
-        let isAuthorized = true;
+        // Action-specific canonical permissions are required in addition to
+        // the base authenticated AI route capability.
+        let requiredPermission: string;
         if (action.type === 'ASSIGN_CUSTODY') {
-            if (!['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'].includes(user.role)) {
-                isAuthorized = false;
-            }
+            requiredPermission = RBAC_PERMISSIONS.AI_CUSTODY_EXECUTE;
         } else if (action.type === 'STOCK_TRANSFER' || action.type === 'STOCK_HEAL') {
-            if (!['ADMIN', 'SUPER_ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER'].includes(user.role)) {
-                isAuthorized = false;
-            }
+            requiredPermission = RBAC_PERMISSIONS.AI_STOCK_EXECUTE;
         } else {
             throw AppError.badRequest('INVALID_ACTION_TYPE');
         }
 
-        if (!isAuthorized) {
+        if (!params._permissions.includes(requiredPermission)) {
             // Log unauthorized attempt to Database Audit Logs
             await SystemService.logEvent({
-                userId: user.id,
+                userId,
                 action: 'UNAUTHORIZED_AI_TRANSACTION',
                 entity: 'NexusAgent',
                 entityId: action.type,
@@ -77,15 +74,15 @@ export const POST = apiHandler(async (_req, _params, body) => {
                     itemCode: action.itemCode || null,
                     fromStoreName: action.fromStoreName || null,
                     toStoreName: action.toStoreName || null,
-                    userRole: user.role,
+                    requiredPermission,
                     attemptedAt: new Date().toISOString()
                 }
             });
 
-            throw AppError.forbidden(`⚠️ Unauthorized: Your role (${user.role}) is not authorized to execute this AI transaction. This attempt has been logged.`);
+            throw AppError.forbidden('Insufficient permission to execute this AI transaction');
         }
 
-        const result = await NexusAgentService.executeAction(action, user.id);
+        const result = await NexusAgentService.executeAction(action, userId);
         return {
             success: true,
             message: 'Action executed successfully',
@@ -97,7 +94,7 @@ export const POST = apiHandler(async (_req, _params, body) => {
         throw AppError.badRequest('MISSING_MESSAGE');
     }
 
-    const reply = await NexusAgentService.ask(message, user.id);
+    const reply = await NexusAgentService.ask(message, userId);
     return reply;
 }, {
     // Auth required

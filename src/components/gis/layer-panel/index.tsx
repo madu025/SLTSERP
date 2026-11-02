@@ -119,9 +119,6 @@ export function GISLayerPanel({
     try {
       const res = await fetch(`/api/projects/${projectId}/gis/${routeId}`, {
         method: 'DELETE',
-        headers: {
-          'x-user-id': 'system'
-        }
       });
 
       if (res.ok) {
@@ -144,10 +141,7 @@ export function GISLayerPanel({
     try {
       const res = await fetch(`/api/projects/${projectId}/gis/reconcile`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'system'
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (res.ok) {

@@ -147,9 +147,6 @@ export function GISUpload() {
 
       const res = await fetch(`/api/projects/${id}`, {
         method: 'DELETE',
-        headers: {
-          'x-user-role': 'ADMIN',
-        },
       });
 
       const data = await res.json();

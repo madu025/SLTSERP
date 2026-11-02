@@ -8,10 +8,9 @@ export const dynamic = 'force-dynamic';
 // GET: Fetch all active stores (using rawResponse for backwards-compatibility with frontend)
 export const GET = apiHandler(async (_req, params) => {
     const userId = params._userId;
-    const userRole = params._userRole;
 
-    if (!userId || !userRole) throw AppError.unauthorized('Unauthorized');
-    return await InventoryService.getAccessibleStores(userId, userRole);
+    if (!userId) throw AppError.unauthorized('Unauthorized');
+    return await InventoryService.getAccessibleStores(userId);
 }, {
     permissions: [RBAC_PERMISSIONS.INVENTORY_READ],
     rawResponse: true
