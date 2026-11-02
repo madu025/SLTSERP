@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { AppError } from '@/lib/error';
 import { requireEnv } from '@/lib/env';
 import { DynamicApprovalService } from './dynamic-approval.service';
+import { DomainActionDispatcher } from './domain-dispatcher.service';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
 
@@ -340,10 +341,28 @@ export class ProcessGateEngine {
 
             // All levels completed - Final Gate Passed!
             const typedPolicy = policy as typeof policy & { domainAction?: string | null };
+            let domainActionResult: unknown;
+            if (typedPolicy?.domainAction) {
+                // Domain actions are part of the same transaction as the final
+                // approval. A missing/unsupported action must roll back the
+                // approval instead of leaving a falsely completed gate behind.
+                domainActionResult = await DomainActionDispatcher.dispatch({
+                    action: typedPolicy.domainAction,
+                    entityId: instance.entityId,
+                    entityType: instance.entityType,
+                    userId,
+                    instanceId: instance.id,
+                    metadata: {
+                        ...(payload || {}),
+                        targetStatus: policy?.toStatus,
+                    },
+                }, tx);
+            }
             return {
                 status: 'GATE_PASSED',
                 policyToStatus: policy?.toStatus,
                 domainActionUrl: typedPolicy?.domainAction,
+                domainActionResult,
                 entityType: instance.entityType,
                 entityId: instance.entityId,
                 actionedById: userId,
@@ -351,30 +370,6 @@ export class ProcessGateEngine {
                 signatureHash
             };
         });
-
-        // 3. Dispatch Webhook (Zero-Coding Action Trigger)
-        if (result.status === 'GATE_PASSED' && result.domainActionUrl) {
-            try {
-                // Background fire-and-forget
-                const isRelative = result.domainActionUrl.startsWith('/');
-                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-                const webhookUrl = isRelative ? `${baseUrl}${result.domainActionUrl}` : result.domainActionUrl;
-                
-                fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        event: 'GATE_PASSED',
-                        data: result,
-                        payload: payload || {}
-                    })
-                }).catch(err => console.error(`[ProcessGateEngine] Webhook fetch failed for ${webhookUrl}:`, err));
-                
-                console.log(`[ProcessGateEngine] Triggered Webhook: ${webhookUrl}`);
-            } catch (err) {
-                console.error('[ProcessGateEngine] Webhook dispatch error:', err);
-            }
-        }
 
         return result;
     }

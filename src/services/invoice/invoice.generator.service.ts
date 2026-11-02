@@ -4,6 +4,9 @@ import { InvoiceCalculatorService } from './invoice.calculator.service';
 import { LedgerService } from '../finance/ledger.service';
 import { resolveOpmcScope } from '@/lib/opmc-scope';
 import { validateSodForInvoicing } from '../service-order/sod-financial-validation';
+import { TransactionClient } from '@/types/inventory/inventory-service.types';
+
+type InvoiceDbClient = typeof prisma | TransactionClient;
 
 export class InvoiceGeneratorService {
     /**
@@ -18,8 +21,10 @@ export class InvoiceGeneratorService {
         retentionPercent?: number;
         whtPercent?: number;
         advanceDeduction?: number;
-    }, userId: string) {
+    }, userId: string, transaction?: TransactionClient) {
         if (!userId) throw AppError.unauthorized('Authenticated billing user is required');
+
+        const db: InvoiceDbClient = transaction || prisma;
 
         const now = new Date();
         const currentYear = data.year ? Number(data.year) : now.getFullYear();
@@ -44,7 +49,7 @@ export class InvoiceGeneratorService {
             throw AppError.badRequest('Invalid advance deduction');
         }
 
-        const contractor = await prisma.contractor.findUnique({
+        const contractor = await db.contractor.findUnique({
             where: { id: data.contractorId },
             include: { opmc: true }
         });
@@ -88,7 +93,7 @@ export class InvoiceGeneratorService {
             };
         }
 
-        const sods = await prisma.serviceOrder.findMany({
+        const sods = await db.serviceOrder.findMany({
             where: sodWhere,
             include: {
                 materialUsage: { include: { item: true } }
@@ -110,7 +115,8 @@ export class InvoiceGeneratorService {
             contractorPrefix,
             regionName,
             currentYear,
-            currentMonth
+            currentMonth,
+            db
         );
 
         const invalidSods = sods
@@ -155,10 +161,9 @@ export class InvoiceGeneratorService {
             rtomArea: regionName,
             description: data.description || `Contractor Monthly Invoice for ${contractor.name} - ${regionName} (${currentMonth}/${currentYear})`,
             idempotencyKey: `CONTRACTOR_MONTHLY_INVOICE_${contractor.id}_${currentYear}_${currentMonth}`
-        });
+        }, transaction);
 
-        const { AuditService } = await import('../audit');
-        await AuditService.log({
+        const auditPayload = {
             action: 'CONTRACTOR_INVOICE_GENERATED',
             entity: 'Invoice',
             entityId: invoice.id,
@@ -170,7 +175,21 @@ export class InvoiceGeneratorService {
                 totalAmount: totalGrossAmount,
                 generatedBy: userId
             }
-        });
+        };
+        if (transaction) {
+            await transaction.auditLog.create({
+                data: {
+                    userId: userId || null,
+                    action: auditPayload.action,
+                    entity: auditPayload.entity,
+                    entityId: auditPayload.entityId,
+                    newValue: auditPayload.newValue,
+                }
+            });
+        } else {
+            const { AuditService } = await import('../audit');
+            await AuditService.log(auditPayload);
+        }
 
         const publicUrl = `/public/invoices/${invoice.id}`;
 
@@ -192,7 +211,8 @@ export class InvoiceGeneratorService {
         contractorPrefix: string,
         regionName: string,
         year: number,
-        month: number
+        month: number,
+        db: InvoiceDbClient = prisma
     ): Promise<string> {
         const yearShort = year.toString().slice(-2);
         const monthPad = month.toString().padStart(2, '0');
@@ -201,7 +221,7 @@ export class InvoiceGeneratorService {
         const pattern = `INV/${contractorPrefix}/${regClean}/${yearShort}/${monthPad}-`;
         
         // Find the latest invoice number with this pattern to increment sequence
-        const latestInvoice = await prisma.invoice.findFirst({
+        const latestInvoice = await db.invoice.findFirst({
             where: { invoiceNumber: { startsWith: pattern } },
             orderBy: { invoiceNumber: 'desc' },
             select: { invoiceNumber: true }
@@ -241,11 +261,11 @@ export class InvoiceGeneratorService {
         rtomArea?: string | null;
         description?: string;
         idempotencyKey?: string;
-    }) {
+    }, transaction?: TransactionClient) {
         const { totalAmount, penaltyTotal = 0, penaltiesList = [], idempotencyKey, retentionAmount = 0, whtAmount = 0, whtPercent = 0, advanceDeduction = 0, ...other } = data;
         const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount, penaltyTotal);
 
-        return await prisma.$transaction(async (tx) => {
+        const create = async (tx: TransactionClient) => {
             if (idempotencyKey) {
                 const existingLog = await tx.idempotencyLog.findUnique({ where: { idempotencyKey } });
                 if (existingLog) throw AppError.badRequest('Duplicate request');
@@ -365,7 +385,9 @@ export class InvoiceGeneratorService {
             );
 
             return invoice;
-        });
+        };
+
+        return transaction ? create(transaction) : prisma.$transaction(create);
     }
 
     /**
