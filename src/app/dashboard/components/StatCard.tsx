@@ -38,11 +38,17 @@ export interface StatCardProps {
     icon: ReactNode;
     color: string;
     sub?: string;
+    subTone?: 'positive' | 'neutral' | 'warning';
     href?: string;
 }
 
-export function StatCard({ label, value, icon, color, sub, href }: StatCardProps) {
+export function StatCard({ label, value, icon, color, sub, subTone = 'positive', href }: StatCardProps) {
     const t = TONE_STYLES[color] ?? TONE_STYLES.blue;
+    const subToneClass = subTone === 'warning'
+        ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
+        : subTone === 'neutral'
+            ? 'bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-300'
+            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500';
     const content = (
         <div className={`glass-panel p-5 rounded-3xl border ${t.border} bg-gradient-to-br ${t.glow} shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 relative overflow-hidden group h-full`}>
             <div className="flex items-start justify-between gap-3">
@@ -58,7 +64,7 @@ export function StatCard({ label, value, icon, color, sub, href }: StatCardProps
                 <p className="text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">{label}</p>
                 <p className="text-2xl md:text-3xl font-black tracking-tight text-foreground mt-1 font-mono">{formatSmartNumber(value, 0)}</p>
                 {sub && (
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-extrabold mt-2">
+                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-extrabold mt-2 ${subToneClass}`}>
                         <TrendingUp className="w-3 h-3" />
                         {sub}
                     </div>

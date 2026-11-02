@@ -23,6 +23,9 @@ import Link from 'next/link';
 
 interface LowStockItem {
     quantity: number;
+    allocatedQuantity?: number;
+    availableQuantity?: number;
+    minLevel?: number;
     item?: { id: string; name: string; code?: string | null; unit?: string | null } | null;
     store?: { id: string; name: string } | null;
 }
@@ -255,7 +258,8 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                 </Link>
 
                 {/* Critical Stock Outages Alert */}
-                <Card className="bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent border-rose-500/30 dark:border-rose-500/20 shadow-sm rounded-2xl">
+                <Link href="/procurement/orders" className="group block">
+                <Card className="bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent border-rose-500/30 dark:border-rose-500/20 shadow-sm rounded-2xl transition hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-4 px-5">
                         <CardTitle className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
                             Stock Outage Risk Items
@@ -276,6 +280,7 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                         </Badge>
                     </CardContent>
                 </Card>
+                </Link>
             </div>
 
             <p className="px-1 text-[11px] text-slate-600 dark:text-slate-400">
@@ -473,8 +478,9 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                                     </div>
                                     <div className="flex flex-col items-end shrink-0 gap-1">
                                         <Badge variant="destructive" className="px-2.5 py-0.5 text-xs font-mono font-bold">
-                                            {stock.quantity} {stock.item?.unit || 'qty'} left
+                                            {Math.max((stock.minLevel ?? 0) - (stock.availableQuantity ?? stock.quantity), 0)} {stock.item?.unit || 'qty'} short
                                         </Badge>
+                                        <span className="text-[10px] text-muted-foreground">Available: {stock.availableQuantity ?? stock.quantity} / Min: {stock.minLevel ?? '—'}</span>
                                         <Link href={`/procurement/orders`} className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
                                             + Create PO
                                         </Link>

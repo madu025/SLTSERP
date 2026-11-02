@@ -139,6 +139,8 @@ export default function ProjectsSection({ user, enabled = true }: ProjectsSectio
     const overview = data.overview || { activeProjects: 0, totalBudget: 0, actualSpend: 0, scheduleVariance: 0, delayedCount: 0 };
     const delayedProjects = data.delayedProjects || [];
     const statusBreakdown = data.statusBreakdown || [];
+    const budgetVariance = overview.totalBudget - overview.actualSpend;
+    const budgetOverrun = budgetVariance < 0;
     return (
         <div className="space-y-4">
             {error && (
@@ -183,6 +185,17 @@ export default function ProjectsSection({ user, enabled = true }: ProjectsSectio
                             <span className="font-semibold">{formatLKR(overview.actualSpend)} / {formatLKR(overview.totalBudget)}</span>
                         </div>
                         <Progress value={overview.totalBudget > 0 ? (overview.actualSpend / overview.totalBudget) * 100 : 0} className="h-2 bg-slate-100" />
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="text-muted-foreground">Remaining budget</span>
+                                <span className={`font-bold ${budgetOverrun ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                                    {budgetOverrun ? `${formatLKR(Math.abs(budgetVariance))} over budget` : formatLKR(budgetVariance)}
+                                </span>
+                            </div>
+                            {budgetOverrun && (
+                                <Link href="/projects/dashboards/financials" className="inline-flex text-xs font-bold text-rose-700 hover:underline dark:text-rose-300">
+                                    Review project financials →
+                                </Link>
+                            )}
                     </div>
                 </CardContent>
             </Card>

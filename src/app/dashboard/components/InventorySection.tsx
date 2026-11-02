@@ -5,9 +5,12 @@ import { Package, AlertTriangle, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface LowStockItem {
-    item: { name: string; code: string };
+    item: { name: string; code: string; unit?: string | null };
     store: { name: string };
     quantity: number;
+    allocatedQuantity?: number;
+    availableQuantity?: number;
+    minLevel?: number;
 }
 
 interface InventoryStats {
@@ -171,7 +174,10 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
             <Card className="md:col-span-2 border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Critical Stock Shortages ({lowStockCount})</CardTitle>
-                    <AlertTriangle className="w-5 h-5 text-rose-500" />
+                    <div className="flex items-center gap-2">
+                        <Link href="/inventory/stock" className="text-xs font-bold text-primary hover:underline">View stock →</Link>
+                        <AlertTriangle className="w-5 h-5 text-rose-500" />
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {lowStockItems.length === 0 ? (
@@ -185,9 +191,12 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                                     <div className="flex flex-col">
                                         <span className="font-semibold text-sm">{stock.item?.name || 'Unknown Item'}</span>
                                         <span className="text-xs text-muted-foreground">{stock.store?.name || 'Unknown Store'}</span>
+                                        <span className="mt-1 text-[11px] text-muted-foreground">
+                                            On hand: {stock.quantity} · Available: {stock.availableQuantity ?? stock.quantity} · Min: {stock.minLevel ?? '—'} {stock.item?.unit || ''}
+                                        </span>
                                     </div>
                                     <Badge variant="destructive" className="px-2 py-0.5">
-                                        {stock.quantity} left
+                                        {stock.availableQuantity ?? stock.quantity} available
                                     </Badge>
                                 </div>
                             ))}

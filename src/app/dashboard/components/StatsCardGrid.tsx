@@ -78,7 +78,8 @@ export function StatsCardGrid({ isLoading, stats }: StatsCardGridProps) {
                                 value={stats?.monthly?.completed || 0}
                                 icon={<CheckCircle2 className="w-6 h-6" />}
                                 color="emerald"
-                                sub={`${completionRate}% completion rate`}
+                                sub={`${completionRate}% throughput vs received`}
+                                subTone={completionRate > 100 ? 'warning' : completionRate === 100 ? 'neutral' : 'positive'}
                                 href="/service-orders/work-order/completed"
                             />
                             <StatCard label="Monthly Return" value={stats?.monthly?.returned || 0} icon={<RotateCcw className="w-6 h-6" />} color="rose" href="/service-orders/work-order/return" />
