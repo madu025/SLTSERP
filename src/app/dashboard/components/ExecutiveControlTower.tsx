@@ -138,6 +138,48 @@ export default function ExecutiveControlTower({ enabled = true }: { enabled?: bo
     const statusRows = projectStats.byStatus || [];
     const topContractors = (contractorRankings || []).slice(0, 3);
     const highRisk = recentActivity.highRiskPredictions || [];
+    const priorityActions = [
+        controlTower && controlTower.workflow.approvals.stageApprovalsOpen > 0
+            ? {
+                count: controlTower.workflow.approvals.stageApprovalsOpen,
+                title: 'Clear stage approvals',
+                detail: 'Project stage approvals are waiting for review.',
+                href: '/projects/dashboards/pm',
+            }
+            : null,
+        patStats.failed > 0
+            ? {
+                count: patStats.failed,
+                title: 'Resolve failed PAT sessions',
+                detail: 'Failed PAT sessions need corrective action before closeout.',
+                href: '/service-orders/work-order/pat',
+            }
+            : null,
+        controlTower && controlTower.materials.shortageQty > 0
+            ? {
+                count: controlTower.materials.shortageQty,
+                title: 'Resolve material shortages',
+                detail: 'Required project material is not yet available for issue.',
+                href: '/inventory/stock',
+            }
+            : null,
+        controlTower && controlTower.closeout.invoices.openCount > 0
+            ? {
+                count: controlTower.closeout.invoices.openCount,
+                title: 'Close open project invoices',
+                detail: 'Project invoices remain open in the closeout workflow.',
+                href: '/finance/invoices',
+            }
+            : null,
+        controlTower && controlTower.risks.openCount > 0
+            ? {
+                count: controlTower.risks.openCount,
+                title: 'Review open project risks',
+                detail: 'Open risks may affect delivery and require an owner decision.',
+                href: '/projects/dashboards/pm',
+            }
+            : null,
+    ].filter((action): action is NonNullable<typeof action> => action !== null).slice(0, 3);
 
     return (
         <section aria-label="Executive control tower" className="space-y-4">
@@ -174,6 +216,41 @@ export default function ExecutiveControlTower({ enabled = true }: { enabled?: bo
                     <Metric label="PAT pass rate" value={`${patStats.passRate}%`} hint={`${patStats.failed} failed of ${patStats.total} sessions`} tone={patStats.failed > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'} />
                 </Link>
             </div>
+
+            <Card className="border-indigo-200 bg-indigo-50/60 dark:border-indigo-900 dark:bg-indigo-950/30" aria-label="Dashboard decision brief">
+                <CardHeader className="flex flex-col gap-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2 text-sm font-black text-indigo-950 dark:text-indigo-100">
+                            <AlertTriangle className="h-4 w-4 text-indigo-700 dark:text-indigo-300" />
+                            What needs attention now
+                        </CardTitle>
+                        <p className="mt-1 text-xs text-indigo-900/80 dark:text-indigo-200/80">Recommended next steps from the live project control signals.</p>
+                    </div>
+                    <Badge variant="outline" className="w-fit border-indigo-300 bg-white text-indigo-900 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-100">
+                        {priorityActions.length > 0 ? `${priorityActions.length} priority action${priorityActions.length === 1 ? '' : 's'}` : 'No immediate actions'}
+                    </Badge>
+                </CardHeader>
+                <CardContent>
+                    {priorityActions.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                            {priorityActions.map((action) => (
+                                <Link key={action.title} href={action.href} className="group rounded-xl border border-indigo-200 bg-white p-3 transition hover:border-indigo-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-700 dark:border-indigo-800 dark:bg-slate-950 dark:hover:border-indigo-500">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-lg font-black text-slate-950 dark:text-slate-100">{action.count.toLocaleString()}</p>
+                                            <p className="text-xs font-black text-slate-900 dark:text-slate-100">{action.title}</p>
+                                        </div>
+                                        <ArrowUpRight className="h-4 w-4 shrink-0 text-indigo-700 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 dark:text-indigo-300" />
+                                    </div>
+                                    <p className="mt-1 text-xs text-slate-700 dark:text-slate-300">{action.detail}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm font-semibold text-indigo-950 dark:text-indigo-100">No immediate project control exceptions were returned for this scope.</p>
+                    )}
+                </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <Card className="border-slate-200 dark:border-slate-800 xl:col-span-2">
