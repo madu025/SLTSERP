@@ -468,7 +468,13 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {lowStockItems.map((stock, i) => (
+                            {lowStockItems.map((stock, i) => {
+                                const availableQuantity = stock.availableQuantity ?? stock.quantity;
+                                const minLevel = stock.minLevel ?? 0;
+                                const shortageQuantity = minLevel > 0
+                                    ? Math.max(minLevel - availableQuantity, 0)
+                                    : Math.max(-stock.quantity, 0);
+                                return (
                                 <div key={i} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3">
                                     <div className="flex flex-col min-w-0">
                                         <span className="font-bold text-xs text-foreground truncate">{stock.item?.name || 'Unknown Material'}</span>
@@ -478,15 +484,16 @@ export default function ProcurementSection({ rtom = 'ALL', enabled = true }: Pro
                                     </div>
                                     <div className="flex flex-col items-end shrink-0 gap-1">
                                         <Badge variant="destructive" className="px-2.5 py-0.5 text-xs font-mono font-bold">
-                                            {Math.max((stock.minLevel ?? 0) - (stock.availableQuantity ?? stock.quantity), 0)} {stock.item?.unit || 'qty'} short
+                                            {shortageQuantity} {stock.item?.unit || 'qty'} short
                                         </Badge>
-                                        <span className="text-[10px] text-muted-foreground">Available: {stock.availableQuantity ?? stock.quantity} / Min: {stock.minLevel ?? '—'}</span>
+                                        <span className="text-[10px] text-muted-foreground">Available: {availableQuantity} / Min: {stock.minLevel ?? '—'}</span>
                                         <Link href={`/procurement/orders`} className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
                                             + Create PO
                                         </Link>
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                             {lowStockCount > lowStockItems.length && (
                                 <p className="mt-3 text-xs font-semibold text-muted-foreground">Showing the most critical {lowStockItems.length} of {lowStockCount} shortages.</p>
                             )}

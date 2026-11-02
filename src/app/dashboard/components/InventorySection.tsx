@@ -186,7 +186,13 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {lowStockItems.map((stock, i) => (
+                            {lowStockItems.map((stock, i) => {
+                                const availableQuantity = stock.availableQuantity ?? stock.quantity;
+                                const minLevel = stock.minLevel ?? 0;
+                                const shortageQuantity = minLevel > 0
+                                    ? Math.max(minLevel - availableQuantity, 0)
+                                    : Math.max(-stock.quantity, 0);
+                                return (
                                 <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
                                     <div className="flex flex-col">
                                         <span className="font-semibold text-sm">{stock.item?.name || 'Unknown Item'}</span>
@@ -196,10 +202,11 @@ export default function InventorySection({ rtom = 'ALL', enabled = true }: Inven
                                         </span>
                                     </div>
                                     <Badge variant="destructive" className="px-2 py-0.5">
-                                        {stock.availableQuantity ?? stock.quantity} available
+                                        {shortageQuantity > 0 ? `${shortageQuantity} short` : `${availableQuantity} available`}
                                     </Badge>
                                 </div>
-                            ))}
+                                );
+                            })}
                             {lowStockCount > lowStockItems.length && (
                                 <Link href="/inventory/stock" className="block text-center text-xs font-bold text-primary hover:underline">
                                     View all {lowStockCount} shortages
